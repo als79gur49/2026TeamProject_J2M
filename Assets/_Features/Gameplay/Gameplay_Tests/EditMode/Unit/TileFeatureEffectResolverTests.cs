@@ -4832,24 +4832,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void DefaultResolver_InactiveTopologyButton_DoesNotProduceOperationOrIncreaseSnapshotBudget()
         {
-            var button = CreateButton(10, new SurfaceCell(FaceId.Back, 1, 1));
-            var box = CreateBox(20, button.Cell);
-            var worldState = CreateWorldState(new[] { box }, new[] { button });
-            var pipeline = CreatePipeline(
-                worldState,
-                new[] { CreateDefinition(10, TileFeatureActivationRule.ActiveFaceOnly) },
-                Array.Empty<IEntityLogic>());
+            var cell = new SurfaceCell(FaceId.Back, 1, 1);
+            var baselineCounts = RunInactiveTopologyButtonBudgetScenario(includeButton: false, out _, out _);
+            var counts = RunInactiveTopologyButtonBudgetScenario(includeButton: true, out var worldState, out var result);
 
-            SnapshotMaterializationCounts counts;
-            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
-            {
-                pipeline.RunTick(new TickInput(7));
-                counts = capture.Counts;
-            }
-
-            AssertPinnedEmptyBudget(counts);
+            AssertSameProjectedSnapshotBudget(baselineCounts, counts);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty);
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetTileFeature(10, out var storedButton), Is.True);
+            Assert.That(storedButton.Cell, Is.EqualTo(cell));
             Assert.That(storedButton.Flags, Is.EqualTo(TileFeatureFlags.None));
         }
 
@@ -5477,6 +5468,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(10));
             Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(11));
             Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(11));
+        }
+
+        private static void AssertSameProjectedSnapshotBudget(
+            SnapshotMaterializationCounts expected,
+            SnapshotMaterializationCounts actual)
+        {
+            Assert.That(actual.WorldStateCreateSnapshotCount, Is.EqualTo(expected.WorldStateCreateSnapshotCount));
+            Assert.That(actual.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(expected.ProjectedWorldMaterializedSnapshotCount));
+            Assert.That(actual.ProjectedWorldCacheHitCount, Is.EqualTo(expected.ProjectedWorldCacheHitCount));
+            Assert.That(actual.ProjectedWorldApplyBatchCount, Is.EqualTo(expected.ProjectedWorldApplyBatchCount));
+            Assert.That(actual.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(expected.ProjectedWorldEmptyApplyBatchCount));
+        }
+
+        private static SnapshotMaterializationCounts RunInactiveTopologyButtonBudgetScenario(
+            bool includeButton,
+            out WorldState worldState,
+            out TickResult result)
+        {
+            var cell = new SurfaceCell(FaceId.Back, 1, 1);
+            var box = CreateBox(20, cell);
+            var tileFeatures = includeButton
+                ? new[] { CreateButton(10, cell) }
+                : Array.Empty<TileFeatureState>();
+            var definitions = includeButton
+                ? new[] { CreateDefinition(10, TileFeatureActivationRule.ActiveFaceOnly) }
+                : Array.Empty<TileFeatureRuntimeDefinition>();
+            worldState = CreateWorldState(new[] { box }, tileFeatures);
+            var pipeline = CreatePipeline(worldState, definitions, Array.Empty<IEntityLogic>());
+
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                result = pipeline.RunTick(new TickInput(7));
+                return capture.Counts;
+            }
         }
 
         private static TickResultData CreateTickResultData(
