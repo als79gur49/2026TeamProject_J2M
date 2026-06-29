@@ -669,6 +669,33 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void CollectGenericVisibilityChanges(
+            IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            int sourceTick,
+            PresentationVisibilityCandidateSet candidateSet)
+        {
+            if (visibilityChanges == null)
+            {
+                throw new System.ArgumentNullException(nameof(visibilityChanges));
+            }
+
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (!TryCreateGenericVisibilityCandidate(change, sourceTick, out var candidate))
+                {
+                    continue;
+                }
+
+                candidateSet.AddCandidate(candidate);
+            }
+        }
+
         public void CollectVisibilityTrackSamples(
             float deltaTime,
             int sourceTick,
@@ -769,6 +796,82 @@ namespace Game.Feature.Gameplay.Host
         {
             return sourceKind == PresentationPoseSourceKind.PlayerContinuousLocomotion ||
                    sourceKind == PresentationPoseSourceKind.EnemyKinematicMotion;
+        }
+
+        private bool TryCreateGenericVisibilityCandidate(
+            TickVisibilityChange change,
+            int sourceTick,
+            out PresentationVisibilityCandidate candidate)
+        {
+            var sourceKind = ResolveGenericVisibilitySourceKind(change.ChangeKind);
+            if (sourceKind == PresentationVisibilitySourceKind.None || change.EntityId <= 0)
+            {
+                candidate = default;
+                return false;
+            }
+
+            var provenance = new PresentationVisibilityProvenance(
+                sourceKind,
+                ResolveOwnerRole(change.EntityId),
+                change.Cell,
+                change.Cell.face,
+                sourceTick);
+            candidate = new PresentationVisibilityCandidate(
+                new PresentationEntityKey(change.EntityId),
+                change.ChangeKind == TickVisibilityChangeKind.Spawn,
+                provenance,
+                ResolveGenericVisibilityPriority(change.ChangeKind),
+                isFallback: false,
+                isStatefulTrackSample: false,
+                isHighPrioritySuppressionSource: false);
+            return true;
+        }
+
+        private static PresentationVisibilitySourceKind ResolveGenericVisibilitySourceKind(
+            TickVisibilityChangeKind changeKind)
+        {
+            return changeKind switch
+            {
+                TickVisibilityChangeKind.Spawn => PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                TickVisibilityChangeKind.Detach => PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                TickVisibilityChangeKind.Remove => PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                _ => PresentationVisibilitySourceKind.None,
+            };
+        }
+
+        private static int ResolveGenericVisibilityPriority(TickVisibilityChangeKind changeKind)
+        {
+            return changeKind switch
+            {
+                TickVisibilityChangeKind.Spawn => 200,
+                TickVisibilityChangeKind.Detach => 300,
+                TickVisibilityChangeKind.Remove => 400,
+                _ => 0,
+            };
+        }
+
+        private PresentationOwnerRole ResolveOwnerRole(int entityId)
+        {
+            if (_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType))
+            {
+                if (entityType == EntityType.Box)
+                {
+                    return PresentationOwnerRole.Box;
+                }
+
+                if (entityType == EntityType.Unit &&
+                    _stateStore.UnitRolesByEntityId.TryGetValue(entityId, out var unitRole))
+                {
+                    return unitRole switch
+                    {
+                        UnitRole.Player => PresentationOwnerRole.Player,
+                        UnitRole.Enemy => PresentationOwnerRole.Enemy,
+                        _ => PresentationOwnerRole.NeutralUnit,
+                    };
+                }
+            }
+
+            return PresentationOwnerRole.Unknown;
         }
     }
 

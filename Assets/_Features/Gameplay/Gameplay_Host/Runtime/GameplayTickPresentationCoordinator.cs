@@ -1135,6 +1135,14 @@ namespace Game.Feature.Gameplay.Host
             _resolvedVisibilityResolver.ResolveCandidates(
                 _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
+            var visibilityChanges = _lastPresentedResult?.PresentationData?.VisibilityChanges;
+            if (visibilityChanges != null)
+            {
+                _visibilityCandidateCollector.CollectGenericVisibilityChanges(
+                    visibilityChanges,
+                    _lastPresentedTickIndex,
+                    _presentationVisibilityCandidates);
+            }
             _visibilityCandidateCollector.CollectVisibilityTrackSamples(
                 deltaTime,
                 _lastPresentedTickIndex,

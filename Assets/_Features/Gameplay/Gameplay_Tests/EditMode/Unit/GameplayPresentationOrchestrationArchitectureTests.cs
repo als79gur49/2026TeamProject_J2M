@@ -42,6 +42,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string TrackStatePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationTrackState.cs";
+        private const string TickResultBuilderPath =
+            "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickResultBuilder.cs";
         private const string PresenterPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs";
         private const string HostFactoryPath =
@@ -879,11 +881,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(candidateLifecycleSource, Does.Not.Contain("CompletedVisibilityTrackIds"));
             Assert.That(candidateLifecycleSource, Does.Not.Contain("ClearEntityPresentationMetadataIfFullyHidden"));
             Assert.That(candidateLifecycleSource, Does.Not.Contain("RetainedLocalTargetPoses.Remove"));
-            Assert.That(candidateLifecycleSource, Does.Not.Contain("TickVisibilityChange"));
             Assert.That(candidateLifecycleSource, Does.Not.Contain("EntityExitSignals"));
             Assert.That(candidateLifecycleSource, Does.Not.Contain("Audio"));
             Assert.That(candidateLifecycleSource, Does.Not.Contain("VFX"));
             Assert.That(candidateLifecycleSource, Does.Not.Contain("Mapper"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationVisibilityCandidateCollector_CollectsGenericVisibilityChanges()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+
+            Assert.That(collectorBlock, Does.Contain("CollectGenericVisibilityChanges"));
+            Assert.That(collectorBlock, Does.Contain("IReadOnlyList<TickVisibilityChange>"));
+            Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.GenericVisibilitySpawn"));
+            Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.GenericVisibilityDetach"));
+            Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.GenericVisibilityRemove"));
+            Assert.That(collectorBlock, Does.Contain("TickVisibilityChangeKind.Spawn => 200"));
+            Assert.That(collectorBlock, Does.Contain("TickVisibilityChangeKind.Detach => 300"));
+            Assert.That(collectorBlock, Does.Contain("TickVisibilityChangeKind.Remove => 400"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationVisibilityCandidateCollector_DoesNotRemoveTickVisibilityChangeEvents()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "public void CollectGenericVisibilityChanges",
+                "public void CollectVisibilityTrackSamples");
+
+            Assert.That(collectorBlock, Does.Contain("TickVisibilityChange"));
+            Assert.That(collectorBlock, Does.Not.Contain("visibilityChanges.Remove"));
+            Assert.That(collectorBlock, Does.Not.Contain("visibilityChanges.Clear"));
+            Assert.That(collectorBlock, Does.Not.Contain("presentationData.VisibilityChanges"));
         }
 
         [Test]
@@ -929,6 +966,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolveIndex = source.IndexOf(
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
+            var genericCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
                 StringComparison.Ordinal);
@@ -938,6 +978,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(jumpCollectIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(resolveIndex, Is.GreaterThan(jumpCollectIndex));
+            Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(trackCollectIndex, Is.GreaterThan(resolveIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
         }
@@ -974,6 +1016,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(visibilityBlock, Does.Contain("PresentationVisibilityCandidate"));
             Assert.That(visibilityBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
             Assert.That(visibilityBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateCollection_DoesNotReadTopologyBridgeBindings()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+            Assert.That(collectorBlock, Does.Not.Contain("ResolvedPresentationVisibilitySet.Topology"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickResultBuilder_DoesNotCreatePresentationVisibilityCandidates()
+        {
+            var source = ReadRepoFile(TickResultBuilderPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+            Assert.That(source, Does.Not.Contain("GenericVisibilitySpawn"));
+            Assert.That(source, Does.Not.Contain("GenericVisibilityDetach"));
+            Assert.That(source, Does.Not.Contain("GenericVisibilityRemove"));
         }
 
         [Test]

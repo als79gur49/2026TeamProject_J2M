@@ -17226,6 +17226,163 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GenericVisibilityChangeCandidateCollection_PreservesRemoveDetachSpawnPriorityMetadata()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var changes = new[]
+            {
+                new TickVisibilityChange(40, TickVisibilityChangeKind.Spawn, cell, topology, Direction.Right),
+                new TickVisibilityChange(40, TickVisibilityChangeKind.Detach, cell, topology, Direction.Right),
+                new TickVisibilityChange(40, TickVisibilityChangeKind.Remove, cell, topology, Direction.Right),
+            };
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates, Has.Count.EqualTo(3));
+            AssertGenericVisibilityCandidate(
+                entityCandidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilitySpawn),
+                isVisible: true,
+                priority: 200,
+                ownerRole: PresentationOwnerRole.Enemy,
+                cell,
+                FaceId.Floor,
+                sourceTick: 88);
+            AssertGenericVisibilityCandidate(
+                entityCandidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilityDetach),
+                isVisible: false,
+                priority: 300,
+                ownerRole: PresentationOwnerRole.Enemy,
+                cell,
+                FaceId.Floor,
+                sourceTick: 88);
+            AssertGenericVisibilityCandidate(
+                entityCandidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilityRemove),
+                isVisible: false,
+                priority: 400,
+                ownerRole: PresentationOwnerRole.Enemy,
+                cell,
+                FaceId.Floor,
+                sourceTick: 88);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GenericVisibilityChangeCandidateCollection_DoesNotChangeFinalVisibility()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            stateStore.JumpDetachedVisibilityStates[40] =
+                new JumpDetachedVisibilityState(EnemyJumpPhase.Airborne, PoseAt(3f), cell);
+            var frames = Resolve(stateStore, trackState, sourceTick: 88);
+            var candidates = CollectVisibilityCandidates(
+                stateStore,
+                trackState,
+                frames,
+                new CubeTopologyState(FaceId.Floor),
+                sourceTick: 88);
+            var resolver = new PresentationResolvedVisibilityResolver();
+            var visibility = new ResolvedPresentationVisibilitySet();
+            resolver.ResolveCandidates(candidates, visibility);
+
+            CollectGenericVisibilityChanges(
+                stateStore,
+                trackState,
+                new[]
+                {
+                    new TickVisibilityChange(
+                        40,
+                        TickVisibilityChangeKind.Remove,
+                        cell,
+                        new CubeTopologyState(FaceId.Floor),
+                        Direction.Right),
+                },
+                sourceTick: 88,
+                candidates);
+
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.True);
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates.Any(candidate =>
+                candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilityRemove), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GenericVisibilityChangeCandidateCollection_DoesNotRemoveTickVisibilityChangeEvents()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var cell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var changes = new List<TickVisibilityChange>
+            {
+                new TickVisibilityChange(
+                    10,
+                    TickVisibilityChangeKind.Spawn,
+                    cell,
+                    new CubeTopologyState(FaceId.Floor),
+                    Direction.Up),
+            };
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 12, candidates);
+
+            Assert.That(changes, Has.Count.EqualTo(1));
+            Assert.That(changes[0].EntityId, Is.EqualTo(10));
+            Assert.That(changes[0].ChangeKind, Is.EqualTo(TickVisibilityChangeKind.Spawn));
+            Assert.That(candidates.TryGetCandidates(10, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates.Single().Provenance.OwnerRole, Is.EqualTo(PresentationOwnerRole.Player));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GenericVisibilityChangeCandidateCollection_DoesNotOwnCleanupLifecycle()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.VisibilityTracks[40] = VisibilityTrack.CreateHide(durationSeconds: 1f);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectGenericVisibilityChanges(
+                stateStore,
+                trackState,
+                new[]
+                {
+                    new TickVisibilityChange(
+                        40,
+                        TickVisibilityChangeKind.Remove,
+                        new SurfaceCell(FaceId.Floor, 2, 3),
+                        new CubeTopologyState(FaceId.Floor),
+                        Direction.Right),
+                },
+                sourceTick: 88,
+                candidates);
+
+            Assert.That(trackState.CompletedVisibilityTrackIds, Is.Empty);
+            Assert.That(trackState.VisibilityTracks.ContainsKey(40), Is.True);
+            Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeathOrExitRetainedVisibility_SuppressesJumpDetachedVisibility()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17488,6 +17645,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
             collector.CollectVisibilityTrackSamples(deltaTime, sourceTick, frames, visibility, candidates);
+        }
+
+        private static void CollectGenericVisibilityChanges(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            int sourceTick,
+            PresentationVisibilityCandidateSet candidates)
+        {
+            var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
+            collector.CollectGenericVisibilityChanges(visibilityChanges, sourceTick, candidates);
+        }
+
+        private static void AssertGenericVisibilityCandidate(
+            PresentationVisibilityCandidate candidate,
+            bool isVisible,
+            int priority,
+            PresentationOwnerRole ownerRole,
+            SurfaceCell cell,
+            FaceId face,
+            int sourceTick)
+        {
+            Assert.That(candidate.EntityKey.EntityId, Is.GreaterThan(0));
+            Assert.That(candidate.IsVisible, Is.EqualTo(isVisible));
+            Assert.That(candidate.Provenance.OwnerRole, Is.EqualTo(ownerRole));
+            Assert.That(candidate.Provenance.Cell, Is.EqualTo(cell));
+            Assert.That(candidate.Provenance.Face, Is.EqualTo(face));
+            Assert.That(candidate.Provenance.LifetimeToken, Is.EqualTo(sourceTick));
+            Assert.That(candidate.Priority, Is.EqualTo(priority));
+            Assert.That(candidate.IsFallback, Is.False);
+            Assert.That(candidate.IsStatefulTrackSample, Is.False);
+            Assert.That(candidate.IsHighPrioritySuppressionSource, Is.False);
         }
 
         private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)
