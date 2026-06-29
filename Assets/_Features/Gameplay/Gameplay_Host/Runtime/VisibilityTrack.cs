@@ -40,6 +40,11 @@ namespace Game.Feature.Gameplay.Host
         {
             return _clip.SampleAndAdvance(deltaTime, fallbackVisibility);
         }
+
+        public bool SampleWithoutAdvance(float deltaTime, bool fallbackVisibility)
+        {
+            return _clip.SampleWithoutAdvance(deltaTime, fallbackVisibility);
+        }
     }
 
     public sealed class VisibilityClip
@@ -86,17 +91,34 @@ namespace Game.Feature.Gameplay.Host
 
         public bool SampleAndAdvance(float deltaTime, bool fallbackVisibility)
         {
+            _ = fallbackVisibility;
+
             if (deltaTime > 0f)
             {
                 ElapsedSeconds = Mathf.Min(DurationSeconds, ElapsedSeconds + deltaTime);
             }
 
+            return SampleAtElapsedSeconds(ElapsedSeconds);
+        }
+
+        public bool SampleWithoutAdvance(float deltaTime, bool fallbackVisibility)
+        {
+            _ = fallbackVisibility;
+
+            var elapsedSeconds = deltaTime > 0f
+                ? Mathf.Min(DurationSeconds, ElapsedSeconds + deltaTime)
+                : ElapsedSeconds;
+            return SampleAtElapsedSeconds(elapsedSeconds);
+        }
+
+        private bool SampleAtElapsedSeconds(float elapsedSeconds)
+        {
             if (DurationSeconds <= 0f)
             {
                 return FinalVisibility;
             }
 
-            var normalizedTime = Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
+            var normalizedTime = Mathf.Clamp01(elapsedSeconds / DurationSeconds);
             return normalizedTime >= TransitionThreshold
                 ? FinalVisibility
                 : InitialVisibility;

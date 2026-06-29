@@ -757,6 +757,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VisibilityCandidateCollector_DoesNotCallSampleAndAdvance()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+
+            Assert.That(collectorBlock, Does.Not.Contain("SampleAndAdvance"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_RemainsVisibilityTrackAdvanceOwner()
+        {
+            var source = ReadRepoFile(ApplierPath);
+            var advanceIndex = source.IndexOf(
+                "visibilityTrack.SampleAndAdvance(deltaTime, isVisible)",
+                StringComparison.Ordinal);
+            var completedIndex = source.IndexOf(
+                "_trackState.CompletedVisibilityTrackIds.Add(entityId)",
+                StringComparison.Ordinal);
+            var cleanupIndex = source.IndexOf(
+                "private void CleanupCompletedVisibilityTracks()",
+                StringComparison.Ordinal);
+
+            Assert.That(advanceIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(completedIndex, Is.GreaterThan(advanceIndex));
+            Assert.That(cleanupIndex, Is.GreaterThan(completedIndex));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VisibilityCandidateSet_DoesNotIncludeTopologyBridgeBindings()
         {
             var visibilityBlock = ExtractSourceBetween(
