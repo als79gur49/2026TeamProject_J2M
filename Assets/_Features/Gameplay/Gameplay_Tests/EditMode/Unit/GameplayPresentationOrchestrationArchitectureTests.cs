@@ -825,6 +825,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolveIndex = source.IndexOf(
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
+            var shadowCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
+                StringComparison.Ordinal);
             var applyIndex = source.IndexOf(
                 "_entityPresentationApplier.Apply",
                 StringComparison.Ordinal);
@@ -834,7 +837,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalClearIndex, Is.GreaterThan(candidateClearIndex));
             Assert.That(collectIndex, Is.GreaterThan(finalClearIndex));
             Assert.That(resolveIndex, Is.GreaterThan(collectIndex));
-            Assert.That(applyIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(shadowCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(applyIndex, Is.GreaterThan(shadowCollectIndex));
         }
 
         [Test]
@@ -893,6 +897,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "internal sealed class PresentationResolvedVisibilityResolver");
 
             Assert.That(collectorBlock, Does.Not.Contain("SampleAndAdvance"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationVisibilityCandidateCollector_UsesSampleWithoutAdvanceForVisibilityTracks()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+
+            Assert.That(collectorBlock, Does.Contain("CollectVisibilityTrackSamples"));
+            Assert.That(collectorBlock, Does.Contain("visibilityTrack.SampleWithoutAdvance"));
+            Assert.That(collectorBlock, Does.Contain("PresentationVisibilityFallbackResolver.Resolve"));
+            Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.VisibilityTrackSample"));
+            Assert.That(collectorBlock, Does.Contain("priority: 500"));
+            Assert.That(collectorBlock, Does.Contain("isStatefulTrackSample: true"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackCandidateCollection_RunsAfterFinalVisibilityResolution()
+        {
+            var source = ReadRepoFile(CoordinatorPath);
+
+            var jumpCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectJumpDetachedVisibility",
+                StringComparison.Ordinal);
+            var resolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                StringComparison.Ordinal);
+            var trackCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
+                StringComparison.Ordinal);
+            var applyIndex = source.IndexOf(
+                "_entityPresentationApplier.Apply",
+                StringComparison.Ordinal);
+
+            Assert.That(jumpCollectIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(resolveIndex, Is.GreaterThan(jumpCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
         }
 
         [Test]

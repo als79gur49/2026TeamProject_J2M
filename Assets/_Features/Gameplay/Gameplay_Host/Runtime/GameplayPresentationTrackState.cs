@@ -668,6 +668,108 @@ namespace Game.Feature.Gameplay.Host
                     isHighPrioritySuppressionSource: false));
             }
         }
+
+        public void CollectVisibilityTrackSamples(
+            float deltaTime,
+            int sourceTick,
+            ResolvedPresentationFrameSet resolvedFrames,
+            ResolvedPresentationVisibilitySet resolvedVisibility,
+            PresentationVisibilityCandidateSet candidateSet)
+        {
+            if (deltaTime < 0f)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            if (resolvedFrames == null)
+            {
+                throw new System.ArgumentNullException(nameof(resolvedFrames));
+            }
+
+            if (resolvedVisibility == null)
+            {
+                throw new System.ArgumentNullException(nameof(resolvedVisibility));
+            }
+
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            foreach (var pair in _trackState.VisibilityTracks)
+            {
+                var entityId = pair.Key;
+                var visibilityTrack = pair.Value;
+                if (visibilityTrack == null ||
+                    !resolvedFrames.TryGetFrame(entityId, out var resolvedFrame))
+                {
+                    continue;
+                }
+
+                var hasPlayerDeathHoldPose =
+                    resolvedFrame.Provenance.TerminalSource == PresentationPoseSourceKind.PlayerDeathHold;
+                if (hasPlayerDeathHoldPose)
+                {
+                    continue;
+                }
+
+                var hasPresentationPoseOverride = IsLivePresentationPoseOverride(resolvedFrame.Provenance.BaseSource);
+                var hasActiveLocalMotion = _trackState.LocalMotionTracks.TryGetValue(
+                    entityId,
+                    out var activeMotionTrack) &&
+                    activeMotionTrack.HasClips;
+                var hasActiveOriginalViewMotion = _trackState.OriginalViewMotionTracks.TryGetValue(
+                    entityId,
+                    out var activeOriginalViewMotionTrack) &&
+                    !activeOriginalViewMotionTrack.IsComplete;
+                var isDeferredExitRetained =
+                    _trackState.DeferredExitRetainedEntityIds.Contains(entityId) &&
+                    hasActiveLocalMotion &&
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
+                var isContactDelayedRetained =
+                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) &&
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
+                var isDeathPresentationPlaying =
+                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
+                var hasResolvedVisibility =
+                    resolvedVisibility.TryGetVisibility(entityId, out var resolvedEntityVisibility);
+                var fallbackVisibility = PresentationVisibilityFallbackResolver.Resolve(
+                    new PresentationVisibilityFallbackInputs(
+                        hasPresentationPoseOverride,
+                        hasPlayerDeathHoldPose,
+                        _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId),
+                        hasActiveLocalMotion,
+                        hasActiveOriginalViewMotion,
+                        isDeferredExitRetained,
+                        isContactDelayedRetained,
+                        isDeathPresentationPlaying,
+                        hasResolvedVisibility,
+                        hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
+                        _stateStore.TransitionVisibilityStates.ContainsKey(entityId)));
+                var sampledVisibility = visibilityTrack.SampleWithoutAdvance(deltaTime, fallbackVisibility);
+                var provenance = new PresentationVisibilityProvenance(
+                    PresentationVisibilitySourceKind.VisibilityTrackSample,
+                    resolvedFrame.OwnerRole,
+                    null,
+                    null,
+                    sourceTick);
+                candidateSet.AddCandidate(new PresentationVisibilityCandidate(
+                    new PresentationEntityKey(entityId),
+                    sampledVisibility,
+                    provenance,
+                    priority: 500,
+                    isFallback: false,
+                    isStatefulTrackSample: true,
+                    isHighPrioritySuppressionSource: false));
+            }
+        }
+
+        private static bool IsLivePresentationPoseOverride(PresentationPoseSourceKind sourceKind)
+        {
+            return sourceKind == PresentationPoseSourceKind.PlayerContinuousLocomotion ||
+                   sourceKind == PresentationPoseSourceKind.EnemyKinematicMotion;
+        }
     }
 
     internal sealed class PresentationResolvedVisibilityResolver

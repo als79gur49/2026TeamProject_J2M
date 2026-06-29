@@ -1135,6 +1135,12 @@ namespace Game.Feature.Gameplay.Host
             _resolvedVisibilityResolver.ResolveCandidates(
                 _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
+            _visibilityCandidateCollector.CollectVisibilityTrackSamples(
+                deltaTime,
+                _lastPresentedTickIndex,
+                _resolvedPresentationFrames,
+                _resolvedPresentationVisibility,
+                _presentationVisibilityCandidates);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,

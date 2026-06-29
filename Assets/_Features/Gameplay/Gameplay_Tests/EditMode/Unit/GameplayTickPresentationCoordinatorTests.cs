@@ -17084,6 +17084,148 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VisibilityTrackCandidateCollection_DoesNotChangeFinalVisibility()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 3);
+            stateStore.JumpDetachedVisibilityStates[40] =
+                new JumpDetachedVisibilityState(
+                    EnemyJumpPhase.Airborne,
+                    PoseAt(3f),
+                    sourceCell);
+            trackState.VisibilityTracks[40] = VisibilityTrack.CreateHide(durationSeconds: 1f);
+
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var candidates = CollectVisibilityCandidates(
+                stateStore,
+                trackState,
+                frames,
+                topology,
+                sourceTick: 77);
+            var resolver = new PresentationResolvedVisibilityResolver();
+            var visibility = new ResolvedPresentationVisibilitySet();
+            resolver.ResolveCandidates(candidates, visibility);
+            CollectVisibilityTrackSamples(
+                stateStore,
+                trackState,
+                frames,
+                visibility,
+                candidates,
+                deltaTime: 1f,
+                sourceTick: 77);
+
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.True);
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates, Has.Count.EqualTo(2));
+            var trackCandidate = entityCandidates.Single(candidate =>
+                candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.VisibilityTrackSample);
+            Assert.That(trackCandidate.IsVisible, Is.False);
+            Assert.That(trackCandidate.Priority, Is.EqualTo(500));
+            Assert.That(trackCandidate.IsFallback, Is.False);
+            Assert.That(trackCandidate.IsStatefulTrackSample, Is.True);
+            Assert.That(trackCandidate.IsHighPrioritySuppressionSource, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackCandidateCollection_DoesNotAdvanceTrack()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            var visibilityTrack = VisibilityTrack.CreateHide(durationSeconds: 1f);
+            trackState.VisibilityTracks[40] = visibilityTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectVisibilityTrackSamples(
+                stateStore,
+                trackState,
+                frames,
+                visibility,
+                candidates,
+                deltaTime: 1f,
+                sourceTick: 77);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates.Single().IsVisible, Is.False);
+            Assert.That(visibilityTrack.SampleAndAdvance(0.5f, fallbackVisibility: true), Is.True);
+            Assert.That(visibilityTrack.IsComplete, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackCandidateCollection_DoesNotCompleteTracks()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            var visibilityTrack = VisibilityTrack.CreateHide(durationSeconds: 1f);
+            trackState.VisibilityTracks[40] = visibilityTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectVisibilityTrackSamples(
+                stateStore,
+                trackState,
+                frames,
+                visibility,
+                candidates,
+                deltaTime: 1f,
+                sourceTick: 77);
+
+            Assert.That(visibilityTrack.IsComplete, Is.False);
+            Assert.That(trackState.CompletedVisibilityTrackIds, Is.Empty);
+            Assert.That(trackState.VisibilityTracks.ContainsKey(40), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackCandidateCollection_DoesNotClearHiddenMetadata()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            var visibilityTrack = VisibilityTrack.CreateHide(durationSeconds: 1f);
+            trackState.VisibilityTracks[40] = visibilityTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectVisibilityTrackSamples(
+                stateStore,
+                trackState,
+                frames,
+                visibility,
+                candidates,
+                deltaTime: 1f,
+                sourceTick: 77);
+
+            Assert.That(stateStore.CommittedLocalTargetPoses.ContainsKey(40), Is.True);
+            Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
+            Assert.That(trackState.VisibilityTracks.ContainsKey(40), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeathOrExitRetainedVisibility_SuppressesJumpDetachedVisibility()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17333,6 +17475,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var candidates = new PresentationVisibilityCandidateSet();
             collector.CollectJumpDetachedVisibility(topology, sourceTick, frames, candidates);
             return candidates;
+        }
+
+        private static void CollectVisibilityTrackSamples(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            ResolvedPresentationFrameSet frames,
+            ResolvedPresentationVisibilitySet visibility,
+            PresentationVisibilityCandidateSet candidates,
+            float deltaTime,
+            int sourceTick)
+        {
+            var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
+            collector.CollectVisibilityTrackSamples(deltaTime, sourceTick, frames, visibility, candidates);
         }
 
         private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)
