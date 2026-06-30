@@ -3531,13 +3531,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
             var attackLogic = new CapturingAttackLogic();
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
-                    CreateBox(20, barricadeCell),
-                },
-                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var worldState = CreateBarricadeCrushPipelineWorldState(barricadeCell);
             var pipeline = CreatePipeline(
                 worldState,
                 new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
@@ -5103,13 +5097,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string RunBarricadeCrushHashScenario(bool crushEnabled)
         {
             var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
-                    CreateBox(20, barricadeCell),
-                },
-                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var worldState = CreateBarricadeCrushPipelineWorldState(barricadeCell);
             var pipeline = CreatePipeline(
                 worldState,
                 new[]
@@ -5227,13 +5215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static SnapshotMaterializationCounts RunBarricadeCrushBudgetScenario(bool crushEnabled)
         {
             var barricadeCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
-                    CreateBox(20, barricadeCell),
-                },
-                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) });
+            var worldState = CreateBarricadeCrushPipelineWorldState(barricadeCell);
             var pipeline = CreatePipeline(
                 worldState,
                 new[]
@@ -5251,6 +5233,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
             pipeline.RunTick(new TickInput(7, PlayerTickCommand.Move(Direction.Up)));
             return capture.Counts;
+        }
+
+        private static WorldState CreateBarricadeCrushPipelineWorldState(SurfaceCell barricadeCell)
+        {
+            return CreateWorldState(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 4)),
+                    CreateBox(20, barricadeCell),
+                },
+                new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
+                topology: new CubeTopologyState(FaceId.Front));
         }
 
         private static PipelineScenarioRun RunFlipOntoDestroyTileScenario(bool includeEnemy)
