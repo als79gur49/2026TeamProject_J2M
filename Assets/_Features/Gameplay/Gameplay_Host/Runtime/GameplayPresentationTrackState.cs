@@ -696,6 +696,55 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void CollectRetainedDeathOrExitVisibility(
+            int sourceTick,
+            ResolvedPresentationFrameSet resolvedFrames,
+            PresentationVisibilityCandidateSet candidateSet)
+        {
+            if (resolvedFrames == null)
+            {
+                throw new System.ArgumentNullException(nameof(resolvedFrames));
+            }
+
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            for (var i = 0; i < resolvedFrames.EntityIds.Count; i++)
+            {
+                var entityId = resolvedFrames.EntityIds[i];
+                if (!resolvedFrames.TryGetFrame(entityId, out var resolvedFrame) ||
+                    resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.PlayerDeathHold)
+                {
+                    continue;
+                }
+
+                candidateSet.AddCandidate(CreateVisibilityCandidate(
+                    entityId,
+                    resolvedFrame.OwnerRole,
+                    PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression,
+                    sourceTick,
+                    priority: 900));
+            }
+
+            CollectRetainedDeathOrExitOwnerSet(
+                _trackState.DeferredExitRetainedEntityIds,
+                sourceTick,
+                resolvedFrames,
+                candidateSet);
+            CollectRetainedDeathOrExitOwnerSet(
+                _trackState.ContactDelayedRetainedEntityIds,
+                sourceTick,
+                resolvedFrames,
+                candidateSet);
+            CollectRetainedDeathOrExitOwnerSet(
+                _trackState.DeathPresentationPlayingEntityIds,
+                sourceTick,
+                resolvedFrames,
+                candidateSet);
+        }
+
         public void CollectVisibilityTrackSamples(
             float deltaTime,
             int sourceTick,
@@ -848,6 +897,74 @@ namespace Game.Feature.Gameplay.Host
                 TickVisibilityChangeKind.Remove => 400,
                 _ => 0,
             };
+        }
+
+        private void CollectRetainedDeathOrExitOwnerSet(
+            HashSet<int> entityIds,
+            int sourceTick,
+            ResolvedPresentationFrameSet resolvedFrames,
+            PresentationVisibilityCandidateSet candidateSet)
+        {
+            foreach (var entityId in entityIds)
+            {
+                if (!_stateStore.RetainedLocalTargetPoses.ContainsKey(entityId) ||
+                    HasRetainedDeathOrExitCandidate(candidateSet, entityId))
+                {
+                    continue;
+                }
+
+                var ownerRole = resolvedFrames.TryGetFrame(entityId, out var resolvedFrame)
+                    ? resolvedFrame.OwnerRole
+                    : ResolveOwnerRole(entityId);
+                candidateSet.AddCandidate(CreateVisibilityCandidate(
+                    entityId,
+                    ownerRole,
+                    PresentationVisibilitySourceKind.RetainedDeathOrExit,
+                    sourceTick,
+                    priority: 800));
+            }
+        }
+
+        private static bool HasRetainedDeathOrExitCandidate(
+            PresentationVisibilityCandidateSet candidateSet,
+            int entityId)
+        {
+            if (!candidateSet.TryGetCandidates(entityId, out var candidates))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                if (candidates[i].Provenance.SourceKind == PresentationVisibilitySourceKind.RetainedDeathOrExit)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static PresentationVisibilityCandidate CreateVisibilityCandidate(
+            int entityId,
+            PresentationOwnerRole ownerRole,
+            PresentationVisibilitySourceKind sourceKind,
+            int sourceTick,
+            int priority)
+        {
+            return new PresentationVisibilityCandidate(
+                new PresentationEntityKey(entityId),
+                isVisible: true,
+                new PresentationVisibilityProvenance(
+                    sourceKind,
+                    ownerRole,
+                    null,
+                    null,
+                    sourceTick),
+                priority,
+                isFallback: false,
+                isStatefulTrackSample: false,
+                isHighPrioritySuppressionSource: true);
         }
 
         private PresentationOwnerRole ResolveOwnerRole(int entityId)

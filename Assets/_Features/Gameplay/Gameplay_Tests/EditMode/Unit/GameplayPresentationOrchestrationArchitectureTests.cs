@@ -40,6 +40,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string ExitPresentationControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
         private const string TrackStatePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationTrackState.cs";
         private const string TickResultBuilderPath =
@@ -1121,6 +1123,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("GenericVisibilityDetach"));
             Assert.That(source, Does.Not.Contain("GenericVisibilityRemove"));
             Assert.That(source, Does.Not.Contain("VisibilityTrackSample"));
+            Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
+            Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotConsumeRetainedDeathExitCandidates()
+        {
+            var source = ReadRepoFile(ApplierPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+            Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
+            Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayExitPresentationController_DoesNotCreateVisibilityCandidates()
+        {
+            var source = ReadRepoFile(ExitPresentationControllerPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+            Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
+            Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitVisibilityCandidate_DoesNotBecomeBasePoseCandidate()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var poseCollectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationPoseCandidateCollector",
+                "internal sealed class PresentationBasePoseFrameResolver");
+
+            Assert.That(poseCollectorBlock, Does.Not.Contain("PresentationVisibilitySourceKind"));
+            Assert.That(poseCollectorBlock, Does.Not.Contain("RetainedDeathOrExit"));
+            Assert.That(poseCollectorBlock, Does.Not.Contain("TerminalDeathOrExitSuppression"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyBridge_DoesNotConsumeRetainedDeathExitVisibilityCandidates()
+        {
+            var source = ReadRepoFile(TopologyBridgeVisibilityControllerPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+            Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
+            Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
         }
 
         [Test]
@@ -1134,6 +1189,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("GenericVisibilitySpawn"));
             Assert.That(source, Does.Not.Contain("GenericVisibilityDetach"));
             Assert.That(source, Does.Not.Contain("GenericVisibilityRemove"));
+            Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
+            Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
         }
 
         [Test]

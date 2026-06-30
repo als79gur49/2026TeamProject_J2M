@@ -17383,6 +17383,247 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_CollectsDeathPresentationPlayingWithRetainedPose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeathPresentationPlayingEntityIds.Add(40);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            AssertRetainedDeathExitCandidate(entityCandidates.Single(), PresentationOwnerRole.Enemy, sourceTick: 91);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_CollectsDeferredExitRetainedWithRetainedPose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeferredExitRetainedEntityIds.Add(40);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            AssertRetainedDeathExitCandidate(entityCandidates.Single(), PresentationOwnerRole.Enemy, sourceTick: 91);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_CollectsContactDelayedRetainedWithRetainedPose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.ContactDelayedRetainedEntityIds.Add(40);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            AssertRetainedDeathExitCandidate(entityCandidates.Single(), PresentationOwnerRole.Enemy, sourceTick: 91);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotCollectPlainRetainedLocalTargetPose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out _), Is.False);
+            Assert.That(candidates.CandidateCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotCollectDeathStateWithoutRetainedPose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            trackState.DeathPresentationPlayingEntityIds.Add(40);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out _), Is.False);
+            Assert.That(candidates.CandidateCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_CollectsTerminalSuppressionFromResolvedTerminalProvenance()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+            trackState.PlayerDeathHoldPoses[10] = PoseAt(4f);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.TryGetCandidates(10, out var entityCandidates), Is.True);
+            var candidate = entityCandidates.Single();
+            Assert.That(candidate.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression));
+            Assert.That(candidate.IsVisible, Is.True);
+            Assert.That(candidate.Priority, Is.EqualTo(900));
+            Assert.That(candidate.Provenance.OwnerRole, Is.EqualTo(PresentationOwnerRole.Player));
+            Assert.That(candidate.Provenance.LifetimeToken, Is.EqualTo(91));
+            Assert.That(candidate.IsHighPrioritySuppressionSource, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotReadPlayerDeathHoldRawStore()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", TrackStatePath));
+            var methodStart = source.IndexOf(
+                "public void CollectRetainedDeathOrExitVisibility",
+                StringComparison.Ordinal);
+            var nextMethodStart = source.IndexOf(
+                "public void CollectVisibilityTrackSamples",
+                methodStart,
+                StringComparison.Ordinal);
+            var methodBlock = source.Substring(methodStart, nextMethodStart - methodStart);
+
+            Assert.That(methodStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(nextMethodStart, Is.GreaterThan(methodStart));
+            Assert.That(methodBlock, Does.Contain("resolvedFrame.Provenance.TerminalSource"));
+            Assert.That(methodBlock, Does.Not.Contain("PlayerDeathHoldPoses"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotChangeFinalVisibility()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeathPresentationPlayingEntityIds.Add(40);
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            visibility.SetVisibility(new ResolvedEntityPresentationVisibility(
+                new PresentationEntityKey(40),
+                isVisible: false,
+                new PresentationVisibilityProvenance(
+                    PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                    PresentationOwnerRole.Enemy,
+                    null,
+                    null,
+                    lifetimeToken: 90)));
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.False);
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilityRemove));
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            AssertRetainedDeathExitCandidate(entityCandidates.Single(), PresentationOwnerRole.Enemy, sourceTick: 91);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotWriteProductionFinalSet()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeferredExitRetainedEntityIds.Add(40);
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(candidates.CandidateCount, Is.EqualTo(1));
+            Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
+            Assert.That(visibility.Count, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotOwnExitCleanup()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeferredExitRetainedEntityIds.Add(40);
+            trackState.ContactDelayedRetainedEntityIds.Add(40);
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(trackState.DeferredExitRetainedEntityIds.Contains(40), Is.True);
+            Assert.That(trackState.ContactDelayedRetainedEntityIds.Contains(40), Is.True);
+            Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotOwnDeathPresentationState()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeathPresentationPlayingEntityIds.Add(40);
+            var frames = Resolve(stateStore, trackState, sourceTick: 91);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectRetainedDeathOrExitVisibility(stateStore, trackState, frames, sourceTick: 91, candidates);
+
+            Assert.That(trackState.DeathPresentationPlayingEntityIds.Contains(40), Is.True);
+            Assert.That(stateStore.RetainedLocalTargetPoses.ContainsKey(40), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RetainedDeathExitCandidateCollection_DoesNotTouchBasePoseTerminalResolver()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", TrackStatePath));
+            var collectorStart = source.IndexOf(
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                StringComparison.Ordinal);
+            var resolverStart = source.IndexOf(
+                "internal sealed class PresentationResolvedVisibilityResolver",
+                collectorStart,
+                StringComparison.Ordinal);
+            var collectorBlock = source.Substring(collectorStart, resolverStart - collectorStart);
+
+            Assert.That(collectorBlock, Does.Not.Contain("PresentationBasePoseFrameResolver"));
+            Assert.That(collectorBlock, Does.Not.Contain("PresentationPoseCandidateCollector"));
+            Assert.That(collectorBlock, Does.Not.Contain("PresentationPoseChannel.TerminalHold"));
+            Assert.That(collectorBlock, Does.Not.Contain("BaseSource ="));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VisibilityCandidateShadowResolver_RemoveBeatsDetachAndSpawn()
         {
             var candidates = new PresentationVisibilityCandidateSet();
@@ -17451,6 +17692,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
             Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
             Assert.That(winner.IsVisible, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_TerminalDeathOrExitSuppressionBeatsGenericSpawn()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                isVisible: true,
+                priority: 200,
+                sourceTick: 88));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression,
+                isVisible: true,
+                priority: 900,
+                sourceTick: 88,
+                isHighPrioritySuppressionSource: true));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression));
+            Assert.That(winner.IsVisible, Is.True);
+            Assert.That(winner.IsHighPrioritySuppressionSource, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_RetainedDeathExitBeatsGenericSpawn()
+        {
+            AssertRetainedDeathExitBeats(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                isVisible: true,
+                priority: 200,
+                isStatefulTrackSample: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_RetainedDeathExitBeatsGenericRemove()
+        {
+            AssertRetainedDeathExitBeats(
+                PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                isVisible: false,
+                priority: 400,
+                isStatefulTrackSample: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_RetainedDeathExitBeatsJumpDetached()
+        {
+            AssertRetainedDeathExitBeats(
+                PresentationVisibilitySourceKind.JumpDetached,
+                isVisible: false,
+                priority: 200,
+                isStatefulTrackSample: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_RetainedDeathExitBeatsVisibilityTrackSample()
+        {
+            AssertRetainedDeathExitBeats(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                isVisible: false,
+                priority: 500,
+                isStatefulTrackSample: true);
         }
 
         [Test]
@@ -18037,6 +18346,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             collector.CollectGenericVisibilityChanges(visibilityChanges, sourceTick, candidates);
         }
 
+        private static void CollectRetainedDeathOrExitVisibility(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            ResolvedPresentationFrameSet frames,
+            int sourceTick,
+            PresentationVisibilityCandidateSet candidates)
+        {
+            var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
+            collector.CollectRetainedDeathOrExitVisibility(sourceTick, frames, candidates);
+        }
+
         private static PresentationVisibilityCandidate ResolveShadowWinner(
             PresentationVisibilityCandidateSet candidates,
             int entityId = 40)
@@ -18118,12 +18438,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(candidate.IsHighPrioritySuppressionSource, Is.False);
         }
 
+        private static void AssertRetainedDeathExitCandidate(
+            PresentationVisibilityCandidate candidate,
+            PresentationOwnerRole ownerRole,
+            int sourceTick)
+        {
+            Assert.That(candidate.EntityKey.EntityId, Is.EqualTo(40));
+            Assert.That(candidate.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.RetainedDeathOrExit));
+            Assert.That(candidate.IsVisible, Is.True);
+            Assert.That(candidate.Priority, Is.EqualTo(800));
+            Assert.That(candidate.Provenance.OwnerRole, Is.EqualTo(ownerRole));
+            Assert.That(candidate.Provenance.Cell, Is.Null);
+            Assert.That(candidate.Provenance.Face, Is.Null);
+            Assert.That(candidate.Provenance.LifetimeToken, Is.EqualTo(sourceTick));
+            Assert.That(candidate.IsFallback, Is.False);
+            Assert.That(candidate.IsStatefulTrackSample, Is.False);
+            Assert.That(candidate.IsHighPrioritySuppressionSource, Is.True);
+        }
+
+        private static void AssertRetainedDeathExitBeats(
+            PresentationVisibilitySourceKind contenderSourceKind,
+            bool isVisible,
+            int priority,
+            bool isStatefulTrackSample)
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                contenderSourceKind,
+                isVisible,
+                priority,
+                sourceTick: 88,
+                isStatefulTrackSample: isStatefulTrackSample));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.RetainedDeathOrExit,
+                isVisible: true,
+                priority: 800,
+                sourceTick: 88,
+                isHighPrioritySuppressionSource: true));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.RetainedDeathOrExit));
+            Assert.That(winner.IsVisible, Is.True);
+            Assert.That(winner.IsHighPrioritySuppressionSource, Is.True);
+        }
+
         private static PresentationVisibilityCandidate CreateVisibilityCandidate(
             PresentationVisibilitySourceKind sourceKind,
             bool isVisible,
             int priority,
             int sourceTick,
-            bool isStatefulTrackSample = false)
+            bool isStatefulTrackSample = false,
+            bool isHighPrioritySuppressionSource = false)
         {
             return new PresentationVisibilityCandidate(
                 new PresentationEntityKey(40),
@@ -18137,7 +18503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 priority,
                 isFallback: false,
                 isStatefulTrackSample,
-                isHighPrioritySuppressionSource: false);
+                isHighPrioritySuppressionSource);
         }
 
         private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)

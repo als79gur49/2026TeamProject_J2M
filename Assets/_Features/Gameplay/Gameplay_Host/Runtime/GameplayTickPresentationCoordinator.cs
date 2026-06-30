@@ -1143,6 +1143,10 @@ namespace Game.Feature.Gameplay.Host
                     _lastPresentedTickIndex,
                     _presentationVisibilityCandidates);
             }
+            _visibilityCandidateCollector.CollectRetainedDeathOrExitVisibility(
+                _lastPresentedTickIndex,
+                _resolvedPresentationFrames,
+                _presentationVisibilityCandidates);
             _visibilityCandidateCollector.CollectVisibilityTrackSamples(
                 deltaTime,
                 _lastPresentedTickIndex,
