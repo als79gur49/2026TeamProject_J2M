@@ -1147,6 +1147,9 @@ namespace Game.Feature.Gameplay.Host
                 _lastPresentedTickIndex,
                 _resolvedPresentationFrames,
                 _presentationVisibilityCandidates);
+            _visibilityCandidateCollector.CollectTransitionEntityVisibility(
+                _lastPresentedTickIndex,
+                _presentationVisibilityCandidates);
             _visibilityCandidateCollector.CollectVisibilityTrackSamples(
                 deltaTime,
                 _lastPresentedTickIndex,

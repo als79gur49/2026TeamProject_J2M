@@ -745,6 +745,41 @@ namespace Game.Feature.Gameplay.Host
                 candidateSet);
         }
 
+        public void CollectTransitionEntityVisibility(
+            int sourceTick,
+            PresentationVisibilityCandidateSet candidateSet)
+        {
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            foreach (var pair in _stateStore.TransitionVisibilityStates)
+            {
+                var entityId = pair.Key;
+                if (entityId <= 0)
+                {
+                    continue;
+                }
+
+                var state = pair.Value;
+                var provenance = new PresentationVisibilityProvenance(
+                    PresentationVisibilitySourceKind.TransitionEntityVisibility,
+                    ResolveOwnerRole(entityId),
+                    null,
+                    state.SurfaceFace,
+                    sourceTick);
+                candidateSet.AddCandidate(new PresentationVisibilityCandidate(
+                    new PresentationEntityKey(entityId),
+                    isVisible: true,
+                    provenance,
+                    priority: 600,
+                    isFallback: false,
+                    isStatefulTrackSample: false,
+                    isHighPrioritySuppressionSource: false));
+            }
+        }
+
         public void CollectVisibilityTrackSamples(
             float deltaTime,
             int sourceTick,

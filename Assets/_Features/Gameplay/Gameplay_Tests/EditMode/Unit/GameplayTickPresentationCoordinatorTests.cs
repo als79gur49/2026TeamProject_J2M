@@ -17624,6 +17624,157 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_CollectsTransitionVisibilityState()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.TransitionVisibilityStates[40] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(4f),
+                projectedSlot: null,
+                FaceId.Floor);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 92, candidates);
+
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            AssertTransitionEntityVisibilityCandidate(
+                entityCandidates.Single(),
+                entityId: 40,
+                ownerRole: PresentationOwnerRole.Enemy,
+                face: FaceId.Floor,
+                sourceTick: 92);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_PreservesEntityAndSurfaceMetadata()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+            stateStore.TransitionVisibilityStates[10] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(1f),
+                projectedSlot: null,
+                FaceId.Front);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 93, candidates);
+
+            Assert.That(candidates.TryGetCandidates(10, out var entityCandidates), Is.True);
+            AssertTransitionEntityVisibilityCandidate(
+                entityCandidates.Single(),
+                entityId: 10,
+                ownerRole: PresentationOwnerRole.Player,
+                face: FaceId.Front,
+                sourceTick: 93);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_DoesNotCollectWhenNoTransitionVisibilityState()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 92, candidates);
+
+            Assert.That(candidates.Count, Is.Zero);
+            Assert.That(candidates.CandidateCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_DoesNotWriteProductionFinalSet()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.TransitionVisibilityStates[40] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(4f),
+                projectedSlot: null,
+                FaceId.Floor);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 92, candidates);
+
+            Assert.That(candidates.CandidateCount, Is.EqualTo(1));
+            Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
+            Assert.That(visibility.Count, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_DoesNotChangeApplierFallback()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.TransitionVisibilityStates[40] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(4f),
+                projectedSlot: null,
+                FaceId.Floor);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 92, candidates);
+
+            Assert.That(
+                ResolveCurrentFinalVisible(40, hasTransitionVisibility: true),
+                Is.True);
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates.Single().Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TransitionEntityVisibility));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_DoesNotOwnTransitionCleanup()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.TransitionVisibilityStates[40] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(4f),
+                projectedSlot: null,
+                FaceId.Floor);
+            trackState.CompletedTransitionVisibilityStateIds.Add(40);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 92, candidates);
+
+            Assert.That(stateStore.TransitionVisibilityStates.ContainsKey(40), Is.True);
+            Assert.That(trackState.CompletedTransitionVisibilityStateIds, Has.Count.EqualTo(1));
+            Assert.That(trackState.CompletedTransitionVisibilityStateIds[0], Is.EqualTo(40));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_DoesNotRemoveTransitionVisibilityStates()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.TransitionVisibilityStates[40] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(4f),
+                projectedSlot: null,
+                FaceId.Floor);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 92, candidates);
+
+            Assert.That(stateStore.TransitionVisibilityStates, Has.Count.EqualTo(1));
+            Assert.That(stateStore.TransitionVisibilityStates[40].SurfaceFace, Is.EqualTo(FaceId.Floor));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VisibilityCandidateShadowResolver_RemoveBeatsDetachAndSpawn()
         {
             var candidates = new PresentationVisibilityCandidateSet();
@@ -17760,6 +17911,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isVisible: false,
                 priority: 500,
                 isStatefulTrackSample: true);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_TerminalSuppressionBeatsTransitionEntityVisibility()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TransitionEntityVisibility,
+                isVisible: true,
+                priority: 600,
+                sourceTick: 88));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression,
+                isVisible: true,
+                priority: 900,
+                sourceTick: 88,
+                isHighPrioritySuppressionSource: true));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression));
+            Assert.That(winner.IsHighPrioritySuppressionSource, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_RetainedDeathExitBeatsTransitionEntityVisibility()
+        {
+            AssertRetainedDeathExitBeats(
+                PresentationVisibilitySourceKind.TransitionEntityVisibility,
+                isVisible: true,
+                priority: 600,
+                isStatefulTrackSample: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_TransitionEntityVisibilityBeatsGenericRemove()
+        {
+            AssertTransitionEntityVisibilityBeats(
+                PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                isVisible: false,
+                priority: 400);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_TransitionEntityVisibilityBeatsGenericSpawn()
+        {
+            AssertTransitionEntityVisibilityBeats(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                isVisible: true,
+                priority: 200);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_TransitionEntityVisibilityBeatsJumpDetached()
+        {
+            AssertTransitionEntityVisibilityBeats(
+                PresentationVisibilitySourceKind.JumpDetached,
+                isVisible: false,
+                priority: 200);
         }
 
         [Test]
@@ -18004,6 +18219,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 deltaTime: 1f);
 
             Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
+            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_TransitionEntityVisibilityOnlyMatchesCurrentTransitionFallback()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TransitionEntityVisibility,
+                isVisible: true,
+                priority: 600,
+                sourceTick: 88));
+
+            var winner = ResolveShadowWinner(candidates);
+            var currentFinalVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasTransitionVisibility: true);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TransitionEntityVisibility));
             Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
         }
 
@@ -18357,6 +18592,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             collector.CollectRetainedDeathOrExitVisibility(sourceTick, frames, candidates);
         }
 
+        private static void CollectTransitionEntityVisibility(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            int sourceTick,
+            PresentationVisibilityCandidateSet candidates)
+        {
+            var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
+            collector.CollectTransitionEntityVisibility(sourceTick, candidates);
+        }
+
         private static PresentationVisibilityCandidate ResolveShadowWinner(
             PresentationVisibilityCandidateSet candidates,
             int entityId = 40)
@@ -18456,6 +18701,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(candidate.IsHighPrioritySuppressionSource, Is.True);
         }
 
+        private static void AssertTransitionEntityVisibilityCandidate(
+            PresentationVisibilityCandidate candidate,
+            int entityId,
+            PresentationOwnerRole ownerRole,
+            FaceId face,
+            int sourceTick)
+        {
+            Assert.That(candidate.EntityKey.EntityId, Is.EqualTo(entityId));
+            Assert.That(candidate.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TransitionEntityVisibility));
+            Assert.That(candidate.IsVisible, Is.True);
+            Assert.That(candidate.Priority, Is.EqualTo(600));
+            Assert.That(candidate.Provenance.OwnerRole, Is.EqualTo(ownerRole));
+            Assert.That(candidate.Provenance.Cell, Is.Null);
+            Assert.That(candidate.Provenance.Face, Is.EqualTo(face));
+            Assert.That(candidate.Provenance.LifetimeToken, Is.EqualTo(sourceTick));
+            Assert.That(candidate.IsFallback, Is.False);
+            Assert.That(candidate.IsStatefulTrackSample, Is.False);
+            Assert.That(candidate.IsHighPrioritySuppressionSource, Is.False);
+        }
+
         private static void AssertRetainedDeathExitBeats(
             PresentationVisibilitySourceKind contenderSourceKind,
             bool isVisible,
@@ -18481,6 +18746,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.RetainedDeathOrExit));
             Assert.That(winner.IsVisible, Is.True);
             Assert.That(winner.IsHighPrioritySuppressionSource, Is.True);
+        }
+
+        private static void AssertTransitionEntityVisibilityBeats(
+            PresentationVisibilitySourceKind contenderSourceKind,
+            bool isVisible,
+            int priority)
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                contenderSourceKind,
+                isVisible,
+                priority,
+                sourceTick: 88));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TransitionEntityVisibility,
+                isVisible: true,
+                priority: 600,
+                sourceTick: 88));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TransitionEntityVisibility));
+            Assert.That(winner.IsVisible, Is.True);
+            Assert.That(winner.Priority, Is.EqualTo(600));
         }
 
         private static PresentationVisibilityCandidate CreateVisibilityCandidate(

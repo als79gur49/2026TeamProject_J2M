@@ -912,6 +912,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PresentationVisibilityCandidateCollector_CollectsTransitionEntityVisibility()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+
+            Assert.That(collectorBlock, Does.Contain("CollectTransitionEntityVisibility"));
+            Assert.That(collectorBlock, Does.Contain("_stateStore.TransitionVisibilityStates"));
+            Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.TransitionEntityVisibility"));
+            Assert.That(collectorBlock, Does.Contain("state.SurfaceFace"));
+            Assert.That(collectorBlock, Does.Contain("priority: 600"));
+            Assert.That(collectorBlock, Does.Contain("isHighPrioritySuppressionSource: false"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationVisibilityCandidateCollector_DoesNotRemoveTransitionVisibilityStates()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "public void CollectTransitionEntityVisibility",
+                "public void CollectVisibilityTrackSamples");
+
+            Assert.That(collectorBlock, Does.Contain("TransitionVisibilityStates"));
+            Assert.That(collectorBlock, Does.Not.Contain("TransitionVisibilityStates.Remove"));
+            Assert.That(collectorBlock, Does.Not.Contain("TransitionVisibilityStates.Clear"));
+            Assert.That(collectorBlock, Does.Not.Contain("CompletedTransitionVisibilityStateIds"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PresentationVisibilityCandidateCollector_DoesNotRemoveTickVisibilityChangeEvents()
         {
             var trackStateSource = ReadRepoFile(TrackStatePath);
@@ -972,6 +1006,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var genericCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
                 StringComparison.Ordinal);
+            var transitionCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
+                StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
                 StringComparison.Ordinal);
@@ -982,14 +1019,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpCollectIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(resolveIndex, Is.GreaterThan(jumpCollectIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(transitionCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(transitionCollectIndex));
             Assert.That(trackCollectIndex, Is.GreaterThan(resolveIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
         }
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_DoesNotWriteGenericCandidatesToFinalSet()
+        public void TransitionEntityVisibilityCandidateCollection_RunsAfterFinalVisibilityResolution()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
@@ -998,6 +1036,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                StringComparison.Ordinal);
+            var retainedCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectRetainedDeathOrExitVisibility",
+                StringComparison.Ordinal);
+            var transitionCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
                 StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
@@ -1012,7 +1056,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(resolveIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(retainedCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(transitionCollectIndex, Is.GreaterThan(retainedCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(transitionCollectIndex));
+            Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
+            Assert.That(secondResolveIndex, Is.EqualTo(-1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_DoesNotWriteGenericCandidatesToFinalSet()
+        {
+            var source = ReadRepoFile(CoordinatorPath);
+
+            var resolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                StringComparison.Ordinal);
+            var genericCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                StringComparison.Ordinal);
+            var transitionCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
+                StringComparison.Ordinal);
+            var trackCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
+                StringComparison.Ordinal);
+            var applyIndex = source.IndexOf(
+                "_entityPresentationApplier.Apply",
+                StringComparison.Ordinal);
+            var secondResolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                resolveIndex + 1,
+                StringComparison.Ordinal);
+
+            Assert.That(resolveIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(transitionCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(transitionCollectIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
             Assert.That(secondResolveIndex, Is.EqualTo(-1));
         }
@@ -1080,6 +1160,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TransitionEntityVisibilityCandidate_DoesNotCollectTopologyBridgeBinding()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "public void CollectTransitionEntityVisibility",
+                "public void CollectVisibilityTrackSamples");
+
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyTransitionVisual"));
+            Assert.That(collectorBlock, Does.Not.Contain("BridgeVisibility"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationVisibilityCandidateCollector_DoesNotReferenceTopologyVisualBridgeController()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VisibilityCandidateShadowResolver_DoesNotReadTopologyBridgeBindings()
         {
             var trackStateSource = ReadRepoFile(TrackStatePath);
@@ -1141,6 +1251,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotConsumeTransitionEntityVisibilityCandidates()
+        {
+            var source = ReadRepoFile(ApplierPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+            Assert.That(source, Does.Not.Contain("TransitionEntityVisibility"));
+            Assert.That(source, Does.Contain("TransitionVisibilityStates"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayExitPresentationController_DoesNotCreateVisibilityCandidates()
         {
             var source = ReadRepoFile(ExitPresentationControllerPath);
@@ -1180,6 +1302,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TopologyVisualBridgeVisibilityController_DoesNotConsumePresentationVisibilityCandidateSet()
+        {
+            var source = ReadRepoFile(TopologyBridgeVisibilityControllerPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilitySourceKind"));
+            Assert.That(source, Does.Not.Contain("TransitionEntityVisibility"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void TickResultBuilder_DoesNotCreatePresentationVisibilityCandidates()
         {
             var source = ReadRepoFile(TickResultBuilderPath);
@@ -1191,6 +1325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("GenericVisibilityRemove"));
             Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
             Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
+            Assert.That(source, Does.Not.Contain("TransitionEntityVisibility"));
         }
 
         [Test]
