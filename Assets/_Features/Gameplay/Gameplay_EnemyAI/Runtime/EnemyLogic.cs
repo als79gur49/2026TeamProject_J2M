@@ -2668,7 +2668,7 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
-                    if (ShouldHoldWindupProjectileMovementForAttackerTransition(snapshot, source, chaseTarget))
+                    if (ShouldHoldWindupProjectileMovement(snapshot, source, chaseTarget))
                     {
                         return default;
                     }
@@ -2824,7 +2824,7 @@ namespace Game.Feature.Gameplay.Entities
                    glideState.Phase == EnemyGlidePhase.Active;
         }
 
-        private bool ShouldHoldWindupProjectileMovementForAttackerTransition(
+        private bool ShouldHoldWindupProjectileMovement(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target)
@@ -2835,8 +2835,25 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability, _tileFeatureDefinitions);
-            return startQuery.BlockReason == CombatWindupStartBlockReason.SevereTransition &&
-                   CombatWindupPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+            if (startQuery.BlockReason == CombatWindupStartBlockReason.SevereTransition &&
+                CombatWindupPoseQueries.IsInSevereCombatOriginTransition(snapshot, source))
+            {
+                return true;
+            }
+
+            return _combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile &&
+                   _combatCapability.WindupForwardCellProjectileSettings.RequireValidForwardCell &&
+                   _combatCapability.AttackDecisionStrategy.IsTargetInRange(
+                       source,
+                       target,
+                       _combatCapability.AttackDecisionSettings) &&
+                   CombatWindupPoseQueries.TryResolveSimulationCombatOrigin(snapshot, source, out var sourceOrigin) &&
+                   CombatWindupPoseQueries.IsForwardProjectilePathBlocked(
+                       snapshot,
+                       sourceOrigin.AnchorCell,
+                       target.position,
+                       _combatCapability.AttackDecisionSettings.AttackRange,
+                       _tileFeatureDefinitions);
         }
 
         private static CombatWindupStartQueryResult QueryCombatWindupStart(
@@ -3251,6 +3268,42 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    internal static class EnemyWindupProjectileBlockedTargetPolicy
+    {
+        public static bool ShouldHoldForSolidBlockedFreshTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
+            in EnemyTargetEligibilityResult freshAcquireResult)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (combatCapability == null ||
+                combatCapability.Kind != AttackDecisionStrategyKind.WindupForwardCellProjectile ||
+                !combatCapability.WindupForwardCellProjectileSettings.RequireValidForwardCell ||
+                freshAcquireResult.RejectReason != EnemyTargetEligibilityRejectReason.BlockedByProfileRule ||
+                freshAcquireResult.TargetEntityId <= 0 ||
+                !snapshot.TryGetEntity(freshAcquireResult.TargetEntityId, out var target) ||
+                !combatCapability.AttackDecisionStrategy.IsTargetInRange(
+                    source,
+                    target,
+                    combatCapability.AttackDecisionSettings) ||
+                !CombatWindupPoseQueries.TryResolveSimulationCombatOrigin(snapshot, source, out var sourceOrigin))
+            {
+                return false;
+            }
+
+            return CombatWindupPoseQueries.IsForwardProjectilePathBlockedBySolid(
+                snapshot,
+                sourceOrigin.AnchorCell,
+                target.position,
+                combatCapability.AttackDecisionSettings.AttackRange);
+        }
+    }
+
     public sealed class DefaultEnemyAiStateResolver : IEnemyAiStateResolver
     {
         public static readonly DefaultEnemyAiStateResolver Instance = new();
@@ -3507,6 +3560,18 @@ namespace Game.Feature.Gameplay.Entities
                         source.aiMode == EnemyAiMode.Patrol ? EnemyAiMode.Chase : source.aiMode,
                         0,
                         BuildNoTargetHoldReason(freshAcquireResult, localHoldResult));
+                }
+
+                if (EnemyWindupProjectileBlockedTargetPolicy.ShouldHoldForSolidBlockedFreshTarget(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        freshAcquireResult))
+                {
+                    return new EnemyAiTransitionDecision(
+                        source.aiMode == EnemyAiMode.Patrol ? EnemyAiMode.Chase : source.aiMode,
+                        0,
+                        "ForwardProjectilePathBlockedBySolid");
                 }
 
                 return new EnemyAiTransitionDecision(patrolFallback, 0, BuildNoTargetReason(freshAcquireResult));

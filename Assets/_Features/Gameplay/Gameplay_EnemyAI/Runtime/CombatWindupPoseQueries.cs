@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Entities
         ActivePendingImpactLimitReached = 8,
         ForwardPathBlockedByTileFeature = 9,
         NotSettledAtAnchor = 10,
+        ForwardPathBlockedBySolid = 11,
     }
 
     internal readonly struct CombatWindupStartQueryResult
@@ -170,6 +171,18 @@ namespace Game.Feature.Gameplay.Entities
             {
                 if (settings.RequireValidForwardCell &&
                     startQuery.BlockReason == CombatWindupStartBlockReason.OutsideSimulationStartRange &&
+                    IsForwardProjectilePathBlockedBySolid(
+                        snapshot,
+                        startQuery.EnemyOrigin.AnchorCell,
+                        player.position,
+                        attackDecisionSettings.AttackRange))
+                {
+                    return CombatWindupStartQueryResult.Block(
+                        CombatWindupStartBlockReason.ForwardPathBlockedBySolid);
+                }
+
+                if (settings.RequireValidForwardCell &&
+                    startQuery.BlockReason == CombatWindupStartBlockReason.OutsideSimulationStartRange &&
                     IsForwardProjectilePathBlockedByActiveBarricade(
                         snapshot,
                         startQuery.EnemyOrigin.AnchorCell,
@@ -194,6 +207,16 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var attackDirection = EnemyActionStateTargeting.ResolveFacing(enemy, player);
+            if (settings.RequireValidForwardCell &&
+                IsForwardProjectilePathBlockedBySolid(
+                    snapshot,
+                    startQuery.EnemyOrigin.AnchorCell,
+                    player.position,
+                    attackDecisionSettings.AttackRange))
+            {
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.ForwardPathBlockedBySolid);
+            }
+
             if (settings.RequireValidForwardCell &&
                 !TryResolveForwardTargetCell(
                     snapshot,
@@ -353,6 +376,11 @@ namespace Game.Feature.Gameplay.Entities
                     return false;
                 }
 
+                if (snapshot.TryGetSolidSemanticAt(current, out _))
+                {
+                    return false;
+                }
+
                 if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                         snapshot,
                         tileFeatureDefinitions,
@@ -367,6 +395,61 @@ namespace Game.Feature.Gameplay.Entities
 
             targetCell = current;
             return targetCell == desiredTargetCell;
+        }
+
+        internal static bool IsForwardProjectilePathBlocked(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            SurfaceCell targetCell,
+            int maxRangeCells,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            return IsForwardProjectilePathBlockedBySolid(snapshot, baseCell, targetCell, maxRangeCells) ||
+                   IsForwardProjectilePathBlockedByActiveBarricade(
+                       snapshot,
+                       baseCell,
+                       targetCell,
+                       maxRangeCells,
+                       tileFeatureDefinitions);
+        }
+
+        internal static bool IsForwardProjectilePathBlockedBySolid(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            SurfaceCell targetCell,
+            int maxRangeCells)
+        {
+            if (snapshot == null ||
+                baseCell.face != targetCell.face ||
+                maxRangeCells <= 0)
+            {
+                return false;
+            }
+
+            var dx = targetCell.x - baseCell.x;
+            var dy = targetCell.y - baseCell.y;
+            var distance = Math.Abs(dx) + Math.Abs(dy);
+            if (distance <= 0 ||
+                distance > maxRangeCells ||
+                (dx != 0 && dy != 0))
+            {
+                return false;
+            }
+
+            var stepX = Math.Sign(dx);
+            var stepY = Math.Sign(dy);
+            var current = new SurfaceCell(baseCell.face, baseCell.x + stepX, baseCell.y + stepY);
+            for (var step = 0; step < distance; step++)
+            {
+                if (snapshot.TryGetSolidSemanticAt(current, out _))
+                {
+                    return true;
+                }
+
+                current = new SurfaceCell(current.face, current.x + stepX, current.y + stepY);
+            }
+
+            return false;
         }
 
         internal static bool IsForwardProjectilePathBlockedByActiveBarricade(
