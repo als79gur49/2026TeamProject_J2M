@@ -877,6 +877,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CombatWindupPoseQueries_ActiveBarricade_ClassifiesForwardPathBlockedByTileFeature()
+        {
+            // BlackEye x effective Active Barricade is not a current production gameplay contract:
+            // BlackEye participates on BottomFace, while active Barricade is FrontFaceOnly.
+            // This guard protects path classification only, not a full gameplay scenario.
+            var barricade = CreateTileFeature(100, new SurfaceCell(FaceId.Front, 2, 0), TileFeatureKind.Barricade);
+            var worldState = CreateTileFeaturePathWorld(barricade);
+
+            var blocked = CombatWindupPoseQueries.IsForwardProjectilePathBlockedByActiveBarricade(
+                worldState.CreateSnapshot(),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 4, 0),
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
+
+            Assert.That(blocked, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CombatWindupPoseQueries_InactiveBarricade_DoesNotClassifyBlocked()
+        {
+            var barricade = CreateTileFeature(101, new SurfaceCell(FaceId.Front, 2, 0), TileFeatureKind.Barricade);
+            var worldState = CreateTileFeaturePathWorld(barricade);
+
+            var blocked = CombatWindupPoseQueries.IsForwardProjectilePathBlockedByActiveBarricade(
+                worldState.CreateSnapshot(),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 4, 0),
+                new[] { CreateDefinition(101, TileFeatureActivationRule.BottomFaceOnly) });
+
+            Assert.That(blocked, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CombatWindupPoseQueries_DestroyTile_DoesNotClassifyBarricadeBlocked()
+        {
+            var destroyTile = CreateTileFeature(102, new SurfaceCell(FaceId.Front, 2, 0), TileFeatureKind.Destroy);
+            var worldState = CreateTileFeaturePathWorld(destroyTile);
+
+            var blocked = CombatWindupPoseQueries.IsForwardProjectilePathBlockedByActiveBarricade(
+                worldState.CreateSnapshot(),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 4, 0),
+                new[] { CreateDefinition(102, TileFeatureActivationRule.FrontFaceOnly) });
+
+            Assert.That(blocked, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CombatWindupPoseQueries_OtherFaceBarricade_Ignored()
+        {
+            var barricade = CreateTileFeature(103, new SurfaceCell(FaceId.Back, 2, 0), TileFeatureKind.Barricade);
+            var worldState = CreateTileFeaturePathWorld(barricade);
+
+            var blocked = CombatWindupPoseQueries.IsForwardProjectilePathBlockedByActiveBarricade(
+                worldState.CreateSnapshot(),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 4, 0),
+                new[] { CreateDefinition(103, TileFeatureActivationRule.Always) });
+
+            Assert.That(blocked, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void WindupForwardCellProjectile_NonSettledEnemy_BlocksWindupStart()
         {
             var worldState = CreateCombatWorld(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
@@ -1074,6 +1141,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)));
         }
 
+        private static WorldState CreateTileFeaturePathWorld(params TileFeatureState[] tileFeatures)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)),
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                tileFeatures);
+        }
+
         private static EntityState CreateUnit(
             int entityId,
             int teamId,
@@ -1101,6 +1178,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 aiMode = aiMode,
                 aiStateTimer = 0,
             };
+        }
+
+        private static TileFeatureState CreateTileFeature(
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind kind)
+        {
+            return new TileFeatureState(
+                tileId,
+                cell,
+                kind,
+                TileFeatureFlags.None,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0,
+                lifetimeTicks: 0,
+                charges: 0);
+        }
+
+        private static TileFeatureRuntimeDefinition CreateDefinition(
+            int tileId,
+            TileFeatureActivationRule activationRule)
+        {
+            return new TileFeatureRuntimeDefinition(
+                tileId,
+                activationRule,
+                Direction2D.None,
+                TileFeatureBoxSelector.None,
+                boundEntityId: 0,
+                presentationKey: string.Empty);
         }
 
         private static EntityState GetEntity(WorldState worldState, int entityId)

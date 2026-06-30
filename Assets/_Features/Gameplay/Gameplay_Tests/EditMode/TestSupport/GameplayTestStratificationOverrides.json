@@ -3482,16 +3482,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BlackEyeWindupProjectileRuntimeContractTests.BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedBarricadeBlocksWindupStart",
-      "category": "Core",
-      "contracts": [
-        "tile_feature_policy",
-        "forward_cell_projectile_runtime_contract"
-      ],
-      "reason": "Locked Core representative coverage that BlackEye forward-cell projectile windup uses active Barricade blocker policy on its runtime acquisition path.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.RocketFaceChargeRuntimeContractTests.EnemyCharge_RocketFaceProfile_ActivatedBarricadeStopsActiveChargeAndThenRecovers",
       "category": "Core",
       "contracts": [
