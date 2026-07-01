@@ -993,21 +993,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VisibilityTrackCandidateCollection_RunsAfterFinalVisibilityResolution()
+        public void RetainedTransitionFinalWriteOnly_SelectedSourcesResolveBeforeApplier()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
             var jumpCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectJumpDetachedVisibility",
                 StringComparison.Ordinal);
+            var retainedCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectRetainedDeathOrExitVisibility",
+                StringComparison.Ordinal);
+            var transitionCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
+                StringComparison.Ordinal);
             var resolveIndex = source.IndexOf(
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
-                StringComparison.Ordinal);
-            var transitionCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
                 StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
@@ -1017,25 +1020,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringComparison.Ordinal);
 
             Assert.That(jumpCollectIndex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(resolveIndex, Is.GreaterThan(jumpCollectIndex));
+            Assert.That(retainedCollectIndex, Is.GreaterThan(jumpCollectIndex));
+            Assert.That(transitionCollectIndex, Is.GreaterThan(retainedCollectIndex));
+            Assert.That(resolveIndex, Is.GreaterThan(transitionCollectIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(transitionCollectIndex, Is.GreaterThan(genericCollectIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(transitionCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(trackCollectIndex, Is.GreaterThan(resolveIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
         }
 
         [Test]
         [Category("Core")]
-        public void TransitionEntityVisibilityCandidateCollection_RunsAfterFinalVisibilityResolution()
+        public void RetainedTransitionFinalWriteOnly_UsesSingleResolveCandidatesCall()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
-            var resolveIndex = source.IndexOf(
-                "_resolvedVisibilityResolver.ResolveCandidates",
-                StringComparison.Ordinal);
-            var genericCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+            var jumpCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectJumpDetachedVisibility",
                 StringComparison.Ordinal);
             var retainedCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectRetainedDeathOrExitVisibility",
@@ -1043,6 +1044,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var transitionCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
                 StringComparison.Ordinal);
+            var resolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                StringComparison.Ordinal);
+            var genericCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
                 StringComparison.Ordinal);
@@ -1054,18 +1061,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 resolveIndex + 1,
                 StringComparison.Ordinal);
 
-            Assert.That(resolveIndex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(retainedCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(jumpCollectIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(retainedCollectIndex, Is.GreaterThan(jumpCollectIndex));
             Assert.That(transitionCollectIndex, Is.GreaterThan(retainedCollectIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(transitionCollectIndex));
+            Assert.That(resolveIndex, Is.GreaterThan(transitionCollectIndex));
+            Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
             Assert.That(secondResolveIndex, Is.EqualTo(-1));
         }
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_DoesNotWriteGenericCandidatesToFinalSet()
+        public void RetainedTransitionFinalWriteOnly_GenericAndTrackRemainShadowOnly()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
@@ -1090,9 +1098,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringComparison.Ordinal);
 
             Assert.That(resolveIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(transitionCollectIndex, Is.LessThan(resolveIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(transitionCollectIndex, Is.GreaterThan(genericCollectIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(transitionCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
             Assert.That(secondResolveIndex, Is.EqualTo(-1));
         }

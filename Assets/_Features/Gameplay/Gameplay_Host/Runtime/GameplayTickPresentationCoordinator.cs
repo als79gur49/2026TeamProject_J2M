@@ -1132,6 +1132,13 @@ namespace Game.Feature.Gameplay.Host
                 _lastPresentedTickIndex,
                 _resolvedPresentationFrames,
                 _presentationVisibilityCandidates);
+            _visibilityCandidateCollector.CollectRetainedDeathOrExitVisibility(
+                _lastPresentedTickIndex,
+                _resolvedPresentationFrames,
+                _presentationVisibilityCandidates);
+            _visibilityCandidateCollector.CollectTransitionEntityVisibility(
+                _lastPresentedTickIndex,
+                _presentationVisibilityCandidates);
             _resolvedVisibilityResolver.ResolveCandidates(
                 _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
@@ -1143,13 +1150,6 @@ namespace Game.Feature.Gameplay.Host
                     _lastPresentedTickIndex,
                     _presentationVisibilityCandidates);
             }
-            _visibilityCandidateCollector.CollectRetainedDeathOrExitVisibility(
-                _lastPresentedTickIndex,
-                _resolvedPresentationFrames,
-                _presentationVisibilityCandidates);
-            _visibilityCandidateCollector.CollectTransitionEntityVisibility(
-                _lastPresentedTickIndex,
-                _presentationVisibilityCandidates);
             _visibilityCandidateCollector.CollectVisibilityTrackSamples(
                 deltaTime,
                 _lastPresentedTickIndex,
