@@ -1139,10 +1139,18 @@ namespace Game.Feature.Gameplay.Host
             _visibilityCandidateCollector.CollectTransitionEntityVisibility(
                 _lastPresentedTickIndex,
                 _presentationVisibilityCandidates);
+            var visibilityChanges = _lastPresentedResult?.PresentationData?.VisibilityChanges;
+            if (visibilityChanges != null)
+            {
+                _visibilityCandidateCollector.CollectGenericVisibilitySpawnOnly(
+                    visibilityChanges,
+                    _lastPresentedTickIndex,
+                    _presentationVisibilityCandidates);
+            }
+
             _resolvedVisibilityResolver.ResolveCandidates(
                 _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
-            var visibilityChanges = _lastPresentedResult?.PresentationData?.VisibilityChanges;
             if (visibilityChanges != null)
             {
                 _visibilityCandidateCollector.CollectGenericVisibilityChanges(

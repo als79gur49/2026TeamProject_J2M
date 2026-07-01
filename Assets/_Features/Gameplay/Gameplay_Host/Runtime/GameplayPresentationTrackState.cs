@@ -696,6 +696,51 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void CollectGenericVisibilitySpawnOnly(
+            IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            int sourceTick,
+            PresentationVisibilityCandidateSet candidateSet)
+        {
+            if (visibilityChanges == null)
+            {
+                throw new System.ArgumentNullException(nameof(visibilityChanges));
+            }
+
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            HashSet<int> suppressedSpawnEntityIds = null;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.EntityId <= 0 ||
+                    change.ChangeKind != TickVisibilityChangeKind.Detach &&
+                    change.ChangeKind != TickVisibilityChangeKind.Remove)
+                {
+                    continue;
+                }
+
+                suppressedSpawnEntityIds ??= new HashSet<int>();
+                suppressedSpawnEntityIds.Add(change.EntityId);
+            }
+
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.ChangeKind != TickVisibilityChangeKind.Spawn ||
+                    suppressedSpawnEntityIds != null &&
+                    suppressedSpawnEntityIds.Contains(change.EntityId) ||
+                    !TryCreateGenericVisibilityCandidate(change, sourceTick, out var candidate))
+                {
+                    continue;
+                }
+
+                candidateSet.AddCandidate(candidate);
+            }
+        }
+
         public void CollectRetainedDeathOrExitVisibility(
             int sourceTick,
             ResolvedPresentationFrameSet resolvedFrames,
