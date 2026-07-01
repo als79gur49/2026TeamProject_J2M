@@ -6217,6 +6217,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void VisibilityTrack_SampleWithoutAdvance_DoesNotAdvanceTrack()
+        {
+            var track = VisibilityTrack.CreateHide(0.2f);
+
+            for (var i = 0; i < 3; i++)
+            {
+                var sample = track.SampleWithoutAdvance();
+
+                Assert.That(sample.IsVisible, Is.True);
+                Assert.That(sample.IsCompleted, Is.False);
+                Assert.That(sample.FinalVisibility, Is.False);
+                Assert.That(sample.Progress01, Is.EqualTo(0f).Within(0.0001f));
+            }
+
+            var visibleAfterHalfAdvance = track.SampleAndAdvance(0.1f, fallbackVisibility: true);
+
+            Assert.That(visibleAfterHalfAdvance, Is.True);
+
+            var halfAdvancedSample = track.SampleWithoutAdvance();
+            Assert.That(halfAdvancedSample.IsVisible, Is.True);
+            Assert.That(halfAdvancedSample.IsCompleted, Is.False);
+            Assert.That(halfAdvancedSample.Progress01, Is.EqualTo(0.5f).Within(0.0001f));
+
+            var visibleAfterCompleteAdvance = track.SampleAndAdvance(0.1f, fallbackVisibility: true);
+
+            Assert.That(visibleAfterCompleteAdvance, Is.False);
+            Assert.That(track.IsComplete, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrack_SampleWithoutAdvance_MatchesSampleAndAdvanceBeforeAdvance()
+        {
+            var readOnlyTrack = VisibilityTrack.CreateHide(0.2f);
+            var advancingTrack = VisibilityTrack.CreateHide(0.2f);
+
+            var readOnlySample = readOnlyTrack.SampleWithoutAdvance();
+            var advancedVisibility = advancingTrack.SampleAndAdvance(0f, fallbackVisibility: true);
+
+            Assert.That(readOnlySample.IsVisible, Is.EqualTo(advancedVisibility));
+            Assert.That(readOnlySample.IsCompleted, Is.EqualTo(advancingTrack.IsComplete));
+            Assert.That(readOnlySample.FinalVisibility, Is.EqualTo(advancingTrack.TargetVisibility));
+            Assert.That(readOnlySample.Progress01, Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
         [Category("Full")]
         public void GameplayTickViewPresenter_DetachVisibility_KeepsTargetVisibleUntilTrackCompletes()
         {

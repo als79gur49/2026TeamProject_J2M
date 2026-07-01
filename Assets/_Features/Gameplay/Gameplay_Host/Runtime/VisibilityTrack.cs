@@ -3,6 +3,29 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct VisibilityTrackSample
+    {
+        public VisibilityTrackSample(
+            bool isVisible,
+            bool isCompleted,
+            bool finalVisibility,
+            float progress01)
+        {
+            IsVisible = isVisible;
+            IsCompleted = isCompleted;
+            FinalVisibility = finalVisibility;
+            Progress01 = Mathf.Clamp01(progress01);
+        }
+
+        public bool IsVisible { get; }
+
+        public bool IsCompleted { get; }
+
+        public bool FinalVisibility { get; }
+
+        public float Progress01 { get; }
+    }
+
     public sealed class VisibilityTrack
     {
         private readonly VisibilityClip _clip;
@@ -39,6 +62,11 @@ namespace Game.Feature.Gameplay.Host
         public bool SampleAndAdvance(float deltaTime, bool fallbackVisibility)
         {
             return _clip.SampleAndAdvance(deltaTime, fallbackVisibility);
+        }
+
+        public VisibilityTrackSample SampleWithoutAdvance()
+        {
+            return _clip.SampleWithoutAdvance();
         }
     }
 
@@ -91,15 +119,29 @@ namespace Game.Feature.Gameplay.Host
                 ElapsedSeconds = Mathf.Min(DurationSeconds, ElapsedSeconds + deltaTime);
             }
 
+            return SampleWithoutAdvance().IsVisible;
+        }
+
+        public VisibilityTrackSample SampleWithoutAdvance()
+        {
             if (DurationSeconds <= 0f)
             {
-                return FinalVisibility;
+                return new VisibilityTrackSample(
+                    FinalVisibility,
+                    true,
+                    FinalVisibility,
+                    1f);
             }
 
             var normalizedTime = Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
-            return normalizedTime >= TransitionThreshold
+            var isVisible = normalizedTime >= TransitionThreshold
                 ? FinalVisibility
                 : InitialVisibility;
+            return new VisibilityTrackSample(
+                isVisible,
+                IsComplete,
+                FinalVisibility,
+                normalizedTime);
         }
     }
 }
