@@ -3739,11 +3739,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void Barricade_BlockedPath_PreservesPinnedSnapshotBudget()
         {
-            RunBarricadeBlockedBudgetScenario(includeBarricade: true);
-            var baselineCounts = RunBarricadeBlockedBudgetScenario(includeBarricade: true);
-            var counts = RunBarricadeBlockedBudgetScenario(includeBarricade: true);
+            var baselineCounts = RunBarricadeBlockedBudgetScenario(
+                includeBarricade: false,
+                out var baselineWorldState,
+                out var baselineResult);
+            var counts = RunBarricadeBlockedBudgetScenario(
+                includeBarricade: true,
+                out var blockedWorldState,
+                out var blockedResult);
 
-            AssertSameProjectedSnapshotBudget(baselineCounts, counts);
+            AssertBarricadeBlockedSnapshotBudget(baselineCounts, counts);
+            AssertBarricadeBaselinePathMoved(baselineWorldState, baselineResult);
+            AssertBarricadeBlockedPathPreservedState(blockedWorldState, blockedResult);
         }
 
         [Test]
@@ -4808,12 +4815,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DefaultResolver_NoButtonStage_PreservesSnapshotBudget()
+        public void DefaultResolver_ExitTileWithoutButton_DoesNotEmitOperationOrIncreaseSnapshotBudget()
         {
-            var baselineCounts = RunDefaultResolverNoButtonStageBudgetScenario(includeExitTile: false);
-            var counts = RunDefaultResolverNoButtonStageBudgetScenario(includeExitTile: true);
+            var baselineCounts = RunDefaultResolverExitTileBudgetScenario(
+                includeExitTile: false,
+                out _,
+                out _);
+            var counts = RunDefaultResolverExitTileBudgetScenario(
+                includeExitTile: true,
+                out var worldState,
+                out var result);
 
             AssertSameProjectedSnapshotBudget(baselineCounts, counts);
+            Assert.That(result.PresentationData.TileEvents, Is.Empty, "no button stage: exit tile alone must not emit tile events");
+            Assert.That(result.PresentationData.EntityExitSignals, Is.Empty, "no button stage: exit tile alone must not emit entity exit operations");
+            Assert.That(result.EventLog, Is.Empty, "no button stage: exit tile alone must not record tile-effect operations");
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetTileFeature(10, out var storedExit), Is.True);
+            Assert.That(storedExit.Kind, Is.EqualTo(TileFeatureKind.Exit));
+            Assert.That(storedExit.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(storedExit.Flags, Is.EqualTo(TileFeatureFlags.None));
         }
 
         [Test]
@@ -5167,13 +5188,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return capture.Counts;
         }
 
-        private static SnapshotMaterializationCounts RunBarricadeBlockedBudgetScenario(bool includeBarricade)
+        private static SnapshotMaterializationCounts RunBarricadeBlockedBudgetScenario(
+            bool includeBarricade,
+            out WorldState worldState,
+            out TickResult result)
         {
             var barricadeCell = new SurfaceCell(FaceId.Front, 2, 0);
             var tileFeatures = includeBarricade
                 ? new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) }
                 : Array.Empty<TileFeatureState>();
-            var worldState = CreateWorldState(
+            worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
@@ -5190,9 +5214,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new ScriptedMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)),
                 });
 
-            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
-            pipeline.RunTick(new TickInput(7));
-            return capture.Counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                result = pipeline.RunTick(new TickInput(7));
+                return capture.Counts;
+            }
         }
 
         private static SnapshotMaterializationCounts RunBarricadeNoTransitionBudgetScenario(bool includeBarricade)
@@ -5470,17 +5496,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(expected.ProjectedWorldEmptyApplyBatchCount));
         }
 
-        private static SnapshotMaterializationCounts RunDefaultResolverNoButtonStageBudgetScenario(bool includeExitTile)
+        private static void AssertBarricadeBaselinePathMoved(
+            WorldState worldState,
+            TickResult result)
+        {
+            Assert.That(
+                result.PresentationData.TileEvents.Any(tileEvent => tileEvent.EventKind == TilePresentationEventKind.BarricadeBlocked),
+                Is.False,
+                "barricade budget baseline: no-barricade path must not share the blocked event contract");
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var unit), Is.True);
+            Assert.That(unit.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 2, 0)));
+        }
+
+        private static void AssertBarricadeBlockedPathPreservedState(
+            WorldState worldState,
+            TickResult result)
+        {
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons,
+                Has.Some.Contains("Reason=BoxSlideBlockedByBarricade"),
+                "barricade budget sentinel: target scenario must exercise the blocked path");
+            Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+            var tileEvent = result.PresentationData.TileEvents[0];
+            Assert.That(tileEvent.EventKind, Is.EqualTo(TilePresentationEventKind.BarricadeBlocked));
+            Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var unit), Is.True);
+            Assert.That(unit.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(snapshot.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+        }
+
+        private static void AssertBarricadeBlockedSnapshotBudget(
+            SnapshotMaterializationCounts noBarricadeBaseline,
+            SnapshotMaterializationCounts blockedPath)
+        {
+            Assert.That(
+                blockedPath.WorldStateCreateSnapshotCount,
+                Is.EqualTo(noBarricadeBaseline.WorldStateCreateSnapshotCount),
+                "barricade budget sentinel: blocked path should not add authoritative WorldState snapshots");
+            Assert.That(
+                blockedPath.ProjectedWorldMaterializedSnapshotCount,
+                Is.EqualTo(noBarricadeBaseline.ProjectedWorldMaterializedSnapshotCount),
+                "barricade budget sentinel: blocked path should not add projected snapshot materialization");
+            Assert.That(
+                blockedPath.ProjectedWorldCacheHitCount,
+                Is.EqualTo(noBarricadeBaseline.ProjectedWorldCacheHitCount),
+                "barricade budget sentinel: blocked path should preserve projected snapshot cache reuse");
+            Assert.That(
+                blockedPath.ProjectedWorldApplyBatchCount,
+                Is.EqualTo(noBarricadeBaseline.ProjectedWorldApplyBatchCount),
+                "barricade budget sentinel: blocked path should not add projected batch applications");
+            Assert.That(
+                blockedPath.ProjectedWorldEmptyApplyBatchCount,
+                Is.EqualTo(noBarricadeBaseline.ProjectedWorldEmptyApplyBatchCount + 1),
+                "barricade budget sentinel: blocked path may add exactly one empty projected batch for the blocked barricade effect");
+        }
+
+        private static SnapshotMaterializationCounts RunDefaultResolverExitTileBudgetScenario(
+            bool includeExitTile,
+            out WorldState worldState,
+            out TickResult result)
         {
             var tileFeatures = includeExitTile
                 ? new[] { CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 1, 1), TileFeatureKind.Exit) }
                 : Array.Empty<TileFeatureState>();
-            var worldState = CreateWorldState(Array.Empty<EntityState>(), tileFeatures);
+            worldState = CreateWorldState(Array.Empty<EntityState>(), tileFeatures);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
-            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
-            pipeline.RunTick(new TickInput(7));
-            return capture.Counts;
+            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
+            {
+                result = pipeline.RunTick(new TickInput(7));
+                return capture.Counts;
+            }
         }
 
         private static SnapshotMaterializationCounts RunInactiveTopologyButtonBudgetScenario(
