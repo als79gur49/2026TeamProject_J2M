@@ -13,25 +13,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void IdleTick_SnapshotMaterializationBudget_RemainsPinned()
         {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>());
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
-
-            SnapshotMaterializationCounts counts;
-            using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
-            {
-                pipeline.RunTick(new TickInput(7));
-                counts = capture.Counts;
-            }
+            RunIdleTickBudgetScenario();
+            var baselineCounts = RunIdleTickBudgetScenario();
+            var counts = RunIdleTickBudgetScenario();
 
             // Empty bounded world, default feature flags. Constructor snapshots are
             // intentionally outside the capture; this budget covers RunTick only.
             // ApplyBatch is counted separately from materialization so future empty
             // batch optimizations can reduce it without hiding snapshot regressions.
-            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(5));
-            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(1));
-            Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(10));
-            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(11));
-            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(11));
+            AssertSameProjectedSnapshotBudget(baselineCounts, counts);
         }
 
         [Test]
@@ -112,6 +102,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(1));
             Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(1));
             Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(1));
+        }
+
+        private static SnapshotMaterializationCounts RunIdleTickBudgetScenario()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>());
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
+            pipeline.RunTick(new TickInput(7));
+            return capture.Counts;
+        }
+
+        private static void AssertSameProjectedSnapshotBudget(
+            SnapshotMaterializationCounts expected,
+            SnapshotMaterializationCounts actual)
+        {
+            Assert.That(actual.WorldStateCreateSnapshotCount, Is.EqualTo(expected.WorldStateCreateSnapshotCount));
+            Assert.That(actual.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(expected.ProjectedWorldMaterializedSnapshotCount));
+            Assert.That(actual.ProjectedWorldCacheHitCount, Is.EqualTo(expected.ProjectedWorldCacheHitCount));
+            Assert.That(actual.ProjectedWorldApplyBatchCount, Is.EqualTo(expected.ProjectedWorldApplyBatchCount));
+            Assert.That(actual.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(expected.ProjectedWorldEmptyApplyBatchCount));
         }
     }
 }

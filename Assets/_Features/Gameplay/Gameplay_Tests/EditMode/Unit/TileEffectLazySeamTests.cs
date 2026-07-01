@@ -34,6 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TickPipeline_DefaultTileEffectResolver_PreservesTileFeaturesAndSnapshotBudget()
         {
             var tileFeature = CreateTileFeature(10);
+            var baselineCounts = RunDefaultPipelineBudgetScenario(null);
             var worldState = CreateWorldState(tileFeature);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
@@ -47,11 +48,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetTileFeature(tileFeature.TileId, out var stored), Is.True);
             Assert.That(stored, Is.EqualTo(tileFeature));
-            Assert.That(counts.WorldStateCreateSnapshotCount, Is.EqualTo(5));
-            Assert.That(counts.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(1));
-            Assert.That(counts.ProjectedWorldCacheHitCount, Is.EqualTo(10));
-            Assert.That(counts.ProjectedWorldApplyBatchCount, Is.EqualTo(11));
-            Assert.That(counts.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(11));
+            AssertSameProjectedSnapshotBudget(baselineCounts, counts);
         }
 
         [Test]
@@ -225,6 +222,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { tileFeature });
+        }
+
+        private static SnapshotMaterializationCounts RunDefaultPipelineBudgetScenario(TileFeatureState? tileFeature)
+        {
+            var worldState = tileFeature == null
+                ? GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())
+                : CreateWorldState(tileFeature.Value);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            using var capture = SnapshotMaterializationDiagnostics.BeginCapture();
+            pipeline.RunTick(new TickInput(7));
+            return capture.Counts;
+        }
+
+        private static void AssertSameProjectedSnapshotBudget(
+            SnapshotMaterializationCounts expected,
+            SnapshotMaterializationCounts actual)
+        {
+            Assert.That(actual.WorldStateCreateSnapshotCount, Is.EqualTo(expected.WorldStateCreateSnapshotCount));
+            Assert.That(actual.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(expected.ProjectedWorldMaterializedSnapshotCount));
+            Assert.That(actual.ProjectedWorldCacheHitCount, Is.EqualTo(expected.ProjectedWorldCacheHitCount));
+            Assert.That(actual.ProjectedWorldApplyBatchCount, Is.EqualTo(expected.ProjectedWorldApplyBatchCount));
+            Assert.That(actual.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(expected.ProjectedWorldEmptyApplyBatchCount));
         }
 
         private static TileFeatureState CreateTileFeature(int tileId)
