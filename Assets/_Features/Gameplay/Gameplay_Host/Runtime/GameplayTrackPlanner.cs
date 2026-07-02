@@ -1326,9 +1326,15 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var highestPriorityChanges = new Dictionary<int, TickVisibilityChange>();
+            _trackState.PresentationVisibilityCandidates.Clear();
+            _trackState.ResolvedEntityPresentationVisibilityByEntityId.Clear();
             for (var i = 0; i < presentationData.VisibilityChanges.Count; i++)
             {
                 var change = presentationData.VisibilityChanges[i];
+                _trackState.PresentationVisibilityCandidates.Add(
+                    PresentationVisibilityCandidate.FromChange(
+                        change,
+                        GetVisibilityPriority(change.ChangeKind)));
                 if (!highestPriorityChanges.TryGetValue(change.EntityId, out var existingChange) ||
                     GetVisibilityPriority(change.ChangeKind) > GetVisibilityPriority(existingChange.ChangeKind))
                 {
@@ -1371,6 +1377,29 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore.RetainedLocalTargetPoses[entityId] = retainedLocalPose;
                 _trackState.VisibilityTracks[entityId] = VisibilityTrack.CreateHide(
                     _motionTimingResolver.ResolveVisibilityDurationSeconds(entityId, change.ChangeKind, timingProfile));
+            }
+
+            ResolveCurrentPresentationVisibilitySamples();
+        }
+
+        private void ResolveCurrentPresentationVisibilitySamples()
+        {
+            foreach (var pair in _trackState.PresentationVisibilityCandidates.HighestPriorityByEntityId)
+            {
+                var entityId = pair.Key;
+                if (!_trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
+                {
+                    continue;
+                }
+
+                var sample = visibilityTrack.SampleWithoutAdvance();
+                _trackState.ResolvedEntityPresentationVisibilityByEntityId[entityId] =
+                    new ResolvedEntityPresentationVisibility(
+                        entityId,
+                        pair.Value.ChangeKind,
+                        sample.IsVisible,
+                        sample.IsCompleted,
+                        sample);
             }
         }
 

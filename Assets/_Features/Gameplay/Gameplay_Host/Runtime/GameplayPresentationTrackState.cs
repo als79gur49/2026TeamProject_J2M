@@ -155,6 +155,119 @@ namespace Game.Feature.Gameplay.Host
         public RotationTrack Track { get; }
     }
 
+    internal readonly struct PresentationVisibilityCandidate
+    {
+        public PresentationVisibilityCandidate(
+            int entityId,
+            TickVisibilityChangeKind changeKind,
+            SurfaceCell sourceCell,
+            CubeTopologyState sourceTopology,
+            Direction facing,
+            int priority)
+        {
+            EntityId = entityId;
+            ChangeKind = changeKind;
+            SourceCell = sourceCell;
+            SourceTopology = sourceTopology;
+            Facing = facing;
+            Priority = priority;
+        }
+
+        public int EntityId { get; }
+
+        public TickVisibilityChangeKind ChangeKind { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public CubeTopologyState SourceTopology { get; }
+
+        public Direction Facing { get; }
+
+        public int Priority { get; }
+
+        public bool IsGenericDetachOrRemove =>
+            ChangeKind == TickVisibilityChangeKind.Detach ||
+            ChangeKind == TickVisibilityChangeKind.Remove;
+
+        public static PresentationVisibilityCandidate FromChange(
+            TickVisibilityChange change,
+            int priority)
+        {
+            return new PresentationVisibilityCandidate(
+                change.EntityId,
+                change.ChangeKind,
+                change.Cell,
+                change.Topology,
+                change.Facing,
+                priority);
+        }
+    }
+
+    internal readonly struct ResolvedEntityPresentationVisibility
+    {
+        public ResolvedEntityPresentationVisibility(
+            int entityId,
+            TickVisibilityChangeKind sourceKind,
+            bool isVisible,
+            bool isCompleted,
+            VisibilityTrackSample trackSample)
+        {
+            EntityId = entityId;
+            SourceKind = sourceKind;
+            IsVisible = isVisible;
+            IsCompleted = isCompleted;
+            TrackSample = trackSample;
+        }
+
+        public int EntityId { get; }
+
+        public TickVisibilityChangeKind SourceKind { get; }
+
+        public bool IsVisible { get; }
+
+        public bool IsCompleted { get; }
+
+        public VisibilityTrackSample TrackSample { get; }
+    }
+
+    internal sealed class PresentationVisibilityCandidateSet
+    {
+        private readonly Dictionary<int, PresentationVisibilityCandidate> _highestPriorityByEntityId = new();
+        private readonly List<PresentationVisibilityCandidate> _orderedCandidates = new();
+
+        public IReadOnlyList<PresentationVisibilityCandidate> OrderedCandidates => _orderedCandidates;
+
+        public IReadOnlyDictionary<int, PresentationVisibilityCandidate> HighestPriorityByEntityId =>
+            _highestPriorityByEntityId;
+
+        public void Clear()
+        {
+            _highestPriorityByEntityId.Clear();
+            _orderedCandidates.Clear();
+        }
+
+        public void Add(PresentationVisibilityCandidate candidate)
+        {
+            if (_highestPriorityByEntityId.TryGetValue(candidate.EntityId, out var existing) &&
+                existing.Priority >= candidate.Priority)
+            {
+                return;
+            }
+
+            _highestPriorityByEntityId[candidate.EntityId] = candidate;
+            for (var i = 0; i < _orderedCandidates.Count; i++)
+            {
+                if (_orderedCandidates[i].EntityId == candidate.EntityId)
+                {
+                    _orderedCandidates[i] = candidate;
+                    return;
+                }
+            }
+
+            _orderedCandidates.Add(candidate);
+        }
+    }
+
     internal sealed class GameplayPresentationTrackState
     {
         private readonly List<int> _completedFlipInteractionTrackIds = new();
@@ -192,6 +305,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _presentationEventTargetEntityIds = new();
         private readonly Dictionary<int, PresentationMotionTrack> _originalViewMotionTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
+        private readonly PresentationVisibilityCandidateSet _presentationVisibilityCandidates = new();
+        private readonly Dictionary<int, ResolvedEntityPresentationVisibility>
+            _resolvedEntityPresentationVisibilityByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
         private readonly BoxMotionProductionTelemetryState _boxMotionTelemetry = new();
@@ -268,6 +384,11 @@ namespace Game.Feature.Gameplay.Host
         public Dictionary<int, TickPlayerLocomotionPresentationSignal> PlayerLocomotionSignalsByEntityId =>
             _playerLocomotionSignalsByEntityId;
 
+        public PresentationVisibilityCandidateSet PresentationVisibilityCandidates => _presentationVisibilityCandidates;
+
+        public Dictionary<int, ResolvedEntityPresentationVisibility> ResolvedEntityPresentationVisibilityByEntityId =>
+            _resolvedEntityPresentationVisibilityByEntityId;
+
         public HashSet<int> VisibleEntityIds => _visibleEntityIds;
 
         public Dictionary<int, VisibilityTrack> VisibilityTracks => _visibilityTracks;
@@ -316,6 +437,8 @@ namespace Game.Feature.Gameplay.Host
             _presentationEventTargetEntityIds.Clear();
             _originalViewMotionTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();
+            _presentationVisibilityCandidates.Clear();
+            _resolvedEntityPresentationVisibilityByEntityId.Clear();
             _visibleEntityIds.Clear();
             _visibilityTracks.Clear();
         }

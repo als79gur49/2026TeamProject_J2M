@@ -6409,6 +6409,195 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GenericVisibilityCandidateSet_SameEntityPriority_RemoveBeatsDetachBeatsSpawn()
+        {
+            var set = new PresentationVisibilityCandidateSet();
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+            set.Add(new PresentationVisibilityCandidate(
+                20,
+                TickVisibilityChangeKind.Spawn,
+                sourceCell,
+                topology,
+                Direction.Up,
+                priority: 1));
+            set.Add(new PresentationVisibilityCandidate(
+                20,
+                TickVisibilityChangeKind.Detach,
+                sourceCell,
+                topology,
+                Direction.Up,
+                priority: 2));
+            set.Add(new PresentationVisibilityCandidate(
+                20,
+                TickVisibilityChangeKind.Remove,
+                sourceCell,
+                topology,
+                Direction.Up,
+                priority: 3));
+
+            Assert.That(set.OrderedCandidates, Has.Count.EqualTo(1));
+            Assert.That(set.HighestPriorityByEntityId.TryGetValue(20, out var candidate), Is.True);
+            Assert.That(candidate.ChangeKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
+            Assert.That(candidate.IsGenericDetachOrRemove, Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GenericVisibilityDetachRemove_ResolvesCurrentSampleWithoutCompletingTrackBeforeApplier()
+        {
+            var rootObject = new GameObject(
+                "GenericVisibilityDetachRemove_ResolvesCurrentSampleWithoutCompletingTrackBeforeApplier");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(30, sourceCell, facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(
+                                    30,
+                                    TickVisibilityChangeKind.Remove,
+                                    sourceCell,
+                                    topology,
+                                    Direction.Right),
+                            })));
+
+                var trackState = GetPresentationTrackState(presenter);
+
+                Assert.That(
+                    trackState.ResolvedEntityPresentationVisibilityByEntityId.TryGetValue(
+                        30,
+                        out var resolvedVisibility),
+                    Is.True);
+                Assert.That(resolvedVisibility.SourceKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
+                Assert.That(resolvedVisibility.IsVisible, Is.True);
+                Assert.That(resolvedVisibility.IsCompleted, Is.False);
+                Assert.That(resolvedVisibility.TrackSample.FinalVisibility, Is.False);
+                Assert.That(resolvedVisibility.TrackSample.Progress01, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(
+                    trackState.VisibilityTracks[30].SampleWithoutAdvance().Progress01,
+                    Is.EqualTo(0f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GenericVisibilityRemove_DoesNotSuppressRemoveCarrier()
+        {
+            var rootObject = new GameObject("GenericVisibilityRemove_DoesNotSuppressRemoveCarrier");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var visibilityChanges = new[]
+                {
+                    new TickVisibilityChange(
+                        30,
+                        TickVisibilityChangeKind.Remove,
+                        sourceCell,
+                        topology,
+                        Direction.Right),
+                };
+                var tickResult = CreateTickResult(
+                    Array.Empty<EntityState>(),
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        visibilityChanges: visibilityChanges));
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(30, sourceCell, facing: Direction.Right),
+                    },
+                    topology);
+                presenter.Present(tickResult);
+
+                var trackState = GetPresentationTrackState(presenter);
+
+                Assert.That(
+                    tickResult.PresentationData.VisibilityChanges.Any(
+                        change => change.EntityId == 30 &&
+                                  change.ChangeKind == TickVisibilityChangeKind.Remove),
+                    Is.True);
+                Assert.That(
+                    trackState.PresentationVisibilityCandidates.HighestPriorityByEntityId.TryGetValue(
+                        30,
+                        out var candidate),
+                    Is.True);
+                Assert.That(candidate.ChangeKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void GameplayTickViewPresenter_ItemConsumeSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration()
         {
@@ -7454,6 +7643,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData ?? TickPresentationData.Empty,
                 string.Empty,
                 TickTrace.Empty);
+        }
+
+        private static GameplayPresentationTrackState GetPresentationTrackState(GameplayTickViewPresenter presenter)
+        {
+            var coordinatorField = typeof(GameplayTickViewPresenter).GetField(
+                "_presentationCoordinator",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(coordinatorField, Is.Not.Null);
+            var coordinator = coordinatorField.GetValue(presenter);
+            Assert.That(coordinator, Is.Not.Null);
+
+            var trackStateField = typeof(GameplayTickPresentationCoordinator).GetField(
+                "_trackState",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(trackStateField, Is.Not.Null);
+            return (GameplayPresentationTrackState)trackStateField.GetValue(coordinator);
         }
 
         private static void PresentDirectTopologyTransition(
