@@ -438,9 +438,7 @@ namespace Game.Feature.Gameplay.Host
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {
-                    var visibleFromTrack = visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible);
                     var isCompleteAfterAdvance = visibilityTrack.AdvanceAndReportCompletion(deltaTime);
-                    isVisible = visibleFromTrack;
                     if (isCompleteAfterAdvance)
                     {
                         _trackState.CompletedVisibilityTrackIds.Add(entityId);

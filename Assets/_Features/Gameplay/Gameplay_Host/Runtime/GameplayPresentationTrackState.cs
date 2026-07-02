@@ -612,6 +612,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
+        private readonly PresentationVisibilityCandidateWinnerResolver _winnerResolver = new();
 
         public PresentationVisibilityCandidateCollector(
             GameplayPresentationStateStore stateStore,
@@ -829,7 +830,6 @@ namespace Game.Feature.Gameplay.Host
             float deltaTime,
             int sourceTick,
             ResolvedPresentationFrameSet resolvedFrames,
-            ResolvedPresentationVisibilitySet resolvedVisibility,
             PresentationVisibilityCandidateSet candidateSet)
         {
             if (deltaTime < 0f)
@@ -840,11 +840,6 @@ namespace Game.Feature.Gameplay.Host
             if (resolvedFrames == null)
             {
                 throw new System.ArgumentNullException(nameof(resolvedFrames));
-            }
-
-            if (resolvedVisibility == null)
-            {
-                throw new System.ArgumentNullException(nameof(resolvedVisibility));
             }
 
             if (candidateSet == null)
@@ -888,8 +883,10 @@ namespace Game.Feature.Gameplay.Host
                 var isDeathPresentationPlaying =
                     _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
-                var hasResolvedVisibility =
-                    resolvedVisibility.TryGetVisibility(entityId, out var resolvedEntityVisibility);
+                var hasResolvedVisibility = _winnerResolver.TryResolveCandidateWinner(
+                    candidateSet,
+                    entityId,
+                    out var resolvedEntityVisibility);
                 var fallbackVisibility = PresentationVisibilityFallbackResolver.Resolve(
                     new PresentationVisibilityFallbackInputs(
                         hasPresentationPoseOverride,

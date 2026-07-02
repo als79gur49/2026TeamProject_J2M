@@ -17084,7 +17084,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VisibilityTrackCandidateCollection_DoesNotChangeFinalVisibility()
+        public void VisibilityTrackFinalMigration_TrackSampleWritesProductionFinalSet()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17106,21 +17106,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 frames,
                 topology,
                 sourceTick: 77);
-            var resolver = new PresentationResolvedVisibilityResolver();
-            var visibility = new ResolvedPresentationVisibilitySet();
-            resolver.ResolveCandidates(candidates, visibility);
             CollectVisibilityTrackSamples(
                 stateStore,
                 trackState,
                 frames,
-                visibility,
                 candidates,
                 deltaTime: 1f,
                 sourceTick: 77);
+            var visibility = ResolveVisibilityFromCandidates(candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
-            Assert.That(resolved.IsVisible, Is.True);
-            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(resolved.IsVisible, Is.False);
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
             Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
             Assert.That(entityCandidates, Has.Count.EqualTo(2));
             var trackCandidate = entityCandidates.Single(candidate =>
@@ -17145,14 +17142,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             trackState.VisibilityTracks[40] = visibilityTrack;
 
             var frames = Resolve(stateStore, trackState, sourceTick: 77);
-            var visibility = new ResolvedPresentationVisibilitySet();
             var candidates = new PresentationVisibilityCandidateSet();
 
             CollectVisibilityTrackSamples(
                 stateStore,
                 trackState,
                 frames,
-                visibility,
                 candidates,
                 deltaTime: 1f,
                 sourceTick: 77);
@@ -17176,14 +17171,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             trackState.VisibilityTracks[40] = visibilityTrack;
 
             var frames = Resolve(stateStore, trackState, sourceTick: 77);
-            var visibility = new ResolvedPresentationVisibilitySet();
             var candidates = new PresentationVisibilityCandidateSet();
 
             CollectVisibilityTrackSamples(
                 stateStore,
                 trackState,
                 frames,
-                visibility,
                 candidates,
                 deltaTime: 1f,
                 sourceTick: 77);
@@ -17207,14 +17200,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             trackState.VisibilityTracks[40] = visibilityTrack;
 
             var frames = Resolve(stateStore, trackState, sourceTick: 77);
-            var visibility = new ResolvedPresentationVisibilitySet();
             var candidates = new PresentationVisibilityCandidateSet();
 
             CollectVisibilityTrackSamples(
                 stateStore,
                 trackState,
                 frames,
-                visibility,
                 candidates,
                 deltaTime: 1f,
                 sourceTick: 77);
@@ -18002,7 +17993,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void RetainedTransitionFinalWriteOnly_DoesNotFinalWriteVisibilityTrackSample()
+        public void VisibilityTrackFinalMigration_TrackSampleResolvesProductionFinalSet()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -18011,21 +18002,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             trackState.VisibilityTracks[40] = VisibilityTrack.CreateHide(durationSeconds: 1f);
             var frames = Resolve(stateStore, trackState, sourceTick: 77);
             var candidates = new PresentationVisibilityCandidateSet();
-            var visibility = ResolveVisibilityFromCandidates(candidates);
 
             CollectVisibilityTrackSamples(
                 stateStore,
                 trackState,
                 frames,
-                visibility,
                 candidates,
                 deltaTime: 1f,
                 sourceTick: 77);
+            var visibility = ResolveVisibilityFromCandidates(candidates);
 
             Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
             Assert.That(entityCandidates.Single().Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
-            Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
-            Assert.That(visibility.Count, Is.Zero);
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.False);
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
         }
 
         [Test]
@@ -18290,6 +18281,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
             Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
             Assert.That(winner.IsVisible, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackFinalMigration_TrackSampleBeatsGenericDetach()
+        {
+            AssertVisibilityTrackSampleBeatsGeneric(
+                PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                genericPriority: 300);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackFinalMigration_TrackSampleBeatsGenericSpawn()
+        {
+            AssertVisibilityTrackSampleBeatsGeneric(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                genericPriority: 200);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackFinalMigration_TransitionEntityBeatsTrackSample()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                isVisible: false,
+                priority: 500,
+                sourceTick: 88,
+                isStatefulTrackSample: true));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TransitionEntityVisibility,
+                isVisible: true,
+                priority: 600,
+                sourceTick: 88));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TransitionEntityVisibility));
+            Assert.That(winner.IsVisible, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackFinalMigration_TerminalSuppressionBeatsTrackSample()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                isVisible: false,
+                priority: 500,
+                sourceTick: 88,
+                isStatefulTrackSample: true));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression,
+                isVisible: true,
+                priority: 900,
+                sourceTick: 88,
+                isHighPrioritySuppressionSource: true));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression));
+            Assert.That(winner.IsVisible, Is.True);
+            Assert.That(winner.IsHighPrioritySuppressionSource, Is.True);
         }
 
         [Test]
@@ -18591,63 +18648,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_GenericDetachOnlyMatchesCurrentVisibilityAfterHideTrackCompletes()
+        public void VisibilityTrackFinalMigration_DetachHideTrackRemainsVisibleBeforeCompletion()
         {
-            var candidates = new PresentationVisibilityCandidateSet();
-            candidates.AddCandidate(CreateVisibilityCandidate(
-                PresentationVisibilitySourceKind.GenericVisibilityDetach,
-                isVisible: false,
-                priority: 300,
-                sourceTick: 88));
-
-            var winner = ResolveShadowWinner(candidates);
-            var immediateCurrentVisible = ResolveCurrentFinalVisible(
-                entityId: 40,
-                hasCommittedLocalTargetPose: true,
-                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
-                deltaTime: 0f);
-            var completedCurrentVisible = ResolveCurrentFinalVisible(
-                entityId: 40,
-                hasCommittedLocalTargetPose: true,
-                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
-                deltaTime: 1f);
-
-            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilityDetach));
-            Assert.That(immediateCurrentVisible, Is.Not.EqualTo(winner.IsVisible));
-            Assert.That(completedCurrentVisible, Is.EqualTo(winner.IsVisible));
+            AssertGenericHideTrackTiming(
+                TickVisibilityChangeKind.Detach,
+                expectedGenericSourceKind: PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                deltaTime: 0f,
+                expectedVisible: true);
         }
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_GenericRemoveOnlyMatchesCurrentVisibilityAfterHideTrackCompletes()
+        public void VisibilityTrackFinalMigration_DetachHideTrackHiddenAfterCompletion()
         {
-            var candidates = new PresentationVisibilityCandidateSet();
-            candidates.AddCandidate(CreateVisibilityCandidate(
-                PresentationVisibilitySourceKind.GenericVisibilityRemove,
-                isVisible: false,
-                priority: 400,
-                sourceTick: 88));
-
-            var winner = ResolveShadowWinner(candidates);
-            var immediateCurrentVisible = ResolveCurrentFinalVisible(
-                entityId: 40,
-                hasCommittedLocalTargetPose: true,
-                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
-                deltaTime: 0f);
-            var completedCurrentVisible = ResolveCurrentFinalVisible(
-                entityId: 40,
-                hasCommittedLocalTargetPose: true,
-                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
-                deltaTime: 1f);
-
-            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilityRemove));
-            Assert.That(immediateCurrentVisible, Is.Not.EqualTo(winner.IsVisible));
-            Assert.That(completedCurrentVisible, Is.EqualTo(winner.IsVisible));
+            AssertGenericHideTrackTiming(
+                TickVisibilityChangeKind.Detach,
+                expectedGenericSourceKind: PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                deltaTime: 1f,
+                expectedVisible: false);
         }
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_VisibilityTrackSampleOnlyMatchesCurrentTrackAdvance()
+        public void VisibilityTrackFinalMigration_RemoveHideTrackRemainsVisibleBeforeCompletion()
+        {
+            AssertGenericHideTrackTiming(
+                TickVisibilityChangeKind.Remove,
+                expectedGenericSourceKind: PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                deltaTime: 0f,
+                expectedVisible: true);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackFinalMigration_RemoveHideTrackHiddenAfterCompletion()
+        {
+            AssertGenericHideTrackTiming(
+                TickVisibilityChangeKind.Remove,
+                expectedGenericSourceKind: PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                deltaTime: 1f,
+                expectedVisible: false);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityTrackFinalMigration_VisibilityTrackSampleOnlyMatchesResolvedFinalVisibility()
         {
             var candidates = new PresentationVisibilityCandidateSet();
             var shadowTrack = VisibilityTrack.CreateHide(durationSeconds: 1f);
@@ -18659,14 +18704,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isStatefulTrackSample: true));
 
             var winner = ResolveShadowWinner(candidates);
-            var currentFinalVisible = ResolveCurrentFinalVisible(
-                entityId: 40,
-                hasCommittedLocalTargetPose: true,
-                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
-                deltaTime: 1f);
+            var resolvedVisibility = ResolveVisibilityFromCandidates(candidates);
 
             Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
-            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+            Assert.That(resolvedVisibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.EqualTo(winner.IsVisible));
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
         }
 
         [Test]
@@ -18723,7 +18766,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_VisibilityTrackSampleBeatsGenericRemoveAndMatchesCurrentTrackAdvance()
+        public void VisibilityTrackFinalMigration_VisibilityTrackSampleBeatsGenericRemoveInResolvedFinalVisibility()
         {
             var candidates = new PresentationVisibilityCandidateSet();
             candidates.AddCandidate(CreateVisibilityCandidate(
@@ -18741,14 +18784,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isStatefulTrackSample: true));
 
             var winner = ResolveShadowWinner(candidates);
-            var currentFinalVisible = ResolveCurrentFinalVisible(
-                entityId: 40,
-                hasCommittedLocalTargetPose: true,
-                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
-                deltaTime: 0f);
+            var resolvedVisibility = ResolveVisibilityFromCandidates(candidates);
 
             Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
-            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+            Assert.That(resolvedVisibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.EqualTo(winner.IsVisible));
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
         }
 
         [Test]
@@ -19011,13 +19052,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayPresentationStateStore stateStore,
             GameplayPresentationTrackState trackState,
             ResolvedPresentationFrameSet frames,
-            ResolvedPresentationVisibilitySet visibility,
             PresentationVisibilityCandidateSet candidates,
             float deltaTime,
             int sourceTick)
         {
             var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
-            collector.CollectVisibilityTrackSamples(deltaTime, sourceTick, frames, visibility, candidates);
+            collector.CollectVisibilityTrackSamples(deltaTime, sourceTick, frames, candidates);
         }
 
         private static void CollectGenericVisibilityChanges(
@@ -19176,6 +19216,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     : PresentationVisibilitySourceKind.GenericVisibilityRemove)), Is.True);
         }
 
+        private static void AssertGenericHideTrackTiming(
+            TickVisibilityChangeKind changeKind,
+            PresentationVisibilitySourceKind expectedGenericSourceKind,
+            float deltaTime,
+            bool expectedVisible)
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            trackState.VisibilityTracks[40] = VisibilityTrack.CreateHide(durationSeconds: 1f);
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var changes = new[]
+            {
+                new TickVisibilityChange(
+                    40,
+                    changeKind,
+                    cell,
+                    new CubeTopologyState(FaceId.Floor),
+                    Direction.Right),
+            };
+            var frames = Resolve(stateStore, trackState, sourceTick: 88);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectVisibilityTrackSamples(
+                stateStore,
+                trackState,
+                frames,
+                candidates,
+                deltaTime,
+                sourceTick: 88);
+            var visibility = ResolveVisibilityFromCandidates(candidates);
+            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.IsVisible, Is.EqualTo(expectedVisible));
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates.Any(candidate =>
+                candidate.Provenance.SourceKind == expectedGenericSourceKind), Is.True);
+            Assert.That(entityCandidates.Any(candidate =>
+                candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.VisibilityTrackSample), Is.True);
+        }
+
+        private static void AssertVisibilityTrackSampleBeatsGeneric(
+            PresentationVisibilitySourceKind genericSourceKind,
+            int genericPriority)
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                genericSourceKind,
+                isVisible: false,
+                priority: genericPriority,
+                sourceTick: 88));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                isVisible: true,
+                priority: 500,
+                sourceTick: 88,
+                isStatefulTrackSample: true));
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, 40, out var winner), Is.True);
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
+            Assert.That(winner.IsVisible, Is.True);
+            Assert.That(winner.IsStatefulTrackSample, Is.True);
+        }
+
         private static bool ResolveCurrentFinalVisible(
             int entityId,
             ResolvedPresentationVisibilitySet resolvedVisibility = null,
@@ -19211,9 +19319,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             if (!hasPlayerDeathHoldPose && visibilityTrack != null)
             {
-                var visibleFromTrack = visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible);
                 visibilityTrack.AdvanceAndReportCompletion(deltaTime);
-                isVisible = visibleFromTrack;
             }
 
             return isVisible;

@@ -786,18 +786,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayEntityPresentationApplier_UsesVisibilityFallbackHelperBeforeVisibilityTrackSampling()
+        public void GameplayEntityPresentationApplier_UsesVisibilityFallbackHelperBeforeVisibilityTrackAdvance()
         {
             var source = ReadRepoFile(ApplierPath);
             var helperIndex = source.IndexOf(
                 "PresentationVisibilityFallbackResolver.Resolve",
                 StringComparison.Ordinal);
-            var sampleIndex = source.IndexOf(
-                "visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)",
+            var advanceIndex = source.IndexOf(
+                "visibilityTrack.AdvanceAndReportCompletion(deltaTime)",
                 StringComparison.Ordinal);
 
             Assert.That(helperIndex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(sampleIndex, Is.GreaterThan(helperIndex));
+            Assert.That(advanceIndex, Is.GreaterThan(helperIndex));
         }
 
         [Test]
@@ -840,8 +840,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(candidateClearIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(finalClearIndex, Is.GreaterThan(candidateClearIndex));
             Assert.That(collectIndex, Is.GreaterThan(finalClearIndex));
-            Assert.That(resolveIndex, Is.GreaterThan(collectIndex));
-            Assert.That(shadowCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(shadowCollectIndex, Is.GreaterThan(collectIndex));
+            Assert.That(resolveIndex, Is.GreaterThan(shadowCollectIndex));
             Assert.That(applyIndex, Is.GreaterThan(shadowCollectIndex));
         }
 
@@ -1046,10 +1046,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(retainedCollectIndex, Is.GreaterThan(jumpCollectIndex));
             Assert.That(transitionCollectIndex, Is.GreaterThan(retainedCollectIndex));
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThan(transitionCollectIndex));
-            Assert.That(resolveIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(resolveIndex, Is.GreaterThan(trackCollectIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(resolveIndex));
             Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
         }
 
@@ -1092,16 +1091,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(retainedCollectIndex, Is.GreaterThan(jumpCollectIndex));
             Assert.That(transitionCollectIndex, Is.GreaterThan(retainedCollectIndex));
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThan(transitionCollectIndex));
-            Assert.That(resolveIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(resolveIndex, Is.GreaterThan(trackCollectIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
-            Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
+            Assert.That(applyIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(secondResolveIndex, Is.EqualTo(-1));
         }
 
         [Test]
         [Category("Core")]
-        public void RetainedTransitionFinalWriteOnly_GenericAndTrackRemainShadowOnly()
+        public void VisibilityTrackFinalMigration_GenericDetachRemoveRemainShadowOnly()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
@@ -1132,9 +1131,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(transitionCollectIndex, Is.LessThan(resolveIndex));
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThan(transitionCollectIndex));
             Assert.That(spawnOnlyCollectIndex, Is.LessThan(resolveIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(trackCollectIndex, Is.LessThan(resolveIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
-            Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
+            Assert.That(applyIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(secondResolveIndex, Is.EqualTo(-1));
         }
 
@@ -1160,7 +1160,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(resolveIndex, Is.GreaterThan(spawnOnlyCollectIndex));
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
-            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(trackCollectIndex, Is.LessThan(resolveIndex));
         }
 
         [Test]
@@ -1218,7 +1219,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GeneralVisibilityFinalWriteLimited_DoesNotWriteVisibilityTrackSampleToFinalSet()
+        public void VisibilityTrackFinalMigration_WritesVisibilityTrackSampleToFinalSet()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
@@ -1230,17 +1231,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringComparison.Ordinal);
 
             Assert.That(resolveIndex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(trackCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(trackCollectIndex, Is.LessThan(resolveIndex));
         }
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateShadowComparison_DoesNotRemoveApplierRawVisibilityPath()
+        public void VisibilityTrackFinalMigration_RemovesApplierTrackSampleOverride()
         {
             var source = ReadRepoFile(ApplierPath);
 
             Assert.That(source, Does.Contain("_trackState.VisibilityTracks.TryGetValue"));
-            Assert.That(source, Does.Contain("visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)"));
+            Assert.That(source, Does.Not.Contain("visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)"));
             Assert.That(source, Does.Contain("visibilityTrack.AdvanceAndReportCompletion(deltaTime)"));
             Assert.That(source, Does.Contain("_trackState.CompletedVisibilityTrackIds.Add(entityId)"));
             Assert.That(source, Does.Contain("viewBinder.HideViewsExcept(_trackState.VisibleEntityIds)"));
@@ -1251,9 +1253,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayEntityPresentationApplier_RemainsVisibilityTrackAdvanceOwner()
         {
             var source = ReadRepoFile(ApplierPath);
-            var sampleIndex = source.IndexOf(
-                "visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)",
-                StringComparison.Ordinal);
             var advanceIndex = source.IndexOf(
                 "visibilityTrack.AdvanceAndReportCompletion(deltaTime)",
                 StringComparison.Ordinal);
@@ -1264,8 +1263,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "private void CleanupCompletedVisibilityTracks()",
                 StringComparison.Ordinal);
 
-            Assert.That(sampleIndex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(advanceIndex, Is.GreaterThan(sampleIndex));
+            Assert.That(source, Does.Not.Contain("visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)"));
+            Assert.That(advanceIndex, Is.GreaterThanOrEqualTo(0));
             Assert.That(completedIndex, Is.GreaterThan(advanceIndex));
             Assert.That(cleanupIndex, Is.GreaterThan(completedIndex));
         }

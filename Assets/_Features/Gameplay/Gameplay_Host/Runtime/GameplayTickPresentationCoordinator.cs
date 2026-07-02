@@ -1147,7 +1147,11 @@ namespace Game.Feature.Gameplay.Host
                     _lastPresentedTickIndex,
                     _presentationVisibilityCandidates);
             }
-
+            _visibilityCandidateCollector.CollectVisibilityTrackSamples(
+                deltaTime,
+                _lastPresentedTickIndex,
+                _resolvedPresentationFrames,
+                _presentationVisibilityCandidates);
             _resolvedVisibilityResolver.ResolveCandidates(
                 _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
@@ -1158,12 +1162,6 @@ namespace Game.Feature.Gameplay.Host
                     _lastPresentedTickIndex,
                     _presentationVisibilityCandidates);
             }
-            _visibilityCandidateCollector.CollectVisibilityTrackSamples(
-                deltaTime,
-                _lastPresentedTickIndex,
-                _resolvedPresentationFrames,
-                _resolvedPresentationVisibility,
-                _presentationVisibilityCandidates);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
