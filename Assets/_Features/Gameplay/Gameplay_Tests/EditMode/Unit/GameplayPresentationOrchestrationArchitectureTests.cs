@@ -40,6 +40,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string PlayerViewPresentationMapperPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerViewPresentationMapper.cs";
+        private const string PlayerLocomotionAudioPresentationControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerLocomotionAudioPresentationController.cs";
+        private const string GameplayVfxPlanningPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
+        private const string EnemyMotionAttachedVfxFollowerPlannerPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyMotionAttachedVfxFollowerPlanner.cs";
+        private const string GameplayAnimationSyncCoordinatorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs";
         private const string ExitPresentationControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs";
         private const string TrackStatePath =
@@ -1466,6 +1476,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("RetainedDeathOrExit"));
             Assert.That(source, Does.Not.Contain("TerminalDeathOrExitSuppression"));
             Assert.That(source, Does.Not.Contain("TransitionEntityVisibility"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RemoveConsumerContractGuard_RemoveCarrierRemainsConsumerEventAndNotFinalVisibilitySource()
+        {
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var spawnOnlyCollectIndex = coordinatorSource.IndexOf(
+                "_visibilityCandidateCollector.CollectGenericVisibilitySpawnOnly",
+                StringComparison.Ordinal);
+            var trackSampleCollectIndex = coordinatorSource.IndexOf(
+                "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
+                StringComparison.Ordinal);
+            var resolveIndex = coordinatorSource.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                StringComparison.Ordinal);
+            var genericCollectIndex = coordinatorSource.IndexOf(
+                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                StringComparison.Ordinal);
+
+            Assert.That(spawnOnlyCollectIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(trackSampleCollectIndex, Is.GreaterThan(spawnOnlyCollectIndex));
+            Assert.That(trackSampleCollectIndex, Is.LessThan(resolveIndex));
+            Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(CountOccurrences(coordinatorSource, "_resolvedVisibilityResolver.ResolveCandidates"), Is.EqualTo(1));
+
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var spawnOnlyBlock = ExtractSourceBetween(
+                trackStateSource,
+                "public void CollectGenericVisibilitySpawnOnly",
+                "public void CollectRetainedDeathOrExitVisibility");
+            var genericCollectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "public void CollectGenericVisibilityChanges",
+                "public void CollectGenericVisibilitySpawnOnly");
+            Assert.That(spawnOnlyBlock, Does.Not.Contain("PresentationVisibilitySourceKind.GenericVisibilityRemove"));
+            Assert.That(spawnOnlyBlock, Does.Not.Contain("PresentationVisibilitySourceKind.GenericVisibilityDetach"));
+            Assert.That(spawnOnlyBlock, Does.Contain("TickVisibilityChangeKind.Remove"));
+            Assert.That(genericCollectorBlock, Does.Contain("TryCreateGenericVisibilityCandidate"));
+
+            var playerMapperSource = ReadRepoFile(PlayerViewPresentationMapperPath);
+            var mapperRemovalBlock = ExtractSourceBetween(
+                playerMapperSource,
+                "private void CollectRemovalSignals(TickPresentationData presentationData)",
+                "private static bool HasPlayerDriver");
+            Assert.That(mapperRemovalBlock, Does.Contain("presentationData.VisibilityChanges"));
+            Assert.That(mapperRemovalBlock, Does.Contain("TickVisibilityChangeKind.Remove"));
+            Assert.That(mapperRemovalBlock, Does.Contain("_removedEntityIds.Add(entityId)"));
+            Assert.That(mapperRemovalBlock, Does.Not.Contain("ResolvedPresentationVisibilitySet"));
+
+            var playerAudioSource = ReadRepoFile(PlayerLocomotionAudioPresentationControllerPath);
+            var playerAudioTerminalBlock = ExtractSourceBetween(
+                playerAudioSource,
+                "var visibilityChanges = presentationData.VisibilityChanges;",
+                "var finalEntities = result.FinalEntities;");
+            Assert.That(playerAudioTerminalBlock, Does.Contain("TickVisibilityChangeKind.Remove"));
+            Assert.That(playerAudioTerminalBlock, Does.Contain("AddTerminalEntityThisTick(change.EntityId)"));
+            Assert.That(playerAudioTerminalBlock, Does.Not.Contain("ResolvedPresentationVisibilitySet"));
+
+            var vfxPlanningSource = ReadRepoFile(GameplayVfxPlanningPath);
+            Assert.That(vfxPlanningSource, Does.Contain("presentationData.VisibilityChanges"));
+            Assert.That(vfxPlanningSource, Does.Contain("TickVisibilityChangeKind.Spawn"));
+
+            var vfxFollowerSource = ReadRepoFile(EnemyMotionAttachedVfxFollowerPlannerPath);
+            var vfxFollowerRemoveBlock = ExtractSourceBetween(
+                vfxFollowerSource,
+                "private void CollectRemovedEntityIds(TickPresentationData presentationData)",
+                "private void AddDesiredFollower");
+            Assert.That(vfxFollowerRemoveBlock, Does.Contain("presentationData.VisibilityChanges"));
+            Assert.That(vfxFollowerRemoveBlock, Does.Contain("TickVisibilityChangeKind.Remove"));
+            Assert.That(vfxFollowerRemoveBlock, Does.Contain("removedEntityIds.Add(change.EntityId)"));
+            Assert.That(vfxFollowerRemoveBlock, Does.Not.Contain("ResolvedPresentationVisibilitySet"));
+
+            var animationSyncSource = ReadRepoFile(GameplayAnimationSyncCoordinatorPath);
+            var animationRespawnBlock = ExtractSourceBetween(
+                animationSyncSource,
+                "private void ReleasePlayerDeathOverridesForRespawnSpawns",
+                "private readonly struct EnemyUtilityAnimationPlaybackTrack");
+            Assert.That(animationRespawnBlock, Does.Contain("presentationData.VisibilityChanges"));
+            Assert.That(animationRespawnBlock, Does.Contain("TickVisibilityChangeKind.Spawn"));
+            Assert.That(animationRespawnBlock, Does.Contain("ResetDeathPresentationForRespawn"));
+            Assert.That(animationSyncSource, Does.Not.Contain("ResolvedPresentationVisibilitySet"));
+
+            var applierSource = ReadRepoFile(ApplierPath);
+            Assert.That(applierSource, Does.Contain("visibilityTrack.AdvanceAndReportCompletion(deltaTime)"));
+            Assert.That(applierSource, Does.Contain("private void CleanupCompletedVisibilityTracks()"));
+            Assert.That(applierSource, Does.Contain("ClearEntityPresentationMetadataIfFullyHidden(entityId)"));
+            Assert.That(applierSource, Does.Contain("viewBinder.HideViewsExcept(_trackState.VisibleEntityIds)"));
+            Assert.That(applierSource, Does.Not.Contain("PresentationVisibilityCandidateSet"));
         }
 
         [Test]
