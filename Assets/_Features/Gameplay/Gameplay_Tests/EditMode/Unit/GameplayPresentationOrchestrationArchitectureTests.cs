@@ -793,7 +793,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "PresentationVisibilityFallbackResolver.Resolve",
                 StringComparison.Ordinal);
             var sampleIndex = source.IndexOf(
-                "visibilityTrack.SampleAndAdvance(deltaTime, isVisible)",
+                "visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)",
                 StringComparison.Ordinal);
 
             Assert.That(helperIndex, Is.GreaterThanOrEqualTo(0));
@@ -1240,7 +1240,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = ReadRepoFile(ApplierPath);
 
             Assert.That(source, Does.Contain("_trackState.VisibilityTracks.TryGetValue"));
-            Assert.That(source, Does.Contain("visibilityTrack.SampleAndAdvance(deltaTime, isVisible)"));
+            Assert.That(source, Does.Contain("visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)"));
+            Assert.That(source, Does.Contain("visibilityTrack.AdvanceAndReportCompletion(deltaTime)"));
             Assert.That(source, Does.Contain("_trackState.CompletedVisibilityTrackIds.Add(entityId)"));
             Assert.That(source, Does.Contain("viewBinder.HideViewsExcept(_trackState.VisibleEntityIds)"));
         }
@@ -1250,8 +1251,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayEntityPresentationApplier_RemainsVisibilityTrackAdvanceOwner()
         {
             var source = ReadRepoFile(ApplierPath);
+            var sampleIndex = source.IndexOf(
+                "visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible)",
+                StringComparison.Ordinal);
             var advanceIndex = source.IndexOf(
-                "visibilityTrack.SampleAndAdvance(deltaTime, isVisible)",
+                "visibilityTrack.AdvanceAndReportCompletion(deltaTime)",
                 StringComparison.Ordinal);
             var completedIndex = source.IndexOf(
                 "_trackState.CompletedVisibilityTrackIds.Add(entityId)",
@@ -1260,7 +1264,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "private void CleanupCompletedVisibilityTracks()",
                 StringComparison.Ordinal);
 
-            Assert.That(advanceIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(sampleIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(advanceIndex, Is.GreaterThan(sampleIndex));
             Assert.That(completedIndex, Is.GreaterThan(advanceIndex));
             Assert.That(cleanupIndex, Is.GreaterThan(completedIndex));
         }

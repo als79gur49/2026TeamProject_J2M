@@ -41,6 +41,11 @@ namespace Game.Feature.Gameplay.Host
             return _clip.SampleAndAdvance(deltaTime, fallbackVisibility);
         }
 
+        public bool AdvanceAndReportCompletion(float deltaTime)
+        {
+            return _clip.AdvanceAndReportCompletion(deltaTime);
+        }
+
         public bool SampleWithoutAdvance(float deltaTime, bool fallbackVisibility)
         {
             return _clip.SampleWithoutAdvance(deltaTime, fallbackVisibility);
@@ -91,14 +96,19 @@ namespace Game.Feature.Gameplay.Host
 
         public bool SampleAndAdvance(float deltaTime, bool fallbackVisibility)
         {
-            _ = fallbackVisibility;
+            var sample = SampleWithoutAdvance(deltaTime, fallbackVisibility);
+            AdvanceAndReportCompletion(deltaTime);
+            return sample;
+        }
 
+        public bool AdvanceAndReportCompletion(float deltaTime)
+        {
             if (deltaTime > 0f)
             {
                 ElapsedSeconds = Mathf.Min(DurationSeconds, ElapsedSeconds + deltaTime);
             }
 
-            return SampleAtElapsedSeconds(ElapsedSeconds);
+            return IsComplete;
         }
 
         public bool SampleWithoutAdvance(float deltaTime, bool fallbackVisibility)

@@ -19211,7 +19211,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             if (!hasPlayerDeathHoldPose && visibilityTrack != null)
             {
-                isVisible = visibilityTrack.SampleAndAdvance(deltaTime, isVisible);
+                var visibleFromTrack = visibilityTrack.SampleWithoutAdvance(deltaTime, isVisible);
+                visibilityTrack.AdvanceAndReportCompletion(deltaTime);
+                isVisible = visibleFromTrack;
             }
 
             return isVisible;
