@@ -19003,19 +19003,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayEntityPresentationApplier_DoesNotRawSamplePlayerFlipResultTurnTracks()
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+            var trackStateSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", TrackStatePath));
             var applyStart = source.IndexOf("public void Apply(", StringComparison.Ordinal);
             var applyEnd = source.IndexOf(
                 "private IReadOnlyList<int> BuildProcessingEntityIds",
                 applyStart,
                 StringComparison.Ordinal);
+            var processingStart = applyEnd;
+            var processingEnd = source.IndexOf(
+                "private void AddProcessingEntityId",
+                processingStart,
+                StringComparison.Ordinal);
 
             Assert.That(applyStart, Is.GreaterThanOrEqualTo(0));
             Assert.That(applyEnd, Is.GreaterThan(applyStart));
+            Assert.That(processingEnd, Is.GreaterThan(processingStart));
 
             var applyBlock = source.Substring(applyStart, applyEnd - applyStart);
+            var processingBlock = source.Substring(processingStart, processingEnd - processingStart);
             Assert.That(applyBlock, Does.Contain("resolvedChannels.TryGetAdditiveRotation"));
             Assert.That(applyBlock, Does.Not.Contain("_trackState.PlayerFlipResultTurnTracks.TryGetValue"));
             Assert.That(applyBlock, Does.Not.Contain("playerFlipResultTurnTrack.Track.SampleAndAdvance"));
+            Assert.That(processingBlock, Does.Contain("resolvedChannels.EntityIds"));
+            Assert.That(processingBlock, Does.Not.Contain("PlayerFlipResultTurnTracks"));
+            Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.FlipResultTurn"));
+            Assert.That(trackStateSource, Does.Contain("channelSet.SetAdditiveRotation"));
             Assert.That(source, Does.Contain("CleanupCompletedPlayerFlipResultTurnTracks"));
             Assert.That(source, Does.Contain("CompletedPlayerFlipResultTurnTrackIds"));
         }

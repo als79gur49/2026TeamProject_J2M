@@ -698,11 +698,6 @@ namespace Game.Feature.Gameplay.Host
                 AddProcessingEntityId(resolvedVisibilityEntityIds[i]);
             }
 
-            foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
-            {
-                AddProcessingEntityId(pair.Key);
-            }
-
             _processingEntityIdBuffer.Sort();
             return _processingEntityIdBuffer;
         }
