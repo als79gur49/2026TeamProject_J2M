@@ -902,7 +902,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PresentationVisibilityCandidateCollector_CollectsGenericVisibilityChanges()
+        public void PresentationVisibilityCandidateCollector_CollectsPostResolveVisibilityCarriers()
         {
             var trackStateSource = ReadRepoFile(TrackStatePath);
             var collectorBlock = ExtractSourceBetween(
@@ -910,7 +910,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "internal sealed class PresentationVisibilityCandidateCollector",
                 "internal sealed class PresentationResolvedVisibilityResolver");
 
-            Assert.That(collectorBlock, Does.Contain("CollectGenericVisibilityChanges"));
+            Assert.That(collectorBlock, Does.Contain("CollectPostResolveVisibilityCarriers"));
             Assert.That(collectorBlock, Does.Contain("IReadOnlyList<TickVisibilityChange>"));
             Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.GenericVisibilitySpawn"));
             Assert.That(collectorBlock, Does.Contain("PresentationVisibilitySourceKind.GenericVisibilityDetach"));
@@ -981,7 +981,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var trackStateSource = ReadRepoFile(TrackStatePath);
             var collectorBlock = ExtractSourceBetween(
                 trackStateSource,
-                "public void CollectGenericVisibilityChanges",
+                "public void CollectPostResolveVisibilityCarriers",
                 "public void CollectVisibilityTrackSamples");
 
             Assert.That(collectorBlock, Does.Contain("TickVisibilityChange"));
@@ -1043,7 +1043,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
@@ -1084,7 +1084,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
@@ -1106,11 +1106,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
             Assert.That(applyIndex, Is.GreaterThan(genericCollectIndex));
             Assert.That(secondResolveIndex, Is.EqualTo(-1));
+            Assert.That(source, Does.Contain("Post-resolve carrier/shadow collection only"));
+            Assert.That(source, Does.Contain("must not feed the"));
+            Assert.That(source, Does.Contain("production final visibility resolver"));
+            Assert.That(source, Does.Contain("VisibilityTrackSample"));
         }
 
         [Test]
         [Category("Core")]
-        public void VisibilityTrackFinalMigration_GenericDetachRemoveRemainShadowOnly()
+        public void VisibilityTrackFinalMigration_GenericDetachRemoveRemainPostResolveCarriers()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
@@ -1121,7 +1125,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_visibilityCandidateCollector.CollectGenericVisibilitySpawnOnly",
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
             var transitionCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectTransitionEntityVisibility",
@@ -1161,7 +1165,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
             var trackCollectIndex = source.IndexOf(
                 "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
@@ -1194,7 +1198,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericSpawnFinalWriteBoundary_GenericDetachRemoveRemainShadowOnly()
+        public void GenericSpawnFinalWriteBoundary_GenericDetachRemoveRemainPostResolveCarriers()
         {
             var source = ReadRepoFile(CoordinatorPath);
 
@@ -1205,7 +1209,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = source.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
 
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThanOrEqualTo(0));
@@ -1493,7 +1497,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = coordinatorSource.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
 
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThanOrEqualTo(0));
@@ -1509,7 +1513,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "public void CollectRetainedDeathOrExitVisibility");
             var genericCollectorBlock = ExtractSourceBetween(
                 trackStateSource,
-                "public void CollectGenericVisibilityChanges",
+                "public void CollectPostResolveVisibilityCarriers",
                 "public void CollectGenericVisibilitySpawnOnly");
             Assert.That(spawnOnlyBlock, Does.Not.Contain("PresentationVisibilitySourceKind.GenericVisibilityRemove"));
             Assert.That(spawnOnlyBlock, Does.Not.Contain("PresentationVisibilitySourceKind.GenericVisibilityDetach"));
@@ -4427,7 +4431,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "_resolvedVisibilityResolver.ResolveCandidates",
                 StringComparison.Ordinal);
             var genericCollectIndex = coordinatorSource.IndexOf(
-                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                "_visibilityCandidateCollector.CollectPostResolveVisibilityCarriers",
                 StringComparison.Ordinal);
 
             Assert.That(spawnOnlyCollectIndex, Is.GreaterThanOrEqualTo(0));
@@ -4441,11 +4445,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "public void CollectRetainedDeathOrExitVisibility");
             var genericCollectorBlock = ExtractSourceBetween(
                 trackStateSource,
-                "public void CollectGenericVisibilityChanges",
+                "public void CollectPostResolveVisibilityCarriers",
                 "public void CollectGenericVisibilitySpawnOnly");
 
             Assert.That(spawnOnlyBlock, Does.Not.Contain($"PresentationVisibilitySourceKind.{sourceKindName}"));
-            Assert.That(genericCollectorBlock, Does.Contain("CollectGenericVisibilityChanges"));
+            Assert.That(genericCollectorBlock, Does.Contain("CollectPostResolveVisibilityCarriers"));
         }
 
         private static string ReadDirectorySource(string relativeDirectory)

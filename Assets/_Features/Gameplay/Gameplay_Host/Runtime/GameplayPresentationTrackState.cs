@@ -702,7 +702,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void CollectGenericVisibilityChanges(
+        public void CollectPostResolveVisibilityCarriers(
             IReadOnlyList<TickVisibilityChange> visibilityChanges,
             int sourceTick,
             PresentationVisibilityCandidateSet candidateSet)

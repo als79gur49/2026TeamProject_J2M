@@ -17325,7 +17325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericVisibilityChangeCandidateCollection_PreservesRemoveDetachSpawnPriorityMetadata()
+        public void PostResolveVisibilityCarrierCollection_PreservesRemoveDetachSpawnPriorityMetadata()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17341,7 +17341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
             var candidates = new PresentationVisibilityCandidateSet();
 
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
             Assert.That(entityCandidates, Has.Count.EqualTo(3));
@@ -17376,7 +17376,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericVisibilityChangeCandidateCollection_DoesNotChangeFinalVisibility()
+        public void PostResolveVisibilityCarrierCollection_DoesNotChangeFinalVisibility()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17396,7 +17396,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var visibility = new ResolvedPresentationVisibilitySet();
             resolver.ResolveCandidates(candidates, visibility);
 
-            CollectGenericVisibilityChanges(
+            CollectPostResolveVisibilityCarriers(
                 stateStore,
                 trackState,
                 new[]
@@ -17421,7 +17421,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericVisibilityChangeCandidateCollection_DoesNotRemoveTickVisibilityChangeEvents()
+        public void PostResolveVisibilityCarrierCollection_DoesNotRemoveTickVisibilityChangeEvents()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17439,7 +17439,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
             var candidates = new PresentationVisibilityCandidateSet();
 
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 12, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 12, candidates);
 
             Assert.That(changes, Has.Count.EqualTo(1));
             Assert.That(changes[0].EntityId, Is.EqualTo(10));
@@ -17450,7 +17450,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericVisibilityChangeCandidateCollection_DoesNotOwnCleanupLifecycle()
+        public void PostResolveVisibilityCarrierCollection_DoesNotOwnCleanupLifecycle()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17460,7 +17460,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             trackState.VisibilityTracks[40] = VisibilityTrack.CreateHide(durationSeconds: 1f);
             var candidates = new PresentationVisibilityCandidateSet();
 
-            CollectGenericVisibilityChanges(
+            CollectPostResolveVisibilityCarriers(
                 stateStore,
                 trackState,
                 new[]
@@ -17533,7 +17533,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericSpawnFinalWriteBoundary_GenericDetachRemoveRemainShadowOnly()
+        public void GenericSpawnFinalWriteBoundary_GenericDetachRemoveRemainPostResolveCarriers()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17549,7 +17549,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CollectGenericVisibilitySpawnOnly(stateStore, trackState, changes, sourceTick: 88, candidates);
             var visibility = ResolveVisibilityFromCandidates(candidates);
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
             Assert.That(visibility.Count, Is.Zero);
@@ -17594,7 +17594,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CollectGenericVisibilitySpawnOnly(stateStore, trackState, changes, sourceTick: 88, candidates);
             var visibility = ResolveVisibilityFromCandidates(candidates);
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
             Assert.That(visibility.Count, Is.Zero);
@@ -17635,7 +17635,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericSpawnFinalWriteBoundary_SpawnCandidateAlsoRemainsInShadowCollection()
+        public void GenericSpawnFinalWriteBoundary_SpawnCandidateAlsoRemainsInPostResolveCarrierCollection()
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
@@ -17654,7 +17654,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CollectGenericVisibilitySpawnOnly(stateStore, trackState, changes, sourceTick: 88, candidates);
             var visibility = ResolveVisibilityFromCandidates(candidates);
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
             Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilitySpawn));
@@ -18080,7 +18080,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GenericSpawnFinalWriteBoundary_DoesNotFinalWriteGenericSpawnThroughShadowCollector()
+        public void GenericSpawnFinalWriteBoundary_DoesNotFinalWriteGenericSpawnThroughPostResolveCarrierCollector()
         {
             AssertGenericVisibilityChangeDoesNotFinalWrite(TickVisibilityChangeKind.Spawn);
         }
@@ -18304,7 +18304,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectGenericVisibilitySpawnOnly(stateStore, trackState, changes, sourceTick: 88, candidates);
             var visibility = ResolveVisibilityFromCandidates(candidates);
 
-            CollectGenericVisibilityChanges(
+            CollectPostResolveVisibilityCarriers(
                 stateStore,
                 trackState,
                 changes,
@@ -19202,7 +19202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             collector.CollectVisibilityTrackSamples(deltaTime, sourceTick, frames, candidates);
         }
 
-        private static void CollectGenericVisibilityChanges(
+        private static void CollectPostResolveVisibilityCarriers(
             GameplayPresentationStateStore stateStore,
             GameplayPresentationTrackState trackState,
             IReadOnlyList<TickVisibilityChange> visibilityChanges,
@@ -19210,7 +19210,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             PresentationVisibilityCandidateSet candidates)
         {
             var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
-            collector.CollectGenericVisibilityChanges(visibilityChanges, sourceTick, candidates);
+            collector.CollectPostResolveVisibilityCarriers(visibilityChanges, sourceTick, candidates);
         }
 
         private static void CollectGenericVisibilitySpawnOnly(
@@ -19282,7 +19282,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var candidates = new PresentationVisibilityCandidateSet();
             var visibility = ResolveVisibilityFromCandidates(candidates);
 
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
             Assert.That(entityCandidates.Single().Provenance.SourceKind, Is.EqualTo(changeKind switch
@@ -19315,7 +19315,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CollectGenericVisibilitySpawnOnly(stateStore, trackState, changes, sourceTick: 88, candidates);
             var visibility = ResolveVisibilityFromCandidates(candidates);
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
             Assert.That(visibility.Count, Is.Zero);
@@ -19344,7 +19344,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             CollectGenericVisibilitySpawnOnly(stateStore, trackState, changes, sourceTick: 88, candidates);
             var visibility = ResolveVisibilityFromCandidates(candidates);
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
             Assert.That(visibility.Count, Is.Zero);
@@ -19390,7 +19390,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 deltaTime,
                 sourceTick: 88);
             var visibility = ResolveVisibilityFromCandidates(candidates);
-            CollectGenericVisibilityChanges(stateStore, trackState, changes, sourceTick: 88, candidates);
+            CollectPostResolveVisibilityCarriers(stateStore, trackState, changes, sourceTick: 88, candidates);
 
             Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
             Assert.That(resolved.IsVisible, Is.EqualTo(expectedVisible));

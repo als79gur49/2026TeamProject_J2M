@@ -1140,11 +1140,11 @@ namespace Game.Feature.Gameplay.Host
             _visibilityCandidateCollector.CollectTransitionEntityVisibility(
                 _lastPresentedTickIndex,
                 _presentationVisibilityCandidates);
-            var visibilityChanges = _lastPresentedResult?.PresentationData?.VisibilityChanges;
-            if (visibilityChanges != null)
+            var tickVisibilityChanges = _lastPresentedResult?.PresentationData?.VisibilityChanges;
+            if (tickVisibilityChanges != null)
             {
                 _visibilityCandidateCollector.CollectGenericVisibilitySpawnOnly(
-                    visibilityChanges,
+                    tickVisibilityChanges,
                     _lastPresentedTickIndex,
                     _presentationVisibilityCandidates);
             }
@@ -1156,10 +1156,13 @@ namespace Game.Feature.Gameplay.Host
             _resolvedVisibilityResolver.ResolveCandidates(
                 _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
-            if (visibilityChanges != null)
+            if (tickVisibilityChanges != null)
             {
-                _visibilityCandidateCollector.CollectGenericVisibilityChanges(
-                    visibilityChanges,
+                // Post-resolve carrier/shadow collection only. These carriers must not feed the
+                // production final visibility resolver; Detach/Remove hide timing is owned by
+                // VisibilityTrackSample.
+                _visibilityCandidateCollector.CollectPostResolveVisibilityCarriers(
+                    tickVisibilityChanges,
                     _lastPresentedTickIndex,
                     _presentationVisibilityCandidates);
             }
