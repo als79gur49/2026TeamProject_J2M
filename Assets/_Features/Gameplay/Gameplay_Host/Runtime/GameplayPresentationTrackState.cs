@@ -203,31 +203,34 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal readonly struct ResolvedEntityPresentationVisibility
+    internal readonly struct PreAdvanceEntityPresentationVisibilitySample
     {
-        public ResolvedEntityPresentationVisibility(
+        public PreAdvanceEntityPresentationVisibilitySample(
             int entityId,
             TickVisibilityChangeKind sourceKind,
             bool isVisible,
-            bool isCompleted,
-            VisibilityTrackSample trackSample)
+            bool finalVisibility,
+            float progress01)
         {
             EntityId = entityId;
             SourceKind = sourceKind;
             IsVisible = isVisible;
-            IsCompleted = isCompleted;
-            TrackSample = trackSample;
+            FinalVisibility = finalVisibility;
+            Progress01 = Mathf.Clamp01(progress01);
         }
 
         public int EntityId { get; }
 
         public TickVisibilityChangeKind SourceKind { get; }
 
+        // This is a pre-advance planner sample. Do not use it as the actual apply source.
         public bool IsVisible { get; }
 
-        public bool IsCompleted { get; }
+        // Diagnostic target state only. Cleanup ownership remains in the Applier.
+        public bool FinalVisibility { get; }
 
-        public VisibilityTrackSample TrackSample { get; }
+        // Diagnostic/readiness only. Do not use Progress01 as a cleanup or completion trigger.
+        public float Progress01 { get; }
     }
 
     internal sealed class PresentationVisibilityCandidateSet
@@ -306,8 +309,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, PresentationMotionTrack> _originalViewMotionTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly PresentationVisibilityCandidateSet _presentationVisibilityCandidates = new();
-        private readonly Dictionary<int, ResolvedEntityPresentationVisibility>
-            _resolvedEntityPresentationVisibilityByEntityId = new();
+        private readonly Dictionary<int, PreAdvanceEntityPresentationVisibilitySample>
+            _preAdvanceVisibilitySamplesByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
         private readonly BoxMotionProductionTelemetryState _boxMotionTelemetry = new();
@@ -386,8 +389,8 @@ namespace Game.Feature.Gameplay.Host
 
         public PresentationVisibilityCandidateSet PresentationVisibilityCandidates => _presentationVisibilityCandidates;
 
-        public Dictionary<int, ResolvedEntityPresentationVisibility> ResolvedEntityPresentationVisibilityByEntityId =>
-            _resolvedEntityPresentationVisibilityByEntityId;
+        public Dictionary<int, PreAdvanceEntityPresentationVisibilitySample> PreAdvanceVisibilitySamplesByEntityId =>
+            _preAdvanceVisibilitySamplesByEntityId;
 
         public HashSet<int> VisibleEntityIds => _visibleEntityIds;
 
@@ -438,7 +441,7 @@ namespace Game.Feature.Gameplay.Host
             _originalViewMotionTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();
             _presentationVisibilityCandidates.Clear();
-            _resolvedEntityPresentationVisibilityByEntityId.Clear();
+            _preAdvanceVisibilitySamplesByEntityId.Clear();
             _visibleEntityIds.Clear();
             _visibilityTracks.Clear();
         }

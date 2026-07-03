@@ -6446,10 +6446,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GenericVisibilityDetachRemove_ResolvesCurrentSampleWithoutCompletingTrackBeforeApplier()
+        public void GenericVisibilityDetachRemove_ResolvesPreAdvanceSampleBeforeApplier()
         {
             var rootObject = new GameObject(
-                "GenericVisibilityDetachRemove_ResolvesCurrentSampleWithoutCompletingTrackBeforeApplier");
+                "GenericVisibilityDetachRemove_ResolvesPreAdvanceSampleBeforeApplier");
 
             try
             {
@@ -6503,15 +6503,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var trackState = GetPresentationTrackState(presenter);
 
                 Assert.That(
-                    trackState.ResolvedEntityPresentationVisibilityByEntityId.TryGetValue(
+                    trackState.PreAdvanceVisibilitySamplesByEntityId.TryGetValue(
                         30,
-                        out var resolvedVisibility),
+                        out var preAdvanceSample),
                     Is.True);
-                Assert.That(resolvedVisibility.SourceKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
-                Assert.That(resolvedVisibility.IsVisible, Is.True);
-                Assert.That(resolvedVisibility.IsCompleted, Is.False);
-                Assert.That(resolvedVisibility.TrackSample.FinalVisibility, Is.False);
-                Assert.That(resolvedVisibility.TrackSample.Progress01, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(preAdvanceSample.SourceKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
+                Assert.That(
+                    preAdvanceSample.IsVisible,
+                    Is.True,
+                    "Planner visibility samples are pre-advance readiness data, not actual apply results.");
+                Assert.That(preAdvanceSample.FinalVisibility, Is.False);
+                Assert.That(
+                    preAdvanceSample.Progress01,
+                    Is.EqualTo(0f).Within(0.0001f),
+                    "Progress01 is diagnostic/readiness data and must not be used as cleanup completion.");
                 Assert.That(
                     trackState.VisibilityTracks[30].SampleWithoutAdvance().Progress01,
                     Is.EqualTo(0f).Within(0.0001f));
@@ -6520,6 +6525,100 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GenericVisibilityPlannerSample_DiffersFromAppliedVisibilityOnCompletionFrame()
+        {
+            var trackState = new GameplayPresentationTrackState();
+            var track = VisibilityTrack.CreateHide(1f);
+            track.SampleAndAdvance(0.99f, fallbackVisibility: true);
+
+            var sourceSample = track.SampleWithoutAdvance();
+            var plannerSample = new PreAdvanceEntityPresentationVisibilitySample(
+                30,
+                TickVisibilityChangeKind.Remove,
+                sourceSample.IsVisible,
+                sourceSample.FinalVisibility,
+                sourceSample.Progress01);
+
+            Assert.That(
+                plannerSample.IsVisible,
+                Is.True,
+                "Planner visibility samples are pre-advance and must not be used as the actual apply source.");
+            Assert.That(plannerSample.Progress01, Is.LessThan(1f));
+            Assert.That(plannerSample.FinalVisibility, Is.False);
+
+            var applied = GameplayEntityPresentationApplier.AdvanceVisibilityForApply(
+                trackState,
+                30,
+                track,
+                deltaTime: 0.02f,
+                fallbackVisible: plannerSample.IsVisible);
+
+            Assert.That(
+                applied.IsVisible,
+                Is.False,
+                "Applied visibility is post-advance and may differ from the pre-advance planner sample.");
+            Assert.That(applied.IsCompleted, Is.True);
+            Assert.That(applied.Progress01, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(applied.FinalVisibility, Is.False);
+            Assert.That(
+                applied.IsVisible,
+                Is.Not.EqualTo(plannerSample.IsVisible),
+                "Planner sample is pre-advance; applied visibility is post-advance and must not share source semantics.");
+            Assert.That(trackState.CompletedVisibilityTrackIds, Does.Contain(30));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GenericVisibilityCompletion_DoesNotCleanupBeforeApplierAdvance()
+        {
+            var trackState = new GameplayPresentationTrackState();
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var track = VisibilityTrack.CreateHide(0.1f);
+            trackState.VisibilityTracks[30] = track;
+            trackState.PresentationVisibilityCandidates.Add(new PresentationVisibilityCandidate(
+                30,
+                TickVisibilityChangeKind.Remove,
+                sourceCell,
+                topology,
+                Direction.Right,
+                priority: 3));
+
+            track.SampleAndAdvance(0.1f, fallbackVisibility: true);
+            var sourceSample = track.SampleWithoutAdvance();
+            trackState.PreAdvanceVisibilitySamplesByEntityId[30] =
+                new PreAdvanceEntityPresentationVisibilitySample(
+                    30,
+                    TickVisibilityChangeKind.Remove,
+                    sourceSample.IsVisible,
+                    sourceSample.FinalVisibility,
+                    sourceSample.Progress01);
+
+            Assert.That(sourceSample.Progress01, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(trackState.CompletedVisibilityTrackIds, Is.Empty);
+            Assert.That(trackState.VisibilityTracks.ContainsKey(30), Is.True);
+            Assert.That(trackState.PresentationVisibilityCandidates.HighestPriorityByEntityId.ContainsKey(30), Is.True);
+            Assert.That(trackState.PreAdvanceVisibilitySamplesByEntityId.ContainsKey(30), Is.True);
+
+            var applied = GameplayEntityPresentationApplier.AdvanceVisibilityForApply(
+                trackState,
+                30,
+                track,
+                deltaTime: 0f,
+                fallbackVisible: true);
+
+            Assert.That(applied.IsCompleted, Is.True);
+            Assert.That(trackState.CompletedVisibilityTrackIds, Does.Contain(30));
+            Assert.That(
+                trackState.VisibilityTracks.ContainsKey(30),
+                Is.True,
+                "Applier advance records completion, but cleanup remains in the Applier cleanup path.");
+            Assert.That(trackState.PresentationVisibilityCandidates.HighestPriorityByEntityId.ContainsKey(30), Is.True);
+            Assert.That(trackState.PreAdvanceVisibilitySamplesByEntityId.ContainsKey(30), Is.True);
         }
 
         [Test]

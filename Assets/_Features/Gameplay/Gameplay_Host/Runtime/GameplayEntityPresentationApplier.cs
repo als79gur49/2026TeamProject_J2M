@@ -52,6 +52,33 @@ namespace Game.Feature.Gameplay.Host
         public int SignatureUnchangedCount { get; }
     }
 
+    internal readonly struct AppliedEntityPresentationVisibility
+    {
+        public AppliedEntityPresentationVisibility(
+            int entityId,
+            bool isVisible,
+            bool isCompleted,
+            bool finalVisibility,
+            float progress01)
+        {
+            EntityId = entityId;
+            IsVisible = isVisible;
+            IsCompleted = isCompleted;
+            FinalVisibility = finalVisibility;
+            Progress01 = Mathf.Clamp01(progress01);
+        }
+
+        public int EntityId { get; }
+
+        public bool IsVisible { get; }
+
+        public bool IsCompleted { get; }
+
+        public bool FinalVisibility { get; }
+
+        public float Progress01 { get; }
+    }
+
     internal readonly struct EntityPresentationApplySignature : IEquatable<EntityPresentationApplySignature>
     {
         public EntityPresentationApplySignature(
@@ -451,11 +478,12 @@ namespace Game.Feature.Gameplay.Host
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {
-                    isVisible = visibilityTrack.SampleAndAdvance(deltaTime, isVisible);
-                    if (visibilityTrack.IsComplete)
-                    {
-                        _trackState.CompletedVisibilityTrackIds.Add(entityId);
-                    }
+                    isVisible = AdvanceVisibilityForApply(
+                        _trackState,
+                        entityId,
+                        visibilityTrack,
+                        deltaTime,
+                        isVisible).IsVisible;
                 }
 
                 var hasActiveMotion = hasPresentationPoseOverride && isActivePresentationPoseLocomotion ||
@@ -693,6 +721,38 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return result;
+        }
+
+        internal static AppliedEntityPresentationVisibility AdvanceVisibilityForApply(
+            GameplayPresentationTrackState trackState,
+            int entityId,
+            VisibilityTrack visibilityTrack,
+            float deltaTime,
+            bool fallbackVisible)
+        {
+            if (trackState == null)
+            {
+                throw new ArgumentNullException(nameof(trackState));
+            }
+
+            if (visibilityTrack == null)
+            {
+                throw new ArgumentNullException(nameof(visibilityTrack));
+            }
+
+            var isVisible = visibilityTrack.SampleAndAdvance(deltaTime, fallbackVisible);
+            var sample = visibilityTrack.SampleWithoutAdvance();
+            if (sample.IsCompleted)
+            {
+                trackState.CompletedVisibilityTrackIds.Add(entityId);
+            }
+
+            return new AppliedEntityPresentationVisibility(
+                entityId,
+                isVisible,
+                sample.IsCompleted,
+                sample.FinalVisibility,
+                sample.Progress01);
         }
 
         private IReadOnlyList<int> BuildProcessingEntityIds()

@@ -1327,7 +1327,7 @@ namespace Game.Feature.Gameplay.Host
 
             var highestPriorityChanges = new Dictionary<int, TickVisibilityChange>();
             _trackState.PresentationVisibilityCandidates.Clear();
-            _trackState.ResolvedEntityPresentationVisibilityByEntityId.Clear();
+            _trackState.PreAdvanceVisibilitySamplesByEntityId.Clear();
             for (var i = 0; i < presentationData.VisibilityChanges.Count; i++)
             {
                 var change = presentationData.VisibilityChanges[i];
@@ -1393,13 +1393,13 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var sample = visibilityTrack.SampleWithoutAdvance();
-                _trackState.ResolvedEntityPresentationVisibilityByEntityId[entityId] =
-                    new ResolvedEntityPresentationVisibility(
+                _trackState.PreAdvanceVisibilitySamplesByEntityId[entityId] =
+                    new PreAdvanceEntityPresentationVisibilitySample(
                         entityId,
                         pair.Value.ChangeKind,
                         sample.IsVisible,
-                        sample.IsCompleted,
-                        sample);
+                        sample.FinalVisibility,
+                        sample.Progress01);
             }
         }
 
