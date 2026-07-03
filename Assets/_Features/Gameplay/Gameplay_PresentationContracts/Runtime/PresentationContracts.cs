@@ -1411,8 +1411,15 @@ namespace Game.Feature.Gameplay.PresentationContracts
     {
         None = 0,
         TerminalDeathOrExitSuppression = 5,
+
+        // Reserved tombstone. Production-unreachable after the M2 visibility final-set migration.
+        // Retained for public enum/numeric compatibility; do not use for new visibility candidates.
         CommittedMotionFallback = 8,
+
+        // Reserved tombstone. Former umbrella source replaced by split GenericVisibilitySpawn/Detach/Remove.
+        // Retained for public enum/numeric compatibility; do not use for new visibility candidates.
         GenericVisibility = 10,
+
         GenericVisibilitySpawn = 11,
         GenericVisibilityDetach = 12,
         GenericVisibilityRemove = 13,

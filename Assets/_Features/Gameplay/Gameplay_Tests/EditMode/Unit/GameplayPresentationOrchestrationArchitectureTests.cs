@@ -476,6 +476,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PresentationVisibilitySourceKind_Tombstones_AreRetainedForCompatibilityOnly()
+        {
+            const string committedName = "CommittedMotionFallback";
+            const string genericName = "GenericVisibility";
+            var committedToken = "PresentationVisibilitySourceKind." + committedName;
+            var genericToken = "PresentationVisibilitySourceKind." + genericName;
+            var contractsSource = ReadRepoFile(ContractsPath);
+            var visibilityEnumBlock = ExtractSourceBetween(
+                contractsSource,
+                "public enum PresentationVisibilitySourceKind",
+                "public readonly struct PresentationVisibilityProvenance");
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+            var committedKind = (PresentationVisibilitySourceKind)Enum.Parse(
+                typeof(PresentationVisibilitySourceKind),
+                committedName);
+            var genericKind = (PresentationVisibilitySourceKind)Enum.Parse(
+                typeof(PresentationVisibilitySourceKind),
+                genericName);
+
+            Assert.That(committedKind, Is.EqualTo((PresentationVisibilitySourceKind)8));
+            Assert.That(genericKind, Is.EqualTo((PresentationVisibilitySourceKind)10));
+            Assert.That(visibilityEnumBlock, Does.Contain("Reserved tombstone"));
+            Assert.That(visibilityEnumBlock, Does.Contain("Retained for public enum/numeric compatibility"));
+            Assert.That(visibilityEnumBlock, Does.Contain("do not use for new visibility candidates"));
+            Assert.That(visibilityEnumBlock, Does.Contain("CommittedMotionFallback = 8"));
+            Assert.That(visibilityEnumBlock, Does.Contain("GenericVisibility = 10"));
+            Assert.That(collectorBlock, Does.Not.Match(ExactSourceKindPattern(committedToken)));
+            Assert.That(collectorBlock, Does.Not.Match(ExactSourceKindPattern(genericToken)));
+            Assert.That(
+                FindGameplayTestFilesContainingExactToken(committedToken),
+                Is.Empty,
+                "Normal gameplay tests must not keep the committed-motion tombstone as fixture vocabulary.");
+            Assert.That(
+                FindGameplayTestFilesContainingExactToken(genericToken),
+                Is.Empty,
+                "Normal gameplay tests must not use the generic visibility umbrella tombstone as fixture vocabulary.");
+        }
+
+        [Test]
+        [Category("Core")]
         public void EntityVisibilityResolver_DoesNotReadTopologyVisualBridgeController()
         {
             var hostRuntimeFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", HostRuntimeDirectory));
@@ -541,7 +585,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VisibilityCandidateSet_PreservesSourcePriorityFallbackAndTrackMetadata()
+        public void VisibilityCandidateSet_PreservesSourcePriorityFlagsAndTrackMetadata()
         {
             var entityKey = new PresentationEntityKey(12);
             var trackProvenance = new PresentationVisibilityProvenance(
@@ -551,7 +595,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 FaceId.Floor,
                 lifetimeToken: 77);
             var fallbackProvenance = new PresentationVisibilityProvenance(
-                PresentationVisibilitySourceKind.CommittedMotionFallback,
+                PresentationVisibilitySourceKind.JumpDetached,
                 PresentationOwnerRole.Enemy,
                 null,
                 null,
@@ -596,7 +640,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(candidates, Has.Count.EqualTo(3));
             Assert.That(candidates[0].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
             Assert.That(candidates[0].IsStatefulTrackSample, Is.True);
-            Assert.That(candidates[1].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.CommittedMotionFallback));
+            Assert.That(candidates[1].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
             Assert.That(candidates[1].IsFallback, Is.True);
             Assert.That(candidates[2].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression));
             Assert.That(candidates[2].IsHighPrioritySuppressionSource, Is.True);
@@ -655,11 +699,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var visibilitySet = new ResolvedPresentationVisibilitySet();
             var entityKey = new PresentationEntityKey(12);
-            var fallback = new ResolvedEntityPresentationVisibility(
+            var first = new ResolvedEntityPresentationVisibility(
                 entityKey,
                 isVisible: true,
                 new PresentationVisibilityProvenance(
-                    PresentationVisibilitySourceKind.CommittedMotionFallback,
+                    PresentationVisibilitySourceKind.JumpDetached,
                     PresentationOwnerRole.Enemy,
                     null,
                     null,
@@ -668,13 +712,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityKey,
                 isVisible: false,
                 new PresentationVisibilityProvenance(
-                    PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                    PresentationVisibilitySourceKind.VisibilityTrackSample,
                     PresentationOwnerRole.Enemy,
                     null,
                     null,
                     lifetimeToken: 77));
 
-            visibilitySet.SetVisibility(fallback);
+            visibilitySet.SetVisibility(first);
             visibilitySet.SetVisibility(winner);
 
             Assert.That(visibilitySet.Count, Is.EqualTo(1));
@@ -4475,6 +4519,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
             Assert.That(end, Is.GreaterThan(start), $"Missing end token after {startToken}: {endToken}");
             return source.Substring(start, end - start);
+        }
+
+        private static string ExactSourceKindPattern(string sourceKindToken)
+        {
+            return $@"{System.Text.RegularExpressions.Regex.Escape(sourceKindToken)}(?![A-Za-z0-9_])";
+        }
+
+        private static string[] FindGameplayTestFilesContainingExactToken(string token)
+        {
+            var testRoot = Path.GetFullPath(Path.Combine(
+                Application.dataPath,
+                "_Features/Gameplay/Gameplay_Tests"));
+            return Directory.GetFiles(testRoot, "*.cs", SearchOption.AllDirectories)
+                .Where(path => System.Text.RegularExpressions.Regex.IsMatch(
+                    File.ReadAllText(path),
+                    ExactSourceKindPattern(token)))
+                .Select(path => Path.GetRelativePath(
+                    Path.GetFullPath(Path.Combine(Application.dataPath, "..")),
+                    path))
+                .ToArray();
         }
 
         private static int CountOccurrences(string source, string token)

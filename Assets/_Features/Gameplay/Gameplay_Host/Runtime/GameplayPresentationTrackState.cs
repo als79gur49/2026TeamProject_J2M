@@ -1242,6 +1242,8 @@ namespace Game.Feature.Gameplay.Host
                 PresentationVisibilitySourceKind.GenericVisibilityDetach => 400,
                 PresentationVisibilitySourceKind.JumpDetached => 300,
                 PresentationVisibilitySourceKind.GenericVisibilitySpawn => 200,
+                // Reserved compatibility tombstones: keep rank behavior stable, but production collectors
+                // must not create these source kinds for new visibility candidates.
                 PresentationVisibilitySourceKind.GenericVisibility => 100,
                 PresentationVisibilitySourceKind.CommittedMotionFallback => 50,
                 _ => 0,
