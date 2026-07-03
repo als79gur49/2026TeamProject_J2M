@@ -465,27 +465,34 @@ namespace Game.Feature.Gameplay.Host
                 var isDeathPresentationPlaying =
                     _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
-                var isVisible = hasPresentationPoseOverride ||
-                                hasPlayerDeathHoldPose ||
-                                _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
-                                hasActiveLocalMotion ||
-                                hasActiveOriginalViewMotion ||
-                                isDeferredExitRetained ||
-                                isContactDelayedRetained ||
-                                isDeathPresentationPlaying ||
-                                IsJumpDetachedVisibleForTopology(entityId, _stateStore.CommittedTopology) ||
-                                _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
+                var fallbackVisible = hasPresentationPoseOverride ||
+                                      hasPlayerDeathHoldPose ||
+                                      _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
+                                      hasActiveLocalMotion ||
+                                      hasActiveOriginalViewMotion ||
+                                      isDeferredExitRetained ||
+                                      isContactDelayedRetained ||
+                                      isDeathPresentationPlaying ||
+                                      IsJumpDetachedVisibleForTopology(entityId, _stateStore.CommittedTopology) ||
+                                      _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
+                var appliedVisibility = new AppliedEntityPresentationVisibility(
+                    entityId,
+                    fallbackVisible,
+                    isCompleted: false,
+                    finalVisibility: fallbackVisible,
+                    progress01: 0f);
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {
-                    isVisible = AdvanceVisibilityForApply(
+                    appliedVisibility = AdvanceVisibilityForApply(
                         _trackState,
                         entityId,
                         visibilityTrack,
                         deltaTime,
-                        isVisible).IsVisible;
+                        fallbackVisible);
                 }
 
+                var isVisible = appliedVisibility.IsVisible;
                 var hasActiveMotion = hasPresentationPoseOverride && isActivePresentationPoseLocomotion ||
                                       hasActiveLocalMotion;
                 var enemyVisualFacts = BuildEnemyVisualPresentationFacts(
@@ -740,6 +747,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(visibilityTrack));
             }
 
+            // Planner pre-advance samples are readiness/diagnostic data only; actual apply advances here.
             var isVisible = visibilityTrack.SampleAndAdvance(deltaTime, fallbackVisible);
             var sample = visibilityTrack.SampleWithoutAdvance();
             if (sample.IsCompleted)

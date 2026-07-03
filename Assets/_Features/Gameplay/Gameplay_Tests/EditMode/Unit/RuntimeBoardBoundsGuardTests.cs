@@ -6529,6 +6529,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GenericVisibilityAppliedResult_DrivesVisibleEntitySetAfterAdvance()
+        {
+            var rootObject = new GameObject("GenericVisibilityAppliedResult_DrivesVisibleEntitySetAfterAdvance");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(30, sourceCell, facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(
+                                    30,
+                                    TickVisibilityChangeKind.Remove,
+                                    sourceCell,
+                                    topology,
+                                    Direction.Right),
+                            })));
+
+                var trackState = GetPresentationTrackState(presenter);
+                Assert.That(
+                    trackState.PreAdvanceVisibilitySamplesByEntityId.TryGetValue(
+                        30,
+                        out var preAdvanceSample),
+                    Is.True);
+                Assert.That(
+                    preAdvanceSample.IsVisible,
+                    Is.True,
+                    "Planner sample remains a pre-advance readiness source and must not drive actual visibility.");
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(trackState.CompletedVisibilityTrackIds, Does.Contain(30));
+                Assert.That(
+                    trackState.VisibleEntityIds.Contains(30),
+                    Is.False,
+                    "VisibleEntityIds must follow the Applier-local post-advance visibility result.");
+                Assert.That(registry.TryGetView(30, out var removedView), Is.True);
+                Assert.That(removedView.gameObject.activeSelf, Is.False);
+                Assert.That(preAdvanceSample.IsVisible, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GenericVisibilityPlannerSample_DiffersFromAppliedVisibilityOnCompletionFrame()
         {
             var trackState = new GameplayPresentationTrackState();
