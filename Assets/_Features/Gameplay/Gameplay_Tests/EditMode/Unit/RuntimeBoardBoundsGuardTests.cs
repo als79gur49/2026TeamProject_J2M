@@ -6445,6 +6445,200 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GenericVisibilitySpawnVisibility_NewEnemyView_UsesAppliedShowTrackAfterMaterialization()
+        {
+            var rootObject = new GameObject(
+                "GenericVisibilitySpawnVisibility_NewEnemyView_UsesAppliedShowTrackAfterMaterialization");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var visibilityChanges = new[]
+                {
+                    new TickVisibilityChange(
+                        40,
+                        TickVisibilityChangeKind.Spawn,
+                        spawnCell,
+                        topology,
+                        Direction.Left),
+                };
+                var tickResult = CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, spawnCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        visibilityChanges: visibilityChanges));
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(Array.Empty<EntityState>(), topology);
+
+                presenter.Present(tickResult);
+
+                var trackState = GetPresentationTrackState(presenter);
+
+                Assert.That(
+                    tickResult.PresentationData.VisibilityChanges.Any(
+                        change => change.EntityId == 40 &&
+                                  change.ChangeKind == TickVisibilityChangeKind.Spawn),
+                    Is.True,
+                    "Spawn carrier must remain available to non-visibility presentation consumers.");
+                Assert.That(registry.TryGetView(40, out var spawnedView), Is.True);
+                Assert.That(
+                    trackState.PresentationVisibilityCandidates.HighestPriorityByEntityId.TryGetValue(
+                        40,
+                        out var candidate),
+                    Is.True);
+                Assert.That(candidate.ChangeKind, Is.EqualTo(TickVisibilityChangeKind.Spawn));
+                Assert.That(
+                    trackState.PreAdvanceVisibilitySamplesByEntityId.TryGetValue(
+                        40,
+                        out var preAdvanceSample),
+                    Is.True);
+                Assert.That(preAdvanceSample.SourceKind, Is.EqualTo(TickVisibilityChangeKind.Spawn));
+                Assert.That(
+                    preAdvanceSample.Progress01,
+                    Is.EqualTo(0f).Within(0.0001f),
+                    "Spawn readiness sampling must stay diagnostic, not the actual apply source.");
+                Assert.That(
+                    trackState.CompletedVisibilityTrackIds,
+                    Does.Contain(40),
+                    "The Applier-owned actual apply path must advance the Spawn show track.");
+                Assert.That(
+                    trackState.VisibilityTracks.ContainsKey(40),
+                    Is.False,
+                    "Completed Spawn show tracks are cleaned up by the Applier-owned cleanup path.");
+                Assert.That(trackState.VisibleEntityIds.Contains(40), Is.True);
+                Assert.That(spawnedView.gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GenericVisibilitySpawnSameTickPriority_RemoveBeatsSpawnInActualApply()
+        {
+            var rootObject = new GameObject(
+                "GenericVisibilitySpawnSameTickPriority_RemoveBeatsSpawnInActualApply");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(30, sourceCell, facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(
+                                    30,
+                                    TickVisibilityChangeKind.Spawn,
+                                    sourceCell,
+                                    topology,
+                                    Direction.Right),
+                                new TickVisibilityChange(
+                                    30,
+                                    TickVisibilityChangeKind.Remove,
+                                    sourceCell,
+                                    topology,
+                                    Direction.Right),
+                            })));
+
+                var trackState = GetPresentationTrackState(presenter);
+
+                Assert.That(
+                    trackState.PresentationVisibilityCandidates.HighestPriorityByEntityId.TryGetValue(
+                        30,
+                        out var candidate),
+                    Is.True);
+                Assert.That(candidate.ChangeKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
+                Assert.That(candidate.IsGenericDetachOrRemove, Is.True);
+                Assert.That(
+                    trackState.PreAdvanceVisibilitySamplesByEntityId.TryGetValue(
+                        30,
+                        out var preAdvanceSample),
+                    Is.True);
+                Assert.That(preAdvanceSample.SourceKind, Is.EqualTo(TickVisibilityChangeKind.Remove));
+                Assert.That(trackState.VisibilityTracks[30].TargetVisibility, Is.False);
+                Assert.That(trackState.VisibleEntityIds.Contains(30), Is.True);
+                Assert.That(registry.TryGetView(30, out var removedView), Is.True);
+                Assert.That(removedView.gameObject.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(trackState.CompletedVisibilityTrackIds, Does.Contain(30));
+                Assert.That(
+                    trackState.VisibleEntityIds.Contains(30),
+                    Is.False,
+                    "Same-tick Spawn must not override the priority-selected Remove hide in actual apply.");
+                Assert.That(removedView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void GenericVisibilityDetachRemove_ResolvesPreAdvanceSampleBeforeApplier()
         {
