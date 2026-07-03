@@ -16946,6 +16946,114 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void FlipResultTurn_IsResolvedAsAdditiveRotation()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var basePose = PoseAt(1f);
+            stateStore.CommittedLocalTargetPoses[10] = basePose;
+            trackState.PlayerFlipResultTurnTracks[10] = new PlayerFlipResultTurnTrackEntry(
+                actionSequence: 7,
+                startTick: 11,
+                contactFacing: Direction.Left,
+                resultFacing: Direction.Right,
+                CreateRotationTrack(
+                    Quaternion.identity,
+                    Quaternion.Euler(0f, 90f, 0f),
+                    durationSeconds: 1f));
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(channels.TryGetAdditiveRotation(10, out var rotation), Is.True);
+            Assert.That(rotation.Channel, Is.EqualTo(PresentationPoseChannel.AdditiveRotation));
+            Assert.That(rotation.OwnerRole, Is.EqualTo(PresentationOwnerRole.Player));
+            Assert.That(rotation.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.FlipResultTurn));
+            Assert.That(rotation.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.None));
+            Assert.That(Quaternion.Angle(Quaternion.identity, rotation.Rotation), Is.EqualTo(67.5f).Within(0.001f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipResultTurn_WinsOverExistingAdditiveRotation()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            var jumpEndPose = new GameplayEntityPose(
+                new Vector3(5f, 0f, 0f),
+                Quaternion.Euler(0f, 45f, 0f));
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            var jumpTrack = new JumpTrack();
+            jumpTrack.Replace(JumpClip.Create(basePose, jumpEndPose, durationSeconds: 1f, arcHeightWorld: 0f));
+            trackState.JumpTracks[40] = jumpTrack;
+            trackState.PlayerFlipResultTurnTracks[40] = new PlayerFlipResultTurnTrackEntry(
+                actionSequence: 7,
+                startTick: 11,
+                contactFacing: Direction.Left,
+                resultFacing: Direction.Right,
+                CreateRotationTrack(
+                    Quaternion.identity,
+                    Quaternion.Euler(0f, 90f, 0f),
+                    durationSeconds: 1f));
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(channels.TryGetAdditiveRotation(40, out var rotation), Is.True);
+            Assert.That(rotation.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.FlipResultTurn));
+            Assert.That(Quaternion.Angle(Quaternion.identity, rotation.Rotation), Is.EqualTo(67.5f).Within(0.001f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void FlipResultTurn_CompletedTrackId_IsRegisteredByResolver()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            stateStore.CommittedLocalTargetPoses[10] = PoseAt(1f);
+            trackState.PlayerFlipResultTurnTracks[10] = new PlayerFlipResultTurnTrackEntry(
+                actionSequence: 7,
+                startTick: 11,
+                contactFacing: Direction.Left,
+                resultFacing: Direction.Right,
+                CreateRotationTrack(
+                    Quaternion.identity,
+                    Quaternion.Euler(0f, 90f, 0f),
+                    durationSeconds: 0.25f));
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(trackState.CompletedPlayerFlipResultTurnTrackIds, Is.EquivalentTo(new[] { 10 }));
+        }
+
+        [Test]
+        [Category("Core")]
         public void JumpDetachedVisibility_DoesNotBecomeTerminalSelection()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -18888,6 +18996,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.EnemyJumpWindup"));
             Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.GlideOffset"));
             Assert.That(applierSource, Does.Not.Contain("_trackState.JumpWindupRotationTracks.TryGetValue"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotRawSamplePlayerFlipResultTurnTracks()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+            var applyStart = source.IndexOf("public void Apply(", StringComparison.Ordinal);
+            var applyEnd = source.IndexOf(
+                "private IReadOnlyList<int> BuildProcessingEntityIds",
+                applyStart,
+                StringComparison.Ordinal);
+
+            Assert.That(applyStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(applyEnd, Is.GreaterThan(applyStart));
+
+            var applyBlock = source.Substring(applyStart, applyEnd - applyStart);
+            Assert.That(applyBlock, Does.Contain("resolvedChannels.TryGetAdditiveRotation"));
+            Assert.That(applyBlock, Does.Not.Contain("_trackState.PlayerFlipResultTurnTracks.TryGetValue"));
+            Assert.That(applyBlock, Does.Not.Contain("playerFlipResultTurnTrack.Track.SampleAndAdvance"));
+            Assert.That(source, Does.Contain("CleanupCompletedPlayerFlipResultTurnTracks"));
+            Assert.That(source, Does.Contain("CompletedPlayerFlipResultTurnTrackIds"));
         }
 
         [Test]

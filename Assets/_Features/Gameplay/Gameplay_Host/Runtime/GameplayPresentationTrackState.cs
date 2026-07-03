@@ -512,6 +512,38 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
+            {
+                var entityId = pair.Key;
+                var playerFlipResultTurnTrack = pair.Value;
+                if (playerFlipResultTurnTrack == null ||
+                    !playerFlipResultTurnTrack.Track.HasClips ||
+                    !resolvedFrames.TryGetFrame(entityId, out var resolvedFrame))
+                {
+                    continue;
+                }
+
+                var rotation = playerFlipResultTurnTrack.Track.SampleAndAdvance(
+                    deltaTime,
+                    resolvedFrame.BasePose.Rotation);
+                var entity = new PresentationEntityKey(entityId);
+                var provenance = new PresentationPoseProvenance(
+                    resolvedFrame.OwnerRole,
+                    PresentationPoseSourceKind.FlipResultTurn,
+                    PresentationPoseSourceKind.None,
+                    sourceTick);
+                channelSet.SetAdditiveRotation(new ResolvedEntityPresentationAdditiveRotation(
+                    entity,
+                    resolvedFrame.OwnerRole,
+                    rotation,
+                    provenance));
+
+                if (!playerFlipResultTurnTrack.Track.HasClips)
+                {
+                    _trackState.CompletedPlayerFlipResultTurnTrackIds.Add(entityId);
+                }
+            }
+
             foreach (var pair in _trackState.GlidePresentationOffsetsByEntityId)
             {
                 var entityId = pair.Key;

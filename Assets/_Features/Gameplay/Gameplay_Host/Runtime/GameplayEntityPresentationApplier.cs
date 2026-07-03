@@ -287,7 +287,6 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.CompletedMotionTrackIds.Clear();
             _trackState.CompletedMotionVisualScaleEntityIds.Clear();
-            _trackState.CompletedPlayerFlipResultTurnTrackIds.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
             _trackState.VisibleEntityIds.Clear();
             _stateStore.EnemyVisualFactsByEntityId.Clear();
@@ -388,17 +387,6 @@ namespace Game.Feature.Gameplay.Host
                 if (hasResolvedAdditiveRotation)
                 {
                     localPose = new GameplayEntityPose(localPose.Position, additiveRotation.Rotation);
-                }
-
-                if (_trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var playerFlipResultTurnTrack) &&
-                    playerFlipResultTurnTrack.Track.HasClips)
-                {
-                    var rotation = playerFlipResultTurnTrack.Track.SampleAndAdvance(deltaTime, localPose.Rotation);
-                    localPose = new GameplayEntityPose(localPose.Position, rotation);
-                    if (!playerFlipResultTurnTrack.Track.HasClips)
-                    {
-                        _trackState.CompletedPlayerFlipResultTurnTrackIds.Add(entityId);
-                    }
                 }
 
                 candidateCount++;
