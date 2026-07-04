@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -13,6 +14,13 @@ namespace Game.Feature.Gameplay.PresentationRuntime
 {
     public sealed class TickPresentationFactExtractor
     {
+        private readonly GameplayTimingProfile _timingProfile;
+
+        public TickPresentationFactExtractor(GameplayTimingProfile timingProfile = null)
+        {
+            _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+        }
+
         public PresentationFactFrame Extract(TickResult result)
         {
             if (result == null)
@@ -294,6 +302,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             lifecycleCount += AddCoreSfxEntityExitFacts(
                 facts,
                 tickIndex,
+                presentationData,
+                _timingProfile,
                 presentationData.EntityExitSignals);
             enemyPresentationCount += AddEnemyJumpPresentationFacts(
                 facts,
@@ -853,6 +863,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
         private static int AddCoreSfxEntityExitFacts(
             List<PresentationFact> facts,
             int tickIndex,
+            TickPresentationData presentationData,
+            GameplayTimingProfile timingProfile,
             IReadOnlyList<TickEntityExitPresentationSignal> signals)
         {
             if (signals == null || signals.Count == 0)
@@ -886,11 +898,91 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                         primaryCell: signal.SourceCell,
                         hasPrimaryCell: true,
                         timing: (int)signal.Timing,
-                        visualContactNormalizedTime: signal.VisualContactNormalizedTime)));
+                        visualContactNormalizedTime: signal.VisualContactNormalizedTime,
+                        delaySeconds: ResolveCoreSfxExitDelaySeconds(
+                            presentationData,
+                            signal,
+                            timingProfile))));
                 count++;
             }
 
             return count;
+        }
+
+        private static float ResolveCoreSfxExitDelaySeconds(
+            TickPresentationData presentationData,
+            in TickEntityExitPresentationSignal signal,
+            GameplayTimingProfile timingProfile)
+        {
+            timingProfile ??= GameplayTimingProfile.CreateDefault();
+            if (signal.Timing == EntityExitPresentationTiming.AtContactTime)
+            {
+                return timingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime;
+            }
+
+            if (signal.ExitCause == TickEntityExitCause.BoxDestroy &&
+                signal.Timing == EntityExitPresentationTiming.AfterEntityMotion)
+            {
+                return ResolveAfterEntityMotionDelaySeconds(
+                    presentationData,
+                    signal.ExitedEntityId,
+                    timingProfile);
+            }
+
+            return 0f;
+        }
+
+        private static float ResolveAfterEntityMotionDelaySeconds(
+            TickPresentationData presentationData,
+            int entityId,
+            GameplayTimingProfile timingProfile)
+        {
+            var kinematicTracks = presentationData.KinematicMotionTracks;
+            for (var i = 0; i < kinematicTracks.Count; i++)
+            {
+                var track = kinematicTracks[i];
+                if (track.EntityId == entityId &&
+                    track.TotalTicks > 0)
+                {
+                    return track.TotalTicks / (float)timingProfile.SimulationTicksPerSecond;
+                }
+            }
+
+            var motions = presentationData.EntityMotions;
+            for (var i = 0; i < motions.Count; i++)
+            {
+                var motion = motions[i];
+                if (motion.EntityId != entityId)
+                {
+                    continue;
+                }
+
+                return ResolveRetainedMotionDurationSeconds(motion.MotionKind, timingProfile);
+            }
+
+            return 0f;
+        }
+
+        private static float ResolveRetainedMotionDurationSeconds(
+            TickEntityMotionKind motionKind,
+            GameplayTimingProfile timingProfile)
+        {
+            switch (motionKind)
+            {
+                case TickEntityMotionKind.Move:
+                    return timingProfile.MoveMotionDurationSeconds;
+                case TickEntityMotionKind.Push:
+                    return timingProfile.PushMotionDurationSeconds;
+                case TickEntityMotionKind.Flip:
+                    return timingProfile.FlipMotionDurationSeconds;
+                case TickEntityMotionKind.ForwardCellMove:
+                    return timingProfile.ProjectileStepIntervalSeconds;
+                case TickEntityMotionKind.BoxSlide:
+                    return timingProfile.BoxSlideStepIntervalSeconds;
+                case TickEntityMotionKind.None:
+                default:
+                    return 0f;
+            }
         }
 
         private static bool IsCoreSfxExitCause(TickEntityExitCause exitCause)

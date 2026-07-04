@@ -622,8 +622,19 @@ namespace Game.Feature.Gameplay.Host
             IDamageDeathVfxPlaybackPort playbackPort,
             DamageDeathVfxExecutionGuard executionGuard)
         {
+            return CreateDamageDeathVfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                null);
+        }
+
+        public static GameplayPresentationPipeline CreateDamageDeathVfxExecutionPipeline(
+            IDamageDeathVfxPlaybackPort playbackPort,
+            DamageDeathVfxExecutionGuard executionGuard,
+            GameplayTimingProfile timingProfile)
+        {
             return new GameplayPresentationPipeline(
-                new TickPresentationFactExtractor(),
+                new TickPresentationFactExtractor(timingProfile),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
                 {
                     new VfxCuePlanner(),
@@ -634,7 +645,8 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayVfxPresentationExecutor(
                         playbackPort,
-                        executionGuard),
+                        executionGuard,
+                        timingProfile),
                 });
         }
 
@@ -704,8 +716,19 @@ namespace Game.Feature.Gameplay.Host
             IGameplaySfxPlaybackPort playbackPort,
             CoreGameplaySfxExecutionGuard executionGuard)
         {
+            return CreateCoreGameplaySfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                null);
+        }
+
+        public static GameplayPresentationPipeline CreateCoreGameplaySfxExecutionPipeline(
+            IGameplaySfxPlaybackPort playbackPort,
+            CoreGameplaySfxExecutionGuard executionGuard,
+            GameplayTimingProfile timingProfile)
+        {
             return new GameplayPresentationPipeline(
-                new TickPresentationFactExtractor(),
+                new TickPresentationFactExtractor(timingProfile),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
                 {
                     new SfxCuePlanner(),

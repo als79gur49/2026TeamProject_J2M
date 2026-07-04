@@ -316,7 +316,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             bool hasPrimaryCell = false,
             bool hasSecondaryCell = false,
             int timing = 0,
-            float visualContactNormalizedTime = 0f)
+            float visualContactNormalizedTime = 0f,
+            float delaySeconds = 0f)
         {
             PrimaryValue = primaryValue;
             SecondaryValue = secondaryValue;
@@ -327,6 +328,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             HasSecondaryCell = hasSecondaryCell;
             Timing = Math.Max(0, timing);
             VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public int PrimaryValue { get; }
@@ -347,6 +349,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public float VisualContactNormalizedTime { get; }
 
+        public float DelaySeconds { get; }
+
         public PresentationAnchor PrimaryCellCenterAnchorOrEntityCenter(int entityId)
         {
             return HasPrimaryCell
@@ -364,7 +368,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    HasPrimaryCell == other.HasPrimaryCell &&
                    HasSecondaryCell == other.HasSecondaryCell &&
                    Timing == other.Timing &&
-                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime);
+                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime) &&
+                   DelaySeconds.Equals(other.DelaySeconds);
         }
 
         public override bool Equals(object obj)
@@ -385,6 +390,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ HasSecondaryCell.GetHashCode();
                 hash = (hash * 397) ^ Timing;
                 hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
+                hash = (hash * 397) ^ DelaySeconds.GetHashCode();
                 return hash;
             }
         }

@@ -652,6 +652,8 @@ namespace Game.Feature.Gameplay.Host
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _playerActionAnimationTimingProfileSource.TimingProfile = _timingProfile;
+            _coreGameplaySfxLane.ConfigureTiming(_timingProfile);
+            _damageDeathVfxLane.ConfigureTiming(_timingProfile);
             _enemyOneShotAudioLane.ConfigureTiming(_timingProfile);
             _topologyTransitionController.Configure(
                 boardRoot,

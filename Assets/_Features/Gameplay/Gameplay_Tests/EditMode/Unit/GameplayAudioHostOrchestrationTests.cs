@@ -774,6 +774,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void CoreGameplaySfx_CurrentPlanner_EmitsPlayerDamageFallbackForPlayerDeath()
+        {
+            var result = CreateTickResult(CreatePlayerDeathPresentationData(10), tickIndex: 44);
+            var legacyRequest = new GameplayAudioRequestPlanner()
+                .BuildRequests(result, CreateTimingProfile())
+                .Single();
+            var factFrame = new TickPresentationFactExtractor(CreateTimingProfile()).Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new SfxCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var port = new RecordingGameplaySfxPlaybackPort();
+            var executor = new GameplaySfxPresentationExecutor(
+                port,
+                new CoreGameplaySfxExecutionGuard());
+
+            executor.Play(playbackPlan);
+
+            Assert.That(legacyRequest.SemanticId, Is.EqualTo(GameplayAudioSemanticId.PlayerDamage));
+            Assert.That(port.Requests, Has.Count.EqualTo(1));
+            Assert.That(port.Requests[0].CueKey, Is.EqualTo(PresentationSfxCueKey.PlayerDamage));
+            Assert.That(port.Requests[0].Target, Is.EqualTo(PresentationTarget.Entity(10)));
+            Assert.That(port.Requests[0].Source.SemanticSource, Is.EqualTo(PresentationSemanticSource.PlayerDeath));
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfx_CurrentPlanner_PreservesAfterEntityMotionBoxDestroyDelay()
+        {
+            var timingProfile = new GameplayTimingProfile(
+                simulationTicksPerSecond: 20,
+                initialMoveDelaySeconds: 0.1f,
+                repeatedMoveIntervalSeconds: 0.1f,
+                boxSlideStepIntervalSeconds: 0.37f,
+                projectileStepIntervalSeconds: 0.1f,
+                moveMotionDurationSeconds: 0.11f,
+                pushMotionDurationSeconds: 0.12f,
+                topologyMotionDurationSeconds: 0.1f,
+                flipMotionDurationSeconds: 0.13f,
+                flipArcHeightInCells: 1f,
+                maxTicksPerFrame: 4,
+                itemConsumeEffectDurationSeconds: 0.1f,
+                boxDestroyEffectDurationSeconds: 0.1f,
+                enemyDeathEffectDurationSeconds: 0.1f);
+            var result = CreateTickResult(
+                CreateAfterEntityMotionBoxDestroyPresentationData(40),
+                tickIndex: 45);
+            var legacyRequest = new GameplayAudioRequestPlanner()
+                .BuildRequests(result, timingProfile)
+                .Single();
+            var factFrame = new TickPresentationFactExtractor(timingProfile).Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new SfxCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var port = new RecordingGameplaySfxPlaybackPort();
+            var executor = new GameplaySfxPresentationExecutor(
+                port,
+                new CoreGameplaySfxExecutionGuard());
+
+            executor.Play(playbackPlan);
+
+            Assert.That(legacyRequest.DelaySeconds, Is.EqualTo(timingProfile.BoxSlideStepIntervalSeconds).Within(0.0001f));
+            Assert.That(port.Requests, Has.Count.EqualTo(1));
+            Assert.That(port.Requests[0].CueKey, Is.EqualTo(PresentationSfxCueKey.EntityExitBoxDestroy));
+            Assert.That(port.Requests[0].DelaySeconds, Is.EqualTo(timingProfile.BoxSlideStepIntervalSeconds).Within(0.0001f));
+            Assert.That(port.Requests[0].SfxPayload.DelaySeconds, Is.EqualTo(timingProfile.BoxSlideStepIntervalSeconds).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Core")]
         public void CoreSfx_ForcedDuplicateStillBlocksSecondOwner()
         {
             var rootObject = new GameObject(nameof(CoreSfx_ForcedDuplicateStillBlocksSecondOwner));
@@ -1627,6 +1701,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<TickEntityExitPresentationSignal>());
         }
 
+        private static TickPresentationData CreatePlayerDeathPresentationData(int entityId)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerDeathPresentationSignal(
+                        entityId,
+                        didDieThisTick: true,
+                        sourceEntityId: 30,
+                        fallbackFacing: Direction.Down,
+                        resolvedDamageSourceAvailable: true,
+                        damageAmountAtFatalHit: 1,
+                        deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse),
+                },
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>());
+        }
+
         private static TickPresentationData CreateEnemyDamagePresentationData(int entityId)
         {
             return new TickPresentationData(
@@ -1759,6 +1862,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Direction.Up,
                         entityType,
                         sourceActorEntityId),
+                });
+        }
+
+        private static TickPresentationData CreateAfterEntityMotionBoxDestroyPresentationData(int entityId)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            return new TickPresentationData(
+                new[]
+                {
+                    new TickEntityMotion(
+                        entityId,
+                        TickEntityMotionKind.BoxSlide,
+                        sourceCell,
+                        destinationCell),
+                },
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        entityId,
+                        TickEntityExitCause.BoxDestroy,
+                        sourceCell,
+                        new CubeTopologyState(FaceId.Floor),
+                        Direction.Right,
+                        EntityType.Box,
+                        sourceActorEntityId: 10,
+                        timing: EntityExitPresentationTiming.AfterEntityMotion),
                 });
         }
 

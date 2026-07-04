@@ -37,14 +37,16 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPipeline _executionPipeline;
         private IDamageDeathVfxPlaybackPort _playbackPort;
+        private GameplayTimingProfile _timingProfile;
+        private bool _usesDefaultPipelineFactory;
 
         public DamageDeathVfxPresentationLaneRuntime(
             DamageDeathVfxExecutionPipelineFactory pipelineFactory = null,
             IDamageDeathVfxPlaybackPort playbackPort = null,
             DamageDeathVfxExecutionGuard executionGuard = null)
         {
-            _pipelineFactory = pipelineFactory ??
-                               GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline;
+            _usesDefaultPipelineFactory = pipelineFactory == null;
+            _pipelineFactory = pipelineFactory ?? CreateDefaultExecutionPipeline;
             _playbackPort = playbackPort;
             _executionGuard = executionGuard ?? new DamageDeathVfxExecutionGuard();
         }
@@ -67,6 +69,19 @@ namespace Game.Feature.Gameplay.Host
         public void ConfigurePlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
             _playbackPort = playbackPort;
+            ResetExecutionSession();
+            _executionPipeline = CreateExecutionPipeline();
+            _executionPipeline?.ResetSession();
+        }
+
+        public void ConfigureTiming(GameplayTimingProfile timingProfile)
+        {
+            _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            if (!_usesDefaultPipelineFactory)
+            {
+                return;
+            }
+
             ResetExecutionSession();
             _executionPipeline = CreateExecutionPipeline();
             _executionPipeline?.ResetSession();
@@ -106,6 +121,16 @@ namespace Game.Feature.Gameplay.Host
             return _pipelineFactory(
                 _playbackPort,
                 _executionGuard);
+        }
+
+        private GameplayPresentationPipeline CreateDefaultExecutionPipeline(
+            IDamageDeathVfxPlaybackPort playbackPort,
+            DamageDeathVfxExecutionGuard executionGuard)
+        {
+            return GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                _timingProfile);
         }
 
         private void ResetExecutionSession()

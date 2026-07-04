@@ -264,7 +264,7 @@ namespace Game.Feature.Gameplay.Host
         {
             if (_executionPipeline == null)
             {
-                return default;
+                return BuildEmptyExecutorDiagnostics();
             }
 
             var executors = _executionPipeline.Executors;
@@ -272,11 +272,27 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (executors[i] is GameplayMotionPresentationExecutor executor)
                 {
-                    return executor.Diagnostics;
+                    return executor.Diagnostics.IsCurrentProductionOwner
+                        ? executor.Diagnostics
+                        : BuildEmptyExecutorDiagnostics();
                 }
             }
 
-            return default;
+            return BuildEmptyExecutorDiagnostics();
+        }
+
+        private static GameplayMotionExecutorDiagnostics BuildEmptyExecutorDiagnostics()
+        {
+            return new GameplayMotionExecutorDiagnostics(
+                observedTrackCount: 0,
+                targetMissingCount: 0,
+                anchorMissingCount: 0,
+                bindingMissingCount: 0,
+                driverMissingCount: 0,
+                duplicateRejectedCount: 0,
+                playbackRequestedCount: 0,
+                trackStartedCount: 0,
+                missingPortCount: 0);
         }
 
         private BoxMotionProductionTelemetrySnapshot BuildProductionTelemetrySnapshot()

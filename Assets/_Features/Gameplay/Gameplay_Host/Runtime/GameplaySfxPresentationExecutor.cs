@@ -189,7 +189,8 @@ namespace Game.Feature.Gameplay.Host
             PresentationSource source,
             PresentationTarget target,
             PresentationAnchor anchor,
-            PresentationSfxPayload sfxPayload = default)
+            PresentationSfxPayload sfxPayload = default,
+            float delaySeconds = 0f)
         {
             OwnershipKey = ownershipKey;
             CueKey = cueKey;
@@ -197,6 +198,7 @@ namespace Game.Feature.Gameplay.Host
             Target = target;
             Anchor = anchor;
             SfxPayload = sfxPayload;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public CoreGameplaySfxPlaybackKey OwnershipKey { get; }
@@ -210,6 +212,8 @@ namespace Game.Feature.Gameplay.Host
         public PresentationAnchor Anchor { get; }
 
         public PresentationSfxPayload SfxPayload { get; }
+
+        public float DelaySeconds { get; }
 
         public int TickIndex => OwnershipKey.TickIndex;
 
@@ -467,6 +471,28 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    internal readonly struct DeferredGameplaySfxPlaybackRequest
+    {
+        public DeferredGameplaySfxPlaybackRequest(
+            GameplaySfxPlaybackRequest request,
+            float remainingSeconds)
+        {
+            Request = request;
+            RemainingSeconds = Math.Max(0f, remainingSeconds);
+        }
+
+        public GameplaySfxPlaybackRequest Request { get; }
+
+        public float RemainingSeconds { get; }
+
+        public DeferredGameplaySfxPlaybackRequest Advance(float deltaTime)
+        {
+            return new DeferredGameplaySfxPlaybackRequest(
+                Request,
+                Math.Max(0f, RemainingSeconds - Math.Max(0f, deltaTime)));
+        }
+    }
+
     internal delegate GameplayPresentationPipeline CoreGameplaySfxExecutionPipelineFactory(
         IGameplaySfxPlaybackPort playbackPort,
         CoreGameplaySfxExecutionGuard executionGuard);
@@ -474,7 +500,7 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplaySfxPlaybackPortAdapter : IGameplaySfxPlaybackPort
     {
         private readonly GameplayPresentationStateStore _stateStore;
-        private readonly List<GameplaySfxPlaybackRequest> _deferredRequests = new();
+        private readonly List<DeferredGameplaySfxPlaybackRequest> _deferredRequests = new();
         private readonly HashSet<CoreGameplaySfxPlaybackKey> _deferredKeys = new();
         private readonly HashSet<CoreGameplaySfxPlaybackKey> _playedDeferredKeys = new();
         private readonly HashSet<int> _enemyDeathCueSuppressedEntityIds = new();
@@ -545,16 +571,24 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void Update()
+        public void Update(float deltaTime)
         {
             if (_gateState.IsBlocked || _deferredRequests.Count == 0)
             {
                 return;
             }
 
-            for (var i = 0; i < _deferredRequests.Count; i++)
+            var advanceSeconds = Math.Max(0f, deltaTime);
+            for (var i = _deferredRequests.Count - 1; i >= 0; i--)
             {
-                var request = _deferredRequests[i];
+                var deferred = _deferredRequests[i].Advance(advanceSeconds);
+                if (deferred.RemainingSeconds > 0f)
+                {
+                    _deferredRequests[i] = deferred;
+                    continue;
+                }
+
+                var request = deferred.Request;
                 if (!ShouldSuppress(request, out var semanticId))
                 {
                     PlayMappedRequest(request, semanticId);
@@ -562,10 +596,9 @@ namespace Game.Feature.Gameplay.Host
 
                 _playedDeferredKeys.Add(request.OwnershipKey);
                 _deferredDrainCount++;
+                _deferredRequests.RemoveAt(i);
+                _deferredKeys.Remove(request.OwnershipKey);
             }
-
-            _deferredRequests.Clear();
-            _deferredKeys.Clear();
         }
 
         public bool TryPlayCoreGameplaySfx(
@@ -609,7 +642,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (ShouldDefer(semanticId))
+            if (ShouldDefer(semanticId, request.DelaySeconds))
             {
                 DeferRequest(request);
                 result = new GameplaySfxPlaybackResult(GameplaySfxPlaybackResultKind.Requested);
@@ -691,7 +724,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _deferredRequests.Add(request);
+            _deferredRequests.Add(new DeferredGameplaySfxPlaybackRequest(request, request.DelaySeconds));
             _deferredKeys.Add(request.OwnershipKey);
             _deferredDuringTopologyLockCount++;
             RecordLast(request, GameplayAudioSemanticId.None, GameplaySfxDiagnosticReason.None);
@@ -704,11 +737,12 @@ namespace Game.Feature.Gameplay.Host
             _playedDeferredKeys.Clear();
         }
 
-        private bool ShouldDefer(GameplayAudioSemanticId semanticId)
+        private bool ShouldDefer(GameplayAudioSemanticId semanticId, float delaySeconds)
         {
-            return _gateState.IsBlocked &&
-                   _gateState.Reason == GameplayAudioPlaybackBlockReason.TopologyPresentationLock &&
-                   IsTopologyLockSensitive(semanticId);
+            return delaySeconds > 0f ||
+                   (_gateState.IsBlocked &&
+                    _gateState.Reason == GameplayAudioPlaybackBlockReason.TopologyPresentationLock &&
+                    IsTopologyLockSensitive(semanticId));
         }
 
         private bool ShouldSuppress(
@@ -1077,7 +1111,8 @@ namespace Game.Feature.Gameplay.Host
                 cue.Source,
                 cue.Target,
                 cue.Anchor,
-                cue.SfxPayload);
+                cue.SfxPayload,
+                cue.DelaySeconds > 0f ? cue.DelaySeconds : cue.SfxPayload.DelaySeconds);
             return true;
         }
 

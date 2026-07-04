@@ -446,7 +446,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.ObservedTrackCount, Is.Zero);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(
                     coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner,

@@ -543,6 +543,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly IDamageDeathVfxPlaybackPort _playbackPort;
         private readonly DamageDeathVfxExecutionGuard _executionGuard;
+        private readonly GameplayTimingProfile _timingProfile;
         private readonly Dictionary<PresentationVfxCueKey, DamageDeathVfxSemanticTelemetryCounter> _semanticCounters =
             new();
         private bool _hasRoutedRequest;
@@ -568,10 +569,12 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayVfxPresentationExecutor(
             IDamageDeathVfxPlaybackPort playbackPort = null,
-            DamageDeathVfxExecutionGuard executionGuard = null)
+            DamageDeathVfxExecutionGuard executionGuard = null,
+            GameplayTimingProfile timingProfile = null)
         {
             _playbackPort = playbackPort;
             _executionGuard = executionGuard;
+            _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
         }
 
         public DamageDeathVfxExecutorDiagnostics Diagnostics { get; private set; }
@@ -891,7 +894,7 @@ namespace Game.Feature.Gameplay.Host
             Diagnostics = default;
         }
 
-        private static bool TryCreateRequest(
+        private bool TryCreateRequest(
             PresentationCue cue,
             out GameplayVfxPlaybackRequest request,
             out GameplayVfxPlaybackResultKind missingKind)
@@ -935,16 +938,27 @@ namespace Game.Feature.Gameplay.Host
                 cue.Target,
                 cue.Anchor,
                 vfxAnchor,
-                ResolveDelaySeconds(cue));
+                ResolveDelaySeconds(cue, _timingProfile));
             return true;
         }
 
-        private static float ResolveDelaySeconds(PresentationCue cue)
+        private static float ResolveDelaySeconds(
+            PresentationCue cue,
+            GameplayTimingProfile timingProfile)
         {
-            return cue.Timing == (int)EntityExitPresentationTiming.AtContactTime &&
-                   cue.VisualContactNormalizedTime > 0f
-                ? GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds * cue.VisualContactNormalizedTime
-                : 0f;
+            if (cue.DelaySeconds > 0f)
+            {
+                return cue.DelaySeconds;
+            }
+
+            if (cue.Timing != (int)EntityExitPresentationTiming.AtContactTime ||
+                cue.VisualContactNormalizedTime <= 0f)
+            {
+                return 0f;
+            }
+
+            var resolvedTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            return resolvedTimingProfile.FlipMotionDurationSeconds * cue.VisualContactNormalizedTime;
         }
 
         private static bool TryMapCueId(PresentationVfxCueKey cueKey, out GameplayVfxCueId cueId)

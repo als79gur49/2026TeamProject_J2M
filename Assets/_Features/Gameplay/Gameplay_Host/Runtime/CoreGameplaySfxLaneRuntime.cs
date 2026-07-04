@@ -46,8 +46,10 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPipeline _executionPipeline;
         private IGameplaySfxPlaybackPort _playbackPort;
+        private GameplayTimingProfile _timingProfile;
         private bool _previousPlaybackGateBlocked;
         private bool _currentPlaybackGateBlocked;
+        private bool _usesDefaultPipelineFactory;
 
         public CoreGameplaySfxLaneRuntime(
             GameplayPresentationStateStore stateStore,
@@ -60,8 +62,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(stateStore));
             }
 
-            _pipelineFactory = pipelineFactory ??
-                               GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline;
+            _usesDefaultPipelineFactory = pipelineFactory == null;
+            _pipelineFactory = pipelineFactory ?? CreateDefaultExecutionPipeline;
             _executionGuard = executionGuard ?? new CoreGameplaySfxExecutionGuard();
             _playbackPortAdapter = playbackPortAdapter ?? new GameplaySfxPlaybackPortAdapter(stateStore);
             _executionPipeline = CreateExecutionPipeline();
@@ -92,6 +94,19 @@ namespace Game.Feature.Gameplay.Host
             if (playbackPort == null && useDefaultPlaybackPort)
             {
                 _playbackPort = _playbackPortAdapter;
+            }
+
+            ResetExecutionSession();
+            _executionPipeline = CreateExecutionPipeline();
+            _executionPipeline?.ResetSession();
+        }
+
+        public void ConfigureTiming(GameplayTimingProfile timingProfile)
+        {
+            _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            if (!_usesDefaultPipelineFactory)
+            {
+                return;
             }
 
             ResetExecutionSession();
@@ -141,7 +156,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void Update(float deltaTime)
         {
-            _playbackPortAdapter.Update();
+            _playbackPortAdapter.Update(deltaTime);
             _executionPipeline?.Update(deltaTime);
         }
 
@@ -187,6 +202,16 @@ namespace Game.Feature.Gameplay.Host
             return _pipelineFactory(
                 ResolvePlaybackPort(),
                 _executionGuard);
+        }
+
+        private GameplayPresentationPipeline CreateDefaultExecutionPipeline(
+            IGameplaySfxPlaybackPort playbackPort,
+            CoreGameplaySfxExecutionGuard executionGuard)
+        {
+            return GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                _timingProfile);
         }
 
         private IGameplaySfxPlaybackPort ResolvePlaybackPort()

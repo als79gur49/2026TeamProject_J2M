@@ -293,13 +293,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(typeof(GameplaySceneHostConfiguration).GetField("TopologyPresentationExecutionMode"), Is.Null);
                 Assert.That(coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.ObservedTrackCount, Is.Zero);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.TrackStartedCount, Is.Zero);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
                 Assert.That(presenter.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.ObservedTrackCount, Is.Zero);
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.TrackStartedCount, Is.Zero);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
@@ -625,8 +629,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
-                Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.ObservedTrackCount, Is.Zero);
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.ObservedTrackCount, Is.Zero);
                 Assert.That(coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             }

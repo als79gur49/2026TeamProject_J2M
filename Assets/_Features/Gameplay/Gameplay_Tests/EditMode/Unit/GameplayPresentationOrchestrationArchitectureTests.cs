@@ -333,7 +333,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(composition.DamageDeathVfxLane, Is.Not.Null);
             Assert.That(composition.DamageDeathVfxLane.ExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
             Assert.That(composition.BoxMotionLane, Is.Not.Null);
-            Assert.That(composition.BoxMotionLane.ExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
+            Assert.That(composition.BoxMotionLane.ExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+            Assert.That(composition.BoxMotionLane.ExecutorDiagnostics.ObservedTrackCount, Is.Zero);
             Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
             Assert.That(composition.EnemyPresentationLane, Is.Not.Null);
             Assert.That(composition.CoreGameplaySfxLane, Is.Not.Null);
@@ -2997,6 +2998,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Death));
             Assert.That(deathRequest.Timing, Is.EqualTo(VfxTimingKind.Delayed));
             Assert.That(deathRequest.DelaySeconds, Is.EqualTo(expectedDelay).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxExecutor_ContactTimedEnemyDeath_UsesConfiguredTimingProfileForContactDelay()
+        {
+            var contactNormalizedTime = 0.35f;
+            var timingProfile = new GameplayTimingProfile(
+                simulationTicksPerSecond: 20,
+                initialMoveDelaySeconds: 0.1f,
+                repeatedMoveIntervalSeconds: 0.1f,
+                boxSlideStepIntervalSeconds: 0.1f,
+                projectileStepIntervalSeconds: 0.1f,
+                moveMotionDurationSeconds: 0.1f,
+                pushMotionDurationSeconds: 0.1f,
+                topologyMotionDurationSeconds: 0.1f,
+                flipMotionDurationSeconds: 0.73f,
+                flipArcHeightInCells: 1f,
+                maxTicksPerFrame: 4,
+                itemConsumeEffectDurationSeconds: 0.1f,
+                boxDestroyEffectDurationSeconds: 0.1f,
+                enemyDeathEffectDurationSeconds: 0.1f);
+            var expectedDelay = timingProfile.FlipMotionDurationSeconds * contactNormalizedTime;
+            var result = CreateDiagnosticTickResult(
+                includeEnemyDeathExit: true,
+                deathTiming: EntityExitPresentationTiming.AtContactTime,
+                deathVisualContactNormalizedTime: contactNormalizedTime);
+            var factFrame = new TickPresentationFactExtractor(timingProfile).Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new VfxCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var runtime = new RecordingDamageDeathGameplayVfxRuntime(GameplayVfxPlaybackResultKind.Succeeded);
+            var executor = new GameplayVfxPresentationExecutor(
+                new DamageDeathGameplayVfxPlaybackPortAdapter(runtime),
+                new DamageDeathVfxExecutionGuard(),
+                timingProfile);
+
+            executor.Play(playbackPlan);
+
+            var deathRequest = runtime.Requests.Single(request =>
+                request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Death));
+            var defaultDelay = GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds * contactNormalizedTime;
+            Assert.That(deathRequest.Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(deathRequest.DelaySeconds, Is.EqualTo(expectedDelay).Within(0.0001f));
+            Assert.That(Math.Abs(deathRequest.DelaySeconds - defaultDelay), Is.GreaterThan(0.0001f));
         }
 
         [Test]
