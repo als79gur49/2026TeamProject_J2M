@@ -86,6 +86,27 @@ namespace Game.Feature.Gameplay.Vfx
                 preserveTopologyHelperExempt: options.PreserveTopologyHelperExempt);
         }
 
+        public void PlayOneShot(in GameplayVfxRequest request)
+        {
+            PlayOneShot(request, default);
+        }
+
+        public void PlayOneShot(in GameplayVfxRequest request, GameplayVfxRefreshOptions options)
+        {
+            if (request.IsPersistent || !request.PersistentKey.IsNone)
+            {
+                throw new InvalidOperationException("One-shot VFX playback must not carry persistent state.");
+            }
+
+            persistentRegistry.ReleaseCompleted();
+            if (stageTerminalSuppressed)
+            {
+                return;
+            }
+
+            Process(request, options);
+        }
+
         public void SetTopologyTransitionStartSuppression(bool suppressed, int epoch)
         {
             topologyTransitionStartsSuppressed = suppressed;

@@ -668,12 +668,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var missingAnchorBefore = controller?.MissingAnchorCount ?? 0;
             var missingPrefabBefore = pool?.MissingPrefabCount ?? 0;
             var activeBefore = pool?.GetActiveCount(request.CueId) ?? 0;
+            var pendingDelayedBefore = controller?.PendingDelayedRequestCount ?? 0;
 
             controller.SetVisibilityContext(BuildVisibilityContext(configuredStateStore));
-            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+            controller.PlayOneShot(request);
 
             var activeAfter = pool?.GetActiveCount(request.CueId) ?? 0;
-            if (activeAfter > activeBefore)
+            var pendingDelayedAfter = controller?.PendingDelayedRequestCount ?? pendingDelayedBefore;
+            if (activeAfter > activeBefore ||
+                (request.DelaySeconds > 0f && pendingDelayedAfter > pendingDelayedBefore))
             {
                 damageDeathPlaybackSucceededCount++;
                 result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.Succeeded);
