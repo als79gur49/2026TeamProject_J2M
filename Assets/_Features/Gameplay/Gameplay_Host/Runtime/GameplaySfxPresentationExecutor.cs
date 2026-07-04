@@ -573,7 +573,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void Update(float deltaTime)
         {
-            if (_gateState.IsBlocked || _deferredRequests.Count == 0)
+            if (_deferredRequests.Count == 0)
             {
                 return;
             }
@@ -581,6 +581,12 @@ namespace Game.Feature.Gameplay.Host
             var advanceSeconds = Math.Max(0f, deltaTime);
             for (var i = _deferredRequests.Count - 1; i >= 0; i--)
             {
+                var request = _deferredRequests[i].Request;
+                if (IsBlockedByTopologyLock(request, out _))
+                {
+                    continue;
+                }
+
                 var deferred = _deferredRequests[i].Advance(advanceSeconds);
                 if (deferred.RemainingSeconds > 0f)
                 {
@@ -588,7 +594,6 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var request = deferred.Request;
                 if (!ShouldSuppress(request, out var semanticId))
                 {
                     PlayMappedRequest(request, semanticId);
@@ -803,6 +808,17 @@ namespace Game.Feature.Gameplay.Host
         {
             return semanticId == GameplayAudioSemanticId.PlayerDamage ||
                    semanticId == GameplayAudioSemanticId.EnemyDamage;
+        }
+
+        private bool IsBlockedByTopologyLock(
+            in GameplaySfxPlaybackRequest request,
+            out GameplayAudioSemanticId semanticId)
+        {
+            semanticId = GameplayAudioSemanticId.None;
+            return _gateState.IsBlocked &&
+                   _gateState.Reason == GameplayAudioPlaybackBlockReason.TopologyPresentationLock &&
+                   TryMapSemantic(request.CueKey, out semanticId) &&
+                   IsTopologyLockSensitive(semanticId);
         }
 
         private bool TryResolveOwner(int ownerEntityId, out GameplayEntityView owner)

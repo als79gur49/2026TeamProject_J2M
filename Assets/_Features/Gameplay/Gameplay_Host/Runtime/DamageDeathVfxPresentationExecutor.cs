@@ -994,7 +994,7 @@ namespace Game.Feature.Gameplay.Host
                     var cell = anchor.Target.Cell;
                     vfxAnchor = VfxAnchor.ForCell(
                         cell,
-                        new CubeTopologyState(cell.face),
+                        anchor.HasTopology ? anchor.Topology : new CubeTopologyState(cell.face),
                         VfxAnchorSlot.CellCenter);
                     return true;
                 default:

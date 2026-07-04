@@ -3049,6 +3049,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VfxExecutor_EnemyDeathExit_PreservesSourceTopologyForCellAnchor()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Front, 1, 1);
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var reconstructedFromCellFace = new CubeTopologyState(sourceCell.face);
+            var result = CreateDiagnosticTickResult(
+                includeTopologyMotion: false,
+                includeEnemyDeathExit: true,
+                enemyDeathSourceCell: sourceCell,
+                enemyDeathTopology: sourceTopology);
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new VfxCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var runtime = new RecordingDamageDeathGameplayVfxRuntime(GameplayVfxPlaybackResultKind.Succeeded);
+            var executor = new GameplayVfxPresentationExecutor(
+                new DamageDeathGameplayVfxPlaybackPortAdapter(runtime),
+                new DamageDeathVfxExecutionGuard());
+
+            executor.Play(playbackPlan);
+
+            var deathRequest = runtime.Requests.Single(request =>
+                request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Death));
+            Assert.That(deathRequest.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(deathRequest.Anchor.Cell, Is.EqualTo(sourceCell));
+            Assert.That(deathRequest.Anchor.Topology, Is.EqualTo(sourceTopology));
+            Assert.That(deathRequest.Anchor.Topology, Is.Not.EqualTo(reconstructedFromCellFace));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VfxExecutionGuard_BlocksDuplicateExecutorAttemptForSameDamageDeathKey()
         {
             var key = new DamageDeathVfxPlaybackKey(
@@ -3700,12 +3733,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int enemyDamageEntityId = 20,
             int enemyDeathEntityId = 30,
             EntityExitPresentationTiming deathTiming = EntityExitPresentationTiming.Immediate,
-            float deathVisualContactNormalizedTime = 0f)
+            float deathVisualContactNormalizedTime = 0f,
+            SurfaceCell? enemyDeathSourceCell = null,
+            CubeTopologyState? enemyDeathTopology = null)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var deathCell = enemyDeathSourceCell ?? cell;
+            var deathTopology = enemyDeathTopology ?? topology;
             var resolvedTopologyMotion = includeTopologyMotion
                 ? topologyMotion ?? new TickTopologyMotion(topology, destinationTopology, CubeRotationKind.Forward)
                 : (TickTopologyMotion?)null;
@@ -3715,8 +3752,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new TickEntityExitPresentationSignal(
                         exitedEntityId: enemyDeathEntityId,
                         TickEntityExitCause.Killed,
-                        cell,
-                        topology,
+                        deathCell,
+                        deathTopology,
                         Direction.Right,
                         EntityType.Unit,
                         sourceActorEntityId: 10,

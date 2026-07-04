@@ -229,15 +229,25 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
     public readonly struct PresentationAnchor : IEquatable<PresentationAnchor>
     {
-        private PresentationAnchor(PresentationAnchorKind kind, PresentationTarget target)
+        private PresentationAnchor(
+            PresentationAnchorKind kind,
+            PresentationTarget target,
+            CubeTopologyState topology = default,
+            bool hasTopology = false)
         {
             Kind = kind;
             Target = target;
+            Topology = topology;
+            HasTopology = hasTopology;
         }
 
         public PresentationAnchorKind Kind { get; }
 
         public PresentationTarget Target { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public bool HasTopology { get; }
 
         public static PresentationAnchor None()
         {
@@ -265,6 +275,15 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 PresentationTarget.SurfaceCell(cell));
         }
 
+        public static PresentationAnchor ForSurfaceCellCenter(SurfaceCell cell, CubeTopologyState topology)
+        {
+            return new PresentationAnchor(
+                PresentationAnchorKind.SurfaceCellCenter,
+                PresentationTarget.SurfaceCell(cell),
+                topology,
+                hasTopology: true);
+        }
+
         public static PresentationAnchor ForTopologyOrbit()
         {
             return new PresentationAnchor(
@@ -288,7 +307,10 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public bool Equals(PresentationAnchor other)
         {
-            return Kind == other.Kind && Target.Equals(other.Target);
+            return Kind == other.Kind &&
+                   Target.Equals(other.Target) &&
+                   Topology.Equals(other.Topology) &&
+                   HasTopology == other.HasTopology;
         }
 
         public override bool Equals(object obj)
@@ -300,7 +322,10 @@ namespace Game.Feature.Gameplay.PresentationContracts
         {
             unchecked
             {
-                return ((int)Kind * 397) ^ Target.GetHashCode();
+                var hash = ((int)Kind * 397) ^ Target.GetHashCode();
+                hash = (hash * 397) ^ Topology.GetHashCode();
+                hash = (hash * 397) ^ HasTopology.GetHashCode();
+                return hash;
             }
         }
     }
@@ -317,7 +342,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
             bool hasSecondaryCell = false,
             int timing = 0,
             float visualContactNormalizedTime = 0f,
-            float delaySeconds = 0f)
+            float delaySeconds = 0f,
+            CubeTopologyState primaryTopology = default,
+            bool hasPrimaryTopology = false)
         {
             PrimaryValue = primaryValue;
             SecondaryValue = secondaryValue;
@@ -329,6 +356,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             Timing = Math.Max(0, timing);
             VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
             DelaySeconds = Math.Max(0f, delaySeconds);
+            PrimaryTopology = primaryTopology;
+            HasPrimaryTopology = hasPrimaryTopology;
         }
 
         public int PrimaryValue { get; }
@@ -351,11 +380,20 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public float DelaySeconds { get; }
 
+        public CubeTopologyState PrimaryTopology { get; }
+
+        public bool HasPrimaryTopology { get; }
+
         public PresentationAnchor PrimaryCellCenterAnchorOrEntityCenter(int entityId)
         {
-            return HasPrimaryCell
-                ? PresentationAnchor.ForSurfaceCellCenter(PrimaryCell)
-                : PresentationAnchor.ForEntityCenter(entityId);
+            if (!HasPrimaryCell)
+            {
+                return PresentationAnchor.ForEntityCenter(entityId);
+            }
+
+            return HasPrimaryTopology
+                ? PresentationAnchor.ForSurfaceCellCenter(PrimaryCell, PrimaryTopology)
+                : PresentationAnchor.ForSurfaceCellCenter(PrimaryCell);
         }
 
         public bool Equals(PresentationFactPayload other)
@@ -369,7 +407,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    HasSecondaryCell == other.HasSecondaryCell &&
                    Timing == other.Timing &&
                    VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime) &&
-                   DelaySeconds.Equals(other.DelaySeconds);
+                   DelaySeconds.Equals(other.DelaySeconds) &&
+                   PrimaryTopology.Equals(other.PrimaryTopology) &&
+                   HasPrimaryTopology == other.HasPrimaryTopology;
         }
 
         public override bool Equals(object obj)
@@ -391,6 +431,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ Timing;
                 hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
                 hash = (hash * 397) ^ DelaySeconds.GetHashCode();
+                hash = (hash * 397) ^ PrimaryTopology.GetHashCode();
+                hash = (hash * 397) ^ HasPrimaryTopology.GetHashCode();
                 return hash;
             }
         }

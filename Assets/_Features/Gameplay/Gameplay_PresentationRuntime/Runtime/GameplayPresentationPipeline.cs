@@ -902,7 +902,9 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                         delaySeconds: ResolveCoreSfxExitDelaySeconds(
                             presentationData,
                             signal,
-                            timingProfile))));
+                            timingProfile),
+                        primaryTopology: signal.Topology,
+                        hasPrimaryTopology: true)));
                 count++;
             }
 

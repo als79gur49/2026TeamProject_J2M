@@ -848,6 +848,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void CoreGameplaySfx_NonSensitiveDelayedRequest_DrainsOnScheduleDuringTopologyLock()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var adapter = new GameplaySfxPlaybackPortAdapter(stateStore);
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            using (var mapBundle = CreateGameplayAudioMap())
+            {
+                adapter.AttachRuntime(playbackPort, mapBundle.Map);
+                adapter.SetPlaybackGateState(GameplayAudioPlaybackGateState.TopologyLocked);
+                var request = CreateSfxPlaybackRequest(
+                    PresentationSfxCueKey.EntityExitBoxDestroy,
+                    targetEntityId: 40,
+                    delaySeconds: 0.2f,
+                    semanticSource: PresentationSemanticSource.EntityExit);
+
+                Assert.That(adapter.TryPlayCoreGameplaySfx(request, out var result), Is.True);
+                Assert.That(result.Kind, Is.EqualTo(GameplaySfxPlaybackResultKind.Requested));
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+                Assert.That(adapter.DeferredRequestCount, Is.EqualTo(1));
+
+                adapter.Update(0.19f);
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+                Assert.That(adapter.DeferredRequestCount, Is.EqualTo(1));
+
+                adapter.Update(0.02f);
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls[0].Context.DebugTag, Is.EqualTo("EntityExitBoxDestroy"));
+                Assert.That(adapter.DeferredRequestCount, Is.Zero);
+
+                adapter.Update(1f);
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void CoreSfx_ForcedDuplicateStillBlocksSecondOwner()
         {
             var rootObject = new GameObject(nameof(CoreSfx_ForcedDuplicateStillBlocksSecondOwner));
@@ -2061,11 +2097,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplaySfxPlaybackRequest CreateSfxPlaybackRequest(
             PresentationSfxCueKey cueKey,
-            int targetEntityId)
+            int targetEntityId,
+            float delaySeconds = 0f,
+            PresentationSemanticSource semanticSource = PresentationSemanticSource.PlayerDamage)
         {
             var source = new PresentationSource(
                 tickIndex: 5,
-                PresentationSemanticSource.PlayerDamage,
+                semanticSource,
                 sourceEntityId: targetEntityId);
             var target = PresentationTarget.Entity(targetEntityId);
             var key = new CoreGameplaySfxPlaybackKey(
@@ -2079,7 +2117,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueKey,
                 source,
                 target,
-                targetEntityId > 0 ? PresentationAnchor.ForEntityCenter(targetEntityId) : PresentationAnchor.None());
+                targetEntityId > 0 ? PresentationAnchor.ForEntityCenter(targetEntityId) : PresentationAnchor.None(),
+                delaySeconds: delaySeconds);
         }
 
         private static EntityState CreateUnit(int entityId, UnitRole unitRole, SurfaceCell cell)
