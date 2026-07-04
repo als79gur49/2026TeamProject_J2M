@@ -314,7 +314,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
             SurfaceCell primaryCell = default,
             SurfaceCell secondaryCell = default,
             bool hasPrimaryCell = false,
-            bool hasSecondaryCell = false)
+            bool hasSecondaryCell = false,
+            int timing = 0,
+            float visualContactNormalizedTime = 0f)
         {
             PrimaryValue = primaryValue;
             SecondaryValue = secondaryValue;
@@ -323,6 +325,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             SecondaryCell = secondaryCell;
             HasPrimaryCell = hasPrimaryCell;
             HasSecondaryCell = hasSecondaryCell;
+            Timing = Math.Max(0, timing);
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
         }
 
         public int PrimaryValue { get; }
@@ -339,6 +343,10 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public bool HasSecondaryCell { get; }
 
+        public int Timing { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
         public PresentationAnchor PrimaryCellCenterAnchorOrEntityCenter(int entityId)
         {
             return HasPrimaryCell
@@ -354,7 +362,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    PrimaryCell.Equals(other.PrimaryCell) &&
                    SecondaryCell.Equals(other.SecondaryCell) &&
                    HasPrimaryCell == other.HasPrimaryCell &&
-                   HasSecondaryCell == other.HasSecondaryCell;
+                   HasSecondaryCell == other.HasSecondaryCell &&
+                   Timing == other.Timing &&
+                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime);
         }
 
         public override bool Equals(object obj)
@@ -373,8 +383,20 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ SecondaryCell.GetHashCode();
                 hash = (hash * 397) ^ HasPrimaryCell.GetHashCode();
                 hash = (hash * 397) ^ HasSecondaryCell.GetHashCode();
+                hash = (hash * 397) ^ Timing;
+                hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
                 return hash;
             }
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
         }
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
@@ -181,7 +182,8 @@ namespace Game.Feature.Gameplay.Host
             int sourceEntityId,
             PresentationTarget target,
             PresentationAnchor presentationAnchor,
-            VfxAnchor vfxAnchor)
+            VfxAnchor vfxAnchor,
+            float delaySeconds = 0f)
         {
             OwnershipKey = ownershipKey;
             CueKey = cueKey;
@@ -193,6 +195,7 @@ namespace Game.Feature.Gameplay.Host
             Target = target;
             PresentationAnchor = presentationAnchor;
             VfxAnchor = vfxAnchor;
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public DamageDeathVfxPlaybackKey OwnershipKey { get; }
@@ -214,6 +217,8 @@ namespace Game.Feature.Gameplay.Host
         public PresentationAnchor PresentationAnchor { get; }
 
         public VfxAnchor VfxAnchor { get; }
+
+        public float DelaySeconds { get; }
     }
 
     internal readonly struct GameplayVfxPlaybackResult
@@ -512,9 +517,12 @@ namespace Game.Feature.Gameplay.Host
                 sourceEntityId: request.SourceEntityId,
                 cueId: request.CueId,
                 anchor: request.VfxAnchor,
-                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                timing: request.DelaySeconds > 0f
+                    ? VfxTimingKind.Delayed
+                    : VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: false,
-                persistentKey: VfxPersistentKey.None);
+                persistentKey: VfxPersistentKey.None,
+                delaySeconds: request.DelaySeconds);
             return _runtime.TryPlayDamageDeathVfx(gameplayRequest, out result);
         }
 
@@ -926,8 +934,17 @@ namespace Game.Feature.Gameplay.Host
                 cue.Source.SourceEntityId > 0 ? cue.Source.SourceEntityId : cue.Target.EntityId,
                 cue.Target,
                 cue.Anchor,
-                vfxAnchor);
+                vfxAnchor,
+                ResolveDelaySeconds(cue));
             return true;
+        }
+
+        private static float ResolveDelaySeconds(PresentationCue cue)
+        {
+            return cue.Timing == (int)EntityExitPresentationTiming.AtContactTime &&
+                   cue.VisualContactNormalizedTime > 0f
+                ? GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds * cue.VisualContactNormalizedTime
+                : 0f;
         }
 
         private static bool TryMapCueId(PresentationVfxCueKey cueKey, out GameplayVfxCueId cueId)

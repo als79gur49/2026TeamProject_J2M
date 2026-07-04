@@ -2971,6 +2971,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VfxExecutor_ContactTimedEnemyDeath_CarriesContactDelayToGameplayVfxRequest()
+        {
+            var contactNormalizedTime = 0.35f;
+            var expectedDelay =
+                GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds * contactNormalizedTime;
+            var result = CreateDiagnosticTickResult(
+                includeEnemyDeathExit: true,
+                deathTiming: EntityExitPresentationTiming.AtContactTime,
+                deathVisualContactNormalizedTime: contactNormalizedTime);
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new VfxCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var runtime = new RecordingDamageDeathGameplayVfxRuntime(GameplayVfxPlaybackResultKind.Succeeded);
+            var executor = new GameplayVfxPresentationExecutor(
+                new DamageDeathGameplayVfxPlaybackPortAdapter(runtime),
+                new DamageDeathVfxExecutionGuard());
+
+            executor.Play(playbackPlan);
+
+            var deathRequest = runtime.Requests.Single(request =>
+                request.CueId == GameplayVfxCueId.From(EnemyVfxCue.Death));
+            Assert.That(deathRequest.Timing, Is.EqualTo(VfxTimingKind.Delayed));
+            Assert.That(deathRequest.DelaySeconds, Is.EqualTo(expectedDelay).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VfxExecutionGuard_BlocksDuplicateExecutorAttemptForSameDamageDeathKey()
         {
             var key = new DamageDeathVfxPlaybackKey(
@@ -3620,7 +3650,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool includeTopologyMotion = true,
             bool includeEnemyDeathExit = false,
             int enemyDamageEntityId = 20,
-            int enemyDeathEntityId = 30)
+            int enemyDeathEntityId = 30,
+            EntityExitPresentationTiming deathTiming = EntityExitPresentationTiming.Immediate,
+            float deathVisualContactNormalizedTime = 0f)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
@@ -3640,7 +3672,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Direction.Right,
                         EntityType.Unit,
                         sourceActorEntityId: 10,
-                        presentationSeed: 3030),
+                        presentationSeed: 3030,
+                        timing: deathTiming,
+                        visualContactNormalizedTime: deathVisualContactNormalizedTime),
                 }
                 : new[]
                 {

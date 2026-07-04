@@ -884,7 +884,9 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                         secondaryValue: (int)signal.EntityType,
                         tertiaryValue: signal.SourceActorEntityId ?? 0,
                         primaryCell: signal.SourceCell,
-                        hasPrimaryCell: true)));
+                        hasPrimaryCell: true,
+                        timing: (int)signal.Timing,
+                        visualContactNormalizedTime: signal.VisualContactNormalizedTime)));
                 count++;
             }
 

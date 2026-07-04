@@ -381,7 +381,9 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationEnemyPayload enemyPayload = default,
             PresentationSfxPayload sfxPayload = default,
             PresentationActionAudioPayload actionAudioPayload = default,
-            PresentationEnemyAudioPayload enemyAudioPayload = default)
+            PresentationEnemyAudioPayload enemyAudioPayload = default,
+            int timing = 0,
+            float visualContactNormalizedTime = 0f)
         {
             Domain = domain;
             Key = key;
@@ -396,6 +398,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             SfxPayload = sfxPayload;
             ActionAudioPayload = actionAudioPayload;
             EnemyAudioPayload = enemyAudioPayload;
+            Timing = Math.Max(0, timing);
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
         }
 
         public PresentationDomain Domain { get; }
@@ -424,6 +428,10 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationEnemyAudioPayload EnemyAudioPayload { get; }
 
+        public int Timing { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -438,7 +446,9 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    EnemyPayload.Equals(other.EnemyPayload) &&
                    SfxPayload.Equals(other.SfxPayload) &&
                    ActionAudioPayload.Equals(other.ActionAudioPayload) &&
-                   EnemyAudioPayload.Equals(other.EnemyAudioPayload);
+                   EnemyAudioPayload.Equals(other.EnemyAudioPayload) &&
+                   Timing == other.Timing &&
+                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime);
         }
 
         public override bool Equals(object obj)
@@ -463,8 +473,20 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ SfxPayload.GetHashCode();
                 hash = (hash * 397) ^ ActionAudioPayload.GetHashCode();
                 hash = (hash * 397) ^ EnemyAudioPayload.GetHashCode();
+                hash = (hash * 397) ^ Timing;
+                hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
                 return hash;
             }
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
         }
     }
 
@@ -783,7 +805,9 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 fact.Source,
                 fact.Target,
                 fact.Payload.PrimaryCellCenterAnchorOrEntityCenter(fact.Target.EntityId),
-                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                timing: fact.Payload.Timing,
+                visualContactNormalizedTime: fact.Payload.VisualContactNormalizedTime);
             return true;
         }
 
