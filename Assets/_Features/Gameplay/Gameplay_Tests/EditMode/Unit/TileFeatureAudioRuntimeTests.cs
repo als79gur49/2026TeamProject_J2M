@@ -1250,12 +1250,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplaySceneHost_TileFeatureAudioMap_HostRuntimePolicy()
         {
             using var scope = new TestAssetScope();
+            var nullConfigHostObject = new GameObject(nameof(GameplaySceneHost_TileFeatureAudioMap_HostRuntimePolicy) + "_NullConfig");
             var hostObject = new GameObject(nameof(GameplaySceneHost_TileFeatureAudioMap_HostRuntimePolicy));
             var otherRoot = new GameObject(nameof(GameplaySceneHost_TileFeatureAudioMap_HostRuntimePolicy) + "_OtherRoot");
             try
             {
+                var nullConfigHost = nullConfigHostObject.AddComponent<GameplaySceneHost>();
+                Assert.DoesNotThrow(() => nullConfigHost.Initialize(CreateHostConfiguration(tileFeatureAudioMap: null)));
+
                 var host = hostObject.AddComponent<GameplaySceneHost>();
-                Assert.DoesNotThrow(() => host.Initialize(CreateHostConfiguration(tileFeatureAudioMap: null)));
 
                 var map = scope.CreateMap();
                 SetEntries(map, (TileFeatureAudioCue.ButtonActivated, scope.CreateBinding(scope.CreateDefinition(AudioCategory.Sfx, loop: false))));
@@ -1271,6 +1274,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(nullConfigHostObject);
                 UnityEngine.Object.DestroyImmediate(hostObject);
                 UnityEngine.Object.DestroyImmediate(otherRoot);
             }
