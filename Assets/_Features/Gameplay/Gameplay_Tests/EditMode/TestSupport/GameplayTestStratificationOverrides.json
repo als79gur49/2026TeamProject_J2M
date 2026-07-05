@@ -3482,6 +3482,17 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BlackEyeWindupProjectileRuntimeContractTests.BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToChase",
+      "category": "Core",
+      "contracts": [
+        "tile_feature_policy",
+        "forward_cell_projectile_runtime_contract",
+        "enemy_ai_blocker_fallback"
+      ],
+      "reason": "Locked Core representative coverage that same-face Solid blockers force Attack-mode BlackEye windup projectile enemies back to Chase without starting a projectile windup.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.RocketFaceChargeRuntimeContractTests.EnemyCharge_RocketFaceProfile_ActivatedBarricadeStopsActiveChargeAndThenRecovers",
       "category": "Core",
       "contracts": [

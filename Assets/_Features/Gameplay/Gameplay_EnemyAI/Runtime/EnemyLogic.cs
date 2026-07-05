@@ -3552,7 +3552,7 @@ namespace Game.Feature.Gameplay.Entities
                         freshAcquireResult))
                 {
                     return new EnemyAiTransitionDecision(
-                        source.aiMode == EnemyAiMode.Patrol ? EnemyAiMode.Chase : source.aiMode,
+                        EnemyAiMode.Chase,
                         0,
                         "ForwardProjectilePathBlockedBySolid");
                 }

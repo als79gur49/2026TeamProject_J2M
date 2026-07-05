@@ -428,6 +428,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToChase()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[] { CreateBox(61, solidCell) });
+            var before = DumpOccupancy(worldState.CreateSnapshot());
+
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, EnemyId);
+
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(tick.Trace.Text, Does.Contain("Reason=ForwardProjectilePathBlockedBySolid"));
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(tick.PresentationData.ForwardCellProjectileWindupSignals, Is.Empty);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_BoardEdge_CurrentContract()
         {
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
