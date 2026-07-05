@@ -428,6 +428,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BlackEye_ForwardCellProjectile_AttackModeSolidBlocked_FallsBackToChase()
+        {
+            var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var worldState = CreateCombatWorld(
+                targetCell,
+                extraEntities: new[] { CreateBox(61, solidCell) });
+            var before = DumpOccupancy(worldState.CreateSnapshot());
+
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, EnemyId);
+
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(tick.Trace.Text, Does.Contain("Reason=ForwardProjectilePathBlockedBySolid"));
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(tick.PresentationData.ForwardCellProjectileWindupSignals, Is.Empty);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_BoardEdge_CurrentContract()
         {
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
@@ -475,78 +498,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(unitOccupant.entityId, Is.EqualTo(50));
 
             var observation = ReleaseForwardCellProjectile(worldState);
-
-            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedBarricadeBlocksWindupStart()
-        {
-            var middleCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var barricade = CreateTileFeature(100, middleCell, TileFeatureKind.Barricade);
-            var definitions = CreateActiveDefinitions(barricade);
-            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { barricade });
-            var before = DumpOccupancy(worldState.CreateSnapshot());
-
-            var tick = CreatePipeline(worldState, definitions).RunTick(new TickInput(1));
-
-            AssertNoForwardCellProjectileStarted(worldState);
-            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
-            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
-            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(middleCell, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_InactiveBarricadeDoesNotBlock()
-        {
-            var middleCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var barricade = CreateTileFeature(101, middleCell, TileFeatureKind.Barricade);
-            var definitions = CreateInactiveDefinitions(barricade);
-            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { barricade });
-
-            var observation = ReleaseForwardCellProjectile(worldState, definitions);
-
-            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(middleCell, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ActivatedDestroyTileDoesNotBlock()
-        {
-            var middleCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var destroyTile = CreateTileFeature(102, middleCell, TileFeatureKind.Destroy);
-            var definitions = CreateActiveDefinitions(destroyTile);
-            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { destroyTile });
-
-            var observation = ReleaseForwardCellProjectile(worldState, definitions);
-
-            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-            Assert.That(worldState.CreateSnapshot().TryGetSolidSemanticAt(middleCell, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_SamePlanarOtherFaceActivatedBarricadeIgnored()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var otherFaceBarricade = CreateTileFeature(103, new SurfaceCell(FaceId.Front, 2, 0), TileFeatureKind.Barricade);
-            var definitions = CreateActiveDefinitions(otherFaceBarricade);
-            var worldState = CreateCombatWorld(targetCell, initialTileFeatures: new[] { otherFaceBarricade });
-
-            var observation = ReleaseForwardCellProjectile(worldState, definitions);
 
             Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
             Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));

@@ -3251,6 +3251,42 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    internal static class EnemyWindupProjectileBlockedTargetPolicy
+    {
+        public static bool ShouldHoldForSolidBlockedFreshTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
+            in EnemyTargetEligibilityResult freshAcquireResult)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (combatCapability == null ||
+                combatCapability.Kind != AttackDecisionStrategyKind.WindupForwardCellProjectile ||
+                !combatCapability.WindupForwardCellProjectileSettings.RequireValidForwardCell ||
+                freshAcquireResult.RejectReason != EnemyTargetEligibilityRejectReason.BlockedByProfileRule ||
+                freshAcquireResult.TargetEntityId <= 0 ||
+                !snapshot.TryGetEntity(freshAcquireResult.TargetEntityId, out var target) ||
+                !combatCapability.AttackDecisionStrategy.IsTargetInRange(
+                    source,
+                    target,
+                    combatCapability.AttackDecisionSettings) ||
+                !CombatWindupPoseQueries.TryResolveSimulationCombatOrigin(snapshot, source, out var sourceOrigin))
+            {
+                return false;
+            }
+
+            return CombatWindupPoseQueries.IsForwardProjectilePathBlockedBySolid(
+                snapshot,
+                sourceOrigin.AnchorCell,
+                target.position,
+                combatCapability.AttackDecisionSettings.AttackRange);
+        }
+    }
+
     public sealed class DefaultEnemyAiStateResolver : IEnemyAiStateResolver
     {
         public static readonly DefaultEnemyAiStateResolver Instance = new();
@@ -3507,6 +3543,18 @@ namespace Game.Feature.Gameplay.Entities
                         source.aiMode == EnemyAiMode.Patrol ? EnemyAiMode.Chase : source.aiMode,
                         0,
                         BuildNoTargetHoldReason(freshAcquireResult, localHoldResult));
+                }
+
+                if (EnemyWindupProjectileBlockedTargetPolicy.ShouldHoldForSolidBlockedFreshTarget(
+                        snapshot,
+                        source,
+                        combatCapability,
+                        freshAcquireResult))
+                {
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Chase,
+                        0,
+                        "ForwardProjectilePathBlockedBySolid");
                 }
 
                 return new EnemyAiTransitionDecision(patrolFallback, 0, BuildNoTargetReason(freshAcquireResult));
