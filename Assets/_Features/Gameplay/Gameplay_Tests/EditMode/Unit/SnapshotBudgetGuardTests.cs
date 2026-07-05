@@ -14,14 +14,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void IdleTick_SnapshotMaterializationBudget_RemainsPinned()
         {
             RunIdleTickBudgetScenario(out _, out _);
-            var baselineCounts = RunIdleTickBudgetScenario(out _, out _);
             var counts = RunIdleTickBudgetScenario(out var result, out var finalSnapshot);
 
             // Empty bounded world, default feature flags. Constructor snapshots are
             // intentionally outside the capture; this budget covers RunTick only.
             // ApplyBatch is counted separately from materialization so future empty
             // batch optimizations can reduce it without hiding snapshot regressions.
-            AssertSameProjectedSnapshotBudget(baselineCounts, counts);
             AssertIdleTickRuntimeBehavior(result, finalSnapshot);
             AssertIdleTickBudgetSentinel(counts);
         }
@@ -146,20 +144,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(1),
                 "idle budget sentinel: empty tick projected snapshot materialization should remain pinned");
             Assert.That(
+                counts.ProjectedWorldCacheHitCount,
+                Is.EqualTo(11),
+                "idle budget sentinel: empty tick projected snapshot cache reuse should remain pinned");
+            Assert.That(
                 counts.ProjectedWorldApplyBatchCount,
-                Is.EqualTo(counts.ProjectedWorldEmptyApplyBatchCount),
-                "idle budget sentinel: every idle projected batch should remain empty");
-        }
-
-        private static void AssertSameProjectedSnapshotBudget(
-            SnapshotMaterializationCounts expected,
-            SnapshotMaterializationCounts actual)
-        {
-            Assert.That(actual.WorldStateCreateSnapshotCount, Is.EqualTo(expected.WorldStateCreateSnapshotCount));
-            Assert.That(actual.ProjectedWorldMaterializedSnapshotCount, Is.EqualTo(expected.ProjectedWorldMaterializedSnapshotCount));
-            Assert.That(actual.ProjectedWorldCacheHitCount, Is.EqualTo(expected.ProjectedWorldCacheHitCount));
-            Assert.That(actual.ProjectedWorldApplyBatchCount, Is.EqualTo(expected.ProjectedWorldApplyBatchCount));
-            Assert.That(actual.ProjectedWorldEmptyApplyBatchCount, Is.EqualTo(expected.ProjectedWorldEmptyApplyBatchCount));
+                Is.EqualTo(12),
+                "idle budget sentinel: empty tick projected batch applications should remain pinned");
+            Assert.That(
+                counts.ProjectedWorldEmptyApplyBatchCount,
+                Is.EqualTo(12),
+                "idle budget sentinel: every idle projected batch should remain empty and pinned");
         }
     }
 }
