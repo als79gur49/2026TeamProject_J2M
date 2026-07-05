@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 track.EntityId == 10 &&
                 track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
                 track.DestinationLocalOffset.X.RawValue == state.localOffset.X.RawValue), Is.True);
-            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 10);
+            MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(result, 10);
         }
 
         [Test]
@@ -143,7 +143,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
-            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 10);
+            MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(result, 10);
         }
 
         [Test]
@@ -2174,7 +2174,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 signal.ActiveActionKind == PlayerActionKind.Push &&
                 signal.StartedThisTick), Is.True);
             Assert.That(executeResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
-            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(executeResult, 10);
+            MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(executeResult, 10);
         }
 
         [Test]

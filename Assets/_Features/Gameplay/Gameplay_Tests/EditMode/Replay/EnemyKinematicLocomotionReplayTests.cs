@@ -748,7 +748,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback()
+        public void Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeGenericExpansionFallback()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
 
@@ -762,7 +762,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback()
+        public void Replay_Phase2C_ChargeKinematicFlagOn_NoChargeGenericExpansionFallback()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled, out var secondReplay);
 
@@ -776,9 +776,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove()
+        public void Replay_Phase6_ChargeKinematicFlagOn_NoLegacyChargeEntityMotionOutput()
         {
-            Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback();
+            Replay_Phase2C_ChargeKinematicFlagOn_NoChargeGenericExpansionFallback();
         }
 
         [Test]
@@ -811,14 +811,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_DefaultGameplay_NoChargeMove()
+        public void Replay_Phase6_DefaultGameplay_NoLegacyChargeEntityMotionOutput()
         {
-            Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback();
+            Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeGenericExpansionFallback();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveCleanup_NoChargeMoveOutput()
+        public void Replay_NoLegacyChargeEntityMotionOutput_DefaultGameplay()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
 
@@ -828,14 +828,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveDeletion_NoChargeMoveOutput()
+        public void Replay_LegacyChargeEntityMotionOutputDeletion_NoOutput()
         {
-            Replay_ChargeMoveCleanup_NoChargeMoveOutput();
+            Replay_NoLegacyChargeEntityMotionOutput_DefaultGameplay();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput()
+        public void Replay_NoLegacyChargeEntityMotionOutput_DiagnosticBaseline()
         {
             var replay = RunScriptedChargeActiveReplay(
                 GameplayRuntimeFeatureFlags.None,
@@ -845,7 +845,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 replay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
-            AssertReplayHasNoChargeMove(replay);
+            AssertReplayHasNoLegacyChargeEntityMotionOutput(replay);
             Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 replay.Any(frame =>
@@ -856,7 +856,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputProducer_RuntimeMatrix_NoOutput()
         {
             var defaultReplay = RunScriptedChargeActiveReplay(
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
@@ -879,28 +879,28 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveIsolation_NoRuntimeChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputIsolation_NoRuntimeOutput()
         {
-            Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove();
+            Replay_LegacyChargeEntityMotionOutputProducer_RuntimeMatrix_NoOutput();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputProducer_DiagnosticBaseline_NoOutput()
         {
-            Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput();
+            Replay_NoLegacyChargeEntityMotionOutput_DiagnosticBaseline();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveIsolation_DiagnosticBaseline_NoChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputIsolation_DiagnosticBaseline_NoOutput()
         {
-            Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove();
+            Replay_LegacyChargeEntityMotionOutputProducer_DiagnosticBaseline_NoOutput();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeMove()
+        public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeEntityMotionOutput()
         {
             var inputs = Enumerable.Range(1, 5)
                 .Select(tick => new TickInput(tick))
@@ -1256,7 +1256,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Is.False);
         }
 
-        private static void AssertReplayHasNoChargeMove(IReadOnlyList<TickReplayFrame> replay)
+        private static void AssertReplayHasNoLegacyChargeEntityMotionOutput(IReadOnlyList<TickReplayFrame> replay)
         {
             Assert.That(
                 replay.Any(frame =>

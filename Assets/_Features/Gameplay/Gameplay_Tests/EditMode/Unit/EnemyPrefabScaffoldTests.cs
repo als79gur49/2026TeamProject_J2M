@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutChargeMoveRuntimeField()
+        public void EnemyViewChargePrefab_BindsGenericMoveAuthoringWithoutLegacyChargeEntityMotionRuntimeField()
         {
             var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_RocketFace.prefab");
 
