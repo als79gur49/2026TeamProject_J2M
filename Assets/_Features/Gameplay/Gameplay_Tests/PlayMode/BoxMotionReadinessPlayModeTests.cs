@@ -43,14 +43,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(BoxMotionProductionDefault_PlayMode_UsesOrchestrationOwner));
             try
             {
-                Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
+
+                context.Host.Presenter.Present(CreateSlideResult(11));
+
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.CurrentExecutor));
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField("BoxMotionPresentationExecutionMode"),
                     Is.Null,
@@ -71,23 +73,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(BoxMotionProductionDefault_PlayMode_RoutesSlideFlipImpact));
             try
             {
-                context.Host.Presenter.ConfigureBoxMotionPresentationExecution(
-                    context.Host.Presenter.BoxMotionPresentationExecutionMode,
-                    port);
+                context.Host.Presenter.ConfigureBoxMotionPlaybackPort(port);
 
                 context.Host.Presenter.Present(CreateCombinedRoutingResult(21));
 
-                Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(3));
-                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
                 Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.TrackStartedCount, Is.EqualTo(3));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(3));
-                Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(3));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 var telemetry = context.Host.Presenter.BoxMotionProductionTelemetrySnapshot;
-                Assert.That(telemetry.CurrentMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(3));
+                Assert.That(telemetry.IsCurrentProductionOwner, Is.True);
                 Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(3));
                 Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
                 Assert.That(telemetry.SemanticDiagnostics.Single(item => item.Semantic == PresentationMotionFactKind.BoxSlide).StartedCount, Is.EqualTo(1));
@@ -132,7 +128,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 context.Host.Presenter.Present(CreateSlideResult(31));
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.DefaultAdapterDiagnostics.StartedCount, Is.EqualTo(2));
-                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateRejectedCount, Is.Zero);
                 yield return null;
             }
             finally
@@ -224,9 +220,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(BoxMotionProductionDefault_PlayMode_FlipImpactRemainsSeparateSemantic));
             try
             {
-                context.Host.Presenter.ConfigureBoxMotionPresentationExecution(
-                    context.Host.Presenter.BoxMotionPresentationExecutionMode,
-                    port);
+                context.Host.Presenter.ConfigureBoxMotionPlaybackPort(port);
 
                 context.Host.Presenter.Present(CreateCombinedRoutingResult(61));
 
@@ -241,7 +235,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(impact.MotionPayload.ActorEntityId, Is.EqualTo(PlayerEntityId));
                 Assert.That(impact.OwnershipKey.CueKey, Is.Not.EqualTo(flip.OwnershipKey.CueKey));
                 Assert.That(impact.OwnershipKey.GetHashCode(), Is.Not.EqualTo(flip.OwnershipKey.GetHashCode()));
-                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateRejectedCount, Is.Zero);
                 AssertBlockingSnapshotCleared(context.Host.Presenter.BoxMotionExecutionPipelineBlockingSnapshot);
                 yield return null;
             }
@@ -259,22 +253,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(BoxMotionProductionDefault_PlayMode_DuplicateGuardNormalAndForced));
             try
             {
-                context.Host.Presenter.ConfigureBoxMotionPresentationExecution(
-                    context.Host.Presenter.BoxMotionPresentationExecutionMode,
-                    port);
+                context.Host.Presenter.ConfigureBoxMotionPlaybackPort(port);
                 var result = CreateSlideResult(71);
 
                 context.Host.Presenter.Present(result);
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateRejectedCount, Is.Zero);
 
                 context.Host.Presenter.Present(result);
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateSuppressedCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateRejectedCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DuplicateRejectedCount, Is.EqualTo(1));
                 Assert.That(result.DeterminismHash, Is.EqualTo("BOX-MOTION-71"));
                 yield return null;
             }
@@ -291,8 +283,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var portMissingContext = CreateHostContext(nameof(BoxMotionProductionDefault_PlayMode_MissingDiagnosticsAreNoOp) + "_PortMissing");
             try
             {
-                portMissingContext.Host.Presenter.ConfigureBoxMotionPresentationExecution(
-                    portMissingContext.Host.Presenter.BoxMotionPresentationExecutionMode,
+                portMissingContext.Host.Presenter.ConfigureBoxMotionPlaybackPort(
                     playbackPort: null,
                     useDefaultPlaybackPort: false);
                 portMissingContext.Host.Presenter.Present(CreateSlideResult(81));
@@ -388,28 +379,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator BoxMotionReadiness_PlayMode_ExplicitLegacyRollbackRemains()
+        public IEnumerator BoxMotion_LegacyRoute_NotReachable_PlayMode()
         {
             var port = new RecordingGameplayMotionPlaybackPort();
-            var context = CreateHostContext(nameof(BoxMotionReadiness_PlayMode_ExplicitLegacyRollbackRemains));
+            var context = CreateHostContext(nameof(BoxMotion_LegacyRoute_NotReachable_PlayMode));
             try
             {
-                context.Host.Presenter.ConfigureBoxMotionPresentationExecution(
-                    BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
-                    port);
+                context.Host.Presenter.ConfigureBoxMotionPlaybackPort(port);
                 context.Host.Presenter.Present(CreateSlideResult(101));
 
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
-                Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.False);
-                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.ExecutorOwnerExecutedCount, Is.Zero);
-                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.LegacyOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.EqualTo(1));
-                AdvancePresentation(context.Host, context.Host.TimingProfile.MoveMotionDurationSeconds + context.Host.TimingProfile.SimulationTickIntervalSeconds);
-                AssertVectorClose(GetView(context.Host, BoxEntityId).transform.position, ProjectWorldPosition(context.Host, SlideDestinationCell, EntityType.Box));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.IsCurrentProductionOwner, Is.True);
+                Assert.That(typeof(GameplayTickViewPresenter).GetMethod(
+                    "ConfigureBoxMotionPresentationExecution",
+                    BindingFlags.Instance | BindingFlags.NonPublic),
+                    Is.Null);
                 yield return null;
             }
             finally
@@ -480,11 +466,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 context.Host.Presenter.Present(CreateSlideResult(131));
 
-                Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 yield return null;
             }
             finally

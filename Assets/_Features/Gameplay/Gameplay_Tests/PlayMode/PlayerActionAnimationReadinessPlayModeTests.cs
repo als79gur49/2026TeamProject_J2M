@@ -47,15 +47,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_DefaultMode_IsOrchestrationExecutor));
             try
             {
-                Assert.That(default(PlayerActionAnimationExecutionMode), Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(context.Host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.ObservedTrackCount, Is.Zero);
+                Assert.That(context.Host.Presenter.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(nameof(PlayerActionAnimationExecutionMode)),
                     Is.Null,
@@ -66,17 +65,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CreateSignal(PlayerActionKind.Push, 101, started: true)));
 
                 Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.PlannedCueCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(1));
                 Assert.That(context.Driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
 
                 context.Host.Presenter.ConfigurePlayerActionAnimationExecution((PlayerActionAnimationExecutionMode)999, port);
-                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 context.Host.Presenter.Present(CreateSingleActionResult(
                     12,
                     CreateSignal(PlayerActionKind.Push, 102, started: true)));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 yield return null;
             }
             finally
@@ -104,10 +103,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(12));
                 Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(12));
-                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(12));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.PlannedCueCount, Is.EqualTo(12));
                 Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(12));
-                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(6));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(6));
 
                 var routedKeys = port.Requests.Select(request => request.CueKey).ToArray();
                 CollectionAssert.AreEquivalent(Enum.GetValues(typeof(PresentationAnimationCueKey))
@@ -170,7 +169,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             try
             {
                 orchestration.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
-                legacy.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.LegacyAnimationSync);
+                legacy.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
 
                 var legacySnapshots = new List<AnimatorPlaybackSnapshot>();
                 var orchestrationSnapshots = new List<AnimatorPlaybackSnapshot>();
@@ -184,8 +183,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 AssertLifecycleParity(legacySnapshots, orchestrationSnapshots, "Push_Windup", "Push_Recovery");
-                Assert.That(orchestrationSnapshots[1].ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
-                Assert.That(orchestrationSnapshots[2].ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+                Assert.That(orchestrationSnapshots[1].ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
+                Assert.That(orchestrationSnapshots[2].ExecuteCueMappedToRecoveryCommandCount, Is.Zero);
                 Assert.That(orchestration.Driver.CrossFadeCommandCount, Is.EqualTo(3));
             }
             finally
@@ -204,7 +203,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             try
             {
                 orchestration.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
-                legacy.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.LegacyAnimationSync);
+                legacy.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
 
                 var legacySnapshots = new List<AnimatorPlaybackSnapshot>();
                 var orchestrationSnapshots = new List<AnimatorPlaybackSnapshot>();
@@ -218,8 +217,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 AssertLifecycleParity(legacySnapshots, orchestrationSnapshots, "Flip_Windup", "Flip_Recovery");
-                Assert.That(orchestrationSnapshots[1].ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
-                Assert.That(orchestrationSnapshots[2].ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+                Assert.That(orchestrationSnapshots[1].ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
+                Assert.That(orchestrationSnapshots[2].ExecuteCueMappedToRecoveryCommandCount, Is.Zero);
                 Assert.That(orchestration.Driver.CrossFadeCommandCount, Is.EqualTo(3));
                 Assert.That(orchestration.Host.Presenter.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
             }
@@ -251,7 +250,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 yield return null;
 
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(2));
-                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(context.Driver.CrossFadeCommandCount, Is.EqualTo(windupCount + 1), "Execute lowering plus later recovery must not duplicate the recovery transition.");
                 AssertDriverAndAnimator(context, PlayerPresentationPhase.PushRecovery, "Push_Recovery", windupCount + 1);
@@ -285,7 +284,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     context.Host.Presenter.Present(CreateSingleActionResult(70 + i, cases[i].Item1));
                     yield return null;
                     AssertDriverAndAnimator(context, cases[i].Item2, cases[i].Item3, expectedCommandCounts[i]);
-                    Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
                 }
 
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(1));
@@ -299,13 +297,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator PlayerActionAnimationReadiness_PlayMode_LegacyAndOrchestrationAnimatorParity()
+        public IEnumerator PlayerActionAnimationReadiness_PlayMode_CurrentHostsMaintainAnimatorParity()
         {
-            var legacy = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_LegacyAndOrchestrationAnimatorParity) + "_Legacy");
-            var orchestration = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_LegacyAndOrchestrationAnimatorParity) + "_Orchestration");
+            var legacy = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_CurrentHostsMaintainAnimatorParity) + "_CurrentA");
+            var orchestration = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_CurrentHostsMaintainAnimatorParity) + "_CurrentB");
             try
             {
-                legacy.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.LegacyAnimationSync);
+                legacy.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 orchestration.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
 
                 var sequence = CreateLifecycle(PlayerActionKind.Push, 801, 81)
@@ -322,7 +320,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Assert.That(orchestrationSnapshot.LastCrossFadedStateName, Is.EqualTo(legacySnapshot.LastCrossFadedStateName));
                     Assert.That(orchestrationSnapshot.AnimatorStateHash, Is.EqualTo(legacySnapshot.AnimatorStateHash));
                     Assert.That(orchestrationSnapshot.IsInTransition, Is.EqualTo(legacySnapshot.IsInTransition));
-                    Assert.That(orchestration.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(legacy.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount));
                 }
 
                 legacy.Host.Presenter.PresentInitial(legacy.InitialEntities, Topology);
@@ -340,23 +337,24 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator PlayerActionAnimationReadiness_PlayMode_ExplicitLegacyRollback()
+        public IEnumerator PlayerActionAnimationReadiness_PlayMode_InvalidModeStillUsesExecutor()
         {
             var port = new RecordingGameplayAnimationPlaybackPort();
-            var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_ExplicitLegacyRollback));
+            var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_InvalidModeStillUsesExecutor));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.LegacyAnimationSync, port);
+                context.Host.Presenter.ConfigurePlayerActionAnimationExecution((PlayerActionAnimationExecutionMode)999, port);
                 foreach (var step in CreateLifecycle(PlayerActionKind.Flip, 1001, 101))
                 {
                     context.Host.Presenter.Present(step);
                     yield return null;
                 }
 
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(3));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(3));
+                Assert.That(port.Requests.Last().CueKey, Is.EqualTo(PresentationAnimationCueKey.PlayerFlipRecovery));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(3));
                 Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-                AssertDriverAndAnimator(context, PlayerPresentationPhase.FlipRecovery, "Flip_Recovery", 3);
             }
             finally
             {
@@ -500,8 +498,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     nameof(GameplayActionAudioMoment.NoTarget),
                     nameof(GameplayActionAudioMoment.Invalid),
                 }));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(1));
             }
@@ -570,15 +566,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 context.Host.Presenter.Present(CreateSingleActionResult(171, CreateSignal(PlayerActionKind.Push, 1701, started: true)));
                 yield return null;
 
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
 
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.LegacyAnimationSync);
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                context.Host.Presenter.ConfigurePlayerActionAnimationExecution((PlayerActionAnimationExecutionMode)999);
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
             }
             finally
             {
@@ -833,9 +830,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(orchestration[1].LastCrossFadedStateName, Is.EqualTo(recoveryState));
             Assert.That(orchestration[2].LastCrossFadedStateName, Is.EqualTo(recoveryState));
             Assert.That(orchestration[1].CommandAppliedCount, Is.EqualTo(1));
-            Assert.That(orchestration[1].ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
+            Assert.That(orchestration[1].ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
             Assert.That(orchestration[2].CommandAppliedCount, Is.EqualTo(1));
-            Assert.That(orchestration[2].ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+            Assert.That(orchestration[2].ExecuteCueMappedToRecoveryCommandCount, Is.Zero);
             Assert.That(orchestration[2].CrossFadeCommandCount, Is.EqualTo(3));
         }
 
@@ -861,7 +858,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 context.Driver != null ? context.Driver.LastCrossFadedStateName : string.Empty,
                 context.Driver != null ? context.Driver.CrossFadeCommandCount : 0,
                 context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount,
-                context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.ExecuteCueMappedToLegacyCommandCount,
+                context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.ExecuteCueMappedToRecoveryCommandCount,
                 context.Animator != null && context.Animator.runtimeAnimatorController != null && context.Animator.IsInTransition(0),
                 state.shortNameHash,
                 nextState.shortNameHash);
@@ -1001,7 +998,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 string lastCrossFadedStateName,
                 int crossFadeCommandCount,
                 int commandAppliedCount,
-                int executeCueMappedToLegacyCommandCount,
+                int executeCueMappedToRecoveryCommandCount,
                 bool isInTransition,
                 int animatorStateHash,
                 int animatorNextStateHash)
@@ -1010,7 +1007,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 LastCrossFadedStateName = lastCrossFadedStateName;
                 CrossFadeCommandCount = crossFadeCommandCount;
                 CommandAppliedCount = commandAppliedCount;
-                ExecuteCueMappedToLegacyCommandCount = executeCueMappedToLegacyCommandCount;
+                ExecuteCueMappedToRecoveryCommandCount = executeCueMappedToRecoveryCommandCount;
                 IsInTransition = isInTransition;
                 AnimatorStateHash = animatorStateHash;
                 AnimatorNextStateHash = animatorNextStateHash;
@@ -1024,7 +1021,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             public int CommandAppliedCount { get; }
 
-            public int ExecuteCueMappedToLegacyCommandCount { get; }
+            public int ExecuteCueMappedToRecoveryCommandCount { get; }
 
             public bool IsInTransition { get; }
 

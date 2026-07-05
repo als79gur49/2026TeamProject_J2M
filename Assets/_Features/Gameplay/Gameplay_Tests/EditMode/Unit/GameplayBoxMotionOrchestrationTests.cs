@@ -106,7 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void MotionExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
+        public void BoxMotion_CurrentRoute_IsProductionDefault()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
                 CreateMotionCueFrame(CreateBoxMotionTickResult()));
@@ -115,44 +115,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             executor.Play(plan);
 
-            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(2));
             Assert.That(executor.Diagnostics.ObservedTrackCount, Is.EqualTo(2));
-            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(2));
-            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
-            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.IsCurrentProductionOwner, Is.True);
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.TrackStartedCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.DuplicateRejectedCount, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void MotionExecutor_InvalidMode_NormalizesToLegacyAndDoesNotCallPlaybackPort()
+        public void BoxMotion_LegacyRoute_NotReachable()
         {
-            var plan = new PresentationPlaybackPlanner().Plan(
-                CreateMotionCueFrame(CreateBoxMotionTickResult()));
-            var port = new RecordingGameplayMotionPlaybackPort();
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                (BoxMotionPresentationExecutionMode)999);
-
-            executor.Play(plan);
-
-            Assert.That(port.TryPlayCallCount, Is.Zero);
-            Assert.That(executor.Diagnostics.ObservedTrackCount, Is.EqualTo(2));
-            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(2));
-            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
+            Assert.That(
+                Enum.GetNames(typeof(BoxMotionPresentationExecutionOwner)),
+                Is.EquivalentTo(new[] { "None", "CurrentExecutor" }));
+            Assert.That(
+                typeof(GameplayMotionPresentationExecutor)
+                    .GetConstructors()
+                    .SelectMany(constructor => constructor.GetParameters())
+                    .Any(parameter => parameter.ParameterType.Name.Contains("BoxMotionPresentationExecutionMode")),
+                Is.False);
         }
 
         [Test]
         [Category("Core")]
-        public void MotionExecutor_OrchestrationMode_RoutesSlideAndFlipToPlaybackPort()
+        public void BoxMotion_SlideAndFlip_UseCurrentExecutor()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
                 CreateMotionCueFrame(CreateBoxMotionTickResult()));
             var port = new RecordingGameplayMotionPlaybackPort();
-            var guard = new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                guard);
+            var guard = new BoxMotionExecutionGuard();
+            var executor = new GameplayMotionPresentationExecutor(port, guard);
 
             executor.Play(plan);
 
@@ -182,15 +176,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void LegacyAndOrchestrationSemanticMotionRequests_AreEquivalent()
+        public void BoxMotion_CurrentMotionRequests_MatchSemanticMotionTracks()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
                 CreateMotionCueFrame(CreateBoxMotionTickResult()));
             var port = new RecordingGameplayMotionPlaybackPort();
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var executor = new GameplayMotionPresentationExecutor(port, new BoxMotionExecutionGuard());
 
             executor.Play(plan);
 
@@ -213,15 +204,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxMotion_Readiness_LegacyAndOrchestrationSemanticEquivalence()
+        public void BoxMotion_CurrentRequests_CoverSlideFlipImpact()
         {
             var cueFrame = CreateMotionCueFrame(CreateBoxMotionTickResultWithImpact());
             var plan = new PresentationPlaybackPlanner().Plan(cueFrame);
             var port = new RecordingGameplayMotionPlaybackPort();
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var executor = new GameplayMotionPresentationExecutor(port, new BoxMotionExecutionGuard());
 
             executor.Play(plan);
 
@@ -243,23 +231,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxMotion_DefaultOrchestration_TelemetryCoversSlideFlipImpact()
+        public void BoxMotion_Impact_UsesCurrentExecutorTelemetry()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
                 CreateMotionCueFrame(CreateBoxMotionTickResultWithImpact()));
             var port = new RecordingGameplayMotionPlaybackPort();
-            var guard = new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                guard);
+            var guard = new BoxMotionExecutionGuard();
+            var executor = new GameplayMotionPresentationExecutor(port, guard);
 
             executor.Play(plan);
 
-            Assert.That(executor.Diagnostics.CurrentMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-            Assert.That(executor.Diagnostics.IsProductionDefaultOwner, Is.True);
-            Assert.That(executor.Diagnostics.ProductionDefaultMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-            Assert.That(executor.Diagnostics.RollbackMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+            Assert.That(executor.Diagnostics.IsCurrentProductionOwner, Is.True);
             AssertSemanticTelemetry(executor.Diagnostics, PresentationMotionFactKind.BoxSlide, PresentationMotionCueKey.BoxSlide);
             AssertSemanticTelemetry(executor.Diagnostics, PresentationMotionFactKind.BoxFlip, PresentationMotionCueKey.BoxFlip);
             AssertSemanticTelemetry(executor.Diagnostics, PresentationMotionFactKind.BoxFlipImpact, PresentationMotionCueKey.BoxFlipImpact);
@@ -287,18 +269,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SlideDestinationCell,
                 sourceActionPlanId: 0,
                 sourceSequenceId: 0);
-            var guard = new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
+            var guard = new BoxMotionExecutionGuard();
 
             Assert.That(
-                guard.TryBeginExecution(BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor, key),
+                guard.TryBeginExecution(key),
                 Is.True);
-            Assert.That(
-                guard.TryBeginExecution(BoxMotionPresentationExecutionOwner.LegacyTrackPlanner, key),
-                Is.False);
+            Assert.That(guard.TryBeginExecution(key), Is.False);
 
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -350,10 +329,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 request.CueKey == PresentationMotionCueKey.BoxFlip
                     ? GameplayMotionPlaybackResultKind.DriverMissing
                     : GameplayMotionPlaybackResultKind.BindingMissing);
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var executor = new GameplayMotionPresentationExecutor(port, new BoxMotionExecutionGuard());
 
             executor.Play(plan);
 
@@ -417,10 +393,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 request.CueKey == PresentationMotionCueKey.BoxFlip
                     ? GameplayMotionPlaybackResultKind.DriverMissing
                     : GameplayMotionPlaybackResultKind.BindingMissing);
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var executor = new GameplayMotionPresentationExecutor(port, new BoxMotionExecutionGuard());
             var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
                 14,
                 new[] { targetMissingCue, anchorMissingCue, bindingMissingCue, driverMissingCue },
@@ -433,7 +406,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(executor.Diagnostics.BindingMissingCount, Is.EqualTo(1));
             Assert.That(executor.Diagnostics.DriverMissingCount, Is.EqualTo(1));
             Assert.That(executor.Diagnostics.MissingPortCount, Is.Zero);
-            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.DuplicateRejectedCount, Is.Zero);
             Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
             Assert.That(executor.Diagnostics.TrackStartedCount, Is.Zero);
             Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(BoxMotionTelemetryFailureReason.DriverMissing));
@@ -442,10 +415,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(executor.Diagnostics.SemanticDiagnostics.Single(diagnostics =>
                 diagnostics.Semantic == PresentationMotionFactKind.BoxFlip).MissingDependencyCount, Is.EqualTo(1));
 
-            var missingPortExecutor = new GameplayMotionPresentationExecutor(
-                null,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var missingPortExecutor = new GameplayMotionPresentationExecutor(null, new BoxMotionExecutionGuard());
             missingPortExecutor.Play(new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
                 15,
                 new[] { validCue },
@@ -461,11 +431,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var plan = new PresentationPlaybackPlanner().Plan(
                 CreateMotionCueFrame(CreateBoxMotionTickResult()));
             var port = new RecordingGameplayMotionPlaybackPort();
-            var guard = new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
-            var executor = new GameplayMotionPresentationExecutor(
-                port,
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                guard);
+            var guard = new BoxMotionExecutionGuard();
+            var executor = new GameplayMotionPresentationExecutor(port, guard);
 
             executor.Play(plan);
             Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
@@ -500,10 +467,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }).Plan(factFrame);
             var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
             var scheduler = new PresentationPlaybackScheduler();
-            var executor = new GameplayMotionPresentationExecutor(
-                new RecordingGameplayMotionPlaybackPort(),
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
-                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var executor = new GameplayMotionPresentationExecutor(new RecordingGameplayMotionPlaybackPort(), new BoxMotionExecutionGuard());
 
             scheduler.Accept(playbackPlan);
             executor.Play(playbackPlan);
@@ -714,7 +678,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(semanticDiagnostics.PlannedCount, Is.EqualTo(1), semantic.ToString());
             Assert.That(semanticDiagnostics.RequestedCount, Is.EqualTo(1), semantic.ToString());
             Assert.That(semanticDiagnostics.StartedCount, Is.EqualTo(1), semantic.ToString());
-            Assert.That(semanticDiagnostics.DuplicateSuppressedCount, Is.Zero, semantic.ToString());
+            Assert.That(semanticDiagnostics.DuplicateRejectedCount, Is.Zero, semantic.ToString());
             Assert.That(semanticDiagnostics.MissingDependencyCount, Is.Zero, semantic.ToString());
             Assert.That(semanticDiagnostics.LastEntityId, Is.EqualTo(BoxEntityId), semantic.ToString());
             Assert.That(semanticDiagnostics.LastDedupeKey, Is.Not.Zero, semantic.ToString());

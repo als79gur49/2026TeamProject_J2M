@@ -7,7 +7,7 @@ namespace Game.Feature.Gameplay.Host
 {
     public enum EnemyPresentationVfxProfileStatusKind
     {
-        HostDefaultFallback = 0,
+        HostDefault = 0,
         Valid = 1,
         Invalid = 2,
         WrongFamily = 3,
@@ -116,7 +116,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 return new EnemyPresentationVfxProfileStatus(
                     null,
-                    EnemyPresentationVfxProfileStatusKind.HostDefaultFallback,
+                    EnemyPresentationVfxProfileStatusKind.HostDefault,
                     GameplayVfxFamily.None,
                     VfxAuthoringValidationResult.Success);
             }
@@ -145,7 +145,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return status.Kind switch
             {
-                EnemyPresentationVfxProfileStatusKind.HostDefaultFallback => "None / Host default fallback",
+                EnemyPresentationVfxProfileStatusKind.HostDefault => "None / Host default",
                 EnemyPresentationVfxProfileStatusKind.Valid => "Assigned / Valid",
                 EnemyPresentationVfxProfileStatusKind.Invalid => "Assigned / Invalid",
                 EnemyPresentationVfxProfileStatusKind.WrongFamily => "Wrong family",

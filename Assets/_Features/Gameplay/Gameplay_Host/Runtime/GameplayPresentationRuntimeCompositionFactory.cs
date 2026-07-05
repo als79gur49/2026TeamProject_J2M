@@ -71,10 +71,10 @@ namespace Game.Feature.Gameplay.Host
                 options.TopologyExecutionPipelineFactory ??
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 new GameplayTopologyTransitionPlaybackPort(topologyTransitionController),
-                new GameplayTopologyLegacyTransitionPort(topologyTransitionController),
                 new GameplayTopologyTransitionCleanupPort(topologyTransitionController));
             var damageDeathVfxLane = new DamageDeathVfxPresentationLaneRuntime(
-                options.DamageDeathVfxExecutionPipelineFactory);
+                options.DamageDeathVfxExecutionPipelineFactory,
+                options.DamageDeathVfxPlaybackPort);
             var poseResolver = new GameplayPoseResolver(
                 stateStore,
                 trackState);
@@ -142,15 +142,8 @@ namespace Game.Feature.Gameplay.Host
                 options.EnemyPresentationExecutionPipelineFactory);
 
             ConfigureProductionDefaultExecutionGuards(
-                topologyLane,
-                damageDeathVfxLane,
-                options.DamageDeathVfxPlaybackPort,
-                boxMotionLane,
                 playerActionAnimationLane,
-                enemyPresentationLane,
-                coreGameplaySfxLane,
-                gameplayActionAudioLane,
-                enemyOneShotAudioLane);
+                coreGameplaySfxLane);
 
             return new GameplayPresentationRuntimeComposition(
                 stateStore,
@@ -198,26 +191,10 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private static void ConfigureProductionDefaultExecutionGuards(
-            TopologyPresentationLaneRuntime topologyLane,
-            DamageDeathVfxPresentationLaneRuntime damageDeathVfxLane,
-            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort,
-            BoxMotionPresentationLaneRuntime boxMotionLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
-            EnemyPresentationLaneRuntime enemyPresentationLane,
-            CoreGameplaySfxLaneRuntime coreGameplaySfxLane,
-            GameplayActionAudioLaneRuntime gameplayActionAudioLane,
-            EnemyOneShotAudioLaneRuntime enemyOneShotAudioLane)
+            CoreGameplaySfxLaneRuntime coreGameplaySfxLane)
         {
-            topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
-            damageDeathVfxLane.ConfigureExecution(
-                DamageDeathVfxExecutionPolicy.ProductionDefault,
-                damageDeathVfxPlaybackPort);
-            boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
-            enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
-            coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);
-            gameplayActionAudioLane.ConfigureExecution(ActionAudioExecutionPolicy.ProductionDefault);
-            enemyOneShotAudioLane.ConfigureExecution(EnemyAudioExecutionPolicy.ProductionDefault);
         }
     }
 

@@ -173,6 +173,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildMoveEvents(presentationData, result.TickIndex, enemyEntityIds, events, emitted);
             BuildActionEvents(presentationData, result.TickIndex, events, emitted);
             BuildUtilityEvents(presentationData, result.TickIndex, events, emitted);
+            BuildSummonWindupEvents(presentationData, result.TickIndex, events, emitted);
             BuildSummonActiveEvents(presentationData, result.TickIndex, events, emitted);
             BuildJumpEvents(presentationData, result.TickIndex, events, emitted);
             BuildGlideEvents(presentationData, result.TickIndex, events, emitted);
@@ -505,6 +506,47 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return index + 1;
+        }
+
+        private static void BuildSummonWindupEvents(
+            TickPresentationData presentationData,
+            int tickIndex,
+            ICollection<EnemyAudioSemanticEvent> events,
+            ISet<EnemyAudioSemanticIdentity> emitted)
+        {
+            var signals = presentationData.SummonWindupWarnings;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.SourceEntityId <= 0 ||
+                    signal.TickIndex != signal.WindupStartTick)
+                {
+                    continue;
+                }
+
+                var sequenceId = signal.ActivationSequence > 0
+                    ? signal.ActivationSequence
+                    : signal.EffectIndex > 0
+                        ? signal.EffectIndex
+                        : i + 1;
+                AddEvent(
+                    events,
+                    emitted,
+                    new EnemyAudioSemanticEvent(
+                        signal.SourceEntityId,
+                        EnemyAudioSemanticCue.Windup,
+                        tickIndex,
+                        sequenceId,
+                        EnemyAudioSemanticOriginKind.Summon,
+                        EnemyAudioSemanticPhase.Windup,
+                        sourceActionKind: (int)EnemyAudioSemanticOriginKind.Summon,
+                        sourceOutcome: (int)EnemyAudioSemanticPhase.Windup,
+                        sourceCause: (int)EnemyAudioSemanticOriginKind.Summon,
+                        sourceCell: signal.SourceCell,
+                        hasSourceCell: true,
+                        direction: signal.Facing,
+                        presentationKey: signal.PresentationSeed));
+            }
         }
 
         private static void BuildSummonActiveEvents(

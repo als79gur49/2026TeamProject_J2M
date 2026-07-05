@@ -11,14 +11,11 @@ namespace Game.Feature.Gameplay.Host
 {
     public enum PlayerActionAnimationExecutionMode
     {
-        LegacyAnimationSync = 0,
         OrchestrationAnimationExecutor = 1,
     }
 
     internal static class PlayerActionAnimationExecutionDefaults
     {
-        public const PlayerActionAnimationExecutionMode LegacyFallback =
-            PlayerActionAnimationExecutionMode.LegacyAnimationSync;
         public const PlayerActionAnimationExecutionMode ProductionDefault =
             PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
     }
@@ -26,8 +23,7 @@ namespace Game.Feature.Gameplay.Host
     internal enum PlayerActionAnimationExecutionOwner
     {
         None = 0,
-        LegacyAnimationSync = 1,
-        OrchestrationAnimationExecutor = 2,
+        OrchestrationAnimationExecutor = 1,
     }
 
     internal enum GameplayAnimationPlaybackResultKind
@@ -40,8 +36,7 @@ namespace Game.Feature.Gameplay.Host
         AnimatorMissing = 5,
         Requested = 6,
         Applied = 7,
-        LegacyOwnerActive = 8,
-        IgnoredByPolicy = 9,
+        IgnoredByPolicy = 8,
     }
 
     internal enum PlayerActionAnimationTelemetryFailureReason
@@ -54,8 +49,7 @@ namespace Game.Feature.Gameplay.Host
         AnimatorMissing = 5,
         PortMissing = 6,
         DuplicateSuppressed = 7,
-        LegacyOwnerActive = 8,
-        IgnoredByPolicy = 9,
+        IgnoredByPolicy = 8,
     }
 
     internal enum PlayerActionAnimationTelemetryCleanupReason
@@ -102,7 +96,6 @@ namespace Game.Feature.Gameplay.Host
             PlayerActionAnimationExecutionMode currentMode,
             bool isProductionDefaultOwner,
             PlayerActionAnimationExecutionMode productionDefaultMode,
-            PlayerActionAnimationExecutionMode rollbackMode,
             int lastTickIndex,
             PresentationAnimationCueKey lastCueKey,
             int lastDedupeKey,
@@ -112,8 +105,7 @@ namespace Game.Feature.Gameplay.Host
             PresentationAnimationOutcomeKind lastOutcomeKind,
             PlayerActionAnimationTelemetryFailureReason lastFailureReason,
             PlayerActionAnimationTelemetryCleanupReason lastCleanupReason,
-            int legacyOwnerAttemptCount,
-            int legacyOwnerSkippedByPolicyCount,
+            int plannedCueCount,
             int executorOwnerAttemptCount,
             int executorOwnerExecutedCount,
             int duplicateOwnerAttemptCount,
@@ -122,7 +114,7 @@ namespace Game.Feature.Gameplay.Host
             int playbackCommandRequestedCount,
             int playbackCommandAppliedCount,
             int playbackCommandIgnoredByPolicyCount,
-            int executeCueMappedToLegacyCommandCount,
+            int executeCueMappedToRecoveryCommandCount,
             int targetMissingCount,
             int anchorMissingCount,
             int bindingMissingCount,
@@ -134,7 +126,6 @@ namespace Game.Feature.Gameplay.Host
             CurrentMode = currentMode;
             IsProductionDefaultOwner = isProductionDefaultOwner;
             ProductionDefaultMode = productionDefaultMode;
-            RollbackMode = rollbackMode;
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastCueKey = lastCueKey;
             LastDedupeKey = lastDedupeKey;
@@ -144,8 +135,7 @@ namespace Game.Feature.Gameplay.Host
             LastOutcomeKind = lastOutcomeKind;
             LastFailureReason = lastFailureReason;
             LastCleanupReason = lastCleanupReason;
-            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
-            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            PlannedCueCount = Math.Max(0, plannedCueCount);
             ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
             ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
             DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
@@ -154,7 +144,7 @@ namespace Game.Feature.Gameplay.Host
             PlaybackCommandRequestedCount = Math.Max(0, playbackCommandRequestedCount);
             PlaybackCommandAppliedCount = Math.Max(0, playbackCommandAppliedCount);
             PlaybackCommandIgnoredByPolicyCount = Math.Max(0, playbackCommandIgnoredByPolicyCount);
-            ExecuteCueMappedToLegacyCommandCount = Math.Max(0, executeCueMappedToLegacyCommandCount);
+            ExecuteCueMappedToRecoveryCommandCount = Math.Max(0, executeCueMappedToRecoveryCommandCount);
             TargetMissingCount = Math.Max(0, targetMissingCount);
             AnchorMissingCount = Math.Max(0, anchorMissingCount);
             BindingMissingCount = Math.Max(0, bindingMissingCount);
@@ -167,7 +157,6 @@ namespace Game.Feature.Gameplay.Host
         public PlayerActionAnimationExecutionMode CurrentMode { get; }
         public bool IsProductionDefaultOwner { get; }
         public PlayerActionAnimationExecutionMode ProductionDefaultMode { get; }
-        public PlayerActionAnimationExecutionMode RollbackMode { get; }
         public int LastTickIndex { get; }
         public PresentationAnimationCueKey LastCueKey { get; }
         public int LastDedupeKey { get; }
@@ -177,8 +166,7 @@ namespace Game.Feature.Gameplay.Host
         public PresentationAnimationOutcomeKind LastOutcomeKind { get; }
         public PlayerActionAnimationTelemetryFailureReason LastFailureReason { get; }
         public PlayerActionAnimationTelemetryCleanupReason LastCleanupReason { get; }
-        public int LegacyOwnerAttemptCount { get; }
-        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int PlannedCueCount { get; }
         public int ExecutorOwnerAttemptCount { get; }
         public int ExecutorOwnerExecutedCount { get; }
         public int DuplicateOwnerAttemptCount { get; }
@@ -187,7 +175,7 @@ namespace Game.Feature.Gameplay.Host
         public int PlaybackCommandRequestedCount { get; }
         public int PlaybackCommandAppliedCount { get; }
         public int PlaybackCommandIgnoredByPolicyCount { get; }
-        public int ExecuteCueMappedToLegacyCommandCount { get; }
+        public int ExecuteCueMappedToRecoveryCommandCount { get; }
         public int TargetMissingCount { get; }
         public int AnchorMissingCount { get; }
         public int BindingMissingCount { get; }
@@ -230,7 +218,6 @@ namespace Game.Feature.Gameplay.Host
                 mode,
                 mode == PlayerActionAnimationExecutionDefaults.ProductionDefault,
                 PlayerActionAnimationExecutionDefaults.ProductionDefault,
-                PlayerActionAnimationExecutionDefaults.LegacyFallback,
                 executor.LastTickIndex,
                 executor.LastCueKey,
                 executor.LastDedupeKey,
@@ -240,8 +227,7 @@ namespace Game.Feature.Gameplay.Host
                 executor.LastOutcomeKind,
                 executor.LastFailureReason,
                 executor.LastCleanupReason,
-                ownership.LegacyAttemptCount,
-                ownership.SkippedLegacyBecauseExecutorOwnerCount,
+                ownership.PlannedCueCount,
                 ownership.ExecutorAttemptCount,
                 ownership.ExecutedByExecutorCount,
                 ownership.DuplicateAttemptCount,
@@ -250,7 +236,7 @@ namespace Game.Feature.Gameplay.Host
                 executor.CommandRequestedCount,
                 executor.CommandAppliedCount,
                 executor.CommandIgnoredByPolicyCount,
-                executor.ExecuteCueMappedToLegacyCommandCount,
+                executor.ExecuteCueMappedToRecoveryCommandCount,
                 executor.TargetMissingCount,
                 executor.AnchorMissingCount,
                 executor.BindingMissingCount,
@@ -337,39 +323,27 @@ namespace Game.Feature.Gameplay.Host
     {
         public PlayerActionAnimationOwnershipDiagnostics(
             PlayerActionAnimationExecutionMode mode,
-            int legacyAttemptCount,
+            int plannedCueCount,
             int executorAttemptCount,
-            int executedByLegacyCount,
             int executedByExecutorCount,
-            int skippedLegacyBecauseExecutorOwnerCount,
-            int skippedExecutorBecauseLegacyOwnerCount,
             int duplicateAttemptCount,
             PlayerActionAnimationExecutionOwner lastExecutionOwner)
         {
             Mode = mode;
-            LegacyAttemptCount = Math.Max(0, legacyAttemptCount);
+            PlannedCueCount = Math.Max(0, plannedCueCount);
             ExecutorAttemptCount = Math.Max(0, executorAttemptCount);
-            ExecutedByLegacyCount = Math.Max(0, executedByLegacyCount);
             ExecutedByExecutorCount = Math.Max(0, executedByExecutorCount);
-            SkippedLegacyBecauseExecutorOwnerCount = Math.Max(0, skippedLegacyBecauseExecutorOwnerCount);
-            SkippedExecutorBecauseLegacyOwnerCount = Math.Max(0, skippedExecutorBecauseLegacyOwnerCount);
             DuplicateAttemptCount = Math.Max(0, duplicateAttemptCount);
             LastExecutionOwner = lastExecutionOwner;
         }
 
         public PlayerActionAnimationExecutionMode Mode { get; }
 
-        public int LegacyAttemptCount { get; }
+        public int PlannedCueCount { get; }
 
         public int ExecutorAttemptCount { get; }
 
-        public int ExecutedByLegacyCount { get; }
-
         public int ExecutedByExecutorCount { get; }
-
-        public int SkippedLegacyBecauseExecutorOwnerCount { get; }
-
-        public int SkippedExecutorBecauseLegacyOwnerCount { get; }
 
         public int DuplicateAttemptCount { get; }
 
@@ -380,17 +354,14 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly HashSet<PlayerActionAnimationPlaybackKey> _claimedKeys = new();
         private PlayerActionAnimationExecutionMode _mode;
-        private int _legacyAttemptCount;
+        private int _plannedCueCount;
         private int _executorAttemptCount;
-        private int _executedByLegacyCount;
         private int _executedByExecutorCount;
-        private int _skippedLegacyBecauseExecutorOwnerCount;
-        private int _skippedExecutorBecauseLegacyOwnerCount;
         private int _duplicateAttemptCount;
         private PlayerActionAnimationExecutionOwner _lastExecutionOwner;
 
         public PlayerActionAnimationExecutionGuard(
-            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionDefaults.LegacyFallback)
+            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionDefaults.ProductionDefault)
         {
             _mode = NormalizeMode(mode);
         }
@@ -398,12 +369,9 @@ namespace Game.Feature.Gameplay.Host
         public PlayerActionAnimationOwnershipDiagnostics Diagnostics =>
             new(
                 _mode,
-                _legacyAttemptCount,
+                _plannedCueCount,
                 _executorAttemptCount,
-                _executedByLegacyCount,
                 _executedByExecutorCount,
-                _skippedLegacyBecauseExecutorOwnerCount,
-                _skippedExecutorBecauseLegacyOwnerCount,
                 _duplicateAttemptCount,
                 _lastExecutionOwner);
 
@@ -415,25 +383,16 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _claimedKeys.Clear();
-            _legacyAttemptCount = 0;
+            _plannedCueCount = 0;
             _executorAttemptCount = 0;
-            _executedByLegacyCount = 0;
             _executedByExecutorCount = 0;
-            _skippedLegacyBecauseExecutorOwnerCount = 0;
-            _skippedExecutorBecauseLegacyOwnerCount = 0;
             _duplicateAttemptCount = 0;
             _lastExecutionOwner = PlayerActionAnimationExecutionOwner.None;
         }
 
-        public void RecordSkippedByPolicy(PlayerActionAnimationExecutionOwner skippedOwner)
+        public void RecordPlanned(int cueCount)
         {
-            if (skippedOwner == PlayerActionAnimationExecutionOwner.None)
-            {
-                throw new ArgumentOutOfRangeException(nameof(skippedOwner), "Player action animation owner must be explicit.");
-            }
-
-            RecordAttempt(skippedOwner);
-            RecordPolicySkip(skippedOwner);
+            _plannedCueCount += Math.Max(0, cueCount);
         }
 
         public bool TryBeginExecution(
@@ -449,26 +408,17 @@ namespace Game.Feature.Gameplay.Host
             if (_claimedKeys.Contains(key))
             {
                 _duplicateAttemptCount++;
-                RecordPolicySkip(owner);
                 return false;
             }
 
             if (!IsOwnerAllowed(owner))
             {
-                RecordPolicySkip(owner);
                 return false;
             }
 
             _claimedKeys.Add(key);
             _lastExecutionOwner = owner;
-            if (owner == PlayerActionAnimationExecutionOwner.LegacyAnimationSync)
-            {
-                _executedByLegacyCount++;
-            }
-            else
-            {
-                _executedByExecutorCount++;
-            }
+            _executedByExecutorCount++;
 
             return true;
         }
@@ -477,38 +427,20 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
-                : PlayerActionAnimationExecutionDefaults.LegacyFallback;
+                : PlayerActionAnimationExecutionDefaults.ProductionDefault;
         }
 
         private bool IsOwnerAllowed(PlayerActionAnimationExecutionOwner owner)
         {
-            return (_mode == PlayerActionAnimationExecutionMode.LegacyAnimationSync &&
-                    owner == PlayerActionAnimationExecutionOwner.LegacyAnimationSync) ||
-                   (_mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor &&
-                    owner == PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor);
+            return _mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor &&
+                   owner == PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor;
         }
 
         private void RecordAttempt(PlayerActionAnimationExecutionOwner owner)
         {
-            if (owner == PlayerActionAnimationExecutionOwner.LegacyAnimationSync)
-            {
-                _legacyAttemptCount++;
-            }
-            else if (owner == PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor)
+            if (owner == PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor)
             {
                 _executorAttemptCount++;
-            }
-        }
-
-        private void RecordPolicySkip(PlayerActionAnimationExecutionOwner owner)
-        {
-            if (owner == PlayerActionAnimationExecutionOwner.LegacyAnimationSync)
-            {
-                _skippedLegacyBecauseExecutorOwnerCount++;
-            }
-            else if (owner == PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor)
-            {
-                _skippedExecutorBecauseLegacyOwnerCount++;
             }
         }
     }
@@ -548,22 +480,22 @@ namespace Game.Feature.Gameplay.Host
     {
         public GameplayAnimationPlaybackResult(
             GameplayAnimationPlaybackResultKind kind,
-            bool executeCueMappedToLegacyCommand = false)
+            bool executeCueMappedToRecoveryCommand = false)
         {
             Kind = kind;
-            ExecuteCueMappedToLegacyCommand = executeCueMappedToLegacyCommand;
+            ExecuteCueMappedToRecoveryCommand = executeCueMappedToRecoveryCommand;
         }
 
         public GameplayAnimationPlaybackResultKind Kind { get; }
 
-        public bool ExecuteCueMappedToLegacyCommand { get; }
+        public bool ExecuteCueMappedToRecoveryCommand { get; }
     }
 
     internal readonly struct GameplayAnimationExecutorDiagnostics
     {
         public GameplayAnimationExecutorDiagnostics(
             int observedCueCount,
-            int legacyOwnerNoOpCount,
+            int ownerPolicyIgnoredCount,
             int targetMissingCount,
             int anchorMissingCount,
             int bindingMissingCount,
@@ -574,7 +506,7 @@ namespace Game.Feature.Gameplay.Host
             int commandAppliedCount,
             int commandIgnoredByPolicyCount,
             int missingPortCount,
-            int executeCueMappedToLegacyCommandCount,
+            int executeCueMappedToRecoveryCommandCount,
             int lastTickIndex = 0,
             PresentationAnimationCueKey lastCueKey = PresentationAnimationCueKey.None,
             int lastDedupeKey = 0,
@@ -589,7 +521,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<PlayerActionAnimationSemanticDiagnostics> semanticDiagnostics = null)
         {
             ObservedCueCount = Math.Max(0, observedCueCount);
-            LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
+            OwnerPolicyIgnoredCount = Math.Max(0, ownerPolicyIgnoredCount);
             TargetMissingCount = Math.Max(0, targetMissingCount);
             AnchorMissingCount = Math.Max(0, anchorMissingCount);
             BindingMissingCount = Math.Max(0, bindingMissingCount);
@@ -600,7 +532,7 @@ namespace Game.Feature.Gameplay.Host
             CommandAppliedCount = Math.Max(0, commandAppliedCount);
             CommandIgnoredByPolicyCount = Math.Max(0, commandIgnoredByPolicyCount);
             MissingPortCount = Math.Max(0, missingPortCount);
-            ExecuteCueMappedToLegacyCommandCount = Math.Max(0, executeCueMappedToLegacyCommandCount);
+            ExecuteCueMappedToRecoveryCommandCount = Math.Max(0, executeCueMappedToRecoveryCommandCount);
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastCueKey = lastCueKey;
             LastDedupeKey = lastDedupeKey;
@@ -615,7 +547,7 @@ namespace Game.Feature.Gameplay.Host
 
         public int ObservedCueCount { get; }
 
-        public int LegacyOwnerNoOpCount { get; }
+        public int OwnerPolicyIgnoredCount { get; }
 
         public int TargetMissingCount { get; }
 
@@ -637,7 +569,7 @@ namespace Game.Feature.Gameplay.Host
 
         public int MissingPortCount { get; }
 
-        public int ExecuteCueMappedToLegacyCommandCount { get; }
+        public int ExecuteCueMappedToRecoveryCommandCount { get; }
 
         public int LastTickIndex { get; }
 
@@ -788,7 +720,7 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayAnimationPresentationExecutor(
             IGameplayAnimationPlaybackPort playbackPort = null,
-            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionDefaults.LegacyFallback,
+            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionDefaults.ProductionDefault,
             PlayerActionAnimationExecutionGuard executionGuard = null)
         {
             _playbackPort = playbackPort;
@@ -814,7 +746,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var observedCueCount = 0;
-            var legacyOwnerNoOpCount = 0;
+            var ownerPolicyIgnoredCount = 0;
             var targetMissingCount = 0;
             var anchorMissingCount = 0;
             var bindingMissingCount = 0;
@@ -825,7 +757,7 @@ namespace Game.Feature.Gameplay.Host
             var commandAppliedCount = 0;
             var commandIgnoredByPolicyCount = 0;
             var missingPortCount = 0;
-            var executeCueMappedToLegacyCommandCount = 0;
+            var executeCueMappedToRecoveryCommandCount = 0;
             var lastTickIndex = 0;
             var lastCueKey = PresentationAnimationCueKey.None;
             var lastDedupeKey = 0;
@@ -860,14 +792,6 @@ namespace Game.Feature.Gameplay.Host
                     ref lastActionKind,
                     ref lastPhaseKind,
                     ref lastOutcomeKind);
-                if (_mode != PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
-                {
-                    legacyOwnerNoOpCount++;
-                    lastFailureReason = PlayerActionAnimationTelemetryFailureReason.LegacyOwnerActive;
-                    semanticTelemetry.RecordIgnored(currentCueKey);
-                    continue;
-                }
-
                 if (!TryCreateRequest(playbackCue, out var request, out var missingKind))
                 {
                     RecordMissing(
@@ -893,8 +817,8 @@ namespace Game.Feature.Gameplay.Host
                     }
                     else
                     {
-                        legacyOwnerNoOpCount++;
-                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.LegacyOwnerActive;
+                        commandIgnoredByPolicyCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy;
                     }
 
                     semanticTelemetry.RecordIgnored(currentCueKey);
@@ -912,9 +836,9 @@ namespace Game.Feature.Gameplay.Host
                 commandRequestedCount++;
                 semanticTelemetry.RecordRequested(currentCueKey);
                 _playbackPort.TryPlayPlayerActionAnimation(request, out var result);
-                if (result.ExecuteCueMappedToLegacyCommand)
+                if (result.ExecuteCueMappedToRecoveryCommand)
                 {
-                    executeCueMappedToLegacyCommandCount++;
+                    executeCueMappedToRecoveryCommandCount++;
                 }
 
                 switch (result.Kind)
@@ -952,11 +876,6 @@ namespace Game.Feature.Gameplay.Host
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.AnimatorMissing;
                         semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
-                    case GameplayAnimationPlaybackResultKind.LegacyOwnerActive:
-                        legacyOwnerNoOpCount++;
-                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.LegacyOwnerActive;
-                        semanticTelemetry.RecordIgnored(currentCueKey);
-                        break;
                     case GameplayAnimationPlaybackResultKind.IgnoredByPolicy:
                         commandIgnoredByPolicyCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy;
@@ -973,7 +892,7 @@ namespace Game.Feature.Gameplay.Host
 
             Diagnostics = new GameplayAnimationExecutorDiagnostics(
                 observedCueCount,
-                legacyOwnerNoOpCount,
+                ownerPolicyIgnoredCount,
                 targetMissingCount,
                 anchorMissingCount,
                 bindingMissingCount,
@@ -984,7 +903,7 @@ namespace Game.Feature.Gameplay.Host
                 commandAppliedCount,
                 commandIgnoredByPolicyCount,
                 missingPortCount,
-                executeCueMappedToLegacyCommandCount,
+                executeCueMappedToRecoveryCommandCount,
                 lastTickIndex,
                 lastCueKey,
                 lastDedupeKey,
@@ -1021,10 +940,7 @@ namespace Game.Feature.Gameplay.Host
                 0,
                 0,
                 lastCleanupReason: PlayerActionAnimationTelemetryCleanupReason.ResetSession);
-            if (_mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
-            {
-                _playbackPort?.ResetSession();
-            }
+            _playbackPort?.ResetSession();
         }
 
         public void HardCleanup()
@@ -1044,10 +960,7 @@ namespace Game.Feature.Gameplay.Host
                 0,
                 0,
                 lastCleanupReason: PlayerActionAnimationTelemetryCleanupReason.HardCleanupPresentationExtensions);
-            if (_mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
-            {
-                _playbackPort?.HardCleanup();
-            }
+            _playbackPort?.HardCleanup();
         }
 
         private bool TryClaimExecution(in PlayerActionAnimationPlaybackKey key)
@@ -1059,7 +972,7 @@ namespace Game.Feature.Gameplay.Host
                     key);
             }
 
-            return _mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
+            return true;
         }
 
         private static bool IsPlayerActionAnimationCue(in PresentationPlaybackCue playbackCue)
@@ -1189,7 +1102,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
-                : PlayerActionAnimationExecutionDefaults.LegacyFallback;
+                : PlayerActionAnimationExecutionDefaults.ProductionDefault;
         }
     }
 

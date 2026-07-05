@@ -16,7 +16,7 @@ namespace Game.Feature.Stages
             string vfxProfileName = "",
             string vfxProfileFamily = "",
             EnemyPresentationVfxProfileStatusKind vfxProfileStatus =
-                EnemyPresentationVfxProfileStatusKind.HostDefaultFallback,
+                EnemyPresentationVfxProfileStatusKind.HostDefault,
             EnemyPresentationVfxProfileDiagnostic[] vfxProfileDiagnostics = null)
         {
             EntryIndex = entryIndex;

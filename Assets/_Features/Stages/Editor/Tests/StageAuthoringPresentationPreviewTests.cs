@@ -133,7 +133,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void PresentationPreview_EnemyPlacement_NullVfxProfileShowsHostDefaultFallback()
+        public void PresentationPreview_EnemyPlacement_NullVfxProfileShowsHostDefault()
         {
             using var fixture = PreviewFixture.CreateEnemy("slime_showcase", withViewPrefab: true);
 
@@ -143,7 +143,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixture.Presentation);
 
             Assert.That(model.VfxProfileAsset, Is.Null);
-            Assert.That(model.VfxProfileStatusLabel, Is.EqualTo("None / Host default fallback"));
+            Assert.That(model.VfxProfileStatusLabel, Is.EqualTo("None / Host default"));
             Assert.That(model.VfxProfileStatusMessageType, Is.EqualTo(MessageType.Info));
         }
 

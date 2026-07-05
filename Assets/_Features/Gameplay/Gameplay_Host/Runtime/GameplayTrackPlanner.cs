@@ -92,8 +92,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile,
-            BoxMotionLegacySuppression boxMotionSuppression = BoxMotionLegacySuppression.None)
+            GameplayTimingProfile timingProfile)
         {
             if (result == null)
             {
@@ -122,13 +121,11 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedTopology,
                 projector,
                 timingProfile,
-                kinematicEntityIds,
-                boxMotionSuppression);
+                kinematicEntityIds);
             RefreshOriginalViewMotionTracks(
                 result,
                 projector,
-                timingProfile,
-                boxMotionSuppression);
+                timingProfile);
             RefreshJumpWindupRotationTracks(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -934,8 +931,7 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile,
-            ISet<int> kinematicEntityIds,
-            BoxMotionLegacySuppression boxMotionSuppression)
+            ISet<int> kinematicEntityIds)
         {
             if (presentationData == null)
             {
@@ -985,18 +981,9 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
-                if (ShouldSuppressMotionClip(boxMotionSuppression, motion.MotionKind))
+                if (IsBoxMotionLaneOwnedMotion(motion.MotionKind))
                 {
-                    _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
-                        ToBoxMotionFactKind(motion.MotionKind),
-                        tickIndex: 0,
-                        motion.EntityId);
                     continue;
-                }
-
-                if (boxMotionSuppression != BoxMotionLegacySuppression.None)
-                {
-                    _trackState.BoxMotionTelemetry.RecordLegacyUnrelatedMotionTrackRetained();
                 }
 
                 if (kinematicEntityIds != null &&
@@ -1900,45 +1887,21 @@ namespace Game.Feature.Gameplay.Host
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
-        private static bool ShouldSuppressMotionClip(
-            BoxMotionLegacySuppression suppression,
-            TickEntityMotionKind motionKind)
-        {
-            switch (motionKind)
-            {
-                case TickEntityMotionKind.BoxSlide:
-                    return (suppression & BoxMotionLegacySuppression.BoxSlide) != 0;
-                case TickEntityMotionKind.Flip:
-                    return (suppression & BoxMotionLegacySuppression.BoxFlip) != 0;
-                default:
-                    return false;
-            }
-        }
-
-        private static bool IsBoxMotionFamily(TickEntityMotionKind motionKind)
+        private static bool IsBoxMotionLaneOwnedMotion(TickEntityMotionKind motionKind)
         {
             return motionKind == TickEntityMotionKind.BoxSlide ||
                    motionKind == TickEntityMotionKind.Flip;
         }
 
-        private static PresentationMotionFactKind ToBoxMotionFactKind(TickEntityMotionKind motionKind)
+        private static bool IsBoxMotionLaneOwnedFlipImpact(in FlipImpactPresentationSignal signal)
         {
-            switch (motionKind)
-            {
-                case TickEntityMotionKind.BoxSlide:
-                    return PresentationMotionFactKind.BoxSlide;
-                case TickEntityMotionKind.Flip:
-                    return PresentationMotionFactKind.BoxFlip;
-                default:
-                    return PresentationMotionFactKind.None;
-            }
+            return signal.BoxEntityId > 0;
         }
 
         private void RefreshOriginalViewMotionTracks(
             TickResult result,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile,
-            BoxMotionLegacySuppression boxMotionSuppression)
+            GameplayTimingProfile timingProfile)
         {
             if (result == null)
             {
@@ -1981,17 +1944,12 @@ namespace Game.Feature.Gameplay.Host
             var flipImpactSignals = result.PresentationData.FlipImpactSignals;
             for (var i = 0; i < flipImpactSignals.Count; i++)
             {
-                if ((boxMotionSuppression & BoxMotionLegacySuppression.BoxFlipImpact) != 0)
+                var signal = flipImpactSignals[i];
+                if (IsBoxMotionLaneOwnedFlipImpact(signal))
                 {
-                    var skippedSignal = flipImpactSignals[i];
-                    _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
-                        PresentationMotionFactKind.BoxFlipImpact,
-                        result.TickIndex,
-                        skippedSignal.BoxEntityId);
                     continue;
                 }
 
-                var signal = flipImpactSignals[i];
                 if (signal.Disposition != FlipImpactPresentationDisposition.Stay)
                 {
                     continue;
@@ -2069,7 +2027,7 @@ namespace Game.Feature.Gameplay.Host
             var key = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, result.TickIndex);
             if (_trackState.CompletedPresentationMotionKeys.Contains(key))
             {
-                resultKind = GameplayMotionPlaybackResultKind.LegacyOwnerActive;
+                resultKind = GameplayMotionPlaybackResultKind.DuplicateActive;
                 return false;
             }
 
@@ -2077,7 +2035,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (existingTrack.InstanceKey.Equals(key))
                 {
-                    resultKind = GameplayMotionPlaybackResultKind.LegacyOwnerActive;
+                    resultKind = GameplayMotionPlaybackResultKind.DuplicateActive;
                     return false;
                 }
 

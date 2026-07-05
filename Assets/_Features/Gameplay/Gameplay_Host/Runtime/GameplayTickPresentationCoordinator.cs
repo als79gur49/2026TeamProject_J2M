@@ -72,10 +72,6 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct BoxMotionProductionTelemetrySnapshot
     {
         public BoxMotionProductionTelemetrySnapshot(
-            BoxMotionPresentationExecutionMode currentMode,
-            bool isProductionDefaultOwner,
-            BoxMotionPresentationExecutionMode productionDefaultMode,
-            BoxMotionPresentationExecutionMode rollbackMode,
             int lastTickIndex,
             PresentationMotionCueKey lastCueKey,
             int lastDedupeKey,
@@ -83,12 +79,10 @@ namespace Game.Feature.Gameplay.Host
             PresentationMotionFactKind lastMotionFactKind,
             BoxMotionTelemetryFailureReason lastFailureReason,
             BoxMotionTelemetryCleanupReason lastCleanupReason,
-            int legacyOwnerAttemptCount,
-            int legacyOwnerSkippedByPolicyCount,
             int executorOwnerAttemptCount,
             int executorOwnerExecutedCount,
             int duplicateOwnerAttemptCount,
-            int duplicateSuppressedCount,
+            int duplicateRejectedCount,
             int playbackTrackPlannedCount,
             int playbackTrackRequestedCount,
             int playbackTrackStartedCount,
@@ -106,14 +100,9 @@ namespace Game.Feature.Gameplay.Host
             int driverMissingCount,
             int portMissingCount,
             int unsupportedSemanticCount,
-            int legacyBoxSourcePlanningSkippedCount,
-            int legacyUnrelatedMotionTrackRetainedCount,
             IReadOnlyList<BoxMotionSemanticDiagnostics> semanticDiagnostics)
         {
-            CurrentMode = currentMode;
-            IsProductionDefaultOwner = isProductionDefaultOwner;
-            ProductionDefaultMode = productionDefaultMode;
-            RollbackMode = rollbackMode;
+            IsCurrentProductionOwner = true;
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastCueKey = lastCueKey;
             LastDedupeKey = lastDedupeKey;
@@ -121,12 +110,10 @@ namespace Game.Feature.Gameplay.Host
             LastMotionFactKind = lastMotionFactKind;
             LastFailureReason = lastFailureReason;
             LastCleanupReason = lastCleanupReason;
-            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
-            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
             ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
             ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
             DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
-            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            DuplicateRejectedCount = Math.Max(0, duplicateRejectedCount);
             PlaybackTrackPlannedCount = Math.Max(0, playbackTrackPlannedCount);
             PlaybackTrackRequestedCount = Math.Max(0, playbackTrackRequestedCount);
             PlaybackTrackStartedCount = Math.Max(0, playbackTrackStartedCount);
@@ -144,15 +131,10 @@ namespace Game.Feature.Gameplay.Host
             DriverMissingCount = Math.Max(0, driverMissingCount);
             PortMissingCount = Math.Max(0, portMissingCount);
             UnsupportedSemanticCount = Math.Max(0, unsupportedSemanticCount);
-            LegacyBoxSourcePlanningSkippedCount = Math.Max(0, legacyBoxSourcePlanningSkippedCount);
-            LegacyUnrelatedMotionTrackRetainedCount = Math.Max(0, legacyUnrelatedMotionTrackRetainedCount);
             SemanticDiagnostics = semanticDiagnostics ?? Array.Empty<BoxMotionSemanticDiagnostics>();
         }
 
-        public BoxMotionPresentationExecutionMode CurrentMode { get; }
-        public bool IsProductionDefaultOwner { get; }
-        public BoxMotionPresentationExecutionMode ProductionDefaultMode { get; }
-        public BoxMotionPresentationExecutionMode RollbackMode { get; }
+        public bool IsCurrentProductionOwner { get; }
         public int LastTickIndex { get; }
         public PresentationMotionCueKey LastCueKey { get; }
         public int LastDedupeKey { get; }
@@ -160,12 +142,10 @@ namespace Game.Feature.Gameplay.Host
         public PresentationMotionFactKind LastMotionFactKind { get; }
         public BoxMotionTelemetryFailureReason LastFailureReason { get; }
         public BoxMotionTelemetryCleanupReason LastCleanupReason { get; }
-        public int LegacyOwnerAttemptCount { get; }
-        public int LegacyOwnerSkippedByPolicyCount { get; }
         public int ExecutorOwnerAttemptCount { get; }
         public int ExecutorOwnerExecutedCount { get; }
         public int DuplicateOwnerAttemptCount { get; }
-        public int DuplicateSuppressedCount { get; }
+        public int DuplicateRejectedCount { get; }
         public int PlaybackTrackPlannedCount { get; }
         public int PlaybackTrackRequestedCount { get; }
         public int PlaybackTrackStartedCount { get; }
@@ -183,8 +163,6 @@ namespace Game.Feature.Gameplay.Host
         public int DriverMissingCount { get; }
         public int PortMissingCount { get; }
         public int UnsupportedSemanticCount { get; }
-        public int LegacyBoxSourcePlanningSkippedCount { get; }
-        public int LegacyUnrelatedMotionTrackRetainedCount { get; }
         public IReadOnlyList<BoxMotionSemanticDiagnostics> SemanticDiagnostics { get; }
     }
 
@@ -392,7 +370,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal int DeferredGameplayAudioRequestCount =>
             _coreGameplaySfxLane.DeferredRequestCount +
-            _actionAudioLane.DeferredRequestCount +
             _enemyOneShotAudioLane.DeferredRequestCount;
 
         internal int PendingMoonBlockEmergenceRequestCount =>
@@ -415,9 +392,6 @@ namespace Game.Feature.Gameplay.Host
         internal PresentationBlockingSnapshot TopologyExecutionPipelineBlockingSnapshot =>
             _topologyLane.BlockingSnapshot;
 
-        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
-            _topologyLane.ExecutionMode;
-
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             _topologyLane.OwnershipDiagnostics;
 
@@ -430,14 +404,8 @@ namespace Game.Feature.Gameplay.Host
                 IsTopologyTransitionActive,
                 PresentationPipelineBlockingSnapshot);
 
-        internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
-            _damageDeathVfxLane.ExecutionMode;
-
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
             _damageDeathVfxLane.OwnershipDiagnostics;
-
-        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
-            _boxMotionLane.ExecutionMode;
 
         internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
             _boxMotionLane.OwnershipDiagnostics;
@@ -448,29 +416,14 @@ namespace Game.Feature.Gameplay.Host
         internal PlayerActionAnimationOwnershipDiagnostics PlayerActionAnimationOwnershipDiagnostics =>
             _playerActionAnimationLane.OwnershipDiagnostics;
 
-        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
-            _enemyPresentationLane.ExecutionMode;
-
         internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
             _enemyPresentationLane.OwnershipDiagnostics;
 
-        internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
-            _coreGameplaySfxLane.ExecutionMode;
+        internal CoreGameplaySfxRoute CoreGameplaySfxRoute =>
+            CoreGameplaySfxRoute.CurrentExecutor;
 
         internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
             _coreGameplaySfxLane.OwnershipDiagnostics;
-
-        internal ActionAudioExecutionMode ActionAudioExecutionMode =>
-            _actionAudioLane.ExecutionMode;
-
-        internal ActionAudioOwnershipDiagnostics ActionAudioOwnershipDiagnostics =>
-            _actionAudioLane.OwnershipDiagnostics;
-
-        internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
-            _enemyOneShotAudioLane.ExecutionMode;
-
-        internal EnemyAudioOwnershipDiagnostics EnemyAudioOwnershipDiagnostics =>
-            _enemyOneShotAudioLane.OwnershipDiagnostics;
 
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _damageDeathVfxLane.BlockingSnapshot;
@@ -532,19 +485,16 @@ namespace Game.Feature.Gameplay.Host
         internal EnemyAudioProductionTelemetrySnapshot EnemyAudioProductionTelemetrySnapshot =>
             _enemyOneShotAudioLane.ProductionTelemetrySnapshot;
 
-        internal void ConfigureDamageDeathVfxExecution(
-            DamageDeathVfxExecutionMode mode,
-            IDamageDeathVfxPlaybackPort playbackPort = null)
+        internal void ConfigureDamageDeathVfxPlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
-            _damageDeathVfxLane.ConfigureExecution(mode, playbackPort);
+            _damageDeathVfxLane.ConfigurePlaybackPort(playbackPort);
         }
 
-        internal void ConfigureBoxMotionPresentationExecution(
-            BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null,
+        internal void ConfigureBoxMotionPlaybackPort(
+            IGameplayMotionPlaybackPort playbackPort,
             bool useDefaultPlaybackPort = true)
         {
-            _boxMotionLane.ConfigureExecution(mode, playbackPort, useDefaultPlaybackPort);
+            _boxMotionLane.ConfigurePlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigurePlayerActionAnimationExecution(
@@ -554,32 +504,18 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationLane.ConfigureExecution(mode, playbackPort);
         }
 
-        internal void ConfigureEnemyPresentationExecution(
-            EnemyPresentationExecutionMode mode,
-            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        internal void ConfigureEnemyPresentationPlaybackPort(
+            IGameplayEnemyPresentationPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            _enemyPresentationLane.ConfigureExecution(mode, playbackPort);
+            _enemyPresentationLane.ConfigurePlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
-        internal void ConfigureCoreGameplaySfxExecution(
-            CoreGameplaySfxExecutionMode mode,
-            IGameplaySfxPlaybackPort playbackPort = null)
+        internal void ConfigureCoreGameplaySfxPlaybackPort(
+            IGameplaySfxPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            _coreGameplaySfxLane.ConfigureExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureActionAudioExecution(
-            ActionAudioExecutionMode mode,
-            IGameplayActionAudioPlaybackPort playbackPort = null)
-        {
-            _actionAudioLane.ConfigureExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureEnemyAudioExecution(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort = null)
-        {
-            _enemyOneShotAudioLane.ConfigureExecution(mode, playbackPort);
+            _coreGameplaySfxLane.ConfigurePlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -699,16 +635,13 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
-            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
-                TopologyPresentationExecutionPolicy.ProductionDefault)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             if (viewBinder == null)
             {
                 throw new ArgumentNullException(nameof(viewBinder));
             }
 
-            _topologyLane.ConfigureExecution(topologyPresentationExecutionMode);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
@@ -719,6 +652,8 @@ namespace Game.Feature.Gameplay.Host
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _playerActionAnimationTimingProfileSource.TimingProfile = _timingProfile;
+            _coreGameplaySfxLane.ConfigureTiming(_timingProfile);
+            _damageDeathVfxLane.ConfigureTiming(_timingProfile);
             _enemyOneShotAudioLane.ConfigureTiming(_timingProfile);
             _topologyTransitionController.Configure(
                 boardRoot,
@@ -915,8 +850,7 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 _projector,
-                _timingProfile,
-                boxMotionPreparation.LegacySuppression);
+                _timingProfile);
             _boxMotionLane.PresentPrepared(result, boxMotionPreparation, 0f);
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
@@ -931,8 +865,8 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile),
-                playerActionAnimationPreparation.SuppressLegacyActionFields,
-                enemyPresentationPreparation.LegacyOneShotSuppression);
+                playerActionAnimationPreparation.SuppressPlayerActionFieldsInSharedSync,
+                enemyPresentationPreparation.OneShotBlockMask);
             _enemyPresentationLane.PresentPrepared(result, enemyPresentationPreparation);
             _playerActionAnimationLane.PresentPrepared(result, playerActionAnimationPreparation);
             _damageDeathVfxLane.Present(result);
@@ -1352,10 +1286,9 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshGameplayAudioPlan(TickResult result)
         {
-            var coreGameplaySfxCandidatePlan = _coreGameplaySfxLane.BuildCandidatePlan(result, _timingProfile);
             var enemyOneShotPlan = _enemyOneShotAudioLane.RefreshPlan(result, _timingProfile);
-            _coreGameplaySfxLane.FinalizePlan(
-                coreGameplaySfxCandidatePlan,
+            _coreGameplaySfxLane.PrepareCurrentRoute(
+                result,
                 _topologyTransitionController.HasActiveBoardRotationTween,
                 enemyOneShotPlan.PlayableDeathCueEntityIds);
 
@@ -1374,7 +1307,6 @@ namespace Game.Feature.Gameplay.Host
         private void SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState gateState)
         {
             _coreGameplaySfxLane.SetTopologyTransitionActive(gateState.IsBlocked);
-            _actionAudioLane.SetPlaybackGateState(gateState);
             _enemyOneShotAudioLane.SetPlaybackGateState(gateState);
         }
 
@@ -1565,8 +1497,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: false,
-                damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy);
+                isTopologyTransitionCompletionReconcile: false);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
@@ -1678,8 +1609,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: true,
-                damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy);
+                isTopologyTransitionCompletionReconcile: true);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 if (_presentationExtensions[i] is IGameplayTopologyTransitionCompletionPresentationExtension extension)

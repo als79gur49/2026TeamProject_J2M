@@ -33,7 +33,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string InactiveBlendProperty = "_InactiveBlend";
         private const string InactiveNoiseRevealProperty = "_InactiveNoiseReveal";
         private const string DesaturateStrengthProperty = "_DesaturateStrength";
-        private const string EmissionSuppressionProperty = "_EmissionSuppression";
+        private const string EmissionOmissionProperty = "_EmissionOmission";
         private const string InactiveTintProperty = "_InactiveTint";
 
         [Test]
@@ -475,7 +475,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     inactiveBlend: 1f,
                     inactiveNoiseReveal: 1f,
                     desaturateStrength: 0.33f,
-                    emissionSuppression: 0.77f,
+                    emissionOmission: 0.77f,
                     scheduledTint);
 
                 runtime.Present(context);
@@ -484,7 +484,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     inactiveBlend: 0f,
                     inactiveNoiseReveal: 0f,
                     desaturateStrength: 0.11f,
-                    emissionSuppression: 0.22f,
+                    emissionOmission: 0.22f,
                     new Color(0.9f, 0.1f, 0.1f, 1f));
                 source.Owner.SetActive(false);
 
@@ -508,7 +508,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(cloneMaterial.GetFloat(InactiveBlendProperty), Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(cloneMaterial.GetFloat(InactiveNoiseRevealProperty), Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(cloneMaterial.GetFloat(DesaturateStrengthProperty), Is.EqualTo(0.33f).Within(0.0001f));
-                Assert.That(cloneMaterial.GetFloat(EmissionSuppressionProperty), Is.EqualTo(0.77f).Within(0.0001f));
+                Assert.That(cloneMaterial.GetFloat(EmissionOmissionProperty), Is.EqualTo(0.77f).Within(0.0001f));
                 AssertColorApproximately(scheduledTint, cloneMaterial.GetColor(InactiveTintProperty));
             }
             finally
@@ -624,7 +624,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     scenario.Topology,
                     Array.Empty<EntityState>()));
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
@@ -1017,7 +1016,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float inactiveBlend,
             float inactiveNoiseReveal,
             float desaturateStrength,
-            float emissionSuppression,
+            float emissionOmission,
             Color inactiveTint)
         {
             var block = new MaterialPropertyBlock();
@@ -1025,7 +1024,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             block.SetFloat(InactiveBlendProperty, inactiveBlend);
             block.SetFloat(InactiveNoiseRevealProperty, inactiveNoiseReveal);
             block.SetFloat(DesaturateStrengthProperty, desaturateStrength);
-            block.SetFloat(EmissionSuppressionProperty, emissionSuppression);
+            block.SetFloat(EmissionOmissionProperty, emissionOmission);
             block.SetColor(InactiveTintProperty, inactiveTint);
             renderer.SetPropertyBlock(block);
         }

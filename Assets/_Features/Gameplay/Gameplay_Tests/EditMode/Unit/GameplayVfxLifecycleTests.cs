@@ -32,6 +32,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void VfxExecutor_DamageDeathOneShot_DoesNotReconcilePersistentVfx()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var persistentRequest = CreateRequest(isPersistent: true, persistentKey: CreatePersistentKey());
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { persistentRequest }));
+            var persistentHandle = pool.CreatedHandles[0];
+
+            controller.PlayOneShot(CreateDamageDeathOneShotRequest(EnemyVfxCue.Damage, sequenceId: 77));
+
+            Assert.That(pool.PlayTransientCallCount, Is.EqualTo(1));
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.ActiveCount, Is.EqualTo(1));
+            Assert.That(registry.TryGet(persistentRequest.PersistentKey, out var currentHandle), Is.True);
+            Assert.That(currentHandle, Is.SameAs(persistentHandle));
+            Assert.That(persistentHandle.State, Is.EqualTo(VfxLifetimeState.Active));
+            Assert.That(persistentHandle.StopEmittingCount, Is.Zero);
+            Assert.That(persistentHandle.ReleaseCount, Is.Zero);
+            Assert.That(registry.LastStopReason, Is.Not.EqualTo("EndReconcileMissingDesired"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void VfxExecutor_DamageDeathOneShot_LeavesUnrelatedPersistentVfxUntouched()
+        {
+            var pool = new FakeVfxPool();
+            var registry = new VfxPersistentHandleRegistry();
+            var controller = CreateController(pool, registry);
+            var persistentRequest = CreateRequest(isPersistent: true, persistentKey: CreatePersistentKey());
+
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { persistentRequest }));
+            var persistentHandle = pool.CreatedHandles[0];
+            var persistentHandleId = persistentHandle.HandleId;
+
+            controller.PlayOneShot(CreateDamageDeathOneShotRequest(EnemyVfxCue.Death, sequenceId: 88));
+
+            Assert.That(pool.CreatedHandles.Count(handle => handle.IsPersistent), Is.EqualTo(1));
+            Assert.That(pool.StartPersistentCallCount, Is.EqualTo(1));
+            Assert.That(registry.TryGet(persistentRequest.PersistentKey, out var currentHandle), Is.True);
+            Assert.That(currentHandle, Is.SameAs(persistentHandle));
+            Assert.That(persistentHandle.HandleId, Is.EqualTo(persistentHandleId));
+            Assert.That(persistentHandle.StopEmittingCount, Is.Zero);
+            Assert.That(persistentHandle.TailPlayingCount, Is.Zero);
+            Assert.That(persistentHandle.ReleaseCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PersistentRequest_StartsOnceForSameKey()
         {
             var pool = new FakeVfxPool();
@@ -1467,6 +1517,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isPersistent,
                 persistentKey,
                 styleKey);
+        }
+
+        private static GameplayVfxRequest CreateDamageDeathOneShotRequest(
+            EnemyVfxCue cue,
+            int sequenceId)
+        {
+            return new GameplayVfxRequest(
+                tickIndex: 1,
+                sequenceId: sequenceId,
+                presentationSeed: sequenceId * 31,
+                sourceEntityId: 7,
+                cueId: GameplayVfxCueId.From(cue),
+                anchor: VfxAnchor.ForEntity(7),
+                timing: VfxTimingKind.ImmediateOnTickPresentation,
+                isPersistent: false,
+                persistentKey: VfxPersistentKey.None);
         }
 
         private static VfxBindingRuntimePolicy CreatePolicy(

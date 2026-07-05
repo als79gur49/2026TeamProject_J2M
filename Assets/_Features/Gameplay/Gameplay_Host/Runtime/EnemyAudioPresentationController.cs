@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly EnemyMoveCadenceGate _moveCadenceGate = new();
         private readonly EnemyStationaryActiveCadenceGate _stationaryActiveCadenceGate = new();
-        private readonly List<ScheduledEnemyAudioRequest> _pendingRequests = new();
+        private readonly List<ScheduledEnemyAudioRequest> _scheduledRequests = new();
         private readonly List<ScheduledEnemyAudioRequest> _deferredRequests = new();
         private readonly HashSet<GameplayAudioPlaybackRequestKey> _deferredKeys = new();
         private readonly HashSet<GameplayAudioPlaybackRequestKey> _playedDeferredKeys = new();
@@ -27,7 +27,7 @@ namespace Game.Feature.Gameplay.Host
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
         }
 
-        internal int PendingRequestCount => _pendingRequests.Count;
+        internal int ScheduledRequestCount => _scheduledRequests.Count;
 
         internal int DeferredRequestCount => _deferredRequests.Count;
 
@@ -46,14 +46,14 @@ namespace Game.Feature.Gameplay.Host
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort)
         {
             _playbackPort = playbackPort ?? throw new ArgumentNullException(nameof(playbackPort));
-            ClearPendingPlan();
+            ClearScheduledRequests();
             _moveCadenceGate.ResetState();
             _stationaryActiveCadenceGate.ResetState();
         }
 
         public void DetachRuntime()
         {
-            ClearPendingPlan();
+            ClearScheduledRequests();
             _moveCadenceGate.ResetState();
             _stationaryActiveCadenceGate.ResetState();
             _playbackPort = null;
@@ -61,42 +61,14 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
-            ClearPendingPlan();
+            ClearScheduledRequests();
             _moveCadenceGate.ResetState();
             _stationaryActiveCadenceGate.ResetState();
-        }
-
-        public void ReplacePendingPlan(IReadOnlyList<EnemyAudioRequest> plannedRequests)
-        {
-            ReplacePendingPlan(plannedRequests, tickIndex: 0);
-        }
-
-        public void ReplacePendingPlan(IReadOnlyList<EnemyAudioRequest> plannedRequests, int tickIndex)
-        {
-            if (plannedRequests == null)
-            {
-                throw new ArgumentNullException(nameof(plannedRequests));
-            }
-
-            RemoveImmediatePendingRequests();
-            for (var i = 0; i < plannedRequests.Count; i++)
-            {
-                var request = plannedRequests[i];
-                _pendingRequests.Add(new ScheduledEnemyAudioRequest(
-                    request,
-                    request.DelaySeconds,
-                    CreateRequestKey(request, tickIndex, i)));
-            }
         }
 
         public void SetPlaybackGateState(GameplayAudioPlaybackGateState gateState)
         {
             _gateState = gateState;
-        }
-
-        public void PlayPlannedAudio(int tickIndex)
-        {
-            PlayReadyAudio(tickIndex, 0f);
         }
 
         public void Update(int tickIndex, float deltaTime)
@@ -106,112 +78,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            PlayReadyAudio(tickIndex, deltaTime);
-        }
-
-        private void PlayReadyAudio(int tickIndex, float deltaTime)
-        {
-            if (_playbackPort == null)
-            {
-                ClearPendingPlan();
-                return;
-            }
-
-            if (!_gateState.IsBlocked)
-            {
-                DrainDeferredRequests(tickIndex);
-            }
-
-            var retainedCount = 0;
-            for (var i = 0; i < _pendingRequests.Count; i++)
-            {
-                var pending = _pendingRequests[i];
-                var scheduled = ShouldFreezeTimer(pending.Request)
-                    ? pending
-                    : pending.Advance(deltaTime);
-                if (scheduled.RemainingSeconds > 0f)
-                {
-                    _pendingRequests[retainedCount++] = scheduled;
-                    continue;
-                }
-
-                if (ShouldDefer(scheduled.Request))
-                {
-                    DeferRequest(scheduled);
-                    continue;
-                }
-
-                if (!ShouldSuppress(scheduled.Request))
-                {
-                    PlayRequest(scheduled.Request, tickIndex);
-                }
-            }
-
-            if (retainedCount < _pendingRequests.Count)
-            {
-                _pendingRequests.RemoveRange(retainedCount, _pendingRequests.Count - retainedCount);
-            }
-        }
-
-        public void ClearPendingPlan()
-        {
-            _pendingRequests.Clear();
-            _deferredRequests.Clear();
-            _deferredKeys.Clear();
-            _playedDeferredKeys.Clear();
-        }
-
-        private void RemoveImmediatePendingRequests()
-        {
-            for (var i = _pendingRequests.Count - 1; i >= 0; i--)
-            {
-                if (_pendingRequests[i].RemainingSeconds <= 0f)
-                {
-                    _pendingRequests.RemoveAt(i);
-                }
-            }
-        }
-
-        private void PlayRequest(in EnemyAudioRequest request, int tickIndex)
-        {
-            if (!TryResolveLiveOwner(request.OwnerEntityId, out var ownerView))
-            {
-                return;
-            }
-
-            if (request.Cue == EnemyAudioCue.StationaryActive &&
-                ShouldSuppressStationaryActive(request.OwnerEntityId))
-            {
-                return;
-            }
-
-            var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(ownerView);
-            if (authoring == null ||
-                !authoring.Profile.TryResolve(request.Cue, out var binding))
-            {
-                return;
-            }
-
-            if (request.Cue == EnemyAudioCue.Move &&
-                !_moveCadenceGate.ShouldPlayMove(request.OwnerEntityId, tickIndex))
-            {
-                return;
-            }
-
-            if (request.Cue == EnemyAudioCue.StationaryActive &&
-                !_stationaryActiveCadenceGate.ShouldPlayStationaryActive(request.OwnerEntityId, tickIndex))
-            {
-                return;
-            }
-
-            if (binding.HasAttachmentSlot)
-            {
-                PlayResolvedBinding(binding, ownerView, request.Context);
-            }
-            else
-            {
-                PlayResolvedBinding(binding, ownerView, request.Context);
-            }
+            PlayScheduledAudio(tickIndex, deltaTime);
         }
 
         internal bool TryPlayBridgeRequest(
@@ -238,33 +105,81 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var enemyRequest = CreateEnemyAudioRequest(request);
+            var requestKey = CreateRequestKey(enemyRequest, request.TickIndex, request.OwnershipKey.OrderIndex);
             if (enemyRequest.DelaySeconds > 0f)
             {
-                _pendingRequests.Add(new ScheduledEnemyAudioRequest(
+                _scheduledRequests.Add(new ScheduledEnemyAudioRequest(
                     enemyRequest,
                     enemyRequest.DelaySeconds,
-                    CreateRequestKey(enemyRequest, request.TickIndex, request.OwnershipKey.OrderIndex)));
+                    requestKey,
+                    request.TickIndex));
                 result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.Requested);
                 return true;
             }
 
-            var playbackDecision = EvaluatePlaybackPolicy(enemyRequest);
-            if (playbackDecision == GameplayAudioPlaybackDecision.DeferUntilUnlock)
+            if (EvaluatePlaybackPolicy(enemyRequest) == GameplayAudioPlaybackDecision.DeferUntilUnlock)
             {
-                DeferRequest(new ScheduledEnemyAudioRequest(
-                    enemyRequest,
-                    0f,
-                    CreateRequestKey(enemyRequest, request.TickIndex, request.OwnershipKey.OrderIndex)));
+                DeferRequest(new ScheduledEnemyAudioRequest(enemyRequest, 0f, requestKey, request.TickIndex));
                 result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.Requested);
                 return true;
             }
 
-            if (playbackDecision == GameplayAudioPlaybackDecision.Suppress)
+            return TryPlayRequest(enemyRequest, request.TickIndex, out result);
+        }
+
+        private void PlayScheduledAudio(int tickIndex, float deltaTime)
+        {
+            if (_playbackPort == null)
             {
-                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.LegacyOwnerActive);
-                return false;
+                ClearScheduledRequests();
+                return;
             }
 
+            if (!_gateState.IsBlocked)
+            {
+                DrainDeferredRequests();
+            }
+
+            var retainedCount = 0;
+            for (var i = 0; i < _scheduledRequests.Count; i++)
+            {
+                var scheduled = ShouldFreezeTimer(scheduledRequest: _scheduledRequests[i].Request)
+                    ? _scheduledRequests[i]
+                    : _scheduledRequests[i].Advance(deltaTime);
+                if (scheduled.RemainingSeconds > 0f)
+                {
+                    _scheduledRequests[retainedCount++] = scheduled;
+                    continue;
+                }
+
+                if (EvaluatePlaybackPolicy(scheduled.Request) == GameplayAudioPlaybackDecision.DeferUntilUnlock)
+                {
+                    DeferRequest(scheduled);
+                    continue;
+                }
+
+                TryPlayRequest(scheduled.Request, scheduled.TickIndex, out _);
+            }
+
+            if (retainedCount < _scheduledRequests.Count)
+            {
+                _scheduledRequests.RemoveRange(retainedCount, _scheduledRequests.Count - retainedCount);
+            }
+        }
+
+        private void ClearScheduledRequests()
+        {
+            _scheduledRequests.Clear();
+            _deferredRequests.Clear();
+            _deferredKeys.Clear();
+            _playedDeferredKeys.Clear();
+        }
+
+        private bool TryPlayRequest(
+            in EnemyAudioRequest request,
+            int tickIndex,
+            out GameplayEnemyAudioPlaybackResult result)
+        {
             if (!TryResolveLiveOwner(request.OwnerEntityId, out var ownerView))
             {
                 result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.OwnerViewMissing);
@@ -272,7 +187,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (request.Cue == EnemyAudioCue.StationaryActive &&
-                ShouldSuppressStationaryActive(request.OwnerEntityId))
+                IsStationaryActiveBlocked(request.OwnerEntityId))
             {
                 result = new GameplayEnemyAudioPlaybackResult(
                     GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
@@ -311,7 +226,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (request.Cue == EnemyAudioCue.Move &&
-                !_moveCadenceGate.ShouldPlayMove(request.OwnerEntityId, request.TickIndex))
+                !_moveCadenceGate.ShouldPlayMove(request.OwnerEntityId, tickIndex))
             {
                 result = new GameplayEnemyAudioPlaybackResult(
                     GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
@@ -319,7 +234,9 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (request.Cue == EnemyAudioCue.StationaryActive &&
-                !_stationaryActiveCadenceGate.ShouldPlayStationaryActive(request.OwnerEntityId, request.TickIndex))
+                !_stationaryActiveCadenceGate.ShouldPlayStationaryActive(
+                    request.OwnerEntityId,
+                    tickIndex))
             {
                 result = new GameplayEnemyAudioPlaybackResult(
                     GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
@@ -348,7 +265,8 @@ namespace Game.Feature.Gameplay.Host
                 baseRequest.Cue,
                 baseRequest.Context,
                 resolvedDelaySeconds,
-                baseRequest.Identity);
+                baseRequest.Identity,
+                baseRequest.SemanticEvent);
         }
 
         private void PlayResolvedBinding(
@@ -384,7 +302,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void DrainDeferredRequests(int tickIndex)
+        private void DrainDeferredRequests()
         {
             if (_deferredRequests.Count == 0)
             {
@@ -394,13 +312,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _deferredRequests.Count; i++)
             {
                 var scheduled = _deferredRequests[i];
-                if (ShouldSuppress(scheduled.Request))
-                {
-                    _playedDeferredKeys.Add(scheduled.Key);
-                    continue;
-                }
-
-                PlayRequest(scheduled.Request, tickIndex);
+                TryPlayRequest(scheduled.Request, scheduled.TickIndex, out _);
                 _playedDeferredKeys.Add(scheduled.Key);
             }
 
@@ -420,20 +332,10 @@ namespace Game.Feature.Gameplay.Host
             _deferredKeys.Add(scheduled.Key);
         }
 
-        private bool ShouldFreezeTimer(in EnemyAudioRequest request)
+        private bool ShouldFreezeTimer(in EnemyAudioRequest scheduledRequest)
         {
             return _gateState.IsBlocked &&
-                   IsTopologyLockSensitive(request.Cue);
-        }
-
-        private bool ShouldDefer(in EnemyAudioRequest request)
-        {
-            return EvaluatePlaybackPolicy(request) == GameplayAudioPlaybackDecision.DeferUntilUnlock;
-        }
-
-        private bool ShouldSuppress(in EnemyAudioRequest request)
-        {
-            return EvaluatePlaybackPolicy(request) == GameplayAudioPlaybackDecision.Suppress;
+                   IsTopologyLockSensitive(scheduledRequest.Cue);
         }
 
         private GameplayAudioPlaybackDecision EvaluatePlaybackPolicy(in EnemyAudioRequest request)
@@ -501,7 +403,7 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        private bool ShouldSuppressStationaryActive(int ownerEntityId)
+        private bool IsStationaryActiveBlocked(int ownerEntityId)
         {
             if (ownerEntityId <= 0)
             {
@@ -525,7 +427,7 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
-            return true;
+            return false;
         }
 
         private readonly struct ScheduledEnemyAudioRequest
@@ -533,11 +435,13 @@ namespace Game.Feature.Gameplay.Host
             public ScheduledEnemyAudioRequest(
                 EnemyAudioRequest request,
                 float remainingSeconds,
-                GameplayAudioPlaybackRequestKey key)
+                GameplayAudioPlaybackRequestKey key,
+                int tickIndex)
             {
                 Request = request;
                 RemainingSeconds = Math.Max(0f, remainingSeconds);
                 Key = key;
+                TickIndex = Math.Max(0, tickIndex);
             }
 
             public EnemyAudioRequest Request { get; }
@@ -546,12 +450,15 @@ namespace Game.Feature.Gameplay.Host
 
             public GameplayAudioPlaybackRequestKey Key { get; }
 
+            public int TickIndex { get; }
+
             public ScheduledEnemyAudioRequest Advance(float deltaTime)
             {
                 return new ScheduledEnemyAudioRequest(
                     Request,
                     RemainingSeconds - Math.Max(0f, deltaTime),
-                    Key);
+                    Key,
+                    TickIndex);
             }
         }
     }

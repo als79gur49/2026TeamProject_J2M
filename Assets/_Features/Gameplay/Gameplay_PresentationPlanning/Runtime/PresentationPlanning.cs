@@ -329,11 +329,13 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public PresentationSfxPayload(
             int entityType,
             int exitCause = 0,
-            int sourceActorEntityId = 0)
+            int sourceActorEntityId = 0,
+            float delaySeconds = 0f)
         {
             EntityType = Math.Max(0, entityType);
             ExitCause = Math.Max(0, exitCause);
             SourceActorEntityId = Math.Max(0, sourceActorEntityId);
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public int EntityType { get; }
@@ -342,11 +344,14 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public int SourceActorEntityId { get; }
 
+        public float DelaySeconds { get; }
+
         public bool Equals(PresentationSfxPayload other)
         {
             return EntityType == other.EntityType &&
                    ExitCause == other.ExitCause &&
-                   SourceActorEntityId == other.SourceActorEntityId;
+                   SourceActorEntityId == other.SourceActorEntityId &&
+                   DelaySeconds.Equals(other.DelaySeconds);
         }
 
         public override bool Equals(object obj)
@@ -361,6 +366,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 var hash = EntityType;
                 hash = (hash * 397) ^ ExitCause;
                 hash = (hash * 397) ^ SourceActorEntityId;
+                hash = (hash * 397) ^ DelaySeconds.GetHashCode();
                 return hash;
             }
         }
@@ -381,7 +387,10 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationEnemyPayload enemyPayload = default,
             PresentationSfxPayload sfxPayload = default,
             PresentationActionAudioPayload actionAudioPayload = default,
-            PresentationEnemyAudioPayload enemyAudioPayload = default)
+            PresentationEnemyAudioPayload enemyAudioPayload = default,
+            int timing = 0,
+            float visualContactNormalizedTime = 0f,
+            float delaySeconds = 0f)
         {
             Domain = domain;
             Key = key;
@@ -396,6 +405,9 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             SfxPayload = sfxPayload;
             ActionAudioPayload = actionAudioPayload;
             EnemyAudioPayload = enemyAudioPayload;
+            Timing = Math.Max(0, timing);
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
+            DelaySeconds = Math.Max(0f, delaySeconds);
         }
 
         public PresentationDomain Domain { get; }
@@ -424,6 +436,12 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationEnemyAudioPayload EnemyAudioPayload { get; }
 
+        public int Timing { get; }
+
+        public float VisualContactNormalizedTime { get; }
+
+        public float DelaySeconds { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -438,7 +456,10 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    EnemyPayload.Equals(other.EnemyPayload) &&
                    SfxPayload.Equals(other.SfxPayload) &&
                    ActionAudioPayload.Equals(other.ActionAudioPayload) &&
-                   EnemyAudioPayload.Equals(other.EnemyAudioPayload);
+                   EnemyAudioPayload.Equals(other.EnemyAudioPayload) &&
+                   Timing == other.Timing &&
+                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime) &&
+                   DelaySeconds.Equals(other.DelaySeconds);
         }
 
         public override bool Equals(object obj)
@@ -463,8 +484,21 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ SfxPayload.GetHashCode();
                 hash = (hash * 397) ^ ActionAudioPayload.GetHashCode();
                 hash = (hash * 397) ^ EnemyAudioPayload.GetHashCode();
+                hash = (hash * 397) ^ Timing;
+                hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
+                hash = (hash * 397) ^ DelaySeconds.GetHashCode();
                 return hash;
             }
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
         }
     }
 
@@ -481,8 +515,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             SourceFactCount = Math.Max(0, sourceFactCount);
             PlannedCueCount = Math.Max(0, plannedCueCount);
             PlannerCount = Math.Max(0, plannerCount);
-            SuppressedCueCount = Math.Max(0, suppressedCueCount);
-            DamageHitSuppressedByEnemyDeathCount = Math.Max(0, damageHitSuppressedByEnemyDeathCount);
+            OmittedCueCount = Math.Max(0, suppressedCueCount);
+            DamageHitOmittedByEnemyDeathCount = Math.Max(0, damageHitSuppressedByEnemyDeathCount);
             PlayerActionAnimationPlannedCounts = playerActionAnimationPlannedCounts ??
                                                  Array.Empty<PresentationAnimationCuePlanningCount>();
         }
@@ -493,9 +527,13 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public int PlannerCount { get; }
 
-        public int SuppressedCueCount { get; }
+        public int SuppressedCueCount => OmittedCueCount;
 
-        public int DamageHitSuppressedByEnemyDeathCount { get; }
+        public int OmittedCueCount { get; }
+
+        public int DamageHitSuppressedByEnemyDeathCount => DamageHitOmittedByEnemyDeathCount;
+
+        public int DamageHitOmittedByEnemyDeathCount { get; }
 
         public IReadOnlyList<PresentationAnimationCuePlanningCount> PlayerActionAnimationPlannedCounts { get; }
     }
@@ -779,7 +817,10 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 fact.Source,
                 fact.Target,
                 fact.Payload.PrimaryCellCenterAnchorOrEntityCenter(fact.Target.EntityId),
-                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                timing: fact.Payload.Timing,
+                visualContactNormalizedTime: fact.Payload.VisualContactNormalizedTime,
+                delaySeconds: fact.Payload.DelaySeconds);
             return true;
         }
 
@@ -1188,11 +1229,35 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 throw new ArgumentNullException(nameof(builder));
             }
 
+            var playerDamageCueEntityIds = new HashSet<int>();
             for (var i = 0; i < facts.Facts.Count; i++)
             {
                 var fact = facts.Facts[i];
-                if (TryPlanDamageSfx(fact, out var damageCue) ||
-                    TryPlanEntityExitSfx(fact, out damageCue))
+                if (TryPlanDamageSfx(fact, out var damageCue))
+                {
+                    if (damageCue.Key.TryGetSfxCueKey(out var damageCueKey) &&
+                        damageCueKey == PresentationSfxCueKey.PlayerDamage &&
+                        !playerDamageCueEntityIds.Add(damageCue.Target.EntityId))
+                    {
+                        continue;
+                    }
+
+                    builder.Add(damageCue);
+                    continue;
+                }
+
+                if (TryPlanPlayerDeathDamageSfx(fact, out damageCue))
+                {
+                    if (!playerDamageCueEntityIds.Add(damageCue.Target.EntityId))
+                    {
+                        continue;
+                    }
+
+                    builder.Add(damageCue);
+                    continue;
+                }
+
+                if (TryPlanEntityExitSfx(fact, out damageCue))
                 {
                     builder.Add(damageCue);
                 }
@@ -1234,6 +1299,29 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             return true;
         }
 
+        private static bool TryPlanPlayerDeathDamageSfx(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.EntityLifecycle ||
+                fact.Source.SemanticSource != PresentationSemanticSource.PlayerDeath ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0)
+            {
+                return false;
+            }
+
+            var key = PresentationCueKey.ForSfx(PresentationSfxCueKey.PlayerDamage);
+            cue = new PresentationCue(
+                PresentationDomain.Sfx,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityCenter(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                sfxPayload: new PresentationSfxPayload(entityType: 0));
+            return true;
+        }
+
         private static bool TryPlanEntityExitSfx(PresentationFact fact, out PresentationCue cue)
         {
             cue = default;
@@ -1257,7 +1345,11 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 sfxPayload: new PresentationSfxPayload(
                     fact.Payload.SecondaryValue,
                     fact.Payload.PrimaryValue,
-                    fact.Payload.TertiaryValue));
+                    fact.Payload.TertiaryValue,
+                    fact.Payload.DelaySeconds),
+                timing: fact.Payload.Timing,
+                visualContactNormalizedTime: fact.Payload.VisualContactNormalizedTime,
+                delaySeconds: fact.Payload.DelaySeconds);
             return true;
         }
 

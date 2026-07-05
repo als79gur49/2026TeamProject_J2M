@@ -113,10 +113,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 diagnosticsBefore.TargetMissingCount +
                 diagnosticsBefore.AnchorMissingCount;
             var runtimeRequestBefore = runtime.DamageDeathPlaybackRequestCount;
-            var legacyDamageSuppressedBefore = runtime.LegacyDamageCueSuppressedCount;
-            var legacyDeathSuppressedBefore = runtime.LegacyDeathCueSuppressedCount;
-            var unrelatedRetainedBefore = runtime.LegacyDamageDeathUnrelatedCueRetainedCount;
-            var filteredBefore = runtime.LastDamageDeathExecutorOwnedFilteredRequestCount;
+            var plannedBefore = runtime.LastPlannedRequestCount;
             var result = CreateDamageDeathVfxTickResult(
                 tickIndex: 803,
                 topology: host.Presenter.CurrentTopology,
@@ -128,7 +125,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             var diagnosticsAfter = host.Presenter.DamageDeathVfxExecutorDiagnostics;
-            Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
             Assert.That(diagnosticsAfter.IsProductionDefaultOwner, Is.True);
             Assert.That(
                 diagnosticsAfter.PlaybackRequestedCount - diagnosticsBefore.PlaybackRequestedCount,
@@ -147,17 +143,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 runtime.DamageDeathPlaybackRequestCount - runtimeRequestBefore,
                 Is.EqualTo(1));
             Assert.That(
-                runtime.LegacyDamageCueSuppressedCount - legacyDamageSuppressedBefore,
-                Is.EqualTo(1));
-            Assert.That(
-                runtime.LegacyDeathCueSuppressedCount - legacyDeathSuppressedBefore,
-                Is.Zero);
-            Assert.That(
-                runtime.LegacyDamageDeathUnrelatedCueRetainedCount - unrelatedRetainedBefore,
-                Is.EqualTo(1));
-            Assert.That(
-                runtime.LastDamageDeathExecutorOwnedFilteredRequestCount,
-                Is.GreaterThanOrEqualTo(filteredBefore));
+                runtime.LastPlannedRequestCount,
+                Is.GreaterThanOrEqualTo(plannedBefore));
         }
 
         [UnityTest]
@@ -204,10 +191,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             var startTelemetry = host.Presenter.TopologyProductionTelemetrySnapshot;
-            Assert.That(host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
             Assert.That(startTelemetry.IsProductionDefaultOwner, Is.True);
-            Assert.That(startTelemetry.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
-            Assert.That(startTelemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
             Assert.That(startTelemetry.ExecutorOwnerExecutedCount, Is.EqualTo(1));
             Assert.That(startTelemetry.ObservedTrackCount, Is.EqualTo(1));
             Assert.That(startTelemetry.RouteCount, Is.EqualTo(1));
@@ -367,21 +351,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.EqualTo(1),
                 $"{scenePath} must not create duplicate persistent BGM roots.");
             Assert.That(
-                host.Presenter.CoreGameplaySfxExecutionMode,
-                Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor),
+                host.Presenter.CoreGameplaySfxRoute,
+                Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor),
                 $"{scenePath} must boot Core SFX with the production orchestration owner.");
             Assert.That(
                 host.Presenter.CoreGameplaySfxExecutorDiagnostics.IsProductionDefaultOwner,
                 Is.True,
                 $"{scenePath} must report Core SFX production default owner telemetry at bootstrap.");
-            Assert.That(
-                host.Presenter.ActionAudioExecutionMode,
-                Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge),
-                $"{scenePath} must boot action audio with the production orchestration owner.");
-            Assert.That(
-                host.Presenter.EnemyAudioExecutionMode,
-                Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge),
-                $"{scenePath} must boot enemy audio one-shot playback with the production orchestration owner.");
         }
 
         private static void AssertUiBootstrap(string scenePath)
@@ -407,10 +383,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static void AssertDamageDeathVfxBootstrap(string scenePath, GameplaySceneHost host)
         {
             Assert.That(
-                host.Presenter.DamageDeathVfxExecutionMode,
-                Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor),
-                $"{scenePath} must boot Damage/death VFX with the production orchestration owner.");
-            Assert.That(
                 host.GetComponent<GameplayVfxProductionRuntime>(),
                 Is.Not.Null,
                 $"{scenePath} must keep Gameplay_Vfx production runtime on the gameplay root.");
@@ -419,21 +391,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static void AssertPresentationDefaultBootstrap(string scenePath, GameplaySceneHost host)
         {
             Assert.That(
-                host.Presenter.BoxMotionPresentationExecutionMode,
-                Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor),
+                host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner,
+                Is.True,
                 $"{scenePath} must boot Box motion with the production orchestration owner.");
             Assert.That(
-                host.Presenter.TopologyPresentationExecutionMode,
-                Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge),
-                $"{scenePath} must boot topology visuals with the production executor bridge owner.");
+                host.Presenter.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner,
+                Is.True,
+                $"{scenePath} must boot topology visuals with the production playback port owner.");
             Assert.That(
                 host.Presenter.PlayerActionAnimationExecutionMode,
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor),
                 $"{scenePath} must boot player action animation with the production orchestration owner.");
-            Assert.That(
-                host.Presenter.EnemyPresentationExecutionMode,
-                Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor),
-                $"{scenePath} must boot enemy presentation with the production orchestration owner.");
         }
 
         private static void AssertStage1_1DirectPlayEvidence(

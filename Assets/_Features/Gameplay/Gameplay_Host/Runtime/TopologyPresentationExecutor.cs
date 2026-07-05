@@ -8,21 +8,10 @@ using Game.Feature.Gameplay.PresentationRuntime;
 
 namespace Game.Feature.Gameplay.Host
 {
-    internal static class TopologyPresentationExecutionDefaults
-    {
-        public const TopologyPresentationExecutionMode LegacyFallback =
-            TopologyPresentationExecutionMode.LegacyCoordinator;
-        public const TopologyPresentationExecutionMode ProductionDefault =
-            TopologyPresentationExecutionMode.ExecutorBridge;
-    }
-
     internal readonly struct TopologyProductionTelemetrySnapshot
     {
         public TopologyProductionTelemetrySnapshot(
-            TopologyPresentationExecutionMode currentMode,
             bool isProductionDefaultOwner,
-            TopologyPresentationExecutionMode productionDefaultMode,
-            TopologyPresentationExecutionMode rollbackMode,
             int lastTickIndex,
             CubeTopologyState lastSourceTopology,
             CubeTopologyState lastDestinationTopology,
@@ -30,13 +19,8 @@ namespace Game.Feature.Gameplay.Host
             int lastSourceTickIndex,
             bool lastHasSourceMetadata,
             int lastSourceMetadataKey,
-            TopologyPresentationExecutionOwner lastExecutionOwner,
-            int legacyOwnerAttemptCount,
-            int legacyOwnerExecutedCount,
-            int legacyOwnerSkippedByPolicyCount,
             int executorOwnerAttemptCount,
             int executorOwnerExecutedCount,
-            int executorOwnerSkippedByPolicyCount,
             int duplicateOwnerAttemptCount,
             int observedTrackCount,
             int routeCount,
@@ -47,10 +31,7 @@ namespace Game.Feature.Gameplay.Host
             bool isTopologyTransitionActive,
             PresentationBlockingSnapshot blockingSnapshot)
         {
-            CurrentMode = currentMode;
             IsProductionDefaultOwner = isProductionDefaultOwner;
-            ProductionDefaultMode = productionDefaultMode;
-            RollbackMode = rollbackMode;
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastSourceTopology = lastSourceTopology;
             LastDestinationTopology = lastDestinationTopology;
@@ -58,13 +39,8 @@ namespace Game.Feature.Gameplay.Host
             LastSourceTickIndex = Math.Max(0, lastSourceTickIndex);
             LastHasSourceMetadata = lastHasSourceMetadata;
             LastSourceMetadataKey = Math.Max(0, lastSourceMetadataKey);
-            LastExecutionOwner = lastExecutionOwner;
-            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
-            LegacyOwnerExecutedCount = Math.Max(0, legacyOwnerExecutedCount);
-            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
             ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
             ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
-            ExecutorOwnerSkippedByPolicyCount = Math.Max(0, executorOwnerSkippedByPolicyCount);
             DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
             ObservedTrackCount = Math.Max(0, observedTrackCount);
             RouteCount = Math.Max(0, routeCount);
@@ -76,10 +52,7 @@ namespace Game.Feature.Gameplay.Host
             BlockingSnapshot = blockingSnapshot;
         }
 
-        public TopologyPresentationExecutionMode CurrentMode { get; }
         public bool IsProductionDefaultOwner { get; }
-        public TopologyPresentationExecutionMode ProductionDefaultMode { get; }
-        public TopologyPresentationExecutionMode RollbackMode { get; }
         public int LastTickIndex { get; }
         public CubeTopologyState LastSourceTopology { get; }
         public CubeTopologyState LastDestinationTopology { get; }
@@ -87,13 +60,8 @@ namespace Game.Feature.Gameplay.Host
         public int LastSourceTickIndex { get; }
         public bool LastHasSourceMetadata { get; }
         public int LastSourceMetadataKey { get; }
-        public TopologyPresentationExecutionOwner LastExecutionOwner { get; }
-        public int LegacyOwnerAttemptCount { get; }
-        public int LegacyOwnerExecutedCount { get; }
-        public int LegacyOwnerSkippedByPolicyCount { get; }
         public int ExecutorOwnerAttemptCount { get; }
         public int ExecutorOwnerExecutedCount { get; }
-        public int ExecutorOwnerSkippedByPolicyCount { get; }
         public int DuplicateOwnerAttemptCount { get; }
         public int ObservedTrackCount { get; }
         public int RouteCount { get; }
@@ -127,7 +95,6 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static TopologyProductionTelemetrySnapshot Build(
-            TopologyPresentationExecutionMode mode,
             TopologyPresentationOwnershipDiagnostics ownership,
             GameplayPresentationPipeline pipeline,
             bool hasBlockingPresentation,
@@ -141,10 +108,7 @@ namespace Game.Feature.Gameplay.Host
                 : ownership.LastExecutionTickIndex;
 
             return new TopologyProductionTelemetrySnapshot(
-                mode,
-                mode == TopologyPresentationExecutionDefaults.ProductionDefault,
-                TopologyPresentationExecutionDefaults.ProductionDefault,
-                TopologyPresentationExecutionDefaults.LegacyFallback,
+                true,
                 lastTickIndex,
                 executor.LastSourceTopology,
                 executor.LastDestinationTopology,
@@ -152,13 +116,8 @@ namespace Game.Feature.Gameplay.Host
                 executor.LastSourceTickIndex,
                 executor.LastHasSourceMetadata || ownership.LastExecutionHasSourceMetadata,
                 Math.Max(executor.LastSourceMetadataKey, ownership.LastExecutionSourceMetadataKey),
-                ownership.LastExecutionOwner,
-                ownership.LegacyAttemptCount,
-                ownership.ExecutedByLegacyCount,
-                ownership.SkippedLegacyBecauseExecutorOwnerCount,
                 ownership.ExecutorAttemptCount,
                 ownership.ExecutedByExecutorCount,
-                ownership.SkippedExecutorBecauseLegacyOwnerCount,
                 ownership.DuplicateAttemptCount,
                 executor.ObservedTrackCount,
                 executor.RouteCount,
@@ -167,68 +126,31 @@ namespace Game.Feature.Gameplay.Host
                 executor.MissingPortCount,
                 hasBlockingPresentation,
                 isTopologyTransitionActive,
-                mode == TopologyPresentationExecutionMode.ExecutorBridge
-                    ? topologyExecutionBlockingSnapshot
-                    : presentationBlockingSnapshot);
+                topologyExecutionBlockingSnapshot);
         }
-    }
-
-    public enum TopologyPresentationExecutionMode
-    {
-        LegacyCoordinator = 0,
-        ExecutorBridge = 1,
-    }
-
-    internal enum TopologyPresentationExecutionOwner
-    {
-        None = 0,
-        LegacyCoordinator = 1,
-        ExecutorBridge = 2,
     }
 
     internal readonly struct TopologyPresentationOwnershipDiagnostics
     {
         public TopologyPresentationOwnershipDiagnostics(
-            TopologyPresentationExecutionMode mode,
-            int legacyAttemptCount,
             int executorAttemptCount,
-            int executedByLegacyCount,
             int executedByExecutorCount,
-            int skippedLegacyBecauseExecutorOwnerCount,
-            int skippedExecutorBecauseLegacyOwnerCount,
             int duplicateAttemptCount,
             int lastExecutionTickIndex,
             bool lastExecutionHasSourceMetadata,
-            int lastExecutionSourceMetadataKey,
-            TopologyPresentationExecutionOwner lastExecutionOwner)
+            int lastExecutionSourceMetadataKey)
         {
-            Mode = mode;
-            LegacyAttemptCount = Math.Max(0, legacyAttemptCount);
             ExecutorAttemptCount = Math.Max(0, executorAttemptCount);
-            ExecutedByLegacyCount = Math.Max(0, executedByLegacyCount);
             ExecutedByExecutorCount = Math.Max(0, executedByExecutorCount);
-            SkippedLegacyBecauseExecutorOwnerCount = Math.Max(0, skippedLegacyBecauseExecutorOwnerCount);
-            SkippedExecutorBecauseLegacyOwnerCount = Math.Max(0, skippedExecutorBecauseLegacyOwnerCount);
             DuplicateAttemptCount = Math.Max(0, duplicateAttemptCount);
             LastExecutionTickIndex = Math.Max(0, lastExecutionTickIndex);
             LastExecutionHasSourceMetadata = lastExecutionHasSourceMetadata;
             LastExecutionSourceMetadataKey = Math.Max(0, lastExecutionSourceMetadataKey);
-            LastExecutionOwner = lastExecutionOwner;
         }
-
-        public TopologyPresentationExecutionMode Mode { get; }
-
-        public int LegacyAttemptCount { get; }
 
         public int ExecutorAttemptCount { get; }
 
-        public int ExecutedByLegacyCount { get; }
-
         public int ExecutedByExecutorCount { get; }
-
-        public int SkippedLegacyBecauseExecutorOwnerCount { get; }
-
-        public int SkippedExecutorBecauseLegacyOwnerCount { get; }
 
         public int DuplicateAttemptCount { get; }
 
@@ -237,91 +159,52 @@ namespace Game.Feature.Gameplay.Host
         public bool LastExecutionHasSourceMetadata { get; }
 
         public int LastExecutionSourceMetadataKey { get; }
-
-        public TopologyPresentationExecutionOwner LastExecutionOwner { get; }
     }
 
     internal sealed class TopologyPresentationExecutionGuard
     {
         private readonly bool _throwOnDuplicate;
-        private TopologyPresentationExecutionMode _mode;
-        private int _legacyAttemptCount;
         private int _executorAttemptCount;
-        private int _executedByLegacyCount;
         private int _executedByExecutorCount;
-        private int _skippedLegacyBecauseExecutorOwnerCount;
-        private int _skippedExecutorBecauseLegacyOwnerCount;
         private int _duplicateAttemptCount;
         private int _lastExecutionTickIndex;
         private int _lastExecutionSourceMetadataKey;
         private bool _hasLastExecution;
         private bool _lastExecutionHasSourceMetadata;
-        private TopologyPresentationExecutionOwner _lastExecutionOwner;
 
-        public TopologyPresentationExecutionGuard(
-            TopologyPresentationExecutionMode mode = TopologyPresentationExecutionMode.LegacyCoordinator,
-            bool throwOnDuplicate = false)
+        public TopologyPresentationExecutionGuard(bool throwOnDuplicate = false)
         {
-            _mode = NormalizeMode(mode);
             _throwOnDuplicate = throwOnDuplicate;
         }
 
         public TopologyPresentationOwnershipDiagnostics Diagnostics =>
             new(
-                _mode,
-                _legacyAttemptCount,
                 _executorAttemptCount,
-                _executedByLegacyCount,
                 _executedByExecutorCount,
-                _skippedLegacyBecauseExecutorOwnerCount,
-                _skippedExecutorBecauseLegacyOwnerCount,
                 _duplicateAttemptCount,
                 _lastExecutionTickIndex,
                 _lastExecutionHasSourceMetadata,
-                _lastExecutionSourceMetadataKey,
-                _lastExecutionOwner);
-
-        public void Configure(TopologyPresentationExecutionMode mode)
-        {
-            _mode = NormalizeMode(mode);
-        }
+                _lastExecutionSourceMetadataKey);
 
         public void ResetSession()
         {
-            _legacyAttemptCount = 0;
             _executorAttemptCount = 0;
-            _executedByLegacyCount = 0;
             _executedByExecutorCount = 0;
-            _skippedLegacyBecauseExecutorOwnerCount = 0;
-            _skippedExecutorBecauseLegacyOwnerCount = 0;
             _duplicateAttemptCount = 0;
             _lastExecutionTickIndex = 0;
             _lastExecutionSourceMetadataKey = 0;
             _hasLastExecution = false;
             _lastExecutionHasSourceMetadata = false;
-            _lastExecutionOwner = TopologyPresentationExecutionOwner.None;
-        }
-
-        public void RecordSkippedByPolicy(TopologyPresentationExecutionOwner skippedOwner)
-        {
-            RecordAttempt(skippedOwner);
-            RecordPolicySkip(skippedOwner);
         }
 
         public bool TryBeginExecution(
-            TopologyPresentationExecutionOwner owner,
             int tickIndex,
             bool hasSourceMetadata,
             int sourceMetadataKey)
         {
-            if (owner == TopologyPresentationExecutionOwner.None)
-            {
-                throw new ArgumentOutOfRangeException(nameof(owner), "Topology execution owner must be explicit.");
-            }
-
             var normalizedTickIndex = Math.Max(0, tickIndex);
             var normalizedSourceMetadataKey = Math.Max(0, sourceMetadataKey);
-            RecordAttempt(owner);
+            _executorAttemptCount++;
 
             if (_hasLastExecution &&
                 _lastExecutionTickIndex == normalizedTickIndex &&
@@ -329,7 +212,6 @@ namespace Game.Feature.Gameplay.Host
                 _lastExecutionSourceMetadataKey == normalizedSourceMetadataKey)
             {
                 _duplicateAttemptCount++;
-                RecordPolicySkip(owner);
                 if (_throwOnDuplicate)
                 {
                     throw new InvalidOperationException(
@@ -339,67 +221,13 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (!IsOwnerAllowed(owner))
-            {
-                RecordPolicySkip(owner);
-                return false;
-            }
-
             _hasLastExecution = true;
             _lastExecutionTickIndex = normalizedTickIndex;
             _lastExecutionHasSourceMetadata = hasSourceMetadata;
             _lastExecutionSourceMetadataKey = normalizedSourceMetadataKey;
-            _lastExecutionOwner = owner;
-
-            if (owner == TopologyPresentationExecutionOwner.LegacyCoordinator)
-            {
-                _executedByLegacyCount++;
-            }
-            else
-            {
-                _executedByExecutorCount++;
-            }
+            _executedByExecutorCount++;
 
             return true;
-        }
-
-        private static TopologyPresentationExecutionMode NormalizeMode(TopologyPresentationExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(TopologyPresentationExecutionMode), mode)
-                ? mode
-                : TopologyPresentationExecutionMode.LegacyCoordinator;
-        }
-
-        private bool IsOwnerAllowed(TopologyPresentationExecutionOwner owner)
-        {
-            return (_mode == TopologyPresentationExecutionMode.LegacyCoordinator &&
-                    owner == TopologyPresentationExecutionOwner.LegacyCoordinator) ||
-                   (_mode == TopologyPresentationExecutionMode.ExecutorBridge &&
-                    owner == TopologyPresentationExecutionOwner.ExecutorBridge);
-        }
-
-        private void RecordAttempt(TopologyPresentationExecutionOwner owner)
-        {
-            if (owner == TopologyPresentationExecutionOwner.LegacyCoordinator)
-            {
-                _legacyAttemptCount++;
-            }
-            else if (owner == TopologyPresentationExecutionOwner.ExecutorBridge)
-            {
-                _executorAttemptCount++;
-            }
-        }
-
-        private void RecordPolicySkip(TopologyPresentationExecutionOwner skippedOwner)
-        {
-            if (skippedOwner == TopologyPresentationExecutionOwner.LegacyCoordinator)
-            {
-                _skippedLegacyBecauseExecutorOwnerCount++;
-            }
-            else if (skippedOwner == TopologyPresentationExecutionOwner.ExecutorBridge)
-            {
-                _skippedExecutorBecauseLegacyOwnerCount++;
-            }
         }
     }
 
@@ -537,35 +365,26 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
-    internal interface ITopologyLegacyTransitionPort
-    {
-        void PresentLegacyTopology(TickPresentationData presentationData, CubeTopologyState committedTopology);
-    }
-
     internal interface ITopologyTransitionCleanupPort
     {
         void ResetTransition();
     }
 
     internal delegate GameplayPresentationPipeline TopologyExecutionPipelineFactory(
-        TopologyPresentationExecutionMode mode,
         ITopologyTransitionPlaybackPort playbackPort,
         TopologyPresentationExecutionGuard executionGuard);
 
     internal sealed class TopologyPresentationExecutor : IPresentationTopologyExecutor
     {
         private readonly ITopologyTransitionPlaybackPort _playbackPort;
-        private readonly TopologyPresentationExecutionMode _mode;
         private readonly TopologyPresentationExecutionGuard _executionGuard;
         private bool _hasRoutedRequest;
 
         public TopologyPresentationExecutor(
             ITopologyTransitionPlaybackPort playbackPort = null,
-            TopologyPresentationExecutionMode mode = TopologyPresentationExecutionMode.LegacyCoordinator,
             TopologyPresentationExecutionGuard executionGuard = null)
         {
             _playbackPort = playbackPort;
-            _mode = mode;
             _executionGuard = executionGuard;
         }
 
@@ -653,8 +472,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (_mode == TopologyPresentationExecutionMode.ExecutorBridge &&
-                _hasRoutedRequest)
+            if (_hasRoutedRequest)
             {
                 _playbackPort?.UpdatePresentation(deltaTime);
             }
@@ -664,20 +482,14 @@ namespace Game.Feature.Gameplay.Host
         {
             _hasRoutedRequest = false;
             Diagnostics = default;
-            if (_mode == TopologyPresentationExecutionMode.ExecutorBridge)
-            {
-                _playbackPort?.ResetSession();
-            }
+            _playbackPort?.ResetSession();
         }
 
         public void HardCleanup()
         {
             _hasRoutedRequest = false;
             Diagnostics = default;
-            if (_mode == TopologyPresentationExecutionMode.ExecutorBridge)
-            {
-                _playbackPort?.HardCleanup();
-            }
+            _playbackPort?.HardCleanup();
         }
 
         private bool TryClaimExecution(in TopologyTransitionPlaybackRequest request)
@@ -685,13 +497,12 @@ namespace Game.Feature.Gameplay.Host
             if (_executionGuard != null)
             {
                 return _executionGuard.TryBeginExecution(
-                    TopologyPresentationExecutionOwner.ExecutorBridge,
                     request.SourceTickIndex,
                     request.HasSourceMetadata,
                     request.SourceMetadataKey);
             }
 
-            return _mode == TopologyPresentationExecutionMode.ExecutorBridge;
+            return true;
         }
 
         private static bool IsTopologyTransitionTrack(in PresentationPlaybackTrack track)
@@ -770,22 +581,6 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal sealed class GameplayTopologyLegacyTransitionPort : ITopologyLegacyTransitionPort
-    {
-        private readonly GameplayTopologyTransitionController _controller;
-
-        public GameplayTopologyLegacyTransitionPort(GameplayTopologyTransitionController controller)
-        {
-            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
-        }
-
-        public void PresentLegacyTopology(TickPresentationData presentationData, CubeTopologyState committedTopology)
-        {
-            _controller.RefreshTopologyTrack(presentationData, committedTopology);
-            _controller.RefreshBoardSurfaceTransition(presentationData, committedTopology);
-        }
-    }
-
     internal sealed class GameplayTopologyTransitionCleanupPort : ITopologyTransitionCleanupPort
     {
         private readonly GameplayTopologyTransitionController _controller;
@@ -804,20 +599,9 @@ namespace Game.Feature.Gameplay.Host
     internal static class GameplayHostPresentationPipelineFactory
     {
         public static GameplayPresentationPipeline CreateTopologyExecutionPipeline(
-            TopologyPresentationExecutionMode mode,
             ITopologyTransitionPlaybackPort playbackPort,
             TopologyPresentationExecutionGuard executionGuard)
         {
-            if (mode != TopologyPresentationExecutionMode.ExecutorBridge)
-            {
-                return null;
-            }
-
-            if (playbackPort == null)
-            {
-                throw new ArgumentNullException(nameof(playbackPort));
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -830,23 +614,27 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new TopologyPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }
 
         public static GameplayPresentationPipeline CreateDamageDeathVfxExecutionPipeline(
-            DamageDeathVfxExecutionMode mode,
             IDamageDeathVfxPlaybackPort playbackPort,
             DamageDeathVfxExecutionGuard executionGuard)
         {
-            if (mode != DamageDeathVfxExecutionMode.OrchestrationExecutor)
-            {
-                return null;
-            }
+            return CreateDamageDeathVfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                null);
+        }
 
+        public static GameplayPresentationPipeline CreateDamageDeathVfxExecutionPipeline(
+            IDamageDeathVfxPlaybackPort playbackPort,
+            DamageDeathVfxExecutionGuard executionGuard,
+            GameplayTimingProfile timingProfile)
+        {
             return new GameplayPresentationPipeline(
-                new TickPresentationFactExtractor(),
+                new TickPresentationFactExtractor(timingProfile),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
                 {
                     new VfxCuePlanner(),
@@ -857,21 +645,15 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayVfxPresentationExecutor(
                         playbackPort,
-                        mode,
-                        executionGuard),
+                        executionGuard,
+                        timingProfile),
                 });
         }
 
         public static GameplayPresentationPipeline CreateBoxMotionExecutionPipeline(
-            BoxMotionPresentationExecutionMode mode,
             IGameplayMotionPlaybackPort playbackPort,
             BoxMotionExecutionGuard executionGuard)
         {
-            if (mode != BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -884,7 +666,6 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayMotionPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }
@@ -894,11 +675,6 @@ namespace Game.Feature.Gameplay.Host
             IGameplayAnimationPlaybackPort playbackPort,
             PlayerActionAnimationExecutionGuard executionGuard)
         {
-            if (mode != PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -917,15 +693,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static GameplayPresentationPipeline CreateEnemyPresentationExecutionPipeline(
-            EnemyPresentationExecutionMode mode,
             IGameplayEnemyPresentationPlaybackPort playbackPort,
             EnemyPresentationExecutionGuard executionGuard)
         {
-            if (mode != EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -938,23 +708,27 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayEnemyPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }
 
         public static GameplayPresentationPipeline CreateCoreGameplaySfxExecutionPipeline(
-            CoreGameplaySfxExecutionMode mode,
             IGameplaySfxPlaybackPort playbackPort,
             CoreGameplaySfxExecutionGuard executionGuard)
         {
-            if (mode != CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
-            {
-                return null;
-            }
+            return CreateCoreGameplaySfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                null);
+        }
 
+        public static GameplayPresentationPipeline CreateCoreGameplaySfxExecutionPipeline(
+            IGameplaySfxPlaybackPort playbackPort,
+            CoreGameplaySfxExecutionGuard executionGuard,
+            GameplayTimingProfile timingProfile)
+        {
             return new GameplayPresentationPipeline(
-                new TickPresentationFactExtractor(),
+                new TickPresentationFactExtractor(timingProfile),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
                 {
                     new SfxCuePlanner(),
@@ -965,21 +739,13 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplaySfxPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }
 
         public static GameplayPresentationPipeline CreateActionAudioExecutionPipeline(
-            ActionAudioExecutionMode mode,
-            IGameplayActionAudioPlaybackPort playbackPort,
-            ActionAudioExecutionGuard executionGuard)
+            IGameplayActionAudioPlaybackPort playbackPort)
         {
-            if (mode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -990,23 +756,13 @@ namespace Game.Feature.Gameplay.Host
                 new PresentationPlaybackScheduler(),
                 new IPresentationExecutor[]
                 {
-                    new GameplayActionAudioPresentationExecutor(
-                        playbackPort,
-                        mode,
-                        executionGuard),
+                    new GameplayActionAudioPresentationExecutor(playbackPort),
                 });
         }
 
         public static GameplayPresentationPipeline CreateEnemyAudioExecutionPipeline(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort,
-            EnemyAudioExecutionGuard executionGuard)
+            IGameplayEnemyAudioPlaybackPort playbackPort)
         {
-            if (mode != EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -1017,10 +773,7 @@ namespace Game.Feature.Gameplay.Host
                 new PresentationPlaybackScheduler(),
                 new IPresentationExecutor[]
                 {
-                    new GameplayEnemyAudioPresentationExecutor(
-                        playbackPort,
-                        mode,
-                        executionGuard),
+                    new GameplayEnemyAudioPresentationExecutor(playbackPort),
                 });
         }
     }

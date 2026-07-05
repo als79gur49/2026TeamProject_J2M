@@ -45,14 +45,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string GravityFieldLockedTintProperty = "_GravityFieldLockedTint";
         private const string GravityFieldDimFactorProperty = "_GravityFieldDimFactor";
         private const string GravityFieldTintStrengthProperty = "_GravityFieldTintStrength";
-        private const string GravityFieldEmissionSuppressionProperty = "_GravityFieldEmissionSuppression";
+        private const string GravityFieldEmissionOmissionProperty = "_GravityFieldEmissionOmission";
         private const float GravityFieldLockRevealInSeconds = 0.234f;
         private const float GravityFieldLockRevealOutSeconds = 0.208f;
         private const string EnemyInactiveBlendProperty = "_InactiveBlend";
         private const string EnemyInactiveNoiseRevealProperty = "_InactiveNoiseReveal";
         private const string EnemyInactiveTintProperty = "_InactiveTint";
         private const string EnemyInactiveDesaturateStrengthProperty = "_DesaturateStrength";
-        private const string EnemyInactiveEmissionSuppressionProperty = "_EmissionSuppression";
+        private const string EnemyInactiveEmissionOmissionProperty = "_EmissionOmission";
         private const float EnemyInactiveRevealInSeconds = 0.25f;
         private const float EnemyInactiveRevealOutSeconds = 0.18f;
         private const string StaticBoxShowcasePrefabPath =
@@ -93,9 +93,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyExecution_LegacyCoordinatorMode_UsesDirectControllerPathAndDoesNotCallExecutorPort()
+        public void TopologyPresentation_CurrentRoute_UsesExecutorPortOnce()
         {
-            var rootObject = new GameObject(nameof(TopologyExecution_LegacyCoordinatorMode_UsesDirectControllerPathAndDoesNotCallExecutorPort));
+            var rootObject = new GameObject(nameof(TopologyPresentation_CurrentRoute_UsesExecutorPortOnce));
             var port = new RecordingTopologyTransitionPlaybackPort();
 
             try
@@ -104,57 +104,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var destinationTopology = new CubeTopologyState(FaceId.Front);
                 var coordinator = CreateInitializedTopologyCoordinator(
                     rootObject,
-                    TopologyPresentationExecutionMode.LegacyCoordinator,
-                    port,
-                    initialTopology);
-                coordinator.EnablePresentationPipelineDiagnostics();
-                var result = CreateTopologyTransitionResult(
-                    tickIndex: 7,
-                    initialTopology,
-                    destinationTopology,
-                    CubeRotationKind.Forward);
-
-                coordinator.Present(result);
-
-                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
-                Assert.That(port.BeginOrRefreshCallCount, Is.Zero);
-                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
-                Assert.That(diagnostics.ExecutorAttemptCount, Is.Zero);
-                Assert.That(diagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(diagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
-                Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
-                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.True);
-                Assert.That(coordinator.HasBlockingPresentation, Is.True);
-                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
-                AssertTopologyBlockingSnapshotParity(
-                    coordinator.PresentationPipelineBlockingSnapshot,
-                    expectedPlanned: true,
-                    expectedActive: true,
-                    expectedTickIndex: 7);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath()
-        {
-            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath));
-            var port = new RecordingTopologyTransitionPlaybackPort();
-
-            try
-            {
-                var initialTopology = new CubeTopologyState(FaceId.Floor);
-                var destinationTopology = new CubeTopologyState(FaceId.Front);
-                var coordinator = CreateInitializedTopologyCoordinator(
-                    rootObject,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
                     port,
                     initialTopology);
                 var result = CreateTopologyTransitionResult(
@@ -173,14 +122,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(port.LastRequest.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
                 Assert.That(port.LastRequest.SourceTickIndex, Is.EqualTo(7));
                 Assert.That(port.LastRequest.HasSourceMetadata, Is.False);
-                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
                 Assert.That(diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
-                Assert.That(diagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
                 Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
                 Assert.That(diagnostics.LastExecutionHasSourceMetadata, Is.False);
                 Assert.That(diagnostics.LastExecutionSourceMetadataKey, Is.Zero);
@@ -193,94 +137,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues()
+        public void TopologyPresentation_ProductionTelemetry_CoversCurrentPlaybackPortRoute()
         {
-            var legacyRoot = new GameObject(nameof(TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues) + "_Legacy");
-            var executorRoot = new GameObject(nameof(TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues) + "_Executor");
+            var rootObject = new GameObject(nameof(TopologyPresentation_ProductionTelemetry_CoversCurrentPlaybackPortRoute));
 
             try
             {
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
                 var destinationTopology = new CubeTopologyState(FaceId.Front);
-                var legacyCoordinator = CreateInitializedDefaultTopologyCoordinator(
-                    legacyRoot,
-                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
                     initialTopology,
                     CreateTimingProfile());
-                legacyCoordinator.EnablePresentationPipelineDiagnostics();
-                var legacyResult = CreateTopologyTransitionResult(
+                var result = CreateTopologyTransitionResult(
                     tickIndex: 17,
                     initialTopology,
                     destinationTopology,
                     CubeRotationKind.Forward);
 
-                legacyCoordinator.Present(legacyResult);
+                coordinator.Present(result);
 
-                var legacySnapshot = legacyCoordinator.TopologyProductionTelemetrySnapshot;
-                Assert.That(legacySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(legacySnapshot.IsProductionDefaultOwner, Is.False);
-                Assert.That(legacySnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(legacySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(legacySnapshot.LastTickIndex, Is.EqualTo(17));
-                Assert.That(legacySnapshot.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
-                Assert.That(legacySnapshot.LegacyOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(legacySnapshot.LegacyOwnerExecutedCount, Is.EqualTo(1));
-                Assert.That(legacySnapshot.ExecutorOwnerAttemptCount, Is.Zero);
-                Assert.That(legacySnapshot.RouteCount, Is.Zero);
-                Assert.That(legacySnapshot.HasBlockingPresentation, Is.True);
-                Assert.That(legacySnapshot.IsTopologyTransitionActive, Is.True);
-                Assert.That(legacySnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
-
-                var executorCoordinator = CreateInitializedDefaultTopologyCoordinator(
-                    executorRoot,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
-                    initialTopology,
-                    CreateTimingProfile());
-                var executorResult = CreateTopologyTransitionResult(
-                    tickIndex: 18,
-                    initialTopology,
-                    destinationTopology,
-                    CubeRotationKind.Forward);
-
-                executorCoordinator.Present(executorResult);
-
-                var executorSnapshot = executorCoordinator.TopologyProductionTelemetrySnapshot;
-                Assert.That(executorSnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(executorSnapshot.IsProductionDefaultOwner, Is.True);
-                Assert.That(executorSnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(executorSnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(executorSnapshot.LastTickIndex, Is.EqualTo(18));
-                Assert.That(executorSnapshot.LastSourceTopology, Is.EqualTo(initialTopology));
-                Assert.That(executorSnapshot.LastDestinationTopology, Is.EqualTo(destinationTopology));
-                Assert.That(executorSnapshot.LastRotationKind, Is.EqualTo(CubeRotationKind.Forward));
-                Assert.That(executorSnapshot.LastSourceTickIndex, Is.EqualTo(18));
-                Assert.That(executorSnapshot.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
-                Assert.That(executorSnapshot.LegacyOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(executorSnapshot.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
-                Assert.That(executorSnapshot.ExecutorOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(executorSnapshot.ExecutorOwnerExecutedCount, Is.EqualTo(1));
-                Assert.That(executorSnapshot.DuplicateOwnerAttemptCount, Is.Zero);
-                Assert.That(executorSnapshot.ObservedTrackCount, Is.EqualTo(1));
-                Assert.That(executorSnapshot.RouteCount, Is.EqualTo(1));
-                Assert.That(executorSnapshot.IgnoredCount, Is.Zero);
-                Assert.That(executorSnapshot.InvalidTrackCount, Is.Zero);
-                Assert.That(executorSnapshot.MissingPortCount, Is.Zero);
-                Assert.That(executorSnapshot.HasBlockingPresentation, Is.True);
-                Assert.That(executorSnapshot.IsTopologyTransitionActive, Is.True);
-                Assert.That(executorSnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+                var snapshot = coordinator.TopologyProductionTelemetrySnapshot;
+                Assert.That(snapshot.IsProductionDefaultOwner, Is.True);
+                Assert.That(snapshot.LastTickIndex, Is.EqualTo(17));
+                Assert.That(snapshot.LastSourceTopology, Is.EqualTo(initialTopology));
+                Assert.That(snapshot.LastDestinationTopology, Is.EqualTo(destinationTopology));
+                Assert.That(snapshot.LastRotationKind, Is.EqualTo(CubeRotationKind.Forward));
+                Assert.That(snapshot.LastSourceTickIndex, Is.EqualTo(17));
+                Assert.That(snapshot.ExecutorOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(snapshot.ExecutorOwnerExecutedCount, Is.EqualTo(1));
+                Assert.That(snapshot.DuplicateOwnerAttemptCount, Is.Zero);
+                Assert.That(snapshot.ObservedTrackCount, Is.EqualTo(1));
+                Assert.That(snapshot.RouteCount, Is.EqualTo(1));
+                Assert.That(snapshot.IgnoredCount, Is.Zero);
+                Assert.That(snapshot.InvalidTrackCount, Is.Zero);
+                Assert.That(snapshot.MissingPortCount, Is.Zero);
+                Assert.That(snapshot.HasBlockingPresentation, Is.True);
+                Assert.That(snapshot.IsTopologyTransitionActive, Is.True);
+                Assert.That(snapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(legacyRoot);
-                UnityEngine.Object.DestroyImmediate(executorRoot);
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
         [Test]
         [Category("Core")]
-        public void TopologyExecution_ExecutorBridgeMode_ForcedDoubleExecutorAttemptBlocksSecondOwner()
+        public void TopologyPresentation_ForcedDoubleCurrentAttemptBlocksSecondExecutor()
         {
-            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_ForcedDoubleExecutorAttemptBlocksSecondOwner));
+            var rootObject = new GameObject(nameof(TopologyPresentation_ForcedDoubleCurrentAttemptBlocksSecondExecutor));
             var port = new RecordingTopologyTransitionPlaybackPort();
 
             try
@@ -288,7 +194,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedTopologyCoordinator(
                     rootObject,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
                     port,
                     initialTopology,
                     duplicateExecutors: true);
@@ -302,11 +207,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
                 Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
-                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
                 Assert.That(diagnostics.ExecutorAttemptCount, Is.EqualTo(2));
                 Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
             }
             finally
             {
@@ -336,23 +239,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 coordinator.Present(result);
 
                 var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
-                Assert.That(telemetry.CurrentMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
                 Assert.That(telemetry.DamageCuePlannedCount, Is.EqualTo(1));
                 Assert.That(telemetry.DamagePlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
-                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.DuplicateOmittedCount, Is.Zero);
                 Assert.That(telemetry.LastTickIndex, Is.EqualTo(12));
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationVfxCueKey.DamageHit));
                 Assert.That(telemetry.LastTargetEntityId, Is.EqualTo(40));
@@ -365,17 +261,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_ExplicitProductionConfiguration_RoutesExecutorAndSkipsLegacy()
+        public void DamageDeathVfx_CurrentPlaybackPortConfiguration_RoutesExecutor()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitProductionConfiguration_RoutesExecutorAndSkipsLegacy));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_CurrentPlaybackPortConfiguration_RoutesExecutor));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
             {
                 var topology = new CubeTopologyState(FaceId.Floor);
-                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
                     rootObject,
-                    DamageDeathVfxExecutionPolicy.ProductionDefault,
                     port,
                     topology);
                 var result = CreateDamageDeathVfxResult(
@@ -386,13 +281,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 coordinator.Present(result);
 
                 var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
             }
             finally
             {
@@ -423,12 +314,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
                 var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
                 Assert.That(telemetry.PortMissingCount, Is.Zero);
                 Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
             }
             finally
             {
@@ -458,12 +347,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
                 var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
                 Assert.That(telemetry.PortMissingCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackRequestedCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
             }
             finally
             {
@@ -473,45 +360,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback()
+        public void DamageDeathVfx_LegacyRoute_NotReachable()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback));
+            Assert.That(
+                ResolveType("Game.Feature.Gameplay.Host.DamageDeathVfxExecutionMode"),
+                Is.Null);
+            Assert.That(
+                typeof(GameplayTickPresentationCoordinator).GetMethod(
+                    "ConfigureDamageDeathVfxExecution",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(
+                typeof(GameplayTickViewPresenter).GetMethod(
+                    "ConfigureDamageDeathVfxExecution",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+                Is.Null);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_CurrentRoute_IsProductionDefault()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_CurrentRoute_IsProductionDefault));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
             {
                 var topology = new CubeTopologyState(FaceId.Floor);
-                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
-                    rootObject,
-                    DamageDeathVfxExecutionMode.LegacyExtension,
-                    port,
-                    topology);
-                var result = CreateDamageDeathVfxResult(
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(rootObject, port, topology);
+
+                coordinator.Present(CreateDamageDeathVfxResult(
                     tickIndex: 12,
                     topology,
-                    enemyDamageEntityId: 40);
+                    enemyDamageEntityId: 40));
 
-                coordinator.Present(result);
-
-                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
-
-                coordinator.PresentInitial(Array.Empty<EntityState>(), topology);
-                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.LegacyAttemptCount, Is.Zero);
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.ObservedCueCount, Is.Zero);
-
-                coordinator.HardCleanupPresentationExtensions();
-                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.LegacyAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
             }
             finally
             {
@@ -521,23 +406,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback()
+        public void DamageDeathVfx_DamageCue_UsesCurrentExecutor()
         {
-            AssertDamageDeathLegacyConfigureRoute(
-                default(DamageDeathVfxExecutionMode),
-                nameof(DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback) +
-                "_RawDefault");
-            AssertDamageDeathLegacyConfigureRoute(
-                (DamageDeathVfxExecutionMode)999,
-                nameof(DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback) +
-                "_Invalid");
-        }
-
-        [Test]
-        [Category("Core")]
-        public void DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath()
-        {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DamageCue_UsesCurrentExecutor));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -564,23 +435,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertDamageVfxRequest(port.Requests[0], tickIndex: 12, entityId: 40);
                 AssertDeathVfxRequest(port.Requests[1], tickIndex: 13, entityId: 41, deathCell, presentationSeed: 9141);
                 var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(2));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(2));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(2));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
                 Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(2));
                 Assert.That(telemetry.DamageCuePlannedCount, Is.EqualTo(1));
                 Assert.That(telemetry.DeathCuePlannedCount, Is.EqualTo(1));
                 Assert.That(telemetry.DamagePlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(telemetry.DeathPlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(2));
                 Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(2));
-                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.DuplicateOmittedCount, Is.Zero);
                 Assert.That(telemetry.SemanticDiagnostics, Has.Count.EqualTo(2));
                 AssertSemanticTelemetry(
                     telemetry,
@@ -607,9 +473,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded()
+        public void DamageDeathVfx_DeathCue_UsesCurrentExecutor()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DeathCue_UsesCurrentExecutor));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var deathCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+
+                coordinator.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 13,
+                    topology,
+                    enemyDeathEntityId: 41,
+                    enemyDeathCell: deathCell,
+                    presentationSeed: 9141));
+
+                Assert.That(port.Requests, Has.Count.EqualTo(1));
+                AssertDeathVfxRequest(port.Requests[0], tickIndex: 13, entityId: 41, deathCell, presentationSeed: 9141);
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DeathCuePlannedCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DeathPlaybackRequestedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_SameTickDamageAndDeath_FollowsPolicy()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_SameTickDamageAndDeath_FollowsPolicy));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -639,9 +541,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(telemetry.DeathCuePlannedCount, Is.EqualTo(1));
                 Assert.That(telemetry.DeathPlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
-                Assert.That(telemetry.SameTickDamageHitSuppressedByDeathCount, Is.EqualTo(1));
-                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
-                Assert.That(telemetry.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.SameTickDamageHitSuppressedByDeath));
+                Assert.That(telemetry.SameTickDamageHitOmittedByDeathCount, Is.EqualTo(1));
+                Assert.That(telemetry.DuplicateOmittedCount, Is.Zero);
+                Assert.That(telemetry.LastOmissionReason, Is.EqualTo(DamageDeathVfxOmissionReason.SameTickDamageHitOmittedByDeath));
             }
             finally
             {
@@ -672,11 +574,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
             }
             finally
@@ -687,9 +586,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_ForcedDuplicateStillBlocksSecondOwner()
+        public void DamageDeathVfx_DuplicateDamage_DedupesOrLayersByContract()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_ForcedDuplicateStillBlocksSecondOwner));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DuplicateDamage_DedupesOrLayersByContract));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -721,10 +620,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated()
+        public void DamageDeathVfx_MissingRequiredDependency_ProductionDiagnostic()
         {
-            var missingPortRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated) + "_MissingPort");
-            var bindingRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated) + "_Binding");
+            var missingPortRoot = new GameObject(nameof(DamageDeathVfx_MissingRequiredDependency_ProductionDiagnostic) + "_MissingPort");
+            var bindingRoot = new GameObject(nameof(DamageDeathVfx_MissingRequiredDependency_ProductionDiagnostic) + "_Binding");
             var bindingPort = new RecordingDamageDeathVfxPlaybackPort(GameplayVfxPlaybackResultKind.BindingMissing);
 
             try
@@ -768,17 +667,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(targetMissing.AnchorMissingCount, Is.Zero);
                 Assert.That(targetMissing.BindingMissingCount, Is.Zero);
                 Assert.That(targetMissing.PortMissingCount, Is.Zero);
-                Assert.That(targetMissing.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.TargetMissing));
+                Assert.That(targetMissing.LastOmissionReason, Is.EqualTo(DamageDeathVfxOmissionReason.TargetMissing));
                 Assert.That(anchorMissing.TargetMissingCount, Is.Zero);
                 Assert.That(anchorMissing.AnchorMissingCount, Is.EqualTo(1));
                 Assert.That(anchorMissing.BindingMissingCount, Is.Zero);
                 Assert.That(anchorMissing.PortMissingCount, Is.Zero);
-                Assert.That(anchorMissing.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.AnchorMissing));
+                Assert.That(anchorMissing.LastOmissionReason, Is.EqualTo(DamageDeathVfxOmissionReason.AnchorMissing));
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(missingPortRoot);
                 UnityEngine.Object.DestroyImmediate(bindingRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_MissingOptionalContent_NoLegacyFallback()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_MissingOptionalContent_NoLegacyFallback));
+            var bindingPort = new RecordingDamageDeathVfxPlaybackPort(GameplayVfxPlaybackResultKind.BindingMissing);
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    bindingPort,
+                    topology);
+
+                coordinator.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 16,
+                    topology,
+                    enemyDamageEntityId: 40));
+
+                Assert.That(bindingPort.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_EntityExitOrHidden_NoLegacyFallback()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_EntityExitOrHidden_NoLegacyFallback));
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var deathCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    playbackPort: null,
+                    initialTopology: topology);
+
+                coordinator.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 18,
+                    topology,
+                    enemyDeathEntityId: 41,
+                    enemyDeathCell: deathCell,
+                    presentationSeed: 9141));
+
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DeathCuePlannedCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.MissingPortCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
@@ -865,9 +828,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxMotion_DefaultLegacyTrackPlannerMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        public void BoxMotion_CurrentRoute_IsProductionDefault()
         {
-            var rootObject = new GameObject(nameof(BoxMotion_DefaultLegacyTrackPlannerMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var rootObject = new GameObject(nameof(BoxMotion_CurrentRoute_IsProductionDefault));
             var port = new RecordingGameplayMotionPlaybackPort();
 
             try
@@ -875,7 +838,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedBoxMotionCoordinator(
                     rootObject,
-                    BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
                     port,
                     topology);
                 var result = CreateBoxMotionResult(
@@ -889,14 +851,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 coordinator.Present(result);
 
                 var ownership = coordinator.BoxMotionOwnershipDiagnostics;
-                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(ownership.Mode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(ownership.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.CurrentExecutor));
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
                 AssertBlockingSnapshotCleared(coordinator.BoxMotionExecutionPipelineBlockingSnapshot);
             }
             finally
@@ -907,9 +867,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxMotion_InvalidMode_NormalizesToLegacyTrackPlanner()
+        public void BoxMotion_LegacyRoute_NotReachable()
         {
-            var rootObject = new GameObject(nameof(BoxMotion_InvalidMode_NormalizesToLegacyTrackPlanner));
+            var rootObject = new GameObject(nameof(BoxMotion_LegacyRoute_NotReachable));
             var port = new RecordingGameplayMotionPlaybackPort();
 
             try
@@ -917,7 +877,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedBoxMotionCoordinator(
                     rootObject,
-                    (BoxMotionPresentationExecutionMode)999,
                     port,
                     topology);
                 var result = CreateBoxMotionResult(
@@ -930,10 +889,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 coordinator.Present(result);
 
-                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(
+                    typeof(GameplayTickPresentationCoordinator).GetMethod("ConfigureBoxMotionPresentationExecution"),
+                    Is.Null);
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.CurrentExecutor));
             }
             finally
             {
@@ -943,9 +904,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BoxMotion_DefaultMode_IsOrchestrationMotionExecutor()
+        public void BoxMotion_DefaultMode_IsCurrentExecutor()
         {
-            var rootObject = new GameObject(nameof(BoxMotion_DefaultMode_IsOrchestrationMotionExecutor));
+            var rootObject = new GameObject(nameof(BoxMotion_DefaultMode_IsCurrentExecutor));
             var port = new RecordingGameplayMotionPlaybackPort();
 
             try
@@ -964,16 +925,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
                     TickEntityMotionKind.BoxSlide));
 
-                Assert.That(default(BoxMotionPresentationExecutionMode), Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-
-                coordinator.ConfigureBoxMotionPresentationExecution((BoxMotionPresentationExecutionMode)999, port);
-                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.CurrentExecutor));
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
             }
             finally
             {
@@ -1050,14 +1006,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     impactCell,
                     topology);
                 var ownership = coordinator.BoxMotionOwnershipDiagnostics;
-                Assert.That(ownership.Mode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(3));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(3));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(3));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(3));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.True);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.TrackStartedCount, Is.EqualTo(1));
             }
@@ -1079,7 +1031,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedBoxMotionCoordinator(
                     rootObject,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     port,
                     topology,
                     duplicateExecutors: true);
@@ -1095,11 +1046,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.BoxMotionOwnershipDiagnostics;
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor));
+                Assert.That(ownership.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.CurrentExecutor));
             }
             finally
             {
@@ -1119,7 +1069,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedBoxMotionCoordinator(
                     rootObject,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     port,
                     topology);
                 var result = CreateBoxMotionResult(
@@ -1165,7 +1114,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedBoxMotionCoordinator(
                     rootObject,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     port,
                     topology);
                 var result = CreateBoxMotionResult(
@@ -1210,12 +1158,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var driverMissingCoordinator = CreateInitializedDefaultBoxMotionCoordinator(
                     driverRoot,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     topology,
                     new MotionOverrideViewFactory(driverRoot.transform));
                 var bindingMissingCoordinator = CreateInitializedDefaultBoxMotionCoordinator(
                     bindingRoot,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     topology,
                     new MotionOverrideViewFactory(bindingRoot.transform));
                 var missingPortCoordinator = CreateInitializedBoxMotionCoordinatorWithNullExecutorPort(
@@ -1267,9 +1213,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        public void PlayerActionAnimation_InvalidMode_NormalizesToExecutorAndCallsPlaybackPort()
         {
-            var rootObject = new GameObject(nameof(PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_InvalidMode_NormalizesToExecutorAndCallsPlaybackPort));
             var port = new RecordingGameplayAnimationPlaybackPort();
 
             try
@@ -1286,13 +1232,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 coordinator.Present(result);
 
                 var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
-                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(expectedCueCount));
-                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(expectedCueCount));
-                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(ownership.PlannedCueCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(expectedCueCount));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 AssertBlockingSnapshotCleared(coordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot);
             }
@@ -1399,14 +1344,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
                 Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(9));
+                Assert.That(ownership.PlannedCueCount, Is.EqualTo(9));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(9));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(9));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(9));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandRequestedCount, Is.EqualTo(9));
                 Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(9));
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.OwnerPolicyIgnoredCount, Is.Zero);
             }
             finally
             {
@@ -1416,9 +1360,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        public void PlayerActionAnimation_ProductionTelemetry_CoversOwnerAndSemanticValues()
         {
-            var rootObject = new GameObject(nameof(PlayerActionAnimation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_ProductionTelemetry_CoversOwnerAndSemanticValues));
             var port = new RecordingGameplayAnimationPlaybackPort();
 
             try
@@ -1437,12 +1381,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(telemetry.CurrentMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
                 Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(telemetry.RollbackMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(telemetry.ObservedCueCount, Is.EqualTo(9));
                 Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(9));
                 Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(9));
-                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(9));
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(9));
+                Assert.That(telemetry.PlannedCueCount, Is.EqualTo(9));
                 Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(9));
                 Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(9));
                 Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
@@ -1625,21 +1567,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests()
+        public void PlayerActionAnimation_HostPath_PreservesSemanticRequests()
         {
-            var legacyRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Legacy");
-            var executorRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Executor");
+            var executorRoot = new GameObject(nameof(PlayerActionAnimation_HostPath_PreservesSemanticRequests));
             var port = new RecordingGameplayAnimationPlaybackPort();
 
             try
             {
                 var topology = new CubeTopologyState(FaceId.Floor);
-                var legacyCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
-                    legacyRoot,
-                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
-                    playbackPort: null,
-                    initialTopology: topology,
-                    viewFactory: new DefaultGameplayEntityViewFactory(legacyRoot.transform, 1f, playerEntityId: 10));
                 var executorCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
                     executorRoot,
                     PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
@@ -1721,18 +1656,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         semanticCase.RecoveryPhase,
                         semanticCase.ResolutionKind);
 
-                    legacyCoordinator.Present(result);
                     executorCoordinator.Present(result);
 
-                    var legacyState = GetPlayerAnimatorDriver(legacyRoot).LastPresentationState;
                     var request = port.Requests.Last();
-                    Assert.That(legacyState.EntityId, Is.EqualTo(request.PlayerEntityId));
-                    Assert.That(legacyState.ActiveActionKind, Is.EqualTo(semanticCase.ActionKind));
-                    Assert.That(legacyState.ActiveActionSequence, Is.EqualTo(request.AnimationPayload.SourceSequenceId));
-                    Assert.That(legacyState.ActionPlanId, Is.EqualTo(request.AnimationPayload.SourceActionPlanId));
-                    Assert.That(legacyState.StartedThisTick, Is.EqualTo(semanticCase.StartedThisTick));
-                    Assert.That(legacyState.ExecutedThisTick, Is.EqualTo(semanticCase.ExecutedThisTick));
-                    Assert.That(legacyState.IsRecoveryPhase, Is.EqualTo(semanticCase.RecoveryPhase));
+                    Assert.That(request.PlayerEntityId, Is.EqualTo(10));
+                    Assert.That(request.AnimationPayload.ActionKind, Is.EqualTo(semanticCase.ActionKind));
+                    Assert.That(request.AnimationPayload.SourceSequenceId, Is.EqualTo(semanticCase.SequenceId));
                     Assert.That(request.CueKey, Is.EqualTo(semanticCase.CueKey));
                     Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(semanticCase.PhaseKind));
                     Assert.That(request.AnimationPayload.OutcomeKind, Is.EqualTo(semanticCase.OutcomeKind));
@@ -1741,12 +1670,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(semanticCase.CueKey));
                 }
 
-                Assert.That(legacyCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(executorCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(legacyRoot);
                 UnityEngine.Object.DestroyImmediate(executorRoot);
             }
         }
@@ -1778,7 +1705,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.PlannedCueCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
@@ -2058,7 +1985,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(2));
                 Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(2));
-                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(2));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(2));
                 AssertPlayerActionAnimationSemanticDiagnostics(
                     executor.Diagnostics,
                     PresentationAnimationCueKey.PlayerPushExecute,
@@ -2139,7 +2066,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(1));
                 Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(1));
-                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.Zero);
                 AssertPlayerActionAnimationSemanticDiagnostics(
                     executor.Diagnostics,
                     PresentationAnimationCueKey.PlayerPushRecovery,
@@ -2169,7 +2096,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset()
         {
-            var legacyRoot = new GameObject(nameof(BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset) + "_Legacy");
+            var referenceRoot = new GameObject(nameof(BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset) + "_Reference");
             var executorRoot = new GameObject(nameof(BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset) + "_Executor");
 
             try
@@ -2177,16 +2104,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var timingProfile = CreateTimingProfile();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
-                var legacyPresenter = CreateInitializedBoxMotionPresenter(
-                    legacyRoot,
-                    BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
+                var referencePresenter = CreateInitializedBoxMotionPresenter(
+                    referenceRoot,
                     topology,
                     boardBounds,
                     timingProfile,
-                    out var legacyRegistry);
+                    out var referenceRegistry);
                 var executorPresenter = CreateInitializedBoxMotionPresenter(
                     executorRoot,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     topology,
                     boardBounds,
                     timingProfile,
@@ -2195,15 +2120,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var slideDestination = new SurfaceCell(FaceId.Floor, 1, 0);
                 var flipDestination = new SurfaceCell(FaceId.Floor, 2, 0);
 
-                legacyPresenter.PresentInitial(new[] { CreateBox(40, slideSource) }, topology);
+                referencePresenter.PresentInitial(new[] { CreateBox(40, slideSource) }, topology);
                 executorPresenter.PresentInitial(new[] { CreateBox(40, slideSource) }, topology);
-                Assert.That(legacyRegistry.TryGetView(40, out var legacyView), Is.True);
+                Assert.That(referenceRegistry.TryGetView(40, out var referenceView), Is.True);
                 Assert.That(executorRegistry.TryGetView(40, out var executorView), Is.True);
-                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                AssertPositionApproximately(executorView.transform.localPosition, referenceView.transform.localPosition);
                 AssertPositionApproximately(executorView.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(executorView.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
 
-                legacyPresenter.Present(CreateBoxMotionResult(
+                referencePresenter.Present(CreateBoxMotionResult(
                     tickIndex: 31,
                     topology,
                     boxEntityId: 40,
@@ -2217,20 +2142,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     slideSource,
                     slideDestination,
                     TickEntityMotionKind.BoxSlide));
-                legacyPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+                referencePresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
                 executorPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
 
-                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
-                AssertScaleApproximately(executorView.ModelRoot.localScale, legacyView.ModelRoot.localScale);
+                AssertPositionApproximately(executorView.transform.localPosition, referenceView.transform.localPosition);
+                AssertScaleApproximately(executorView.ModelRoot.localScale, referenceView.ModelRoot.localScale);
 
-                legacyPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds);
+                referencePresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds);
                 executorPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds);
-                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                AssertPositionApproximately(executorView.transform.localPosition, referenceView.transform.localPosition);
                 AssertScaleApproximately(executorView.ModelRoot.localScale, Vector3.one);
                 AssertPositionApproximately(executorView.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(executorView.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
 
-                legacyPresenter.Present(CreateBoxMotionResult(
+                referencePresenter.Present(CreateBoxMotionResult(
                     tickIndex: 32,
                     topology,
                     boxEntityId: 40,
@@ -2244,16 +2169,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     slideDestination,
                     flipDestination,
                     TickEntityMotionKind.Flip));
-                legacyPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.5f);
+                referencePresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.5f);
                 executorPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.5f);
-                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
-                Assert.That(Quaternion.Angle(executorView.transform.localRotation, legacyView.transform.localRotation), Is.LessThan(0.001f));
-                AssertScaleApproximately(executorView.ModelRoot.localScale, legacyView.ModelRoot.localScale);
+                AssertPositionApproximately(executorView.transform.localPosition, referenceView.transform.localPosition);
+                Assert.That(Quaternion.Angle(executorView.transform.localRotation, referenceView.transform.localRotation), Is.LessThan(0.001f));
+                AssertScaleApproximately(executorView.ModelRoot.localScale, referenceView.ModelRoot.localScale);
 
-                legacyPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds);
+                referencePresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds);
                 executorPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds);
-                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
-                Assert.That(Quaternion.Angle(executorView.transform.localRotation, legacyView.transform.localRotation), Is.LessThan(0.001f));
+                AssertPositionApproximately(executorView.transform.localPosition, referenceView.transform.localPosition);
+                Assert.That(Quaternion.Angle(executorView.transform.localRotation, referenceView.transform.localRotation), Is.LessThan(0.001f));
                 AssertScaleApproximately(executorView.ModelRoot.localScale, Vector3.one);
                 AssertPositionApproximately(executorView.ModelRoot.localPosition, Vector3.zero);
                 Assert.That(Quaternion.Angle(executorView.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
@@ -2262,7 +2187,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(referenceRoot);
                 UnityEngine.Object.DestroyImmediate(executorRoot);
             }
         }
@@ -2279,7 +2204,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var coordinator = CreateInitializedBoxMotionCoordinator(
                     rootObject,
-                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
                     port,
                     topology,
                     viewFactory: new BoxFlipDriverViewFactory(rootObject.transform));
@@ -2408,7 +2332,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var trackState = GetPresentationTrackState(coordinator);
                 Assert.That(port.Requests.Single().CueKey, Is.EqualTo(PresentationMotionCueKey.BoxSlide));
-                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(coordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(trackState.LocalMotionTracks.ContainsKey(40), Is.False);
                 Assert.That(trackState.LocalMotionTracks.ContainsKey(20), Is.True);
@@ -2421,9 +2345,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyExecution_ExecutorBridgeMode_BlockingMirrorMatchesControllerState()
+        public void TopologyPresentation_CurrentRoute_BlockingMirrorMatchesControllerState()
         {
-            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_BlockingMirrorMatchesControllerState));
+            var rootObject = new GameObject(nameof(TopologyPresentation_CurrentRoute_BlockingMirrorMatchesControllerState));
 
             try
             {
@@ -2432,7 +2356,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
                 var coordinator = CreateInitializedDefaultTopologyCoordinator(
                     rootObject,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
                     initialTopology,
                     timingProfile);
                 var result = CreateTopologyTransitionResult(
@@ -2444,10 +2367,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 coordinator.Present(result);
 
                 var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
-                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(diagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(coordinator.HasBlockingPresentation, Is.True);
                 Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
@@ -2486,7 +2406,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
                 var coordinator = CreateInitializedDefaultTopologyCoordinator(
                     rootObject,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
                     initialTopology,
                     timingProfile);
                 coordinator.EnablePresentationPipelineDiagnostics();
@@ -2531,9 +2450,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void Topology_LegacyRollback_ActiveTransition_HardCleanup_ReleasesInputLock()
+        public void Topology_CurrentPlayback_ActiveTransition_HardCleanup_ReleasesInputLock()
         {
-            var rootObject = new GameObject(nameof(Topology_LegacyRollback_ActiveTransition_HardCleanup_ReleasesInputLock));
+            var rootObject = new GameObject(nameof(Topology_CurrentPlayback_ActiveTransition_HardCleanup_ReleasesInputLock));
 
             try
             {
@@ -2542,7 +2461,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
                 var coordinator = CreateInitializedDefaultTopologyCoordinator(
                     rootObject,
-                    TopologyPresentationExecutionMode.LegacyCoordinator,
                     initialTopology,
                     timingProfile);
                 var result = CreateTopologyTransitionResult(
@@ -2582,7 +2500,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
                 var coordinator = CreateInitializedDefaultTopologyCoordinator(
                     rootObject,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
                     initialTopology,
                     timingProfile);
                 var result = CreateTopologyTransitionResult(
@@ -2615,24 +2532,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock()
+        public void TopologyPresentation_CurrentRoute_PreservesVisualStateAndInputLock()
         {
-            var legacyRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock) + "_Legacy");
-            var executorRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock) + "_Executor");
+            var rootObject = new GameObject(nameof(TopologyPresentation_CurrentRoute_PreservesVisualStateAndInputLock));
 
             try
             {
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
                 var destinationTopology = new CubeTopologyState(FaceId.Front);
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
-                var legacyPresenter = CreateInitializedTopologyPresenter(
-                    legacyRoot,
-                    TopologyPresentationExecutionMode.LegacyCoordinator,
-                    initialTopology,
-                    timingProfile);
-                var executorPresenter = CreateInitializedTopologyPresenter(
-                    executorRoot,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
+                var presenter = CreateInitializedTopologyPresenter(
+                    rootObject,
                     initialTopology,
                     timingProfile);
                 var result = CreateTopologyTransitionResult(
@@ -2641,56 +2551,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     destinationTopology,
                     CubeRotationKind.Forward);
 
-                legacyPresenter.Present(result);
-                executorPresenter.Present(result);
+                presenter.Present(result);
 
-                AssertTopologyVisualStateEquivalent(
-                    legacyPresenter.CurrentTopologyTransitionVisualState,
-                    executorPresenter.CurrentTopologyTransitionVisualState);
-                Assert.That(legacyPresenter.HasBlockingPresentation, Is.True);
-                Assert.That(executorPresenter.HasBlockingPresentation, Is.True);
-                Assert.That(legacyPresenter.IsTopologyTransitionActive, Is.True);
-                Assert.That(executorPresenter.IsTopologyTransitionActive, Is.True);
-                Assert.That(
-                    Quaternion.Angle(legacyPresenter.PresentedBoardRotation, executorPresenter.PresentedBoardRotation),
-                    Is.LessThan(0.001f));
+                Assert.That(presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.True);
 
-                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
-                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
 
-                AssertTopologyVisualStateEquivalent(
-                    legacyPresenter.CurrentTopologyTransitionVisualState,
-                    executorPresenter.CurrentTopologyTransitionVisualState);
-                Assert.That(
-                    Quaternion.Angle(legacyPresenter.PresentedBoardRotation, executorPresenter.PresentedBoardRotation),
-                    Is.LessThan(0.001f));
+                Assert.That(presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+                Assert.That(Quaternion.Angle(Quaternion.identity, presenter.PresentedBoardRotation), Is.GreaterThan(0.001f));
 
-                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
-                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
 
-                AssertTopologyVisualStateEquivalent(
-                    legacyPresenter.CurrentTopologyTransitionVisualState,
-                    executorPresenter.CurrentTopologyTransitionVisualState);
-                Assert.That(legacyPresenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
-                Assert.That(executorPresenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
-                Assert.That(legacyPresenter.HasBlockingPresentation, Is.False);
-                Assert.That(executorPresenter.HasBlockingPresentation, Is.False);
-                Assert.That(legacyPresenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
-                Assert.That(executorPresenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
+                Assert.That(presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(presenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(legacyRoot);
-                UnityEngine.Object.DestroyImmediate(executorRoot);
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
         [Test]
         [Category("Core")]
-        public void TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs()
+        public void TopologyPresentation_CurrentRoute_PreservesAuthoritativeTickResultOutputs()
         {
-            var legacyRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs) + "_Legacy");
-            var executorRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs) + "_Executor");
+            var rootObject = new GameObject(nameof(TopologyPresentation_CurrentRoute_PreservesAuthoritativeTickResultOutputs));
 
             try
             {
@@ -2706,21 +2594,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var initialEventLog = result.EventLog.ToArray();
                 var initialObjective = result.ObjectiveResult;
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
-                var legacyPresenter = CreateInitializedTopologyPresenter(
-                    legacyRoot,
-                    TopologyPresentationExecutionMode.LegacyCoordinator,
-                    initialTopology,
-                    timingProfile);
-                var executorPresenter = CreateInitializedTopologyPresenter(
-                    executorRoot,
-                    TopologyPresentationExecutionMode.ExecutorBridge,
+                var presenter = CreateInitializedTopologyPresenter(
+                    rootObject,
                     initialTopology,
                     timingProfile);
 
-                legacyPresenter.Present(result);
-                executorPresenter.Present(result);
-                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
-                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                presenter.Present(result);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
 
                 Assert.That(result.DeterminismHash, Is.EqualTo(initialHash));
                 Assert.That(result.FinalEntities, Is.EqualTo(initialEntities));
@@ -2729,8 +2609,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(legacyRoot);
-                UnityEngine.Object.DestroyImmediate(executorRoot);
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
@@ -3788,7 +3667,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GetRendererColor(renderer, GravityFieldLockedTintProperty));
                 Assert.That(GetRendererFloat(renderer, GravityFieldDimFactorProperty), Is.EqualTo(0.55f).Within(0.0001f));
                 Assert.That(GetRendererFloat(renderer, GravityFieldTintStrengthProperty), Is.EqualTo(0.15f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty), Is.EqualTo(0.85f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, GravityFieldEmissionOmissionProperty), Is.EqualTo(0.85f).Within(0.0001f));
 
                 target.UpdateGravityFieldLockedTargetReveal(GravityFieldLockRevealInSeconds * 0.5f);
 
@@ -3808,9 +3687,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionSuppression()
+        public void GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionOmission()
         {
-            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionSuppression));
+            var rootObject = new GameObject(nameof(GravityFieldLockedTargetVisualTargetView_AppliesRendererPropertyBlockEmissionOmission));
             var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
             visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
             var renderer = visual.GetComponent<Renderer>();
@@ -3819,12 +3698,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var target = rootObject.AddComponent<GravityFieldLockedTargetVisualTargetView>();
                 PlayerViewPrefabTestUtility.SetSerializedField(target, "dimRenderers", new[] { renderer });
-                PlayerViewPrefabTestUtility.SetSerializedField(target, "gravityFieldEmissionSuppression", 0.42f);
+                PlayerViewPrefabTestUtility.SetSerializedField(target, "gravityFieldEmissionOmission", 0.42f);
 
                 target.ApplyGravityFieldLockedTarget(1);
 
                 Assert.That(
-                    GetRendererFloat(renderer, GravityFieldEmissionSuppressionProperty),
+                    GetRendererFloat(renderer, GravityFieldEmissionOmissionProperty),
                     Is.EqualTo(0.42f).Within(0.0001f));
             }
             finally
@@ -3998,7 +3877,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Assert.That(material.HasProperty(GravityFieldLockRevealProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockNoiseMapProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.HasProperty(GravityFieldLockEdgeWidthProperty), Is.True, $"{prefabPath} {material.name}");
-                        Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, $"{prefabPath} {material.name}");
+                        Assert.That(material.HasProperty(GravityFieldEmissionOmissionProperty), Is.True, $"{prefabPath} {material.name}");
                         Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, $"{prefabPath} {material.name}");
                         Assert.That(
                             material.GetFloat(GravityFieldLockEdgeWidthProperty),
@@ -4025,7 +3904,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(material, Is.Not.Null, materialPath);
                 Assert.That(material.shader, Is.SameAs(lockableShader), materialPath);
-                Assert.That(material.HasProperty(GravityFieldEmissionSuppressionProperty), Is.True, materialPath);
+                Assert.That(material.HasProperty(GravityFieldEmissionOmissionProperty), Is.True, materialPath);
                 Assert.That(material.GetTexture(GravityFieldLockNoiseMapProperty), Is.Not.Null, materialPath);
                 Assert.That(material.GetFloat(GravityFieldLockEdgeWidthProperty), Is.InRange(0.001f, 0.5f), materialPath);
             }
@@ -12409,7 +12288,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.25f, 0.5f, 0.75f, 1f),
                 desaturateStrength: 0.35f,
-                emissionSuppression: 0.45f);
+                emissionOmission: 0.45f);
 
             try
             {
@@ -12421,7 +12300,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new Color(0.25f, 0.5f, 0.75f, 1f),
                     GetRendererColor(renderer, EnemyInactiveTintProperty));
                 Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.35f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.45f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionOmissionProperty), Is.EqualTo(0.45f).Within(0.0001f));
             }
             finally
             {
@@ -12441,7 +12320,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.1f, 0.2f, 0.3f, 1f),
                 desaturateStrength: 0.4f,
-                emissionSuppression: 0.5f);
+                emissionOmission: 0.5f);
 
             try
             {
@@ -12688,7 +12567,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.18f, 0.28f, 0.38f, 1f),
                 desaturateStrength: 0.22f,
-                emissionSuppression: 0.66f);
+                emissionOmission: 0.66f);
 
             try
             {
@@ -12707,7 +12586,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
                 AssertColorApproximately(new Color(0.18f, 0.28f, 0.38f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
                 Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.22f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.66f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionOmissionProperty), Is.EqualTo(0.66f).Within(0.0001f));
             }
             finally
             {
@@ -12725,7 +12604,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.42f, 0.33f, 0.24f, 1f),
                 desaturateStrength: 0.31f,
-                emissionSuppression: 0.72f);
+                emissionOmission: 0.72f);
 
             try
             {
@@ -12753,7 +12632,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
                 AssertColorApproximately(new Color(0.42f, 0.33f, 0.24f, 1f), GetRendererColor(renderer, EnemyInactiveTintProperty));
                 Assert.That(GetRendererFloat(renderer, EnemyInactiveDesaturateStrengthProperty), Is.EqualTo(0.31f).Within(0.0001f));
-                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionSuppressionProperty), Is.EqualTo(0.72f).Within(0.0001f));
+                Assert.That(GetRendererFloat(renderer, EnemyInactiveEmissionOmissionProperty), Is.EqualTo(0.72f).Within(0.0001f));
             }
             finally
             {
@@ -13110,7 +12989,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationCoordinator CreateInitializedTopologyCoordinator(
             GameObject rootObject,
-            TopologyPresentationExecutionMode mode,
             RecordingTopologyTransitionPlaybackPort port,
             CubeTopologyState initialTopology,
             bool duplicateExecutors = false)
@@ -13118,80 +12996,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
-                (pipelineMode, _, guard) => CreateRecordingTopologyExecutionPipeline(
-                    pipelineMode,
+                (_, guard) => CreateRecordingTopologyExecutionPipeline(
                     guard,
                     port,
                     duplicateExecutors));
 
-            coordinator.Initialize(
-                binder,
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                initialTopology,
-                1f,
-                CreateTimingProfile(),
-                topologyPresentationExecutionMode: mode);
-            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
-            return coordinator;
-        }
-
-        private static void AssertDamageDeathLegacyConfigureRoute(
-            DamageDeathVfxExecutionMode mode,
-            string ownerName)
-        {
-            var rootObject = new GameObject(ownerName);
-            var port = new RecordingDamageDeathVfxPlaybackPort();
-
-            try
-            {
-                var topology = new CubeTopologyState(FaceId.Floor);
-                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
-                    rootObject,
-                    mode,
-                    port,
-                    topology);
-                var result = CreateDamageDeathVfxResult(
-                    tickIndex: 12,
-                    topology,
-                    enemyDamageEntityId: 40);
-
-                coordinator.Present(result);
-
-                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        private static GameplayTickPresentationCoordinator CreateInitializedDamageDeathVfxCoordinator(
-            GameObject rootObject,
-            DamageDeathVfxExecutionMode mode,
-            IDamageDeathVfxPlaybackPort playbackPort,
-            CubeTopologyState initialTopology,
-            bool duplicateExecutors = false)
-        {
-            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
-            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
-                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
-                (pipelineMode, port, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
-                    pipelineMode,
-                    guard,
-                    port,
-                    duplicateExecutors));
-
-            coordinator.ConfigureDamageDeathVfxExecution(mode, playbackPort);
             coordinator.Initialize(
                 binder,
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
@@ -13200,6 +13009,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateTimingProfile());
             coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
             return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedDamageDeathVfxCoordinator(
+            GameObject rootObject,
+            IDamageDeathVfxPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                (port, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
+                    guard,
+                    port,
+                    duplicateExecutors));
+
+            coordinator.ConfigureDamageDeathVfxPlaybackPort(playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static Type ResolveType(string fullName)
+        {
+            return AppDomain.CurrentDomain
+                .GetAssemblies()
+                .Select(assembly => assembly.GetType(fullName, false))
+                .FirstOrDefault(type => type != null);
         }
 
         private static GameplayTickPresentationCoordinator CreateInitializedDefaultDamageDeathVfxCoordinator(
@@ -13212,8 +13055,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
-                (pipelineMode, _, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
-                    pipelineMode,
+                (_, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
                     guard,
                     playbackPort,
                     duplicateExecutors));
@@ -13237,9 +13079,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 topologyExecutionPipelineFactory: GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
-                damageDeathVfxExecutionPipelineFactory: (pipelineMode, port, guard) =>
+                damageDeathVfxExecutionPipelineFactory: (port, guard) =>
                     CreateRecordingDamageDeathVfxExecutionPipeline(
-                        pipelineMode,
                         guard,
                         port,
                         duplicateExecutors: false),
@@ -13257,7 +13098,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationCoordinator CreateInitializedBoxMotionCoordinator(
             GameObject rootObject,
-            BoxMotionPresentationExecutionMode mode,
             IGameplayMotionPlaybackPort playbackPort,
             CubeTopologyState initialTopology,
             bool duplicateExecutors = false,
@@ -13270,13 +13110,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                (pipelineMode, port, guard) => CreateRecordingBoxMotionExecutionPipeline(
-                    pipelineMode,
+                (port, guard) => CreateRecordingBoxMotionExecutionPipeline(
                     guard,
                     port,
                     duplicateExecutors));
 
-            coordinator.ConfigureBoxMotionPresentationExecution(mode, playbackPort);
+            coordinator.ConfigureBoxMotionPlaybackPort(playbackPort);
             coordinator.Initialize(
                 binder,
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
@@ -13301,15 +13140,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                (pipelineMode, port, guard) => CreateRecordingBoxMotionExecutionPipeline(
-                    pipelineMode,
+                (port, guard) => CreateRecordingBoxMotionExecutionPipeline(
                     guard,
                     port,
                     duplicateExecutors));
 
-            coordinator.ConfigureBoxMotionPresentationExecution(
-                coordinator.BoxMotionPresentationExecutionMode,
-                playbackPort);
+            coordinator.ConfigureBoxMotionPlaybackPort(playbackPort);
             coordinator.Initialize(
                 binder,
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
@@ -13322,7 +13158,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationCoordinator CreateInitializedDefaultBoxMotionCoordinator(
             GameObject rootObject,
-            BoxMotionPresentationExecutionMode mode,
             CubeTopologyState initialTopology,
             IGameplayEntityViewFactory viewFactory)
         {
@@ -13330,7 +13165,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binder = new GameplayEntityViewBinder(registry, viewFactory);
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
-            coordinator.ConfigureBoxMotionPresentationExecution(mode);
             coordinator.Initialize(
                 binder,
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
@@ -13350,14 +13184,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                (pipelineMode, _, guard) => CreateRecordingBoxMotionExecutionPipeline(
-                    pipelineMode,
+                (_, guard) => CreateRecordingBoxMotionExecutionPipeline(
                     guard,
                     playbackPort: null,
                     duplicateExecutors: false));
 
-            coordinator.ConfigureBoxMotionPresentationExecution(
-                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
             coordinator.Initialize(
                 binder,
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
@@ -13441,25 +13272,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static GameplayPresentationPipeline CreateRecordingBoxMotionExecutionPipeline(
-            BoxMotionPresentationExecutionMode mode,
             BoxMotionExecutionGuard guard,
             IGameplayMotionPlaybackPort playbackPort,
             bool duplicateExecutors)
         {
-            if (mode != BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
-            {
-                return null;
-            }
-
             var executors = duplicateExecutors
                 ? new IPresentationExecutor[]
                 {
-                    new GameplayMotionPresentationExecutor(playbackPort, mode, guard),
-                    new GameplayMotionPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayMotionPresentationExecutor(playbackPort, guard),
+                    new GameplayMotionPresentationExecutor(playbackPort, guard),
                 }
                 : new IPresentationExecutor[]
                 {
-                    new GameplayMotionPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayMotionPresentationExecutor(playbackPort, guard),
                 };
 
             return new GameplayPresentationPipeline(
@@ -13474,25 +13299,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static GameplayPresentationPipeline CreateRecordingDamageDeathVfxExecutionPipeline(
-            DamageDeathVfxExecutionMode mode,
             DamageDeathVfxExecutionGuard guard,
             IDamageDeathVfxPlaybackPort port,
             bool duplicateExecutors)
         {
-            if (mode != DamageDeathVfxExecutionMode.OrchestrationExecutor)
-            {
-                return null;
-            }
-
             var executors = duplicateExecutors
                 ? new IPresentationExecutor[]
                 {
-                    new GameplayVfxPresentationExecutor(port, mode, guard),
-                    new GameplayVfxPresentationExecutor(port, mode, guard),
+                    new GameplayVfxPresentationExecutor(port, guard),
+                    new GameplayVfxPresentationExecutor(port, guard),
                 }
                 : new IPresentationExecutor[]
                 {
-                    new GameplayVfxPresentationExecutor(port, mode, guard),
+                    new GameplayVfxPresentationExecutor(port, guard),
                 };
 
             return new GameplayPresentationPipeline(
@@ -13508,7 +13327,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationCoordinator CreateInitializedDefaultTopologyCoordinator(
             GameObject rootObject,
-            TopologyPresentationExecutionMode mode,
             CubeTopologyState initialTopology,
             GameplayTimingProfile timingProfile)
         {
@@ -13521,8 +13339,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 initialTopology,
                 1f,
-                timingProfile,
-                topologyPresentationExecutionMode: mode);
+                timingProfile);
             coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
             return coordinator;
         }
@@ -14176,7 +13993,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(semantic.PlannedCount, Is.EqualTo(planned));
             Assert.That(semantic.RequestedCount, Is.EqualTo(requested));
             Assert.That(semantic.SucceededCount, Is.EqualTo(succeeded));
-            Assert.That(semantic.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(semantic.DuplicateOmittedCount, Is.Zero);
             Assert.That(semantic.LastDedupeKey, Is.GreaterThan(0));
             Assert.That(semantic.LastTargetEntityId, Is.EqualTo(entityId));
             Assert.That(semantic.LastAnchorKind, Is.EqualTo(anchorKind));
@@ -14246,10 +14063,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static DamageDeathVfxExecutorDiagnostics PlayDamageDeathVfxCueDirectly(PresentationCue cue)
         {
             var port = new RecordingDamageDeathVfxPlaybackPort();
-            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+            var guard = new DamageDeathVfxExecutionGuard();
             var executor = new GameplayVfxPresentationExecutor(
                 port,
-                DamageDeathVfxExecutionMode.OrchestrationExecutor,
                 guard);
             var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
                 cue.Source.TickIndex,
@@ -14285,7 +14101,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickViewPresenter CreateInitializedTopologyPresenter(
             GameObject rootObject,
-            TopologyPresentationExecutionMode mode,
             CubeTopologyState initialTopology,
             GameplayTimingProfile timingProfile)
         {
@@ -14299,15 +14114,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 initialTopology,
                 1f,
-                timingProfile,
-                topologyPresentationExecutionMode: mode);
+                timingProfile);
             presenter.PresentInitial(Array.Empty<EntityState>(), initialTopology);
             return presenter;
         }
 
         private static GameplayTickViewPresenter CreateInitializedBoxMotionPresenter(
             GameObject rootObject,
-            BoxMotionPresentationExecutionMode mode,
             CubeTopologyState initialTopology,
             BoardBounds boardBounds,
             GameplayTimingProfile timingProfile,
@@ -14320,7 +14133,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 registry,
                 new BoxFlipDriverViewFactory(registry.transform));
 
-            presenter.ConfigureBoxMotionPresentationExecution(mode);
             presenter.Initialize(
                 binder,
                 boardBounds,
@@ -14331,25 +14143,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static GameplayPresentationPipeline CreateRecordingTopologyExecutionPipeline(
-            TopologyPresentationExecutionMode mode,
             TopologyPresentationExecutionGuard guard,
             ITopologyTransitionPlaybackPort port,
             bool duplicateExecutors)
         {
-            if (mode != TopologyPresentationExecutionMode.ExecutorBridge)
-            {
-                return null;
-            }
-
             var executors = duplicateExecutors
                 ? new IPresentationExecutor[]
                 {
-                    new TopologyPresentationExecutor(port, mode, guard),
-                    new TopologyPresentationExecutor(port, mode, guard),
+                    new TopologyPresentationExecutor(port, guard),
+                    new TopologyPresentationExecutor(port, guard),
                 }
                 : new IPresentationExecutor[]
                 {
-                    new TopologyPresentationExecutor(port, mode, guard),
+                    new TopologyPresentationExecutor(port, guard),
                 };
 
             return new GameplayPresentationPipeline(
@@ -16059,14 +15865,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyInactiveVisualSettings CreateEnemyInactiveVisualSettings(
             Color inactiveTint,
             float desaturateStrength,
-            float emissionSuppression,
+            float emissionOmission,
             float revealInSeconds = 0.25f,
             float revealOutSeconds = 0.18f)
         {
             var settings = ScriptableObject.CreateInstance<EnemyInactiveVisualSettings>();
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveTint", inactiveTint);
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "desaturateStrength", desaturateStrength);
-            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionSuppression", emissionSuppression);
+            PlayerViewPrefabTestUtility.SetSerializedField(settings, "emissionOmission", emissionOmission);
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealInSeconds", revealInSeconds);
             PlayerViewPrefabTestUtility.SetSerializedField(settings, "inactiveRevealOutSeconds", revealOutSeconds);
             PlayerViewPrefabTestUtility.SetSerializedField(

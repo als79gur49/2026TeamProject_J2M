@@ -11,18 +11,14 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct DamageDeathVfxPresentationLaneDiagnostics
     {
         public DamageDeathVfxPresentationLaneDiagnostics(
-            DamageDeathVfxExecutionMode executionMode,
             DamageDeathVfxOwnershipDiagnostics ownership,
             DamageDeathVfxExecutorDiagnostics executor,
             PresentationBlockingSnapshot blockingSnapshot)
         {
-            ExecutionMode = executionMode;
             Ownership = ownership;
             Executor = executor;
             BlockingSnapshot = blockingSnapshot;
         }
-
-        public DamageDeathVfxExecutionMode ExecutionMode { get; }
 
         public DamageDeathVfxOwnershipDiagnostics Ownership { get; }
 
@@ -41,18 +37,19 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPipeline _executionPipeline;
         private IDamageDeathVfxPlaybackPort _playbackPort;
+        private GameplayTimingProfile _timingProfile;
+        private bool _usesDefaultPipelineFactory;
 
         public DamageDeathVfxPresentationLaneRuntime(
             DamageDeathVfxExecutionPipelineFactory pipelineFactory = null,
+            IDamageDeathVfxPlaybackPort playbackPort = null,
             DamageDeathVfxExecutionGuard executionGuard = null)
         {
-            _pipelineFactory = pipelineFactory ??
-                               GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline;
+            _usesDefaultPipelineFactory = pipelineFactory == null;
+            _pipelineFactory = pipelineFactory ?? CreateDefaultExecutionPipeline;
+            _playbackPort = playbackPort;
             _executionGuard = executionGuard ?? new DamageDeathVfxExecutionGuard();
         }
-
-        public DamageDeathVfxExecutionMode ExecutionMode =>
-            _executionGuard.Diagnostics.Mode;
 
         public DamageDeathVfxOwnershipDiagnostics OwnershipDiagnostics =>
             _executionGuard.Diagnostics;
@@ -63,22 +60,28 @@ namespace Game.Feature.Gameplay.Host
         public PresentationBlockingSnapshot BlockingSnapshot =>
             _executionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
-        public DamageDeathVfxExtensionPolicy ExtensionPolicy =>
-            new(UseProductionExecutor());
-
         public DamageDeathVfxPresentationLaneDiagnostics Diagnostics =>
             new(
-                ExecutionMode,
                 OwnershipDiagnostics,
                 ExecutorDiagnostics,
                 BlockingSnapshot);
 
-        public void ConfigureExecution(
-            DamageDeathVfxExecutionMode mode,
-            IDamageDeathVfxPlaybackPort playbackPort = null)
+        public void ConfigurePlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
             _playbackPort = playbackPort;
-            _executionGuard.Configure(DamageDeathVfxExecutionPolicy.Normalize(mode));
+            ResetExecutionSession();
+            _executionPipeline = CreateExecutionPipeline();
+            _executionPipeline?.ResetSession();
+        }
+
+        public void ConfigureTiming(GameplayTimingProfile timingProfile)
+        {
+            _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            if (!_usesDefaultPipelineFactory)
+            {
+                return;
+            }
+
             ResetExecutionSession();
             _executionPipeline = CreateExecutionPipeline();
             _executionPipeline?.ResetSession();
@@ -91,17 +94,9 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var keys = BuildDamageDeathVfxPlaybackKeys(result);
-            if (UseProductionExecutor())
-            {
-                RecordLegacySkippedByPolicy(keys);
-                _executionPipeline ??= CreateExecutionPipeline();
-                _executionPipeline?.Present(result);
-                ApplyPlannerSuppressionDiagnostics();
-                return;
-            }
-
-            RecordLegacyOwnership(keys);
+            _executionPipeline ??= CreateExecutionPipeline();
+            _executionPipeline?.Present(result);
+            ApplyPlannerOmissionDiagnostics();
         }
 
         public void Update(float deltaTime)
@@ -124,9 +119,18 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationPipeline CreateExecutionPipeline()
         {
             return _pipelineFactory(
-                ExecutionMode,
                 _playbackPort,
                 _executionGuard);
+        }
+
+        private GameplayPresentationPipeline CreateDefaultExecutionPipeline(
+            IDamageDeathVfxPlaybackPort playbackPort,
+            DamageDeathVfxExecutionGuard executionGuard)
+        {
+            return GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline(
+                playbackPort,
+                executionGuard,
+                _timingProfile);
         }
 
         private void ResetExecutionSession()
@@ -134,48 +138,24 @@ namespace Game.Feature.Gameplay.Host
             _executionGuard.ResetSession();
         }
 
-        private bool UseProductionExecutor()
-        {
-            return ExecutionMode == DamageDeathVfxExecutionPolicy.ProductionDefault;
-        }
-
-        private void RecordLegacyOwnership(IReadOnlyList<DamageDeathVfxPlaybackKey> playbackKeys)
-        {
-            for (var i = 0; i < playbackKeys.Count; i++)
-            {
-                _executionGuard.TryBeginExecution(
-                    DamageDeathVfxExecutionOwner.LegacyExtension,
-                    playbackKeys[i]);
-            }
-        }
-
-        private void RecordLegacySkippedByPolicy(IReadOnlyList<DamageDeathVfxPlaybackKey> playbackKeys)
-        {
-            for (var i = 0; i < playbackKeys.Count; i++)
-            {
-                _executionGuard.RecordSkippedByPolicy(
-                    DamageDeathVfxExecutionOwner.LegacyExtension);
-            }
-        }
-
-        private void ApplyPlannerSuppressionDiagnostics()
+        private void ApplyPlannerOmissionDiagnostics()
         {
             if (_executionPipeline?.LastCueFrame == null)
             {
                 return;
             }
 
-            var suppressedByDeath = _executionPipeline.LastCueFrame
+            var omittedByDeath = _executionPipeline.LastCueFrame
                 .Diagnostics
-                .DamageHitSuppressedByEnemyDeathCount;
-            if (suppressedByDeath <= 0)
+                .DamageHitOmittedByEnemyDeathCount;
+            if (omittedByDeath <= 0)
             {
                 return;
             }
 
-            DamageDeathVfxProductionTelemetryBuilder.RecordSameTickDamageHitSuppressedByDeath(
+            DamageDeathVfxProductionTelemetryBuilder.RecordSameTickDamageHitOmittedByDeath(
                 _executionPipeline,
-                suppressedByDeath);
+                omittedByDeath);
         }
 
         private static IReadOnlyList<DamageDeathVfxPlaybackKey> BuildDamageDeathVfxPlaybackKeys(TickResult result)

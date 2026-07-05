@@ -112,9 +112,7 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
-            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
-                TopologyPresentationExecutionDefaults.ProductionDefault)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             PresentationCoordinator.Initialize(
                 viewBinder,
@@ -131,8 +129,7 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationCatalog,
                 enemyPresentationBindings,
                 tileFeatureVfxStyleBindings,
-                enemyInactiveVisualSettings,
-                topologyPresentationExecutionMode);
+                enemyInactiveVisualSettings);
             CapturePresentationState();
         }
 
@@ -225,22 +222,16 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.AttachPresentationExtension(extension);
         }
 
-        internal void ConfigureDamageDeathVfxExecution(
-            DamageDeathVfxExecutionMode mode,
-            IDamageDeathVfxPlaybackPort playbackPort = null)
+        internal void ConfigureDamageDeathVfxPlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
-            PresentationCoordinator.ConfigureDamageDeathVfxExecution(mode, playbackPort);
+            PresentationCoordinator.ConfigureDamageDeathVfxPlaybackPort(playbackPort);
         }
 
-        internal void ConfigureBoxMotionPresentationExecution(
-            BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null,
+        internal void ConfigureBoxMotionPlaybackPort(
+            IGameplayMotionPlaybackPort playbackPort,
             bool useDefaultPlaybackPort = true)
         {
-            PresentationCoordinator.ConfigureBoxMotionPresentationExecution(
-                mode,
-                playbackPort,
-                useDefaultPlaybackPort);
+            PresentationCoordinator.ConfigureBoxMotionPlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigurePlayerActionAnimationExecution(
@@ -250,32 +241,18 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.ConfigurePlayerActionAnimationExecution(mode, playbackPort);
         }
 
-        internal void ConfigureEnemyPresentationExecution(
-            EnemyPresentationExecutionMode mode,
-            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        internal void ConfigureEnemyPresentationPlaybackPort(
+            IGameplayEnemyPresentationPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            PresentationCoordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
+            PresentationCoordinator.ConfigureEnemyPresentationPlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
-        internal void ConfigureCoreGameplaySfxExecution(
-            CoreGameplaySfxExecutionMode mode,
-            IGameplaySfxPlaybackPort playbackPort = null)
+        internal void ConfigureCoreGameplaySfxPlaybackPort(
+            IGameplaySfxPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            PresentationCoordinator.ConfigureCoreGameplaySfxExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureActionAudioExecution(
-            ActionAudioExecutionMode mode,
-            IGameplayActionAudioPlaybackPort playbackPort = null)
-        {
-            PresentationCoordinator.ConfigureActionAudioExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureEnemyAudioExecution(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort = null)
-        {
-            PresentationCoordinator.ConfigureEnemyAudioExecution(mode, playbackPort);
+            PresentationCoordinator.ConfigureCoreGameplaySfxPlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
@@ -330,17 +307,11 @@ namespace Game.Feature.Gameplay.Host
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             PresentationCoordinator.DebugLastEntityPresentationApplyDiagnostics;
 
-        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
-            PresentationCoordinator.TopologyPresentationExecutionMode;
-
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             PresentationCoordinator.TopologyPresentationOwnershipDiagnostics;
 
         internal TopologyProductionTelemetrySnapshot TopologyProductionTelemetrySnapshot =>
             PresentationCoordinator.TopologyProductionTelemetrySnapshot;
-
-        internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
-            PresentationCoordinator.DamageDeathVfxExecutionMode;
 
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
             PresentationCoordinator.DamageDeathVfxOwnershipDiagnostics;
@@ -350,9 +321,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal DamageDeathVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             PresentationCoordinator.DamageDeathVfxExecutorDiagnostics;
-
-        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
-            PresentationCoordinator.BoxMotionPresentationExecutionMode;
 
         internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
             PresentationCoordinator.BoxMotionOwnershipDiagnostics;
@@ -389,9 +357,6 @@ namespace Game.Feature.Gameplay.Host
         internal PlayerActionAnimationProductionTelemetrySnapshot PlayerActionAnimationProductionTelemetrySnapshot =>
             PresentationCoordinator.PlayerActionAnimationProductionTelemetrySnapshot;
 
-        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
-            PresentationCoordinator.EnemyPresentationExecutionMode;
-
         internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
             PresentationCoordinator.EnemyPresentationOwnershipDiagnostics;
 
@@ -404,8 +369,8 @@ namespace Game.Feature.Gameplay.Host
         internal EnemyPresentationProductionTelemetrySnapshot EnemyPresentationProductionTelemetrySnapshot =>
             PresentationCoordinator.EnemyPresentationProductionTelemetrySnapshot;
 
-        internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
-            PresentationCoordinator.CoreGameplaySfxExecutionMode;
+        internal CoreGameplaySfxRoute CoreGameplaySfxRoute =>
+            PresentationCoordinator.CoreGameplaySfxRoute;
 
         internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
             PresentationCoordinator.CoreGameplaySfxOwnershipDiagnostics;
@@ -416,12 +381,6 @@ namespace Game.Feature.Gameplay.Host
         internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
             PresentationCoordinator.CoreGameplaySfxExecutorDiagnostics;
 
-        internal ActionAudioExecutionMode ActionAudioExecutionMode =>
-            PresentationCoordinator.ActionAudioExecutionMode;
-
-        internal ActionAudioOwnershipDiagnostics ActionAudioOwnershipDiagnostics =>
-            PresentationCoordinator.ActionAudioOwnershipDiagnostics;
-
         internal PresentationBlockingSnapshot ActionAudioExecutionPipelineBlockingSnapshot =>
             PresentationCoordinator.ActionAudioExecutionPipelineBlockingSnapshot;
 
@@ -430,12 +389,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal ActionAudioProductionTelemetrySnapshot ActionAudioProductionTelemetrySnapshot =>
             PresentationCoordinator.ActionAudioProductionTelemetrySnapshot;
-
-        internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
-            PresentationCoordinator.EnemyAudioExecutionMode;
-
-        internal EnemyAudioOwnershipDiagnostics EnemyAudioOwnershipDiagnostics =>
-            PresentationCoordinator.EnemyAudioOwnershipDiagnostics;
 
         internal PresentationBlockingSnapshot EnemyAudioExecutionPipelineBlockingSnapshot =>
             PresentationCoordinator.EnemyAudioExecutionPipelineBlockingSnapshot;

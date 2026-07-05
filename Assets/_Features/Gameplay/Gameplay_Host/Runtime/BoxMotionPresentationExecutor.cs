@@ -9,25 +9,10 @@ using Game.Feature.Gameplay.PresentationRuntime;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public enum BoxMotionPresentationExecutionMode
-    {
-        LegacyTrackPlanner = 0,
-        OrchestrationMotionExecutor = 1,
-    }
-
-    internal static class BoxMotionPresentationExecutionDefaults
-    {
-        public const BoxMotionPresentationExecutionMode LegacyFallback =
-            BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
-        public const BoxMotionPresentationExecutionMode ProductionDefault =
-            BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor;
-    }
-
     internal enum BoxMotionPresentationExecutionOwner
     {
         None = 0,
-        LegacyTrackPlanner = 1,
-        OrchestrationMotionExecutor = 2,
+        CurrentExecutor = 1,
     }
 
     internal enum GameplayMotionPlaybackResultKind
@@ -39,7 +24,7 @@ namespace Game.Feature.Gameplay.Host
         DriverMissing = 4,
         Requested = 5,
         Started = 6,
-        LegacyOwnerActive = 7,
+        DuplicateActive = 7,
     }
 
     internal enum BoxMotionTelemetryFailureReason
@@ -51,8 +36,8 @@ namespace Game.Feature.Gameplay.Host
         DriverMissing = 4,
         PortMissing = 5,
         UnsupportedSemantic = 6,
-        DuplicateSuppressed = 7,
-        LegacyOwnerActive = 8,
+        DuplicateRejected = 7,
+        DuplicateActive = 8,
     }
 
     internal enum BoxMotionTelemetryCleanupReason
@@ -74,7 +59,7 @@ namespace Game.Feature.Gameplay.Host
             int requestedCount,
             int startedCount,
             int completedCount,
-            int duplicateSuppressedCount,
+            int duplicateRejectedCount,
             int missingDependencyCount,
             int cleanupCount,
             int lastTickIndex,
@@ -87,7 +72,7 @@ namespace Game.Feature.Gameplay.Host
             RequestedCount = Math.Max(0, requestedCount);
             StartedCount = Math.Max(0, startedCount);
             CompletedCount = Math.Max(0, completedCount);
-            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            DuplicateRejectedCount = Math.Max(0, duplicateRejectedCount);
             MissingDependencyCount = Math.Max(0, missingDependencyCount);
             CleanupCount = Math.Max(0, cleanupCount);
             LastTickIndex = Math.Max(0, lastTickIndex);
@@ -107,7 +92,7 @@ namespace Game.Feature.Gameplay.Host
 
         public int CompletedCount { get; }
 
-        public int DuplicateSuppressedCount { get; }
+        public int DuplicateRejectedCount { get; }
 
         public int MissingDependencyCount { get; }
 
@@ -200,8 +185,6 @@ namespace Game.Feature.Gameplay.Host
             new(PresentationMotionFactKind.BoxFlipImpact, PresentationMotionCueKey.BoxFlipImpact),
         };
 
-        private int _legacyBoxSourcePlanningSkippedCount;
-        private int _legacyUnrelatedMotionTrackRetainedCount;
         private int _playbackTrackCompletedCount;
         private int _playbackTrackIgnoredCount;
         private int _cleanupRequestedCount;
@@ -212,10 +195,6 @@ namespace Game.Feature.Gameplay.Host
         private int _staleTrackClearedCount;
         private int _staleCompletedKeyClearedCount;
         private BoxMotionTelemetryCleanupReason _lastCleanupReason;
-
-        public int LegacyBoxSourcePlanningSkippedCount => _legacyBoxSourcePlanningSkippedCount;
-
-        public int LegacyUnrelatedMotionTrackRetainedCount => _legacyUnrelatedMotionTrackRetainedCount;
 
         public int PlaybackTrackCompletedCount => _playbackTrackCompletedCount;
 
@@ -246,17 +225,6 @@ namespace Game.Feature.Gameplay.Host
 
                 return result;
             }
-        }
-
-        public void RecordLegacyBoxSourcePlanningSkipped(PresentationMotionFactKind semantic, int tickIndex, int entityId)
-        {
-            _legacyBoxSourcePlanningSkippedCount++;
-            GetCounter(semantic)?.RecordCleanup(tickIndex, entityId, dedupeKey: 0);
-        }
-
-        public void RecordLegacyUnrelatedMotionTrackRetained()
-        {
-            _legacyUnrelatedMotionTrackRetainedCount++;
         }
 
         public void RecordTrackCompleted(PresentationMotionFactKind semantic, int tickIndex, int entityId, int dedupeKey)
@@ -353,7 +321,7 @@ namespace Game.Feature.Gameplay.Host
                     requestedCount: 0,
                     startedCount: 0,
                     _completedCount,
-                    duplicateSuppressedCount: 0,
+                    duplicateRejectedCount: 0,
                     _missingDependencyCount,
                     _cleanupCount,
                     _lastTickIndex,
@@ -445,40 +413,20 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct BoxMotionOwnershipDiagnostics
     {
         public BoxMotionOwnershipDiagnostics(
-            BoxMotionPresentationExecutionMode mode,
-            int legacyAttemptCount,
             int executorAttemptCount,
-            int executedByLegacyCount,
             int executedByExecutorCount,
-            int skippedLegacyBecauseExecutorOwnerCount,
-            int skippedExecutorBecauseLegacyOwnerCount,
             int duplicateAttemptCount,
             BoxMotionPresentationExecutionOwner lastExecutionOwner)
         {
-            Mode = mode;
-            LegacyAttemptCount = Math.Max(0, legacyAttemptCount);
             ExecutorAttemptCount = Math.Max(0, executorAttemptCount);
-            ExecutedByLegacyCount = Math.Max(0, executedByLegacyCount);
             ExecutedByExecutorCount = Math.Max(0, executedByExecutorCount);
-            SkippedLegacyBecauseExecutorOwnerCount = Math.Max(0, skippedLegacyBecauseExecutorOwnerCount);
-            SkippedExecutorBecauseLegacyOwnerCount = Math.Max(0, skippedExecutorBecauseLegacyOwnerCount);
             DuplicateAttemptCount = Math.Max(0, duplicateAttemptCount);
             LastExecutionOwner = lastExecutionOwner;
         }
 
-        public BoxMotionPresentationExecutionMode Mode { get; }
-
-        public int LegacyAttemptCount { get; }
-
         public int ExecutorAttemptCount { get; }
 
-        public int ExecutedByLegacyCount { get; }
-
         public int ExecutedByExecutorCount { get; }
-
-        public int SkippedLegacyBecauseExecutorOwnerCount { get; }
-
-        public int SkippedExecutorBecauseLegacyOwnerCount { get; }
 
         public int DuplicateAttemptCount { get; }
 
@@ -488,137 +436,41 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class BoxMotionExecutionGuard
     {
         private readonly HashSet<BoxMotionPlaybackKey> _claimedKeys = new();
-        private BoxMotionPresentationExecutionMode _mode;
-        private int _legacyAttemptCount;
         private int _executorAttemptCount;
-        private int _executedByLegacyCount;
         private int _executedByExecutorCount;
-        private int _skippedLegacyBecauseExecutorOwnerCount;
-        private int _skippedExecutorBecauseLegacyOwnerCount;
         private int _duplicateAttemptCount;
         private BoxMotionPresentationExecutionOwner _lastExecutionOwner;
 
-        public BoxMotionExecutionGuard(
-            BoxMotionPresentationExecutionMode mode = BoxMotionPresentationExecutionMode.LegacyTrackPlanner)
-        {
-            _mode = NormalizeMode(mode);
-        }
-
         public BoxMotionOwnershipDiagnostics Diagnostics =>
             new(
-                _mode,
-                _legacyAttemptCount,
                 _executorAttemptCount,
-                _executedByLegacyCount,
                 _executedByExecutorCount,
-                _skippedLegacyBecauseExecutorOwnerCount,
-                _skippedExecutorBecauseLegacyOwnerCount,
                 _duplicateAttemptCount,
                 _lastExecutionOwner);
-
-        public void Configure(BoxMotionPresentationExecutionMode mode)
-        {
-            _mode = NormalizeMode(mode);
-        }
 
         public void ResetSession()
         {
             _claimedKeys.Clear();
-            _legacyAttemptCount = 0;
             _executorAttemptCount = 0;
-            _executedByLegacyCount = 0;
             _executedByExecutorCount = 0;
-            _skippedLegacyBecauseExecutorOwnerCount = 0;
-            _skippedExecutorBecauseLegacyOwnerCount = 0;
             _duplicateAttemptCount = 0;
             _lastExecutionOwner = BoxMotionPresentationExecutionOwner.None;
         }
 
-        public void RecordSkippedByPolicy(BoxMotionPresentationExecutionOwner skippedOwner)
+        public bool TryBeginExecution(in BoxMotionPlaybackKey key)
         {
-            if (skippedOwner == BoxMotionPresentationExecutionOwner.None)
-            {
-                throw new ArgumentOutOfRangeException(nameof(skippedOwner), "Box motion owner must be explicit.");
-            }
-
-            RecordAttempt(skippedOwner);
-            RecordPolicySkip(skippedOwner);
-        }
-
-        public bool TryBeginExecution(
-            BoxMotionPresentationExecutionOwner owner,
-            in BoxMotionPlaybackKey key)
-        {
-            if (owner == BoxMotionPresentationExecutionOwner.None)
-            {
-                throw new ArgumentOutOfRangeException(nameof(owner), "Box motion owner must be explicit.");
-            }
-
-            RecordAttempt(owner);
+            _executorAttemptCount++;
             if (_claimedKeys.Contains(key))
             {
                 _duplicateAttemptCount++;
-                RecordPolicySkip(owner);
-                return false;
-            }
-
-            if (!IsOwnerAllowed(owner))
-            {
-                RecordPolicySkip(owner);
                 return false;
             }
 
             _claimedKeys.Add(key);
-            _lastExecutionOwner = owner;
-            if (owner == BoxMotionPresentationExecutionOwner.LegacyTrackPlanner)
-            {
-                _executedByLegacyCount++;
-            }
-            else
-            {
-                _executedByExecutorCount++;
-            }
+            _lastExecutionOwner = BoxMotionPresentationExecutionOwner.CurrentExecutor;
+            _executedByExecutorCount++;
 
             return true;
-        }
-
-        private static BoxMotionPresentationExecutionMode NormalizeMode(BoxMotionPresentationExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
-                ? mode
-                : BoxMotionPresentationExecutionDefaults.LegacyFallback;
-        }
-
-        private bool IsOwnerAllowed(BoxMotionPresentationExecutionOwner owner)
-        {
-            return (_mode == BoxMotionPresentationExecutionMode.LegacyTrackPlanner &&
-                    owner == BoxMotionPresentationExecutionOwner.LegacyTrackPlanner) ||
-                   (_mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor &&
-                    owner == BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor);
-        }
-
-        private void RecordAttempt(BoxMotionPresentationExecutionOwner owner)
-        {
-            if (owner == BoxMotionPresentationExecutionOwner.LegacyTrackPlanner)
-            {
-                _legacyAttemptCount++;
-            }
-            else if (owner == BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor)
-            {
-                _executorAttemptCount++;
-            }
-        }
-
-        private void RecordPolicySkip(BoxMotionPresentationExecutionOwner owner)
-        {
-            if (owner == BoxMotionPresentationExecutionOwner.LegacyTrackPlanner)
-            {
-                _skippedLegacyBecauseExecutorOwnerCount++;
-            }
-            else if (owner == BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor)
-            {
-                _skippedExecutorBecauseLegacyOwnerCount++;
-            }
         }
     }
 
@@ -667,17 +519,14 @@ namespace Game.Feature.Gameplay.Host
     {
         public GameplayMotionExecutorDiagnostics(
             int observedTrackCount,
-            int legacyOwnerNoOpCount,
             int targetMissingCount,
             int anchorMissingCount,
             int bindingMissingCount,
             int driverMissingCount,
-            int duplicateSuppressedCount,
+            int duplicateRejectedCount,
             int playbackRequestedCount,
             int trackStartedCount,
             int missingPortCount,
-            bool isProductionDefaultOwner,
-            BoxMotionPresentationExecutionMode currentMode = BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
             int lastTickIndex = 0,
             PresentationMotionCueKey lastCueKey = PresentationMotionCueKey.None,
             int lastDedupeKey = 0,
@@ -688,19 +537,15 @@ namespace Game.Feature.Gameplay.Host
             int unsupportedSemanticCount = 0)
         {
             ObservedTrackCount = Math.Max(0, observedTrackCount);
-            LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
             TargetMissingCount = Math.Max(0, targetMissingCount);
             AnchorMissingCount = Math.Max(0, anchorMissingCount);
             BindingMissingCount = Math.Max(0, bindingMissingCount);
             DriverMissingCount = Math.Max(0, driverMissingCount);
-            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            DuplicateRejectedCount = Math.Max(0, duplicateRejectedCount);
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
             TrackStartedCount = Math.Max(0, trackStartedCount);
             MissingPortCount = Math.Max(0, missingPortCount);
-            IsProductionDefaultOwner = isProductionDefaultOwner;
-            CurrentMode = currentMode;
-            ProductionDefaultMode = BoxMotionPresentationExecutionDefaults.ProductionDefault;
-            RollbackMode = BoxMotionPresentationExecutionDefaults.LegacyFallback;
+            IsCurrentProductionOwner = true;
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastCueKey = lastCueKey;
             LastDedupeKey = lastDedupeKey;
@@ -713,8 +558,6 @@ namespace Game.Feature.Gameplay.Host
 
         public int ObservedTrackCount { get; }
 
-        public int LegacyOwnerNoOpCount { get; }
-
         public int TargetMissingCount { get; }
 
         public int AnchorMissingCount { get; }
@@ -723,7 +566,7 @@ namespace Game.Feature.Gameplay.Host
 
         public int DriverMissingCount { get; }
 
-        public int DuplicateSuppressedCount { get; }
+        public int DuplicateRejectedCount { get; }
 
         public int PlaybackRequestedCount { get; }
 
@@ -731,13 +574,7 @@ namespace Game.Feature.Gameplay.Host
 
         public int MissingPortCount { get; }
 
-        public bool IsProductionDefaultOwner { get; }
-
-        public BoxMotionPresentationExecutionMode CurrentMode { get; }
-
-        public BoxMotionPresentationExecutionMode ProductionDefaultMode { get; }
-
-        public BoxMotionPresentationExecutionMode RollbackMode { get; }
+        public bool IsCurrentProductionOwner { get; }
 
         public int LastTickIndex { get; }
 
@@ -780,7 +617,7 @@ namespace Game.Feature.Gameplay.Host
             int anchorMissingCount,
             int bindingMissingCount,
             int driverMissingCount,
-            int legacyOwnerActiveCount,
+            int duplicateActiveCount,
             int resetSessionCallCount,
             int hardCleanupCallCount,
             bool hasTickContext,
@@ -795,7 +632,7 @@ namespace Game.Feature.Gameplay.Host
             AnchorMissingCount = Math.Max(0, anchorMissingCount);
             BindingMissingCount = Math.Max(0, bindingMissingCount);
             DriverMissingCount = Math.Max(0, driverMissingCount);
-            LegacyOwnerActiveCount = Math.Max(0, legacyOwnerActiveCount);
+            DuplicateActiveCount = Math.Max(0, duplicateActiveCount);
             ResetSessionCallCount = Math.Max(0, resetSessionCallCount);
             HardCleanupCallCount = Math.Max(0, hardCleanupCallCount);
             HasTickContext = hasTickContext;
@@ -819,7 +656,7 @@ namespace Game.Feature.Gameplay.Host
 
         public int DriverMissingCount { get; }
 
-        public int LegacyOwnerActiveCount { get; }
+        public int DuplicateActiveCount { get; }
 
         public int ResetSessionCallCount { get; }
 
@@ -829,24 +666,20 @@ namespace Game.Feature.Gameplay.Host
     }
 
     internal delegate GameplayPresentationPipeline BoxMotionExecutionPipelineFactory(
-        BoxMotionPresentationExecutionMode mode,
         IGameplayMotionPlaybackPort playbackPort,
         BoxMotionExecutionGuard executionGuard);
 
     internal sealed class GameplayMotionPresentationExecutor : IPresentationMotionExecutor
     {
         private readonly IGameplayMotionPlaybackPort _playbackPort;
-        private readonly BoxMotionPresentationExecutionMode _mode;
         private readonly BoxMotionExecutionGuard _executionGuard;
         private bool _hasRoutedRequest;
 
         public GameplayMotionPresentationExecutor(
             IGameplayMotionPlaybackPort playbackPort = null,
-            BoxMotionPresentationExecutionMode mode = BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
             BoxMotionExecutionGuard executionGuard = null)
         {
             _playbackPort = playbackPort;
-            _mode = NormalizeMode(mode);
             _executionGuard = executionGuard;
         }
 
@@ -868,12 +701,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var observedTrackCount = 0;
-            var legacyOwnerNoOpCount = 0;
             var targetMissingCount = 0;
             var anchorMissingCount = 0;
             var bindingMissingCount = 0;
             var driverMissingCount = 0;
-            var duplicateSuppressedCount = 0;
+            var duplicateRejectedCount = 0;
             var playbackRequestedCount = 0;
             var trackStartedCount = 0;
             var missingPortCount = 0;
@@ -918,12 +750,6 @@ namespace Game.Feature.Gameplay.Host
                     ref lastTargetEntityId,
                     ref lastMotionFactKind,
                     ref lastFailureReason);
-                if (_mode != BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
-                {
-                    legacyOwnerNoOpCount++;
-                    continue;
-                }
-
                 if (!TryCreateRequest(track, out var request, out var missingKind))
                 {
                     RecordMissing(
@@ -960,7 +786,7 @@ namespace Game.Feature.Gameplay.Host
                     var duplicateAfter = _executionGuard?.Diagnostics.DuplicateAttemptCount ?? duplicateBefore;
                     if (duplicateAfter > duplicateBefore)
                     {
-                        duplicateSuppressedCount++;
+                        duplicateRejectedCount++;
                         RecordSemanticDuplicate(
                             semanticCounters,
                             semantic,
@@ -973,7 +799,7 @@ namespace Game.Feature.Gameplay.Host
                             dedupeKey,
                             request.EntityId,
                             semantic,
-                            BoxMotionTelemetryFailureReason.DuplicateSuppressed,
+                            BoxMotionTelemetryFailureReason.DuplicateRejected,
                             ref lastTickIndex,
                             ref lastCueKey,
                             ref lastDedupeKey,
@@ -981,24 +807,6 @@ namespace Game.Feature.Gameplay.Host
                             ref lastMotionFactKind,
                             ref lastFailureReason);
                     }
-                    else
-                    {
-                        legacyOwnerNoOpCount++;
-                        RecordLastContext(
-                            request.TickIndex,
-                            request.CueKey,
-                            dedupeKey,
-                            request.EntityId,
-                            semantic,
-                            BoxMotionTelemetryFailureReason.LegacyOwnerActive,
-                            ref lastTickIndex,
-                            ref lastCueKey,
-                            ref lastDedupeKey,
-                            ref lastTargetEntityId,
-                            ref lastMotionFactKind,
-                            ref lastFailureReason);
-                    }
-
                     continue;
                 }
 
@@ -1081,10 +889,10 @@ namespace Game.Feature.Gameplay.Host
                         RecordSemanticMissing(semanticCounters, semantic, request.TickIndex, request.EntityId, dedupeKey);
                         RecordLastContext(request.TickIndex, request.CueKey, dedupeKey, request.EntityId, semantic, BoxMotionTelemetryFailureReason.DriverMissing, ref lastTickIndex, ref lastCueKey, ref lastDedupeKey, ref lastTargetEntityId, ref lastMotionFactKind, ref lastFailureReason);
                         break;
-                    case GameplayMotionPlaybackResultKind.LegacyOwnerActive:
-                        legacyOwnerNoOpCount++;
+                    case GameplayMotionPlaybackResultKind.DuplicateActive:
+                        duplicateRejectedCount++;
                         RecordSemanticMissing(semanticCounters, semantic, request.TickIndex, request.EntityId, dedupeKey);
-                        RecordLastContext(request.TickIndex, request.CueKey, dedupeKey, request.EntityId, semantic, BoxMotionTelemetryFailureReason.LegacyOwnerActive, ref lastTickIndex, ref lastCueKey, ref lastDedupeKey, ref lastTargetEntityId, ref lastMotionFactKind, ref lastFailureReason);
+                        RecordLastContext(request.TickIndex, request.CueKey, dedupeKey, request.EntityId, semantic, BoxMotionTelemetryFailureReason.DuplicateActive, ref lastTickIndex, ref lastCueKey, ref lastDedupeKey, ref lastTargetEntityId, ref lastMotionFactKind, ref lastFailureReason);
                         break;
                     default:
                         unsupportedSemanticCount++;
@@ -1096,17 +904,14 @@ namespace Game.Feature.Gameplay.Host
 
             Diagnostics = new GameplayMotionExecutorDiagnostics(
                 observedTrackCount,
-                legacyOwnerNoOpCount,
                 targetMissingCount,
                 anchorMissingCount,
                 bindingMissingCount,
                 driverMissingCount,
-                duplicateSuppressedCount,
+                duplicateRejectedCount,
                 playbackRequestedCount,
                 trackStartedCount,
                 missingPortCount,
-                _mode == BoxMotionPresentationExecutionDefaults.ProductionDefault,
-                _mode,
                 lastTickIndex,
                 lastCueKey,
                 lastDedupeKey,
@@ -1124,8 +929,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (_mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor &&
-                _hasRoutedRequest)
+            if (_hasRoutedRequest)
             {
                 _playbackPort?.UpdatePresentation(deltaTime);
             }
@@ -1135,32 +939,24 @@ namespace Game.Feature.Gameplay.Host
         {
             _hasRoutedRequest = false;
             Diagnostics = default;
-            if (_mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
-            {
-                _playbackPort?.ResetSession();
-            }
+            _playbackPort?.ResetSession();
         }
 
         public void HardCleanup()
         {
             _hasRoutedRequest = false;
             Diagnostics = default;
-            if (_mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
-            {
-                _playbackPort?.HardCleanup();
-            }
+            _playbackPort?.HardCleanup();
         }
 
         private bool TryClaimExecution(in BoxMotionPlaybackKey key)
         {
             if (_executionGuard != null)
             {
-                return _executionGuard.TryBeginExecution(
-                    BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor,
-                    key);
+                return _executionGuard.TryBeginExecution(key);
             }
 
-            return _mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor;
+            return true;
         }
 
         private static bool IsBoxMotionTrack(in PresentationPlaybackTrack track)
@@ -1282,8 +1078,8 @@ namespace Game.Feature.Gameplay.Host
                     return BoxMotionTelemetryFailureReason.AnchorMissing;
                 case GameplayMotionPlaybackResultKind.DriverMissing:
                     return BoxMotionTelemetryFailureReason.DriverMissing;
-                case GameplayMotionPlaybackResultKind.LegacyOwnerActive:
-                    return BoxMotionTelemetryFailureReason.LegacyOwnerActive;
+                case GameplayMotionPlaybackResultKind.DuplicateActive:
+                    return BoxMotionTelemetryFailureReason.DuplicateActive;
                 default:
                     return BoxMotionTelemetryFailureReason.BindingMissing;
             }
@@ -1403,7 +1199,7 @@ namespace Game.Feature.Gameplay.Host
             private int _plannedCount;
             private int _requestedCount;
             private int _startedCount;
-            private int _duplicateSuppressedCount;
+            private int _duplicateRejectedCount;
             private int _missingDependencyCount;
             private int _lastTickIndex;
             private int _lastEntityId;
@@ -1439,7 +1235,7 @@ namespace Game.Feature.Gameplay.Host
 
             public void RecordDuplicate(int tickIndex, int entityId, int dedupeKey)
             {
-                _duplicateSuppressedCount++;
+                _duplicateRejectedCount++;
                 RecordLast(tickIndex, entityId, dedupeKey);
             }
 
@@ -1458,7 +1254,7 @@ namespace Game.Feature.Gameplay.Host
                     _requestedCount,
                     _startedCount,
                     completedCount: 0,
-                    _duplicateSuppressedCount,
+                    _duplicateRejectedCount,
                     _missingDependencyCount,
                     cleanupCount: 0,
                     _lastTickIndex,
@@ -1474,12 +1270,6 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static BoxMotionPresentationExecutionMode NormalizeMode(BoxMotionPresentationExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
-                ? mode
-                : BoxMotionPresentationExecutionDefaults.LegacyFallback;
-        }
     }
 
     internal sealed class GameplayMotionTrackPlannerPlaybackPort : IGameplayMotionPlaybackPort
@@ -1500,7 +1290,7 @@ namespace Game.Feature.Gameplay.Host
         private int _anchorMissingCount;
         private int _bindingMissingCount;
         private int _driverMissingCount;
-        private int _legacyOwnerActiveCount;
+        private int _duplicateActiveCount;
         private int _resetSessionCallCount;
         private int _hardCleanupCallCount;
 
@@ -1539,7 +1329,7 @@ namespace Game.Feature.Gameplay.Host
                 _anchorMissingCount,
                 _bindingMissingCount,
                 _driverMissingCount,
-                _legacyOwnerActiveCount,
+                _duplicateActiveCount,
                 _resetSessionCallCount,
                 _hardCleanupCallCount,
                 _result != null ||
@@ -1646,8 +1436,8 @@ namespace Game.Feature.Gameplay.Host
                 case GameplayMotionPlaybackResultKind.DriverMissing:
                     _driverMissingCount++;
                     break;
-                case GameplayMotionPlaybackResultKind.LegacyOwnerActive:
-                    _legacyOwnerActiveCount++;
+                case GameplayMotionPlaybackResultKind.DuplicateActive:
+                    _duplicateActiveCount++;
                     break;
             }
         }

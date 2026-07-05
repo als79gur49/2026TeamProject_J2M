@@ -42,15 +42,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var diagnostics = context.Host.Presenter.DamageDeathVfxExecutorDiagnostics;
                 var ownership = context.Host.Presenter.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(diagnostics.CurrentMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(diagnostics.IsProductionDefaultOwner, Is.True);
-                Assert.That(diagnostics.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DamageCuePlannedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(1));
-                Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(diagnostics.DuplicateOmittedCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
             }
@@ -88,7 +84,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(diagnostics.ObservedCueCount, Is.EqualTo(2));
                 Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
                 Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(2));
-                Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(diagnostics.DuplicateOmittedCount, Is.Zero);
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(2));
             }
@@ -100,17 +96,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_ConcreteRuntimePortWiring_NoMissingPortAndSuppressesLegacyDamageDeath()
+        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_ConcreteRuntimePortWiring_NoMissingPortAndNoExtensionDamageDeathDuplicate()
         {
             var context = CreateHostContext(
-                nameof(DamageDeathVfxProductionDefault_PlayMode_ConcreteRuntimePortWiring_NoMissingPortAndSuppressesLegacyDamageDeath),
+                nameof(DamageDeathVfxProductionDefault_PlayMode_ConcreteRuntimePortWiring_NoMissingPortAndNoExtensionDamageDeathDuplicate),
                 playbackPort: null,
                 attachVfxRuntime: true,
                 configureManualPlaybackPort: false);
             try
             {
                 Assert.That(context.VfxRuntime, Is.Not.Null);
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
 
                 context.Host.Presenter.Present(CreateDamageDeathVfxResult(
                     tickIndex: 32,
@@ -131,13 +126,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     diagnostics.AnchorMissingCount,
                     Is.EqualTo(1));
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(context.VfxRuntime.DamageDeathPlaybackRequestCount, Is.EqualTo(1));
                 Assert.That(context.VfxRuntime.LastDamageDeathPlaybackCueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
-                Assert.That(context.VfxRuntime.LegacyDamageCueSuppressedCount, Is.EqualTo(1));
-                Assert.That(context.VfxRuntime.LegacyDeathCueSuppressedCount, Is.Zero);
-                Assert.That(context.VfxRuntime.LegacyDamageDeathUnrelatedCueRetainedCount, Is.EqualTo(1));
-                Assert.That(context.VfxRuntime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(1));
+                Assert.That(context.VfxRuntime.LastPlannedRequestCount, Is.EqualTo(1));
             }
             finally
             {
@@ -172,7 +163,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     enemyDamageEntityId: 40));
                 yield return null;
 
-                Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PortMissingCount, Is.Zero);
                 Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(runtime.TryPlayCallCount, Is.EqualTo(1));
@@ -210,12 +200,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     enemyDamageEntityId: 40));
                 yield return null;
 
-                Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
                 Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PortMissingCount, Is.EqualTo(1));
                 Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(host.Presenter.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(host.Presenter.DamageDeathVfxOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(extension.PresentCallCount, Is.EqualTo(1));
                 Assert.That(presentationOrder, Is.EqualTo(new[] { "unrelated" }));
             }
@@ -334,8 +322,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(diagnostics.DamagePlaybackRequestedCount, Is.Zero);
                 Assert.That(diagnostics.DeathCuePlannedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DeathPlaybackRequestedCount, Is.EqualTo(1));
-                Assert.That(diagnostics.SameTickDamageHitSuppressedByDeathCount, Is.EqualTo(1));
-                Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(diagnostics.SameTickDamageHitOmittedByDeathCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateOmittedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.DamageDeathVfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
             }
             finally
@@ -346,11 +334,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_LegacySuppressPolicyOnlyDamageDeath()
+        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_ExtensionPlannerDoesNotEmitDamageDeathDuplicates()
         {
             var port = new RecordingDamageDeathVfxPlaybackPort();
             var context = CreateHostContext(
-                nameof(DamageDeathVfxProductionDefault_PlayMode_LegacySuppressPolicyOnlyDamageDeath),
+                nameof(DamageDeathVfxProductionDefault_PlayMode_ExtensionPlannerDoesNotEmitDamageDeathDuplicates),
                 port,
                 attachVfxRuntime: true);
             try
@@ -366,11 +354,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 yield return null;
 
                 Assert.That(context.VfxRuntime, Is.Not.Null);
-                Assert.That(context.VfxRuntime.LegacyDamageCueSuppressedCount, Is.EqualTo(1));
-                Assert.That(context.VfxRuntime.LegacyDeathCueSuppressedCount, Is.EqualTo(1));
-                Assert.That(context.VfxRuntime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(2));
-                Assert.That(context.VfxRuntime.LegacyDamageDeathUnrelatedCueRetainedCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(context.VfxRuntime.DamageDeathPlaybackRequestCount, Is.Zero);
+                Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.DuplicateOmittedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.DamageDeathVfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
             }
             finally
@@ -381,36 +366,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator DamageDeathVfx_ExplicitLegacyRollback_RemainsAvailableAfterPlayModeSmoke()
+        public IEnumerator DamageDeathVfx_LegacyRollback_NotReachableAfterPlayModeSmoke()
         {
-            var port = new RecordingDamageDeathVfxPlaybackPort();
-            var context = CreateHostContext(
-                nameof(DamageDeathVfx_ExplicitLegacyRollback_RemainsAvailableAfterPlayModeSmoke),
-                port,
-                executionMode: DamageDeathVfxExecutionMode.LegacyExtension);
-            try
-            {
-                context.Host.Presenter.Present(CreateDamageDeathVfxResult(
-                    tickIndex: 19,
-                    topology: context.Topology,
-                    enemyDamageEntityId: 40));
-                yield return null;
-
-                var diagnostics = context.Host.Presenter.DamageDeathVfxExecutorDiagnostics;
-                var ownership = context.Host.Presenter.DamageDeathVfxOwnershipDiagnostics;
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
-                Assert.That(diagnostics.IsProductionDefaultOwner, Is.False);
-                Assert.That(diagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
-            }
-            finally
-            {
-                context.Dispose();
-            }
+            Assert.That(ResolveType("Game.Feature.Gameplay.Host.DamageDeathVfxExecutionMode"), Is.Null);
+            Assert.That(
+                typeof(GameplayTickViewPresenter).GetMethod(
+                    "ConfigureDamageDeathVfxExecution",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+                Is.Null);
+            yield break;
         }
 
         [UnityTest]
@@ -464,10 +428,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 port);
             try
             {
-                Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
 
                 context.Host.Presenter.Present(CreateDamageDeathVfxResult(
                     tickIndex: 21,
@@ -478,8 +440,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
                 Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.Zero);
             }
             finally
             {
@@ -577,7 +538,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static HostVfxSmokeContext CreateHostContext(
             string rootName,
             RecordingDamageDeathVfxPlaybackPort playbackPort,
-            DamageDeathVfxExecutionMode executionMode = DamageDeathVfxExecutionMode.OrchestrationExecutor,
             bool attachVfxRuntime = false,
             bool configureManualPlaybackPort = true)
         {
@@ -593,7 +553,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.Initialize(CreateHostConfiguration(topology));
             if (configureManualPlaybackPort)
             {
-                host.Presenter.ConfigureDamageDeathVfxExecution(executionMode, playbackPort);
+                host.Presenter.ConfigureDamageDeathVfxPlaybackPort(playbackPort);
             }
 
             return new HostVfxSmokeContext(hostObject, host, runtime, topology);
@@ -779,7 +739,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(semantic.PlannedCount, Is.EqualTo(1));
             Assert.That(semantic.RequestedCount, Is.EqualTo(1));
             Assert.That(semantic.SucceededCount, Is.EqualTo(1));
-            Assert.That(semantic.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(semantic.DuplicateOmittedCount, Is.Zero);
             Assert.That(semantic.LastDedupeKey, Is.GreaterThan(0));
             Assert.That(semantic.LastTargetEntityId, Is.EqualTo(entityId));
             Assert.That(semantic.LastAnchorKind, Is.EqualTo(anchorKind));
