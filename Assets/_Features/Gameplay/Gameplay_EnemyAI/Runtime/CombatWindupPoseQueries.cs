@@ -187,6 +187,7 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         startQuery.EnemyOrigin.AnchorCell,
                         player.position,
+                        attackDecisionSettings.AttackRange,
                         tileFeatureDefinitions))
                 {
                     return CombatWindupStartQueryResult.Block(
@@ -235,6 +236,7 @@ namespace Game.Feature.Gameplay.Entities
                     snapshot,
                     startQuery.EnemyOrigin.AnchorCell,
                     targetCell,
+                    attackDecisionSettings.AttackRange,
                     tileFeatureDefinitions))
             {
                 return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.ForwardPathBlockedByTileFeature);

@@ -896,6 +896,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CombatWindupPoseQueries_ActiveBarricade_OutsideAttackRange_DoesNotClassifyForwardPathBlocked()
+        {
+            var barricade = CreateTileFeature(104, new SurfaceCell(FaceId.Front, 3, 0), TileFeatureKind.Barricade);
+            var worldState = CreateTileFeaturePathWorld(barricade);
+
+            var blocked = CombatWindupPoseQueries.IsForwardProjectilePathBlocked(
+                worldState.CreateSnapshot(),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 4, 0),
+                maxRangeCells: 2,
+                tileFeatureDefinitions: new[] { CreateDefinition(104, TileFeatureActivationRule.FrontFaceOnly) });
+
+            Assert.That(blocked, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void CombatWindupPoseQueries_InactiveBarricade_DoesNotClassifyBlocked()
         {
             var barricade = CreateTileFeature(101, new SurfaceCell(FaceId.Front, 2, 0), TileFeatureKind.Barricade);
