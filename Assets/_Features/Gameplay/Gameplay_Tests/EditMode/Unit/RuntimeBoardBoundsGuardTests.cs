@@ -5270,8 +5270,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     1f).GetCubeCenter();
 
-                host.InputHost.SetRawMoveInput(Vector2.up);
-                host.InputHost.RunSingleTick();
+                PresentDirectTopologyTransition(host);
                 host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
 
                 Assert.That(initialTarget, Is.EqualTo(expectedCenter));
@@ -5310,9 +5309,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart()
+        public void GameplaySceneHost_TopologyTransition_CameraOrbitDirectCarrierTracksPresentedTopology()
         {
-            var hostObject = new GameObject("GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart");
+            var hostObject = new GameObject("GameplaySceneHost_TopologyTransition_CameraOrbitDirectCarrierTracksPresentedTopology");
             var cameraObject = new GameObject("ViewCamera");
 
             try
@@ -5342,10 +5341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         ViewCamera = viewCamera,
                     });
 
-                var initialViewport = viewCamera.WorldToViewportPoint(GetViewPosition(host, 10));
-
-                host.InputHost.SetRawMoveInput(Vector2.up);
-                host.InputHost.RunSingleTick();
+                PresentDirectTopologyTransition(host);
 
                 var expectedTransitionWorldPosition = GetTransitionProjectedEntityPosition(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
@@ -5361,11 +5357,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(rig, Is.Not.Null);
                 Assert.That(transitionViewport.z, Is.GreaterThan(0f));
                 Assert.That(Vector3.Distance(transitionWorldPosition, expectedTransitionWorldPosition), Is.LessThan(1f));
-                Assert.That(
-                    Vector2.Distance(
-                        new Vector2(initialViewport.x, initialViewport.y),
-                        new Vector2(transitionViewport.x, transitionViewport.y)),
-                    Is.LessThan(0.005f));
                 Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
                 Assert.That(
                     Quaternion.Angle(host.Presenter.PresentedBoardRotation, sourceReferenceRotation),
@@ -5383,6 +5374,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
                 Assert.That(Quaternion.Angle(host.Presenter.PresentedBoardRotation, sourceReferenceRotation), Is.GreaterThan(0.1f));
                 Assert.That(Quaternion.Angle(host.Presenter.PresentedBoardRotation, destinationReferenceRotation), Is.GreaterThan(0.1f));
+                Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+                Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.Progress01, Is.GreaterThanOrEqualTo(0.499f));
+                Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.Progress01, Is.LessThan(1f));
                 Assert.That(
                     Vector2.Distance(
                         new Vector2(transitionViewport.x, transitionViewport.y),
@@ -5398,6 +5392,91 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Quaternion.Angle(rig.PresentedTopologyOrbit, Quaternion.Inverse(destinationReferenceRotation)),
                     Is.LessThan(0.001f));
                 Assert.That(Vector3.Distance(GetViewPosition(host, 10), expectedTransitionWorldPosition), Is.LessThan(1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplaySceneHost_TopologyTransition_CameraOrbitMovementPoseCarrierPreservesScreenContinuityAtStart()
+        {
+            var hostObject = new GameObject(
+                "GameplaySceneHost_TopologyTransition_CameraOrbitMovementPoseCarrierPreservesScreenContinuityAtStart");
+            var cameraObject = new GameObject("ViewCamera");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                    "GameplaySceneHost_TopologyTransition_CameraOrbitMovementPose_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
+                        SnapViewCameraToTarget = true,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        ViewCamera = viewCamera,
+                    });
+
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+                var destinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var initialViewport = viewCamera.WorldToViewportPoint(GetViewPosition(host, 10));
+                var movementPoseCarrier = new TickEntityMotion(
+                    10,
+                    TickEntityMotionKind.Move,
+                    sourceCell,
+                    destinationCell,
+                    sourceTopology,
+                    destinationTopology,
+                    Direction.Up,
+                    Direction.Up);
+
+                PresentDirectTopologyTransition(host, new[] { movementPoseCarrier });
+
+                var expectedTransitionWorldPosition = GetTransitionProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    sourceTopology,
+                    destinationTopology,
+                    sourceCell);
+                var transitionWorldPosition = GetViewPosition(host, 10);
+                var transitionViewport = viewCamera.WorldToViewportPoint(transitionWorldPosition);
+                var rig = host.GetComponent<GameplayCameraRig>();
+
+                Assert.That(rig, Is.Not.Null);
+                Assert.That(transitionViewport.z, Is.GreaterThan(0f));
+                Assert.That(Vector3.Distance(transitionWorldPosition, expectedTransitionWorldPosition), Is.LessThan(1f));
+                Assert.That(
+                    Vector2.Distance(
+                        new Vector2(initialViewport.x, initialViewport.y),
+                        new Vector2(transitionViewport.x, transitionViewport.y)),
+                    Is.LessThan(0.005f));
+                Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(host.Presenter.PresentedBoardRotation, ResolveRestTopologyReferenceRotation(sourceTopology)),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(rig.PresentedTopologyOrbit, Quaternion.Inverse(host.Presenter.PresentedBoardRotation)),
+                    Is.LessThan(0.001f));
             }
             finally
             {
@@ -7328,6 +7407,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData ?? TickPresentationData.Empty,
                 string.Empty,
                 TickTrace.Empty);
+        }
+
+        private static void PresentDirectTopologyTransition(
+            GameplaySceneHost host,
+            TickEntityMotion[] entityMotions = null)
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            host.Presenter.Present(
+                CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    },
+                    destinationTopology,
+                    new TickPresentationData(
+                        entityMotions ?? Array.Empty<TickEntityMotion>(),
+                        new TickTopologyMotion(sourceTopology, destinationTopology, CubeRotationKind.Forward),
+                        Array.Empty<TickVisibilityChange>())));
         }
 
         private static TickPlayerLocomotionPresentationSignal CreatePlayerLocomotionSignal(

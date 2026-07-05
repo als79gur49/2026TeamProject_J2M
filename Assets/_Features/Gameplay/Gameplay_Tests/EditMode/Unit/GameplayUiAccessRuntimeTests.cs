@@ -562,6 +562,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
                 }));
+                SetPlayerContinuousLocalOffset(
+                    host.WorldState,
+                    localX: 0,
+                    localY: SimulationFixed.MaxPositiveLocalOffset,
+                    speedUnitsPerTick: DefaultFree2DSpeedUnitsPerTick());
 
                 var frames = new List<GameplayPresentationFrame>();
                 var states = new List<GameplayPresentationState>();
@@ -573,6 +578,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(acceptance.Accepted, Is.True);
                 Assert.That(tickResult, Is.Not.Null);
+                Assert.That(tickResult.PresentationData.TopologyMotion.HasValue, Is.True);
                 Assert.That(frames.Count, Is.EqualTo(1));
                 Assert.That(frames[0].Topology.HasValue, Is.True);
                 Assert.That(frames[0].Topology.Value.RotationKind, Is.EqualTo(GameplayUiRotationKind.Forward));
@@ -1067,6 +1073,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boxCapabilities = capabilities,
                 aiMode = EnemyAiMode.None,
             };
+        }
+
+        private static void SetPlayerContinuousLocalOffset(
+            WorldState worldState,
+            int localX,
+            int localY,
+            int speedUnitsPerTick)
+        {
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                10,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new SimulationOffset2(
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
+                    velocity = SimulationVelocity2.Zero,
+                    facing = Direction.Up,
+                    lastMoveDirection = Direction.Up,
+                    speedUnitsPerTick = speedUnitsPerTick,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+        }
+
+        private static int DefaultFree2DSpeedUnitsPerTick()
+        {
+            return PlayerContinuousLocomotionSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .SpeedUnitsPerTick;
         }
 
         private static string CreatePrefsKey(string suffix)

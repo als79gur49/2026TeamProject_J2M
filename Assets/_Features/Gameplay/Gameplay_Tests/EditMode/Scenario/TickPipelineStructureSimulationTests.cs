@@ -294,11 +294,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    new TopologyRotationPlanLogic(new CubeTopologyState(FaceId.Front)),
                 },
                 includeCombatCapability: true);
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var result = pipeline.RunTick(new TickInput(1));
 
             Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
@@ -406,6 +406,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
             };
+        }
+
+        private sealed class TopologyRotationPlanLogic : IPreMovementStateLogic
+        {
+            private readonly CubeTopologyState _topology;
+
+            public TopologyRotationPlanLogic(CubeTopologyState topology)
+            {
+                _topology = topology;
+            }
+
+            public void CommitPreMovementState(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                IPreMovementStateCommitContext writeContext,
+                List<string> updates,
+                List<PlayerActionTransition> actionTransitions)
+            {
+                ((IMovementCommitContext)writeContext).SetTopology(_topology);
+                updates.Add($"TopologyRotationPlan|Tick={input.TickIndex}|Topology={_topology}");
+            }
         }
 
         private sealed class StubEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
