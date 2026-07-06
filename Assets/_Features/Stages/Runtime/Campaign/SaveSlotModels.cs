@@ -253,6 +253,43 @@ namespace Game.Feature.Stages
         public const string ActiveSaveSlotKey = "Game.Feature.Stages.ActiveStageClearSaveSlot";
     }
 
+    public interface ISavePathProvider
+    {
+        string SaveRootPath { get; }
+
+        string GetSaveFilePath(string fileName);
+    }
+
+    public abstract class SavePathProviderBase : ISavePathProvider
+    {
+        protected SavePathProviderBase(string saveRootPath)
+        {
+            SaveRootPath = saveRootPath ?? string.Empty;
+        }
+
+        public string SaveRootPath { get; }
+
+        public string GetSaveFilePath(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                throw new ArgumentException("Save file name must not be empty.", nameof(fileName));
+            }
+
+            return Path.Combine(SaveRootPath, fileName);
+        }
+    }
+
+    public sealed class ApplicationPersistentDataSavePathProvider : SavePathProviderBase
+    {
+        public const string SavesDirectoryName = "Saves";
+
+        public ApplicationPersistentDataSavePathProvider()
+            : base(Path.Combine(Application.persistentDataPath, SavesDirectoryName))
+        {
+        }
+    }
+
     public enum StageClearSavePayloadStatus
     {
         Empty = 0,
@@ -927,6 +964,65 @@ namespace Game.Feature.Stages
         }
     }
 
+    internal interface ISaveSlotStorageBackend
+    {
+        string SaveSlotsKey { get; }
+
+        bool HasPayload();
+
+        string LoadPayload(string defaultValue);
+
+        void SavePayload(string payload);
+
+        void ClearPayload();
+
+        void ResetRejectedPayload();
+    }
+
+    internal sealed class PlayerPrefsSaveSlotStorageBackend : ISaveSlotStorageBackend
+    {
+        private readonly StageClearSavePrefsScope _prefsScope;
+
+        public PlayerPrefsSaveSlotStorageBackend(
+            string saveSlotsKey,
+            StageClearSavePrefsScope prefsScope)
+        {
+            SaveSlotsKey = string.IsNullOrWhiteSpace(saveSlotsKey)
+                ? SaveSlotStore.DefaultPlayerPrefsKey
+                : saveSlotsKey;
+            _prefsScope = prefsScope;
+        }
+
+        public string SaveSlotsKey { get; }
+
+        public bool HasPayload()
+        {
+            return PlayerPrefs.HasKey(SaveSlotsKey);
+        }
+
+        public string LoadPayload(string defaultValue)
+        {
+            return PlayerPrefs.GetString(SaveSlotsKey, defaultValue);
+        }
+
+        public void SavePayload(string payload)
+        {
+            PlayerPrefs.SetString(SaveSlotsKey, payload ?? string.Empty);
+            PlayerPrefs.Save();
+        }
+
+        public void ClearPayload()
+        {
+            PlayerPrefs.DeleteKey(SaveSlotsKey);
+            PlayerPrefs.Save();
+        }
+
+        public void ResetRejectedPayload()
+        {
+            StageClearSavePrefsResetPolicy.Reset(_prefsScope);
+        }
+    }
+
     public sealed class ActiveSlotProvider
     {
         private const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.ActiveSaveSlotKey;
@@ -1005,15 +1101,16 @@ namespace Game.Feature.Stages
         public const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.SaveSlotsKey;
 
         private readonly string _playerPrefsKey;
-        private readonly StageClearSavePrefsScope _prefsScope;
+        private readonly ISaveSlotStorageBackend _storageBackend;
 
         public SaveSlotStore(string playerPrefsKey = DefaultPlayerPrefsKey, string activeSlotPrefsKey = null)
         {
             _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
                 ? DefaultPlayerPrefsKey
                 : playerPrefsKey;
-            _prefsScope = StageClearSavePrefsScope.Create(_playerPrefsKey, activeSlotPrefsKey);
-            DeleteLegacyPrefsIfUsingDefaultScope(_prefsScope);
+            var prefsScope = StageClearSavePrefsScope.Create(_playerPrefsKey, activeSlotPrefsKey);
+            DeleteLegacyPrefsIfUsingDefaultScope(prefsScope);
+            _storageBackend = new PlayerPrefsSaveSlotStorageBackend(_playerPrefsKey, prefsScope);
             LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
         }
 
@@ -1092,25 +1189,23 @@ namespace Game.Feature.Stages
 
         public void ClearAll()
         {
-            PlayerPrefs.DeleteKey(_playerPrefsKey);
-            PlayerPrefs.Save();
+            _storageBackend.ClearPayload();
         }
 
         private void SaveAll(SaveSlotData[] slots)
         {
-            PlayerPrefs.SetString(_playerPrefsKey, JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(slots)));
-            PlayerPrefs.Save();
+            _storageBackend.SavePayload(JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(slots)));
         }
 
         private SaveSlotStoreDto LoadDto()
         {
-            if (!PlayerPrefs.HasKey(_playerPrefsKey))
+            if (!_storageBackend.HasPayload())
             {
                 LastLoadReport = StageClearSaveLoadReport.Empty("PlayerPrefs key is missing.");
                 return SaveSlotDtoMapper.CreateEmptyDto();
             }
 
-            var rawJson = PlayerPrefs.GetString(_playerPrefsKey, string.Empty);
+            var rawJson = _storageBackend.LoadPayload(string.Empty);
             var inspection = StageClearSavePayloadGuard.Inspect(rawJson);
             LastLoadReport = inspection.ToLoadReport();
 
@@ -1121,7 +1216,7 @@ namespace Game.Feature.Stages
 
             if (inspection.ShouldReset)
             {
-                StageClearSavePrefsResetPolicy.Reset(_prefsScope);
+                _storageBackend.ResetRejectedPayload();
                 return SaveSlotDtoMapper.CreateEmptyDto();
             }
 
@@ -1130,7 +1225,7 @@ namespace Game.Feature.Stages
                 var dto = JsonUtility.FromJson<SaveSlotStoreDto>(rawJson);
                 if (!IsCurrentDtoValid(dto, out var invalidReason))
                 {
-                    StageClearSavePrefsResetPolicy.Reset(_prefsScope);
+                    _storageBackend.ResetRejectedPayload();
                     LastLoadReport = new StageClearSaveLoadReport(
                         StageClearSavePayloadStatus.InvalidRejected,
                         invalidReason,
@@ -1146,7 +1241,7 @@ namespace Game.Feature.Stages
             }
             catch (Exception exception)
             {
-                StageClearSavePrefsResetPolicy.Reset(_prefsScope);
+                _storageBackend.ResetRejectedPayload();
                 LastLoadReport = new StageClearSaveLoadReport(
                     StageClearSavePayloadStatus.InvalidRejected,
                     $"Save slot data could not be parsed and will be ignored. {exception.Message}",

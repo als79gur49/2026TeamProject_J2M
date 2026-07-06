@@ -89,6 +89,29 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void SavePathProvider_DefaultProvider_UsesPersistentDataSavesRoot()
+        {
+            var provider = new ApplicationPersistentDataSavePathProvider();
+
+            Assert.That(
+                provider.SaveRootPath,
+                Is.EqualTo(Path.Combine(Application.persistentDataPath, ApplicationPersistentDataSavePathProvider.SavesDirectoryName)));
+            Assert.That(
+                provider.GetSaveFilePath("profile.json"),
+                Is.EqualTo(Path.Combine(Application.persistentDataPath, "Saves", "profile.json")));
+        }
+
+        [Test]
+        public void SavePathProvider_TempRootProvider_CanBeInjectedByTests()
+        {
+            var tempRoot = Path.Combine("Temp", "SavePathProviderTests", Guid.NewGuid().ToString("N"));
+            ISavePathProvider provider = new TemporarySavePathProvider(tempRoot);
+
+            Assert.That(provider.SaveRootPath, Is.EqualTo(tempRoot));
+            Assert.That(provider.GetSaveFilePath("profile.json"), Is.EqualTo(Path.Combine(tempRoot, "profile.json")));
+        }
+
+        [Test]
         public void SaveSlotStore_OldPrefsKey_IsDeletedOnInitialize()
         {
             ClearStageSavePrefsForTests();
@@ -443,6 +466,14 @@ namespace Game.Feature.Stages.Editor.Tests
             if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
             {
                 File.Delete(path);
+            }
+        }
+
+        private sealed class TemporarySavePathProvider : SavePathProviderBase
+        {
+            public TemporarySavePathProvider(string saveRootPath)
+                : base(saveRootPath)
+            {
             }
         }
 

@@ -112,6 +112,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SaveSlotStore_FacadePlayerPrefsBackend_PreservesLoadDeleteAndClearBehavior()
+        {
+            var key = CreatePrefsKey(nameof(SaveSlotStore_FacadePlayerPrefsBackend_PreservesLoadDeleteAndClearBehavior));
+            var store = new SaveSlotStore(key);
+            store.ClearAll();
+
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = 2,
+            });
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 2,
+                CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
+                CurrentLevelGroupId = "level-2",
+                RemainingChances = 1,
+            });
+
+            var reloaded = new SaveSlotStore(key);
+            var loaded = reloaded.LoadAll();
+            Assert.That(loaded[0].CurrentStageId.Value, Is.EqualTo("stage-1-1"));
+            Assert.That(loaded[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(PlayerPrefs.HasKey(key), Is.True);
+
+            reloaded.DeleteSlot(1);
+            var afterDelete = new SaveSlotStore(key).LoadAll();
+            Assert.That(afterDelete[0].IsEmpty, Is.True);
+            Assert.That(afterDelete[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(PlayerPrefs.HasKey(key), Is.True);
+
+            reloaded.ClearAll();
+
+            Assert.That(PlayerPrefs.HasKey(key), Is.False);
+            Assert.That(new SaveSlotStore(key).LoadAll().All(slot => slot.IsEmpty), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StageClearSavePayloadGuard_Empty_ReturnsEmpty()
         {
             var result = StageClearSavePayloadGuard.Inspect(" ");
