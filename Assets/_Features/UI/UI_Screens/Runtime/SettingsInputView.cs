@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -38,6 +39,7 @@ namespace Game.Feature.UI.Screens
 
         private bool _isRefreshingControls;
         private bool _isVisible;
+        private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private SettingsInputViewModel _viewModel;
 
         public event Action<bool> MovementSchemeToggleRequested;
@@ -76,6 +78,72 @@ namespace Game.Feature.UI.Screens
             }
 
             RefreshView();
+        }
+
+        public void BindStaticLocalization(
+            SettingsScreenPayload payload,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver)
+        {
+            UnbindStaticLocalization();
+            if (payload == null)
+            {
+                return;
+            }
+
+            _localizedStaticBindings = new List<LocalizedTmpTextBinding>
+            {
+                new(
+                    _movementLabel,
+                    payload.MovementLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _movementToggleLabel,
+                    payload.UseArrowKeysLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _pushLabel,
+                    payload.PushLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _pushChangeButtonLabel,
+                    payload.InputChangeLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _flipLabel,
+                    payload.FlipLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _flipChangeButtonLabel,
+                    payload.InputChangeLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _resetButtonLabel,
+                    payload.ResetInputLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+            };
+        }
+
+        public void UnbindStaticLocalization()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _localizedStaticBindings.Count; i++)
+            {
+                _localizedStaticBindings[i]?.Dispose();
+            }
+
+            _localizedStaticBindings = null;
         }
 
         public void ValidateAuthoredControlsOrThrow()
@@ -211,6 +279,7 @@ namespace Game.Feature.UI.Screens
                 _viewModel.Changed -= HandleViewModelChanged;
             }
 
+            UnbindStaticLocalization();
             UnbindControls();
         }
 
@@ -239,19 +308,23 @@ namespace Game.Feature.UI.Screens
             _isRefreshingControls = true;
             try
             {
-                SetText(_movementLabel, _viewModel.MovementLabel);
-                SetText(_movementToggleLabel, _viewModel.UseArrowKeysLabel);
+                if (!HasLocalizedStaticBindings)
+                {
+                    SetText(_movementLabel, _viewModel.MovementLabel);
+                    SetText(_movementToggleLabel, _viewModel.UseArrowKeysLabel);
+                    SetText(_pushLabel, _viewModel.PushLabel);
+                    SetText(_pushChangeButtonLabel, _viewModel.PushChangeLabel);
+                    SetText(_flipLabel, _viewModel.FlipLabel);
+                    SetText(_flipChangeButtonLabel, _viewModel.FlipChangeLabel);
+                    SetText(_resetButtonLabel, _viewModel.ResetLabel);
+                }
+
                 SetText(_movementCurrentText, _viewModel.MovementCurrentText);
-                SetText(_pushLabel, _viewModel.PushLabel);
                 SetText(_pushCurrentText, _viewModel.PushCurrentText);
                 SetKeyDisplayText(_pushKeyDisplayLabel, _viewModel.PushCurrentText);
-                SetText(_pushChangeButtonLabel, _viewModel.PushChangeLabel);
-                SetText(_flipLabel, _viewModel.FlipLabel);
                 SetText(_flipCurrentText, _viewModel.FlipCurrentText);
                 SetKeyDisplayText(_flipKeyDisplayLabel, _viewModel.FlipCurrentText);
-                SetText(_flipChangeButtonLabel, _viewModel.FlipChangeLabel);
                 SetText(_statusText, _viewModel.StatusText);
-                SetText(_resetButtonLabel, _viewModel.ResetLabel);
 
                 if (_movementSlider != null)
                 {
@@ -284,6 +357,9 @@ namespace Game.Feature.UI.Screens
             RebindControls();
             RefreshControls();
         }
+
+        private bool HasLocalizedStaticBindings =>
+            _localizedStaticBindings != null && _localizedStaticBindings.Count > 0;
 
         private void RebindControls()
         {

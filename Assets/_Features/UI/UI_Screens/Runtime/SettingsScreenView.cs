@@ -36,6 +36,7 @@ namespace Game.Feature.UI.Screens
 
         private bool _isVisible;
         private readonly UiFocusGraphNavigator _focusGraph = new();
+        private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private SettingsScreenViewModel _viewModel;
         private Tween _enterTween;
         private CanvasGroup _rootCanvasGroup;
@@ -86,6 +87,61 @@ namespace Game.Feature.UI.Screens
             }
 
             RefreshView();
+        }
+
+        public void BindStaticLocalization(
+            SettingsScreenPayload payload,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver)
+        {
+            UnbindStaticLocalization();
+            if (payload == null)
+            {
+                return;
+            }
+
+            _localizedStaticBindings = new List<LocalizedTmpTextBinding>
+            {
+                new(
+                    _titleLabel,
+                    payload.TitleTextDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _backButtonLabel,
+                    payload.BackLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _audioTabButtonLabel,
+                    payload.AudioTabLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _displayTabButtonLabel,
+                    payload.DisplayTabLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+                new(
+                    _inputTabButtonLabel,
+                    payload.InputTabLabelDescriptor,
+                    textResolver,
+                    typographyResolver),
+            };
+
+            if (_inputView != null)
+            {
+                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver);
+            }
+        }
+
+        public void UnbindStaticLocalization()
+        {
+            DisposeLocalizedStaticBindings();
+            if (_inputView != null)
+            {
+                _inputView.UnbindStaticLocalization();
+            }
         }
 
         public void ValidateAuthoredStructureOrThrow()
@@ -274,6 +330,7 @@ namespace Game.Feature.UI.Screens
         private void OnDestroy()
         {
             StopRootEnterMotion();
+            UnbindStaticLocalization();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -296,27 +353,27 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
-            if (_titleLabel != null)
+            if (!HasLocalizedStaticBindings && _titleLabel != null)
             {
                 _titleLabel.text = _viewModel.TitleText;
             }
 
-            if (_backButtonLabel != null)
+            if (!HasLocalizedStaticBindings && _backButtonLabel != null)
             {
                 _backButtonLabel.text = _viewModel.BackLabel;
             }
 
-            if (_audioTabButtonLabel != null)
+            if (!HasLocalizedStaticBindings && _audioTabButtonLabel != null)
             {
                 _audioTabButtonLabel.text = _viewModel.AudioTabLabel;
             }
 
-            if (_displayTabButtonLabel != null)
+            if (!HasLocalizedStaticBindings && _displayTabButtonLabel != null)
             {
                 _displayTabButtonLabel.text = _viewModel.DisplayTabLabel;
             }
 
-            if (_inputTabButtonLabel != null)
+            if (!HasLocalizedStaticBindings && _inputTabButtonLabel != null)
             {
                 _inputTabButtonLabel.text = _viewModel.InputTabLabel;
             }
@@ -603,6 +660,24 @@ namespace Game.Feature.UI.Screens
             {
                 ScreenEnterTweenUtility.RestoreAlpha(_rootCanvasGroup, _rootRestAlpha);
             }
+        }
+
+        private bool HasLocalizedStaticBindings =>
+            _localizedStaticBindings != null && _localizedStaticBindings.Count > 0;
+
+        private void DisposeLocalizedStaticBindings()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _localizedStaticBindings.Count; i++)
+            {
+                _localizedStaticBindings[i]?.Dispose();
+            }
+
+            _localizedStaticBindings = null;
         }
 
         private void ValidateSection(Component sectionView, string fieldName, string baseMessage)
