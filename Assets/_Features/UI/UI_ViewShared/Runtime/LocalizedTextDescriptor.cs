@@ -304,6 +304,12 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.language.english"] = "English",
                     ["ui.settings.language.korean"] = "Korean",
                     ["ui.common.back"] = "Back",
+                    ["ui.common.settings"] = "Settings",
+                    ["ui.pause.title"] = "Paused",
+                    ["ui.pause.description"] = "Pausing modal popup",
+                    ["ui.pause.resume"] = "Resume",
+                    ["ui.pause.retry"] = "Retry",
+                    ["ui.pause.main_menu"] = "Main Menu",
                 },
                 [KoreanLocaleCode] = new Dictionary<string, string>
                 {
@@ -321,6 +327,12 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.language.english"] = "영어",
                     ["ui.settings.language.korean"] = "한국어",
                     ["ui.common.back"] = "뒤로",
+                    ["ui.common.settings"] = "설정",
+                    ["ui.pause.title"] = "일시 정지",
+                    ["ui.pause.description"] = "일시 정지 팝업",
+                    ["ui.pause.resume"] = "계속하기",
+                    ["ui.pause.retry"] = "다시 시도",
+                    ["ui.pause.main_menu"] = "메인 메뉴",
                 },
             };
         }

@@ -34,6 +34,12 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.settings.language", "Language", "언어"),
             ("ui.settings.language.english", "English", "영어"),
             ("ui.settings.language.korean", "Korean", "한국어"),
+            ("ui.common.settings", "Settings", "설정"),
+            ("ui.pause.title", "Paused", "일시 정지"),
+            ("ui.pause.description", "Pausing modal popup", "일시 정지 팝업"),
+            ("ui.pause.resume", "Resume", "계속하기"),
+            ("ui.pause.retry", "Retry", "다시 시도"),
+            ("ui.pause.main_menu", "Main Menu", "메인 메뉴"),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()

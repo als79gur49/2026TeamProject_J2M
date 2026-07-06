@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Popups
 {
@@ -36,41 +37,85 @@ namespace Game.Feature.UI.Popups
 
     public sealed class PausePopupPayload : IPopupPayload
     {
-        public static readonly PausePopupPayload Default = new(
-            "Paused",
-            "Pausing modal popup",
-            "Resume",
-            "Settings",
-            "Retry",
-            "Main Menu");
+        public static readonly PausePopupPayload Default = new();
 
         public PausePopupPayload(
-            string titleText,
-            string descriptionText,
-            string resumeLabel,
-            string settingsLabel,
-            string retryLabel = "Retry",
-            string mainMenuLabel = "Main Menu")
+            LocalizedTextDescriptor titleTextDescriptor = default,
+            LocalizedTextDescriptor descriptionTextDescriptor = default,
+            LocalizedTextDescriptor resumeLabelDescriptor = default,
+            LocalizedTextDescriptor settingsLabelDescriptor = default,
+            LocalizedTextDescriptor retryLabelDescriptor = default,
+            LocalizedTextDescriptor mainMenuLabelDescriptor = default)
         {
-            TitleText = titleText ?? string.Empty;
-            DescriptionText = descriptionText ?? string.Empty;
-            ResumeLabel = resumeLabel ?? string.Empty;
-            SettingsLabel = settingsLabel ?? string.Empty;
-            RetryLabel = retryLabel ?? string.Empty;
-            MainMenuLabel = mainMenuLabel ?? string.Empty;
+            TitleTextDescriptor = OrDefault(titleTextDescriptor, PauseStaticTextDescriptors.Title);
+            DescriptionTextDescriptor = OrDefault(descriptionTextDescriptor, PauseStaticTextDescriptors.Description);
+            ResumeLabelDescriptor = OrDefault(resumeLabelDescriptor, PauseStaticTextDescriptors.Resume);
+            SettingsLabelDescriptor = OrDefault(settingsLabelDescriptor, PauseStaticTextDescriptors.Settings);
+            RetryLabelDescriptor = OrDefault(retryLabelDescriptor, PauseStaticTextDescriptors.Retry);
+            MainMenuLabelDescriptor = OrDefault(mainMenuLabelDescriptor, PauseStaticTextDescriptors.MainMenu);
         }
 
-        public string TitleText { get; }
+        public LocalizedTextDescriptor TitleTextDescriptor { get; }
 
-        public string DescriptionText { get; }
+        public LocalizedTextDescriptor DescriptionTextDescriptor { get; }
 
-        public string ResumeLabel { get; }
+        public LocalizedTextDescriptor ResumeLabelDescriptor { get; }
 
-        public string SettingsLabel { get; }
+        public LocalizedTextDescriptor SettingsLabelDescriptor { get; }
 
-        public string RetryLabel { get; }
+        public LocalizedTextDescriptor RetryLabelDescriptor { get; }
 
-        public string MainMenuLabel { get; }
+        public LocalizedTextDescriptor MainMenuLabelDescriptor { get; }
+
+        private static LocalizedTextDescriptor OrDefault(
+            LocalizedTextDescriptor descriptor,
+            LocalizedTextDescriptor fallback)
+        {
+            return string.IsNullOrEmpty(descriptor.Table) && string.IsNullOrEmpty(descriptor.Key)
+                ? fallback
+                : descriptor;
+        }
+    }
+
+    public static class PauseStaticTextDescriptors
+    {
+        public const string Table = "UI";
+
+        public static readonly LocalizedTextDescriptor Title = new(
+            Table,
+            "ui.pause.title",
+            LocalizedTextRole.Title,
+            LocalizedTextWeight.Bold);
+
+        public static readonly LocalizedTextDescriptor Description = new(
+            Table,
+            "ui.pause.description",
+            LocalizedTextRole.Body,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Resume = new(
+            Table,
+            "ui.pause.resume",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Settings = new(
+            Table,
+            "ui.common.settings",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Retry = new(
+            Table,
+            "ui.pause.retry",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor MainMenu = new(
+            Table,
+            "ui.pause.main_menu",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
     }
 
     public sealed class ConfirmPopupPayload : IPopupPayload

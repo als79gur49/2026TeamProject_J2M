@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
     public sealed class PausePopupPresenter
     {
-        public PausePopupPresenter()
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+
+        public PausePopupPresenter(ILocalizedTextResolver localizedTextResolver = null)
         {
+            _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             ViewModel = new PausePopupViewModel();
         }
 
@@ -21,12 +25,17 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
-                payload.TitleText,
-                payload.DescriptionText,
-                payload.ResumeLabel,
-                payload.SettingsLabel,
-                payload.RetryLabel,
-                payload.MainMenuLabel);
+                Resolve(payload.TitleTextDescriptor),
+                Resolve(payload.DescriptionTextDescriptor),
+                Resolve(payload.ResumeLabelDescriptor),
+                Resolve(payload.SettingsLabelDescriptor),
+                Resolve(payload.RetryLabelDescriptor),
+                Resolve(payload.MainMenuLabelDescriptor));
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return _localizedTextResolver.Resolve(descriptor);
         }
     }
 

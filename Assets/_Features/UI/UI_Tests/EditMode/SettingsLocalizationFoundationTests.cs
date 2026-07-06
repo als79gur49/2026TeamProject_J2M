@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
@@ -29,6 +31,16 @@ namespace Game.Feature.UI.Tests
             SettingsStaticTextDescriptors.LanguageEnglish,
             SettingsStaticTextDescriptors.LanguageKorean,
             SettingsStaticTextDescriptors.Back,
+        };
+
+        private static readonly LocalizedTextDescriptor[] ExpectedPauseDescriptors =
+        {
+            PauseStaticTextDescriptors.Title,
+            PauseStaticTextDescriptors.Description,
+            PauseStaticTextDescriptors.Resume,
+            PauseStaticTextDescriptors.Settings,
+            PauseStaticTextDescriptors.Retry,
+            PauseStaticTextDescriptors.MainMenu,
         };
 
         [Test]
@@ -92,6 +104,49 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PausePopupPayload_Default_ProvidesStaticShellDescriptors()
+        {
+            var descriptors = GetPausePayloadDescriptors(PausePopupPayload.Default);
+
+            Assert.That(descriptors, Is.EqualTo(ExpectedPauseDescriptors));
+            Assert.That(
+                descriptors.Select(descriptor => descriptor.Key).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "ui.pause.title",
+                    "ui.pause.description",
+                    "ui.pause.resume",
+                    "ui.common.settings",
+                    "ui.pause.retry",
+                    "ui.pause.main_menu",
+                }));
+            Assert.That(
+                typeof(PausePopupPayload)
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(property => property.PropertyType == typeof(string))
+                    .Select(property => property.Name)
+                    .ToArray(),
+                Is.Empty);
+        }
+
+        [Test]
+        public void PausePopupPresenter_MapsStaticDescriptorsThroughResolver()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            resolver.SetLocale("ko-KR");
+            var presenter = new PausePopupPresenter(resolver);
+
+            presenter.Apply(PausePopupPayload.Default);
+
+            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("일시 정지"));
+            Assert.That(presenter.ViewModel.DescriptionText, Is.EqualTo("일시 정지 팝업"));
+            Assert.That(presenter.ViewModel.ResumeLabel, Is.EqualTo("계속하기"));
+            Assert.That(presenter.ViewModel.SettingsLabel, Is.EqualTo("설정"));
+            Assert.That(presenter.ViewModel.RetryLabel, Is.EqualTo("다시 시도"));
+            Assert.That(presenter.ViewModel.MainMenuLabel, Is.EqualTo("메인 메뉴"));
+        }
+
+        [Test]
         public void FakeResolver_ResolvesSettingsTitleByLocale()
         {
             var resolver = new FakeLocalizedTextResolver();
@@ -112,6 +167,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.LanguageLabelDescriptor), Is.EqualTo("Language"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("Korean"));
+            Assert.That(resolver.Resolve(PausePopupPayload.Default.TitleTextDescriptor), Is.EqualTo("Paused"));
+            Assert.That(resolver.Resolve(PausePopupPayload.Default.MainMenuLabelDescriptor), Is.EqualTo("Main Menu"));
 
             resolver.SetLocale("ko-KR");
 
@@ -120,6 +177,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.ResetInputLabelDescriptor), Is.EqualTo("입력 초기화"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.LanguageLabelDescriptor), Is.EqualTo("언어"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("한국어"));
+            Assert.That(resolver.Resolve(PausePopupPayload.Default.TitleTextDescriptor), Is.EqualTo("일시 정지"));
+            Assert.That(resolver.Resolve(PausePopupPayload.Default.MainMenuLabelDescriptor), Is.EqualTo("메인 메뉴"));
         }
 
         [Test]
@@ -406,6 +465,30 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PausePopupStaticMigration_DoesNotReviveDeferredStaticSurfaces()
+        {
+            var descriptors = GetPausePayloadDescriptors(PausePopupPayload.Default);
+            var descriptorKeys = descriptors.Select(descriptor => descriptor.Key).ToArray();
+            var stageResultPayloadProperties = typeof(StageResultScreenPayload)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => property.Name)
+                .ToArray();
+            var stagePresentationProperties = typeof(StagePresentationDefinition)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Select(property => property.Name)
+                .ToArray();
+
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.stage.display_name"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.hud.objective"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.display.preview_countdown"));
+            Assert.That(stageResultPayloadProperties, Does.Not.Contain("TitleText"));
+            Assert.That(stageResultPayloadProperties, Does.Not.Contain("DetailText"));
+            Assert.That(stageResultPayloadProperties, Does.Not.Contain("ContinueLabel"));
+            Assert.That(stagePresentationProperties, Does.Not.Contain("DisplayNameKey"));
+        }
+
+
+        [Test]
         public void UiApplicationLocalizationFoundation_RemainsPackageFree()
         {
             var references = typeof(SettingsScreenPresenter).Assembly
@@ -474,6 +557,19 @@ namespace Game.Feature.UI.Tests
                 payload.EnglishLanguageLabelDescriptor,
                 payload.KoreanLanguageLabelDescriptor,
                 payload.BackLabelDescriptor,
+            };
+        }
+
+        private static LocalizedTextDescriptor[] GetPausePayloadDescriptors(PausePopupPayload payload)
+        {
+            return new[]
+            {
+                payload.TitleTextDescriptor,
+                payload.DescriptionTextDescriptor,
+                payload.ResumeLabelDescriptor,
+                payload.SettingsLabelDescriptor,
+                payload.RetryLabelDescriptor,
+                payload.MainMenuLabelDescriptor,
             };
         }
 
@@ -594,6 +690,12 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.english"] = "English",
                         ["ui.settings.language.korean"] = "Korean",
                         ["ui.common.back"] = "Back",
+                        ["ui.common.settings"] = "Settings",
+                        ["ui.pause.title"] = "Paused",
+                        ["ui.pause.description"] = "Pausing modal popup",
+                        ["ui.pause.resume"] = "Resume",
+                        ["ui.pause.retry"] = "Retry",
+                        ["ui.pause.main_menu"] = "Main Menu",
                     },
                     ["ko-KR"] = new Dictionary<string, string>
                     {
@@ -611,6 +713,12 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.english"] = "영어",
                         ["ui.settings.language.korean"] = "한국어",
                         ["ui.common.back"] = "뒤로",
+                        ["ui.common.settings"] = "설정",
+                        ["ui.pause.title"] = "일시 정지",
+                        ["ui.pause.description"] = "일시 정지 팝업",
+                        ["ui.pause.resume"] = "계속하기",
+                        ["ui.pause.retry"] = "다시 시도",
+                        ["ui.pause.main_menu"] = "메인 메뉴",
                     },
                 };
 

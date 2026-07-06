@@ -857,6 +857,12 @@ namespace Game.Feature.UI.Application
             ["ui.settings.language.english"] = "English",
             ["ui.settings.language.korean"] = "Korean",
             ["ui.common.back"] = "Back",
+            ["ui.common.settings"] = "Settings",
+            ["ui.pause.title"] = "Paused",
+            ["ui.pause.description"] = "Pausing modal popup",
+            ["ui.pause.resume"] = "Resume",
+            ["ui.pause.retry"] = "Retry",
+            ["ui.pause.main_menu"] = "Main Menu",
         };
 
         private InvariantSettingsLocalizedTextResolver()

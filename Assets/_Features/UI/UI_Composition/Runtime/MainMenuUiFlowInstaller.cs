@@ -56,6 +56,7 @@ namespace Game.Feature.UI.Composition
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private ILocalizedTextResolver _localizedTextResolver;
         private UiNavigationInputRouter _navigationInputRouter;
         private bool _wasKeyboardBindingRebinding;
         private MainMenuSettingsOverlayController _settingsOverlayController;
@@ -115,6 +116,7 @@ namespace Game.Feature.UI.Composition
             EnsureEventSystem();
             EnsureMainMenuScreenView();
             EnsurePopupLayerView();
+            _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
             BuildPopupModule();
@@ -167,7 +169,10 @@ namespace Game.Feature.UI.Composition
 
         private void BuildPopupModule()
         {
-            PopupController = new PopupController(new GameplayPopupRuntimeFactory(_popupLayerView, _popupPrefabCatalog));
+            PopupController = new PopupController(new GameplayPopupRuntimeFactory(
+                _popupLayerView,
+                _popupPrefabCatalog,
+                localizedTextResolver: _localizedTextResolver));
             PopupController.StateChanged += SyncPopupLayer;
             _popupLayerView.BackdropClicked += HandlePopupBackdropClicked;
             _confirmPopupPort = new ConfirmPopupPortAdapter(PopupController);
@@ -192,7 +197,6 @@ namespace Game.Feature.UI.Composition
                 PopupController,
                 _displayPreviewTimeoutRelay,
                 _settingsPreviewTimeoutSeconds);
-            var localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             _settingsOverlayController = new MainMenuSettingsOverlayController(
                 transform,
@@ -209,7 +213,7 @@ namespace Game.Feature.UI.Composition
                     SettingsScreenPayload.Default,
                     _settingsPreviewTimeoutSeconds,
                     uiAudioPort: uiAudioPort,
-                    localizedTextResolver: localizedTextResolver,
+                    localizedTextResolver: _localizedTextResolver,
                     localizedTmpFontResolver: _koreanSettingsFont != null
                         ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
                         : null));
@@ -370,6 +374,7 @@ namespace Game.Feature.UI.Composition
             _settingsOverlayController?.Dispose();
             _audioSettingsLifecycleRelay?.FlushNow();
             PopupController?.Dispose();
+            (_localizedTextResolver as IDisposable)?.Dispose();
         }
 
         private void HandleControllerViewModelChanged(SaveSlotPanelViewModel viewModel)

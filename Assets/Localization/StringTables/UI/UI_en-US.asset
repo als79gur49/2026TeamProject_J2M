@@ -74,6 +74,30 @@ MonoBehaviour:
     m_Localized: Korean
     m_Metadata:
       m_Items: []
+  - m_Id: 1881628682
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628683
+    m_Localized: Paused
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628684
+    m_Localized: Pausing modal popup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628685
+    m_Localized: Resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628686
+    m_Localized: Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628687
+    m_Localized: Main Menu
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

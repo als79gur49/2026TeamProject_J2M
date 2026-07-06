@@ -188,12 +188,14 @@ namespace Game.Feature.UI.Composition
             _audioSettingsLifecycleRelay = UiSettingsBridgeAssembly.EnsureAudioSettingsLifecycleRelay(gameObject, audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
+            var localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog,
                 _demoStageControlCommandPort,
-                _demoGameplayOverrideCommandPort));
+                _demoGameplayOverrideCommandPort,
+                localizedTextResolver: localizedTextResolver));
             _gameplayPauseAudioBridge = new GameplayPauseAudioBridge(
                 Ports.GameplayPauseService,
                 audioPauseService,
@@ -201,7 +203,6 @@ namespace Game.Feature.UI.Composition
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
-            var localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();

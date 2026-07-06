@@ -15,17 +15,23 @@ namespace Game.Feature.UI.Composition
         private readonly PopupLayerView _popupLayerView;
         private readonly IDemoStageControlCommandPort _demoStageControlCommandPort;
         private readonly IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
 
         public GameplayPopupRuntimeFactory(
             PopupLayerView popupLayerView,
             PopupPrefabCatalog popupPrefabCatalog,
             IDemoStageControlCommandPort demoStageControlCommandPort = null,
-            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null)
+            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null)
         {
             _popupLayerView = popupLayerView ?? throw new ArgumentNullException(nameof(popupLayerView));
             _popupPrefabCatalog = popupPrefabCatalog ?? throw new ArgumentNullException(nameof(popupPrefabCatalog));
             _demoStageControlCommandPort = demoStageControlCommandPort;
             _demoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
+            _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
         }
 
         public PopupRuntimeFactoryResult Create(PopupRequest request)
@@ -48,11 +54,12 @@ namespace Game.Feature.UI.Composition
 
         private PopupRuntimeFactoryResult CreatePausePopup(PausePopupPayload payload)
         {
-            var presenter = new PausePopupPresenter();
+            var presenter = new PausePopupPresenter(_localizedTextResolver);
             presenter.Apply(payload);
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.PausePrefab, PopupId.Pause);
             view.Bind(presenter.ViewModel);
+            view.BindStaticLocalization(payload, _localizedTextResolver, _localizedTypographyResolver);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -65,6 +72,7 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<PausePopupView>(view, () =>
                 {
+                    view.UnbindStaticLocalization();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));

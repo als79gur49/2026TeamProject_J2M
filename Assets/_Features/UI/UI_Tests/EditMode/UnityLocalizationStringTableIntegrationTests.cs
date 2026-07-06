@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
+using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
@@ -48,6 +50,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("Settings"));
+            Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Title), Is.EqualTo("Paused"));
+            Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Resume), Is.EqualTo("Resume"));
 
             var eventCount = 0;
             resolver.LocaleChanged += () => eventCount++;
@@ -55,6 +59,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("설정"));
+            Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Title), Is.EqualTo("일시 정지"));
+            Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Resume), Is.EqualTo("계속하기"));
             Assert.That(eventCount, Is.EqualTo(1));
 
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
@@ -106,6 +112,39 @@ namespace Game.Feature.UI.Tests
             Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
             Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+        }
+
+        [Test]
+        public void RuntimePausePopup_ResolvesUnityTableLabelsAndRefreshesWhenLocaleChanges()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(
+                UiTestPrefabAssetUtility.PausePopupPrefabPath);
+            var view = UnityEngine.Object.Instantiate(prefab);
+            var presenter = new PausePopupPresenter(resolver);
+
+            try
+            {
+                presenter.Apply(PausePopupPayload.Default);
+                view.Bind(presenter.ViewModel);
+                view.BindStaticLocalization(
+                    PausePopupPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance);
+                view.IsVisible = true;
+
+                AssertPauseLabels(view, "Paused", "Pausing modal popup", "Resume", "Settings", "Retry", "Main Menu");
+
+                Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+
+                AssertPauseLabels(view, "일시 정지", "일시 정지 팝업", "계속하기", "설정", "다시 시도", "메인 메뉴");
+            }
+            finally
+            {
+                view.UnbindStaticLocalization();
+                view.Bind(null);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
         }
 
         [Test]
@@ -210,6 +249,23 @@ namespace Game.Feature.UI.Tests
             var value = field.GetValue(target) as TMP_Text;
             Assert.That(value, Is.Not.Null);
             return value;
+        }
+
+        private static void AssertPauseLabels(
+            PausePopupView view,
+            string title,
+            string description,
+            string resume,
+            string settings,
+            string retry,
+            string mainMenu)
+        {
+            Assert.That(GetText(view, "_titleLabel").text, Is.EqualTo(title));
+            Assert.That(GetText(view, "_descriptionLabel").text, Is.EqualTo(description));
+            Assert.That(GetText(view, "_resumeButtonLabel").text, Is.EqualTo(resume));
+            Assert.That(GetText(view, "_settingsButtonLabel").text, Is.EqualTo(settings));
+            Assert.That(GetText(view, "_retryButtonLabel").text, Is.EqualTo(retry));
+            Assert.That(GetText(view, "_mainMenuButtonLabel").text, Is.EqualTo(mainMenu));
         }
 
         public sealed class FakeUiLocalePreferenceStore : IUiLocalePreferenceStore
