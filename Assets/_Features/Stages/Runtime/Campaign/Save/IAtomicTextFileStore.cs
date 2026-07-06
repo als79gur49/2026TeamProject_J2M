@@ -7,5 +7,15 @@ namespace Game.Feature.Stages
         string ReadAllText(string fileName);
 
         void WriteAllTextAtomic(string fileName, string contents);
+
+        bool Delete(string fileName);
+
+        void EnsureDirectory();
+
+        bool TryRestoreBackup(string fileName);
+
+        bool TryQuarantine(string fileName, out string quarantinePath);
+
+        void CleanupTempFiles(string fileName);
     }
 }
