@@ -112,6 +112,225 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void FileSaveSlotStorageBackend_NoFile_ReturnsDefaultAndCreatesNoFile()
+        {
+            using var harness = CreateSaveFileHarness();
+
+            Assert.That(harness.Backend.HasPayload(), Is.False);
+            Assert.That(harness.Backend.LoadPayload("default-payload"), Is.EqualTo("default-payload"));
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(Directory.Exists(harness.SaveRootPath), Is.False);
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_SaveCreatesProfileAndDirectory()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string payload = "{\"value\":1}";
+
+            harness.Backend.SavePayload(payload);
+
+            Assert.That(Directory.Exists(harness.SaveRootPath), Is.True);
+            Assert.That(File.Exists(harness.ProfilePath), Is.True);
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(payload));
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_SaveThenLoad_ReturnsIdenticalRawPayload()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string payload = "{\"items\":[1,true,null],\"name\":\"profile\"}";
+
+            harness.Backend.SavePayload(payload);
+
+            Assert.That(harness.Backend.HasPayload(), Is.True);
+            Assert.That(harness.Backend.LoadPayload(string.Empty), Is.EqualTo(payload));
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_ReplacingExistingProfile_UpdatesBackup()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string firstPayload = "{\"value\":1}";
+            const string secondPayload = "{\"value\":2}";
+
+            harness.Backend.SavePayload(firstPayload);
+            harness.Backend.SavePayload(secondPayload);
+
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(secondPayload));
+            Assert.That(File.Exists(harness.BackupPath), Is.True);
+            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(firstPayload));
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_CorruptCanonicalWithValidBackup_RestoresBackupPayload()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string backupPayload = "{\"value\":1}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, "{\"value\":");
+            File.WriteAllText(harness.BackupPath, backupPayload);
+
+            var loaded = harness.Backend.LoadPayload("default-payload");
+
+            Assert.That(loaded, Is.EqualTo(backupPayload));
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(backupPayload));
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_CorruptCanonicalWithoutValidBackup_QuarantinesWithoutEmptyReset()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string corruptPayload = "{\"value\":";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, corruptPayload);
+            File.WriteAllText(harness.BackupPath, "{\"backup\":");
+
+            var loaded = harness.Backend.LoadPayload("default-payload");
+            var corruptFiles = Directory.GetFiles(harness.SaveRootPath, "profile.json.corrupt.*");
+
+            Assert.That(loaded, Is.EqualTo("default-payload"));
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(corruptFiles.Length, Is.EqualTo(1));
+            Assert.That(File.ReadAllText(corruptFiles[0]), Is.EqualTo(corruptPayload));
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_LeftoverTempIgnoredAndCleanedOnLoad()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string payload = "{\"value\":1}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, payload);
+            var tempPath = Path.Combine(harness.SaveRootPath, "profile.leftover.tmp");
+            File.WriteAllText(tempPath, "{\"value\":999}");
+
+            var loaded = harness.Backend.LoadPayload(string.Empty);
+
+            Assert.That(loaded, Is.EqualTo(payload));
+            Assert.That(File.Exists(tempPath), Is.False);
+        }
+
+        [Test]
+        public void FileSaveSlotStorageBackend_EmptyAndWhitespacePayloads_ReturnRawPayload()
+        {
+            using var harness = CreateSaveFileHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+
+            File.WriteAllText(harness.ProfilePath, string.Empty);
+            Assert.That(harness.Backend.LoadPayload("default-payload"), Is.EqualTo(string.Empty));
+
+            const string whitespacePayload = " \r\n\t ";
+            File.WriteAllText(harness.ProfilePath, whitespacePayload);
+            Assert.That(harness.Backend.LoadPayload("default-payload"), Is.EqualTo(whitespacePayload));
+        }
+
+        [Test]
+        public void SaveSlotStore_FileBackend_SaveSlotThenLoadAll_RoundTripsThroughProfileFile()
+        {
+            using var harness = CreateSaveFileHarness();
+            var store = harness.CreateStore();
+
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+                RemainingChances = 2,
+            });
+
+            var reloaded = harness.CreateStore().LoadAll();
+            Assert.That(File.Exists(harness.ProfilePath), Is.True);
+            Assert.That(reloaded[0].CurrentStageId.Value, Is.EqualTo("stage-1-1"));
+            Assert.That(reloaded[0].RemainingChances, Is.EqualTo(2));
+            Assert.That(reloaded[1].IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void SaveSlotStore_FileBackend_DeleteSlot_RewritesProfilePayload()
+        {
+            using var harness = CreateSaveFileHarness();
+            var store = harness.CreateStore();
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 2,
+                CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
+                CurrentLevelGroupId = "level-2",
+            });
+
+            store.DeleteSlot(1);
+
+            var reloaded = harness.CreateStore().LoadAll();
+            Assert.That(reloaded[0].IsEmpty, Is.True);
+            Assert.That(reloaded[1].CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(File.ReadAllText(harness.ProfilePath), Does.Not.Contain("stage-1-1"));
+            Assert.That(File.ReadAllText(harness.ProfilePath), Does.Contain("stage-2-1"));
+        }
+
+        [Test]
+        public void SaveSlotStore_FileBackend_ClearAll_ClearsProfilePayload()
+        {
+            using var harness = CreateSaveFileHarness();
+            var store = harness.CreateStore();
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+
+            store.ClearAll();
+
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(File.Exists(harness.BackupPath), Is.False);
+            Assert.That(harness.CreateStore().LoadAll()[0].IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void SaveSlotStore_FileBackend_InvalidPayload_UsesGuardResetWithoutSilentEmptyOverwrite()
+        {
+            using var harness = CreateSaveFileHarness();
+            const string invalidPayload = "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":3,\"SaveVersion\":1,\"Slots\":[]}";
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, invalidPayload);
+            var store = harness.CreateStore();
+
+            var slots = store.LoadAll();
+            var corruptFiles = Directory.GetFiles(harness.SaveRootPath, "profile.json.corrupt.*");
+
+            Assert.That(slots[0].IsEmpty, Is.True);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(corruptFiles.Length, Is.EqualTo(1));
+            Assert.That(File.ReadAllText(corruptFiles[0]), Is.EqualTo(invalidPayload));
+        }
+
+        [Test]
+        public void SaveSlotStore_PublicConstructor_StillUsesPlayerPrefsBackendByDefault()
+        {
+            using var harness = CreateSaveFileHarness();
+            ClearStageSavePrefsForTests();
+            var store = new SaveSlotStore();
+
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotStore.DefaultPlayerPrefsKey), Is.True);
+            Assert.That(File.Exists(harness.ProfilePath), Is.False);
+            Assert.That(Directory.Exists(harness.SaveRootPath), Is.False);
+        }
+
+        [Test]
         public void SaveSlotStore_OldPrefsKey_IsDeletedOnInitialize()
         {
             ClearStageSavePrefsForTests();
@@ -452,6 +671,12 @@ namespace Game.Feature.Stages.Editor.Tests
             return "Game.Feature.Stages.Editor.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }
 
+        private static SaveFileHarness CreateSaveFileHarness()
+        {
+            return new SaveFileHarness(
+                Path.Combine("Temp", "FileSaveSlotStorageBackendTests", Guid.NewGuid().ToString("N")));
+        }
+
         private static void ClearStageSavePrefsForTests()
         {
             PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
@@ -474,6 +699,50 @@ namespace Game.Feature.Stages.Editor.Tests
             public TemporarySavePathProvider(string saveRootPath)
                 : base(saveRootPath)
             {
+            }
+        }
+
+        private sealed class SaveFileHarness : IDisposable
+        {
+            private readonly string _testRootPath;
+            private readonly TemporarySavePathProvider _provider;
+
+            public SaveFileHarness(string testRootPath)
+            {
+                _testRootPath = testRootPath;
+                SaveRootPath = Path.Combine(testRootPath, "Saves");
+                _provider = new TemporarySavePathProvider(SaveRootPath);
+                Backend = new FileSaveSlotStorageBackend(_provider);
+                StoreKey = "Game.Feature.Stages.Editor.Tests.FileBackend." + Guid.NewGuid().ToString("N");
+            }
+
+            public string SaveRootPath { get; }
+
+            public string StoreKey { get; }
+
+            public FileSaveSlotStorageBackend Backend { get; }
+
+            public string ProfilePath => Path.Combine(SaveRootPath, FileSaveSlotStorageBackend.ProfileFileName);
+
+            public string BackupPath => Path.Combine(SaveRootPath, FileSaveSlotStorageBackend.BackupFileName);
+
+            public SaveSlotStore CreateStore()
+            {
+                return new SaveSlotStore(new FileSaveSlotStorageBackend(_provider), StoreKey);
+            }
+
+            public void Dispose()
+            {
+                try
+                {
+                    if (Directory.Exists(_testRootPath))
+                    {
+                        Directory.Delete(_testRootPath, recursive: true);
+                    }
+                }
+                catch
+                {
+                }
             }
         }
 

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace Game.Feature.Stages
@@ -274,6 +276,13 @@ namespace Game.Feature.Stages
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 throw new ArgumentException("Save file name must not be empty.", nameof(fileName));
+            }
+
+            if (Path.IsPathRooted(fileName) ||
+                fileName.IndexOf('/') >= 0 ||
+                fileName.IndexOf('\\') >= 0)
+            {
+                throw new ArgumentException("Save file name must be a simple file name.", nameof(fileName));
             }
 
             return Path.Combine(SaveRootPath, fileName);
@@ -1023,6 +1032,539 @@ namespace Game.Feature.Stages
         }
     }
 
+    internal sealed class FileSaveSlotStorageBackend : ISaveSlotStorageBackend
+    {
+        public const string ProfileFileName = "profile.json";
+        public const string BackupFileName = "profile.json.bak";
+
+        private static readonly UTF8Encoding Utf8NoBom = new(false);
+        private readonly ISavePathProvider _pathProvider;
+        private readonly string _profilePath;
+        private readonly string _backupPath;
+        private readonly string _profileDirectory;
+
+        public FileSaveSlotStorageBackend(ISavePathProvider pathProvider)
+        {
+            _pathProvider = pathProvider ?? throw new ArgumentNullException(nameof(pathProvider));
+            _profilePath = _pathProvider.GetSaveFilePath(ProfileFileName);
+            _backupPath = Path.Combine(Path.GetDirectoryName(_profilePath) ?? _pathProvider.SaveRootPath, BackupFileName);
+            _profileDirectory = Path.GetDirectoryName(_profilePath) ?? _pathProvider.SaveRootPath;
+            if (string.IsNullOrWhiteSpace(_profileDirectory))
+            {
+                _profileDirectory = ".";
+            }
+        }
+
+        public string SaveSlotsKey => _profilePath;
+
+        public bool HasPayload()
+        {
+            return File.Exists(_profilePath);
+        }
+
+        public string LoadPayload(string defaultValue)
+        {
+            CleanupTempFilesBestEffort();
+            if (!File.Exists(_profilePath))
+            {
+                return defaultValue;
+            }
+
+            var rawPayload = File.ReadAllText(_profilePath);
+            if (string.IsNullOrWhiteSpace(rawPayload) || JsonSyntaxValidator.IsValid(rawPayload))
+            {
+                return rawPayload;
+            }
+
+            if (TryRestoreBackupPayload(out var backupPayload))
+            {
+                return backupPayload;
+            }
+
+            QuarantineProfileBestEffort();
+            return defaultValue;
+        }
+
+        public void SavePayload(string payload)
+        {
+            if (payload == null)
+            {
+                throw new ArgumentNullException(nameof(payload));
+            }
+
+            Directory.CreateDirectory(_profileDirectory);
+            var tempPath = CreateTempPath();
+            try
+            {
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var writer = new StreamWriter(stream, Utf8NoBom))
+                {
+                    writer.Write(payload);
+                    writer.Flush();
+                    stream.Flush(true);
+                }
+
+                CommitTempPayload(tempPath);
+            }
+            finally
+            {
+                DeleteFileBestEffort(tempPath);
+                CleanupTempFilesBestEffort();
+            }
+        }
+
+        public void ClearPayload()
+        {
+            DeleteFileBestEffort(_profilePath);
+            DeleteFileBestEffort(_backupPath);
+            CleanupTempFilesBestEffort();
+        }
+
+        public void ResetRejectedPayload()
+        {
+            CleanupTempFilesBestEffort();
+            QuarantineProfileBestEffort();
+        }
+
+        private string CreateTempPath()
+        {
+            return Path.Combine(_profileDirectory, $"profile.{Guid.NewGuid():N}.tmp");
+        }
+
+        private void CommitTempPayload(string tempPath)
+        {
+            if (!File.Exists(_profilePath))
+            {
+                File.Move(tempPath, _profilePath);
+                return;
+            }
+
+            try
+            {
+                File.Replace(tempPath, _profilePath, _backupPath, ignoreMetadataErrors: true);
+                return;
+            }
+            catch (PlatformNotSupportedException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            CommitTempPayloadWithFallback(tempPath);
+        }
+
+        private void CommitTempPayloadWithFallback(string tempPath)
+        {
+            var backupUpdated = false;
+            try
+            {
+                File.Copy(_profilePath, _backupPath, overwrite: true);
+                backupUpdated = true;
+                File.Delete(_profilePath);
+                File.Move(tempPath, _profilePath);
+            }
+            catch
+            {
+                if (!File.Exists(_profilePath) && backupUpdated && File.Exists(_backupPath))
+                {
+                    File.Copy(_backupPath, _profilePath, overwrite: true);
+                }
+
+                throw;
+            }
+        }
+
+        private bool TryRestoreBackupPayload(out string backupPayload)
+        {
+            backupPayload = string.Empty;
+            if (!File.Exists(_backupPath))
+            {
+                return false;
+            }
+
+            var candidate = File.ReadAllText(_backupPath);
+            if (string.IsNullOrWhiteSpace(candidate) || !JsonSyntaxValidator.IsValid(candidate))
+            {
+                return false;
+            }
+
+            File.Copy(_backupPath, _profilePath, overwrite: true);
+            backupPayload = candidate;
+            return true;
+        }
+
+        private void QuarantineProfileBestEffort()
+        {
+            if (!File.Exists(_profilePath))
+            {
+                return;
+            }
+
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfffffff", CultureInfo.InvariantCulture);
+            var quarantinePath = Path.Combine(_profileDirectory, $"profile.json.corrupt.{timestamp}");
+            try
+            {
+                File.Move(_profilePath, quarantinePath);
+            }
+            catch
+            {
+            }
+        }
+
+        private void CleanupTempFilesBestEffort()
+        {
+            try
+            {
+                if (!Directory.Exists(_profileDirectory))
+                {
+                    return;
+                }
+
+                var tempFiles = Directory.GetFiles(_profileDirectory, "profile.*.tmp");
+                for (var i = 0; i < tempFiles.Length; i++)
+                {
+                    DeleteFileBestEffort(tempFiles[i]);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void DeleteFileBestEffort(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static class JsonSyntaxValidator
+        {
+            public static bool IsValid(string json)
+            {
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    return false;
+                }
+
+                var index = 0;
+                if (!TrySkipValue(json, ref index))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                return index == json.Length;
+            }
+
+            private static bool TrySkipValue(string json, ref int index)
+            {
+                SkipWhitespace(json, ref index);
+                if (index >= json.Length)
+                {
+                    return false;
+                }
+
+                var current = json[index];
+                if (current == '"')
+                {
+                    return TryReadString(json, ref index);
+                }
+
+                if (current == '{')
+                {
+                    return TrySkipObject(json, ref index);
+                }
+
+                if (current == '[')
+                {
+                    return TrySkipArray(json, ref index);
+                }
+
+                return TrySkipPrimitive(json, ref index);
+            }
+
+            private static bool TrySkipObject(string json, ref int index)
+            {
+                if (!TryConsume(json, ref index, '{'))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (TryConsume(json, ref index, '}'))
+                {
+                    return true;
+                }
+
+                while (index < json.Length)
+                {
+                    if (!TryReadString(json, ref index))
+                    {
+                        return false;
+                    }
+
+                    SkipWhitespace(json, ref index);
+                    if (!TryConsume(json, ref index, ':') || !TrySkipValue(json, ref index))
+                    {
+                        return false;
+                    }
+
+                    SkipWhitespace(json, ref index);
+                    if (TryConsume(json, ref index, '}'))
+                    {
+                        return true;
+                    }
+
+                    if (!TryConsume(json, ref index, ','))
+                    {
+                        return false;
+                    }
+
+                    SkipWhitespace(json, ref index);
+                }
+
+                return false;
+            }
+
+            private static bool TrySkipArray(string json, ref int index)
+            {
+                if (!TryConsume(json, ref index, '['))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (TryConsume(json, ref index, ']'))
+                {
+                    return true;
+                }
+
+                while (index < json.Length)
+                {
+                    if (!TrySkipValue(json, ref index))
+                    {
+                        return false;
+                    }
+
+                    SkipWhitespace(json, ref index);
+                    if (TryConsume(json, ref index, ']'))
+                    {
+                        return true;
+                    }
+
+                    if (!TryConsume(json, ref index, ','))
+                    {
+                        return false;
+                    }
+
+                    SkipWhitespace(json, ref index);
+                }
+
+                return false;
+            }
+
+            private static bool TrySkipPrimitive(string json, ref int index)
+            {
+                var start = index;
+                while (index < json.Length)
+                {
+                    var current = json[index];
+                    if (current == ',' || current == '}' || current == ']' || char.IsWhiteSpace(current))
+                    {
+                        break;
+                    }
+
+                    index++;
+                }
+
+                if (index == start)
+                {
+                    return false;
+                }
+
+                var value = json.Substring(start, index - start);
+                if (string.Equals(value, "true", StringComparison.Ordinal) ||
+                    string.Equals(value, "false", StringComparison.Ordinal) ||
+                    string.Equals(value, "null", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                return IsJsonNumber(value);
+            }
+
+            private static bool IsJsonNumber(string value)
+            {
+                var index = 0;
+                if (index < value.Length && value[index] == '-')
+                {
+                    index++;
+                }
+
+                if (index >= value.Length)
+                {
+                    return false;
+                }
+
+                if (value[index] == '0')
+                {
+                    index++;
+                }
+                else if (value[index] >= '1' && value[index] <= '9')
+                {
+                    do
+                    {
+                        index++;
+                    }
+                    while (index < value.Length && char.IsDigit(value[index]));
+                }
+                else
+                {
+                    return false;
+                }
+
+                if (index < value.Length && value[index] == '.')
+                {
+                    index++;
+                    var fractionStart = index;
+                    while (index < value.Length && char.IsDigit(value[index]))
+                    {
+                        index++;
+                    }
+
+                    if (index == fractionStart)
+                    {
+                        return false;
+                    }
+                }
+
+                if (index < value.Length && (value[index] == 'e' || value[index] == 'E'))
+                {
+                    index++;
+                    if (index < value.Length && (value[index] == '+' || value[index] == '-'))
+                    {
+                        index++;
+                    }
+
+                    var exponentStart = index;
+                    while (index < value.Length && char.IsDigit(value[index]))
+                    {
+                        index++;
+                    }
+
+                    if (index == exponentStart)
+                    {
+                        return false;
+                    }
+                }
+
+                return index == value.Length;
+            }
+
+            private static bool TryReadString(string json, ref int index)
+            {
+                if (!TryConsume(json, ref index, '"'))
+                {
+                    return false;
+                }
+
+                while (index < json.Length)
+                {
+                    var current = json[index];
+                    if (current == '"')
+                    {
+                        index++;
+                        return true;
+                    }
+
+                    if (current == '\\')
+                    {
+                        index++;
+                        if (index >= json.Length)
+                        {
+                            return false;
+                        }
+
+                        var escaped = json[index];
+                        if (escaped == 'u')
+                        {
+                            if (index + 4 >= json.Length)
+                            {
+                                return false;
+                            }
+
+                            for (var i = 1; i <= 4; i++)
+                            {
+                                if (!Uri.IsHexDigit(json[index + i]))
+                                {
+                                    return false;
+                                }
+                            }
+
+                            index += 5;
+                            continue;
+                        }
+
+                        if (escaped == '"' ||
+                            escaped == '\\' ||
+                            escaped == '/' ||
+                            escaped == 'b' ||
+                            escaped == 'f' ||
+                            escaped == 'n' ||
+                            escaped == 'r' ||
+                            escaped == 't')
+                        {
+                            index++;
+                            continue;
+                        }
+
+                        return false;
+                    }
+
+                    if (char.IsControl(current))
+                    {
+                        return false;
+                    }
+
+                    index++;
+                }
+
+                return false;
+            }
+
+            private static bool TryConsume(string value, ref int index, char expected)
+            {
+                if (index >= value.Length || value[index] != expected)
+                {
+                    return false;
+                }
+
+                index++;
+                return true;
+            }
+
+            private static void SkipWhitespace(string value, ref int index)
+            {
+                while (index < value.Length && char.IsWhiteSpace(value[index]))
+                {
+                    index++;
+                }
+            }
+        }
+    }
+
     public sealed class ActiveSlotProvider
     {
         private const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.ActiveSaveSlotKey;
@@ -1111,6 +1653,15 @@ namespace Game.Feature.Stages
             var prefsScope = StageClearSavePrefsScope.Create(_playerPrefsKey, activeSlotPrefsKey);
             DeleteLegacyPrefsIfUsingDefaultScope(prefsScope);
             _storageBackend = new PlayerPrefsSaveSlotStorageBackend(_playerPrefsKey, prefsScope);
+            LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
+        }
+
+        internal SaveSlotStore(ISaveSlotStorageBackend storageBackend, string playerPrefsKey = DefaultPlayerPrefsKey)
+        {
+            _storageBackend = storageBackend ?? throw new ArgumentNullException(nameof(storageBackend));
+            _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
+                ? DefaultPlayerPrefsKey
+                : playerPrefsKey;
             LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
         }
 
