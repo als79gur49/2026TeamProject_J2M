@@ -92,7 +92,8 @@ namespace Game.Feature.UI.Screens
         public void BindStaticLocalization(
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
-            ILocalizedTypographyResolver typographyResolver)
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver = null)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -106,32 +107,37 @@ namespace Game.Feature.UI.Screens
                     _titleLabel,
                     payload.TitleTextDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _backButtonLabel,
                     payload.BackLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _audioTabButtonLabel,
                     payload.AudioTabLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _displayTabButtonLabel,
                     payload.DisplayTabLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _inputTabButtonLabel,
                     payload.InputTabLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
             };
 
             if (_inputView != null)
             {
-                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver);
+                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver);
             }
         }
 

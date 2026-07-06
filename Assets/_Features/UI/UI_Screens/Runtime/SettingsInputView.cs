@@ -83,7 +83,8 @@ namespace Game.Feature.UI.Screens
         public void BindStaticLocalization(
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
-            ILocalizedTypographyResolver typographyResolver)
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver = null)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -97,37 +98,44 @@ namespace Game.Feature.UI.Screens
                     _movementLabel,
                     payload.MovementLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _movementToggleLabel,
                     payload.UseArrowKeysLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _pushLabel,
                     payload.PushLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _pushChangeButtonLabel,
                     payload.InputChangeLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _flipLabel,
                     payload.FlipLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _flipChangeButtonLabel,
                     payload.InputChangeLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
                 new(
                     _resetButtonLabel,
                     payload.ResetInputLabelDescriptor,
                     textResolver,
-                    typographyResolver),
+                    typographyResolver,
+                    fontResolver),
             };
         }
 

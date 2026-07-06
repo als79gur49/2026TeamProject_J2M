@@ -10,18 +10,21 @@ namespace Game.Feature.UI.Screens
         private readonly LocalizedTextDescriptor _descriptor;
         private readonly ILocalizedTextResolver _textResolver;
         private readonly ILocalizedTypographyResolver _typographyResolver;
+        private readonly ILocalizedTmpFontResolver _fontResolver;
         private bool _isDisposed;
 
         public LocalizedTmpTextBinding(
             TMP_Text target,
             LocalizedTextDescriptor descriptor,
             ILocalizedTextResolver textResolver,
-            ILocalizedTypographyResolver typographyResolver)
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver = null)
         {
             _target = target;
             _descriptor = descriptor;
             _textResolver = textResolver;
             _typographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            _fontResolver = fontResolver;
 
             if (_textResolver != null)
             {
@@ -39,13 +42,23 @@ namespace Game.Feature.UI.Screens
             }
 
             _target.text = ResolveText();
+            var localeCode = _textResolver != null ? _textResolver.CurrentLocaleCode : string.Empty;
 
             LocalizedTmpTextApplicator.ApplyTypography(
                 _target,
                 _typographyResolver.Resolve(
-                    _textResolver != null ? _textResolver.CurrentLocaleCode : string.Empty,
+                    localeCode,
                     _descriptor.Role,
                     _descriptor.Weight));
+            if (_fontResolver != null)
+            {
+                LocalizedTmpTextApplicator.ApplyFont(
+                    _target,
+                    _fontResolver.ResolveFont(
+                        localeCode,
+                        _descriptor.Role,
+                        _descriptor.Weight));
+            }
         }
 
         public void Dispose()
@@ -93,6 +106,24 @@ namespace Game.Feature.UI.Screens
             target.fontStyle = style.Bold
                 ? target.fontStyle | FontStyles.Bold
                 : target.fontStyle & ~FontStyles.Bold;
+        }
+
+        public static void ApplyFont(TMP_Text target, LocalizedTmpFontStyle style)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (style.FontAsset != null)
+            {
+                target.font = style.FontAsset;
+            }
+
+            if (style.MaterialPreset != null)
+            {
+                target.fontSharedMaterial = style.MaterialPreset;
+            }
         }
     }
 }
