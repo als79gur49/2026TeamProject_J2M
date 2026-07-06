@@ -145,6 +145,13 @@ namespace Game.Feature.UI.ViewShared
         bool TrySetLocale(string localeCode);
     }
 
+    public interface IUiLocalePreferenceStore
+    {
+        bool TryLoad(out string localeCode);
+
+        void Save(string localeCode);
+    }
+
     public sealed class PackageFreeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
     {
         public const string DefaultLocaleCode = "en-US";
@@ -154,14 +161,17 @@ namespace Game.Feature.UI.ViewShared
             Array.AsReadOnly(new[] { DefaultLocaleCode, KoreanLocaleCode });
 
         private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _catalog;
+        private readonly IUiLocalePreferenceStore _localePreferenceStore;
         private string _currentLocaleCode;
 
         public PackageFreeLocalizedTextResolver(
             IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog,
-            string initialLocaleCode = DefaultLocaleCode)
+            string initialLocaleCode = DefaultLocaleCode,
+            IUiLocalePreferenceStore localePreferenceStore = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-            _currentLocaleCode = NormalizeLocaleCode(initialLocaleCode);
+            _localePreferenceStore = localePreferenceStore;
+            _currentLocaleCode = ResolveInitialLocaleCode(initialLocaleCode, localePreferenceStore);
         }
 
         public string CurrentLocaleCode => _currentLocaleCode;
@@ -173,6 +183,15 @@ namespace Game.Feature.UI.ViewShared
         public static PackageFreeLocalizedTextResolver CreateSettingsDefault(string initialLocaleCode = DefaultLocaleCode)
         {
             return new PackageFreeLocalizedTextResolver(CreateSettingsCatalog(), initialLocaleCode);
+        }
+
+        public static PackageFreeLocalizedTextResolver CreateSettingsDefault(
+            IUiLocalePreferenceStore localePreferenceStore)
+        {
+            return new PackageFreeLocalizedTextResolver(
+                CreateSettingsCatalog(),
+                DefaultLocaleCode,
+                localePreferenceStore);
         }
 
         public string Resolve(LocalizedTextDescriptor descriptor)
@@ -206,7 +225,13 @@ namespace Game.Feature.UI.ViewShared
                 return false;
             }
 
+            if (string.Equals(_currentLocaleCode, normalizedLocaleCode, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
             SetLocale(normalizedLocaleCode);
+            _localePreferenceStore?.Save(normalizedLocaleCode);
             return true;
         }
 
@@ -226,6 +251,24 @@ namespace Game.Feature.UI.ViewShared
             return string.IsNullOrWhiteSpace(localeCode)
                 ? DefaultLocaleCode
                 : localeCode;
+        }
+
+        private static string ResolveInitialLocaleCode(
+            string initialLocaleCode,
+            IUiLocalePreferenceStore localePreferenceStore)
+        {
+            if (localePreferenceStore == null)
+            {
+                return NormalizeLocaleCode(initialLocaleCode);
+            }
+
+            if (localePreferenceStore.TryLoad(out var persistedLocaleCode) &&
+                IsSupportedLocaleCode(NormalizeLocaleCode(persistedLocaleCode)))
+            {
+                return NormalizeLocaleCode(persistedLocaleCode);
+            }
+
+            return DefaultLocaleCode;
         }
 
         private static bool IsSupportedLocaleCode(string localeCode)

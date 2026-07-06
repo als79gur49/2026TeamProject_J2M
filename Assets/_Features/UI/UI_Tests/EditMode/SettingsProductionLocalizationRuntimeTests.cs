@@ -172,6 +172,38 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
+        {
+            var store = new FakeUiLocalePreferenceStore();
+            var nanumGothic = LoadNanumGothic();
+            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
+
+            using (var firstHarness = GameplaySettingsHarness.Create(
+                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store),
+                       fontResolver))
+            {
+                firstHarness.ShowSettings();
+                firstHarness.SettingsView.ClickDisplayTab();
+                firstHarness.SettingsView.DisplayView.ClickLanguageCycle();
+
+                Assert.That(store.LastSavedLocaleCode, Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+            }
+
+            using (var secondHarness = GameplaySettingsHarness.Create(
+                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store),
+                       fontResolver))
+            {
+                secondHarness.ShowSettings();
+
+                var titleLabel = GetText(secondHarness.SettingsView, "_titleLabel");
+                Assert.That(titleLabel.text, Is.EqualTo("설정"));
+                Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+                Assert.That(secondHarness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
+                Assert.That(secondHarness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+            }
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_NullKoreanFontKeepsExistingTargetFont()
         {
             var expectedFont = GetText(
@@ -248,6 +280,66 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_SelectionPersistsIntoNewGameplaySettingsResolver()
+        {
+            var store = new FakeUiLocalePreferenceStore();
+
+            using (var mainMenuHarness = MainMenuSettingsHarness.Create(
+                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store)))
+            {
+                mainMenuHarness.Runtime.Open();
+                mainMenuHarness.Runtime.View.ClickDisplayTab();
+                mainMenuHarness.Runtime.View.DisplayView.ClickLanguageCycle();
+
+                Assert.That(store.LastSavedLocaleCode, Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+            }
+
+            using var gameplayHarness = GameplaySettingsHarness.Create(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(store));
+            gameplayHarness.ShowSettings();
+
+            Assert.That(GetText(gameplayHarness.SettingsView, "_titleLabel").text, Is.EqualTo("설정"));
+            Assert.That(gameplayHarness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+        }
+
+        [Test]
+        public void PlayerPrefsUiLocalePreferenceStore_RoundTripsInjectedKeyAndFallsBackUnsupportedThroughResolver()
+        {
+            Assert.That(PlayerPrefsUiLocalePreferenceStore.DefaultKey, Is.EqualTo("ui.selected_locale"));
+
+            var key = "Game.Feature.UI.Tests.Locale." + Guid.NewGuid().ToString("N");
+            PlayerPrefs.DeleteKey(key);
+            PlayerPrefs.Save();
+
+            try
+            {
+                var store = new PlayerPrefsUiLocalePreferenceStore(key);
+
+                Assert.That(store.TryLoad(out _), Is.False);
+
+                store.Save(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+                Assert.That(PlayerPrefs.GetString(key), Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+                Assert.That(new PlayerPrefsUiLocalePreferenceStore(key).TryLoad(out var loadedLocaleCode), Is.True);
+                Assert.That(loadedLocaleCode, Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+                Assert.That(
+                    PackageFreeLocalizedTextResolver.CreateSettingsDefault(store).CurrentLocaleCode,
+                    Is.EqualTo(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+
+                store.Save("fr-FR");
+
+                Assert.That(
+                    PackageFreeLocalizedTextResolver.CreateSettingsDefault(store).CurrentLocaleCode,
+                    Is.EqualTo(PackageFreeLocalizedTextResolver.DefaultLocaleCode));
+            }
+            finally
+            {
+                PlayerPrefs.DeleteKey(key);
+                PlayerPrefs.Save();
+            }
+        }
+
+        [Test]
         public void PackageFreeLocalizedTextResolver_ProvidesSettingsCatalogAndFallbacks()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -271,14 +363,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LocaleSelectionSlice_DoesNotIntroducePlayerPrefsPersistence()
+        public void LocalePersistence_DoesNotLeakPlayerPrefsIntoUiApplicationOrViewShared()
         {
             var source = System.IO.File.ReadAllText("Assets/_Features/UI/UI_ViewShared/Runtime/LocalizedTextDescriptor.cs") +
-                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs") +
-                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs") +
-                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuSettingsRuntime.cs");
+                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
 
             Assert.That(source, Does.Not.Contain("PlayerPrefs"));
+            Assert.That(source, Does.Not.Contain("Unity.Localization"));
+            Assert.That(source, Does.Not.Contain("Addressables"));
         }
 
         private static void AssertSettingsLabels(
@@ -564,6 +656,28 @@ namespace Game.Feature.UI.Tests
 
                 _inner.SetLocale(localeCode);
                 _localeChanged?.Invoke();
+            }
+        }
+
+        private sealed class FakeUiLocalePreferenceStore : IUiLocalePreferenceStore
+        {
+            private string _localeCode;
+
+            public int SaveCallCount { get; private set; }
+
+            public string LastSavedLocaleCode { get; private set; }
+
+            public bool TryLoad(out string localeCode)
+            {
+                localeCode = _localeCode;
+                return localeCode != null;
+            }
+
+            public void Save(string localeCode)
+            {
+                SaveCallCount++;
+                LastSavedLocaleCode = localeCode;
+                _localeCode = localeCode;
             }
         }
     }

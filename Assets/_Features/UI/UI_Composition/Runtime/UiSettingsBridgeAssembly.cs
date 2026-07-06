@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using UnityEngine;
@@ -67,6 +68,12 @@ namespace Game.Feature.UI.Composition
             return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
         }
 
+        internal static PackageFreeLocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver()
+        {
+            return PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                new PlayerPrefsUiLocalePreferenceStore());
+        }
+
         internal static AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller(
             GameObject owner,
             string missingAudioInstallerMessage)
@@ -102,6 +109,38 @@ namespace Game.Feature.UI.Composition
 
             relay.Initialize(audioSettingsPort);
             return relay;
+        }
+    }
+
+    internal sealed class PlayerPrefsUiLocalePreferenceStore : IUiLocalePreferenceStore
+    {
+        internal const string DefaultKey = "ui.selected_locale";
+
+        private readonly string _key;
+
+        public PlayerPrefsUiLocalePreferenceStore(string key = DefaultKey)
+        {
+            _key = string.IsNullOrWhiteSpace(key)
+                ? throw new ArgumentException("Preference key must be non-empty.", nameof(key))
+                : key;
+        }
+
+        public bool TryLoad(out string localeCode)
+        {
+            localeCode = string.Empty;
+            if (!PlayerPrefs.HasKey(_key))
+            {
+                return false;
+            }
+
+            localeCode = PlayerPrefs.GetString(_key, string.Empty);
+            return !string.IsNullOrWhiteSpace(localeCode);
+        }
+
+        public void Save(string localeCode)
+        {
+            PlayerPrefs.SetString(_key, localeCode ?? string.Empty);
+            PlayerPrefs.Save();
         }
     }
 }

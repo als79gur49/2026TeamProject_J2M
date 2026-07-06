@@ -4,6 +4,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Input;
 using TMPro;
 using UnityEngine;
@@ -191,6 +192,7 @@ namespace Game.Feature.UI.Composition
                 PopupController,
                 _displayPreviewTimeoutRelay,
                 _settingsPreviewTimeoutSeconds);
+            var localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             _settingsOverlayController = new MainMenuSettingsOverlayController(
                 transform,
@@ -207,6 +209,7 @@ namespace Game.Feature.UI.Composition
                     SettingsScreenPayload.Default,
                     _settingsPreviewTimeoutSeconds,
                     uiAudioPort: uiAudioPort,
+                    localizedTextResolver: localizedTextResolver,
                     localizedTmpFontResolver: _koreanSettingsFont != null
                         ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
                         : null));

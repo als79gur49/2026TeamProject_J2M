@@ -138,6 +138,53 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PackageFreeResolver_LoadsPersistedLocaleOrDefaultsDeterministically()
+        {
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(new FakeUiLocalePreferenceStore()).CurrentLocaleCode,
+                Is.EqualTo("en-US"));
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                    new FakeUiLocalePreferenceStore("ko-KR")).CurrentLocaleCode,
+                Is.EqualTo("ko-KR"));
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                    new FakeUiLocalePreferenceStore("en-US")).CurrentLocaleCode,
+                Is.EqualTo("en-US"));
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                    new FakeUiLocalePreferenceStore("fr-FR")).CurrentLocaleCode,
+                Is.EqualTo("en-US"));
+        }
+
+        [Test]
+        public void PackageFreeResolver_SavesSuccessfulLocaleSelectionAndRestoresInNewResolver()
+        {
+            var store = new FakeUiLocalePreferenceStore();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(store);
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+            Assert.That(store.LastSavedLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(store).CurrentLocaleCode,
+                Is.EqualTo("ko-KR"));
+
+            Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(store.SaveCallCount, Is.EqualTo(1));
+
+            Assert.That(resolver.TrySetLocale("en-US"), Is.True);
+            Assert.That(store.SaveCallCount, Is.EqualTo(2));
+            Assert.That(
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault(store).CurrentLocaleCode,
+                Is.EqualTo("en-US"));
+        }
+
+        [Test]
         public void FakeResolver_LocaleChanged_AllowsConsumerRefresh()
         {
             var resolver = new FakeLocalizedTextResolver();
@@ -718,6 +765,33 @@ namespace Game.Feature.UI.Tests
                 {
                     UnityEngine.Object.DestroyImmediate(Root);
                 }
+            }
+        }
+
+        private sealed class FakeUiLocalePreferenceStore : IUiLocalePreferenceStore
+        {
+            private string _localeCode;
+
+            public FakeUiLocalePreferenceStore(string localeCode = null)
+            {
+                _localeCode = localeCode;
+            }
+
+            public int SaveCallCount { get; private set; }
+
+            public string LastSavedLocaleCode { get; private set; }
+
+            public bool TryLoad(out string localeCode)
+            {
+                localeCode = _localeCode;
+                return localeCode != null;
+            }
+
+            public void Save(string localeCode)
+            {
+                SaveCallCount++;
+                LastSavedLocaleCode = localeCode;
+                _localeCode = localeCode;
             }
         }
     }

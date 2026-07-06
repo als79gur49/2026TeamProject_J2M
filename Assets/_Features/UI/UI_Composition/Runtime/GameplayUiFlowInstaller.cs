@@ -9,6 +9,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Input;
 using TMPro;
@@ -200,6 +201,7 @@ namespace Game.Feature.UI.Composition
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
                 _displayPreviewTimeoutRelay);
+            var localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter();
@@ -225,6 +227,7 @@ namespace Game.Feature.UI.Composition
                 displayPreviewSessionHost: displayPreviewSessionHost,
                 displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
                 screenPrefabCatalog: _screenPrefabCatalog,
+                localizedTextResolver: localizedTextResolver,
                 localizedTmpFontResolver: _koreanSettingsFont != null
                     ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
                     : null));
