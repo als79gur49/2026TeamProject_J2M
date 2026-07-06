@@ -2744,14 +2744,14 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_NoLegacyChargeEntityMotionOutput_DiagnosticBaseline",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_NoLegacyChargeEntityMotionOutput_NonePolicyRejectsBeforeGenericExpansion",
       "category": "Core",
       "contracts": [
         "determinism",
         "movement_boundary_v1",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core replay coverage that diagnostic Charge fallback remains deterministic without legacy Charge entity-motion output output.",
+      "reason": "Locked Core replay coverage that None policy Charge rejection happens before generic expansion and without legacy Charge entity-motion output.",
       "locked": true
     },
     {
@@ -2836,14 +2836,14 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_LegacyChargeEntityMotionOutputProducer_DiagnosticBaseline_NoOutput",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_LegacyChargeEntityMotionOutputProducer_NonePolicyNoOutput",
       "category": "Core",
       "contracts": [
         "determinism",
         "movement_boundary_v1",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core replay coverage that diagnostic Charge fallback stays deterministic without legacy Charge entity-motion output output.",
+      "reason": "Locked Core replay coverage that None policy Charge rejection stays deterministic without legacy Charge entity-motion output.",
       "locked": true
     },
     {
@@ -2917,14 +2917,14 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_LegacyChargeEntityMotionOutputIsolation_DiagnosticBaseline_NoOutput",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_LegacyChargeEntityMotionOutputIsolation_NonePolicyNoRuntimeOutput",
       "category": "Core",
       "contracts": [
         "determinism",
         "movement_boundary_v1",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core replay coverage that diagnostic Charge fallback remains deterministic without legacy Charge entity-motion output after producer isolation.",
+      "reason": "Locked Core replay coverage that None policy Charge rejection remains deterministic without legacy Charge entity-motion output after producer isolation.",
       "locked": true
     },
     {
