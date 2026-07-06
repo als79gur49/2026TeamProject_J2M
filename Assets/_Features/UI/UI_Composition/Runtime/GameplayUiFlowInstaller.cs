@@ -11,6 +11,7 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
 using Game.Shared.Input;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -39,6 +40,7 @@ namespace Game.Feature.UI.Composition
         // Popup-prefab composition remains popup-only. Do not widen this into a cross-layer asset registry.
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
+        [SerializeField] private TMP_FontAsset _koreanSettingsFont;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
         [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
@@ -213,16 +215,19 @@ namespace Game.Feature.UI.Composition
                 playerStatusPresenter);
 
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
-                _rootView.ScreenLayerView,
-                Ports.QueryFacade,
-                PresentationSource,
-                audioSettingsPort,
-                displaySettingsPort,
-                _keyboardBindingSettingsPort,
-                uiAudioPort,
-                displayPreviewSessionHost,
-                _displaySettingsLifecycleRelay,
-                _screenPrefabCatalog));
+                screenLayerView: _rootView.ScreenLayerView,
+                queryFacade: Ports.QueryFacade,
+                presentationSource: PresentationSource,
+                audioSettingsPort: audioSettingsPort,
+                displaySettingsPort: displaySettingsPort,
+                keyboardBindingSettingsPort: _keyboardBindingSettingsPort,
+                uiAudioPort: uiAudioPort,
+                displayPreviewSessionHost: displayPreviewSessionHost,
+                displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
+                screenPrefabCatalog: _screenPrefabCatalog,
+                localizedTmpFontResolver: _koreanSettingsFont != null
+                    ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
+                    : null));
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,

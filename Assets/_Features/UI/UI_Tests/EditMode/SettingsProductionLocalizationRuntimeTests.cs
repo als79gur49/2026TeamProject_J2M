@@ -117,6 +117,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_UsesInjectedKoreanFontResolver()
+        {
+            var nanumGothic = LoadNanumGothic();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
+            using var harness = MainMenuSettingsHarness.Create(resolver, fontResolver);
+
+            harness.Runtime.Open();
+
+            var titleLabel = GetText(harness.Runtime.View, "_titleLabel");
+            Assert.That(titleLabel.text, Is.EqualTo("설정"));
+            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+        }
+
+        [Test]
         public void PackageFreeLocalizedTextResolver_ProvidesSettingsCatalogAndFallbacks()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -339,7 +355,9 @@ namespace Game.Feature.UI.Tests
 
             public MainMenuSettingsRuntime Runtime { get; }
 
-            public static MainMenuSettingsHarness Create(ILocalizedTextResolver resolver)
+            public static MainMenuSettingsHarness Create(
+                ILocalizedTextResolver resolver,
+                ILocalizedTmpFontResolver fontResolver = null)
             {
                 var rootObject = new GameObject("SettingsProductionLocalizationRuntimeTests_MainMenuHarness");
                 var contentRootObject = new GameObject("SettingsContentRoot", typeof(RectTransform));
@@ -360,7 +378,8 @@ namespace Game.Feature.UI.Tests
                     SettingsScreenPayload.Default,
                     previewTimeoutSeconds: 15d,
                     localizedTextResolver: resolver,
-                    localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance);
+                    localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance,
+                    localizedTmpFontResolver: fontResolver);
                 return new MainMenuSettingsHarness(rootObject, runtime, popupController);
             }
 

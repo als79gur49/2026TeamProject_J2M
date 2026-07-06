@@ -5,6 +5,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Input;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -38,6 +39,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
+        [SerializeField] private TMP_FontAsset _koreanSettingsFont;
         [SerializeField] private MainMenuCameraPresentationController _cameraPresentationController;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
@@ -204,7 +206,10 @@ namespace Game.Feature.UI.Composition
                     _displaySettingsLifecycleRelay,
                     SettingsScreenPayload.Default,
                     _settingsPreviewTimeoutSeconds,
-                    uiAudioPort: uiAudioPort));
+                    uiAudioPort: uiAudioPort,
+                    localizedTmpFontResolver: _koreanSettingsFont != null
+                        ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
+                        : null));
             _settingsPort = new MainMenuSettingsPortAdapter(_settingsOverlayController);
         }
 

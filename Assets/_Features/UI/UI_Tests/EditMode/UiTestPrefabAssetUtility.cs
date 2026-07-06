@@ -5,6 +5,7 @@ using Game.Feature.UI.Popups;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,6 +22,7 @@ namespace Game.Feature.UI.Tests
         internal const string GameClearScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         internal const string UiAudioCueMapAssetPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
+        internal const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         internal const string PausePopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         internal const string ConfirmPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab";
 
@@ -123,6 +125,24 @@ namespace Game.Feature.UI.Tests
             var cueMapProperty = serializedInstaller.FindProperty("_uiAudioCueMap");
             Assert.That(cueMapProperty, Is.Not.Null);
             cueMapProperty.objectReferenceValue = LoadUiAudioCueMap();
+            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        internal static TMP_FontAsset LoadNanumGothicFont()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontAssetPath);
+            Assert.That(font, Is.Not.Null, NanumGothicFontAssetPath);
+            return font;
+        }
+
+        internal static void AssignKoreanSettingsFont(GameplayUiFlowInstaller installer, TMP_FontAsset font)
+        {
+            Assert.That(installer, Is.Not.Null);
+
+            var serializedInstaller = new SerializedObject(installer);
+            var fontProperty = serializedInstaller.FindProperty("_koreanSettingsFont");
+            Assert.That(fontProperty, Is.Not.Null);
+            fontProperty.objectReferenceValue = font;
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
         }
 
