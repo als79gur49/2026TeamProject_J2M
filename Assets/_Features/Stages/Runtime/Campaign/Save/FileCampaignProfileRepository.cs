@@ -150,8 +150,34 @@ namespace Game.Feature.Stages
             }
 
             document.Slots ??= Array.Empty<CampaignSlotDocument>();
+            for (var i = 0; i < document.Slots.Length; i++)
+            {
+                Normalize(document.Slots[i]);
+            }
+
             document.LegacyImport ??= new CampaignLegacyImportDocument();
             return CampaignProfileLoadStatus.Loaded;
+        }
+
+        private static void Normalize(CampaignSlotDocument slot)
+        {
+            if (slot == null)
+            {
+                return;
+            }
+
+            slot.StageClearProfileSnapshot ??= new CampaignStageClearProfileDocument();
+            slot.StageClearProfileSnapshot.Records ??= Array.Empty<PlayerStageClearRecordDocument>();
+            slot.StageClearProfileSnapshot.ProcessedStageRunIds ??= Array.Empty<string>();
+            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds ??= Array.Empty<string>();
+            for (var i = 0; i < slot.StageClearProfileSnapshot.Records.Length; i++)
+            {
+                var record = slot.StageClearProfileSnapshot.Records[i];
+                if (record != null)
+                {
+                    record.ProcessedStageRunIds ??= Array.Empty<string>();
+                }
+            }
         }
 
         private enum ProfileReadResult

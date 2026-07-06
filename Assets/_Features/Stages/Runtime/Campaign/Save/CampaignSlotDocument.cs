@@ -10,6 +10,29 @@ namespace Game.Feature.Stages
         public string LevelGroupId;
         public int RemainingChances;
         public bool CampaignCompleted;
+        public bool IntroPlayed;
+        public bool OutroPlayed;
+        public int TotalDeaths;
         public string LastPlayedAtUtc;
+        public CampaignStageClearProfileDocument StageClearProfileSnapshot = new();
+    }
+
+    [Serializable]
+    public sealed class CampaignStageClearProfileDocument
+    {
+        public int Version;
+        public PlayerStageClearRecordDocument[] Records = Array.Empty<PlayerStageClearRecordDocument>();
+        public string[] ProcessedStageRunIds = Array.Empty<string>();
+        public string[] ProcessedClearAttemptIds = Array.Empty<string>();
+    }
+
+    [Serializable]
+    public sealed class PlayerStageClearRecordDocument
+    {
+        public string StageId;
+        public bool HasAttempted;
+        public bool HasCleared;
+        public int ClearCount;
+        public string[] ProcessedStageRunIds = Array.Empty<string>();
     }
 }

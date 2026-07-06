@@ -43,7 +43,27 @@ namespace Game.Feature.Stages.Editor.Tests
                         LevelGroupId = "level-1",
                         RemainingChances = 3,
                         CampaignCompleted = false,
+                        IntroPlayed = true,
+                        OutroPlayed = true,
+                        TotalDeaths = 5,
                         LastPlayedAtUtc = "2026-07-06T11:00:00Z",
+                        StageClearProfileSnapshot = new CampaignStageClearProfileDocument
+                        {
+                            Version = 7,
+                            Records = new[]
+                            {
+                                new PlayerStageClearRecordDocument
+                                {
+                                    StageId = "stage-1-1",
+                                    HasAttempted = true,
+                                    HasCleared = true,
+                                    ClearCount = 2,
+                                    ProcessedStageRunIds = new[] { "run-a" },
+                                },
+                            },
+                            ProcessedStageRunIds = new[] { "run-a" },
+                            ProcessedClearAttemptIds = new[] { "attempt-a" },
+                        },
                     },
                 },
             };
@@ -65,7 +85,141 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(roundTripped.Slots[0].LevelGroupId, Is.EqualTo("level-1"));
             Assert.That(roundTripped.Slots[0].RemainingChances, Is.EqualTo(3));
             Assert.That(roundTripped.Slots[0].CampaignCompleted, Is.False);
+            Assert.That(roundTripped.Slots[0].IntroPlayed, Is.True);
+            Assert.That(roundTripped.Slots[0].OutroPlayed, Is.True);
+            Assert.That(roundTripped.Slots[0].TotalDeaths, Is.EqualTo(5));
             Assert.That(roundTripped.Slots[0].LastPlayedAtUtc, Is.EqualTo("2026-07-06T11:00:00Z"));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Version, Is.EqualTo(7));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Records, Has.Length.EqualTo(1));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Records[0].StageId, Is.EqualTo("stage-1-1"));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Records[0].HasAttempted, Is.True);
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Records[0].HasCleared, Is.True);
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Records[0].ClearCount, Is.EqualTo(2));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Records[0].ProcessedStageRunIds, Does.Contain("run-a"));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.ProcessedStageRunIds, Does.Contain("run-a"));
+            Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.ProcessedClearAttemptIds, Does.Contain("attempt-a"));
+        }
+
+        [Test]
+        public void CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility()
+        {
+            var document = new CampaignSlotDocument
+            {
+                SlotNumber = 1,
+                StageId = "stage-2-1",
+                LevelGroupId = "level-2",
+                RemainingChances = 1,
+                CampaignCompleted = true,
+                IntroPlayed = true,
+                OutroPlayed = true,
+                TotalDeaths = 12,
+                LastPlayedAtUtc = "2026-07-06T12:00:00Z",
+            };
+
+            var json = JsonUtility.ToJson(document);
+            var roundTripped = JsonUtility.FromJson<CampaignSlotDocument>(json);
+
+            Assert.That(roundTripped.IntroPlayed, Is.True);
+            Assert.That(roundTripped.OutroPlayed, Is.True);
+            Assert.That(roundTripped.TotalDeaths, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void CampaignSlotDocument_RoundTripsStageClearProfileRecordsThroughJsonUtility()
+        {
+            var document = new CampaignSlotDocument
+            {
+                SlotNumber = 1,
+                StageId = "stage-3-1",
+                StageClearProfileSnapshot = new CampaignStageClearProfileDocument
+                {
+                    Version = 3,
+                    Records = new[]
+                    {
+                        new PlayerStageClearRecordDocument
+                        {
+                            StageId = "stage-3-1",
+                            HasAttempted = true,
+                            HasCleared = true,
+                            ClearCount = 4,
+                            ProcessedStageRunIds = new[] { "run-a", "run-b" },
+                        },
+                    },
+                    ProcessedStageRunIds = new[] { "run-a", "run-b" },
+                    ProcessedClearAttemptIds = new[] { "attempt-a" },
+                },
+            };
+
+            var json = JsonUtility.ToJson(document);
+            var roundTripped = JsonUtility.FromJson<CampaignSlotDocument>(json);
+
+            Assert.That(roundTripped.StageClearProfileSnapshot.Version, Is.EqualTo(3));
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records, Has.Length.EqualTo(1));
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records[0].StageId, Is.EqualTo("stage-3-1"));
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records[0].HasAttempted, Is.True);
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records[0].HasCleared, Is.True);
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records[0].ClearCount, Is.EqualTo(4));
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds, Does.Contain("run-a"));
+            Assert.That(roundTripped.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds, Does.Contain("run-b"));
+            Assert.That(roundTripped.StageClearProfileSnapshot.ProcessedStageRunIds, Does.Contain("run-a"));
+            Assert.That(roundTripped.StageClearProfileSnapshot.ProcessedStageRunIds, Does.Contain("run-b"));
+            Assert.That(roundTripped.StageClearProfileSnapshot.ProcessedClearAttemptIds, Does.Contain("attempt-a"));
+        }
+
+        [Test]
+        public void CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss()
+        {
+            WriteFieldInventory();
+            var slot = CreateLegacySlotFixture();
+
+            var document = CampaignProfileDocumentMapper.ToDocument(
+                new[] { slot },
+                "profile-lossless",
+                slot.SlotNumber,
+                "2026-07-06T13:00:00Z",
+                "test-product");
+
+            Assert.That(document.SchemaVersion, Is.EqualTo(1));
+            Assert.That(document.ProductVersion, Is.EqualTo("test-product"));
+            Assert.That(document.SavedAtUtc, Is.EqualTo("2026-07-06T13:00:00Z"));
+            Assert.That(document.ProfileId, Is.EqualTo("profile-lossless"));
+            Assert.That(document.LastPlayedSlotNumber, Is.EqualTo(slot.SlotNumber));
+            Assert.That(document.LegacyImport, Is.Not.Null);
+            Assert.That(document.Slots, Has.Length.EqualTo(1));
+            AssertSlotMatchesLegacySlot(document.Slots[0], slot);
+        }
+
+        [Test]
+        public void CampaignProfileDocumentMapper_NullStageClearProfileMapsToEmptyDocument()
+        {
+            var slot = SaveSlotData.CreateEmpty(1);
+            slot.StageClearProfileSnapshot = null;
+
+            var document = CampaignProfileDocumentMapper.ToSlotDocument(slot);
+
+            Assert.That(document.StageClearProfileSnapshot, Is.Not.Null);
+            Assert.That(document.StageClearProfileSnapshot.Version, Is.EqualTo(0));
+            Assert.That(document.StageClearProfileSnapshot.Records, Is.Not.Null);
+            Assert.That(document.StageClearProfileSnapshot.Records, Is.Empty);
+            Assert.That(document.StageClearProfileSnapshot.ProcessedStageRunIds, Is.Not.Null);
+            Assert.That(document.StageClearProfileSnapshot.ProcessedStageRunIds, Is.Empty);
+            Assert.That(document.StageClearProfileSnapshot.ProcessedClearAttemptIds, Is.Not.Null);
+            Assert.That(document.StageClearProfileSnapshot.ProcessedClearAttemptIds, Is.Empty);
+        }
+
+        [Test]
+        public void CampaignProfileDocumentMapper_EmptyStageClearProfileMapsDeterministically()
+        {
+            var document = CampaignProfileDocumentMapper.ToStageClearProfileDocument(new StageClearProfileSnapshot());
+
+            Assert.That(document, Is.Not.Null);
+            Assert.That(document.Version, Is.EqualTo(0));
+            Assert.That(document.Records, Is.Not.Null);
+            Assert.That(document.Records, Is.Empty);
+            Assert.That(document.ProcessedStageRunIds, Is.Not.Null);
+            Assert.That(document.ProcessedStageRunIds, Is.Empty);
+            Assert.That(document.ProcessedClearAttemptIds, Is.Not.Null);
+            Assert.That(document.ProcessedClearAttemptIds, Is.Empty);
         }
 
         [Test]
@@ -244,6 +398,12 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result.Document.ProfileId, Is.EqualTo(document.ProfileId));
             Assert.That(result.Document.Slots, Has.Length.EqualTo(1));
             Assert.That(result.Document.Slots[0].StageId, Is.EqualTo(document.Slots[0].StageId));
+            Assert.That(result.Document.Slots[0].IntroPlayed, Is.EqualTo(document.Slots[0].IntroPlayed));
+            Assert.That(result.Document.Slots[0].OutroPlayed, Is.EqualTo(document.Slots[0].OutroPlayed));
+            Assert.That(result.Document.Slots[0].TotalDeaths, Is.EqualTo(document.Slots[0].TotalDeaths));
+            Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Version, Is.EqualTo(2));
+            Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Records, Has.Length.EqualTo(1));
+            Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Records[0].StageId, Is.EqualTo("stage-1-1"));
         }
 
         [Test]
@@ -358,10 +518,123 @@ namespace Game.Feature.Stages.Editor.Tests
                         StageId = "stage-1-1",
                         LevelGroupId = "level-1",
                         RemainingChances = 3,
+                        IntroPlayed = true,
+                        OutroPlayed = false,
+                        TotalDeaths = 6,
                         LastPlayedAtUtc = "2026-07-06T10:00:00Z",
+                        StageClearProfileSnapshot = new CampaignStageClearProfileDocument
+                        {
+                            Version = 2,
+                            Records = new[]
+                            {
+                                new PlayerStageClearRecordDocument
+                                {
+                                    StageId = "stage-1-1",
+                                    HasAttempted = true,
+                                    HasCleared = true,
+                                    ClearCount = 1,
+                                    ProcessedStageRunIds = new[] { "run-repository" },
+                                },
+                            },
+                            ProcessedStageRunIds = new[] { "run-repository" },
+                            ProcessedClearAttemptIds = new[] { "attempt-repository" },
+                        },
                     },
                 },
             };
+        }
+
+        private static SaveSlotData CreateLegacySlotFixture()
+        {
+            var stageId = StageId.CreateOrThrow("stage-3-1");
+            var otherStageId = StageId.CreateOrThrow("stage-2-1");
+            var slot = new SaveSlotData
+            {
+                SlotNumber = 2,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = "level-3",
+                RemainingChances = 1,
+                CampaignCompleted = true,
+                IntroPlayed = true,
+                OutroPlayed = true,
+                TotalDeaths = 9,
+                LastPlayedAt = "2026-07-06T14:00:00Z",
+                StageClearProfileSnapshot = new StageClearProfileSnapshot
+                {
+                    Version = 5,
+                },
+            };
+            slot.StageClearProfileSnapshot.ClearRecordsByStageId[otherStageId] = new PlayerStageClearRecord
+            {
+                StageId = otherStageId,
+                HasAttempted = true,
+                HasCleared = false,
+                ClearCount = 0,
+                ProcessedStageRunIds = new[] { "run-c" },
+            };
+            slot.StageClearProfileSnapshot.ClearRecordsByStageId[stageId] = new PlayerStageClearRecord
+            {
+                StageId = stageId,
+                HasAttempted = true,
+                HasCleared = true,
+                ClearCount = 2,
+                ProcessedStageRunIds = new[] { "run-b", "run-a" },
+            };
+            slot.StageClearProfileSnapshot.ProcessedStageRunIds.Add("run-b");
+            slot.StageClearProfileSnapshot.ProcessedStageRunIds.Add("run-a");
+            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds.Add("attempt-b");
+            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds.Add("attempt-a");
+            return slot;
+        }
+
+        private static void AssertSlotMatchesLegacySlot(CampaignSlotDocument document, SaveSlotData slot)
+        {
+            Assert.That(document.SlotNumber, Is.EqualTo(slot.SlotNumber));
+            Assert.That(document.StageId, Is.EqualTo(slot.CurrentStageId.Value));
+            Assert.That(document.LevelGroupId, Is.EqualTo(slot.CurrentLevelGroupId));
+            Assert.That(document.RemainingChances, Is.EqualTo(slot.RemainingChances));
+            Assert.That(document.CampaignCompleted, Is.EqualTo(slot.CampaignCompleted));
+            Assert.That(document.IntroPlayed, Is.EqualTo(slot.IntroPlayed));
+            Assert.That(document.OutroPlayed, Is.EqualTo(slot.OutroPlayed));
+            Assert.That(document.TotalDeaths, Is.EqualTo(slot.TotalDeaths));
+            Assert.That(document.LastPlayedAtUtc, Is.EqualTo(slot.LastPlayedAt));
+            Assert.That(document.StageClearProfileSnapshot.Version, Is.EqualTo(slot.StageClearProfileSnapshot.Version));
+            Assert.That(document.StageClearProfileSnapshot.Records, Has.Length.EqualTo(2));
+            Assert.That(document.StageClearProfileSnapshot.Records[0].StageId, Is.EqualTo("stage-2-1"));
+            Assert.That(document.StageClearProfileSnapshot.Records[0].HasAttempted, Is.True);
+            Assert.That(document.StageClearProfileSnapshot.Records[0].HasCleared, Is.False);
+            Assert.That(document.StageClearProfileSnapshot.Records[0].ClearCount, Is.EqualTo(0));
+            Assert.That(document.StageClearProfileSnapshot.Records[0].ProcessedStageRunIds, Does.Contain("run-c"));
+            Assert.That(document.StageClearProfileSnapshot.Records[1].StageId, Is.EqualTo("stage-3-1"));
+            Assert.That(document.StageClearProfileSnapshot.Records[1].HasAttempted, Is.True);
+            Assert.That(document.StageClearProfileSnapshot.Records[1].HasCleared, Is.True);
+            Assert.That(document.StageClearProfileSnapshot.Records[1].ClearCount, Is.EqualTo(2));
+            Assert.That(document.StageClearProfileSnapshot.Records[1].ProcessedStageRunIds, Is.EqualTo(new[] { "run-b", "run-a" }));
+            Assert.That(document.StageClearProfileSnapshot.ProcessedStageRunIds, Is.EqualTo(new[] { "run-a", "run-b" }));
+            Assert.That(document.StageClearProfileSnapshot.ProcessedClearAttemptIds, Is.EqualTo(new[] { "attempt-a", "attempt-b" }));
+        }
+
+        private static void WriteFieldInventory()
+        {
+            TestContext.WriteLine("Legacy field | Current owner | Required in V2 | Target V2 field | Lossless | Test");
+            TestContext.WriteLine("SlotNumber | SaveSlotData | yes | CampaignSlotDocument.SlotNumber | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("CurrentStageId | SaveSlotData | yes | CampaignSlotDocument.StageId | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("CurrentLevelGroupId | SaveSlotData | yes | CampaignSlotDocument.LevelGroupId | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("RemainingChances | SaveSlotData | yes | CampaignSlotDocument.RemainingChances | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("CampaignCompleted | SaveSlotData | yes | CampaignSlotDocument.CampaignCompleted | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("IntroPlayed | SaveSlotData | yes | CampaignSlotDocument.IntroPlayed | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
+            TestContext.WriteLine("OutroPlayed | SaveSlotData | yes | CampaignSlotDocument.OutroPlayed | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
+            TestContext.WriteLine("TotalDeaths | SaveSlotData | yes | CampaignSlotDocument.TotalDeaths | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
+            TestContext.WriteLine("LastPlayedAt | SaveSlotData | yes | CampaignSlotDocument.LastPlayedAtUtc | yes | CampaignProfileDocument_RoundTripsThroughJsonUtility");
+            TestContext.WriteLine("StageClearProfileSnapshot.Version | StageClearProfileSnapshot | yes | CampaignStageClearProfileDocument.Version | yes | CampaignSlotDocument_RoundTripsStageClearProfileRecordsThroughJsonUtility");
+            TestContext.WriteLine("ClearRecordsByStageId | StageClearProfileSnapshot | yes | CampaignStageClearProfileDocument.Records | yes | CampaignSlotDocument_RoundTripsStageClearProfileRecordsThroughJsonUtility");
+            TestContext.WriteLine("ProcessedStageRunIds | StageClearProfileSnapshot | yes | CampaignStageClearProfileDocument.ProcessedStageRunIds | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("ProcessedClearAttemptIds | StageClearProfileSnapshot | yes | CampaignStageClearProfileDocument.ProcessedClearAttemptIds | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("StageId | PlayerStageClearRecord | yes | PlayerStageClearRecordDocument.StageId | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("HasAttempted | PlayerStageClearRecord | yes | PlayerStageClearRecordDocument.HasAttempted | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("HasCleared | PlayerStageClearRecord | yes | PlayerStageClearRecordDocument.HasCleared | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("ClearCount | PlayerStageClearRecord | yes | PlayerStageClearRecordDocument.ClearCount | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
+            TestContext.WriteLine("ProcessedStageRunIds | PlayerStageClearRecord | yes | PlayerStageClearRecordDocument.ProcessedStageRunIds | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
         }
 
         private static RepositoryHarness CreateHarness()
