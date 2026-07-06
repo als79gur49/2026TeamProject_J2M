@@ -122,4 +122,106 @@ namespace Game.Feature.UI.ViewShared
 
         string Resolve(LocalizedTextDescriptor descriptor);
     }
+
+    public sealed class PackageFreeLocalizedTextResolver : ILocalizedTextResolver
+    {
+        public const string DefaultLocaleCode = "en-US";
+        public const string KoreanLocaleCode = "ko-KR";
+
+        private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _catalog;
+        private string _currentLocaleCode;
+
+        public PackageFreeLocalizedTextResolver(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog,
+            string initialLocaleCode = DefaultLocaleCode)
+        {
+            _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _currentLocaleCode = NormalizeLocaleCode(initialLocaleCode);
+        }
+
+        public string CurrentLocaleCode => _currentLocaleCode;
+
+        public event Action LocaleChanged;
+
+        public static PackageFreeLocalizedTextResolver CreateSettingsDefault(string initialLocaleCode = DefaultLocaleCode)
+        {
+            return new PackageFreeLocalizedTextResolver(CreateSettingsCatalog(), initialLocaleCode);
+        }
+
+        public string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            if (TryResolve(_currentLocaleCode, descriptor, out var value) ||
+                TryResolve(DefaultLocaleCode, descriptor, out value))
+            {
+                return value;
+            }
+
+            return $"[{descriptor.Table}:{descriptor.Key}]";
+        }
+
+        public void SetLocale(string localeCode)
+        {
+            var normalizedLocaleCode = NormalizeLocaleCode(localeCode);
+            if (string.Equals(_currentLocaleCode, normalizedLocaleCode, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _currentLocaleCode = normalizedLocaleCode;
+            LocaleChanged?.Invoke();
+        }
+
+        private bool TryResolve(
+            string localeCode,
+            LocalizedTextDescriptor descriptor,
+            out string value)
+        {
+            value = null;
+            return string.Equals(descriptor.Table, "UI", StringComparison.Ordinal) &&
+                   _catalog.TryGetValue(localeCode, out var localeValues) &&
+                   localeValues.TryGetValue(descriptor.Key, out value);
+        }
+
+        private static string NormalizeLocaleCode(string localeCode)
+        {
+            return string.IsNullOrWhiteSpace(localeCode)
+                ? DefaultLocaleCode
+                : localeCode;
+        }
+
+        private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> CreateSettingsCatalog()
+        {
+            return new Dictionary<string, IReadOnlyDictionary<string, string>>
+            {
+                [DefaultLocaleCode] = new Dictionary<string, string>
+                {
+                    ["ui.settings.title"] = "Settings",
+                    ["ui.settings.audio"] = "Audio",
+                    ["ui.settings.display"] = "Display",
+                    ["ui.settings.input"] = "Input",
+                    ["ui.settings.input.movement_keys"] = "Movement Keys",
+                    ["ui.settings.input.use_arrow_keys"] = "Use Arrow Keys",
+                    ["ui.settings.input.push"] = "Push",
+                    ["ui.settings.input.flip"] = "Flip",
+                    ["ui.settings.input.change"] = "Change",
+                    ["ui.settings.input.reset_input"] = "Reset Input",
+                    ["ui.common.back"] = "Back",
+                },
+                [KoreanLocaleCode] = new Dictionary<string, string>
+                {
+                    ["ui.settings.title"] = "설정",
+                    ["ui.settings.audio"] = "오디오",
+                    ["ui.settings.display"] = "디스플레이",
+                    ["ui.settings.input"] = "입력",
+                    ["ui.settings.input.movement_keys"] = "이동 키",
+                    ["ui.settings.input.use_arrow_keys"] = "화살표 키 사용",
+                    ["ui.settings.input.push"] = "밀기",
+                    ["ui.settings.input.flip"] = "뒤집기",
+                    ["ui.settings.input.change"] = "변경",
+                    ["ui.settings.input.reset_input"] = "입력 초기화",
+                    ["ui.common.back"] = "뒤로",
+                },
+            };
+        }
+    }
 }

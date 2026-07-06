@@ -19,7 +19,10 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
-            DisplayStatusTransientRelay displayStatusTransientRelay = null)
+            DisplayStatusTransientRelay displayStatusTransientRelay = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
             Prefab = prefab ?? throw new ArgumentNullException(nameof(prefab));
@@ -30,6 +33,9 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             DisplaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             DisplayStatusTransientRelay = displayStatusTransientRelay;
+            LocalizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            LocalizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            LocalizedTmpFontResolver = localizedTmpFontResolver;
         }
 
         public Transform Parent { get; }
@@ -49,6 +55,12 @@ namespace Game.Feature.UI.Composition
         public DisplaySettingsLifecycleRelay DisplaySettingsLifecycleRelay { get; }
 
         public DisplayStatusTransientRelay DisplayStatusTransientRelay { get; }
+
+        public ILocalizedTextResolver LocalizedTextResolver { get; }
+
+        public ILocalizedTypographyResolver LocalizedTypographyResolver { get; }
+
+        public ILocalizedTmpFontResolver LocalizedTmpFontResolver { get; }
     }
 
     internal sealed class SettingsScreenRuntimeBuilder
@@ -69,7 +81,8 @@ namespace Game.Feature.UI.Composition
             var presenter = new SettingsScreenPresenter(
                 context.AudioSettingsPort,
                 context.DisplaySettingsPort,
-                context.KeyboardBindingSettingsPort);
+                context.KeyboardBindingSettingsPort,
+                context.LocalizedTextResolver);
             view.Bind(presenter.ViewModel);
             view.AudioView.Bind(presenter.AudioPresenter.ViewModel);
             view.DisplayView.Bind(presenter.DisplayPresenter.ViewModel);
@@ -83,6 +96,9 @@ namespace Game.Feature.UI.Composition
                 context.DisplayPreviewSessionHost,
                 context.DisplaySettingsLifecycleRelay,
                 context.DisplayStatusTransientRelay ?? view.gameObject.AddComponent<DisplayStatusTransientRelay>(),
+                context.LocalizedTextResolver,
+                context.LocalizedTypographyResolver,
+                context.LocalizedTmpFontResolver,
                 () => DestroyObject(view.gameObject));
         }
 
@@ -137,6 +153,9 @@ namespace Game.Feature.UI.Composition
             private readonly SettingsInputView _inputView;
             private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
             private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
+            private readonly ILocalizedTextResolver _localizedTextResolver;
+            private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
+            private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
             private readonly SettingsScreenPresenter _presenter;
             private readonly IUiAudioPort _uiAudioPort;
             private readonly SettingsScreenView _view;
@@ -149,6 +168,9 @@ namespace Game.Feature.UI.Composition
                 DisplayPreviewSessionHost displayPreviewSessionHost,
                 DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
                 DisplayStatusTransientRelay displayStatusTransientRelay,
+                ILocalizedTextResolver localizedTextResolver,
+                ILocalizedTypographyResolver localizedTypographyResolver,
+                ILocalizedTmpFontResolver localizedTmpFontResolver,
                 Action dispose)
             {
                 _view = view ?? throw new ArgumentNullException(nameof(view));
@@ -160,6 +182,9 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
                 _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
                 _displayStatusTransientRelay = displayStatusTransientRelay ?? throw new ArgumentNullException(nameof(displayStatusTransientRelay));
+                _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+                _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+                _localizedTmpFontResolver = localizedTmpFontResolver;
                 _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
 
                 _audioView.VolumeChanged += HandleAudioVolumeChanged;
@@ -185,7 +210,13 @@ namespace Game.Feature.UI.Composition
             public void ApplyPayload(IScreenPayload payload)
             {
                 ExpectPayload<SettingsScreenPayload>(payload);
-                _presenter.Apply((SettingsScreenPayload)payload, _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                var settingsPayload = (SettingsScreenPayload)payload;
+                _presenter.Apply(settingsPayload, _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                _view.BindStaticLocalization(
+                    settingsPayload,
+                    _localizedTextResolver,
+                    _localizedTypographyResolver,
+                    _localizedTmpFontResolver);
             }
 
             public void Dispose()
@@ -211,6 +242,7 @@ namespace Game.Feature.UI.Composition
                 _view.BackRequested -= HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
                 _displayPreviewSessionHost.CountdownChanged -= HandleDisplayPreviewCountdownChanged;
+                _view.UnbindStaticLocalization();
                 _displayView.Bind(null);
                 _inputView.Bind(null);
                 _audioView.Bind(null);

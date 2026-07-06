@@ -22,6 +22,9 @@ namespace Game.Feature.UI.Composition
         private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
         private readonly ScreenPrefabCatalog _screenPrefabCatalog;
         private readonly ScreenLayerView _screenLayerView;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
+        private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
 
         internal GameplayScreenRuntimeFactory(
             ScreenLayerView screenLayerView,
@@ -33,7 +36,10 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             ScreenPrefabCatalog screenPrefabCatalog,
-            DisplayStatusTransientRelay displayStatusTransientRelay = null)
+            DisplayStatusTransientRelay displayStatusTransientRelay = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
             : this(
                 screenLayerView,
                 queryFacade,
@@ -45,7 +51,10 @@ namespace Game.Feature.UI.Composition
                 displayPreviewSessionHost,
                 displaySettingsLifecycleRelay,
                 screenPrefabCatalog,
-                displayStatusTransientRelay)
+                displayStatusTransientRelay,
+                localizedTextResolver,
+                localizedTypographyResolver,
+                localizedTmpFontResolver)
         {
         }
 
@@ -60,7 +69,10 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             ScreenPrefabCatalog screenPrefabCatalog,
-            DisplayStatusTransientRelay displayStatusTransientRelay = null)
+            DisplayStatusTransientRelay displayStatusTransientRelay = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
@@ -73,6 +85,9 @@ namespace Game.Feature.UI.Composition
             _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             _displayStatusTransientRelay = displayStatusTransientRelay;
             _screenPrefabCatalog = screenPrefabCatalog ?? throw new ArgumentNullException(nameof(screenPrefabCatalog));
+            _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            _localizedTmpFontResolver = localizedTmpFontResolver;
         }
 
         public ScreenRuntimeFactoryResult Create(ScreenRequest request)
@@ -129,7 +144,10 @@ namespace Game.Feature.UI.Composition
                     _uiAudioPort,
                     _displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
-                    _displayStatusTransientRelay)));
+                    _displayStatusTransientRelay,
+                    _localizedTextResolver,
+                    _localizedTypographyResolver,
+                    _localizedTmpFontResolver)));
         }
 
         private ScreenRuntimeFactoryResult CreateStageResultRuntime()

@@ -197,6 +197,12 @@ namespace Game.Feature.UI.Tests
                 return;
             }
 
+            if (Mathf.Approximately(fontAsset.material.GetFloat(ScaleRatioA), 1f) &&
+                Mathf.Approximately(fontAsset.material.GetFloat(ScaleRatioC), 1f))
+            {
+                return;
+            }
+
             fontAsset.material.SetFloat(ScaleRatioA, 1f);
             fontAsset.material.SetFloat(ScaleRatioC, 1f);
             EditorUtility.SetDirty(fontAsset.material);

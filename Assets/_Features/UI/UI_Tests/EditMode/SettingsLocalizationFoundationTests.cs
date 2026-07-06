@@ -98,6 +98,21 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PackageFreeResolver_ResolvesSettingsStaticCatalogByLocale()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("Settings"));
+
+            resolver.SetLocale("ko-KR");
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("설정"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.ResetInputLabelDescriptor), Is.EqualTo("입력 초기화"));
+        }
+
+        [Test]
         public void FakeResolver_LocaleChanged_AllowsConsumerRefresh()
         {
             var resolver = new FakeLocalizedTextResolver();

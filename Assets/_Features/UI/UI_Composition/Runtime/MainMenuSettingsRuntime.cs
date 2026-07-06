@@ -3,6 +3,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
@@ -15,6 +16,9 @@ namespace Game.Feature.UI.Composition
         private readonly IUiAudioPort uiAudioPort;
         private readonly DisplayPreviewSessionHost displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay;
+        private readonly ILocalizedTextResolver localizedTextResolver;
+        private readonly ILocalizedTypographyResolver localizedTypographyResolver;
+        private readonly ILocalizedTmpFontResolver localizedTmpFontResolver;
         private DisplayStatusTransientRelay displayStatusTransientRelay;
         private readonly SettingsScreenPayload payload;
         private readonly PopupController popupController;
@@ -41,7 +45,10 @@ namespace Game.Feature.UI.Composition
             SettingsScreenPayload payload,
             double previewTimeoutSeconds,
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
-            IUiAudioPort uiAudioPort = null)
+            IUiAudioPort uiAudioPort = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
         {
             this.settingsScreenPrefab = settingsScreenPrefab != null
                 ? settingsScreenPrefab
@@ -59,6 +66,9 @@ namespace Game.Feature.UI.Composition
             this.displayStatusTransientRelay = displayStatusTransientRelay;
             this.payload = payload ?? throw new ArgumentNullException(nameof(payload));
             this.previewTimeoutSeconds = previewTimeoutSeconds;
+            this.localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            this.localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            this.localizedTmpFontResolver = localizedTmpFontResolver;
         }
 
         public event Action CloseRequested;
@@ -82,7 +92,10 @@ namespace Game.Feature.UI.Composition
             SettingsScreenPayload payload,
             double previewTimeoutSeconds,
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
-            IUiAudioPort uiAudioPort = null)
+            IUiAudioPort uiAudioPort = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
             : this(
                 settingsScreenPrefab,
                 settingsContentRoot,
@@ -95,7 +108,10 @@ namespace Game.Feature.UI.Composition
                 payload,
                 previewTimeoutSeconds,
                 displayStatusTransientRelay,
-                uiAudioPort)
+                uiAudioPort,
+                localizedTextResolver,
+                localizedTypographyResolver,
+                localizedTmpFontResolver)
         {
         }
 
@@ -129,7 +145,11 @@ namespace Game.Feature.UI.Composition
                 audioView = view.AudioView ?? throw new InvalidOperationException("Settings screen view is missing an audio section.");
                 displayView = view.DisplayView ?? throw new InvalidOperationException("Settings screen view is missing a display section.");
                 inputView = view.InputView ?? throw new InvalidOperationException("Settings screen view is missing an input section.");
-                presenter = new SettingsScreenPresenter(audioSettingsPort, displaySettingsPort, keyboardBindingSettingsPort);
+                presenter = new SettingsScreenPresenter(
+                    audioSettingsPort,
+                    displaySettingsPort,
+                    keyboardBindingSettingsPort,
+                    localizedTextResolver);
                 view.ValidateAuthoredStructureOrThrow();
                 audioView.ValidateAuthoredControlsOrThrow();
                 displayView.ValidateAuthoredControlsOrThrow();
@@ -139,6 +159,11 @@ namespace Game.Feature.UI.Composition
                 audioView.Bind(presenter.AudioPresenter.ViewModel);
                 displayView.Bind(presenter.DisplayPresenter.ViewModel);
                 inputView.Bind(presenter.InputPresenter.ViewModel);
+                view.BindStaticLocalization(
+                    payload,
+                    localizedTextResolver,
+                    localizedTypographyResolver,
+                    localizedTmpFontResolver);
                 SubscribeEvents();
                 view.SetIsCurrent(true);
             }
@@ -186,6 +211,7 @@ namespace Game.Feature.UI.Composition
 
             if (view != null)
             {
+                view.UnbindStaticLocalization();
                 view.Bind(null);
                 view.SetIsCurrent(false);
                 DestroyObject(view.gameObject);
