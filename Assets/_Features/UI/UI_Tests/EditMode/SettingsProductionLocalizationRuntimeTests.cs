@@ -490,7 +490,7 @@ namespace Game.Feature.UI.Tests
                 new GameplayObjectiveReadModel(false, false, false, false));
         }
 
-        private sealed class GameplaySettingsHarness : IDisposable
+        internal sealed class GameplaySettingsHarness : IDisposable
         {
             private readonly GameObject _rootObject;
             private readonly PopupController _popupController;

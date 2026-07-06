@@ -68,10 +68,21 @@ namespace Game.Feature.UI.Composition
             return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
         }
 
-        internal static PackageFreeLocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver()
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver()
         {
-            return PackageFreeLocalizedTextResolver.CreateSettingsDefault(
-                new PlayerPrefsUiLocalePreferenceStore());
+            return CreatePersistentSettingsLocalizedTextResolver(new PlayerPrefsUiLocalePreferenceStore());
+        }
+
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore)
+        {
+            localePreferenceStore ??= new PlayerPrefsUiLocalePreferenceStore();
+            return UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    localePreferenceStore,
+                    out var unityResolver,
+                    out _)
+                ? unityResolver
+                : PackageFreeLocalizedTextResolver.CreateSettingsDefault(localePreferenceStore);
         }
 
         internal static AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller(

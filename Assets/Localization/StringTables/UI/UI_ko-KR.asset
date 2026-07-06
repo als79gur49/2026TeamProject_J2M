@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: UI_ko-KR
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: ko-KR
+  m_SharedData: {fileID: 11400000, guid: 1139bb803b655c2488dd6dca46c97cf5, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 1818714112
+    m_Localized: "\uC124\uC815"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434368
+    m_Localized: "\uC624\uB514\uC624"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434369
+    m_Localized: "\uB514\uC2A4\uD50C\uB808\uC774"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434370
+    m_Localized: "\uC785\uB825"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628672
+    m_Localized: "\uC774\uB3D9 \uD0A4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628673
+    m_Localized: "\uD654\uC0B4\uD45C \uD0A4 \uC0AC\uC6A9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628674
+    m_Localized: "\uBC00\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628675
+    m_Localized: "\uB4A4\uC9D1\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628676
+    m_Localized: "\uBCC0\uACBD"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628677
+    m_Localized: "\uC785\uB825 \uCD08\uAE30\uD654"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628678
+    m_Localized: "\uB4A4\uB85C"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628679
+    m_Localized: "\uC5B8\uC5B4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628680
+    m_Localized: "\uC601\uC5B4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628681
+    m_Localized: "\uD55C\uAD6D\uC5B4"
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

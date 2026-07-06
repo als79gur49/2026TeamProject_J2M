@@ -12,5 +12,7 @@ EditorBuildSettings:
     path: Assets/Scenes/UIAudioScene.unity
     guid: 4b05cdf1cf4141b28fd9953dde8818c7
   m_configObjects:
+    com.unity.addressableassets: {fileID: 11400000, guid: 438307ce140420940872c852b0c125df, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.localization.settings: {fileID: 11400000, guid: 8642802b106d33a4db2df02c00d4d6e7, type: 2}
   m_UseUCBPForAssetBundles: 0

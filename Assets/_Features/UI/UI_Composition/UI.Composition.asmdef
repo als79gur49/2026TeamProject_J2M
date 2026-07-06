@@ -22,6 +22,8 @@
     "UnityEngine.VideoModule",
     "Unity.Splines",
     "Unity.TextMeshPro",
+    "Unity.Localization",
+    "Unity.ResourceManager",
     "DOTween.Modules"
   ]
 }

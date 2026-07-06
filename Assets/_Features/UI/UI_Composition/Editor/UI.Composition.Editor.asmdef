@@ -1,0 +1,14 @@
+{
+  "name": "Game.Feature.UI.Composition.Editor",
+  "rootNamespace": "Game.Feature.UI.Composition.Editor",
+  "references": [
+    "Game.Feature.UI.Composition",
+    "Unity.Localization",
+    "Unity.Localization.Editor",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}
