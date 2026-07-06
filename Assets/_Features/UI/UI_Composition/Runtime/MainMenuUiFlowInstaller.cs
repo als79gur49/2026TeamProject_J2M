@@ -119,6 +119,11 @@ namespace Game.Feature.UI.Composition
             _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
+            _mainMenuScreenView.BindStaticLocalization(
+                MainMenuStaticTextPayload.Default,
+                _localizedTextResolver,
+                DefaultLocalizedTypographyResolver.Instance,
+                _koreanSettingsFont != null ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont) : null);
             BuildPopupModule();
             BuildSettingsModule();
             BuildAudioFeedbackModule();

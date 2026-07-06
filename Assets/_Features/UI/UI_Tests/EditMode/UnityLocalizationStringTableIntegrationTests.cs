@@ -52,6 +52,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Title), Is.EqualTo("Paused"));
             Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Resume), Is.EqualTo("Resume"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Start), Is.EqualTo("Start"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Settings), Is.EqualTo("Settings"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Quit), Is.EqualTo("Quit"));
 
             var eventCount = 0;
             resolver.LocaleChanged += () => eventCount++;
@@ -61,6 +64,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Title), Is.EqualTo("일시 정지"));
             Assert.That(resolver.Resolve(PauseStaticTextDescriptors.Resume), Is.EqualTo("계속하기"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Start), Is.EqualTo("시작"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Settings), Is.EqualTo("설정"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Quit), Is.EqualTo("종료"));
             Assert.That(eventCount, Is.EqualTo(1));
 
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
@@ -143,6 +149,34 @@ namespace Game.Feature.UI.Tests
             {
                 view.UnbindStaticLocalization();
                 view.Bind(null);
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
+        }
+
+        [Test]
+        public void RuntimeMainMenuShell_ResolvesUnityTableLabelsAndRefreshesWhenLocaleChanges()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<MainMenuScreenView>(
+                UiTestPrefabAssetUtility.MainMenuScreenPrefabPath);
+            var view = UnityEngine.Object.Instantiate(prefab);
+
+            try
+            {
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance);
+
+                AssertMainMenuLabels(view, "Start", "Settings", "Quit");
+
+                Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+
+                AssertMainMenuLabels(view, "시작", "설정", "종료");
+            }
+            finally
+            {
+                view.UnbindStaticLocalization();
                 UnityEngine.Object.DestroyImmediate(view.gameObject);
             }
         }
@@ -266,6 +300,17 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view, "_settingsButtonLabel").text, Is.EqualTo(settings));
             Assert.That(GetText(view, "_retryButtonLabel").text, Is.EqualTo(retry));
             Assert.That(GetText(view, "_mainMenuButtonLabel").text, Is.EqualTo(mainMenu));
+        }
+
+        private static void AssertMainMenuLabels(
+            MainMenuScreenView view,
+            string start,
+            string settings,
+            string quit)
+        {
+            Assert.That(GetText(view, "_startButtonLabel").text, Is.EqualTo(start));
+            Assert.That(GetText(view, "_settingsButtonLabel").text, Is.EqualTo(settings));
+            Assert.That(GetText(view, "_quitButtonLabel").text, Is.EqualTo(quit));
         }
 
         public sealed class FakeUiLocalePreferenceStore : IUiLocalePreferenceStore

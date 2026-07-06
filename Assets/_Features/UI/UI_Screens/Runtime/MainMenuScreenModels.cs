@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Screens
 {
@@ -71,6 +72,59 @@ namespace Game.Feature.UI.Screens
         }
 
         public MainMenuCommandKind CommandKind { get; }
+    }
+
+    public sealed class MainMenuStaticTextPayload
+    {
+        public static readonly MainMenuStaticTextPayload Default = new();
+
+        public MainMenuStaticTextPayload(
+            LocalizedTextDescriptor startLabelDescriptor = default,
+            LocalizedTextDescriptor settingsLabelDescriptor = default,
+            LocalizedTextDescriptor quitLabelDescriptor = default)
+        {
+            StartLabelDescriptor = OrDefault(startLabelDescriptor, MainMenuStaticTextDescriptors.Start);
+            SettingsLabelDescriptor = OrDefault(settingsLabelDescriptor, MainMenuStaticTextDescriptors.Settings);
+            QuitLabelDescriptor = OrDefault(quitLabelDescriptor, MainMenuStaticTextDescriptors.Quit);
+        }
+
+        public LocalizedTextDescriptor StartLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor SettingsLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor QuitLabelDescriptor { get; }
+
+        private static LocalizedTextDescriptor OrDefault(
+            LocalizedTextDescriptor descriptor,
+            LocalizedTextDescriptor fallback)
+        {
+            return string.IsNullOrEmpty(descriptor.Table) && string.IsNullOrEmpty(descriptor.Key)
+                ? fallback
+                : descriptor;
+        }
+    }
+
+    public static class MainMenuStaticTextDescriptors
+    {
+        public const string Table = "UI";
+
+        public static readonly LocalizedTextDescriptor Start = new(
+            Table,
+            "ui.main_menu.start",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Settings = new(
+            Table,
+            "ui.common.settings",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Quit = new(
+            Table,
+            "ui.main_menu.quit",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
     }
 
     public sealed class SaveSlotCardViewModel

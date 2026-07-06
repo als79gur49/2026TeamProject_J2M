@@ -43,6 +43,13 @@ namespace Game.Feature.UI.Tests
             PauseStaticTextDescriptors.MainMenu,
         };
 
+        private static readonly LocalizedTextDescriptor[] ExpectedMainMenuDescriptors =
+        {
+            MainMenuStaticTextDescriptors.Start,
+            MainMenuStaticTextDescriptors.Settings,
+            MainMenuStaticTextDescriptors.Quit,
+        };
+
         [Test]
         public void LocalizedTextDescriptor_PreservesShapeAndDefaultStyle()
         {
@@ -130,6 +137,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuStaticTextPayload_Default_ProvidesCommandShellDescriptors()
+        {
+            var descriptors = GetMainMenuPayloadDescriptors(MainMenuStaticTextPayload.Default);
+
+            Assert.That(descriptors, Is.EqualTo(ExpectedMainMenuDescriptors));
+            Assert.That(
+                descriptors.Select(descriptor => descriptor.Key).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "ui.main_menu.start",
+                    "ui.common.settings",
+                    "ui.main_menu.quit",
+                }));
+        }
+
+        [Test]
         public void PausePopupPresenter_MapsStaticDescriptorsThroughResolver()
         {
             var resolver = new FakeLocalizedTextResolver();
@@ -169,6 +192,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("Korean"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.TitleTextDescriptor), Is.EqualTo("Paused"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.MainMenuLabelDescriptor), Is.EqualTo("Main Menu"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.StartLabelDescriptor), Is.EqualTo("Start"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.SettingsLabelDescriptor), Is.EqualTo("Settings"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.QuitLabelDescriptor), Is.EqualTo("Quit"));
 
             resolver.SetLocale("ko-KR");
 
@@ -179,6 +205,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("한국어"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.TitleTextDescriptor), Is.EqualTo("일시 정지"));
             Assert.That(resolver.Resolve(PausePopupPayload.Default.MainMenuLabelDescriptor), Is.EqualTo("메인 메뉴"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.StartLabelDescriptor), Is.EqualTo("시작"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.SettingsLabelDescriptor), Is.EqualTo("설정"));
+            Assert.That(resolver.Resolve(MainMenuStaticTextPayload.Default.QuitLabelDescriptor), Is.EqualTo("종료"));
         }
 
         [Test]
@@ -442,6 +471,45 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuView_StaticCommandLabels_CanBindDescriptorsAndRefreshLocale()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var typographyResolver = new RecordingTypographyResolver
+            {
+                Style = new LocalizedTypographyStyle(24f, 0f, false),
+            };
+            var fixture = CreateMainMenuViewFixture();
+
+            try
+            {
+                fixture.View.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    typographyResolver);
+
+                Assert.That(fixture.StartLabel.text, Is.EqualTo("Start"));
+                Assert.That(fixture.SettingsLabel.text, Is.EqualTo("Settings"));
+                Assert.That(fixture.QuitLabel.text, Is.EqualTo("Quit"));
+
+                resolver.SetLocale("ko-KR");
+
+                Assert.That(fixture.StartLabel.text, Is.EqualTo("시작"));
+                Assert.That(fixture.SettingsLabel.text, Is.EqualTo("설정"));
+                Assert.That(fixture.QuitLabel.text, Is.EqualTo("종료"));
+                Assert.That(
+                    typographyResolver.Calls.All(call => call.Role == LocalizedTextRole.Button),
+                    Is.True);
+
+                fixture.View.UnbindStaticLocalization();
+                Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void DynamicSettingsStrings_RemainOutsideStaticDescriptorMap()
         {
             var descriptors = GetSettingsPayloadDescriptors(SettingsScreenPayload.Default);
@@ -485,6 +553,31 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageResultPayloadProperties, Does.Not.Contain("DetailText"));
             Assert.That(stageResultPayloadProperties, Does.Not.Contain("ContinueLabel"));
             Assert.That(stagePresentationProperties, Does.Not.Contain("DisplayNameKey"));
+        }
+
+        [Test]
+        public void MainMenuStaticMigration_DoesNotLocalizeSaveSlotConfirmOrDeferredSurfaces()
+        {
+            var descriptors = GetMainMenuPayloadDescriptors(MainMenuStaticTextPayload.Default);
+            var descriptorKeys = descriptors.Select(descriptor => descriptor.Key).ToArray();
+            var saveSlotStringProperties = typeof(SaveSlotCardViewModel)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(property => property.PropertyType == typeof(string))
+                .Select(property => property.Name)
+                .ToArray();
+
+            Assert.That(descriptorKeys, Does.Contain("ui.main_menu.start"));
+            Assert.That(descriptorKeys, Does.Contain("ui.common.settings"));
+            Assert.That(descriptorKeys, Does.Contain("ui.main_menu.quit"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.main_menu.slot.title"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.main_menu.slot.stage"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.confirm.title"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.stage.display_name"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.hud.objective"));
+            Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.TitleText)));
+            Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.StageText)));
+            Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.LastPlayedText)));
+            Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.PrimaryActionText)));
         }
 
 
@@ -570,6 +663,16 @@ namespace Game.Feature.UI.Tests
                 payload.SettingsLabelDescriptor,
                 payload.RetryLabelDescriptor,
                 payload.MainMenuLabelDescriptor,
+            };
+        }
+
+        private static LocalizedTextDescriptor[] GetMainMenuPayloadDescriptors(MainMenuStaticTextPayload payload)
+        {
+            return new[]
+            {
+                payload.StartLabelDescriptor,
+                payload.SettingsLabelDescriptor,
+                payload.QuitLabelDescriptor,
             };
         }
 
@@ -662,6 +765,21 @@ namespace Game.Feature.UI.Tests
                 statusText);
         }
 
+        private static MainMenuViewFixture CreateMainMenuViewFixture()
+        {
+            var root = new GameObject("MainMenuViewFixture");
+            var view = root.AddComponent<MainMenuScreenView>();
+            var startLabel = CreateTmpText("StartLabel", root.transform);
+            var settingsLabel = CreateTmpText("SettingsLabel", root.transform);
+            var quitLabel = CreateTmpText("QuitLabel", root.transform);
+
+            SetPrivateField(view, "_startButtonLabel", startLabel);
+            SetPrivateField(view, "_settingsButtonLabel", settingsLabel);
+            SetPrivateField(view, "_quitButtonLabel", quitLabel);
+
+            return new MainMenuViewFixture(root, view, startLabel, settingsLabel, quitLabel);
+        }
+
         private static void SetPrivateField(object target, string fieldName, object value)
         {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -691,6 +809,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.korean"] = "Korean",
                         ["ui.common.back"] = "Back",
                         ["ui.common.settings"] = "Settings",
+                        ["ui.main_menu.start"] = "Start",
+                        ["ui.main_menu.quit"] = "Quit",
                         ["ui.pause.title"] = "Paused",
                         ["ui.pause.description"] = "Pausing modal popup",
                         ["ui.pause.resume"] = "Resume",
@@ -714,6 +834,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.korean"] = "한국어",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
+                        ["ui.main_menu.start"] = "시작",
+                        ["ui.main_menu.quit"] = "종료",
                         ["ui.pause.title"] = "일시 정지",
                         ["ui.pause.description"] = "일시 정지 팝업",
                         ["ui.pause.resume"] = "계속하기",
@@ -873,6 +995,38 @@ namespace Game.Feature.UI.Tests
                 {
                     UnityEngine.Object.DestroyImmediate(Root);
                 }
+            }
+        }
+
+        private sealed class MainMenuViewFixture
+        {
+            public MainMenuViewFixture(
+                GameObject root,
+                MainMenuScreenView view,
+                TMP_Text startLabel,
+                TMP_Text settingsLabel,
+                TMP_Text quitLabel)
+            {
+                Root = root;
+                View = view;
+                StartLabel = startLabel;
+                SettingsLabel = settingsLabel;
+                QuitLabel = quitLabel;
+            }
+
+            public GameObject Root { get; }
+
+            public MainMenuScreenView View { get; }
+
+            public TMP_Text StartLabel { get; }
+
+            public TMP_Text SettingsLabel { get; }
+
+            public TMP_Text QuitLabel { get; }
+
+            public void Destroy()
+            {
+                UnityEngine.Object.DestroyImmediate(Root);
             }
         }
 

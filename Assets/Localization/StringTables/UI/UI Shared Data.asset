@@ -75,6 +75,14 @@ MonoBehaviour:
     m_Key: ui.common.settings
     m_Metadata:
       m_Items: []
+  - m_Id: 1881628688
+    m_Key: ui.main_menu.start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628689
+    m_Key: ui.main_menu.quit
+    m_Metadata:
+      m_Items: []
   - m_Id: 1881628683
     m_Key: ui.pause.title
     m_Metadata:

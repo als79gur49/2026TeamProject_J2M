@@ -858,6 +858,8 @@ namespace Game.Feature.UI.Application
             ["ui.settings.language.korean"] = "Korean",
             ["ui.common.back"] = "Back",
             ["ui.common.settings"] = "Settings",
+            ["ui.main_menu.start"] = "Start",
+            ["ui.main_menu.quit"] = "Quit",
             ["ui.pause.title"] = "Paused",
             ["ui.pause.description"] = "Pausing modal popup",
             ["ui.pause.resume"] = "Resume",

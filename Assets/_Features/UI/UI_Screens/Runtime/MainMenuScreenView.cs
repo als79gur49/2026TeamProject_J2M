@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
@@ -40,6 +41,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private UiSelectableButtonGroup _commandNavigationGroup = new UiSelectableButtonGroup();
 
         private MainMenuFocusDomain _activeFocusDomain = MainMenuFocusDomain.Commands;
+        private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private bool _navigationFocusVisible;
         private bool _pendingEnterSaveSlotNavigation;
 
@@ -64,6 +66,57 @@ namespace Game.Feature.UI.Screens
             {
                 _root.SetActive(visible);
             }
+        }
+
+        public void BindStaticLocalization(
+            MainMenuStaticTextPayload payload,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver = null)
+        {
+            UnbindStaticLocalization();
+            if (payload == null)
+            {
+                return;
+            }
+
+            _localizedStaticBindings = new List<LocalizedTmpTextBinding>
+            {
+                new(
+                    _startButtonLabel,
+                    payload.StartLabelDescriptor,
+                    textResolver,
+                    typographyResolver,
+                    fontResolver),
+                new(
+                    _settingsButtonLabel,
+                    payload.SettingsLabelDescriptor,
+                    textResolver,
+                    typographyResolver,
+                    fontResolver),
+                new(
+                    _quitButtonLabel,
+                    payload.QuitLabelDescriptor,
+                    textResolver,
+                    typographyResolver,
+                    fontResolver),
+            };
+        }
+
+        public void UnbindStaticLocalization()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _localizedStaticBindings.Count; i++)
+            {
+                _localizedStaticBindings[i]?.Dispose();
+            }
+
+            _localizedStaticBindings.Clear();
+            _localizedStaticBindings = null;
         }
 
         public void ValidateAuthoredStructureOrThrow()
@@ -315,6 +368,11 @@ namespace Game.Feature.UI.Screens
         {
             UnwireButtons();
             ApplyCommandButtonsInteractable(true);
+        }
+
+        private void OnDestroy()
+        {
+            UnbindStaticLocalization();
         }
 
         private void EnsureSaveSlotCardOrder()
