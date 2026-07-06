@@ -1,0 +1,172 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using TMPro;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
+
+namespace Game.Feature.UI.Tests
+{
+    public static class NanumGothicFontValidationUtility
+    {
+        public const string SourceFontPath = "Assets/_Shared/UI/Fonts/NanumGothic.ttf";
+        public const string FontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
+        public const int AtlasSize = 2048;
+        public const int SamplingPointSize = 90;
+        public const int Padding = 9;
+
+        public const string CommonUiCharacters =
+            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%+-/():[] .,";
+
+        public static readonly string[] SettingsKoreanLabels =
+        {
+            "설정",
+            "오디오",
+            "디스플레이",
+            "입력",
+            "이동 키",
+            "화살표 키 사용",
+            "방향키 사용",
+            "밀기",
+            "뒤집기",
+            "변경",
+            "입력 초기화",
+            "뒤로",
+        };
+
+        [MenuItem("Tools/UI/Generate NanumGothic TMP Validation Font")]
+        public static void GenerateFromMenu()
+        {
+            GenerateOrThrow();
+        }
+
+        public static TMP_FontAsset GenerateOrThrow()
+        {
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(SourceFontPath);
+            if (sourceFont == null)
+            {
+                throw new InvalidOperationException($"Missing source font: {SourceFontPath}");
+            }
+
+            var existingAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(FontAssetPath);
+            if (existingAsset != null && !AssetDatabase.DeleteAsset(FontAssetPath))
+            {
+                throw new InvalidOperationException($"Failed to delete existing font asset: {FontAssetPath}");
+            }
+
+            var fontAsset = TMP_FontAsset.CreateFontAsset(
+                sourceFont,
+                SamplingPointSize,
+                Padding,
+                GlyphRenderMode.SDFAA,
+                AtlasSize,
+                AtlasSize,
+                AtlasPopulationMode.Dynamic,
+                false);
+
+            if (fontAsset == null)
+            {
+                throw new InvalidOperationException("TMP failed to create a NanumGothic font asset.");
+            }
+
+            fontAsset.name = Path.GetFileNameWithoutExtension(FontAssetPath);
+            if (fontAsset.material != null)
+            {
+                fontAsset.material.name = $"{fontAsset.name} Material";
+            }
+
+            if (fontAsset.atlasTextures != null && fontAsset.atlasTextures.Length > 0 && fontAsset.atlasTextures[0] != null)
+            {
+                fontAsset.atlasTextures[0].name = $"{fontAsset.name} Atlas";
+            }
+
+            AssetDatabase.CreateAsset(fontAsset, FontAssetPath);
+
+            if (fontAsset.atlasTextures != null && fontAsset.atlasTextures.Length > 0 && fontAsset.atlasTextures[0] != null)
+            {
+                AssetDatabase.AddObjectToAsset(fontAsset.atlasTextures[0], fontAsset);
+            }
+
+            if (fontAsset.material != null)
+            {
+                AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
+            }
+
+            var characterSet = BuildValidationCharacterSet();
+            if (!fontAsset.TryAddCharacters(characterSet, out var missingCharacters))
+            {
+                throw new InvalidOperationException(
+                    $"NanumGothic validation asset is missing requested glyphs: {FormatCharacters(missingCharacters)}");
+            }
+
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
+            fontAsset.ReadFontAssetDefinition();
+            EditorUtility.SetDirty(fontAsset);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(FontAssetPath, ImportAssetOptions.ForceUpdate);
+
+            var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
+            if (reloaded == null)
+            {
+                throw new InvalidOperationException($"Failed to reload generated font asset: {FontAssetPath}");
+            }
+
+            var missingCoverage = GetMissingCharacters(reloaded, SettingsKoreanLabels.Append(CommonUiCharacters));
+            if (missingCoverage.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Generated NanumGothic asset does not cover validation strings: {FormatCharacters(missingCoverage)}");
+            }
+
+            return reloaded;
+        }
+
+        public static string BuildValidationCharacterSet()
+        {
+            var characters = new SortedSet<char>();
+            foreach (var text in SettingsKoreanLabels.Append(CommonUiCharacters))
+            {
+                foreach (var character in text)
+                {
+                    if (!char.IsControl(character))
+                    {
+                        characters.Add(character);
+                    }
+                }
+            }
+
+            return string.Concat(characters);
+        }
+
+        public static IReadOnlyList<char> GetMissingCharacters(TMP_FontAsset fontAsset, IEnumerable<string> texts)
+        {
+            if (fontAsset == null)
+            {
+                throw new ArgumentNullException(nameof(fontAsset));
+            }
+
+            var missing = new SortedSet<char>();
+            foreach (var text in texts)
+            {
+                foreach (var character in text ?? string.Empty)
+                {
+                    if (!fontAsset.HasCharacter(character, searchFallbacks: false, tryAddCharacter: false))
+                    {
+                        missing.Add(character);
+                    }
+                }
+            }
+
+            return missing.ToArray();
+        }
+
+        public static string FormatCharacters(IEnumerable<char> characters)
+        {
+            return string.Join(
+                ", ",
+                characters.Select(character => $"{character} U+{(int)character:X4}"));
+        }
+    }
+}
