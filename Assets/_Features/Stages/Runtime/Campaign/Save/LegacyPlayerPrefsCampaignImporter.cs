@@ -80,7 +80,25 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class CampaignLegacyImportMarkerStore
+    public interface ICampaignLegacyImportMarkerStore
+    {
+        bool IsImportDisabled();
+
+        string GetImportedSourceHash();
+
+        void SetImportedSourceHash(string importedSourceHash);
+
+        string GetResetTombstoneUtc();
+
+        bool HasResetTombstone();
+    }
+
+    public interface ICampaignLegacyImportCandidateSource
+    {
+        CampaignLegacyImportResult BuildImportCandidate();
+    }
+
+    public sealed class CampaignLegacyImportMarkerStore : ICampaignLegacyImportMarkerStore
     {
         public const string ImportDisabledKey =
             "Game.Feature.Stages.CampaignProfile.LegacyImportDisabled";
@@ -130,7 +148,7 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class LegacyPlayerPrefsCampaignImporter
+    public sealed class LegacyPlayerPrefsCampaignImporter : ICampaignLegacyImportCandidateSource
     {
         private readonly CampaignLegacySourceReader _sourceReader;
         private readonly CampaignLegacyImportMarkerStore _markerStore;
