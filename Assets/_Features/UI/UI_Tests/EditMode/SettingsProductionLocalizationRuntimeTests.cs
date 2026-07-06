@@ -17,7 +17,7 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SettingsProductionLocalizationRuntimeTests
     {
-        private const int SettingsStaticBindingCount = 12;
+        private const int SettingsStaticBindingCount = 13;
         private const string ScaleRatioA = "_ScaleRatioA";
         private const string ScaleRatioC = "_ScaleRatioC";
 
@@ -43,6 +43,58 @@ namespace Game.Feature.UI.Tests
 
             AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
             AssertInputLabels(view.InputView, "이동 키", "화살표 키 사용", "밀기", "뒤집기", "변경", "입력 초기화");
+        }
+
+        [Test]
+        public void SettingsScreenPrefab_DisplayLanguageRow_IsAuthoredAndInvokesCyclePath()
+        {
+            var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
+                UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+
+            Assert.DoesNotThrow(prefab.DisplayView.ValidateAuthoredControlsOrThrow);
+
+            var languageLabel = GetText(prefab.DisplayView, "_languageLabel");
+            var languageButton = GetField<Button>(prefab.DisplayView, "_languageCycleButton");
+            var languageButtonLabel = GetText(prefab.DisplayView, "_languageCycleButtonLabel");
+            Assert.That(languageLabel.transform.parent.name, Is.EqualTo("LanguageRow"));
+            Assert.That(languageButton.transform.parent.name, Is.EqualTo("LanguageRow"));
+            Assert.That(languageButtonLabel.transform.IsChildOf(languageButton.transform), Is.True);
+            Assert.That(languageLabel.gameObject.activeSelf, Is.True);
+            Assert.That(languageButton.gameObject.activeSelf, Is.True);
+
+            var view = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                var displayModel = new SettingsDisplayViewModel();
+                view.DisplayView.gameObject.SetActive(true);
+                view.DisplayView.Bind(displayModel);
+                displayModel.SetContent(
+                    "1920 x 1080",
+                    Array.Empty<string>(),
+                    0,
+                    false,
+                    string.Empty,
+                    false,
+                    false,
+                    false,
+                    string.Empty,
+                    0f,
+                    false,
+                    languageLabelText: "Language",
+                    currentLanguageText: "English",
+                    isLanguageSelectionAvailable: true);
+                view.DisplayView.SetIsVisible(true);
+
+                var clickCount = 0;
+                view.DisplayView.LanguageCycleRequested += () => clickCount++;
+                GetField<Button>(view.DisplayView, "_languageCycleButton").onClick.Invoke();
+
+                Assert.That(clickCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(view.gameObject);
+            }
         }
 
         [Test]
@@ -89,10 +141,14 @@ namespace Game.Feature.UI.Tests
             harness.ShowSettings();
             var view = harness.SettingsView;
             var titleLabel = GetText(view, "_titleLabel");
+            var languageButtonLabel = GetText(view.DisplayView, "_languageCycleButtonLabel");
             var startingFont = titleLabel.font;
+            var startingLanguageFont = languageButtonLabel.font;
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(titleLabel.text, Is.EqualTo("Settings"));
+            Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
+            Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
@@ -100,6 +156,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
             Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
+            Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+            Assert.That(languageButtonLabel.font, Is.SameAs(nanumGothic));
             Assert.That(harness.UiAudioPort.PlayedCueIds, Does.Contain(UiAudioCueId.Toggle));
 
             view.DisplayView.ClickLanguageCycle();
@@ -107,6 +166,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(titleLabel.text, Is.EqualTo("Settings"));
             Assert.That(titleLabel.font, Is.SameAs(startingFont));
+            Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
+            Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
+            Assert.That(languageButtonLabel.font, Is.SameAs(startingLanguageFont));
         }
 
         [Test]
@@ -254,11 +316,17 @@ namespace Game.Feature.UI.Tests
 
         private static TMP_Text GetText(object target, string fieldName)
         {
+            return GetField<TMP_Text>(target, fieldName);
+        }
+
+        private static TField GetField<TField>(object target, string fieldName)
+            where TField : class
+        {
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName} must exist.");
-            var label = field.GetValue(target) as TMP_Text;
-            Assert.That(label, Is.Not.Null, $"{target.GetType().Name}.{fieldName} must reference TMP_Text.");
-            return label;
+            var value = field.GetValue(target) as TField;
+            Assert.That(value, Is.Not.Null, $"{target.GetType().Name}.{fieldName} must reference {typeof(TField).Name}.");
+            return value;
         }
 
         private static TMP_FontAsset LoadNanumGothic()

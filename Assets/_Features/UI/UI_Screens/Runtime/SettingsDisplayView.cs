@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -39,6 +40,16 @@ namespace Game.Feature.UI.Screens
         private bool _isResolutionHoverHintVisible;
         private bool _isVisible;
         private int _resolutionKeyboardHighlightedIndex = -1;
+        private ILocalizedTextResolver _localizedTextResolver;
+        private ILocalizedTypographyResolver _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
+        private ILocalizedTmpFontResolver _localizedTmpFontResolver;
+        private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
+        private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
+        private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
+        private TMP_FontAsset _languageLabelDefaultFontAsset;
+        private Material _languageLabelDefaultMaterialPreset;
+        private TMP_FontAsset _languageCycleButtonLabelDefaultFontAsset;
+        private Material _languageCycleButtonLabelDefaultMaterialPreset;
         private SettingsDisplayViewModel _viewModel;
 
         public event Action<int> ResolutionChanged;
@@ -85,6 +96,49 @@ namespace Game.Feature.UI.Screens
         public string CurrentLanguageText =>
             _languageCycleButtonLabel != null ? _languageCycleButtonLabel.text : string.Empty;
 
+        public void BindStaticLocalization(
+            SettingsScreenPayload payload,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver = null)
+        {
+            UnbindStaticLocalization();
+            if (payload == null)
+            {
+                return;
+            }
+
+            _languageLabelDescriptor = payload.LanguageLabelDescriptor;
+            _englishLanguageLabelDescriptor = payload.EnglishLanguageLabelDescriptor;
+            _koreanLanguageLabelDescriptor = payload.KoreanLanguageLabelDescriptor;
+            _localizedTextResolver = textResolver;
+            _localizedTypographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            _localizedTmpFontResolver = fontResolver;
+            _languageLabelDefaultFontAsset ??= _languageLabel != null ? _languageLabel.font : null;
+            _languageLabelDefaultMaterialPreset ??= _languageLabel != null ? _languageLabel.fontSharedMaterial : null;
+            _languageCycleButtonLabelDefaultFontAsset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.font : null;
+            _languageCycleButtonLabelDefaultMaterialPreset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.fontSharedMaterial : null;
+
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
+            }
+
+            RefreshLocalizedLanguageTextStyle();
+        }
+
+        public void UnbindStaticLocalization()
+        {
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            }
+
+            _localizedTextResolver = null;
+            _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
+            _localizedTmpFontResolver = null;
+        }
+
         public void Bind(SettingsDisplayViewModel viewModel)
         {
             HideResolutionHoverHint();
@@ -117,6 +171,9 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel), issues);
             ValidateControl(_fullscreenLabel, nameof(_fullscreenLabel), issues);
             ValidateControl(_fullscreenToggle, nameof(_fullscreenToggle), issues);
+            ValidateControl(_languageLabel, nameof(_languageLabel), issues);
+            ValidateControl(_languageCycleButton, nameof(_languageCycleButton), issues);
+            ValidateControl(_languageCycleButtonLabel, nameof(_languageCycleButtonLabel), issues);
             ValidateControl(_displayStatusLabel, nameof(_displayStatusLabel), issues);
             ValidateControl(_previewCountdownRoot, nameof(_previewCountdownRoot), issues);
             ValidateControl(_previewCountdownLabel, nameof(_previewCountdownLabel), issues);
@@ -302,6 +359,9 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel));
             ValidateSerializedReference(_fullscreenLabel, nameof(_fullscreenLabel));
             ValidateSerializedReference(_fullscreenToggle, nameof(_fullscreenToggle));
+            ValidateSerializedReference(_languageLabel, nameof(_languageLabel));
+            ValidateSerializedReference(_languageCycleButton, nameof(_languageCycleButton));
+            ValidateSerializedReference(_languageCycleButtonLabel, nameof(_languageCycleButtonLabel));
             ValidateSerializedReference(_displayStatusLabel, nameof(_displayStatusLabel));
             ValidateSerializedReference(_previewCountdownRoot, nameof(_previewCountdownRoot));
             ValidateSerializedReference(_previewCountdownLabel, nameof(_previewCountdownLabel));
@@ -318,6 +378,7 @@ namespace Game.Feature.UI.Screens
             HideResolutionHoverHint();
             CloseResolutionKeyboardList();
             UnbindResolutionHoverRelay();
+            UnbindStaticLocalization();
 
             if (_viewModel != null)
             {
@@ -515,11 +576,75 @@ namespace Game.Feature.UI.Screens
                 {
                     _languageCycleButton.interactable = _viewModel.IsLanguageSelectionAvailable;
                 }
+
+                RefreshLocalizedLanguageTextStyle();
             }
             finally
             {
                 _isRefreshingDisplayControls = false;
             }
+        }
+
+        private void HandleLocaleChanged()
+        {
+            RefreshLocalizedLanguageTextStyle();
+        }
+
+        private void RefreshLocalizedLanguageTextStyle()
+        {
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            ApplyLocalizedStyle(
+                _languageLabel,
+                _languageLabelDescriptor,
+                localeCode,
+                _languageLabelDefaultFontAsset,
+                _languageLabelDefaultMaterialPreset);
+            ApplyLocalizedStyle(
+                _languageCycleButtonLabel,
+                CurrentLanguageDescriptor(localeCode),
+                localeCode,
+                _languageCycleButtonLabelDefaultFontAsset,
+                _languageCycleButtonLabelDefaultMaterialPreset);
+        }
+
+        private void ApplyLocalizedStyle(
+            TMP_Text target,
+            LocalizedTextDescriptor descriptor,
+            string localeCode,
+            TMP_FontAsset defaultFontAsset,
+            Material defaultMaterialPreset)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            LocalizedTmpTextApplicator.ApplyTypography(
+                target,
+                _localizedTypographyResolver.Resolve(
+                    localeCode,
+                    descriptor.Role,
+                    descriptor.Weight));
+            if (_localizedTmpFontResolver != null)
+            {
+                LocalizedTmpTextApplicator.ApplyFont(
+                    target,
+                    _localizedTmpFontResolver.ResolveFont(
+                        localeCode,
+                        descriptor.Role,
+                        descriptor.Weight),
+                    defaultFontAsset,
+                    defaultMaterialPreset);
+            }
+        }
+
+        private LocalizedTextDescriptor CurrentLanguageDescriptor(string localeCode)
+        {
+            return string.Equals(localeCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal)
+                ? _koreanLanguageLabelDescriptor
+                : _englishLanguageLabelDescriptor;
         }
 
         private void RefreshView()

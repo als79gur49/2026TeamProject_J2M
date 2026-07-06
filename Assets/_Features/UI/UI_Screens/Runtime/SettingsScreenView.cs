@@ -139,11 +139,21 @@ namespace Game.Feature.UI.Screens
             {
                 _inputView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver);
             }
+
+            if (_displayView != null)
+            {
+                _displayView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver);
+            }
         }
 
         public void UnbindStaticLocalization()
         {
             DisposeLocalizedStaticBindings();
+            if (_displayView != null)
+            {
+                _displayView.UnbindStaticLocalization();
+            }
+
             if (_inputView != null)
             {
                 _inputView.UnbindStaticLocalization();
