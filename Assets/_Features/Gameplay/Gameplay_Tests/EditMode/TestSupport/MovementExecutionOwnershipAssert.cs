@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Tests
         public const string PlayerGenericExpansionOwnedRemovedReason = "PlayerGenericExpansionRemovedFromRuntime";
         public const string EnemyGenericExpansionOwnedRemovedReason = "EnemyGenericExpansionRemovedFromRuntime";
         public const string ChargeGenericExpansionOwnedRemovedReason = "ChargeGenericExpansionRemovedFromRuntime";
+        public const string EnemyChargeKinematicFlagOffActiveMoveRejectedReason = "EnemyChargeKinematicFlagOffActiveMoveRejected";
 
         public static void NoGenericExpansionOrdinaryUnitMove(TickResult result, params int[] entityIds)
         {
@@ -102,15 +103,31 @@ namespace Game.Feature.Gameplay.Tests
 
         public static void EnemyGenericExpansionRemovedFromRuntime(TickResult result, int enemyEntityId)
         {
+            EnemyGenericExpansionCurrentOwnershipBaseline(result, enemyEntityId);
+        }
+
+        public static void ChargeGenericExpansionRemovedFromRuntime(TickResult result, int chargeEntityId)
+        {
+            ChargeActiveRejectedBeforeGenericExpansion(result, chargeEntityId);
+        }
+
+        public static void EnemyGenericExpansionCurrentOwnershipBaseline(TickResult result, int enemyEntityId)
+        {
             HasGenericExpansionOwnedMoveEntity(result, enemyEntityId);
             HasGenericExpansionOwnedMove(result, enemyEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
-        public static void ChargeGenericExpansionRemovedFromRuntime(TickResult result, int chargeEntityId)
+        public static void ChargeActiveRejectedBeforeGenericExpansion(TickResult result, int chargeEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, chargeEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains(EnemyChargeKinematicFlagOffActiveMoveRejectedReason, System.StringComparison.Ordinal) &&
+                    reason.Contains($"Source={chargeEntityId}", System.StringComparison.Ordinal)),
+                Is.True,
+                BuildDebug(result, chargeEntityId));
         }
 
         public static void AssertCoveredFallbackCurrentOwnerships(TickResult result, params int[] entityIds)
