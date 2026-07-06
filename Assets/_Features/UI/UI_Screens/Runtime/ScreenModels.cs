@@ -33,7 +33,10 @@ namespace Game.Feature.UI.Screens
             LocalizedTextDescriptor flipLabelDescriptor = default,
             LocalizedTextDescriptor inputChangeLabelDescriptor = default,
             LocalizedTextDescriptor resetInputLabelDescriptor = default,
-            LocalizedTextDescriptor backLabelDescriptor = default)
+            LocalizedTextDescriptor backLabelDescriptor = default,
+            LocalizedTextDescriptor languageLabelDescriptor = default,
+            LocalizedTextDescriptor englishLanguageLabelDescriptor = default,
+            LocalizedTextDescriptor koreanLanguageLabelDescriptor = default)
         {
             TitleTextDescriptor = OrDefault(titleTextDescriptor, SettingsStaticTextDescriptors.Title);
             AudioTabLabelDescriptor = OrDefault(audioTabLabelDescriptor, SettingsStaticTextDescriptors.AudioTab);
@@ -46,6 +49,9 @@ namespace Game.Feature.UI.Screens
             InputChangeLabelDescriptor = OrDefault(inputChangeLabelDescriptor, SettingsStaticTextDescriptors.Change);
             ResetInputLabelDescriptor = OrDefault(resetInputLabelDescriptor, SettingsStaticTextDescriptors.ResetInput);
             BackLabelDescriptor = OrDefault(backLabelDescriptor, SettingsStaticTextDescriptors.Back);
+            LanguageLabelDescriptor = OrDefault(languageLabelDescriptor, SettingsStaticTextDescriptors.Language);
+            EnglishLanguageLabelDescriptor = OrDefault(englishLanguageLabelDescriptor, SettingsStaticTextDescriptors.LanguageEnglish);
+            KoreanLanguageLabelDescriptor = OrDefault(koreanLanguageLabelDescriptor, SettingsStaticTextDescriptors.LanguageKorean);
         }
 
         public LocalizedTextDescriptor TitleTextDescriptor { get; }
@@ -69,6 +75,12 @@ namespace Game.Feature.UI.Screens
         public LocalizedTextDescriptor ResetInputLabelDescriptor { get; }
 
         public LocalizedTextDescriptor BackLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor LanguageLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor EnglishLanguageLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor KoreanLanguageLabelDescriptor { get; }
 
         private static LocalizedTextDescriptor OrDefault(
             LocalizedTextDescriptor descriptor,
@@ -141,6 +153,24 @@ namespace Game.Feature.UI.Screens
         public static readonly LocalizedTextDescriptor ResetInput = new(
             Table,
             "ui.settings.input.reset_input",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Language = new(
+            Table,
+            "ui.settings.language",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor LanguageEnglish = new(
+            Table,
+            "ui.settings.language.english",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor LanguageKorean = new(
+            Table,
+            "ui.settings.language.korean",
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
@@ -273,7 +303,10 @@ namespace Game.Feature.UI.Screens
             float previewCountdownNormalized,
             bool isPreviewCountdownVisible,
             bool isDisplayStatusVisible = true,
-            bool isDisplayStatusTransient = false)
+            bool isDisplayStatusTransient = false,
+            string languageLabelText = "",
+            string currentLanguageText = "",
+            bool isLanguageSelectionAvailable = false)
         {
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
@@ -288,8 +321,17 @@ namespace Game.Feature.UI.Screens
             PreviewCountdownText = previewCountdownText ?? string.Empty;
             PreviewCountdownNormalized = previewCountdownNormalized;
             IsPreviewCountdownVisible = isPreviewCountdownVisible;
+            LanguageLabelText = languageLabelText ?? string.Empty;
+            CurrentLanguageText = currentLanguageText ?? string.Empty;
+            IsLanguageSelectionAvailable = isLanguageSelectionAvailable;
             Changed?.Invoke();
         }
+
+        public string LanguageLabelText { get; private set; } = string.Empty;
+
+        public string CurrentLanguageText { get; private set; } = string.Empty;
+
+        public bool IsLanguageSelectionAvailable { get; private set; }
     }
 
     public sealed class SettingsInputViewModel

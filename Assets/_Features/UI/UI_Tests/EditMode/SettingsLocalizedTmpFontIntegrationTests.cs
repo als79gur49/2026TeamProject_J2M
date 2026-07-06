@@ -106,6 +106,11 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(label.text, Is.EqualTo("설정"));
                 Assert.That(label.font, Is.SameAs(nanumGothic));
+
+                resolver.SetLocale("en-US");
+
+                Assert.That(label.text, Is.EqualTo("Settings"));
+                Assert.That(label.font, Is.SameAs(englishFont));
             }
             finally
             {

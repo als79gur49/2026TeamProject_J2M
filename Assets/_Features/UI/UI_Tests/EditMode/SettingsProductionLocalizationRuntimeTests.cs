@@ -79,6 +79,37 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleSwitchesLocaleRefreshesLabelsAndFont()
+        {
+            var nanumGothic = LoadNanumGothic();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
+            using var harness = GameplaySettingsHarness.Create(resolver, fontResolver: fontResolver);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            var titleLabel = GetText(view, "_titleLabel");
+            var startingFont = titleLabel.font;
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(titleLabel.text, Is.EqualTo("Settings"));
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(titleLabel.text, Is.EqualTo("설정"));
+            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Does.Contain(UiAudioCueId.Toggle));
+
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(titleLabel.text, Is.EqualTo("Settings"));
+            Assert.That(titleLabel.font, Is.SameAs(startingFont));
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_NullKoreanFontKeepsExistingTargetFont()
         {
             var expectedFont = GetText(
@@ -133,15 +164,41 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuSettingsRuntime_LanguageCycleSwitchesLocaleAndRefreshesLabels()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = MainMenuSettingsHarness.Create(resolver);
+
+            harness.Runtime.Open();
+            var view = harness.Runtime.View;
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            AssertSettingsLabels(view, "Settings", "Audio", "Display", "Input", "Back");
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
+
+            harness.Runtime.Dispose();
+
+            Assert.DoesNotThrow(() => resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode));
+        }
+
+        [Test]
         public void PackageFreeLocalizedTextResolver_ProvidesSettingsCatalogAndFallbacks()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
 
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("Settings"));
+            Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("Language"));
+            Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("Korean"));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("설정"));
+            Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("언어"));
+            Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("한국어"));
 
             resolver.SetLocale("fr-FR");
 
@@ -149,6 +206,17 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")),
                 Is.EqualTo("[UI:ui.settings.missing]"));
+        }
+
+        [Test]
+        public void LocaleSelectionSlice_DoesNotIntroducePlayerPrefsPersistence()
+        {
+            var source = System.IO.File.ReadAllText("Assets/_Features/UI/UI_ViewShared/Runtime/LocalizedTextDescriptor.cs") +
+                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs") +
+                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs") +
+                         System.IO.File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuSettingsRuntime.cs");
+
+            Assert.That(source, Does.Not.Contain("PlayerPrefs"));
         }
 
         private static void AssertSettingsLabels(
@@ -271,17 +339,21 @@ namespace Game.Feature.UI.Tests
                 GameObject rootObject,
                 ScreenLayerView screenLayerView,
                 ScreenController screenController,
-                PopupController popupController)
+                PopupController popupController,
+                RecordingUiAudioPort uiAudioPort)
             {
                 _rootObject = rootObject;
                 ScreenLayerView = screenLayerView;
                 ScreenController = screenController;
                 _popupController = popupController;
+                UiAudioPort = uiAudioPort;
             }
 
             public ScreenLayerView ScreenLayerView { get; }
 
             public ScreenController ScreenController { get; private set; }
+
+            public RecordingUiAudioPort UiAudioPort { get; }
 
             public SettingsScreenView SettingsView => ScreenLayerView.FindScreenView<SettingsScreenView>();
 
@@ -294,6 +366,7 @@ namespace Game.Feature.UI.Tests
                 var popupController = CreatePopupController(rootObject, out var timeoutRelay);
                 var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
                 var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
+                var uiAudioPort = new RecordingUiAudioPort();
                 var screenFactory = new GameplayScreenRuntimeFactory(
                     screenLayerView,
                     CreateQueryFacade(),
@@ -301,7 +374,7 @@ namespace Game.Feature.UI.Tests
                     new FakeAudioSettingsPort(),
                     new FakeDisplaySettingsPort(),
                     NoOpKeyboardBindingSettingsPort.Instance,
-                    new RecordingUiAudioPort(),
+                    uiAudioPort,
                     previewSessionHost,
                     lifecycleRelay,
                     UiTestPrefabAssetUtility.LoadScreenCatalog(),
@@ -313,7 +386,8 @@ namespace Game.Feature.UI.Tests
                     rootObject,
                     screenLayerView,
                     new ScreenController(screenFactory),
-                    popupController);
+                    popupController,
+                    uiAudioPort);
             }
 
             public void ShowSettings()

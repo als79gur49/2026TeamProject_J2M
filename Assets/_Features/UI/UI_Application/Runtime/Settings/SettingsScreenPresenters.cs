@@ -138,6 +138,8 @@ namespace Game.Feature.UI.Application
             "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.";
 
         private readonly IDisplaySettingsPort _displaySettingsPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly IUiLocaleSelectionPort _localeSelectionPort;
         private DisplaySettingsPortSnapshot _displaySnapshot = new(
             Array.Empty<DisplaySettingsPortModeOption>(),
             0,
@@ -145,6 +147,9 @@ namespace Game.Feature.UI.Application
             string.Empty,
             DisplayWindowMode.Windowed,
             false);
+        private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
+        private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
+        private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
         private string _displayStatusText = string.Empty;
@@ -152,16 +157,70 @@ namespace Game.Feature.UI.Application
         private DisplayPreviewCountdownSnapshot _previewCountdown = DisplayPreviewCountdownSnapshot.Inactive;
 
         public SettingsDisplayPresenter(IDisplaySettingsPort displaySettingsPort)
+            : this(
+                displaySettingsPort,
+                InvariantSettingsLocalizedTextResolver.Instance,
+                NoOpUiLocaleSelectionPort.Instance)
+        {
+        }
+
+        public SettingsDisplayPresenter(
+            IDisplaySettingsPort displaySettingsPort,
+            ILocalizedTextResolver localizedTextResolver,
+            IUiLocaleSelectionPort localeSelectionPort)
         {
             _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
+            _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+            _localeSelectionPort = localeSelectionPort ?? NoOpUiLocaleSelectionPort.Instance;
         }
 
         public SettingsDisplayViewModel ViewModel { get; } = new SettingsDisplayViewModel();
 
         public void Apply(double previewTimeoutSeconds)
         {
+            Apply(
+                SettingsStaticTextDescriptors.Language,
+                SettingsStaticTextDescriptors.LanguageEnglish,
+                SettingsStaticTextDescriptors.LanguageKorean,
+                previewTimeoutSeconds);
+        }
+
+        public void Apply(
+            LocalizedTextDescriptor languageLabelDescriptor,
+            LocalizedTextDescriptor englishLanguageLabelDescriptor,
+            LocalizedTextDescriptor koreanLanguageLabelDescriptor,
+            double previewTimeoutSeconds)
+        {
+            _languageLabelDescriptor = languageLabelDescriptor;
+            _englishLanguageLabelDescriptor = englishLanguageLabelDescriptor;
+            _koreanLanguageLabelDescriptor = koreanLanguageLabelDescriptor;
             ClearPreviewCountdown();
             ResyncState(resetStagedToCommitted: true, previewTimeoutSeconds: previewTimeoutSeconds);
+        }
+
+        public bool SelectNextLocale()
+        {
+            if (_localeSelectionPort.AvailableLocaleCodes.Count < 2)
+            {
+                return false;
+            }
+
+            var currentIndex = FindCurrentLocaleIndex();
+            var nextIndex = currentIndex < 0
+                ? 0
+                : (currentIndex + 1) % _localeSelectionPort.AvailableLocaleCodes.Count;
+            if (!_localeSelectionPort.TrySetLocale(_localeSelectionPort.AvailableLocaleCodes[nextIndex]))
+            {
+                return false;
+            }
+
+            RefreshViewModel();
+            return true;
+        }
+
+        public void RefreshLocalization()
+        {
+            RefreshViewModel();
         }
 
         public bool ApplyStagedSettings(double previewTimeoutSeconds)
@@ -385,7 +444,10 @@ namespace Game.Feature.UI.Application
                 previewCountdownNormalized,
                 isPreviewCountdownVisible,
                 _displayStatusText.Length > 0,
-                _isDisplayStatusTransient);
+                _isDisplayStatusTransient,
+                Resolve(_languageLabelDescriptor),
+                Resolve(CurrentLanguageDescriptor),
+                _localeSelectionPort.AvailableLocaleCodes.Count > 1);
         }
 
         private bool IsDirty()
@@ -427,6 +489,29 @@ namespace Game.Feature.UI.Application
             }
 
             return index;
+        }
+
+        private LocalizedTextDescriptor CurrentLanguageDescriptor =>
+            string.Equals(_localeSelectionPort.CurrentLocaleCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal)
+                ? _koreanLanguageLabelDescriptor
+                : _englishLanguageLabelDescriptor;
+
+        private int FindCurrentLocaleIndex()
+        {
+            for (var i = 0; i < _localeSelectionPort.AvailableLocaleCodes.Count; i++)
+            {
+                if (string.Equals(_localeSelectionPort.AvailableLocaleCodes[i], _localeSelectionPort.CurrentLocaleCode, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return _localizedTextResolver.Resolve(descriptor);
         }
     }
 
@@ -625,10 +710,28 @@ namespace Game.Feature.UI.Application
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
             ILocalizedTextResolver localizedTextResolver)
+            : this(
+                audioSettingsPort,
+                displaySettingsPort,
+                keyboardBindingSettingsPort,
+                localizedTextResolver,
+                localizedTextResolver as IUiLocaleSelectionPort)
+        {
+        }
+
+        public SettingsScreenPresenter(
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            ILocalizedTextResolver localizedTextResolver,
+            IUiLocaleSelectionPort localeSelectionPort)
         {
             LocalizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
             AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
-            DisplayPresenter = new SettingsDisplayPresenter(displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)));
+            DisplayPresenter = new SettingsDisplayPresenter(
+                displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)),
+                LocalizedTextResolver,
+                localeSelectionPort);
             InputPresenter = new SettingsInputPresenter(
                 keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)),
                 LocalizedTextResolver);
@@ -648,7 +751,35 @@ namespace Game.Feature.UI.Application
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
             AudioPresenter.Apply();
-            DisplayPresenter.Apply(previewTimeoutSeconds);
+            DisplayPresenter.Apply(
+                _payload.LanguageLabelDescriptor,
+                _payload.EnglishLanguageLabelDescriptor,
+                _payload.KoreanLanguageLabelDescriptor,
+                previewTimeoutSeconds);
+            InputPresenter.Apply(new SettingsInputPresenterInput(
+                _payload.MovementLabelDescriptor,
+                _payload.UseArrowKeysLabelDescriptor,
+                _payload.PushLabelDescriptor,
+                _payload.FlipLabelDescriptor,
+                _payload.InputChangeLabelDescriptor,
+                _payload.ResetInputLabelDescriptor));
+            RefreshViewModel();
+        }
+
+        public bool SelectNextLocale()
+        {
+            var changed = DisplayPresenter.SelectNextLocale();
+            if (changed)
+            {
+                RefreshLocalization();
+            }
+
+            return changed;
+        }
+
+        public void RefreshLocalization()
+        {
+            DisplayPresenter.RefreshLocalization();
             InputPresenter.Apply(new SettingsInputPresenterInput(
                 _payload.MovementLabelDescriptor,
                 _payload.UseArrowKeysLabelDescriptor,
@@ -688,6 +819,24 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    internal sealed class NoOpUiLocaleSelectionPort : IUiLocaleSelectionPort
+    {
+        public static readonly NoOpUiLocaleSelectionPort Instance = new();
+
+        private NoOpUiLocaleSelectionPort()
+        {
+        }
+
+        public string CurrentLocaleCode => PackageFreeLocalizedTextResolver.DefaultLocaleCode;
+
+        public IReadOnlyList<string> AvailableLocaleCodes => Array.Empty<string>();
+
+        public bool TrySetLocale(string localeCode)
+        {
+            return false;
+        }
+    }
+
     internal sealed class InvariantSettingsLocalizedTextResolver : ILocalizedTextResolver
     {
         public static readonly InvariantSettingsLocalizedTextResolver Instance = new();
@@ -704,6 +853,9 @@ namespace Game.Feature.UI.Application
             ["ui.settings.input.flip"] = "Flip",
             ["ui.settings.input.change"] = "Change",
             ["ui.settings.input.reset_input"] = "Reset Input",
+            ["ui.settings.language"] = "Language",
+            ["ui.settings.language.english"] = "English",
+            ["ui.settings.language.korean"] = "Korean",
             ["ui.common.back"] = "Back",
         };
 

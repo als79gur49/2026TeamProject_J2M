@@ -22,7 +22,8 @@ namespace Game.Feature.UI.Composition
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
             ILocalizedTextResolver localizedTextResolver = null,
             ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
+            IUiLocaleSelectionPort localeSelectionPort = null)
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
             Prefab = prefab ?? throw new ArgumentNullException(nameof(prefab));
@@ -36,6 +37,7 @@ namespace Game.Feature.UI.Composition
             LocalizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             LocalizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             LocalizedTmpFontResolver = localizedTmpFontResolver;
+            LocaleSelectionPort = localeSelectionPort ?? LocalizedTextResolver as IUiLocaleSelectionPort;
         }
 
         public Transform Parent { get; }
@@ -61,6 +63,8 @@ namespace Game.Feature.UI.Composition
         public ILocalizedTypographyResolver LocalizedTypographyResolver { get; }
 
         public ILocalizedTmpFontResolver LocalizedTmpFontResolver { get; }
+
+        public IUiLocaleSelectionPort LocaleSelectionPort { get; }
     }
 
     internal sealed class SettingsScreenRuntimeBuilder
@@ -82,7 +86,8 @@ namespace Game.Feature.UI.Composition
                 context.AudioSettingsPort,
                 context.DisplaySettingsPort,
                 context.KeyboardBindingSettingsPort,
-                context.LocalizedTextResolver);
+                context.LocalizedTextResolver,
+                context.LocaleSelectionPort);
             view.Bind(presenter.ViewModel);
             view.AudioView.Bind(presenter.AudioPresenter.ViewModel);
             view.DisplayView.Bind(presenter.DisplayPresenter.ViewModel);
@@ -99,6 +104,7 @@ namespace Game.Feature.UI.Composition
                 context.LocalizedTextResolver,
                 context.LocalizedTypographyResolver,
                 context.LocalizedTmpFontResolver,
+                context.LocaleSelectionPort,
                 () => DestroyObject(view.gameObject));
         }
 
@@ -156,6 +162,7 @@ namespace Game.Feature.UI.Composition
             private readonly ILocalizedTextResolver _localizedTextResolver;
             private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
             private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
+            private readonly IUiLocaleSelectionPort _localeSelectionPort;
             private readonly SettingsScreenPresenter _presenter;
             private readonly IUiAudioPort _uiAudioPort;
             private readonly SettingsScreenView _view;
@@ -171,6 +178,7 @@ namespace Game.Feature.UI.Composition
                 ILocalizedTextResolver localizedTextResolver,
                 ILocalizedTypographyResolver localizedTypographyResolver,
                 ILocalizedTmpFontResolver localizedTmpFontResolver,
+                IUiLocaleSelectionPort localeSelectionPort,
                 Action dispose)
             {
                 _view = view ?? throw new ArgumentNullException(nameof(view));
@@ -185,6 +193,7 @@ namespace Game.Feature.UI.Composition
                 _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
                 _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
                 _localizedTmpFontResolver = localizedTmpFontResolver;
+                _localeSelectionPort = localeSelectionPort;
                 _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
 
                 _audioView.VolumeChanged += HandleAudioVolumeChanged;
@@ -194,6 +203,7 @@ namespace Game.Feature.UI.Composition
                 _displayView.FullscreenToggled += HandleDisplayFullscreenToggled;
                 _displayView.ApplyRequested += HandleDisplayApplyRequested;
                 _displayView.RevertRequested += HandleDisplayRevertRequested;
+                _displayView.LanguageCycleRequested += HandleLanguageCycleRequested;
                 _inputView.MovementSchemeToggleRequested += HandleInputMovementSchemeToggleRequested;
                 _inputView.PushRebindRequested += HandleInputPushRebindRequested;
                 _inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
@@ -233,6 +243,7 @@ namespace Game.Feature.UI.Composition
                 _displayView.FullscreenToggled -= HandleDisplayFullscreenToggled;
                 _displayView.ApplyRequested -= HandleDisplayApplyRequested;
                 _displayView.RevertRequested -= HandleDisplayRevertRequested;
+                _displayView.LanguageCycleRequested -= HandleLanguageCycleRequested;
                 _inputView.MovementSchemeToggleRequested -= HandleInputMovementSchemeToggleRequested;
                 _inputView.PushRebindRequested -= HandleInputPushRebindRequested;
                 _inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
@@ -390,6 +401,16 @@ namespace Game.Feature.UI.Composition
                 CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.ResetStagedToCurrent();
                 PlayLocalCue(UiAudioCueId.Cancel);
+            }
+
+            private void HandleLanguageCycleRequested()
+            {
+                if (_localeSelectionPort == null || !_presenter.SelectNextLocale())
+                {
+                    return;
+                }
+
+                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleDisplayPreviewConfirmed()

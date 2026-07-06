@@ -25,6 +25,9 @@ namespace Game.Feature.UI.Tests
             SettingsStaticTextDescriptors.Flip,
             SettingsStaticTextDescriptors.Change,
             SettingsStaticTextDescriptors.ResetInput,
+            SettingsStaticTextDescriptors.Language,
+            SettingsStaticTextDescriptors.LanguageEnglish,
+            SettingsStaticTextDescriptors.LanguageKorean,
             SettingsStaticTextDescriptors.Back,
         };
 
@@ -81,6 +84,9 @@ namespace Game.Feature.UI.Tests
                     "ui.settings.input.flip",
                     "ui.settings.input.change",
                     "ui.settings.input.reset_input",
+                    "ui.settings.language",
+                    "ui.settings.language.english",
+                    "ui.settings.language.korean",
                     "ui.common.back",
                 }));
         }
@@ -104,12 +110,31 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("Settings"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.LanguageLabelDescriptor), Is.EqualTo("Language"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("Korean"));
 
             resolver.SetLocale("ko-KR");
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.TitleTextDescriptor), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(SettingsScreenPayload.Default.ResetInputLabelDescriptor), Is.EqualTo("입력 초기화"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.LanguageLabelDescriptor), Is.EqualTo("언어"));
+            Assert.That(resolver.Resolve(SettingsScreenPayload.Default.KoreanLanguageLabelDescriptor), Is.EqualTo("한국어"));
+        }
+
+        [Test]
+        public void PackageFreeResolver_LocaleSelectionPort_SupportsOnlyEnglishAndKorean()
+        {
+            IUiLocaleSelectionPort localeSelectionPort = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            Assert.That(localeSelectionPort.AvailableLocaleCodes, Is.EqualTo(new[] { "en-US", "ko-KR" }));
+            Assert.That(localeSelectionPort.CurrentLocaleCode, Is.EqualTo("en-US"));
+
+            Assert.That(localeSelectionPort.TrySetLocale("ko-KR"), Is.True);
+            Assert.That(localeSelectionPort.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+
+            Assert.That(localeSelectionPort.TrySetLocale("fr-FR"), Is.False);
+            Assert.That(localeSelectionPort.CurrentLocaleCode, Is.EqualTo("ko-KR"));
         }
 
         [Test]
@@ -149,6 +174,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.DisplayTabLabel, Is.EqualTo("디스플레이"));
             Assert.That(presenter.ViewModel.InputTabLabel, Is.EqualTo("입력"));
             Assert.That(presenter.ViewModel.BackLabel, Is.EqualTo("뒤로"));
+            Assert.That(presenter.DisplayPresenter.ViewModel.LanguageLabelText, Is.EqualTo("언어"));
+            Assert.That(presenter.DisplayPresenter.ViewModel.CurrentLanguageText, Is.EqualTo("한국어"));
             Assert.That(presenter.InputPresenter.ViewModel.MovementLabel, Is.EqualTo("이동 키"));
             Assert.That(presenter.InputPresenter.ViewModel.UseArrowKeysLabel, Is.EqualTo("화살표 키 사용"));
             Assert.That(presenter.InputPresenter.ViewModel.PushLabel, Is.EqualTo("밀기"));
@@ -319,6 +346,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.display.preview_countdown"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_status"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_error"));
+            Assert.That(descriptorKeys, Does.Contain("ui.settings.language"));
+            Assert.That(descriptorKeys, Does.Contain("ui.settings.language.english"));
+            Assert.That(descriptorKeys, Does.Contain("ui.settings.language.korean"));
             Assert.That(typeof(AudioSettingsRowViewModel).GetProperty(nameof(AudioSettingsRowViewModel.ValueText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsDisplayViewModel).GetProperty(nameof(SettingsDisplayViewModel.DisplayStatusText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsDisplayViewModel).GetProperty(nameof(SettingsDisplayViewModel.PreviewCountdownText))?.PropertyType, Is.EqualTo(typeof(string)));
@@ -393,6 +423,9 @@ namespace Game.Feature.UI.Tests
                 payload.FlipLabelDescriptor,
                 payload.InputChangeLabelDescriptor,
                 payload.ResetInputLabelDescriptor,
+                payload.LanguageLabelDescriptor,
+                payload.EnglishLanguageLabelDescriptor,
+                payload.KoreanLanguageLabelDescriptor,
                 payload.BackLabelDescriptor,
             };
         }
@@ -493,7 +526,7 @@ namespace Game.Feature.UI.Tests
             field.SetValue(target, value);
         }
 
-        private sealed class FakeLocalizedTextResolver : ILocalizedTextResolver
+        private sealed class FakeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
         {
             private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _values =
                 new Dictionary<string, IReadOnlyDictionary<string, string>>
@@ -510,6 +543,9 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.flip"] = "Flip",
                         ["ui.settings.input.change"] = "Change",
                         ["ui.settings.input.reset_input"] = "Reset Input",
+                        ["ui.settings.language"] = "Language",
+                        ["ui.settings.language.english"] = "English",
+                        ["ui.settings.language.korean"] = "Korean",
                         ["ui.common.back"] = "Back",
                     },
                     ["ko-KR"] = new Dictionary<string, string>
@@ -524,11 +560,17 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.flip"] = "뒤집기",
                         ["ui.settings.input.change"] = "변경",
                         ["ui.settings.input.reset_input"] = "입력 초기화",
+                        ["ui.settings.language"] = "언어",
+                        ["ui.settings.language.english"] = "영어",
+                        ["ui.settings.language.korean"] = "한국어",
                         ["ui.common.back"] = "뒤로",
                     },
                 };
 
             public string CurrentLocaleCode { get; private set; } = "en-US";
+
+            public IReadOnlyList<string> AvailableLocaleCodes { get; } =
+                new[] { "en-US", "ko-KR" };
 
             private Action _localeChanged;
 
@@ -559,6 +601,17 @@ namespace Game.Feature.UI.Tests
 
                 CurrentLocaleCode = localeCode;
                 _localeChanged?.Invoke();
+            }
+
+            public bool TrySetLocale(string localeCode)
+            {
+                if (!AvailableLocaleCodes.Contains(localeCode))
+                {
+                    return false;
+                }
+
+                SetLocale(localeCode);
+                return true;
             }
         }
 

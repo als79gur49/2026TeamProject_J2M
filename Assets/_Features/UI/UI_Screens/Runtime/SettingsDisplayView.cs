@@ -23,6 +23,9 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _resolutionHoverHintLabel;
         [SerializeField] private TMP_Text _fullscreenLabel;
         [SerializeField] private Toggle _fullscreenToggle;
+        [SerializeField] private TMP_Text _languageLabel;
+        [SerializeField] private Button _languageCycleButton;
+        [SerializeField] private TMP_Text _languageCycleButtonLabel;
         [SerializeField] private TMP_Text _displayStatusLabel;
         [SerializeField] private RectTransform _previewCountdownRoot;
         [SerializeField] private TMP_Text _previewCountdownLabel;
@@ -45,6 +48,8 @@ namespace Game.Feature.UI.Screens
         public event Action ApplyRequested;
 
         public event Action RevertRequested;
+
+        public event Action LanguageCycleRequested;
 
         public string CurrentDisplayValueText =>
             _currentDisplayValue != null ? _currentDisplayValue.text : string.Empty;
@@ -73,6 +78,12 @@ namespace Game.Feature.UI.Screens
 
         public bool IsFullscreenOn =>
             _fullscreenToggle != null && _fullscreenToggle.isOn;
+
+        public string LanguageLabelText =>
+            _languageLabel != null ? _languageLabel.text : string.Empty;
+
+        public string CurrentLanguageText =>
+            _languageCycleButtonLabel != null ? _languageCycleButtonLabel.text : string.Empty;
 
         public void Bind(SettingsDisplayViewModel viewModel)
         {
@@ -139,6 +150,18 @@ namespace Game.Feature.UI.Screens
             }
 
             RevertRequested?.Invoke();
+        }
+
+        public void ClickLanguageCycle()
+        {
+            if (!_isVisible ||
+                _viewModel == null ||
+                !_viewModel.IsLanguageSelectionAvailable)
+            {
+                return;
+            }
+
+            LanguageCycleRequested?.Invoke();
         }
 
         public void SelectResolution(int index)
@@ -380,6 +403,7 @@ namespace Game.Feature.UI.Screens
 
             RebindButton(_applyButton, ClickApply);
             RebindButton(_revertButton, ClickRevert);
+            RebindButton(_languageCycleButton, ClickLanguageCycle);
         }
 
         private void RefreshControls()
@@ -400,6 +424,21 @@ namespace Game.Feature.UI.Screens
                 if (_previewCountdownSlider != null)
                 {
                     ApplyPreviewCountdownSlider(0f);
+                }
+
+                if (_languageLabel != null)
+                {
+                    _languageLabel.text = string.Empty;
+                }
+
+                if (_languageCycleButtonLabel != null)
+                {
+                    _languageCycleButtonLabel.text = string.Empty;
+                }
+
+                if (_languageCycleButton != null)
+                {
+                    _languageCycleButton.interactable = false;
                 }
 
                 return;
@@ -461,6 +500,21 @@ namespace Game.Feature.UI.Screens
                     _fullscreenToggle.SetIsOnWithoutNotify(_viewModel.IsFullscreenEnabled);
                     _fullscreenToggle.interactable = !_viewModel.IsDisplayPreviewActive;
                 }
+
+                if (_languageLabel != null)
+                {
+                    _languageLabel.text = _viewModel.LanguageLabelText;
+                }
+
+                if (_languageCycleButtonLabel != null)
+                {
+                    _languageCycleButtonLabel.text = _viewModel.CurrentLanguageText;
+                }
+
+                if (_languageCycleButton != null)
+                {
+                    _languageCycleButton.interactable = _viewModel.IsLanguageSelectionAvailable;
+                }
             }
             finally
             {
@@ -512,6 +566,7 @@ namespace Game.Feature.UI.Screens
 
             UnbindButton(_applyButton, ClickApply);
             UnbindButton(_revertButton, ClickRevert);
+            UnbindButton(_languageCycleButton, ClickLanguageCycle);
         }
 
         private void ShowResolutionHoverHint()

@@ -936,6 +936,8 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload, Double)",
+                    "RefreshLocalization()",
+                    "SelectNextLocale()",
                     "SelectSection(SettingsSectionId)",
                 }));
             Assert.That(
@@ -945,6 +947,7 @@ namespace Game.Feature.UI.Tests
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort)",
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort, ILocalizedTextResolver)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort, ILocalizedTextResolver, IUiLocaleSelectionPort)",
                 }));
         }
 
@@ -1051,13 +1054,16 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(Double)",
+                    "Apply(LocalizedTextDescriptor, LocalizedTextDescriptor, LocalizedTextDescriptor, Double)",
                     "ApplyStagedSettings(Double)",
                     "CancelPreview()",
                     "ClearPreviewCountdown()",
                     "ClearTransientDisplayStatus(Double)",
                     "ConfirmPreview()",
+                    "RefreshLocalization()",
                     "ResetStagedToCurrent()",
                     "ResyncState(Double)",
+                    "SelectNextLocale()",
                     "SetPreviewCountdown(DisplayPreviewCountdownSnapshot)",
                     "StageResolution(Int32)",
                     "StageWindowMode(DisplayWindowMode)",

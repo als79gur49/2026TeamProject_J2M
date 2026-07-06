@@ -19,6 +19,7 @@ namespace Game.Feature.UI.Composition
         private readonly ILocalizedTextResolver localizedTextResolver;
         private readonly ILocalizedTypographyResolver localizedTypographyResolver;
         private readonly ILocalizedTmpFontResolver localizedTmpFontResolver;
+        private readonly IUiLocaleSelectionPort localeSelectionPort;
         private DisplayStatusTransientRelay displayStatusTransientRelay;
         private readonly SettingsScreenPayload payload;
         private readonly PopupController popupController;
@@ -48,7 +49,8 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort = null,
             ILocalizedTextResolver localizedTextResolver = null,
             ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
+            IUiLocaleSelectionPort localeSelectionPort = null)
         {
             this.settingsScreenPrefab = settingsScreenPrefab != null
                 ? settingsScreenPrefab
@@ -69,6 +71,7 @@ namespace Game.Feature.UI.Composition
             this.localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             this.localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             this.localizedTmpFontResolver = localizedTmpFontResolver;
+            this.localeSelectionPort = localeSelectionPort ?? this.localizedTextResolver as IUiLocaleSelectionPort;
         }
 
         public event Action CloseRequested;
@@ -95,7 +98,8 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort = null,
             ILocalizedTextResolver localizedTextResolver = null,
             ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
+            IUiLocaleSelectionPort localeSelectionPort = null)
             : this(
                 settingsScreenPrefab,
                 settingsContentRoot,
@@ -111,7 +115,8 @@ namespace Game.Feature.UI.Composition
                 uiAudioPort,
                 localizedTextResolver,
                 localizedTypographyResolver,
-                localizedTmpFontResolver)
+                localizedTmpFontResolver,
+                localeSelectionPort)
         {
         }
 
@@ -149,7 +154,8 @@ namespace Game.Feature.UI.Composition
                     audioSettingsPort,
                     displaySettingsPort,
                     keyboardBindingSettingsPort,
-                    localizedTextResolver);
+                    localizedTextResolver,
+                    localeSelectionPort);
                 view.ValidateAuthoredStructureOrThrow();
                 audioView.ValidateAuthoredControlsOrThrow();
                 displayView.ValidateAuthoredControlsOrThrow();
@@ -250,6 +256,7 @@ namespace Game.Feature.UI.Composition
             displayView.FullscreenToggled += HandleDisplayFullscreenToggled;
             displayView.ApplyRequested += HandleDisplayApplyRequested;
             displayView.RevertRequested += HandleDisplayRevertRequested;
+            displayView.LanguageCycleRequested += HandleLanguageCycleRequested;
             inputView.MovementSchemeToggleRequested += HandleInputMovementSchemeToggleRequested;
             inputView.PushRebindRequested += HandleInputPushRebindRequested;
             inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
@@ -276,6 +283,7 @@ namespace Game.Feature.UI.Composition
                 displayView.FullscreenToggled -= HandleDisplayFullscreenToggled;
                 displayView.ApplyRequested -= HandleDisplayApplyRequested;
                 displayView.RevertRequested -= HandleDisplayRevertRequested;
+                displayView.LanguageCycleRequested -= HandleLanguageCycleRequested;
             }
 
             if (inputView != null)
@@ -431,6 +439,16 @@ namespace Game.Feature.UI.Composition
         {
             CancelDisplayStatusAutoHide();
             presenter.DisplayPresenter.ResetStagedToCurrent();
+        }
+
+        private void HandleLanguageCycleRequested()
+        {
+            if (localeSelectionPort == null || presenter == null || !presenter.SelectNextLocale())
+            {
+                return;
+            }
+
+            PlayLocalCue(UiAudioCueId.Toggle);
         }
 
         private void HandleDisplayPreviewConfirmed()

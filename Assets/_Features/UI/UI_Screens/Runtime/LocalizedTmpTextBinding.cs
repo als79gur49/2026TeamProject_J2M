@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.UI.ViewShared;
 using TMPro;
+using UnityEngine;
 
 namespace Game.Feature.UI.Screens
 {
@@ -11,6 +12,8 @@ namespace Game.Feature.UI.Screens
         private readonly ILocalizedTextResolver _textResolver;
         private readonly ILocalizedTypographyResolver _typographyResolver;
         private readonly ILocalizedTmpFontResolver _fontResolver;
+        private readonly TMP_FontAsset _defaultFontAsset;
+        private readonly Material _defaultMaterialPreset;
         private bool _isDisposed;
 
         public LocalizedTmpTextBinding(
@@ -25,6 +28,8 @@ namespace Game.Feature.UI.Screens
             _textResolver = textResolver;
             _typographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             _fontResolver = fontResolver;
+            _defaultFontAsset = target != null ? target.font : null;
+            _defaultMaterialPreset = target != null ? target.fontSharedMaterial : null;
 
             if (_textResolver != null)
             {
@@ -57,7 +62,9 @@ namespace Game.Feature.UI.Screens
                     _fontResolver.ResolveFont(
                         localeCode,
                         _descriptor.Role,
-                        _descriptor.Weight));
+                        _descriptor.Weight),
+                    _defaultFontAsset,
+                    _defaultMaterialPreset);
             }
         }
 
@@ -108,7 +115,11 @@ namespace Game.Feature.UI.Screens
                 : target.fontStyle & ~FontStyles.Bold;
         }
 
-        public static void ApplyFont(TMP_Text target, LocalizedTmpFontStyle style)
+        public static void ApplyFont(
+            TMP_Text target,
+            LocalizedTmpFontStyle style,
+            TMP_FontAsset fallbackFontAsset = null,
+            Material fallbackMaterialPreset = null)
         {
             if (target == null)
             {
@@ -119,10 +130,18 @@ namespace Game.Feature.UI.Screens
             {
                 target.font = style.FontAsset;
             }
+            else if (fallbackFontAsset != null)
+            {
+                target.font = fallbackFontAsset;
+            }
 
             if (style.MaterialPreset != null)
             {
                 target.fontSharedMaterial = style.MaterialPreset;
+            }
+            else if (style.FontAsset == null && fallbackMaterialPreset != null)
+            {
+                target.fontSharedMaterial = fallbackMaterialPreset;
             }
         }
     }

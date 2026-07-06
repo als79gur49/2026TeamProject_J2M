@@ -123,10 +123,35 @@ namespace Game.Feature.UI.ViewShared
         string Resolve(LocalizedTextDescriptor descriptor);
     }
 
-    public sealed class PackageFreeLocalizedTextResolver : ILocalizedTextResolver
+    public readonly struct LocaleOptionModel
+    {
+        public LocaleOptionModel(string localeCode, LocalizedTextDescriptor displayNameDescriptor)
+        {
+            LocaleCode = localeCode ?? string.Empty;
+            DisplayNameDescriptor = displayNameDescriptor;
+        }
+
+        public string LocaleCode { get; }
+
+        public LocalizedTextDescriptor DisplayNameDescriptor { get; }
+    }
+
+    public interface IUiLocaleSelectionPort
+    {
+        string CurrentLocaleCode { get; }
+
+        IReadOnlyList<string> AvailableLocaleCodes { get; }
+
+        bool TrySetLocale(string localeCode);
+    }
+
+    public sealed class PackageFreeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
     {
         public const string DefaultLocaleCode = "en-US";
         public const string KoreanLocaleCode = "ko-KR";
+
+        private static readonly IReadOnlyList<string> SupportedLocaleCodes =
+            Array.AsReadOnly(new[] { DefaultLocaleCode, KoreanLocaleCode });
 
         private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _catalog;
         private string _currentLocaleCode;
@@ -140,6 +165,8 @@ namespace Game.Feature.UI.ViewShared
         }
 
         public string CurrentLocaleCode => _currentLocaleCode;
+
+        public IReadOnlyList<string> AvailableLocaleCodes => SupportedLocaleCodes;
 
         public event Action LocaleChanged;
 
@@ -171,6 +198,18 @@ namespace Game.Feature.UI.ViewShared
             LocaleChanged?.Invoke();
         }
 
+        public bool TrySetLocale(string localeCode)
+        {
+            var normalizedLocaleCode = NormalizeLocaleCode(localeCode);
+            if (!IsSupportedLocaleCode(normalizedLocaleCode))
+            {
+                return false;
+            }
+
+            SetLocale(normalizedLocaleCode);
+            return true;
+        }
+
         private bool TryResolve(
             string localeCode,
             LocalizedTextDescriptor descriptor,
@@ -189,6 +228,19 @@ namespace Game.Feature.UI.ViewShared
                 : localeCode;
         }
 
+        private static bool IsSupportedLocaleCode(string localeCode)
+        {
+            for (var i = 0; i < SupportedLocaleCodes.Count; i++)
+            {
+                if (string.Equals(SupportedLocaleCodes[i], localeCode, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> CreateSettingsCatalog()
         {
             return new Dictionary<string, IReadOnlyDictionary<string, string>>
@@ -205,6 +257,9 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.input.flip"] = "Flip",
                     ["ui.settings.input.change"] = "Change",
                     ["ui.settings.input.reset_input"] = "Reset Input",
+                    ["ui.settings.language"] = "Language",
+                    ["ui.settings.language.english"] = "English",
+                    ["ui.settings.language.korean"] = "Korean",
                     ["ui.common.back"] = "Back",
                 },
                 [KoreanLocaleCode] = new Dictionary<string, string>
@@ -219,6 +274,9 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.input.flip"] = "뒤집기",
                     ["ui.settings.input.change"] = "변경",
                     ["ui.settings.input.reset_input"] = "입력 초기화",
+                    ["ui.settings.language"] = "언어",
+                    ["ui.settings.language.english"] = "영어",
+                    ["ui.settings.language.korean"] = "한국어",
                     ["ui.common.back"] = "뒤로",
                 },
             };

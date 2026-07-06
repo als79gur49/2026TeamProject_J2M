@@ -25,6 +25,7 @@ namespace Game.Feature.UI.Composition
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
         private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
+        private readonly IUiLocaleSelectionPort _localeSelectionPort;
 
         internal GameplayScreenRuntimeFactory(
             ScreenLayerView screenLayerView,
@@ -39,7 +40,8 @@ namespace Game.Feature.UI.Composition
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
             ILocalizedTextResolver localizedTextResolver = null,
             ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
+            IUiLocaleSelectionPort localeSelectionPort = null)
             : this(
                 screenLayerView,
                 queryFacade,
@@ -54,7 +56,8 @@ namespace Game.Feature.UI.Composition
                 displayStatusTransientRelay,
                 localizedTextResolver,
                 localizedTypographyResolver,
-                localizedTmpFontResolver)
+                localizedTmpFontResolver,
+                localeSelectionPort)
         {
         }
 
@@ -72,7 +75,8 @@ namespace Game.Feature.UI.Composition
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
             ILocalizedTextResolver localizedTextResolver = null,
             ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null)
+            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
+            IUiLocaleSelectionPort localeSelectionPort = null)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
@@ -88,6 +92,7 @@ namespace Game.Feature.UI.Composition
             _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             _localizedTmpFontResolver = localizedTmpFontResolver;
+            _localeSelectionPort = localeSelectionPort ?? _localizedTextResolver as IUiLocaleSelectionPort;
         }
 
         public ScreenRuntimeFactoryResult Create(ScreenRequest request)
@@ -147,7 +152,8 @@ namespace Game.Feature.UI.Composition
                     _displayStatusTransientRelay,
                     _localizedTextResolver,
                     _localizedTypographyResolver,
-                    _localizedTmpFontResolver)));
+                    _localizedTmpFontResolver,
+                    _localeSelectionPort)));
         }
 
         private ScreenRuntimeFactoryResult CreateStageResultRuntime()
