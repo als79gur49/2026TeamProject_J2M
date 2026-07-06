@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -432,49 +433,58 @@ namespace Game.Feature.UI.Application
     public readonly struct SettingsInputPresenterInput
     {
         public SettingsInputPresenterInput(
-            string movementLabel,
-            string useArrowKeysLabel,
-            string pushLabel,
-            string flipLabel,
-            string changeLabel,
-            string resetLabel)
+            LocalizedTextDescriptor movementLabelDescriptor,
+            LocalizedTextDescriptor useArrowKeysLabelDescriptor,
+            LocalizedTextDescriptor pushLabelDescriptor,
+            LocalizedTextDescriptor flipLabelDescriptor,
+            LocalizedTextDescriptor changeLabelDescriptor,
+            LocalizedTextDescriptor resetLabelDescriptor)
         {
-            MovementLabel = movementLabel ?? string.Empty;
-            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
-            PushLabel = pushLabel ?? string.Empty;
-            FlipLabel = flipLabel ?? string.Empty;
-            ChangeLabel = changeLabel ?? string.Empty;
-            ResetLabel = resetLabel ?? string.Empty;
+            MovementLabelDescriptor = movementLabelDescriptor;
+            UseArrowKeysLabelDescriptor = useArrowKeysLabelDescriptor;
+            PushLabelDescriptor = pushLabelDescriptor;
+            FlipLabelDescriptor = flipLabelDescriptor;
+            ChangeLabelDescriptor = changeLabelDescriptor;
+            ResetLabelDescriptor = resetLabelDescriptor;
         }
 
-        public string MovementLabel { get; }
+        public LocalizedTextDescriptor MovementLabelDescriptor { get; }
 
-        public string UseArrowKeysLabel { get; }
+        public LocalizedTextDescriptor UseArrowKeysLabelDescriptor { get; }
 
-        public string PushLabel { get; }
+        public LocalizedTextDescriptor PushLabelDescriptor { get; }
 
-        public string FlipLabel { get; }
+        public LocalizedTextDescriptor FlipLabelDescriptor { get; }
 
-        public string ChangeLabel { get; }
+        public LocalizedTextDescriptor ChangeLabelDescriptor { get; }
 
-        public string ResetLabel { get; }
+        public LocalizedTextDescriptor ResetLabelDescriptor { get; }
     }
 
     public sealed class SettingsInputPresenter
     {
         private readonly IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
         private SettingsInputPresenterInput _input = new SettingsInputPresenterInput(
-            "Movement Keys",
-            "Use Arrow Keys",
-            "Push",
-            "Flip",
-            "Change",
-            "Reset Input");
+            SettingsStaticTextDescriptors.MovementKeys,
+            SettingsStaticTextDescriptors.UseArrowKeys,
+            SettingsStaticTextDescriptors.Push,
+            SettingsStaticTextDescriptors.Flip,
+            SettingsStaticTextDescriptors.Change,
+            SettingsStaticTextDescriptors.ResetInput);
         private string _statusText = string.Empty;
 
         public SettingsInputPresenter(IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
+            : this(keyboardBindingSettingsPort, InvariantSettingsLocalizedTextResolver.Instance)
+        {
+        }
+
+        public SettingsInputPresenter(
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            ILocalizedTextResolver localizedTextResolver)
         {
             _keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort));
+            _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
         }
 
         public SettingsInputViewModel ViewModel { get; } = new SettingsInputViewModel();
@@ -536,21 +546,26 @@ namespace Game.Feature.UI.Application
         {
             var areControlsInteractable = !snapshot.IsRebinding;
             ViewModel.SetContent(
-                _input.MovementLabel,
-                _input.UseArrowKeysLabel,
+                Resolve(_input.MovementLabelDescriptor),
+                Resolve(_input.UseArrowKeysLabelDescriptor),
                 snapshot.MovementScheme == KeyboardMovementScheme.ArrowKeys,
                 snapshot.MovementDisplayName,
-                _input.PushLabel,
+                Resolve(_input.PushLabelDescriptor),
                 snapshot.PushDisplayName,
-                _input.ChangeLabel,
-                _input.FlipLabel,
+                Resolve(_input.ChangeLabelDescriptor),
+                Resolve(_input.FlipLabelDescriptor),
                 snapshot.FlipDisplayName,
-                _input.ChangeLabel,
-                _input.ResetLabel,
+                Resolve(_input.ChangeLabelDescriptor),
+                Resolve(_input.ResetLabelDescriptor),
                 _statusText,
                 snapshot.IsRebinding,
                 snapshot.RebindingAction,
                 areControlsInteractable);
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return _localizedTextResolver.Resolve(descriptor);
         }
 
         private static string ToStatusText(KeyboardBindingValidationResult result, KeyboardBindableAction action)
@@ -588,7 +603,8 @@ namespace Game.Feature.UI.Application
             : this(
                 audioSettingsPort,
                 displaySettingsPort,
-                NoOpKeyboardBindingSettingsPort.Instance)
+                NoOpKeyboardBindingSettingsPort.Instance,
+                InvariantSettingsLocalizedTextResolver.Instance)
         {
         }
 
@@ -596,10 +612,26 @@ namespace Game.Feature.UI.Application
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
+            : this(
+                audioSettingsPort,
+                displaySettingsPort,
+                keyboardBindingSettingsPort,
+                InvariantSettingsLocalizedTextResolver.Instance)
         {
+        }
+
+        public SettingsScreenPresenter(
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            ILocalizedTextResolver localizedTextResolver)
+        {
+            LocalizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
             AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
             DisplayPresenter = new SettingsDisplayPresenter(displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)));
-            InputPresenter = new SettingsInputPresenter(keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)));
+            InputPresenter = new SettingsInputPresenter(
+                keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)),
+                LocalizedTextResolver);
         }
 
         public SettingsAudioPresenter AudioPresenter { get; }
@@ -610,18 +642,20 @@ namespace Game.Feature.UI.Application
 
         public SettingsScreenViewModel ViewModel { get; } = new SettingsScreenViewModel();
 
+        private ILocalizedTextResolver LocalizedTextResolver { get; }
+
         public void Apply(SettingsScreenPayload payload, double previewTimeoutSeconds)
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
             AudioPresenter.Apply();
             DisplayPresenter.Apply(previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
-                _payload.MovementLabel,
-                _payload.UseArrowKeysLabel,
-                _payload.PushLabel,
-                _payload.FlipLabel,
-                _payload.InputChangeLabel,
-                _payload.ResetInputLabel));
+                _payload.MovementLabelDescriptor,
+                _payload.UseArrowKeysLabelDescriptor,
+                _payload.PushLabelDescriptor,
+                _payload.FlipLabelDescriptor,
+                _payload.InputChangeLabelDescriptor,
+                _payload.ResetInputLabelDescriptor));
             RefreshViewModel();
         }
 
@@ -640,12 +674,60 @@ namespace Game.Feature.UI.Application
         private void RefreshViewModel()
         {
             ViewModel.SetContent(
-                _payload.TitleText,
-                _payload.BackLabel,
-                _payload.AudioTabLabel,
-                _payload.DisplayTabLabel,
-                _payload.InputTabLabel,
+                Resolve(_payload.TitleTextDescriptor),
+                Resolve(_payload.BackLabelDescriptor),
+                Resolve(_payload.AudioTabLabelDescriptor),
+                Resolve(_payload.DisplayTabLabelDescriptor),
+                Resolve(_payload.InputTabLabelDescriptor),
                 _selectedSection);
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return LocalizedTextResolver.Resolve(descriptor);
+        }
+    }
+
+    internal sealed class InvariantSettingsLocalizedTextResolver : ILocalizedTextResolver
+    {
+        public static readonly InvariantSettingsLocalizedTextResolver Instance = new();
+
+        private static readonly IReadOnlyDictionary<string, string> Values = new Dictionary<string, string>
+        {
+            ["ui.settings.title"] = "Settings",
+            ["ui.settings.audio"] = "Audio",
+            ["ui.settings.display"] = "Display",
+            ["ui.settings.input"] = "Input",
+            ["ui.settings.input.movement_keys"] = "Movement Keys",
+            ["ui.settings.input.use_arrow_keys"] = "Use Arrow Keys",
+            ["ui.settings.input.push"] = "Push",
+            ["ui.settings.input.flip"] = "Flip",
+            ["ui.settings.input.change"] = "Change",
+            ["ui.settings.input.reset_input"] = "Reset Input",
+            ["ui.common.back"] = "Back",
+        };
+
+        private InvariantSettingsLocalizedTextResolver()
+        {
+        }
+
+        public string CurrentLocaleCode => "en-US";
+
+        public event Action LocaleChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            if (string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) &&
+                Values.TryGetValue(descriptor.Key, out var value))
+            {
+                return value;
+            }
+
+            return $"[{descriptor.Table}:{descriptor.Key}]";
         }
     }
 }

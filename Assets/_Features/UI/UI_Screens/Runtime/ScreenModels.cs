@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Screens
 {
@@ -19,84 +20,135 @@ namespace Game.Feature.UI.Screens
 
     public sealed class SettingsScreenPayload : IScreenPayload
     {
-        public static readonly SettingsScreenPayload Default = new(
-            "Settings",
-            "Audio",
-            "Display",
-            "Input",
-            "Movement Keys",
-            "Use Arrow Keys",
-            "Push",
-            "Flip",
-            "Change",
-            "Reset Input",
-            "Back");
+        public static readonly SettingsScreenPayload Default = new();
 
         public SettingsScreenPayload(
-            string titleText,
-            string backLabel)
-            : this(
-                titleText,
-                "Audio",
-                "Display",
-                "Input",
-                "Movement Keys",
-                "Use Arrow Keys",
-                "Push",
-                "Flip",
-                "Change",
-                "Reset Input",
-                backLabel)
+            LocalizedTextDescriptor titleTextDescriptor = default,
+            LocalizedTextDescriptor audioTabLabelDescriptor = default,
+            LocalizedTextDescriptor displayTabLabelDescriptor = default,
+            LocalizedTextDescriptor inputTabLabelDescriptor = default,
+            LocalizedTextDescriptor movementLabelDescriptor = default,
+            LocalizedTextDescriptor useArrowKeysLabelDescriptor = default,
+            LocalizedTextDescriptor pushLabelDescriptor = default,
+            LocalizedTextDescriptor flipLabelDescriptor = default,
+            LocalizedTextDescriptor inputChangeLabelDescriptor = default,
+            LocalizedTextDescriptor resetInputLabelDescriptor = default,
+            LocalizedTextDescriptor backLabelDescriptor = default)
         {
+            TitleTextDescriptor = OrDefault(titleTextDescriptor, SettingsStaticTextDescriptors.Title);
+            AudioTabLabelDescriptor = OrDefault(audioTabLabelDescriptor, SettingsStaticTextDescriptors.AudioTab);
+            DisplayTabLabelDescriptor = OrDefault(displayTabLabelDescriptor, SettingsStaticTextDescriptors.DisplayTab);
+            InputTabLabelDescriptor = OrDefault(inputTabLabelDescriptor, SettingsStaticTextDescriptors.InputTab);
+            MovementLabelDescriptor = OrDefault(movementLabelDescriptor, SettingsStaticTextDescriptors.MovementKeys);
+            UseArrowKeysLabelDescriptor = OrDefault(useArrowKeysLabelDescriptor, SettingsStaticTextDescriptors.UseArrowKeys);
+            PushLabelDescriptor = OrDefault(pushLabelDescriptor, SettingsStaticTextDescriptors.Push);
+            FlipLabelDescriptor = OrDefault(flipLabelDescriptor, SettingsStaticTextDescriptors.Flip);
+            InputChangeLabelDescriptor = OrDefault(inputChangeLabelDescriptor, SettingsStaticTextDescriptors.Change);
+            ResetInputLabelDescriptor = OrDefault(resetInputLabelDescriptor, SettingsStaticTextDescriptors.ResetInput);
+            BackLabelDescriptor = OrDefault(backLabelDescriptor, SettingsStaticTextDescriptors.Back);
         }
 
-        public SettingsScreenPayload(
-            string titleText,
-            string audioTabLabel,
-            string displayTabLabel,
-            string inputTabLabel,
-            string movementLabel,
-            string useArrowKeysLabel,
-            string pushLabel,
-            string flipLabel,
-            string inputChangeLabel,
-            string resetInputLabel,
-            string backLabel)
+        public LocalizedTextDescriptor TitleTextDescriptor { get; }
+
+        public LocalizedTextDescriptor AudioTabLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor DisplayTabLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor InputTabLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor MovementLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor UseArrowKeysLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor PushLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor FlipLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor InputChangeLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor ResetInputLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor BackLabelDescriptor { get; }
+
+        private static LocalizedTextDescriptor OrDefault(
+            LocalizedTextDescriptor descriptor,
+            LocalizedTextDescriptor fallback)
         {
-            TitleText = titleText ?? string.Empty;
-            AudioTabLabel = audioTabLabel ?? string.Empty;
-            DisplayTabLabel = displayTabLabel ?? string.Empty;
-            InputTabLabel = inputTabLabel ?? string.Empty;
-            MovementLabel = movementLabel ?? string.Empty;
-            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
-            PushLabel = pushLabel ?? string.Empty;
-            FlipLabel = flipLabel ?? string.Empty;
-            InputChangeLabel = inputChangeLabel ?? string.Empty;
-            ResetInputLabel = resetInputLabel ?? string.Empty;
-            BackLabel = backLabel ?? string.Empty;
+            return string.IsNullOrEmpty(descriptor.Table) && string.IsNullOrEmpty(descriptor.Key)
+                ? fallback
+                : descriptor;
         }
+    }
 
-        public string TitleText { get; }
+    public static class SettingsStaticTextDescriptors
+    {
+        public const string Table = "UI";
 
-        public string AudioTabLabel { get; }
+        public static readonly LocalizedTextDescriptor Title = new(
+            Table,
+            "ui.settings.title",
+            LocalizedTextRole.Title,
+            LocalizedTextWeight.Bold);
 
-        public string DisplayTabLabel { get; }
+        public static readonly LocalizedTextDescriptor AudioTab = new(
+            Table,
+            "ui.settings.audio",
+            LocalizedTextRole.Subtitle,
+            LocalizedTextWeight.Bold);
 
-        public string InputTabLabel { get; }
+        public static readonly LocalizedTextDescriptor DisplayTab = new(
+            Table,
+            "ui.settings.display",
+            LocalizedTextRole.Subtitle,
+            LocalizedTextWeight.Bold);
 
-        public string MovementLabel { get; }
+        public static readonly LocalizedTextDescriptor InputTab = new(
+            Table,
+            "ui.settings.input",
+            LocalizedTextRole.Subtitle,
+            LocalizedTextWeight.Bold);
 
-        public string UseArrowKeysLabel { get; }
+        public static readonly LocalizedTextDescriptor MovementKeys = new(
+            Table,
+            "ui.settings.input.movement_keys",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
 
-        public string PushLabel { get; }
+        public static readonly LocalizedTextDescriptor UseArrowKeys = new(
+            Table,
+            "ui.settings.input.use_arrow_keys",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
 
-        public string FlipLabel { get; }
+        public static readonly LocalizedTextDescriptor Push = new(
+            Table,
+            "ui.settings.input.push",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
 
-        public string InputChangeLabel { get; }
+        public static readonly LocalizedTextDescriptor Flip = new(
+            Table,
+            "ui.settings.input.flip",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
 
-        public string ResetInputLabel { get; }
+        public static readonly LocalizedTextDescriptor Change = new(
+            Table,
+            "ui.settings.input.change",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
 
-        public string BackLabel { get; }
+        public static readonly LocalizedTextDescriptor ResetInput = new(
+            Table,
+            "ui.settings.input.reset_input",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Back = new(
+            Table,
+            "ui.common.back",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
     }
 
     public enum AudioSettingsChannel
@@ -329,9 +381,9 @@ namespace Game.Feature.UI.Screens
         public void SetContent(
             string titleText,
             string backLabel,
-            string audioTabLabel = "Audio",
-            string displayTabLabel = "Display",
-            string inputTabLabel = "Input",
+            string audioTabLabel,
+            string displayTabLabel,
+            string inputTabLabel,
             SettingsSectionId selectedSection = SettingsSectionId.Audio)
         {
             TitleText = titleText ?? string.Empty;

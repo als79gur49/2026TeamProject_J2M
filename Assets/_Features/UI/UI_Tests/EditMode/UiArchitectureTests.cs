@@ -944,6 +944,7 @@ namespace Game.Feature.UI.Tests
                 {
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort)",
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort, ILocalizedTextResolver)",
                 }));
         }
 
