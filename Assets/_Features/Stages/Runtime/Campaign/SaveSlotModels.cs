@@ -1774,7 +1774,7 @@ namespace Game.Feature.Stages
             try
             {
                 var dto = JsonUtility.FromJson<SaveSlotStoreDto>(rawJson);
-                if (!IsCurrentDtoValid(dto, out var invalidReason))
+                if (!SaveSlotStoreDtoValidator.IsCurrentDtoValid(dto, out var invalidReason))
                 {
                     _storageBackend.ResetRejectedPayload();
                     LastLoadReport = new StageClearSaveLoadReport(
@@ -1802,7 +1802,54 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static bool IsCurrentDtoValid(SaveSlotStoreDto dto, out string reason)
+        private static void DeleteLegacyPrefsIfUsingDefaultScope(StageClearSavePrefsScope scope)
+        {
+            if (scope.IsProductionDefaultScope)
+            {
+                StageClearSavePrefsResetPolicy.DeleteLegacyStageSavePrefs();
+            }
+        }
+    }
+
+    public sealed class SaveSlotStageClearProfileStore : IStageClearProfileStore
+    {
+        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ActiveSlotProvider _activeSlotProvider;
+
+        public SaveSlotStageClearProfileStore(
+            SaveSlotStore saveSlotStore,
+            ActiveSlotProvider activeSlotProvider)
+        {
+            _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
+            _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
+        }
+
+        public StageClearProfileSnapshot Load()
+        {
+            var slot = _saveSlotStore.LoadSlot(_activeSlotProvider.ActiveSlotNumber);
+            return slot.StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot();
+        }
+
+        public void Save(StageClearProfileSnapshot snapshot)
+        {
+            _saveSlotStore.UpdateSlot(
+                _activeSlotProvider.ActiveSlotNumber,
+                slot => slot.StageClearProfileSnapshot = snapshot?.Clone() ?? new StageClearProfileSnapshot());
+        }
+    }
+
+    [Serializable]
+    public sealed class SaveSlotStoreDto
+    {
+        public string SchemaId = SaveSlotStore.SchemaId;
+        public int SchemaVersion = SaveSlotStore.SchemaVersion;
+        public int SaveVersion = SaveSlotStore.SaveVersion;
+        public SaveSlotDto[] Slots = Array.Empty<SaveSlotDto>();
+    }
+
+    public static class SaveSlotStoreDtoValidator
+    {
+        public static bool IsCurrentDtoValid(SaveSlotStoreDto dto, out string reason)
         {
             if (dto == null)
             {
@@ -1810,19 +1857,19 @@ namespace Game.Feature.Stages
                 return false;
             }
 
-            if (!string.Equals(dto.SchemaId, SchemaId, StringComparison.Ordinal))
+            if (!string.Equals(dto.SchemaId, SaveSlotStore.SchemaId, StringComparison.Ordinal))
             {
                 reason = "Current payload DTO SchemaId does not match.";
                 return false;
             }
 
-            if (dto.SchemaVersion != SchemaVersion)
+            if (dto.SchemaVersion != SaveSlotStore.SchemaVersion)
             {
                 reason = "Current payload DTO SchemaVersion does not match.";
                 return false;
             }
 
-            if (dto.SaveVersion != SaveVersion)
+            if (dto.SaveVersion != SaveSlotStore.SaveVersion)
             {
                 reason = "Current payload SaveVersion is unsupported.";
                 return false;
@@ -1871,50 +1918,6 @@ namespace Game.Feature.Stages
             reason = string.Empty;
             return true;
         }
-
-        private static void DeleteLegacyPrefsIfUsingDefaultScope(StageClearSavePrefsScope scope)
-        {
-            if (scope.IsProductionDefaultScope)
-            {
-                StageClearSavePrefsResetPolicy.DeleteLegacyStageSavePrefs();
-            }
-        }
-    }
-
-    public sealed class SaveSlotStageClearProfileStore : IStageClearProfileStore
-    {
-        private readonly SaveSlotStore _saveSlotStore;
-        private readonly ActiveSlotProvider _activeSlotProvider;
-
-        public SaveSlotStageClearProfileStore(
-            SaveSlotStore saveSlotStore,
-            ActiveSlotProvider activeSlotProvider)
-        {
-            _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
-            _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
-        }
-
-        public StageClearProfileSnapshot Load()
-        {
-            var slot = _saveSlotStore.LoadSlot(_activeSlotProvider.ActiveSlotNumber);
-            return slot.StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot();
-        }
-
-        public void Save(StageClearProfileSnapshot snapshot)
-        {
-            _saveSlotStore.UpdateSlot(
-                _activeSlotProvider.ActiveSlotNumber,
-                slot => slot.StageClearProfileSnapshot = snapshot?.Clone() ?? new StageClearProfileSnapshot());
-        }
-    }
-
-    [Serializable]
-    public sealed class SaveSlotStoreDto
-    {
-        public string SchemaId = SaveSlotStore.SchemaId;
-        public int SchemaVersion = SaveSlotStore.SchemaVersion;
-        public int SaveVersion = SaveSlotStore.SaveVersion;
-        public SaveSlotDto[] Slots = Array.Empty<SaveSlotDto>();
     }
 
     [Serializable]
