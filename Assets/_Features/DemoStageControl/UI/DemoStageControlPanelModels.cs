@@ -132,7 +132,7 @@ namespace Game.Feature.DemoStageControl.UI
 
             var item = stages[Math.Max(0, Math.Min(index, stages.Count - 1))];
             var state = item.IsCurrent ? "current" : item.IsUnlocked ? "unlocked" : "locked";
-            var displayName = string.IsNullOrWhiteSpace(item.DisplayName) ? item.StageId.Value : item.DisplayName;
+            var displayName = item.StageId.IsValid ? item.StageId.Value : item.DisplayNameKey;
             return $"{index + 1}/{stages.Count}  {displayName} ({item.StageId.Value}, {state})";
         }
     }

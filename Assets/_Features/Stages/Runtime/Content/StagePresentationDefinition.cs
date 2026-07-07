@@ -18,7 +18,6 @@ namespace Game.Feature.Stages
     {
         [Header("Stage Identity / Scene")]
         [SerializeField] private string displayNameKey = string.Empty;
-        [SerializeField] private string displayName = string.Empty;
         [SerializeField] private GameObject backgroundPrefab;
 
         [Header("Entity Presentation")]
@@ -44,10 +43,6 @@ namespace Game.Feature.Stages
             Array.Empty<StageWorldGuideInstruction>();
 
         public string DisplayNameKey => StageDisplayNameKeys.Normalize(displayNameKey);
-
-        public string LegacyDisplayNameFallback => displayName ?? string.Empty;
-
-        public string DisplayName => LegacyDisplayNameFallback;
 
         public GameObject BackgroundPrefab => backgroundPrefab;
 
@@ -86,7 +81,6 @@ namespace Game.Feature.Stages
         {
             var resolvedData = value ?? StagePresentationAssembler.EmptyResolvedData;
             displayNameKey = resolvedData.DisplayNameKey;
-            displayName = resolvedData.LegacyDisplayNameFallback;
             backgroundPrefab = resolvedData.BackgroundPrefab;
             enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
             enemyPresentationArchetypeCatalog = resolvedData.EnemyPresentationArchetypeCatalog;

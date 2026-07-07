@@ -206,7 +206,6 @@ namespace Game.Feature.UI.Application
                 playerHud.RemainingChances,
                 playerHud.MaxChances,
                 stage.StageId,
-                stage.LegacyDisplayNameFallback,
                 stage.DisplayNameKey,
                 objective,
                 frame.HasValue ? frame.Value.Topology : null,

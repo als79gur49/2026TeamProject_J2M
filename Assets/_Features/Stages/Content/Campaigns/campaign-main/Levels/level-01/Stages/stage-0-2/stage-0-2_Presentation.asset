@@ -15,7 +15,6 @@ MonoBehaviour:
   ownerEntry: {fileID: 11400000, guid: 80bf882bb3e5fa09a0c084d998d93869, type: 2}
   ownerEntryGuid: 80bf882bb3e5fa09a0c084d998d93869
   displayNameKey: stage.stage-0-2.display_name
-  displayName: Lab-02
   backgroundPrefab: {fileID: 6146672969793721054, guid: 19c2a2b2ee2064644878dd76228bc933, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 0}

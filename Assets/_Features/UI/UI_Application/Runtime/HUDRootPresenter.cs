@@ -126,7 +126,7 @@ namespace Game.Feature.UI.Application
                 return _localizedTextResolver.Resolve(stage.DisplayNameDescriptor);
             }
 
-            return stage.LegacyDisplayNameFallback;
+            return string.Empty;
         }
     }
 }

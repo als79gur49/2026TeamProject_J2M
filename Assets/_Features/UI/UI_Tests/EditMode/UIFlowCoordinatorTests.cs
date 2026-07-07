@@ -994,7 +994,7 @@ namespace Game.Feature.UI.Tests
             return new UIPresentationSnapshot(
                 UIPresentationSnapshot.Empty.Tick,
                 UIPresentationSnapshot.Empty.Interaction,
-                new UIStageSlice(stageId, stageId.Value),
+                new UIStageSlice(stageId, StageDisplayNameKeys.ForStage(stageId)),
                 UIPresentationSnapshot.Empty.Player,
                 UIPresentationSnapshot.Empty.Notifications);
         }
@@ -1044,7 +1044,7 @@ namespace Game.Feature.UI.Tests
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                "Payload Stage",
+                StageDisplayNameKeys.ForStage(stageId),
                 result,
                 continueRequest,
                 retryRequest,

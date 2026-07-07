@@ -227,7 +227,7 @@ namespace Game.Feature.UI.Tests
             {
                 return new[]
                 {
-                    new DemoStageControlStageItem(StageId, "Stage 0-1", true, true),
+                    new DemoStageControlStageItem(StageId, "stage.stage-0-1.display_name", true, true),
                 };
             }
 

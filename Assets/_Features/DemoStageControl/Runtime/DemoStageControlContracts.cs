@@ -94,23 +94,12 @@ namespace Game.Feature.DemoStageControl
     {
         public DemoStageControlStageItem(
             StageId stageId,
-            string displayName,
-            bool isCurrent,
-            bool isUnlocked)
-            : this(stageId, string.Empty, displayName, isCurrent, isUnlocked)
-        {
-        }
-
-        public DemoStageControlStageItem(
-            StageId stageId,
             string displayNameKey,
-            string legacyDisplayNameFallback,
             bool isCurrent,
             bool isUnlocked)
         {
             StageId = stageId;
             DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
-            LegacyDisplayNameFallback = legacyDisplayNameFallback ?? string.Empty;
             IsCurrent = isCurrent;
             IsUnlocked = isUnlocked;
         }
@@ -118,10 +107,6 @@ namespace Game.Feature.DemoStageControl
         public StageId StageId { get; }
 
         public string DisplayNameKey { get; }
-
-        public string LegacyDisplayNameFallback { get; }
-
-        public string DisplayName => LegacyDisplayNameFallback;
 
         public bool IsCurrent { get; }
 

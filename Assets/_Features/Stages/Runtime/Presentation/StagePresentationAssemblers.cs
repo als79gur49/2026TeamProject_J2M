@@ -40,7 +40,6 @@ namespace Game.Feature.Stages
     {
         public StagePresentationResolvedData(
             string displayNameKey,
-            string legacyDisplayNameFallback,
             GameObject backgroundPrefab,
             EnemyPresentationCatalog enemyPresentationCatalog,
             EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
@@ -58,7 +57,6 @@ namespace Game.Feature.Stages
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
-            LegacyDisplayNameFallback = legacyDisplayNameFallback ?? string.Empty;
             BackgroundPrefab = backgroundPrefab;
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
@@ -77,8 +75,6 @@ namespace Game.Feature.Stages
         }
 
         public string DisplayNameKey { get; }
-
-        public string LegacyDisplayNameFallback { get; }
 
         public GameObject BackgroundPrefab { get; }
 
@@ -210,7 +206,6 @@ namespace Game.Feature.Stages
     {
         public static readonly StagePresentationResolvedData EmptyResolvedData = new(
             string.Empty,
-            string.Empty,
             null,
             null,
             null,
@@ -235,7 +230,6 @@ namespace Game.Feature.Stages
 
             return new StagePresentationResolvedData(
                 definition.DisplayNameKey,
-                definition.LegacyDisplayNameFallback,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
@@ -269,7 +263,6 @@ namespace Game.Feature.Stages
 
             return new StagePresentationResolvedData(
                 definition.DisplayNameKey,
-                definition.LegacyDisplayNameFallback,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,

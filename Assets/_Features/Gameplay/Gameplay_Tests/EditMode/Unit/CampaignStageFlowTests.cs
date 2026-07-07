@@ -2121,7 +2121,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                "Campaign Test Stage",
+                StageDisplayNameKeys.ForStage(stageId),
                 result,
                 new StageNavigationRequest(stageId, StageNavigationKind.Continue, "campaign-test-continue"),
                 new StageNavigationRequest(stageId, StageNavigationKind.Retry, "campaign-test-retry"),

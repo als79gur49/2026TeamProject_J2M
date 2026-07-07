@@ -476,7 +476,9 @@ namespace Game.Feature.UI.Tests
                 new GameplaySessionReadModel(1, false, true, false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 new GameplayObjectiveReadModel(false, false, false, false),
-                new GameplayStageReadModel(StageId.CreateOrThrow("ui-audio-pause-test"), "UI Audio Pause Test"));
+                new GameplayStageReadModel(
+                    StageId.CreateOrThrow("ui-audio-pause-test"),
+                    "stage.ui-audio-pause-test.display_name"));
             return UiTestPortFactory.CreatePorts(queryFacade: queryFacade, pauseService: pauseService);
         }
 

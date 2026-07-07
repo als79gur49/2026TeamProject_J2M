@@ -288,10 +288,12 @@ namespace Game.Feature.UI.Tests
                 UIPresentationSnapshot.Empty,
                 CreateRefreshInput(
                     stageId: stageId,
-                    stageDisplayName: "Stage 1-1"));
+                    stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
             Assert.That(result.Snapshot.Stage.StageId, Is.EqualTo(stageId));
-            Assert.That(result.Snapshot.Stage.DisplayName, Is.EqualTo("Stage 1-1"));
+            Assert.That(result.Snapshot.Stage.DisplayNameKey, Is.EqualTo("stage.stage-1-1.display_name"));
+            Assert.That(result.Snapshot.Stage.DisplayNameDescriptor.Table, Is.EqualTo("Stage"));
+            Assert.That(result.Snapshot.Stage.DisplayNameDescriptor.Key, Is.EqualTo("stage.stage-1-1.display_name"));
             Assert.That(result.Snapshot.Stage.HasDisplayName, Is.True);
         }
 
@@ -640,7 +642,7 @@ namespace Game.Feature.UI.Tests
                 new GameplaySessionReadModel(1, false, true, false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 new GameplayObjectiveReadModel(false, false, false, false),
-                new GameplayStageReadModel(stageId, "Stage 1-1"));
+                new GameplayStageReadModel(stageId, "stage.stage-1-1.display_name"));
             var presentationFeed = new FakeGameplayPresentationFeed();
             var pauseService = new FakeGameplayPauseService();
             using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
@@ -652,7 +654,7 @@ namespace Game.Feature.UI.Tests
                 isTopologyTransitionActive: false));
 
             Assert.That(source.CurrentSnapshot.Stage.StageId, Is.EqualTo(stageId));
-            Assert.That(source.CurrentSnapshot.Stage.DisplayName, Is.EqualTo("Stage 1-1"));
+            Assert.That(source.CurrentSnapshot.Stage.DisplayNameKey, Is.EqualTo("stage.stage-1-1.display_name"));
         }
 
         [Test]
@@ -769,7 +771,7 @@ namespace Game.Feature.UI.Tests
             int remainingChances = 0,
             int maxChances = 0,
             StageId stageId = default,
-            string stageDisplayName = "",
+            string stageDisplayNameKey = "",
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
             GameplayChanceAudioPolicy chanceAudioPolicy = GameplayChanceAudioPolicy.Default,
@@ -799,7 +801,7 @@ namespace Game.Feature.UI.Tests
                 remainingChances: remainingChances,
                 maxChances: maxChances,
                 stageId: stageId,
-                stageDisplayName: stageDisplayName,
+                stageDisplayNameKey: stageDisplayNameKey,
                 objective: objective,
                 topologyPresentation: topologyPresentation,
                 chanceAudioPolicy: chanceAudioPolicy,

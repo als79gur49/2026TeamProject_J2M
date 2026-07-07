@@ -127,18 +127,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void DemoStageControl_GetStages_UsesCampaignSequenceOrder_AndExcludesCatalogExtras()
         {
-            var first = CreateEntry("stage-0-1", displayName: "Presentation 0-1");
-            var second = CreateEntry("stage-0-2", displayName: "Presentation 0-2");
-            var extra = CreateEntry("catalog-stage-b", displayName: "Catalog Stage B");
+            var first = CreateEntry("stage-0-1");
+            var second = CreateEntry("stage-0-2");
+            var extra = CreateEntry("catalog-stage-b");
             var service = CreateService(new[] { second, extra, first }, out _, out _);
 
             var stages = service.GetStages();
 
             Assert.That(stages, Has.Count.EqualTo(2));
             Assert.That(stages[0].StageId, Is.EqualTo(first.StageId));
-            Assert.That(stages[0].DisplayName, Is.EqualTo("Presentation 0-1"));
+            Assert.That(stages[0].DisplayNameKey, Is.EqualTo("stage.stage-0-1.display_name"));
             Assert.That(stages[1].StageId, Is.EqualTo(second.StageId));
-            Assert.That(stages[1].DisplayName, Is.EqualTo("Presentation 0-2"));
+            Assert.That(stages[1].DisplayNameKey, Is.EqualTo("stage.stage-0-2.display_name"));
         }
 
         [Test]
@@ -377,20 +377,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private StageContentEntry CreateEntry(
             string rawStageId,
-            string displayName = null,
             bool initiallyAvailable = true)
         {
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
             _createdObjects.Add(entry);
             entry.AssignStageId(StageId.CreateOrThrow(rawStageId));
             entry.AssignCatalogMetadata(string.Empty, "level-0", 0, initiallyAvailable);
-            if (displayName != null)
-            {
-                var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-                _createdObjects.Add(presentationDefinition);
-                SetPrivateField(presentationDefinition, "displayName", displayName);
-                entry.AssignPresentationDefinition(presentationDefinition);
-            }
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            _createdObjects.Add(presentationDefinition);
+            SetPrivateField(presentationDefinition, "displayNameKey", StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(presentationDefinition);
 
             return entry;
         }

@@ -60,6 +60,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).ToArray(),
                 Is.EquivalentTo(StageDisplayNameEntries.Select(entry => entry.Key).ToArray()));
+            Assert.That(
+                activeStageEntries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(),
+                Is.EqualTo(activeStageEntries.Length));
             AssertStageTable(collection.GetTable("en-US") as StringTable, activeStageEntries);
             AssertStageTable(collection.GetTable("ko-KR") as StringTable, activeStageEntries);
         }
@@ -295,6 +298,15 @@ namespace Game.Feature.UI.Tests
             IReadOnlyList<(string StageId, string Key, string Value)> expectedEntries)
         {
             Assert.That(table, Is.Not.Null);
+            var stageDisplayNameKeys = table.SharedData.Entries
+                .Select(entry => entry.Key)
+                .Where(key => key.StartsWith("stage.", StringComparison.Ordinal) &&
+                              key.EndsWith(StageDisplayNameKeys.Suffix, StringComparison.Ordinal))
+                .ToArray();
+            Assert.That(
+                stageDisplayNameKeys.Distinct(StringComparer.Ordinal).Count(),
+                Is.EqualTo(stageDisplayNameKeys.Length),
+                table.LocaleIdentifier.Code);
             foreach (var entry in expectedEntries)
             {
                 var tableEntry = table.GetEntry(entry.Key);
@@ -319,6 +331,7 @@ namespace Game.Feature.UI.Tests
                 {
                     Assert.That(entry.PresentationDefinition, Is.Not.Null, entry.StageId.Value);
                     var key = entry.PresentationDefinition.DisplayNameKey;
+                    Assert.That(key, Is.EqualTo(StageDisplayNameKeys.ForStage(entry.StageId)), entry.StageId.Value);
                     Assert.That(expectedValues.TryGetValue(key, out var value), Is.True, entry.StageId.Value);
                     return (entry.StageId.Value, key, value);
                 })

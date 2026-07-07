@@ -47,7 +47,6 @@ namespace Game.Feature.Stages
         public MinimalStageCompletionReadModel(
             StageId stageId,
             string displayNameKey,
-            string legacyDisplayNameFallback,
             MinimalStageCompletionResult result,
             StageNavigationRequest continueRequest,
             StageNavigationRequest retryRequest,
@@ -55,38 +54,15 @@ namespace Game.Feature.Stages
         {
             StageId = stageId;
             DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
-            LegacyDisplayNameFallback = legacyDisplayNameFallback ?? string.Empty;
             Result = result ?? throw new ArgumentNullException(nameof(result));
             ContinueRequest = continueRequest;
             RetryRequest = retryRequest;
             NextStageRequest = nextStageRequest;
         }
 
-        public MinimalStageCompletionReadModel(
-            StageId stageId,
-            string legacyDisplayNameFallback,
-            MinimalStageCompletionResult result,
-            StageNavigationRequest continueRequest,
-            StageNavigationRequest retryRequest,
-            StageNavigationRequest nextStageRequest)
-            : this(
-                stageId,
-                string.Empty,
-                legacyDisplayNameFallback,
-                result,
-                continueRequest,
-                retryRequest,
-                nextStageRequest)
-        {
-        }
-
         public StageId StageId { get; }
 
         public string DisplayNameKey { get; }
-
-        public string LegacyDisplayNameFallback { get; }
-
-        public string DisplayName => LegacyDisplayNameFallback;
 
         public MinimalStageCompletionResult Result { get; }
 
@@ -142,12 +118,7 @@ namespace Game.Feature.Stages
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                !string.IsNullOrWhiteSpace(presentation.DisplayNameKey)
-                    ? presentation.DisplayNameKey
-                    : StageDisplayNameKeys.ForStage(stageId),
-                !string.IsNullOrWhiteSpace(presentation.LegacyDisplayNameFallback)
-                    ? presentation.LegacyDisplayNameFallback
-                    : (stageId.IsValid ? stageId.Value : string.Empty),
+                StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey),
                 result,
                 continueRequest,
                 retryRequest,

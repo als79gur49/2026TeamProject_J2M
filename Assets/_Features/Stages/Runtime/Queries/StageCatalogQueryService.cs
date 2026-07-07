@@ -8,7 +8,6 @@ namespace Game.Feature.Stages
         public StageLaunchCatalogItem(
             StageId stageId,
             string displayNameKey,
-            string legacyDisplayNameFallback,
             string worldId,
             string chapterId,
             int sortOrder,
@@ -16,7 +15,6 @@ namespace Game.Feature.Stages
         {
             StageId = stageId;
             DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
-            LegacyDisplayNameFallback = legacyDisplayNameFallback ?? string.Empty;
             WorldId = worldId ?? string.Empty;
             ChapterId = chapterId ?? string.Empty;
             SortOrder = sortOrder;
@@ -26,10 +24,6 @@ namespace Game.Feature.Stages
         public StageId StageId { get; }
 
         public string DisplayNameKey { get; }
-
-        public string LegacyDisplayNameFallback { get; }
-
-        public string DisplayName => LegacyDisplayNameFallback;
 
         public string WorldId { get; }
 
@@ -92,7 +86,6 @@ namespace Game.Feature.Stages
             return new StageLaunchCatalogItem(
                 entry != null ? entry.StageId : StageId.None,
                 ResolveDisplayNameKey(entry, presentation),
-                ResolveLegacyDisplayNameFallback(entry, presentation),
                 entry != null ? entry.CatalogWorldId : string.Empty,
                 entry != null ? entry.CatalogChapterId : string.Empty,
                 entry != null ? entry.CatalogSortOrder : 0,
@@ -103,24 +96,9 @@ namespace Game.Feature.Stages
             StageContentEntry entry,
             StagePresentationDefinition presentation)
         {
-            if (presentation != null && !string.IsNullOrWhiteSpace(presentation.DisplayNameKey))
-            {
-                return presentation.DisplayNameKey;
-            }
-
-            return entry != null ? StageDisplayNameKeys.ForStage(entry.StageId) : string.Empty;
-        }
-
-        private static string ResolveLegacyDisplayNameFallback(
-            StageContentEntry entry,
-            StagePresentationDefinition presentation)
-        {
-            if (presentation != null && !string.IsNullOrWhiteSpace(presentation.LegacyDisplayNameFallback))
-            {
-                return presentation.LegacyDisplayNameFallback;
-            }
-
-            return entry != null && entry.StageId.IsValid ? entry.StageId.Value : string.Empty;
+            return entry != null
+                ? StageDisplayNameKeys.RequireForStage(entry.StageId, presentation != null ? presentation.DisplayNameKey : string.Empty)
+                : string.Empty;
         }
 
         private static int CompareItems(StageLaunchCatalogItem left, StageLaunchCatalogItem right)

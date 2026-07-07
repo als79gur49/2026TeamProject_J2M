@@ -35,7 +35,6 @@ namespace Game.Feature.UI.Application
             int remainingChances = 0,
             int maxChances = 0,
             StageId stageId = default,
-            string stageDisplayName = null,
             string stageDisplayNameKey = null,
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
@@ -67,7 +66,6 @@ namespace Game.Feature.UI.Application
                 remainingChances,
                 maxChances,
                 stageId,
-                stageDisplayName,
                 stageDisplayNameKey,
                 objective,
                 topologyPresentation,
@@ -102,7 +100,6 @@ namespace Game.Feature.UI.Application
             int remainingChances = 0,
             int maxChances = 0,
             StageId stageId = default,
-            string stageDisplayName = null,
             string stageDisplayNameKey = null,
             GameplayObjectiveReadModel objective = default,
             GameplayTopologyPresentationSlice? topologyPresentation = null,
@@ -139,7 +136,6 @@ namespace Game.Feature.UI.Application
                 : GameplayChanceAudioPolicy.Default;
             StageId = stageId;
             StageDisplayNameKey = StageDisplayNameKeys.Normalize(stageDisplayNameKey);
-            StageDisplayName = stageDisplayName ?? string.Empty;
             Objective = objective;
             TopologyPresentation = topologyPresentation;
             RecoveryCooldown = recoveryCooldown;
@@ -197,8 +193,6 @@ namespace Game.Feature.UI.Application
         public StageId StageId { get; }
 
         public string StageDisplayNameKey { get; }
-
-        public string StageDisplayName { get; }
 
         public GameplayObjectiveReadModel Objective { get; }
 
@@ -349,8 +343,7 @@ namespace Game.Feature.UI.Application
                 refreshInput.IsUiGameplayInputBlocked);
             var stage = new UIStageSlice(
                 refreshInput.StageId,
-                refreshInput.StageDisplayNameKey,
-                refreshInput.StageDisplayName);
+                refreshInput.StageDisplayNameKey);
             var objective = MapObjective(refreshInput.Objective, refreshInput.StageId);
             var topology = MapTopology(tick, refreshInput);
             var surfaceBelt = MapSurfaceBelt(tick, refreshInput);
