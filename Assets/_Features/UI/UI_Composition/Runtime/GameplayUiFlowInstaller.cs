@@ -205,7 +205,7 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewTimeoutRelay);
 
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter();
+            var stageInfoPresenter = new StageInfoPresenter(localizedTextResolver);
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();

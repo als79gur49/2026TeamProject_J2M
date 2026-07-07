@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -461,26 +462,48 @@ namespace Game.Feature.UI.Application
 
     public readonly struct UIStageSlice : IEquatable<UIStageSlice>
     {
-        public static readonly UIStageSlice Empty = new(StageId.None, string.Empty);
+        public static readonly UIStageSlice Empty = new(StageId.None, string.Empty, string.Empty);
 
         public UIStageSlice(
             StageId stageId,
             string displayName)
+            : this(stageId, string.Empty, displayName)
+        {
+        }
+
+        public UIStageSlice(
+            StageId stageId,
+            string displayNameKey,
+            string legacyDisplayNameFallback)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
+            DisplayNameDescriptor = !string.IsNullOrWhiteSpace(DisplayNameKey)
+                ? StageDisplayNameTextDescriptors.Create(DisplayNameKey)
+                : default;
+            LegacyDisplayNameFallback = legacyDisplayNameFallback ?? string.Empty;
         }
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
-        public bool HasDisplayName => !string.IsNullOrWhiteSpace(DisplayName);
+        public LocalizedTextDescriptor DisplayNameDescriptor { get; }
+
+        public string LegacyDisplayNameFallback { get; }
+
+        public string DisplayName => LegacyDisplayNameFallback;
+
+        public bool HasDisplayName =>
+            !string.IsNullOrWhiteSpace(DisplayNameKey) ||
+            !string.IsNullOrWhiteSpace(LegacyDisplayNameFallback);
 
         public bool Equals(UIStageSlice other)
         {
             return StageId.Equals(other.StageId) &&
-                   string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal);
+                   string.Equals(DisplayNameKey, other.DisplayNameKey, StringComparison.Ordinal) &&
+                   DisplayNameDescriptor.Equals(other.DisplayNameDescriptor) &&
+                   string.Equals(LegacyDisplayNameFallback, other.LegacyDisplayNameFallback, StringComparison.Ordinal);
         }
 
         public override bool Equals(object obj)
@@ -490,7 +513,7 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(StageId, DisplayName);
+            return HashCode.Combine(StageId, DisplayNameKey, DisplayNameDescriptor, LegacyDisplayNameFallback);
         }
     }
 

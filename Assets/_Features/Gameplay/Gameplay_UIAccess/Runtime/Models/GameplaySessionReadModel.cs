@@ -30,15 +30,31 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public GameplayStageReadModel(
             StageId stageId,
             string displayName)
+            : this(stageId, string.Empty, displayName)
+        {
+        }
+
+        public GameplayStageReadModel(
+            StageId stageId,
+            string displayNameKey,
+            string legacyDisplayNameFallback)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
+            LegacyDisplayNameFallback = legacyDisplayNameFallback ?? string.Empty;
         }
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
-        public bool IsAvailable => StageId.IsValid || !string.IsNullOrWhiteSpace(DisplayName);
+        public string LegacyDisplayNameFallback { get; }
+
+        public string DisplayName => LegacyDisplayNameFallback;
+
+        public bool IsAvailable =>
+            StageId.IsValid ||
+            !string.IsNullOrWhiteSpace(DisplayNameKey) ||
+            !string.IsNullOrWhiteSpace(LegacyDisplayNameFallback);
     }
 }
