@@ -170,6 +170,13 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - Progression unlock graph와 player clear record는 다른 개념이다. Stage objective clear와 `MinimalStageCompletionReadModel` 기반 StageResult continue/retry flow는 runtime/UI canonical path로 유지한다.
 - Retired reward/evaluation/progression residue fields must not re-enter save/profile production DTOs.
 
+## Campaign save architecture V2 policy closeout
+
+- [Save-Architecture-V2-Phase4-Policy-Closeout.md](./Save-Architecture-V2-Phase4-Policy-Closeout.md)
+  - current supporting truth for Phase 4 policy closeout before Phase 5 SaveSlotStore call-site migration / adapter production integration investigation
+  - records that `DeleteSlot` removes V2 profile slots but does not write a slot-level legacy deletion marker/tombstone, so retained legacy PlayerPrefs must not be allowed to resurrect deleted slots without a selected and tested remigration prevention policy
+  - records that `LastPlayedSlotNumber` is Cloud-friendly profile metadata, while the existing `ActiveSlotProvider` pending launch slot remains local/session state until an explicit active slot split phase
+
 ## Historical Supporting Notes
 
 아래 문서들은 phase 5 close 당시의 과정과 red-state provenance를 보존하는 historical supporting note다. current active close gate가 아니며, current active truth는 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md`다.

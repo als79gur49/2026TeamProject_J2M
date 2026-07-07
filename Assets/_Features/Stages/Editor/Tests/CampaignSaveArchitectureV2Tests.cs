@@ -500,6 +500,21 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(harness.SaveRootPath, Does.Not.Contain(Application.persistentDataPath));
         }
 
+        [Test]
+        public void Phase4PolicyCloseout_DocumentsDeleteSlotAndActiveSlotDeferrals()
+        {
+            var source = File.ReadAllText(
+                "Docs/Architecture/Save-Architecture-V2-Phase4-Policy-Closeout.md");
+
+            Assert.That(source, Does.Contain("DeleteSlot"));
+            Assert.That(source, Does.Contain("slot-level legacy deletion marker or tombstone"));
+            Assert.That(source, Does.Contain("automatic legacy reimport to resurrect"));
+            Assert.That(source, Does.Contain("remigration prevention policy"));
+            Assert.That(source, Does.Contain("`LastPlayedSlotNumber` and pending launch slot are separate concepts"));
+            Assert.That(source, Does.Contain("ActiveSlotProvider"));
+            Assert.That(source, Does.Contain("production-local until an explicit active slot split phase"));
+        }
+
         private static CampaignProfileDocument CreateDocument(string profileId)
         {
             return new CampaignProfileDocument
