@@ -186,6 +186,7 @@ namespace Game.Feature.UI.Screens
         public const string AudioVolumeValueKey = "ui.settings.audio.volume_value";
         public const string AudioVolumeValueMutedKey = "ui.settings.audio.volume_value_muted";
         public const string DisplayResolutionValueKey = "ui.settings.display.resolution_value";
+        public const string DisplayPreviewCountdownKey = "ui.settings.display.preview_countdown";
 
         public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
         {
@@ -205,6 +206,16 @@ namespace Game.Feature.UI.Screens
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular,
                 new object[] { resolutionLabel ?? string.Empty });
+        }
+
+        public static LocalizedTextDescriptor DisplayPreviewCountdown(int seconds)
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                DisplayPreviewCountdownKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular,
+                new object[] { seconds });
         }
     }
 

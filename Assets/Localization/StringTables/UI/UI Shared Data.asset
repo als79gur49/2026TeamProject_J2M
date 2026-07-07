@@ -115,6 +115,10 @@ MonoBehaviour:
     m_Key: ui.settings.display.resolution_value
     m_Metadata:
       m_Items: []
+  - m_Id: 283195180802048
+    m_Key: ui.settings.display.preview_countdown
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

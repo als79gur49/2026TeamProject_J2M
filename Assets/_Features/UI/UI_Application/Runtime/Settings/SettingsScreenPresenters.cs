@@ -440,7 +440,7 @@ namespace Game.Feature.UI.Application
                                             _previewCountdown.TotalSeconds > 0 &&
                                             _previewCountdown.RemainingSeconds > 0;
             var previewCountdownText = isPreviewCountdownVisible
-                ? $"Reverting in {_previewCountdown.RemainingSeconds}s"
+                ? Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(_previewCountdown.RemainingSeconds))
                 : string.Empty;
             var previewCountdownNormalized = isPreviewCountdownVisible
                 ? Clamp01((float)_previewCountdown.RemainingSeconds / _previewCountdown.TotalSeconds)

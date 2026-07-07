@@ -66,8 +66,14 @@ namespace Game.Feature.UI.Tests
             var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
             Assert.That(collection, Is.Not.Null);
 
-            AssertDisplaySmartEntries(collection.GetTable("en-US") as StringTable, "{0}");
-            AssertDisplaySmartEntries(collection.GetTable("ko-KR") as StringTable, "{0}");
+            AssertDisplaySmartEntries(
+                collection.GetTable("en-US") as StringTable,
+                "{0}",
+                "Reverting in {0}s");
+            AssertDisplaySmartEntries(
+                collection.GetTable("ko-KR") as StringTable,
+                "{0}",
+                "{0}초 후 되돌림");
         }
 
         [Test]
@@ -154,12 +160,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
                 Is.EqualTo("1920 x 1080"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
+                Is.EqualTo("Reverting in 10s"));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
                 Is.EqualTo("1920 x 1080"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
+                Is.EqualTo("10초 후 되돌림"));
         }
 
         [Test]
@@ -428,7 +440,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.IsSmart, Is.True, key);
         }
 
-        private static void AssertDisplaySmartEntries(StringTable table, string resolutionValue)
+        private static void AssertDisplaySmartEntries(
+            StringTable table,
+            string resolutionValue,
+            string previewCountdownValue)
         {
             Assert.That(table, Is.Not.Null);
             var entry = table.GetEntry(SettingsDynamicTextDescriptors.DisplayResolutionValueKey);
@@ -436,6 +451,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(resolutionValue));
             Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
             Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.DisplayResolutionValueKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(previewCountdownValue));
+            Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
+            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey);
         }
 
         private static void AssertStageTable(

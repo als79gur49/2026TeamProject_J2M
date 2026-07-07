@@ -215,6 +215,26 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.CurrentDisplayValueText, Is.EqualTo("ko-KR: 1920 x 1080"));
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesDisplayPreviewCountdown()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickDisplayTab();
+            view.DisplayView.SelectResolution(2);
+            view.DisplayView.ClickApply();
+
+            Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("Reverting in 15s"));
+
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
+        }
+
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()

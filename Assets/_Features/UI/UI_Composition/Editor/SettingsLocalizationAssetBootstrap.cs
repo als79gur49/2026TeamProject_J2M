@@ -37,6 +37,7 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.settings.audio.volume_value", "{0}%", "{0}%", true),
             ("ui.settings.audio.volume_value_muted", "{0}% (Muted)", "{0}% (음소거)", true),
             ("ui.settings.display.resolution_value", "{0}", "{0}", true),
+            ("ui.settings.display.preview_countdown", "Reverting in {0}s", "{0}초 후 되돌림", true),
             ("ui.common.settings", "Settings", "설정", false),
             ("ui.main_menu.start", "Start", "시작", false),
             ("ui.main_menu.quit", "Quit", "종료", false),

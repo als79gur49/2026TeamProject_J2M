@@ -264,6 +264,14 @@ namespace Game.Feature.UI.ViewShared
                 return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
             }
 
+            if (string.Equals(descriptor.Key, "ui.settings.display.preview_countdown", StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace(
+                    "{0}",
+                    Convert.ToString(descriptor.Arguments[0], CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
             return value;
         }
 
@@ -365,6 +373,7 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.audio.volume_value"] = "{0}%",
                     ["ui.settings.audio.volume_value_muted"] = "{0}% (Muted)",
                     ["ui.settings.display.resolution_value"] = "{0}",
+                    ["ui.settings.display.preview_countdown"] = "Reverting in {0}s",
                     ["ui.common.back"] = "Back",
                     ["ui.common.settings"] = "Settings",
                     ["ui.main_menu.start"] = "Start",
@@ -393,6 +402,7 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.audio.volume_value"] = "{0}%",
                     ["ui.settings.audio.volume_value_muted"] = "{0}% (음소거)",
                     ["ui.settings.display.resolution_value"] = "{0}",
+                    ["ui.settings.display.preview_countdown"] = "{0}초 후 되돌림",
                     ["ui.common.back"] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",

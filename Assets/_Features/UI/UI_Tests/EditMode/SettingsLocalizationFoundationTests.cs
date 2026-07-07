@@ -111,6 +111,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsDisplayPreviewCountdownDynamicDescriptor_UsesUiSmartStringArgument()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10);
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.display.preview_countdown"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { 10 }));
+        }
+
+        [Test]
         public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -118,12 +130,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
                 Is.EqualTo("1920 x 1080"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
+                Is.EqualTo("Reverting in 10s"));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
                 Is.EqualTo("1920 x 1080"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
+                Is.EqualTo("10초 후 되돌림"));
         }
 
         [Test]
