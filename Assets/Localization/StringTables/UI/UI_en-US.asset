@@ -127,6 +127,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344
+  - m_Id: 283195222745088
+    m_Localized: Rebind canceled.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
   references:
     version: 2
     RefIds:
@@ -139,3 +144,4 @@ MonoBehaviour:
         - id: 283195096915968
         - id: 283195138859008
         - id: 283195180802048
+        - id: 283195222745088

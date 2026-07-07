@@ -123,6 +123,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputRebindCanceledDynamicDescriptor_UsesUiSmartStringKeyWithoutRuntimeKeyName()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.InputRebindCanceled();
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.input.rebind_canceled"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.Empty);
+        }
+
+        [Test]
         public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -142,6 +154,22 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
                 Is.EqualTo("10초 후 되돌림"));
+        }
+
+        [Test]
+        public void PackageFreeResolver_ResolvesSelectedInputStatusFixtureKey()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
+                Is.EqualTo("Rebind canceled."));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
+                Is.EqualTo("키 변경 취소됨"));
         }
 
         [Test]
@@ -584,6 +612,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.display.preview_countdown"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_status"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_error"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_canceled"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language.english"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language.korean"));
@@ -642,6 +671,66 @@ namespace Game.Feature.UI.Tests
             Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.StageText)));
             Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.LastPlayedText)));
             Assert.That(saveSlotStringProperties, Does.Contain(nameof(SaveSlotCardViewModel.PrimaryActionText)));
+        }
+
+        [Test]
+        public void SettingsInputPresenter_LocalizesOnlySelectedCanceledStatusAndKeepsKeyDisplayNamesRaw()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Canceled);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+
+            presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+            presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Press a key for Push..."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+
+            keyboardPort.Complete();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Rebind canceled."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+
+            resolver.SetLocale("ko-KR");
+            presenter.RefreshLocalization();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("키 변경 취소됨"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+        }
+
+        [Test]
+        public void SettingsInputPresenter_NonTargetInputStatusesRemainRawEnglish()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            resolver.SetLocale("ko-KR");
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.DuplicateAction);
+            var presenter = new SettingsInputPresenter(keyboardPort, resolver);
+
+            presenter.Apply(new SettingsInputPresenterInput(
+                SettingsStaticTextDescriptors.MovementKeys,
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+
+            presenter.StartRebind(KeyboardBindableAction.Push);
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("Press a key for Push..."));
+
+            keyboardPort.Complete();
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key is already used by Flip."));
+
+            presenter.ResetToDefaults();
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("Input settings reset."));
         }
 
 
@@ -871,6 +960,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language"] = "Language",
                         ["ui.settings.language.english"] = "English",
                         ["ui.settings.language.korean"] = "Korean",
+                        ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
                         ["ui.common.back"] = "Back",
                         ["ui.common.settings"] = "Settings",
                         ["ui.main_menu.start"] = "Start",
@@ -896,6 +986,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language"] = "언어",
                         ["ui.settings.language.english"] = "영어",
                         ["ui.settings.language.korean"] = "한국어",
+                        ["ui.settings.input.rebind_canceled"] = "키 변경 취소됨",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",
@@ -953,6 +1044,78 @@ namespace Game.Feature.UI.Tests
 
                 SetLocale(localeCode);
                 return true;
+            }
+        }
+
+        private sealed class CompletingKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private readonly KeyboardBindingValidationResult _completionResult;
+            private Action<KeyboardRebindResult> _completed;
+            private KeyboardBindableAction _rebindingAction;
+            private bool _isRebinding;
+
+            public CompletingKeyboardSettingsPort(KeyboardBindingValidationResult completionResult)
+            {
+                _completionResult = completionResult;
+            }
+
+            public bool IsRebinding => _isRebinding;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return BuildSnapshot();
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                _isRebinding = true;
+                _rebindingAction = action;
+                _completed = completed;
+                return new KeyboardRebindStartResult(
+                    true,
+                    KeyboardBindingValidationResult.Success,
+                    BuildSnapshot());
+            }
+
+            public void CancelRebind()
+            {
+                _isRebinding = false;
+                _completed = null;
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                _isRebinding = false;
+                return BuildSnapshot();
+            }
+
+            public void Complete()
+            {
+                var completed = _completed;
+                _completed = null;
+                _isRebinding = false;
+                completed?.Invoke(new KeyboardRebindResult(
+                    _rebindingAction,
+                    _completionResult,
+                    BuildSnapshot()));
+            }
+
+            private KeyboardBindingSettingsSnapshot BuildSnapshot()
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    _isRebinding,
+                    _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
             }
         }
 

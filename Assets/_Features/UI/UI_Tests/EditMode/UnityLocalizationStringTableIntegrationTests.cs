@@ -77,6 +77,20 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiStringTable_ContainsSelectedSettingsInputSmartStringEntry()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
+            Assert.That(collection, Is.Not.Null);
+
+            AssertInputSmartEntry(
+                collection.GetTable("en-US") as StringTable,
+                "Rebind canceled.");
+            AssertInputSmartEntry(
+                collection.GetTable("ko-KR") as StringTable,
+                "키 변경 취소됨");
+        }
+
+        [Test]
         public void StageStringTable_ContainsCompleteStageDisplayNameEntries()
         {
             var collection = LocalizationEditorSettings.GetStringTableCollection("Stage");
@@ -172,6 +186,22 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
                 Is.EqualTo("10초 후 되돌림"));
+        }
+
+        [Test]
+        public void UnityStringTableTextResolver_ResolvesSelectedSettingsInputStatus()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
+                Is.EqualTo("Rebind canceled."));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
+                Is.EqualTo("키 변경 취소됨"));
         }
 
         [Test]
@@ -457,6 +487,16 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(previewCountdownValue));
             Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
             Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey);
+        }
+
+        private static void AssertInputSmartEntry(StringTable table, string rebindCanceledValue)
+        {
+            Assert.That(table, Is.Not.Null);
+            var entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindCanceledKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputRebindCanceledKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(rebindCanceledValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.InputRebindCanceledKey);
         }
 
         private static void AssertStageTable(

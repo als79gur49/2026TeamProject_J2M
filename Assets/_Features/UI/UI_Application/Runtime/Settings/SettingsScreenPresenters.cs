@@ -574,6 +574,7 @@ namespace Game.Feature.UI.Application
             SettingsStaticTextDescriptors.Change,
             SettingsStaticTextDescriptors.ResetInput);
         private string _statusText = string.Empty;
+        private LocalizedTextDescriptor _statusTextDescriptor;
 
         public SettingsInputPresenter(IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
             : this(keyboardBindingSettingsPort, InvariantSettingsLocalizedTextResolver.Instance)
@@ -603,7 +604,7 @@ namespace Game.Feature.UI.Application
         public void SetMovementScheme(KeyboardMovementScheme scheme)
         {
             var result = _keyboardBindingSettingsPort.TrySetMovementScheme(scheme);
-            _statusText = ToStatusText(result, KeyboardBindableAction.Push);
+            SetStatus(result, KeyboardBindableAction.Push);
             RefreshViewModel(_keyboardBindingSettingsPort.Read());
         }
 
@@ -612,14 +613,14 @@ namespace Game.Feature.UI.Application
             var startResult = _keyboardBindingSettingsPort.StartRebind(action, HandleRebindCompleted);
             if (startResult.Started)
             {
-                _statusText = action == KeyboardBindableAction.Push
+                SetRawStatus(action == KeyboardBindableAction.Push
                     ? "Press a key for Push..."
-                    : "Press a key for Flip...";
+                    : "Press a key for Flip...");
                 RefreshViewModel(startResult.Snapshot);
                 return;
             }
 
-            _statusText = ToStatusText(startResult.ValidationResult, action);
+            SetStatus(startResult.ValidationResult, action);
             RefreshViewModel(startResult.Snapshot);
         }
 
@@ -632,13 +633,13 @@ namespace Game.Feature.UI.Application
         public void ResetToDefaults()
         {
             var snapshot = _keyboardBindingSettingsPort.ResetToDefaults();
-            _statusText = "Input settings reset.";
+            SetRawStatus("Input settings reset.");
             RefreshViewModel(snapshot);
         }
 
         private void HandleRebindCompleted(KeyboardRebindResult result)
         {
-            _statusText = ToStatusText(result.ValidationResult, result.Action);
+            SetStatus(result.ValidationResult, result.Action);
             RefreshViewModel(result.Snapshot);
             RebindCompleted?.Invoke(result);
         }
@@ -658,7 +659,7 @@ namespace Game.Feature.UI.Application
                 snapshot.FlipDisplayName,
                 Resolve(_input.ChangeLabelDescriptor),
                 Resolve(_input.ResetLabelDescriptor),
-                _statusText,
+                ResolveStatusText(),
                 snapshot.IsRebinding,
                 snapshot.RebindingAction,
                 areControlsInteractable);
@@ -669,6 +670,32 @@ namespace Game.Feature.UI.Application
             return _localizedTextResolver.Resolve(descriptor);
         }
 
+        private void SetStatus(KeyboardBindingValidationResult result, KeyboardBindableAction action)
+        {
+            if (result == KeyboardBindingValidationResult.Canceled)
+            {
+                _statusTextDescriptor = SettingsDynamicTextDescriptors.InputRebindCanceled();
+                _statusText = string.Empty;
+                return;
+            }
+
+            SetRawStatus(ToStatusText(result, action));
+        }
+
+        private void SetRawStatus(string statusText)
+        {
+            _statusTextDescriptor = default;
+            _statusText = statusText ?? string.Empty;
+        }
+
+        private string ResolveStatusText()
+        {
+            return string.IsNullOrEmpty(_statusTextDescriptor.Table) &&
+                   string.IsNullOrEmpty(_statusTextDescriptor.Key)
+                ? _statusText
+                : Resolve(_statusTextDescriptor);
+        }
+
         private static string ToStatusText(KeyboardBindingValidationResult result, KeyboardBindableAction action)
         {
             switch (result)
@@ -676,7 +703,7 @@ namespace Game.Feature.UI.Application
                 case KeyboardBindingValidationResult.Success:
                     return string.Empty;
                 case KeyboardBindingValidationResult.Canceled:
-                    return "Rebind canceled.";
+                    return string.Empty;
                 case KeyboardBindingValidationResult.ReservedKey:
                     return "This key is reserved.";
                 case KeyboardBindingValidationResult.DuplicateAction:
@@ -878,6 +905,7 @@ namespace Game.Feature.UI.Application
             ["ui.settings.audio.volume_value"] = "{percent}%",
             ["ui.settings.audio.volume_value_muted"] = "{percent}% (Muted)",
             ["ui.settings.display.resolution_value"] = "{0}",
+            ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
             ["ui.common.back"] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",
