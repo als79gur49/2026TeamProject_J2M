@@ -54,17 +54,17 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class SaveSlotCampaignChancesReadSource : ICampaignChancesReadSource
     {
-        private readonly ActiveSlotProvider _activeSlotProvider;
         private readonly CampaignChanceDisplayOverride _displayOverride;
+        private readonly CampaignRunningSlotContext _runningSlotContext;
         private readonly SaveSlotStore _saveSlotStore;
 
         public SaveSlotCampaignChancesReadSource(
             SaveSlotStore saveSlotStore,
-            ActiveSlotProvider activeSlotProvider,
+            CampaignRunningSlotContext runningSlotContext,
             CampaignChanceDisplayOverride displayOverride = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
-            _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
+            _runningSlotContext = runningSlotContext ?? throw new ArgumentNullException(nameof(runningSlotContext));
             _displayOverride = displayOverride;
         }
 
@@ -96,25 +96,13 @@ namespace Game.Feature.Gameplay.Host
                         ? CampaignChanceReadFailureReason.None
                         : CampaignChanceReadFailureReason.MaxChancesZero,
                     SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
-                    ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
+                    ActiveSlotNumber = _runningSlotContext.SlotNumber,
                 });
                 return true;
             }
 
-            if (!_activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber))
-            {
-                CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.SourceRead)
-                {
-                    SourceType = GetType().Name,
-                    TryReadResult = false,
-                    FailureReason = CampaignChanceReadFailureReason.NoActiveSlot,
-                    SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
-                    ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
-                });
-                return false;
-            }
-
-            var slot = _saveSlotStore.LoadSlot(activeSlotNumber);
+            var runningSlotNumber = _runningSlotContext.SlotNumber;
+            var slot = _saveSlotStore.LoadSlot(runningSlotNumber);
             var launchStageId = StageLaunchContextStore.CurrentStageId;
             var normalizedRemainingChances = slot.RemainingChances <= 0
                 ? SaveSlotStore.DefaultRemainingChances
@@ -134,11 +122,10 @@ namespace Game.Feature.Gameplay.Host
                 LaunchStageId = launchStageId.IsValid ? launchStageId.Value : string.Empty,
                 SourceStageId = slot.CurrentStageId.IsValid ? slot.CurrentStageId.Value : string.Empty,
                 HasActiveSlot = true,
-                ActiveSlotNumber = activeSlotNumber,
+                ActiveSlotNumber = runningSlotNumber,
                 RemainingChances = remainingChances,
                 MaxChances = maxChances,
                 SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
-                ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
             });
             return true;
         }

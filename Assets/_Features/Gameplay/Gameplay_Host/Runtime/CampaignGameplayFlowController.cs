@@ -8,9 +8,9 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class CampaignGameplayFlowController : IDisposable
     {
-        private readonly ActiveSlotProvider _activeSlotProvider;
         private readonly CampaignChanceDisplayOverride _chanceDisplayOverride;
         private readonly GameplaySceneHost _host;
+        private readonly CampaignRunningSlotContext _runningSlotContext;
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly SaveSlotStore _saveSlotStore;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
@@ -23,14 +23,14 @@ namespace Game.Feature.Gameplay.Host
         public CampaignGameplayFlowController(
             GameplaySceneHost host,
             SaveSlotStore saveSlotStore,
-            ActiveSlotProvider activeSlotProvider,
+            CampaignRunningSlotContext runningSlotContext,
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
             CampaignChanceDisplayOverride chanceDisplayOverride = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
-            _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
+            _runningSlotContext = runningSlotContext ?? throw new ArgumentNullException(nameof(runningSlotContext));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _chanceDisplayOverride = chanceDisplayOverride;
@@ -100,8 +100,8 @@ namespace Game.Feature.Gameplay.Host
         {
             _handledDeath = true;
 
-            var activeSlotNumber = _activeSlotProvider.ActiveSlotNumber;
-            var slot = _saveSlotStore.LoadSlot(activeSlotNumber);
+            var runningSlotNumber = _runningSlotContext.SlotNumber;
+            var slot = _saveSlotStore.LoadSlot(runningSlotNumber);
             var route = _retryChanceTracker.ResolveDeathRoute(slot);
             var previousRemainingChances = slot.RemainingChances <= 0
                 ? SaveSlotStore.DefaultRemainingChances
@@ -109,7 +109,7 @@ namespace Game.Feature.Gameplay.Host
             var deathCount = slot.TotalDeaths + 1;
             var routeLevelGroupId = _sequenceResolver.GetLevelGroupId(route.NextStageId);
             _saveSlotStore.UpdateSlot(
-                activeSlotNumber,
+                runningSlotNumber,
                 mutableSlot =>
                 {
                     mutableSlot.CurrentStageId = route.NextStageId;
@@ -229,11 +229,11 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("Campaign clear flow could not resolve the completed stage id.");
             }
 
-            var activeSlotNumber = _activeSlotProvider.ActiveSlotNumber;
+            var runningSlotNumber = _runningSlotContext.SlotNumber;
             if (_sequenceResolver.IsFinal(completedStageId))
             {
                 _saveSlotStore.UpdateSlot(
-                    activeSlotNumber,
+                    runningSlotNumber,
                     mutableSlot =>
                     {
                         mutableSlot.CurrentStageId = completedStageId;
@@ -252,7 +252,7 @@ namespace Game.Feature.Gameplay.Host
 
             var nextLevelGroupId = _sequenceResolver.GetLevelGroupId(nextStageId);
             _saveSlotStore.UpdateSlot(
-                activeSlotNumber,
+                runningSlotNumber,
                 mutableSlot =>
                 {
                     mutableSlot.CurrentStageId = nextStageId;
@@ -264,12 +264,7 @@ namespace Game.Feature.Gameplay.Host
 
         private StageId ResolveCurrentSlotStageId()
         {
-            if (!_activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber))
-            {
-                return StageId.None;
-            }
-
-            return _saveSlotStore.LoadSlot(activeSlotNumber).CurrentStageId;
+            return _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber).CurrentStageId;
         }
 
         private enum PendingDeathRecoveryKind

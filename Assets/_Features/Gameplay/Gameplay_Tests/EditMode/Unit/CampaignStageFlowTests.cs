@@ -547,9 +547,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ActiveSlotStageClearProfileStore_UpdatesOnlyActiveSlot()
+        public void RunningSlotStageClearProfileStore_LoadSave_StaysOnRunningSlotAfterActiveSlotChanges()
         {
-            var saveKey = CreatePrefsKey(nameof(ActiveSlotStageClearProfileStore_UpdatesOnlyActiveSlot));
+            var saveKey = CreatePrefsKey(nameof(RunningSlotStageClearProfileStore_LoadSave_StaysOnRunningSlotAfterActiveSlotChanges));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -559,7 +559,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             saveStore.SaveSlot(new SaveSlotData { SlotNumber = 2, CurrentStageId = StageId.CreateOrThrow("stage-2-1") });
             activeSlotProvider.SetActiveSlot(2);
 
-            var profileStore = new SaveSlotStageClearProfileStore(saveStore, activeSlotProvider);
+            var profileStore = new SaveSlotStageClearProfileStore(saveStore, new CampaignRunningSlotContext(2));
+            activeSlotProvider.SetActiveSlot(1);
             var snapshot = new StageClearProfileSnapshot();
             snapshot.ClearRecordsByStageId[StageId.CreateOrThrow("stage-2-1")] =
                 new PlayerStageClearRecord
@@ -573,8 +574,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             profileStore.Save(snapshot);
 
             Assert.That(saveStore.LoadSlot(1).StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
-            var activeRecord = saveStore.LoadSlot(2)
-                .StageClearProfileSnapshot
+            var loadedSnapshot = profileStore.Load();
+            var activeRecord = loadedSnapshot
                 .ClearRecordsByStageId[StageId.CreateOrThrow("stage-2-1")];
             Assert.That(activeRecord.HasCleared, Is.True);
             Assert.That(activeRecord.ClearCount, Is.EqualTo(1));
@@ -743,7 +744,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     new FakeStageLaunchRouter());
                 var method = typeof(CampaignGameplayFlowController).GetMethod(
@@ -764,6 +765,167 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activeSlotProvider.ClearActiveSlot();
                 UnityEngine.Object.DestroyImmediate(hostObject);
                 UnityEngine.Object.DestroyImmediate(inputHostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignClear_UsesRunningSlotAfterActiveSlotChanges()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignClear_UsesRunningSlotAfterActiveSlotChanges));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-clear-running-slot-host");
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 2,
+                });
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("stage-3-1"),
+                    CurrentLevelGroupId = "level-3",
+                    RemainingChances = 1,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter());
+                activeSlotProvider.SetActiveSlot(2);
+
+                var method = typeof(CampaignGameplayFlowController).GetMethod(
+                    "HandleStageClear",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(method, Is.Not.Null);
+                method.Invoke(controller, new object[] { CreateMinimalStageCompletionReadModel("stage-1-1", tickIndex: 10) });
+
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(saveStore.LoadSlot(2).CurrentStageId.Value, Is.EqualTo("stage-3-1"));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_UsesRunningSlotAfterActiveSlotChanges()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_UsesRunningSlotAfterActiveSlotChanges));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-running-slot-host");
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                });
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 3,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter());
+                activeSlotProvider.SetActiveSlot(2);
+
+                GetHandleTickCompletedMethod().Invoke(
+                    controller,
+                    new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+
+                Assert.That(saveStore.LoadSlot(1).RemainingChances, Is.EqualTo(1));
+                Assert.That(saveStore.LoadSlot(1).TotalDeaths, Is.EqualTo(1));
+                Assert.That(saveStore.LoadSlot(2).RemainingChances, Is.EqualTo(3));
+                Assert.That(saveStore.LoadSlot(2).TotalDeaths, Is.EqualTo(0));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotCampaignChancesReadSource_UsesRunningSlotAfterActiveSlotChanges()
+        {
+            var saveKey = CreatePrefsKey(nameof(SaveSlotCampaignChancesReadSource_UsesRunningSlotAfterActiveSlotChanges));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+
+            try
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                });
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                    CurrentLevelGroupId = "level-1",
+                    RemainingChances = 1,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+                var source = new SaveSlotCampaignChancesReadSource(
+                    saveStore,
+                    new CampaignRunningSlotContext(1));
+                activeSlotProvider.SetActiveSlot(2);
+
+                var read = source.TryReadChances(
+                    out var remainingChances,
+                    out var maxChances,
+                    out _);
+
+                Assert.That(read, Is.True);
+                Assert.That(remainingChances, Is.EqualTo(2));
+                Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
             }
         }
 
@@ -1112,7 +1274,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1174,7 +1336,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     new FakeStageLaunchRouter());
 
@@ -1223,7 +1385,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     new FakeStageLaunchRouter());
                 SetPrivateField(controller, "_presentationFeed", presentationFeed);
@@ -1283,7 +1445,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     new FakeStageLaunchRouter());
                 SetPrivateField(controller, "_presentationFeed", presentationFeed);
@@ -1319,7 +1481,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var chanceDisplayOverride = new CampaignChanceDisplayOverride();
             var chancesReadSource = new SaveSlotCampaignChancesReadSource(
                 saveStore,
-                activeSlotProvider,
+                new CampaignRunningSlotContext(1),
                 chanceDisplayOverride);
 
             try
@@ -1329,7 +1491,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     new FakeStageLaunchRouter(),
                     chanceDisplayOverride);
@@ -1374,7 +1536,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1428,7 +1590,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 SetPrivateField(controller, "_presentationFeed", presentationFeed);
@@ -1481,7 +1643,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1531,7 +1693,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1575,7 +1737,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1619,7 +1781,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1690,7 +1852,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1735,7 +1897,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
@@ -1773,7 +1935,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
-                    activeSlotProvider,
+                    new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     router);
                 var handleTickCompleted = GetHandleTickCompletedMethod();

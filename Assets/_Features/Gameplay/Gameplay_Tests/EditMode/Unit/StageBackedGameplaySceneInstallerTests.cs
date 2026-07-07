@@ -709,9 +709,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssignCampaignStores(installer, saveStore, activeSlotProvider);
 
                 var configuration = BuildConfiguration(installer);
+                activeSlotProvider.SetActiveSlot(2);
 
                 Assert.That(configuration.DisablePlayerRespawn, Is.True);
                 Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                var runningSlotContext = ReadInstallerPrivateField<CampaignRunningSlotContext>(
+                    installer,
+                    "_runningSlotContext");
+                Assert.That(runningSlotContext, Is.Not.Null);
+                Assert.That(runningSlotContext.SlotNumber, Is.EqualTo(1));
+                Assert.That(
+                    configuration.CampaignChancesReadSource.TryReadChances(
+                        out var remainingChances,
+                        out _,
+                        out _),
+                    Is.True);
+                Assert.That(remainingChances, Is.EqualTo(2));
             }
             finally
             {
@@ -1286,6 +1299,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return owner.GetComponent<GameplayCameraTopologyAuthoring>() ??
                    owner.gameObject.AddComponent<GameplayCameraTopologyAuthoring>();
+        }
+
+        private static T ReadInstallerPrivateField<T>(
+            StageBackedGameplaySceneInstaller installer,
+            string fieldName)
+        {
+            var field = typeof(StageBackedGameplaySceneInstallerBase).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return (T)field.GetValue(installer);
         }
 
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)

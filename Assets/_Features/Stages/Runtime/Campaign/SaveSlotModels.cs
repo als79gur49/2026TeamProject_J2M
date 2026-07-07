@@ -1814,26 +1814,26 @@ namespace Game.Feature.Stages
     public sealed class SaveSlotStageClearProfileStore : IStageClearProfileStore
     {
         private readonly SaveSlotStore _saveSlotStore;
-        private readonly ActiveSlotProvider _activeSlotProvider;
+        private readonly CampaignRunningSlotContext _runningSlotContext;
 
         public SaveSlotStageClearProfileStore(
             SaveSlotStore saveSlotStore,
-            ActiveSlotProvider activeSlotProvider)
+            CampaignRunningSlotContext runningSlotContext)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
-            _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
+            _runningSlotContext = runningSlotContext ?? throw new ArgumentNullException(nameof(runningSlotContext));
         }
 
         public StageClearProfileSnapshot Load()
         {
-            var slot = _saveSlotStore.LoadSlot(_activeSlotProvider.ActiveSlotNumber);
+            var slot = _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber);
             return slot.StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot();
         }
 
         public void Save(StageClearProfileSnapshot snapshot)
         {
             _saveSlotStore.UpdateSlot(
-                _activeSlotProvider.ActiveSlotNumber,
+                _runningSlotContext.SlotNumber,
                 slot => slot.StageClearProfileSnapshot = snapshot?.Clone() ?? new StageClearProfileSnapshot());
         }
     }

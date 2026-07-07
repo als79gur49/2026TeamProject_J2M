@@ -30,6 +30,7 @@ namespace Game.Feature.Gameplay.Host
         private CampaignChanceDisplayOverride _campaignChanceDisplayOverride;
         private CampaignGameplayFlowController _campaignFlowController;
         private bool _campaignRuntimeActive;
+        private CampaignRunningSlotContext _runningSlotContext;
         private StagePresentationDefinition _resolvedPresentationDefinition;
         private SaveSlotStore _saveSlotStore;
         private StageAudioResolvedData _resolvedAudioData = StageAudioAssembler.EmptyResolvedData;
@@ -116,6 +117,7 @@ namespace Game.Feature.Gameplay.Host
             if (!_campaignRuntimeActive)
             {
                 _campaignChanceDisplayOverride = null;
+                _runningSlotContext = null;
                 CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
                 {
                     SceneName = gameObject.scene.name,
@@ -146,14 +148,15 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            ValidateActiveSlotMatchesLaunchStage(initialState.StageContentEntry != null
+            var runningSlotNumber = ValidateActiveSlotMatchesLaunchStage(initialState.StageContentEntry != null
                 ? initialState.StageContentEntry.StageId
                 : StageId.None);
+            _runningSlotContext = new CampaignRunningSlotContext(runningSlotNumber);
             _campaignChanceDisplayOverride = new CampaignChanceDisplayOverride();
             configuration.DisablePlayerRespawn = true;
             configuration.CampaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
                 _saveSlotStore,
-                _activeSlotProvider,
+                _runningSlotContext,
                 _campaignChanceDisplayOverride);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
             {
@@ -170,9 +173,7 @@ namespace Game.Feature.Gameplay.Host
                 EnableCampaignFlow = activation.EnableCampaignFlow,
                 CampaignRuntimeActive = true,
                 HasActiveSlot = activation.HasActiveSlot,
-                ActiveSlotNumber = _activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber)
-                    ? activeSlotNumber
-                    : 0,
+                ActiveSlotNumber = _runningSlotContext.SlotNumber,
                 SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
                 ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
                 SourceType = configuration.CampaignChancesReadSource.GetType().Name,
@@ -214,6 +215,11 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            if (_runningSlotContext == null)
+            {
+                throw new System.InvalidOperationException("Campaign runtime requires a running slot context.");
+            }
+
             var sequenceDefinition = campaignStageSequenceDefinition != null
                 ? campaignStageSequenceDefinition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
@@ -221,7 +227,7 @@ namespace Game.Feature.Gameplay.Host
             _campaignFlowController = new CampaignGameplayFlowController(
                 host,
                 _saveSlotStore,
-                _activeSlotProvider,
+                _runningSlotContext,
                 sequenceResolver,
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
                 _campaignChanceDisplayOverride);
@@ -323,7 +329,7 @@ namespace Game.Feature.Gameplay.Host
             _activeSlotProvider ??= new ActiveSlotProvider();
         }
 
-        private void ValidateActiveSlotMatchesLaunchStage(StageId launchStageId)
+        private int ValidateActiveSlotMatchesLaunchStage(StageId launchStageId)
         {
             if (!launchStageId.IsValid)
             {
@@ -337,6 +343,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new System.InvalidOperationException(
                     $"Campaign active slot stage '{activeSlot.CurrentStageId.Value}' does not match launch stage '{launchStageId.Value}'.");
             }
+
+            return activeSlotNumber;
         }
     }
 }

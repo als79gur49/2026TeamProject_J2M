@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using NUnit.Framework;
 
@@ -104,13 +105,13 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void StageLaunchAndGameplayMutation_DoNotUseLastPlayedSlotNumberAsSlotIdentity()
         {
-            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+            AssertStageLaunchSourceUsesPendingLaunchSlot(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
-            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+            AssertGameplayMutationSourceUsesRunningSlotContext(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
-            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+            AssertGameplayMutationSourceUsesRunningSlotContext(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs");
-            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+            AssertSaveSlotStageClearProfileStoreUsesRunningSlotContext(
                 "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs");
         }
 
@@ -135,13 +136,39 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(demoBridge, Does.Not.Contain("CampaignProfileDocument"));
         }
 
-        private static void AssertSlotRuntimeSourceUsesLocalSlotConcept(string path)
+        private static void AssertStageLaunchSourceUsesPendingLaunchSlot(string path)
         {
             var source = File.ReadAllText(path);
 
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"), path);
             Assert.That(source, Does.Not.Contain("CampaignProfileDocument"), path);
             Assert.That(source, Does.Contain("ActiveSlotProvider"), path);
+            Assert.That(source, Does.Contain("CampaignRunningSlotContext"), path);
+        }
+
+        private static void AssertGameplayMutationSourceUsesRunningSlotContext(string path)
+        {
+            var source = File.ReadAllText(path);
+
+            Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"), path);
+            Assert.That(source, Does.Not.Contain("CampaignProfileDocument"), path);
+            Assert.That(source, Does.Not.Contain("ActiveSlotProvider"), path);
+            Assert.That(source, Does.Contain("CampaignRunningSlotContext"), path);
+        }
+
+        private static void AssertSaveSlotStageClearProfileStoreUsesRunningSlotContext(string path)
+        {
+            var source = File.ReadAllText(path);
+            var start = source.IndexOf("public sealed class SaveSlotStageClearProfileStore", StringComparison.Ordinal);
+            var end = source.IndexOf("[Serializable]", start, StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), path);
+            Assert.That(end, Is.GreaterThan(start), path);
+            var profileStoreSource = source.Substring(start, end - start);
+
+            Assert.That(profileStoreSource, Does.Not.Contain("LastPlayedSlotNumber"), path);
+            Assert.That(profileStoreSource, Does.Not.Contain("CampaignProfileDocument"), path);
+            Assert.That(profileStoreSource, Does.Not.Contain("ActiveSlotProvider"), path);
+            Assert.That(profileStoreSource, Does.Contain("CampaignRunningSlotContext"), path);
         }
     }
 }

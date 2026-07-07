@@ -85,7 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EntityState>(),
                     campaignChancesReadSource: new SaveSlotCampaignChancesReadSource(
                         saveStore,
-                        activeSlotProvider)));
+                        new CampaignRunningSlotContext(1))));
 
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
 
@@ -130,7 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right) },
                     campaignChancesReadSource: new SaveSlotCampaignChancesReadSource(
                         saveStore,
-                        activeSlotProvider)));
+                        new CampaignRunningSlotContext(1))));
 
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
 
