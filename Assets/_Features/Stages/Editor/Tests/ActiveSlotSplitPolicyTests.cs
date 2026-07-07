@@ -6,6 +6,8 @@ namespace Game.Feature.Stages.Editor.Tests
     public sealed class ActiveSlotSplitPolicyTests
     {
         private const string PolicyPath = "Docs/Architecture/Save-Architecture-V2-Phase4-Policy-Closeout.md";
+        private const string PendingLaunchProviderPath =
+            "Assets/_Features/Stages/Runtime/Campaign/PendingLaunchSlotProvider.cs";
 
         [Test]
         public void PolicyCloseout_DistinguishesLastPlayedSlotFromPendingLaunchSlot()
@@ -32,6 +34,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(mainMenuInstaller, Does.Contain("new ActiveSlotProvider()"));
             Assert.That(gameplayInstaller, Does.Contain("new ActiveSlotProvider()"));
             Assert.That(mainMenuController, Does.Contain("ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey"));
+            Assert.That(mainMenuInstaller, Does.Not.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(gameplayInstaller, Does.Not.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
+            Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
         }
 
         [Test]
@@ -42,6 +48,100 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(factorySource, Does.Not.Contain("ActiveSlotProvider"));
             Assert.That(factorySource, Does.Not.Contain("LastPlayedSlotNumber"));
+        }
+
+        [Test]
+        public void Phase7Policy_AddsPendingLaunchWrapperWithoutProductionWiring()
+        {
+            var pendingLaunchProvider = File.ReadAllText(PendingLaunchProviderPath);
+            var mainMenuInstaller = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+            var gameplayInstaller = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var stageInstaller = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
+
+            Assert.That(pendingLaunchProvider, Does.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(pendingLaunchProvider, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+            Assert.That(pendingLaunchProvider, Does.Contain("CampaignRunningSlotContext"));
+            Assert.That(mainMenuInstaller, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+            Assert.That(gameplayInstaller, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+            Assert.That(stageInstaller, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+        }
+
+        [Test]
+        public void LastPlayedSlotNumber_RemainsProfileMetadataOnly()
+        {
+            var profileDocument = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignProfileDocument.cs");
+            var pendingLaunchProvider = File.ReadAllText(PendingLaunchProviderPath);
+            var mainMenuController = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+
+            Assert.That(profileDocument, Does.Contain("public int LastPlayedSlotNumber"));
+            Assert.That(pendingLaunchProvider, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(pendingLaunchProvider, Does.Not.Contain("CampaignProfileDocument"));
+            Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
+        }
+
+        [Test]
+        public void MainMenuSemantics_KeepExplicitSlotIntentAsPendingLaunchState()
+        {
+            var source = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+
+            Assert.That(source, Does.Contain("_saveSlotStore.InitializeNewGame("));
+            Assert.That(source, Does.Contain("_activeSlotProvider.SetActiveSlot(slotNumber);"));
+            Assert.That(source, Does.Contain("Launch(validation.Slot.CurrentStageId, StageNavigationKind.Continue, \"main-menu-new-game\")"));
+            Assert.That(source, Does.Contain("Launch(validation.Slot.CurrentStageId, StageNavigationKind.Continue, \"main-menu-continue\")"));
+            Assert.That(source, Does.Contain("_saveSlotStore.DeleteSlot(slotNumber);"));
+            Assert.That(source, Does.Contain("_activeSlotProvider.ClearActiveSlot();"));
+            Assert.That(source, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
+        }
+
+        [Test]
+        public void StageLaunchAndGameplayMutation_DoNotUseLastPlayedSlotNumberAsSlotIdentity()
+        {
+            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
+            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
+            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs");
+            AssertSlotRuntimeSourceUsesLocalSlotConcept(
+                "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs");
+        }
+
+        [Test]
+        public void DirectPlayAndDebugCampaignBridge_KeepTempActiveSlotIsolatedFromProfileMetadata()
+        {
+            var directPlayLauncher = File.ReadAllText(
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
+            var directPlayContext = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Load/EditorDirectPlayContextStore.cs");
+            var demoBridge = File.ReadAllText(
+                "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs");
+
+            Assert.That(directPlayContext, Does.Contain("TempActiveSlotProviderKey"));
+            Assert.That(directPlayContext, Does.Contain("Game.Feature.Stages.DirectPlay.TempActiveSaveSlot"));
+            Assert.That(directPlayLauncher, Does.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
+            Assert.That(directPlayLauncher, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(directPlayLauncher, Does.Not.Contain("CampaignProfileDocument"));
+            Assert.That(demoBridge, Does.Contain("DemoStageControlCampaignBridge"));
+            Assert.That(demoBridge, Does.Contain("ActiveSlotProvider"));
+            Assert.That(demoBridge, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(demoBridge, Does.Not.Contain("CampaignProfileDocument"));
+        }
+
+        private static void AssertSlotRuntimeSourceUsesLocalSlotConcept(string path)
+        {
+            var source = File.ReadAllText(path);
+
+            Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"), path);
+            Assert.That(source, Does.Not.Contain("CampaignProfileDocument"), path);
+            Assert.That(source, Does.Contain("ActiveSlotProvider"), path);
         }
     }
 }

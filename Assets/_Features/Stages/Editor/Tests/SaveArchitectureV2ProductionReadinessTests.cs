@@ -27,6 +27,8 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("CampaignSaveService")]
         [TestCase("SaveSlotStoreCompatibilityAdapter")]
         [TestCase("CampaignSaveMigrationCoordinator")]
+        [TestCase("FileCampaignProfileRepository")]
+        [TestCase("profile.json")]
         public void ProductionComposition_DoesNotReferenceV2FactoryOrServiceTypes(string forbiddenToken)
         {
             foreach (var path in EnumerateProductionReadinessSourceFiles())
