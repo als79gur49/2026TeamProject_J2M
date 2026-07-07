@@ -678,6 +678,12 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
+            if (result == KeyboardBindingValidationResult.ReservedKey)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputReservedKey());
+                return;
+            }
+
             SetRawStatus(ToStatusText(result, action));
         }
 
@@ -709,8 +715,6 @@ namespace Game.Feature.UI.Application
                     return string.Empty;
                 case KeyboardBindingValidationResult.Canceled:
                     return string.Empty;
-                case KeyboardBindingValidationResult.ReservedKey:
-                    return "This key is reserved.";
                 case KeyboardBindingValidationResult.DuplicateAction:
                     return action == KeyboardBindableAction.Push
                         ? "This key is already used by Flip."

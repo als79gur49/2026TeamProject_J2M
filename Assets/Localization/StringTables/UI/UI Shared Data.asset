@@ -127,6 +127,10 @@ MonoBehaviour:
     m_Key: ui.settings.input.reset_complete
     m_Metadata:
       m_Items: []
+  - m_Id: 283195306631168
+    m_Key: ui.settings.input.reserved_key
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

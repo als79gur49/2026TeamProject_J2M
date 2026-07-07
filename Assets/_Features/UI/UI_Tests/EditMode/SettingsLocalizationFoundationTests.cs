@@ -147,6 +147,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputReservedKeyDynamicDescriptor_UsesUiKeyWithoutArguments()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.InputReservedKey();
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.input.reserved_key"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.Empty);
+        }
+
+        [Test]
         public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -179,6 +191,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("Input settings reset."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
+                Is.EqualTo("This key is reserved."));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -188,6 +203,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("입력 설정이 초기화되었습니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
+                Is.EqualTo("이 키는 예약되어 있습니다."));
         }
 
         [Test]
@@ -632,6 +650,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_error"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_canceled"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.reset_complete"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.reserved_key"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language.english"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language.korean"));
@@ -750,6 +769,33 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputPresenter_LocalizesSelectedReservedKeyStatusAndKeepsKeyDisplayNamesRaw()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.ReservedKey);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+
+            presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+            presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+            keyboardPort.Complete();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("This key is reserved."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+
+            resolver.SetLocale("ko-KR");
+            presenter.RefreshLocalization();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("이 키는 예약되어 있습니다."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+        }
+
+        [Test]
         public void SettingsInputView_SelectedResetCompleteStatusRefreshesThroughBoundView()
         {
             var resolver = new FakeLocalizedTextResolver();
@@ -787,6 +833,44 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputView_SelectedReservedKeyStatusRefreshesThroughBoundView()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.ReservedKey);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+            var fixture = CreateSettingsViewFixture();
+
+            try
+            {
+                presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+                fixture.View.Bind(presenter.ViewModel);
+                fixture.InputView.Bind(presenter.InputPresenter.ViewModel);
+                fixture.View.SetIsCurrent(true);
+
+                presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+                keyboardPort.Complete();
+
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("This key is reserved."));
+                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+
+                resolver.SetLocale("ko-KR");
+                presenter.RefreshLocalization();
+
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("이 키는 예약되어 있습니다."));
+                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void SettingsInputPolicy_DefersActionLabelStatusesKeyNamesAndResetConfirmPayload()
         {
             var presenterSource = System.IO.File.ReadAllText(
@@ -795,11 +879,11 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
 
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputResetComplete()"));
+            Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputReservedKey()"));
             Assert.That(presenterSource, Does.Contain("Press a key for Push..."));
             Assert.That(presenterSource, Does.Contain("Press a key for Flip..."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Flip."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Push."));
-            Assert.That(presenterSource, Does.Contain("This key is reserved."));
             Assert.That(presenterSource, Does.Contain("This key conflicts with movement keys."));
             Assert.That(presenterSource, Does.Contain("This key cannot be used."));
             Assert.That(presenterSource, Does.Contain("Rebind already in progress."));
@@ -1069,6 +1153,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.korean"] = "Korean",
                         ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
                         ["ui.settings.input.reset_complete"] = "Input settings reset.",
+                        ["ui.settings.input.reserved_key"] = "This key is reserved.",
                         ["ui.common.back"] = "Back",
                         ["ui.common.settings"] = "Settings",
                         ["ui.main_menu.start"] = "Start",
@@ -1096,6 +1181,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.korean"] = "한국어",
                         ["ui.settings.input.rebind_canceled"] = "키 변경 취소됨",
                         ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
+                        ["ui.settings.input.reserved_key"] = "이 키는 예약되어 있습니다.",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",

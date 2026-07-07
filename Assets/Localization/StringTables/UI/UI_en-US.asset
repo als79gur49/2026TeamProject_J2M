@@ -136,6 +136,10 @@ MonoBehaviour:
     m_Localized: Input settings reset.
     m_Metadata:
       m_Items: []
+  - m_Id: 283195306631168
+    m_Localized: This key is reserved.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

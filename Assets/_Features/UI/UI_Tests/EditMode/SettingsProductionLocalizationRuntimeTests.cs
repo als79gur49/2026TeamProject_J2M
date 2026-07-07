@@ -235,6 +235,30 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesInputReservedKeyStatus()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.ReservedKey);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickInputTab();
+            view.InputView.ClickPushChange();
+            keyboardPort.Complete();
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo("This key is reserved."));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 예약되어 있습니다."));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+        }
+
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
@@ -603,7 +627,8 @@ namespace Game.Feature.UI.Tests
 
             public static GameplaySettingsHarness Create(
                 ILocalizedTextResolver resolver,
-                ILocalizedTmpFontResolver fontResolver = null)
+                ILocalizedTmpFontResolver fontResolver = null,
+                IKeyboardBindingSettingsPort keyboardPort = null)
             {
                 var rootObject = new GameObject("SettingsProductionLocalizationRuntimeTests_GameplayHarness");
                 var screenLayerView = CreateScreenLayer(rootObject);
@@ -618,7 +643,7 @@ namespace Game.Feature.UI.Tests
                     new ManualGameplayUiPresentationSource(),
                     audioPort,
                     new FakeDisplaySettingsPort(),
-                    NoOpKeyboardBindingSettingsPort.Instance,
+                    keyboardPort ?? NoOpKeyboardBindingSettingsPort.Instance,
                     uiAudioPort,
                     previewSessionHost,
                     lifecycleRelay,
@@ -708,6 +733,78 @@ namespace Game.Feature.UI.Tests
                 Runtime.Dispose();
                 _popupController.Dispose();
                 UnityEngine.Object.DestroyImmediate(_rootObject);
+            }
+        }
+
+        private sealed class CompletingKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private readonly KeyboardBindingValidationResult _completionResult;
+            private Action<KeyboardRebindResult> _completed;
+            private KeyboardBindableAction _rebindingAction;
+            private bool _isRebinding;
+
+            public CompletingKeyboardSettingsPort(KeyboardBindingValidationResult completionResult)
+            {
+                _completionResult = completionResult;
+            }
+
+            public bool IsRebinding => _isRebinding;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return BuildSnapshot();
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                _isRebinding = true;
+                _rebindingAction = action;
+                _completed = completed;
+                return new KeyboardRebindStartResult(
+                    true,
+                    KeyboardBindingValidationResult.Success,
+                    BuildSnapshot());
+            }
+
+            public void CancelRebind()
+            {
+                _isRebinding = false;
+                _completed = null;
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                _isRebinding = false;
+                return BuildSnapshot();
+            }
+
+            public void Complete()
+            {
+                var completed = _completed;
+                _completed = null;
+                _isRebinding = false;
+                completed?.Invoke(new KeyboardRebindResult(
+                    _rebindingAction,
+                    _completionResult,
+                    BuildSnapshot()));
+            }
+
+            private KeyboardBindingSettingsSnapshot BuildSnapshot()
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    _isRebinding,
+                    _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
             }
         }
 
