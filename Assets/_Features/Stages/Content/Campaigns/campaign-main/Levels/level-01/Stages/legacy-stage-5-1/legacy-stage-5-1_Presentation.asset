@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: df156370538abbdf66d15215fb0d804e, type: 2}
   ownerEntryGuid: df156370538abbdf66d15215fb0d804e
+  displayNameKey: stage.legacy-stage-5-1.display_name
   displayName: Legacy 5-1
   backgroundPrefab: {fileID: 0}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
