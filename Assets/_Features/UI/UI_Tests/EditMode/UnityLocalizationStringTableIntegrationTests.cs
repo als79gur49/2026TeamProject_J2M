@@ -87,13 +87,15 @@ namespace Game.Feature.UI.Tests
                 "Rebind canceled.",
                 "Input settings reset.",
                 "This key is reserved.",
-                "This key conflicts with movement keys.");
+                "This key conflicts with movement keys.",
+                "Rebind already in progress.");
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "키 변경 취소됨",
                 "입력 설정이 초기화되었습니다.",
                 "이 키는 예약되어 있습니다.",
-                "이 키는 이동 키와 충돌합니다.");
+                "이 키는 이동 키와 충돌합니다.",
+                "키 변경이 이미 진행 중입니다.");
         }
 
         [Test]
@@ -211,6 +213,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
                 Is.EqualTo("This key conflicts with movement keys."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
+                Is.EqualTo("Rebind already in progress."));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
@@ -226,6 +231,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
                 Is.EqualTo("이 키는 이동 키와 충돌합니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
+                Is.EqualTo("키 변경이 이미 진행 중입니다."));
         }
 
         [Test]
@@ -518,7 +526,8 @@ namespace Game.Feature.UI.Tests
             string rebindCanceledValue,
             string resetCompleteValue,
             string reservedKeyValue,
-            string movementConflictValue)
+            string movementConflictValue,
+            string alreadyRebindingValue)
         {
             Assert.That(table, Is.Not.Null);
             var entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindCanceledKey);
@@ -544,6 +553,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(movementConflictValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputMovementConflictKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(alreadyRebindingValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
         }
 
         private static void AssertStageTable(

@@ -191,6 +191,7 @@ namespace Game.Feature.UI.Screens
         public const string InputResetCompleteKey = "ui.settings.input.reset_complete";
         public const string InputReservedKeyKey = "ui.settings.input.reserved_key";
         public const string InputMovementConflictKey = "ui.settings.input.movement_conflict";
+        public const string InputAlreadyRebindingKey = "ui.settings.input.already_rebinding";
 
         public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
         {
@@ -254,6 +255,15 @@ namespace Game.Feature.UI.Screens
             return new LocalizedTextDescriptor(
                 SettingsStaticTextDescriptors.Table,
                 InputMovementConflictKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular);
+        }
+
+        public static LocalizedTextDescriptor InputAlreadyRebinding()
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                InputAlreadyRebindingKey,
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular);
         }

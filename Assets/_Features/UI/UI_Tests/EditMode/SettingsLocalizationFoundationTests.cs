@@ -171,6 +171,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputAlreadyRebindingDynamicDescriptor_UsesUiKeyWithoutArguments()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.InputAlreadyRebinding();
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.input.already_rebinding"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.Empty);
+        }
+
+        [Test]
         public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -209,6 +221,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
                 Is.EqualTo("This key conflicts with movement keys."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
+                Is.EqualTo("Rebind already in progress."));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -224,6 +239,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
                 Is.EqualTo("이 키는 이동 키와 충돌합니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
+                Is.EqualTo("키 변경이 이미 진행 중입니다."));
         }
 
         [Test]
@@ -841,6 +859,32 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputPresenter_LocalizesSelectedAlreadyRebindingStatusAndKeepsKeyDisplayNamesRaw()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new RejectingKeyboardSettingsPort(KeyboardBindingValidationResult.AlreadyRebinding);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+
+            presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+            presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Rebind already in progress."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+
+            resolver.SetLocale("ko-KR");
+            presenter.RefreshLocalization();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("키 변경이 이미 진행 중입니다."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+        }
+
+        [Test]
         public void SettingsInputView_SelectedResetCompleteStatusRefreshesThroughBoundView()
         {
             var resolver = new FakeLocalizedTextResolver();
@@ -954,6 +998,45 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputView_SelectedAlreadyRebindingStatusRefreshesThroughBoundView()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new RejectingKeyboardSettingsPort(KeyboardBindingValidationResult.AlreadyRebinding);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+            var fixture = CreateSettingsViewFixture();
+
+            try
+            {
+                presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+                fixture.View.Bind(presenter.ViewModel);
+                fixture.InputView.Bind(presenter.InputPresenter.ViewModel);
+                fixture.View.SetIsCurrent(true);
+
+                presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
+
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("Rebind already in progress."));
+                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
+
+                resolver.SetLocale("ko-KR");
+                presenter.RefreshLocalization();
+
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("키 변경이 이미 진행 중입니다."));
+                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         public void SettingsInputPolicy_DefersActionLabelStatusesKeyNamesAndResetConfirmPayload()
         {
             var presenterSource = System.IO.File.ReadAllText(
@@ -964,12 +1047,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputResetComplete()"));
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputReservedKey()"));
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputMovementConflict()"));
+            Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputAlreadyRebinding()"));
             Assert.That(presenterSource, Does.Contain("Press a key for Push..."));
             Assert.That(presenterSource, Does.Contain("Press a key for Flip..."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Flip."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Push."));
             Assert.That(presenterSource, Does.Contain("This key cannot be used."));
-            Assert.That(presenterSource, Does.Contain("Rebind already in progress."));
+            Assert.That(presenterSource, Does.Not.Contain("\"Rebind already in progress.\""));
             Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.duplicate_action"));
             Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.waiting_for_key"));
             Assert.That(runtimeBuilderSource, Does.Contain("\"Reset Input Settings\""));
@@ -1152,6 +1236,7 @@ namespace Game.Feature.UI.Tests
             var movementToggleLabel = CreateTmpText("MovementToggleLabel", inputRoot.transform);
             var movementCurrentText = CreateTmpText("MovementCurrentText", inputRoot.transform);
             var pushLabel = CreateTmpText("PushLabel", inputRoot.transform);
+            var pushCurrentText = CreateTmpText("PushCurrentText", inputRoot.transform);
             var pushChangeLabel = CreateTmpText("PushChangeLabel", inputRoot.transform);
             var flipLabel = CreateTmpText("FlipLabel", inputRoot.transform);
             var flipChangeLabel = CreateTmpText("FlipChangeLabel", inputRoot.transform);
@@ -1169,6 +1254,7 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(inputView, "_movementToggleLabel", movementToggleLabel);
             SetPrivateField(inputView, "_movementCurrentText", movementCurrentText);
             SetPrivateField(inputView, "_pushLabel", pushLabel);
+            SetPrivateField(inputView, "_pushCurrentText", pushCurrentText);
             SetPrivateField(inputView, "_pushChangeButtonLabel", pushChangeLabel);
             SetPrivateField(inputView, "_flipLabel", flipLabel);
             SetPrivateField(inputView, "_flipChangeButtonLabel", flipChangeLabel);
@@ -1188,6 +1274,7 @@ namespace Game.Feature.UI.Tests
                 backLabel,
                 movementLabel,
                 movementCurrentText,
+                pushCurrentText,
                 pushChangeLabel,
                 statusText);
         }
@@ -1238,6 +1325,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.reset_complete"] = "Input settings reset.",
                         ["ui.settings.input.reserved_key"] = "This key is reserved.",
                         ["ui.settings.input.movement_conflict"] = "This key conflicts with movement keys.",
+                        ["ui.settings.input.already_rebinding"] = "Rebind already in progress.",
                         ["ui.common.back"] = "Back",
                         ["ui.common.settings"] = "Settings",
                         ["ui.main_menu.start"] = "Start",
@@ -1267,6 +1355,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
                         ["ui.settings.input.reserved_key"] = "이 키는 예약되어 있습니다.",
                         ["ui.settings.input.movement_conflict"] = "이 키는 이동 키와 충돌합니다.",
+                        ["ui.settings.input.already_rebinding"] = "키 변경이 이미 진행 중입니다.",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",
@@ -1399,6 +1488,55 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private sealed class RejectingKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private readonly KeyboardBindingValidationResult _validationResult;
+
+            public RejectingKeyboardSettingsPort(KeyboardBindingValidationResult validationResult)
+            {
+                _validationResult = validationResult;
+            }
+
+            public bool IsRebinding => false;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return BuildSnapshot();
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                return new KeyboardRebindStartResult(false, _validationResult, BuildSnapshot());
+            }
+
+            public void CancelRebind()
+            {
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                return BuildSnapshot();
+            }
+
+            private static KeyboardBindingSettingsSnapshot BuildSnapshot()
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    false,
+                    null);
+            }
+        }
+
         private readonly struct TypographyCall
         {
             public TypographyCall(
@@ -1449,6 +1587,7 @@ namespace Game.Feature.UI.Tests
                 TMP_Text backLabel,
                 TMP_Text movementLabel,
                 TMP_Text movementCurrentText,
+                TMP_Text pushCurrentText,
                 TMP_Text pushChangeLabel,
                 TMP_Text statusText)
             {
@@ -1464,6 +1603,7 @@ namespace Game.Feature.UI.Tests
                 BackLabel = backLabel;
                 MovementLabel = movementLabel;
                 MovementCurrentText = movementCurrentText;
+                PushCurrentText = pushCurrentText;
                 PushChangeLabel = pushChangeLabel;
                 StatusText = statusText;
             }
@@ -1491,6 +1631,8 @@ namespace Game.Feature.UI.Tests
             public TMP_Text MovementLabel { get; }
 
             public TMP_Text MovementCurrentText { get; }
+
+            public TMP_Text PushCurrentText { get; }
 
             public TMP_Text PushChangeLabel { get; }
 

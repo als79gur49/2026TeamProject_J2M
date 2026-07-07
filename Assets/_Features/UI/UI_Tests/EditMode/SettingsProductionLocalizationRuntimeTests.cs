@@ -283,6 +283,29 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesInputAlreadyRebindingStatus()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new RejectingKeyboardSettingsPort(KeyboardBindingValidationResult.AlreadyRebinding);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickInputTab();
+            view.InputView.ClickPushChange();
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo("Rebind already in progress."));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("키 변경이 이미 진행 중입니다."));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+        }
+
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
@@ -829,6 +852,55 @@ namespace Game.Feature.UI.Tests
                     "Q",
                     _isRebinding,
                     _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
+            }
+        }
+
+        private sealed class RejectingKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private readonly KeyboardBindingValidationResult _validationResult;
+
+            public RejectingKeyboardSettingsPort(KeyboardBindingValidationResult validationResult)
+            {
+                _validationResult = validationResult;
+            }
+
+            public bool IsRebinding => false;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return BuildSnapshot();
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                return new KeyboardRebindStartResult(false, _validationResult, BuildSnapshot());
+            }
+
+            public void CancelRebind()
+            {
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                return BuildSnapshot();
+            }
+
+            private static KeyboardBindingSettingsSnapshot BuildSnapshot()
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    false,
+                    null);
             }
         }
 

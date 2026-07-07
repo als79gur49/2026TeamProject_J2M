@@ -690,6 +690,12 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
+            if (result == KeyboardBindingValidationResult.AlreadyRebinding)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputAlreadyRebinding());
+                return;
+            }
+
             SetRawStatus(ToStatusText(result, action));
         }
 
@@ -727,8 +733,6 @@ namespace Game.Feature.UI.Application
                         : "This key is already used by Push.";
                 case KeyboardBindingValidationResult.MovementConflict:
                     return string.Empty;
-                case KeyboardBindingValidationResult.AlreadyRebinding:
-                    return "Rebind already in progress.";
                 default:
                     return "This key cannot be used.";
             }
