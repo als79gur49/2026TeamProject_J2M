@@ -86,12 +86,14 @@ namespace Game.Feature.UI.Tests
                 collection.GetTable("en-US") as StringTable,
                 "Rebind canceled.",
                 "Input settings reset.",
-                "This key is reserved.");
+                "This key is reserved.",
+                "This key conflicts with movement keys.");
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "키 변경 취소됨",
                 "입력 설정이 초기화되었습니다.",
-                "이 키는 예약되어 있습니다.");
+                "이 키는 예약되어 있습니다.",
+                "이 키는 이동 키와 충돌합니다.");
         }
 
         [Test]
@@ -206,6 +208,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
                 Is.EqualTo("This key is reserved."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
+                Is.EqualTo("This key conflicts with movement keys."));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
@@ -218,6 +223,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
                 Is.EqualTo("이 키는 예약되어 있습니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
+                Is.EqualTo("이 키는 이동 키와 충돌합니다."));
         }
 
         [Test]
@@ -509,7 +517,8 @@ namespace Game.Feature.UI.Tests
             StringTable table,
             string rebindCanceledValue,
             string resetCompleteValue,
-            string reservedKeyValue)
+            string reservedKeyValue,
+            string movementConflictValue)
         {
             Assert.That(table, Is.Not.Null);
             var entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindCanceledKey);
@@ -529,6 +538,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(reservedKeyValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputReservedKeyKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputMovementConflictKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputMovementConflictKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(movementConflictValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputMovementConflictKey);
         }
 
         private static void AssertStageTable(

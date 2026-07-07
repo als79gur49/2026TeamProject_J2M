@@ -684,6 +684,12 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
+            if (result == KeyboardBindingValidationResult.MovementConflict)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputMovementConflict());
+                return;
+            }
+
             SetRawStatus(ToStatusText(result, action));
         }
 
@@ -720,7 +726,7 @@ namespace Game.Feature.UI.Application
                         ? "This key is already used by Flip."
                         : "This key is already used by Push.";
                 case KeyboardBindingValidationResult.MovementConflict:
-                    return "This key conflicts with movement keys.";
+                    return string.Empty;
                 case KeyboardBindingValidationResult.AlreadyRebinding:
                     return "Rebind already in progress.";
                 default:

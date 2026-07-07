@@ -259,6 +259,30 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesInputMovementConflictStatus()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.MovementConflict);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickInputTab();
+            view.InputView.ClickPushChange();
+            keyboardPort.Complete();
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo("This key conflicts with movement keys."));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 이동 키와 충돌합니다."));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+        }
+
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()

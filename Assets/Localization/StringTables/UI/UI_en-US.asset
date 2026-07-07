@@ -140,6 +140,10 @@ MonoBehaviour:
     m_Localized: This key is reserved.
     m_Metadata:
       m_Items: []
+  - m_Id: 283195348574208
+    m_Localized: This key conflicts with movement keys.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

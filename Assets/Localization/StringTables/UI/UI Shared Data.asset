@@ -131,6 +131,10 @@ MonoBehaviour:
     m_Key: ui.settings.input.reserved_key
     m_Metadata:
       m_Items: []
+  - m_Id: 283195348574208
+    m_Key: ui.settings.input.movement_conflict
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -41,6 +41,7 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.settings.input.rebind_canceled", "Rebind canceled.", "키 변경 취소됨", true),
             ("ui.settings.input.reset_complete", "Input settings reset.", "입력 설정이 초기화되었습니다.", false),
             ("ui.settings.input.reserved_key", "This key is reserved.", "이 키는 예약되어 있습니다.", false),
+            ("ui.settings.input.movement_conflict", "This key conflicts with movement keys.", "이 키는 이동 키와 충돌합니다.", false),
             ("ui.common.settings", "Settings", "설정", false),
             ("ui.main_menu.start", "Start", "시작", false),
             ("ui.main_menu.quit", "Quit", "종료", false),
