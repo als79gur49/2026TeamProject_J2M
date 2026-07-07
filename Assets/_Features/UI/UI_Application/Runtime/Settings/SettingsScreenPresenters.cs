@@ -492,7 +492,7 @@ namespace Game.Feature.UI.Application
         }
 
         private LocalizedTextDescriptor CurrentLanguageDescriptor =>
-            string.Equals(_localeSelectionPort.CurrentLocaleCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal)
+            string.Equals(_localeSelectionPort.CurrentLocaleCode, "ko-KR", StringComparison.Ordinal)
                 ? _koreanLanguageLabelDescriptor
                 : _englishLanguageLabelDescriptor;
 
@@ -827,7 +827,7 @@ namespace Game.Feature.UI.Application
         {
         }
 
-        public string CurrentLocaleCode => PackageFreeLocalizedTextResolver.DefaultLocaleCode;
+        public string CurrentLocaleCode => "en-US";
 
         public IReadOnlyList<string> AvailableLocaleCodes => Array.Empty<string>();
 

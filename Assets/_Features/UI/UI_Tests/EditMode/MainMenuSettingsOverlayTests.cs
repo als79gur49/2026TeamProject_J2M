@@ -7,6 +7,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
@@ -859,7 +860,10 @@ namespace Game.Feature.UI.Tests
                 PopupLayerView = CreatePopupLayer(parent);
                 var popupCatalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(UiTestPrefabAssetUtility.PopupCatalogPath);
                 Assert.That(popupCatalog, Is.Not.Null);
-                PopupController = new PopupController(new GameplayPopupRuntimeFactory(PopupLayerView, popupCatalog));
+                PopupController = new PopupController(new GameplayPopupRuntimeFactory(
+                    PopupLayerView,
+                    popupCatalog,
+                    localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault()));
                 PopupController.StateChanged += SyncPopupLayer;
                 TimeoutRelay = PopupLayerView.gameObject.AddComponent<DisplayPreviewTimeoutRelay>();
                 TransientStatusRelay = PopupLayerView.gameObject.AddComponent<DisplayStatusTransientRelay>();
@@ -923,7 +927,8 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default,
                 15d,
                 popupHarness.TransientStatusRelay,
-                uiAudioPort);
+                uiAudioPort,
+                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault());
         }
 
         private static PopupLayerView CreatePopupLayer(Transform parent)

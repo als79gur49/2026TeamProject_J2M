@@ -228,6 +228,66 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiSettingsBridgeAssembly_FailsFastWhenUnityAdapterCannotBeCreated()
+        {
+            UiSettingsBridgeAssembly.TryCreateLocalizedTextResolver failingUnityAdapter =
+                (IUiLocalePreferenceStore _,
+                    out ILocalizedTextResolver resolver,
+                    out string failureReason) =>
+                {
+                    resolver = null;
+                    failureReason = "simulated missing UI String Table";
+                    return false;
+                };
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver(
+                    new FakeUiLocalePreferenceStore(),
+                    failingUnityAdapter));
+
+            Assert.That(exception.Message, Does.Contain("Unity Localization production setup is required"));
+            Assert.That(exception.Message, Does.Contain("simulated missing UI String Table"));
+        }
+
+        [Test]
+        public void ProductionUiComposition_RequestsUnityResolverAndPassesItToRuntimeFactories()
+        {
+            var gameplayInstallerSource = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var mainMenuInstallerSource = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+
+            Assert.That(gameplayInstallerSource, Does.Contain("CreatePersistentSettingsLocalizedTextResolver()"));
+            Assert.That(gameplayInstallerSource, Does.Contain("localizedTextResolver: localizedTextResolver"));
+            Assert.That(gameplayInstallerSource, Does.Contain("new StageInfoPresenter(localizedTextResolver)"));
+
+            Assert.That(mainMenuInstallerSource, Does.Contain("CreatePersistentSettingsLocalizedTextResolver()"));
+            Assert.That(mainMenuInstallerSource, Does.Contain("localizedTextResolver: _localizedTextResolver"));
+            Assert.That(mainMenuInstallerSource, Does.Contain("BindStaticLocalization"));
+        }
+
+        [Test]
+        public void ProductionRuntimeSource_DoesNotReferencePackageFreeResolver()
+        {
+            var roots = new[]
+            {
+                "Assets/_Features/UI/UI_Application/Runtime",
+                "Assets/_Features/UI/UI_Composition/Runtime",
+                "Assets/_Features/UI/UI_Popups/Runtime",
+                "Assets/_Features/UI/UI_Screens/Runtime",
+            };
+
+            foreach (var file in roots.SelectMany(root =>
+                         System.IO.Directory.GetFiles(root, "*.cs", System.IO.SearchOption.AllDirectories)))
+            {
+                Assert.That(
+                    System.IO.File.ReadAllText(file),
+                    Does.Not.Contain("PackageFreeLocalizedTextResolver"),
+                    file);
+            }
+        }
+
+        [Test]
         public void ArchitectureBoundary_RemainsConstrainedToCompositionAndTests()
         {
             AssertNoAssemblyReference(typeof(Game.Feature.UI.Application.SettingsScreenPresenter).Assembly, "Unity.Localization");

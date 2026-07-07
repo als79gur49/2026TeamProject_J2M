@@ -642,7 +642,7 @@ namespace Game.Feature.UI.Screens
 
         private LocalizedTextDescriptor CurrentLanguageDescriptor(string localeCode)
         {
-            return string.Equals(localeCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal)
+            return string.Equals(localeCode, "ko-KR", StringComparison.Ordinal)
                 ? _koreanLanguageLabelDescriptor
                 : _englishLanguageLabelDescriptor;
         }

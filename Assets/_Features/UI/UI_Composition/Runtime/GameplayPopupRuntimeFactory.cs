@@ -30,7 +30,9 @@ namespace Game.Feature.UI.Composition
             _popupPrefabCatalog = popupPrefabCatalog ?? throw new ArgumentNullException(nameof(popupPrefabCatalog));
             _demoStageControlCommandPort = demoStageControlCommandPort;
             _demoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
-            _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new InvalidOperationException(
+                    "GameplayPopupRuntimeFactory requires an explicit production localized text resolver.");
             _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
         }
 

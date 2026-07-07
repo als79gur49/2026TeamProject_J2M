@@ -9,6 +9,11 @@ namespace Game.Feature.UI.Composition
 {
     internal static class UiSettingsBridgeAssembly
     {
+        internal delegate bool TryCreateLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            out ILocalizedTextResolver resolver,
+            out string failureReason);
+
         internal static IAudioSettingsPort CreateAudioSettingsPort(
             GameObject owner,
             string missingAudioInstallerMessage)
@@ -76,13 +81,43 @@ namespace Game.Feature.UI.Composition
         internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
             IUiLocalePreferenceStore localePreferenceStore)
         {
+            return CreatePersistentSettingsLocalizedTextResolver(
+                localePreferenceStore,
+                TryCreateUnityStringTableTextResolver);
+        }
+
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            TryCreateLocalizedTextResolver tryCreateResolver)
+        {
             localePreferenceStore ??= new PlayerPrefsUiLocalePreferenceStore();
-            return UnityStringTableTextResolver.TryCreateSettingsDefault(
+            if (tryCreateResolver == null)
+            {
+                throw new ArgumentNullException(nameof(tryCreateResolver));
+            }
+
+            return tryCreateResolver(
                     localePreferenceStore,
-                    out var unityResolver,
-                    out _)
-                ? unityResolver
-                : PackageFreeLocalizedTextResolver.CreateSettingsDefault(localePreferenceStore);
+                    out var resolver,
+                    out var failureReason)
+                ? resolver ?? throw new InvalidOperationException(
+                    "Unity Localization production setup returned a null UI text resolver.")
+                : throw new InvalidOperationException(
+                    "Unity Localization production setup is required for UI text resolution. " +
+                    $"Fix Localization Settings, required Locales, and UI/Stage String Tables. Detail: {failureReason}");
+        }
+
+        private static bool TryCreateUnityStringTableTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            out ILocalizedTextResolver resolver,
+            out string failureReason)
+        {
+            var created = UnityStringTableTextResolver.TryCreateSettingsDefault(
+                localePreferenceStore,
+                out var unityResolver,
+                out failureReason);
+            resolver = unityResolver;
+            return created;
         }
 
         internal static AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller(

@@ -3,6 +3,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using System;
 using System.Reflection;
@@ -494,7 +495,8 @@ namespace Game.Feature.UI.Tests
                 runtimeContext.PreviewSessionHost,
                 runtimeContext.LifecycleRelay,
                 screenCatalog ?? UiTestPrefabAssetUtility.LoadScreenCatalog(),
-                runtimeContext.TransientStatusRelay);
+                runtimeContext.TransientStatusRelay,
+                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault());
         }
 
         private static RuntimeContext CreateRuntimeContext(
@@ -528,7 +530,8 @@ namespace Game.Feature.UI.Tests
 
             var popupController = new PopupController(popupRuntimeFactory ?? new GameplayPopupRuntimeFactory(
                 popupLayerView,
-                UiTestPrefabAssetUtility.LoadPopupCatalog()));
+                UiTestPrefabAssetUtility.LoadPopupCatalog(),
+                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault()));
             var timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
             var transientStatusRelay = rootObject.AddComponent<DisplayStatusTransientRelay>();
             var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();

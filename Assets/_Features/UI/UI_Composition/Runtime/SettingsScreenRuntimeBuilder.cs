@@ -34,7 +34,9 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             DisplaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             DisplayStatusTransientRelay = displayStatusTransientRelay;
-            LocalizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            LocalizedTextResolver = localizedTextResolver
+                ?? throw new InvalidOperationException(
+                    "SettingsScreenRuntimeBuildContext requires an explicit production localized text resolver.");
             LocalizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             LocalizedTmpFontResolver = localizedTmpFontResolver;
             LocaleSelectionPort = localeSelectionPort ?? LocalizedTextResolver as IUiLocaleSelectionPort;

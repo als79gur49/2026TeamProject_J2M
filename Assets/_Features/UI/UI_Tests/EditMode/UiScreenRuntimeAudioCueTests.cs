@@ -5,6 +5,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -295,7 +296,8 @@ namespace Game.Feature.UI.Tests
 
                 var popupController = new PopupController(new GameplayPopupRuntimeFactory(
                     popupLayerView,
-                    UiTestPrefabAssetUtility.LoadPopupCatalog()));
+                    UiTestPrefabAssetUtility.LoadPopupCatalog(),
+                    localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault()));
                 var timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
                 var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
                 var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
@@ -314,7 +316,8 @@ namespace Game.Feature.UI.Tests
                     uiAudioPort,
                     previewSessionHost,
                     lifecycleRelay,
-                    UiTestPrefabAssetUtility.LoadScreenCatalog());
+                    UiTestPrefabAssetUtility.LoadScreenCatalog(),
+                    localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault());
                 var screenController = new ScreenController(screenFactory);
                 var coordinator = new UIFlowCoordinator(
                     screenController,

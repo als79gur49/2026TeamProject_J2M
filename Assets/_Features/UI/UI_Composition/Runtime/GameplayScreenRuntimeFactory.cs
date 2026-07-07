@@ -89,7 +89,9 @@ namespace Game.Feature.UI.Composition
             _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             _displayStatusTransientRelay = displayStatusTransientRelay;
             _screenPrefabCatalog = screenPrefabCatalog ?? throw new ArgumentNullException(nameof(screenPrefabCatalog));
-            _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new InvalidOperationException(
+                    "GameplayScreenRuntimeFactory requires an explicit production localized text resolver.");
             _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             _localizedTmpFontResolver = localizedTmpFontResolver;
             _localeSelectionPort = localeSelectionPort ?? _localizedTextResolver as IUiLocaleSelectionPort;

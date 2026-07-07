@@ -11,7 +11,8 @@ namespace Game.Feature.UI.Application
 
         public PausePopupPresenter(ILocalizedTextResolver localizedTextResolver = null)
         {
-            _localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new ArgumentNullException(nameof(localizedTextResolver));
             ViewModel = new PausePopupViewModel();
         }
 

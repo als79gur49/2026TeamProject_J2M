@@ -68,7 +68,9 @@ namespace Game.Feature.UI.Composition
             this.displayStatusTransientRelay = displayStatusTransientRelay;
             this.payload = payload ?? throw new ArgumentNullException(nameof(payload));
             this.previewTimeoutSeconds = previewTimeoutSeconds;
-            this.localizedTextResolver = localizedTextResolver ?? PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            this.localizedTextResolver = localizedTextResolver
+                ?? throw new InvalidOperationException(
+                    "MainMenuSettingsRuntime requires an explicit production localized text resolver.");
             this.localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             this.localizedTmpFontResolver = localizedTmpFontResolver;
             this.localeSelectionPort = localeSelectionPort ?? this.localizedTextResolver as IUiLocaleSelectionPort;

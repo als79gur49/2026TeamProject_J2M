@@ -479,7 +479,8 @@ namespace Game.Feature.UI.Tests
             timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
             return new PopupController(new GameplayPopupRuntimeFactory(
                 popupLayerView,
-                UiTestPrefabAssetUtility.LoadPopupCatalog()));
+                UiTestPrefabAssetUtility.LoadPopupCatalog(),
+                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault()));
         }
 
         private static FakeGameplayQueryFacade CreateQueryFacade()
