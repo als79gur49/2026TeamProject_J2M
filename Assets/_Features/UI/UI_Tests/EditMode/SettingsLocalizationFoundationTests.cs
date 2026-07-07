@@ -1091,6 +1091,22 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
         }
 
+        [Test]
+        public void SettingsInputInvalidDefaultStatus_IsCollapsedFallbackPolicyAndRemainsRawEnglish()
+        {
+            var source = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
+
+            Assert.That(source, Does.Contain("default:"));
+            Assert.That(source, Does.Contain("This key cannot be used."));
+            Assert.That(source, Does.Not.Contain("ui.settings.input.invalid_key"));
+            Assert.That(source, Does.Not.Contain("SettingsDynamicTextDescriptors.InputInvalidKey()"));
+
+            AssertInvalidDefaultFallbackRemainsRaw(KeyboardBindingValidationResult.MissingBinding);
+            AssertInvalidDefaultFallbackRemainsRaw(KeyboardBindingValidationResult.InvalidKey);
+            AssertInvalidDefaultFallbackRemainsRaw((KeyboardBindingValidationResult)999);
+        }
+
 
         [Test]
         public void UiApplicationLocalizationFoundation_RemainsPackageFree()
@@ -1299,6 +1315,42 @@ namespace Game.Feature.UI.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName} must exist for this view fixture.");
             field.SetValue(target, value);
+        }
+
+        private static void AssertInvalidDefaultFallbackRemainsRaw(KeyboardBindingValidationResult result)
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            resolver.SetLocale("ko-KR");
+            var keyboardPort = new CompletingKeyboardSettingsPort(result);
+            var presenter = new SettingsInputPresenter(keyboardPort, resolver);
+
+            presenter.Apply(new SettingsInputPresenterInput(
+                SettingsStaticTextDescriptors.MovementKeys,
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+
+            presenter.StartRebind(KeyboardBindableAction.Push);
+            keyboardPort.Complete();
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
+            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+
+            resolver.SetLocale("en-US");
+            presenter.Apply(new SettingsInputPresenterInput(
+                SettingsStaticTextDescriptors.MovementKeys,
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
+            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
         }
 
         private sealed class FakeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
