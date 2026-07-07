@@ -111,6 +111,10 @@ MonoBehaviour:
     m_Key: ui.settings.audio.volume_value_muted
     m_Metadata:
       m_Items: []
+  - m_Id: 283195138859008
+    m_Key: ui.settings.display.resolution_value
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

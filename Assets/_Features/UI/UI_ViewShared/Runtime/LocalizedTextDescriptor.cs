@@ -258,6 +258,12 @@ namespace Game.Feature.UI.ViewShared
                     .Replace("{0}", percent.ToString(CultureInfo.InvariantCulture));
             }
 
+            if (string.Equals(descriptor.Key, "ui.settings.display.resolution_value", StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
+            }
+
             return value;
         }
 
@@ -358,6 +364,7 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.language.korean"] = "Korean",
                     ["ui.settings.audio.volume_value"] = "{0}%",
                     ["ui.settings.audio.volume_value_muted"] = "{0}% (Muted)",
+                    ["ui.settings.display.resolution_value"] = "{0}",
                     ["ui.common.back"] = "Back",
                     ["ui.common.settings"] = "Settings",
                     ["ui.main_menu.start"] = "Start",
@@ -385,6 +392,7 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.language.korean"] = "한국어",
                     ["ui.settings.audio.volume_value"] = "{0}%",
                     ["ui.settings.audio.volume_value_muted"] = "{0}% (음소거)",
+                    ["ui.settings.display.resolution_value"] = "{0}",
                     ["ui.common.back"] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",

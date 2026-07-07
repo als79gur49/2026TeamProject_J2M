@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
@@ -194,6 +195,24 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (Muted)"));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesDisplayResolutionDynamicValueText()
+        {
+            var resolver = new DisplayResolutionValueResolver();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+
+            Assert.That(view.DisplayView.CurrentDisplayValueText, Is.EqualTo("en-US: 1920 x 1080"));
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(view.DisplayView.CurrentDisplayValueText, Is.EqualTo("ko-KR: 1920 x 1080"));
         }
 
 
@@ -703,6 +722,45 @@ namespace Game.Feature.UI.Tests
 
                 _inner.SetLocale(localeCode);
                 _localeChanged?.Invoke();
+            }
+        }
+
+        private sealed class DisplayResolutionValueResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
+        {
+            private readonly PackageFreeLocalizedTextResolver _inner =
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            public string CurrentLocaleCode => _inner.CurrentLocaleCode;
+
+            public IReadOnlyList<string> AvailableLocaleCodes => _inner.AvailableLocaleCodes;
+
+            public event Action LocaleChanged;
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                if (string.Equals(
+                        descriptor.Key,
+                        SettingsDynamicTextDescriptors.DisplayResolutionValueKey,
+                        StringComparison.Ordinal))
+                {
+                    var resolutionLabel = descriptor.Arguments.Count > 0
+                        ? descriptor.Arguments[0]?.ToString() ?? string.Empty
+                        : string.Empty;
+                    return $"{CurrentLocaleCode}: {resolutionLabel}";
+                }
+
+                return _inner.Resolve(descriptor);
+            }
+
+            public bool TrySetLocale(string localeCode)
+            {
+                if (!_inner.TrySetLocale(localeCode))
+                {
+                    return false;
+                }
+
+                LocaleChanged?.Invoke();
+                return true;
             }
         }
 

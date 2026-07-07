@@ -447,7 +447,8 @@ namespace Game.Feature.UI.Application
                 : 0f;
 
             ViewModel.SetContent(
-                _displaySnapshot.CurrentRuntimeResolutionLabel,
+                Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue(
+                    _displaySnapshot.CurrentRuntimeResolutionLabel)),
                 resolutionOptions,
                 _stagedDisplayModeIndex,
                 _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
@@ -876,6 +877,7 @@ namespace Game.Feature.UI.Application
             ["ui.settings.language.korean"] = "Korean",
             ["ui.settings.audio.volume_value"] = "{percent}%",
             ["ui.settings.audio.volume_value_muted"] = "{percent}% (Muted)",
+            ["ui.settings.display.resolution_value"] = "{0}",
             ["ui.common.back"] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",
@@ -919,6 +921,12 @@ namespace Game.Feature.UI.Application
                 return value
                     .Replace("{percent}", percent.ToString(System.Globalization.CultureInfo.InvariantCulture))
                     .Replace("{0}", percent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            if (string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayResolutionValueKey, StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
             }
 
             return value;

@@ -99,6 +99,34 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsDisplayResolutionDynamicDescriptor_UsesUiSmartStringArgument()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080");
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.display.resolution_value"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { "1920 x 1080" }));
+        }
+
+        [Test]
+        public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
+                Is.EqualTo("1920 x 1080"));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
+                Is.EqualTo("1920 x 1080"));
+        }
+
+        [Test]
         public void SettingsScreenPayload_Default_ProvidesStaticShellDescriptors()
         {
             var descriptors = GetSettingsPayloadDescriptors(SettingsScreenPayload.Default);
@@ -534,6 +562,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.muted"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.volume_value"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.volume_value_muted"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.display.resolution_value"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.display.preview_countdown"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_status"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_error"));

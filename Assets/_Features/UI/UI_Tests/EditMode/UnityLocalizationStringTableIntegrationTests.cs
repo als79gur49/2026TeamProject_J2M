@@ -61,6 +61,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiStringTable_ContainsSettingsDisplaySmartStringEntries()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
+            Assert.That(collection, Is.Not.Null);
+
+            AssertDisplaySmartEntries(collection.GetTable("en-US") as StringTable, "{0}");
+            AssertDisplaySmartEntries(collection.GetTable("ko-KR") as StringTable, "{0}");
+        }
+
+        [Test]
         public void StageStringTable_ContainsCompleteStageDisplayNameEntries()
         {
             var collection = LocalizationEditorSettings.GetStringTableCollection("Stage");
@@ -134,6 +144,22 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(50, isMuted: true)),
                 Is.EqualTo("50% (음소거)"));
+        }
+
+        [Test]
+        public void UnityStringTableTextResolver_ResolvesSettingsDisplaySmartStringArguments()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
+                Is.EqualTo("1920 x 1080"));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue("1920 x 1080")),
+                Is.EqualTo("1920 x 1080"));
         }
 
         [Test]
@@ -400,6 +426,16 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(expectedValue));
             Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
             Assert.That(entry.IsSmart, Is.True, key);
+        }
+
+        private static void AssertDisplaySmartEntries(StringTable table, string resolutionValue)
+        {
+            Assert.That(table, Is.Not.Null);
+            var entry = table.GetEntry(SettingsDynamicTextDescriptors.DisplayResolutionValueKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.DisplayResolutionValueKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(resolutionValue));
+            Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
+            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.DisplayResolutionValueKey);
         }
 
         private static void AssertStageTable(
