@@ -39,6 +39,7 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.settings.display.resolution_value", "{0}", "{0}", true),
             ("ui.settings.display.preview_countdown", "Reverting in {0}s", "{0}초 후 되돌림", true),
             ("ui.settings.input.rebind_canceled", "Rebind canceled.", "키 변경 취소됨", true),
+            ("ui.settings.input.reset_complete", "Input settings reset.", "입력 설정이 초기화되었습니다.", false),
             ("ui.common.settings", "Settings", "설정", false),
             ("ui.main_menu.start", "Start", "시작", false),
             ("ui.main_menu.quit", "Quit", "종료", false),

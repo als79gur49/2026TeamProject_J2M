@@ -132,6 +132,10 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344
+  - m_Id: 283195264688128
+    m_Localized: Input settings reset.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

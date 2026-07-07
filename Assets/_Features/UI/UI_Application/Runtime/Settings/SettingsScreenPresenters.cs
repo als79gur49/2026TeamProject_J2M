@@ -633,7 +633,7 @@ namespace Game.Feature.UI.Application
         public void ResetToDefaults()
         {
             var snapshot = _keyboardBindingSettingsPort.ResetToDefaults();
-            SetRawStatus("Input settings reset.");
+            SetStatusDescriptor(SettingsDynamicTextDescriptors.InputResetComplete());
             RefreshViewModel(snapshot);
         }
 
@@ -674,12 +674,17 @@ namespace Game.Feature.UI.Application
         {
             if (result == KeyboardBindingValidationResult.Canceled)
             {
-                _statusTextDescriptor = SettingsDynamicTextDescriptors.InputRebindCanceled();
-                _statusText = string.Empty;
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputRebindCanceled());
                 return;
             }
 
             SetRawStatus(ToStatusText(result, action));
+        }
+
+        private void SetStatusDescriptor(LocalizedTextDescriptor descriptor)
+        {
+            _statusTextDescriptor = descriptor;
+            _statusText = string.Empty;
         }
 
         private void SetRawStatus(string statusText)
@@ -906,6 +911,7 @@ namespace Game.Feature.UI.Application
             ["ui.settings.audio.volume_value_muted"] = "{percent}% (Muted)",
             ["ui.settings.display.resolution_value"] = "{0}",
             ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
+            ["ui.settings.input.reset_complete"] = "Input settings reset.",
             ["ui.common.back"] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",

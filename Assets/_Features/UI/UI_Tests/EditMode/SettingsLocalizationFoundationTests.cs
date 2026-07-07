@@ -135,6 +135,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsInputResetCompleteDynamicDescriptor_UsesUiKeyWithoutArguments()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.InputResetComplete();
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.input.reset_complete"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.Empty);
+        }
+
+        [Test]
         public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -164,12 +176,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
                 Is.EqualTo("Rebind canceled."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
+                Is.EqualTo("Input settings reset."));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
                 Is.EqualTo("키 변경 취소됨"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
+                Is.EqualTo("입력 설정이 초기화되었습니다."));
         }
 
         [Test]
@@ -613,6 +631,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_status"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_error"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_canceled"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.reset_complete"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language.english"));
             Assert.That(descriptorKeys, Does.Contain("ui.settings.language.korean"));
@@ -705,7 +724,95 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsInputPresenter_NonTargetInputStatusesRemainRawEnglish()
+        public void SettingsInputPresenter_LocalizesSelectedResetCompleteStatusAndKeepsKeyDisplayNamesRaw()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+
+            presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+            presenter.InputPresenter.ResetToDefaults();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Input settings reset."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+
+            resolver.SetLocale("ko-KR");
+            presenter.RefreshLocalization();
+
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+        }
+
+        [Test]
+        public void SettingsInputView_SelectedResetCompleteStatusRefreshesThroughBoundView()
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success);
+            var presenter = new SettingsScreenPresenter(
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort(),
+                keyboardPort,
+                resolver,
+                resolver);
+            var fixture = CreateSettingsViewFixture();
+
+            try
+            {
+                presenter.Apply(SettingsScreenPayload.Default, previewTimeoutSeconds: 15d);
+                fixture.View.Bind(presenter.ViewModel);
+                fixture.InputView.Bind(presenter.InputPresenter.ViewModel);
+                fixture.View.SetIsCurrent(true);
+
+                presenter.InputPresenter.ResetToDefaults();
+
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("Input settings reset."));
+                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+
+                resolver.SetLocale("ko-KR");
+                presenter.RefreshLocalization();
+
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
+                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void SettingsInputPolicy_DefersActionLabelStatusesKeyNamesAndResetConfirmPayload()
+        {
+            var presenterSource = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
+            var runtimeBuilderSource = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
+
+            Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputResetComplete()"));
+            Assert.That(presenterSource, Does.Contain("Press a key for Push..."));
+            Assert.That(presenterSource, Does.Contain("Press a key for Flip..."));
+            Assert.That(presenterSource, Does.Contain("This key is already used by Flip."));
+            Assert.That(presenterSource, Does.Contain("This key is already used by Push."));
+            Assert.That(presenterSource, Does.Contain("This key is reserved."));
+            Assert.That(presenterSource, Does.Contain("This key conflicts with movement keys."));
+            Assert.That(presenterSource, Does.Contain("This key cannot be used."));
+            Assert.That(presenterSource, Does.Contain("Rebind already in progress."));
+            Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.duplicate_action"));
+            Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.waiting_for_key"));
+            Assert.That(runtimeBuilderSource, Does.Contain("\"Reset Input Settings\""));
+            Assert.That(runtimeBuilderSource, Does.Contain("\"Reset input settings to defaults?\""));
+            Assert.That(runtimeBuilderSource, Does.Contain("\"Reset\""));
+            Assert.That(runtimeBuilderSource, Does.Contain("\"Cancel\""));
+        }
+
+        [Test]
+        public void SettingsInputPresenter_NonTargetActionLabelStatusesRemainRawEnglish()
         {
             var resolver = new FakeLocalizedTextResolver();
             resolver.SetLocale("ko-KR");
@@ -730,7 +837,7 @@ namespace Game.Feature.UI.Tests
 
             presenter.ResetToDefaults();
 
-            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("Input settings reset."));
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
         }
 
 
@@ -961,6 +1068,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.english"] = "English",
                         ["ui.settings.language.korean"] = "Korean",
                         ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
+                        ["ui.settings.input.reset_complete"] = "Input settings reset.",
                         ["ui.common.back"] = "Back",
                         ["ui.common.settings"] = "Settings",
                         ["ui.main_menu.start"] = "Start",
@@ -987,6 +1095,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.english"] = "영어",
                         ["ui.settings.language.korean"] = "한국어",
                         ["ui.settings.input.rebind_canceled"] = "키 변경 취소됨",
+                        ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",

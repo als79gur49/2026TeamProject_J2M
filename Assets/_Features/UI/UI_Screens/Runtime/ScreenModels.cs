@@ -188,6 +188,7 @@ namespace Game.Feature.UI.Screens
         public const string DisplayResolutionValueKey = "ui.settings.display.resolution_value";
         public const string DisplayPreviewCountdownKey = "ui.settings.display.preview_countdown";
         public const string InputRebindCanceledKey = "ui.settings.input.rebind_canceled";
+        public const string InputResetCompleteKey = "ui.settings.input.reset_complete";
 
         public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
         {
@@ -224,6 +225,15 @@ namespace Game.Feature.UI.Screens
             return new LocalizedTextDescriptor(
                 SettingsStaticTextDescriptors.Table,
                 InputRebindCanceledKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular);
+        }
+
+        public static LocalizedTextDescriptor InputResetComplete()
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                InputResetCompleteKey,
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular);
         }
