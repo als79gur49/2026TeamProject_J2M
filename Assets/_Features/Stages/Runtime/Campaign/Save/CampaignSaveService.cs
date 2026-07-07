@@ -154,6 +154,15 @@ namespace Game.Feature.Stages
         void MarkResetImportDisabled(string resetTombstoneUtc);
     }
 
+    public interface ICampaignDeletedSlotGuardMarkerPort
+    {
+        void RecordDeletedSlotGuard(
+            int slotNumber,
+            string importedSourceHash,
+            string deletedAtUtc,
+            string reason);
+    }
+
     public sealed class CampaignLegacyImportResetMarkerPort : ICampaignSaveResetMarkerPort
     {
         private readonly CampaignLegacyImportMarkerStore _markerStore;
@@ -175,12 +184,42 @@ namespace Game.Feature.Stages
         }
     }
 
+    public sealed class CampaignLegacyDeletedSlotGuardMarkerPort : ICampaignDeletedSlotGuardMarkerPort
+    {
+        private readonly CampaignLegacyImportMarkerStore _markerStore;
+
+        public CampaignLegacyDeletedSlotGuardMarkerPort()
+            : this(new CampaignLegacyImportMarkerStore())
+        {
+        }
+
+        public CampaignLegacyDeletedSlotGuardMarkerPort(CampaignLegacyImportMarkerStore markerStore)
+        {
+            _markerStore = markerStore ?? throw new ArgumentNullException(nameof(markerStore));
+        }
+
+        public void RecordDeletedSlotGuard(
+            int slotNumber,
+            string importedSourceHash,
+            string deletedAtUtc,
+            string reason)
+        {
+            _markerStore.RecordDeletedSlotGuard(
+                slotNumber,
+                importedSourceHash,
+                deletedAtUtc,
+                reason);
+        }
+    }
+
     public sealed class CampaignSaveService
     {
         private const int SchemaVersion = 1;
+        private const string DeleteSlotGuardReason = "DeleteSlot";
 
         private readonly ICampaignProfileRepository _repository;
         private readonly ICampaignSaveResetMarkerPort _resetMarkerPort;
+        private readonly ICampaignDeletedSlotGuardMarkerPort _deletedSlotGuardMarkerPort;
         private readonly Func<string> _utcNowProvider;
         private readonly string _profileId;
         private readonly string _productVersion;
@@ -190,10 +229,12 @@ namespace Game.Feature.Stages
             ICampaignSaveResetMarkerPort resetMarkerPort,
             Func<string> utcNowProvider,
             string profileId,
-            string productVersion)
+            string productVersion,
+            ICampaignDeletedSlotGuardMarkerPort deletedSlotGuardMarkerPort = null)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _resetMarkerPort = resetMarkerPort;
+            _deletedSlotGuardMarkerPort = deletedSlotGuardMarkerPort;
             _utcNowProvider = utcNowProvider ?? DefaultUtcNow;
             _profileId = string.IsNullOrWhiteSpace(profileId) ? "campaign-profile" : profileId;
             _productVersion = productVersion ?? string.Empty;
@@ -374,7 +415,14 @@ namespace Game.Feature.Stages
                     document.LastPlayedSlotNumber = FindFirstSlotNumber(document);
                 }
 
-                TouchProfile(document, Now());
+                var now = Now();
+                UpsertDeletedSlotGuard(document, slotNumber, now, DeleteSlotGuardReason);
+                _deletedSlotGuardMarkerPort?.RecordDeletedSlotGuard(
+                    slotNumber,
+                    document.LegacyImport.ImportedSourceHash,
+                    now,
+                    DeleteSlotGuardReason);
+                TouchProfile(document, now);
                 return CampaignSaveServiceResult.Success(document, message: "Campaign slot deleted.");
             });
         }
@@ -927,6 +975,10 @@ namespace Game.Feature.Stages
             document.ProductVersion ??= string.Empty;
             document.SavedAtUtc ??= string.Empty;
             document.LegacyImport ??= new CampaignLegacyImportDocument();
+            document.LegacyImport.ImportedSourceHash ??= string.Empty;
+            document.LegacyImport.ResetTombstoneUtc ??= string.Empty;
+            document.LegacyImport.DeletedSlotGuards =
+                NormalizeDeletedSlotGuards(document.LegacyImport.DeletedSlotGuards);
             document.Slots ??= Array.Empty<CampaignSlotDocument>();
             for (var i = 0; i < document.Slots.Length; i++)
             {
@@ -983,6 +1035,102 @@ namespace Game.Feature.Stages
                 ImportedSourceHash = legacyImport.ImportedSourceHash ?? string.Empty,
                 ImportDisabled = legacyImport.ImportDisabled,
                 ResetTombstoneUtc = legacyImport.ResetTombstoneUtc ?? string.Empty,
+                DeletedSlotGuards = CloneDeletedSlotGuards(legacyImport.DeletedSlotGuards),
+            };
+        }
+
+        private static void UpsertDeletedSlotGuard(
+            CampaignProfileDocument document,
+            int slotNumber,
+            string deletedAtUtc,
+            string reason)
+        {
+            document.LegacyImport ??= new CampaignLegacyImportDocument();
+            document.LegacyImport.DeletedSlotGuards =
+                UpsertDeletedSlotGuard(
+                    document.LegacyImport.DeletedSlotGuards,
+                    new CampaignLegacyDeletedSlotGuardDocument
+                    {
+                        SlotNumber = slotNumber,
+                        ImportedSourceHash = document.LegacyImport.ImportedSourceHash ?? string.Empty,
+                        DeletedAtUtc = deletedAtUtc ?? string.Empty,
+                        Reason = reason ?? string.Empty,
+                    });
+        }
+
+        private static CampaignLegacyDeletedSlotGuardDocument[] UpsertDeletedSlotGuard(
+            CampaignLegacyDeletedSlotGuardDocument[] existing,
+            CampaignLegacyDeletedSlotGuardDocument replacement)
+        {
+            if (replacement == null || !SaveSlotStore.IsValidSlotNumber(replacement.SlotNumber))
+            {
+                return NormalizeDeletedSlotGuards(existing);
+            }
+
+            var guards = new List<CampaignLegacyDeletedSlotGuardDocument>(
+                NormalizeDeletedSlotGuards(existing));
+            var normalizedHash = replacement.ImportedSourceHash ?? string.Empty;
+            for (var i = 0; i < guards.Count; i++)
+            {
+                var guard = guards[i];
+                if (guard.SlotNumber == replacement.SlotNumber &&
+                    string.Equals(
+                        guard.ImportedSourceHash ?? string.Empty,
+                        normalizedHash,
+                        StringComparison.Ordinal))
+                {
+                    guards[i] = CloneDeletedSlotGuard(replacement);
+                    return guards.ToArray();
+                }
+            }
+
+            guards.Add(CloneDeletedSlotGuard(replacement));
+            return guards.ToArray();
+        }
+
+        private static CampaignLegacyDeletedSlotGuardDocument[] NormalizeDeletedSlotGuards(
+            CampaignLegacyDeletedSlotGuardDocument[] guards)
+        {
+            if (guards == null || guards.Length == 0)
+            {
+                return Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
+            }
+
+            var normalized = new List<CampaignLegacyDeletedSlotGuardDocument>();
+            for (var i = 0; i < guards.Length; i++)
+            {
+                var guard = guards[i];
+                if (guard == null || !SaveSlotStore.IsValidSlotNumber(guard.SlotNumber))
+                {
+                    continue;
+                }
+
+                normalized.Add(CloneDeletedSlotGuard(guard));
+            }
+
+            return normalized.ToArray();
+        }
+
+        private static CampaignLegacyDeletedSlotGuardDocument[] CloneDeletedSlotGuards(
+            CampaignLegacyDeletedSlotGuardDocument[] guards)
+        {
+            return NormalizeDeletedSlotGuards(guards);
+        }
+
+        private static CampaignLegacyDeletedSlotGuardDocument CloneDeletedSlotGuard(
+            CampaignLegacyDeletedSlotGuardDocument guard)
+        {
+            if (guard == null)
+            {
+                return null;
+            }
+
+            return new CampaignLegacyDeletedSlotGuardDocument
+            {
+                SlotNumber = guard.SlotNumber,
+                ImportedSourceHash = guard.ImportedSourceHash ?? string.Empty,
+                DeletedAtUtc = guard.DeletedAtUtc ?? string.Empty,
+                Reason = guard.Reason ?? string.Empty,
             };
         }
 

@@ -105,7 +105,8 @@ namespace Game.Feature.Stages
                 new CampaignLegacyImportResetMarkerPort(markerStore),
                 UtcNowString,
                 options.ProfileId,
-                options.ProductVersion);
+                options.ProductVersion,
+                new CampaignLegacyDeletedSlotGuardMarkerPort(markerStore));
             var adapter = options.CreateCompatibilityAdapter
                 ? new SaveSlotStoreCompatibilityAdapter(service)
                 : null;

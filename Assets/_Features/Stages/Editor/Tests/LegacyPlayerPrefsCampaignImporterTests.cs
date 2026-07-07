@@ -27,6 +27,7 @@ namespace Game.Feature.Stages.Editor.Tests
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportDisabledKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
+            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
             PlayerPrefs.Save();
         }
 
@@ -198,6 +199,39 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(markerStore.GetResetTombstoneUtc(), Is.EqualTo("2026-07-06T12:00:00Z"));
             Assert.That(markerStore.HasResetTombstone(), Is.True);
+        }
+
+        [Test]
+        public void MarkerStore_RecordsAndReadsDeletedSlotGuards()
+        {
+            var markerStore = new CampaignLegacyImportMarkerStore();
+
+            markerStore.RecordDeletedSlotGuard(
+                2,
+                "source-hash",
+                "2026-07-06T12:30:00Z",
+                "DeleteSlot");
+
+            var guards = markerStore.ReadDeletedSlotGuards();
+            Assert.That(guards, Has.Length.EqualTo(1));
+            Assert.That(guards[0].SlotNumber, Is.EqualTo(2));
+            Assert.That(guards[0].ImportedSourceHash, Is.EqualTo("source-hash"));
+            Assert.That(guards[0].DeletedAtUtc, Is.EqualTo("2026-07-06T12:30:00Z"));
+            Assert.That(guards[0].Reason, Is.EqualTo("DeleteSlot"));
+        }
+
+        [Test]
+        public void MarkerStore_InvalidDeletedSlotGuardNumberIsIgnored()
+        {
+            var markerStore = new CampaignLegacyImportMarkerStore();
+
+            markerStore.RecordDeletedSlotGuard(
+                99,
+                "source-hash",
+                "2026-07-06T12:30:00Z",
+                "DeleteSlot");
+
+            Assert.That(markerStore.ReadDeletedSlotGuards(), Is.Empty);
         }
 
         [Test]

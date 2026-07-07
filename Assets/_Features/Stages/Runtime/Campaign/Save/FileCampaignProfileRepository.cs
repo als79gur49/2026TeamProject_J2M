@@ -156,6 +156,8 @@ namespace Game.Feature.Stages
             }
 
             document.LegacyImport ??= new CampaignLegacyImportDocument();
+            document.LegacyImport.DeletedSlotGuards ??=
+                Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
             return CampaignProfileLoadStatus.Loaded;
         }
 

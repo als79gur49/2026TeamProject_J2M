@@ -24,6 +24,7 @@ namespace Game.Feature.Stages.Editor.Tests
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportDisabledKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
+            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
             PlayerPrefs.Save();
         }
 
@@ -527,6 +528,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
             public string ResetTombstoneUtc { get; set; } = string.Empty;
 
+            public CampaignLegacyDeletedSlotGuardDocument[] DeletedSlotGuards { get; set; } =
+                Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
+
             public int SetImportedSourceHashCount { get; private set; }
 
             public bool IsImportDisabled()
@@ -553,6 +557,29 @@ namespace Game.Feature.Stages.Editor.Tests
             public bool HasResetTombstone()
             {
                 return !string.IsNullOrWhiteSpace(ResetTombstoneUtc);
+            }
+
+            public void RecordDeletedSlotGuard(
+                int slotNumber,
+                string importedSourceHash,
+                string deletedAtUtc,
+                string reason)
+            {
+                DeletedSlotGuards = new[]
+                {
+                    new CampaignLegacyDeletedSlotGuardDocument
+                    {
+                        SlotNumber = slotNumber,
+                        ImportedSourceHash = importedSourceHash ?? string.Empty,
+                        DeletedAtUtc = deletedAtUtc ?? string.Empty,
+                        Reason = reason ?? string.Empty,
+                    },
+                };
+            }
+
+            public CampaignLegacyDeletedSlotGuardDocument[] ReadDeletedSlotGuards()
+            {
+                return DeletedSlotGuards ?? Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
             }
         }
 

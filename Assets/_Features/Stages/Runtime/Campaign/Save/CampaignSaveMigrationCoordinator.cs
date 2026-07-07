@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Game.Feature.Stages
 {
@@ -254,11 +255,39 @@ namespace Game.Feature.Stages
             }
 
             var importedSourceHash = importResult.ImportedSourceHash;
+            var guardApplication = ApplyDeletedSlotGuards(importResult.Document, importedSourceHash);
+            if (guardApplication.BlockedByChangedSource)
+            {
+                return Result(
+                    CampaignSaveMigrationStatus.MigrationDeferred,
+                    loadResult,
+                    importResult,
+                    guardApplication.Document,
+                    profileWriteAttempted: false,
+                    profileWriteSucceeded: false,
+                    requiresRepair,
+                    "Legacy campaign source changed and contains a guarded deleted slot; automatic import is deferred.");
+            }
+
+            if (guardApplication.AllImportableSlotsGuarded)
+            {
+                return Result(
+                    CampaignSaveMigrationStatus.MigrationDeferred,
+                    loadResult,
+                    importResult,
+                    null,
+                    profileWriteAttempted: false,
+                    profileWriteSucceeded: false,
+                    requiresRepair,
+                    "Legacy campaign source contains only deleted-slot guarded importable slots; automatic import is deferred.");
+            }
+
             if (!string.IsNullOrWhiteSpace(importedSourceHash) &&
                 string.Equals(
                     _markerStore.GetImportedSourceHash(),
                     importedSourceHash,
-                    StringComparison.Ordinal))
+                    StringComparison.Ordinal) &&
+                !guardApplication.FilteredAnySlot)
             {
                 return Result(
                     CampaignSaveMigrationStatus.AlreadyImported,
@@ -277,7 +306,7 @@ namespace Game.Feature.Stages
                     CampaignSaveMigrationStatus.MigrationDeferred,
                     loadResult,
                     importResult,
-                    importResult.Document,
+                    guardApplication.Document,
                     profileWriteAttempted: false,
                     profileWriteSucceeded: false,
                     requiresRepair,
@@ -286,10 +315,10 @@ namespace Game.Feature.Stages
                         : "Legacy campaign source is importable, but profile write is disabled.");
             }
 
-            EnsureLegacyImportMarker(importResult.Document, importedSourceHash);
+            EnsureLegacyImportMarker(guardApplication.Document, importedSourceHash);
             try
             {
-                _repository.Save(importResult.Document);
+                _repository.Save(guardApplication.Document);
             }
             catch (Exception exception)
             {
@@ -297,7 +326,7 @@ namespace Game.Feature.Stages
                     CampaignSaveMigrationStatus.ImportWriteFailed,
                     loadResult,
                     importResult,
-                    importResult.Document,
+                    guardApplication.Document,
                     profileWriteAttempted: true,
                     profileWriteSucceeded: false,
                     requiresRepair: false,
@@ -309,7 +338,7 @@ namespace Game.Feature.Stages
                 CampaignSaveMigrationStatus.ImportSucceeded,
                 loadResult,
                 importResult,
-                importResult.Document,
+                guardApplication.Document,
                 profileWriteAttempted: true,
                 profileWriteSucceeded: true,
                 requiresRepair: false,
@@ -325,6 +354,302 @@ namespace Game.Feature.Stages
 
             document.LegacyImport ??= new CampaignLegacyImportDocument();
             document.LegacyImport.ImportedSourceHash = importedSourceHash ?? string.Empty;
+            document.LegacyImport.DeletedSlotGuards ??=
+                Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
+        }
+
+        private DeletedSlotGuardApplication ApplyDeletedSlotGuards(
+            CampaignProfileDocument document,
+            string importedSourceHash)
+        {
+            var candidate = CloneProfile(document);
+            var guards = CollectDeletedSlotGuards(
+                candidate?.LegacyImport?.DeletedSlotGuards,
+                _markerStore.ReadDeletedSlotGuards());
+            if (candidate == null || guards.Length == 0)
+            {
+                return new DeletedSlotGuardApplication(candidate, false, false, false);
+            }
+
+            var originalImportableSlotCount = CountImportableSlots(candidate.Slots);
+            var changedSourceBlocked = false;
+            for (var i = 0; i < guards.Length; i++)
+            {
+                var guard = guards[i];
+                if (IsChangedSourceGuard(guard, importedSourceHash) &&
+                    ContainsImportableSlot(candidate.Slots, guard.SlotNumber))
+                {
+                    changedSourceBlocked = true;
+                    break;
+                }
+            }
+
+            if (changedSourceBlocked)
+            {
+                return new DeletedSlotGuardApplication(
+                    candidate,
+                    filteredAnySlot: false,
+                    allImportableSlotsGuarded: false,
+                    blockedByChangedSource: true);
+            }
+
+            var filteredSlots = new List<CampaignSlotDocument>();
+            var filteredAny = false;
+            var slots = candidate.Slots ?? Array.Empty<CampaignSlotDocument>();
+            for (var i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                if (slot != null && IsGuardedForCurrentSource(slot.SlotNumber, importedSourceHash, guards))
+                {
+                    filteredAny = true;
+                    continue;
+                }
+
+                filteredSlots.Add(slot);
+            }
+
+            candidate.Slots = filteredSlots.ToArray();
+            if (filteredAny && !ContainsImportableSlot(candidate.Slots, candidate.LastPlayedSlotNumber))
+            {
+                candidate.LastPlayedSlotNumber = FindFirstImportableSlotNumber(candidate.Slots);
+            }
+
+            var allImportableGuarded =
+                filteredAny &&
+                originalImportableSlotCount > 0 &&
+                CountImportableSlots(candidate.Slots) == 0;
+            return new DeletedSlotGuardApplication(
+                candidate,
+                filteredAny,
+                allImportableGuarded,
+                blockedByChangedSource: false);
+        }
+
+        private static CampaignLegacyDeletedSlotGuardDocument[] CollectDeletedSlotGuards(
+            CampaignLegacyDeletedSlotGuardDocument[] profileGuards,
+            CampaignLegacyDeletedSlotGuardDocument[] localGuards)
+        {
+            var guards = new List<CampaignLegacyDeletedSlotGuardDocument>();
+            AppendDeletedSlotGuards(guards, profileGuards);
+            AppendDeletedSlotGuards(guards, localGuards);
+            return guards.ToArray();
+        }
+
+        private static void AppendDeletedSlotGuards(
+            List<CampaignLegacyDeletedSlotGuardDocument> destination,
+            CampaignLegacyDeletedSlotGuardDocument[] source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < source.Length; i++)
+            {
+                var guard = source[i];
+                if (guard == null || !SaveSlotStore.IsValidSlotNumber(guard.SlotNumber))
+                {
+                    continue;
+                }
+
+                destination.Add(new CampaignLegacyDeletedSlotGuardDocument
+                {
+                    SlotNumber = guard.SlotNumber,
+                    ImportedSourceHash = guard.ImportedSourceHash ?? string.Empty,
+                    DeletedAtUtc = guard.DeletedAtUtc ?? string.Empty,
+                    Reason = guard.Reason ?? string.Empty,
+                });
+            }
+        }
+
+        private static bool IsGuardedForCurrentSource(
+            int slotNumber,
+            string importedSourceHash,
+            CampaignLegacyDeletedSlotGuardDocument[] guards)
+        {
+            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < guards.Length; i++)
+            {
+                var guard = guards[i];
+                if (guard.SlotNumber != slotNumber)
+                {
+                    continue;
+                }
+
+                var guardHash = guard.ImportedSourceHash ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(guardHash) ||
+                    string.Equals(guardHash, importedSourceHash ?? string.Empty, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsChangedSourceGuard(
+            CampaignLegacyDeletedSlotGuardDocument guard,
+            string importedSourceHash)
+        {
+            var guardHash = guard?.ImportedSourceHash ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(guardHash) &&
+                   !string.Equals(guardHash, importedSourceHash ?? string.Empty, StringComparison.Ordinal);
+        }
+
+        private static bool ContainsImportableSlot(CampaignSlotDocument[] slots, int slotNumber)
+        {
+            if (!SaveSlotStore.IsValidSlotNumber(slotNumber) || slots == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                if (slot != null && slot.SlotNumber == slotNumber && IsImportableSlot(slot))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int CountImportableSlots(CampaignSlotDocument[] slots)
+        {
+            var count = 0;
+            if (slots == null)
+            {
+                return count;
+            }
+
+            for (var i = 0; i < slots.Length; i++)
+            {
+                if (IsImportableSlot(slots[i]))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int FindFirstImportableSlotNumber(CampaignSlotDocument[] slots)
+        {
+            var first = 0;
+            if (slots == null)
+            {
+                return first;
+            }
+
+            for (var i = 0; i < slots.Length; i++)
+            {
+                var slot = slots[i];
+                if (IsImportableSlot(slot) &&
+                    (first == 0 || slot.SlotNumber < first))
+                {
+                    first = slot.SlotNumber;
+                }
+            }
+
+            return first;
+        }
+
+        private static bool IsImportableSlot(CampaignSlotDocument slot)
+        {
+            return slot != null &&
+                   SaveSlotStore.IsValidSlotNumber(slot.SlotNumber) &&
+                   !string.IsNullOrWhiteSpace(slot.StageId);
+        }
+
+        private static CampaignProfileDocument CloneProfile(CampaignProfileDocument document)
+        {
+            if (document == null)
+            {
+                return null;
+            }
+
+            var slots = document.Slots ?? Array.Empty<CampaignSlotDocument>();
+            var clonedSlots = new CampaignSlotDocument[slots.Length];
+            for (var i = 0; i < slots.Length; i++)
+            {
+                clonedSlots[i] = CloneSlot(slots[i]);
+            }
+
+            return new CampaignProfileDocument
+            {
+                SchemaVersion = document.SchemaVersion,
+                ProductVersion = document.ProductVersion ?? string.Empty,
+                SavedAtUtc = document.SavedAtUtc ?? string.Empty,
+                ProfileId = document.ProfileId ?? string.Empty,
+                LastPlayedSlotNumber = document.LastPlayedSlotNumber,
+                LegacyImport = CloneLegacyImport(document.LegacyImport),
+                Slots = clonedSlots,
+            };
+        }
+
+        private static CampaignLegacyImportDocument CloneLegacyImport(
+            CampaignLegacyImportDocument legacyImport)
+        {
+            legacyImport ??= new CampaignLegacyImportDocument();
+            return new CampaignLegacyImportDocument
+            {
+                ImportedSourceHash = legacyImport.ImportedSourceHash ?? string.Empty,
+                ImportDisabled = legacyImport.ImportDisabled,
+                ResetTombstoneUtc = legacyImport.ResetTombstoneUtc ?? string.Empty,
+                DeletedSlotGuards = CollectDeletedSlotGuards(
+                    legacyImport.DeletedSlotGuards,
+                    Array.Empty<CampaignLegacyDeletedSlotGuardDocument>()),
+            };
+        }
+
+        private static CampaignSlotDocument CloneSlot(CampaignSlotDocument slot)
+        {
+            if (slot == null)
+            {
+                return null;
+            }
+
+            return new CampaignSlotDocument
+            {
+                SlotNumber = slot.SlotNumber,
+                StageId = slot.StageId ?? string.Empty,
+                LevelGroupId = slot.LevelGroupId ?? string.Empty,
+                RemainingChances = slot.RemainingChances,
+                CampaignCompleted = slot.CampaignCompleted,
+                IntroPlayed = slot.IntroPlayed,
+                OutroPlayed = slot.OutroPlayed,
+                TotalDeaths = slot.TotalDeaths,
+                LastPlayedAtUtc = slot.LastPlayedAtUtc ?? string.Empty,
+                StageClearProfileSnapshot = slot.StageClearProfileSnapshot ?? new CampaignStageClearProfileDocument(),
+            };
+        }
+
+        private sealed class DeletedSlotGuardApplication
+        {
+            public DeletedSlotGuardApplication(
+                CampaignProfileDocument document,
+                bool filteredAnySlot,
+                bool allImportableSlotsGuarded,
+                bool blockedByChangedSource)
+            {
+                Document = document;
+                FilteredAnySlot = filteredAnySlot;
+                AllImportableSlotsGuarded = allImportableSlotsGuarded;
+                BlockedByChangedSource = blockedByChangedSource;
+            }
+
+            public CampaignProfileDocument Document { get; }
+
+            public bool FilteredAnySlot { get; }
+
+            public bool AllImportableSlotsGuarded { get; }
+
+            public bool BlockedByChangedSource { get; }
         }
 
         private static CampaignSaveMigrationResult Result(

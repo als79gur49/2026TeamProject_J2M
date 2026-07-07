@@ -91,6 +91,14 @@ namespace Game.Feature.Stages
         string GetResetTombstoneUtc();
 
         bool HasResetTombstone();
+
+        void RecordDeletedSlotGuard(
+            int slotNumber,
+            string importedSourceHash,
+            string deletedAtUtc,
+            string reason);
+
+        CampaignLegacyDeletedSlotGuardDocument[] ReadDeletedSlotGuards();
     }
 
     public interface ICampaignLegacyImportCandidateSource
@@ -108,6 +116,9 @@ namespace Game.Feature.Stages
 
         public const string ResetTombstoneUtcKey =
             "Game.Feature.Stages.CampaignProfile.LegacyResetTombstoneUtc";
+
+        public const string DeletedSlotGuardsKey =
+            "Game.Feature.Stages.CampaignProfile.LegacyDeletedSlotGuards";
 
         public bool IsImportDisabled()
         {
@@ -145,6 +156,104 @@ namespace Game.Feature.Stages
         public bool HasResetTombstone()
         {
             return !string.IsNullOrWhiteSpace(GetResetTombstoneUtc());
+        }
+
+        public void RecordDeletedSlotGuard(
+            int slotNumber,
+            string importedSourceHash,
+            string deletedAtUtc,
+            string reason)
+        {
+            if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
+            {
+                return;
+            }
+
+            var normalizedHash = importedSourceHash ?? string.Empty;
+            var guards = new System.Collections.Generic.List<CampaignLegacyDeletedSlotGuardDocument>(
+                ReadDeletedSlotGuards());
+            var replacement = new CampaignLegacyDeletedSlotGuardDocument
+            {
+                SlotNumber = slotNumber,
+                ImportedSourceHash = normalizedHash,
+                DeletedAtUtc = deletedAtUtc ?? string.Empty,
+                Reason = reason ?? string.Empty,
+            };
+
+            var replaced = false;
+            for (var i = 0; i < guards.Count; i++)
+            {
+                var guard = guards[i];
+                if (guard != null &&
+                    guard.SlotNumber == slotNumber &&
+                    string.Equals(
+                        guard.ImportedSourceHash ?? string.Empty,
+                        normalizedHash,
+                        StringComparison.Ordinal))
+                {
+                    guards[i] = replacement;
+                    replaced = true;
+                    break;
+                }
+            }
+
+            if (!replaced)
+            {
+                guards.Add(replacement);
+            }
+
+            PlayerPrefs.SetString(
+                DeletedSlotGuardsKey,
+                JsonUtility.ToJson(new DeletedSlotGuardMarkerDocument
+                {
+                    Guards = guards.ToArray(),
+                }));
+            PlayerPrefs.Save();
+        }
+
+        public CampaignLegacyDeletedSlotGuardDocument[] ReadDeletedSlotGuards()
+        {
+            var raw = PlayerPrefs.GetString(DeletedSlotGuardsKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
+            }
+
+            try
+            {
+                var document = JsonUtility.FromJson<DeletedSlotGuardMarkerDocument>(raw);
+                var source = document?.Guards ?? Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
+                var guards = new System.Collections.Generic.List<CampaignLegacyDeletedSlotGuardDocument>();
+                for (var i = 0; i < source.Length; i++)
+                {
+                    var guard = source[i];
+                    if (guard == null || !SaveSlotStore.IsValidSlotNumber(guard.SlotNumber))
+                    {
+                        continue;
+                    }
+
+                    guards.Add(new CampaignLegacyDeletedSlotGuardDocument
+                    {
+                        SlotNumber = guard.SlotNumber,
+                        ImportedSourceHash = guard.ImportedSourceHash ?? string.Empty,
+                        DeletedAtUtc = guard.DeletedAtUtc ?? string.Empty,
+                        Reason = guard.Reason ?? string.Empty,
+                    });
+                }
+
+                return guards.ToArray();
+            }
+            catch (ArgumentException)
+            {
+                return Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
+            }
+        }
+
+        [Serializable]
+        private sealed class DeletedSlotGuardMarkerDocument
+        {
+            public CampaignLegacyDeletedSlotGuardDocument[] Guards =
+                Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
         }
     }
 

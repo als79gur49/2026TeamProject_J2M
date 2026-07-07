@@ -21,6 +21,7 @@ namespace Game.Feature.Stages.Editor.Tests
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportDisabledKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
+            PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
             PlayerPrefs.DeleteKey("settings.audio.master.volume");
             PlayerPrefs.DeleteKey("settings.audio.master.muted");
             PlayerPrefs.DeleteKey("settings.display.width");

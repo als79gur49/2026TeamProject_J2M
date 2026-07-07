@@ -33,6 +33,16 @@ namespace Game.Feature.Stages.Editor.Tests
                     ImportedSourceHash = "legacy-hash",
                     ImportDisabled = true,
                     ResetTombstoneUtc = "2026-07-06T10:00:00Z",
+                    DeletedSlotGuards = new[]
+                    {
+                        new CampaignLegacyDeletedSlotGuardDocument
+                        {
+                            SlotNumber = 2,
+                            ImportedSourceHash = "legacy-hash",
+                            DeletedAtUtc = "2026-07-06T10:30:00Z",
+                            Reason = "DeleteSlot",
+                        },
+                    },
                 },
                 Slots = new[]
                 {
@@ -79,6 +89,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(roundTripped.LegacyImport.ImportedSourceHash, Is.EqualTo("legacy-hash"));
             Assert.That(roundTripped.LegacyImport.ImportDisabled, Is.True);
             Assert.That(roundTripped.LegacyImport.ResetTombstoneUtc, Is.EqualTo("2026-07-06T10:00:00Z"));
+            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards, Has.Length.EqualTo(1));
+            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].SlotNumber, Is.EqualTo(2));
+            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].ImportedSourceHash, Is.EqualTo("legacy-hash"));
+            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].DeletedAtUtc, Is.EqualTo("2026-07-06T10:30:00Z"));
+            Assert.That(roundTripped.LegacyImport.DeletedSlotGuards[0].Reason, Is.EqualTo("DeleteSlot"));
             Assert.That(roundTripped.Slots, Has.Length.EqualTo(1));
             Assert.That(roundTripped.Slots[0].SlotNumber, Is.EqualTo(2));
             Assert.That(roundTripped.Slots[0].StageId, Is.EqualTo("stage-1-1"));
@@ -230,6 +245,16 @@ namespace Game.Feature.Stages.Editor.Tests
                 ImportedSourceHash = "source-hash",
                 ImportDisabled = true,
                 ResetTombstoneUtc = "2026-07-06T12:00:00Z",
+                DeletedSlotGuards = new[]
+                {
+                    new CampaignLegacyDeletedSlotGuardDocument
+                    {
+                        SlotNumber = 1,
+                        ImportedSourceHash = "source-hash",
+                        DeletedAtUtc = "2026-07-06T12:30:00Z",
+                        Reason = "DeleteSlot",
+                    },
+                },
             };
 
             var json = JsonUtility.ToJson(document);
@@ -238,6 +263,31 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(roundTripped.ImportedSourceHash, Is.EqualTo("source-hash"));
             Assert.That(roundTripped.ImportDisabled, Is.True);
             Assert.That(roundTripped.ResetTombstoneUtc, Is.EqualTo("2026-07-06T12:00:00Z"));
+            Assert.That(roundTripped.DeletedSlotGuards, Has.Length.EqualTo(1));
+            Assert.That(roundTripped.DeletedSlotGuards[0].SlotNumber, Is.EqualTo(1));
+            Assert.That(roundTripped.DeletedSlotGuards[0].ImportedSourceHash, Is.EqualTo("source-hash"));
+            Assert.That(roundTripped.DeletedSlotGuards[0].DeletedAtUtc, Is.EqualTo("2026-07-06T12:30:00Z"));
+            Assert.That(roundTripped.DeletedSlotGuards[0].Reason, Is.EqualTo("DeleteSlot"));
+        }
+
+        [Test]
+        public void CampaignLegacyDeletedSlotGuardDocument_RoundTripsThroughJsonUtility()
+        {
+            var document = new CampaignLegacyDeletedSlotGuardDocument
+            {
+                SlotNumber = 3,
+                ImportedSourceHash = "source-hash",
+                DeletedAtUtc = "2026-07-06T13:00:00Z",
+                Reason = "DeleteSlot",
+            };
+
+            var json = JsonUtility.ToJson(document);
+            var roundTripped = JsonUtility.FromJson<CampaignLegacyDeletedSlotGuardDocument>(json);
+
+            Assert.That(roundTripped.SlotNumber, Is.EqualTo(3));
+            Assert.That(roundTripped.ImportedSourceHash, Is.EqualTo("source-hash"));
+            Assert.That(roundTripped.DeletedAtUtc, Is.EqualTo("2026-07-06T13:00:00Z"));
+            Assert.That(roundTripped.Reason, Is.EqualTo("DeleteSlot"));
         }
 
         [Test]
@@ -466,6 +516,39 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
             Assert.That(result.Document.Slots, Is.Not.Null);
             Assert.That(result.Document.Slots, Is.Empty);
+        }
+
+        [Test]
+        public void CampaignProfileRepository_OldProfileWithoutDeletedSlotGuardsLoadsSuccessfully()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(
+                harness.ProfilePath,
+                "{\"SchemaVersion\":1,\"ProfileId\":\"profile-old\",\"LegacyImport\":{\"ImportedSourceHash\":\"source-hash\"}}");
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
+            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Not.Null);
+            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Empty);
+            Assert.That(result.Document.SchemaVersion, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_NullDeletedSlotGuardsNormalizesToEmptyArray()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(
+                harness.ProfilePath,
+                "{\"SchemaVersion\":1,\"ProfileId\":\"profile-null-guards\",\"LegacyImport\":{\"DeletedSlotGuards\":null}}");
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
+            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Not.Null);
+            Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Empty);
         }
 
         [Test]
