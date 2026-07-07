@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Game.Feature.UI.ViewShared
 {
@@ -199,7 +200,7 @@ namespace Game.Feature.UI.ViewShared
             if (TryResolve(_currentLocaleCode, descriptor, out var value) ||
                 TryResolve(DefaultLocaleCode, descriptor, out value))
             {
-                return value;
+                return FormatKnownDynamicText(descriptor, value);
             }
 
             return $"[{descriptor.Table}:{descriptor.Key}]";
@@ -244,6 +245,58 @@ namespace Game.Feature.UI.ViewShared
             return string.Equals(descriptor.Table, "UI", StringComparison.Ordinal) &&
                    _catalog.TryGetValue(localeCode, out var localeValues) &&
                    localeValues.TryGetValue(descriptor.Key, out value);
+        }
+
+        private static string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
+        {
+            if ((string.Equals(descriptor.Key, "ui.settings.audio.volume_value", StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, "ui.settings.audio.volume_value_muted", StringComparison.Ordinal)) &&
+                TryGetPercentArgument(descriptor, out var percent))
+            {
+                return value
+                    .Replace("{percent}", percent.ToString(CultureInfo.InvariantCulture))
+                    .Replace("{0}", percent.ToString(CultureInfo.InvariantCulture));
+            }
+
+            return value;
+        }
+
+        private static bool TryGetPercentArgument(LocalizedTextDescriptor descriptor, out int percent)
+        {
+            percent = 0;
+            if (descriptor.Arguments.Count == 0 || descriptor.Arguments[0] == null)
+            {
+                return false;
+            }
+
+            if (descriptor.Arguments[0] is int positionalIntValue)
+            {
+                percent = positionalIntValue;
+                return true;
+            }
+
+            if (descriptor.Arguments[0] is IDictionary<string, object> namedArguments &&
+                namedArguments.TryGetValue("percent", out var namedValue) &&
+                namedValue is int namedIntValue)
+            {
+                percent = namedIntValue;
+                return true;
+            }
+
+            var property = descriptor.Arguments[0].GetType().GetProperty("percent");
+            if (property == null)
+            {
+                return false;
+            }
+
+            var value = property.GetValue(descriptor.Arguments[0]);
+            if (value is int intValue)
+            {
+                percent = intValue;
+                return true;
+            }
+
+            return false;
         }
 
         private static string NormalizeLocaleCode(string localeCode)
@@ -303,6 +356,8 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.language"] = "Language",
                     ["ui.settings.language.english"] = "English",
                     ["ui.settings.language.korean"] = "Korean",
+                    ["ui.settings.audio.volume_value"] = "{0}%",
+                    ["ui.settings.audio.volume_value_muted"] = "{0}% (Muted)",
                     ["ui.common.back"] = "Back",
                     ["ui.common.settings"] = "Settings",
                     ["ui.main_menu.start"] = "Start",
@@ -328,6 +383,8 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.language"] = "언어",
                     ["ui.settings.language.english"] = "영어",
                     ["ui.settings.language.korean"] = "한국어",
+                    ["ui.settings.audio.volume_value"] = "{0}%",
+                    ["ui.settings.audio.volume_value_muted"] = "{0}% (음소거)",
                     ["ui.common.back"] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",

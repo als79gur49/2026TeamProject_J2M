@@ -1041,6 +1041,7 @@ namespace Game.Feature.UI.Tests
                 {
                     "Apply()",
                     "Flush()",
+                    "RefreshLocalization()",
                     "SetMuted(AudioSettingsChannel, Boolean)",
                     "SetVolume(AudioSettingsChannel, Single)",
                 }));

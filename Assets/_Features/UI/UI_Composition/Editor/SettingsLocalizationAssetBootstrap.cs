@@ -18,30 +18,32 @@ namespace Game.Feature.UI.Composition.Editor
         private const string LocalizationSettingsPath = "Assets/Localization/Localization Settings.asset";
         private const string TableCollectionName = "UI";
 
-        private static readonly (string Key, string English, string Korean)[] RequiredEntries =
+        private static readonly (string Key, string English, string Korean, bool IsSmart)[] RequiredEntries =
         {
-            ("ui.settings.title", "Settings", "설정"),
-            ("ui.settings.audio", "Audio", "오디오"),
-            ("ui.settings.display", "Display", "디스플레이"),
-            ("ui.settings.input", "Input", "입력"),
-            ("ui.settings.input.movement_keys", "Movement Keys", "이동 키"),
-            ("ui.settings.input.use_arrow_keys", "Use Arrow Keys", "화살표 키 사용"),
-            ("ui.settings.input.push", "Push", "밀기"),
-            ("ui.settings.input.flip", "Flip", "뒤집기"),
-            ("ui.settings.input.change", "Change", "변경"),
-            ("ui.settings.input.reset_input", "Reset Input", "입력 초기화"),
-            ("ui.common.back", "Back", "뒤로"),
-            ("ui.settings.language", "Language", "언어"),
-            ("ui.settings.language.english", "English", "영어"),
-            ("ui.settings.language.korean", "Korean", "한국어"),
-            ("ui.common.settings", "Settings", "설정"),
-            ("ui.main_menu.start", "Start", "시작"),
-            ("ui.main_menu.quit", "Quit", "종료"),
-            ("ui.pause.title", "Paused", "일시 정지"),
-            ("ui.pause.description", "Pausing modal popup", "일시 정지 팝업"),
-            ("ui.pause.resume", "Resume", "계속하기"),
-            ("ui.pause.retry", "Retry", "다시 시도"),
-            ("ui.pause.main_menu", "Main Menu", "메인 메뉴"),
+            ("ui.settings.title", "Settings", "설정", false),
+            ("ui.settings.audio", "Audio", "오디오", false),
+            ("ui.settings.display", "Display", "디스플레이", false),
+            ("ui.settings.input", "Input", "입력", false),
+            ("ui.settings.input.movement_keys", "Movement Keys", "이동 키", false),
+            ("ui.settings.input.use_arrow_keys", "Use Arrow Keys", "화살표 키 사용", false),
+            ("ui.settings.input.push", "Push", "밀기", false),
+            ("ui.settings.input.flip", "Flip", "뒤집기", false),
+            ("ui.settings.input.change", "Change", "변경", false),
+            ("ui.settings.input.reset_input", "Reset Input", "입력 초기화", false),
+            ("ui.common.back", "Back", "뒤로", false),
+            ("ui.settings.language", "Language", "언어", false),
+            ("ui.settings.language.english", "English", "영어", false),
+            ("ui.settings.language.korean", "Korean", "한국어", false),
+            ("ui.settings.audio.volume_value", "{0}%", "{0}%", true),
+            ("ui.settings.audio.volume_value_muted", "{0}% (Muted)", "{0}% (음소거)", true),
+            ("ui.common.settings", "Settings", "설정", false),
+            ("ui.main_menu.start", "Start", "시작", false),
+            ("ui.main_menu.quit", "Quit", "종료", false),
+            ("ui.pause.title", "Paused", "일시 정지", false),
+            ("ui.pause.description", "Pausing modal popup", "일시 정지 팝업", false),
+            ("ui.pause.resume", "Resume", "계속하기", false),
+            ("ui.pause.retry", "Retry", "다시 시도", false),
+            ("ui.pause.main_menu", "Main Menu", "메인 메뉴", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()
@@ -85,7 +87,7 @@ namespace Game.Feature.UI.Composition.Editor
             AssetDatabase.Refresh();
         }
 
-        public static IReadOnlyList<(string Key, string English, string Korean)> Entries => RequiredEntries;
+        public static IReadOnlyList<(string Key, string English, string Korean, bool IsSmart)> Entries => RequiredEntries;
 
         private static Locale EnsureLocale(string localeCode)
         {
@@ -162,11 +164,12 @@ namespace Game.Feature.UI.Composition.Editor
 
             foreach (var entry in RequiredEntries)
             {
-                table.AddEntry(
+                var tableEntry = table.AddEntry(
                     entry.Key,
                     string.Equals(localeCode, "ko-KR", StringComparison.Ordinal)
                         ? entry.Korean
                         : entry.English);
+                tableEntry.IsSmart = entry.IsSmart;
             }
         }
 

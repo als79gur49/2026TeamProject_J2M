@@ -218,8 +218,24 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            value = entry.GetLocalizedString(descriptor.Arguments);
+            value = ResolveEntry(entry, descriptor);
             return !string.IsNullOrEmpty(value);
+        }
+
+        private static string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
+        {
+            if (descriptor.Arguments.Count == 0)
+            {
+                return entry.GetLocalizedString();
+            }
+
+            var arguments = new object[descriptor.Arguments.Count];
+            for (var i = 0; i < descriptor.Arguments.Count; i++)
+            {
+                arguments[i] = descriptor.Arguments[i];
+            }
+
+            return entry.GetLocalizedString(arguments);
         }
 
         private static StringTable PreloadTable(Locale locale, string tableName = "UI")

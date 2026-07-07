@@ -103,6 +103,14 @@ MonoBehaviour:
     m_Key: ui.pause.main_menu
     m_Metadata:
       m_Items: []
+  - m_Id: 283195054972928
+    m_Key: ui.settings.audio.volume_value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195096915968
+    m_Key: ui.settings.audio.volume_value_muted
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

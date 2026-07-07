@@ -84,6 +84,21 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void LocalizedTextDescriptor_CopiesDynamicArguments()
+        {
+            var arguments = new object[] { 50 };
+            var descriptor = new LocalizedTextDescriptor(
+                "UI",
+                "ui.settings.audio.volume_value",
+                arguments: arguments);
+
+            arguments[0] = 75;
+
+            Assert.That(descriptor.Arguments.Count, Is.EqualTo(1));
+            Assert.That(descriptor.Arguments[0], Is.EqualTo(50));
+        }
+
+        [Test]
         public void SettingsScreenPayload_Default_ProvidesStaticShellDescriptors()
         {
             var descriptors = GetSettingsPayloadDescriptors(SettingsScreenPayload.Default);
@@ -517,6 +532,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.percent"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.muted"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.volume_value"));
+            Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.audio.volume_value_muted"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.display.preview_countdown"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_status"));
             Assert.That(descriptorKeys, Does.Not.Contain("ui.settings.input.rebind_error"));

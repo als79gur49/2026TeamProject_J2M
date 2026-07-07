@@ -51,6 +51,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiStringTable_ContainsSettingsAudioSmartStringEntries()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
+            Assert.That(collection, Is.Not.Null);
+
+            AssertAudioSmartEntries(collection.GetTable("en-US") as StringTable, "{0}%", "{0}% (Muted)");
+            AssertAudioSmartEntries(collection.GetTable("ko-KR") as StringTable, "{0}%", "{0}% (음소거)");
+        }
+
+        [Test]
         public void StageStringTable_ContainsCompleteStageDisplayNameEntries()
         {
             var collection = LocalizationEditorSettings.GetStringTableCollection("Stage");
@@ -102,6 +112,28 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")), Is.EqualTo("[UI:ui.settings.missing]"));
+        }
+
+        [Test]
+        public void UnityStringTableTextResolver_ResolvesSettingsAudioSmartStringArguments()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(50, isMuted: false)),
+                Is.EqualTo("50%"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(50, isMuted: true)),
+                Is.EqualTo("50% (Muted)"));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(50, isMuted: false)),
+                Is.EqualTo("50%"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(50, isMuted: true)),
+                Is.EqualTo("50% (음소거)"));
         }
 
         [Test]
@@ -350,7 +382,24 @@ namespace Game.Feature.UI.Tests
                 Assert.That(tableEntry, Is.Not.Null, entry.Key);
                 Assert.That(tableEntry.LocalizedValue, Is.EqualTo(useKorean ? entry.Korean : entry.English));
                 Assert.That(tableEntry.LocalizedValue, Is.Not.Empty);
+                Assert.That(tableEntry.IsSmart, Is.EqualTo(entry.IsSmart), entry.Key);
             }
+        }
+
+        private static void AssertAudioSmartEntries(StringTable table, string volumeValue, string mutedValue)
+        {
+            Assert.That(table, Is.Not.Null);
+            AssertAudioSmartEntry(table, SettingsDynamicTextDescriptors.AudioVolumeValueKey, volumeValue);
+            AssertAudioSmartEntry(table, SettingsDynamicTextDescriptors.AudioVolumeValueMutedKey, mutedValue);
+        }
+
+        private static void AssertAudioSmartEntry(StringTable table, string key, string expectedValue)
+        {
+            var entry = table.GetEntry(key);
+            Assert.That(entry, Is.Not.Null, key);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(expectedValue));
+            Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
+            Assert.That(entry.IsSmart, Is.True, key);
         }
 
         private static void AssertStageTable(

@@ -181,6 +181,22 @@ namespace Game.Feature.UI.Screens
             LocalizedTextWeight.Regular);
     }
 
+    public static class SettingsDynamicTextDescriptors
+    {
+        public const string AudioVolumeValueKey = "ui.settings.audio.volume_value";
+        public const string AudioVolumeValueMutedKey = "ui.settings.audio.volume_value_muted";
+
+        public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                isMuted ? AudioVolumeValueMutedKey : AudioVolumeValueKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular,
+                new object[] { percent });
+        }
+    }
+
     public enum AudioSettingsChannel
     {
         Main = 0,

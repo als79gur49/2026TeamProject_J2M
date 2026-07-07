@@ -172,6 +172,32 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesAudioDynamicValueText()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+            harness.AudioPort.SetVolume(AudioSettingsChannel.Main, 0.5f);
+            harness.AudioPort.SetMuted(AudioSettingsChannel.Main, true);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+
+            Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (Muted)"));
+
+            view.ClickDisplayTab();
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (음소거)"));
+
+            view.DisplayView.ClickLanguageCycle();
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (Muted)"));
+        }
+
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
         {
             var store = new FakeUiLocalePreferenceStore();
@@ -421,6 +447,20 @@ namespace Game.Feature.UI.Tests
             return value;
         }
 
+        private static TMP_Text GetAudioValueText(SettingsAudioView view, string rowFieldName)
+        {
+            var rowField = typeof(SettingsAudioView).GetField(rowFieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(rowField, Is.Not.Null, $"{nameof(SettingsAudioView)}.{rowFieldName} must exist.");
+            var row = rowField.GetValue(view);
+            Assert.That(row, Is.Not.Null);
+
+            var valueProperty = row.GetType().GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(valueProperty, Is.Not.Null, $"{row.GetType().Name}.Value must exist.");
+            var value = valueProperty.GetValue(row) as TMP_Text;
+            Assert.That(value, Is.Not.Null);
+            return value;
+        }
+
         private static TMP_FontAsset LoadNanumGothic()
         {
             var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
@@ -501,18 +541,22 @@ namespace Game.Feature.UI.Tests
                 ScreenLayerView screenLayerView,
                 ScreenController screenController,
                 PopupController popupController,
+                FakeAudioSettingsPort audioPort,
                 RecordingUiAudioPort uiAudioPort)
             {
                 _rootObject = rootObject;
                 ScreenLayerView = screenLayerView;
                 ScreenController = screenController;
                 _popupController = popupController;
+                AudioPort = audioPort;
                 UiAudioPort = uiAudioPort;
             }
 
             public ScreenLayerView ScreenLayerView { get; }
 
             public ScreenController ScreenController { get; private set; }
+
+            public FakeAudioSettingsPort AudioPort { get; }
 
             public RecordingUiAudioPort UiAudioPort { get; }
 
@@ -527,12 +571,13 @@ namespace Game.Feature.UI.Tests
                 var popupController = CreatePopupController(rootObject, out var timeoutRelay);
                 var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
                 var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
+                var audioPort = new FakeAudioSettingsPort();
                 var uiAudioPort = new RecordingUiAudioPort();
                 var screenFactory = new GameplayScreenRuntimeFactory(
                     screenLayerView,
                     CreateQueryFacade(),
                     new ManualGameplayUiPresentationSource(),
-                    new FakeAudioSettingsPort(),
+                    audioPort,
                     new FakeDisplaySettingsPort(),
                     NoOpKeyboardBindingSettingsPort.Instance,
                     uiAudioPort,
@@ -548,6 +593,7 @@ namespace Game.Feature.UI.Tests
                     screenLayerView,
                     new ScreenController(screenFactory),
                     popupController,
+                    audioPort,
                     uiAudioPort);
             }
 

@@ -8,10 +8,19 @@ namespace Game.Feature.UI.Application
     public sealed class SettingsAudioPresenter
     {
         private readonly IAudioSettingsPort _audioSettingsPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
 
         public SettingsAudioPresenter(IAudioSettingsPort audioSettingsPort)
+            : this(audioSettingsPort, InvariantSettingsLocalizedTextResolver.Instance)
+        {
+        }
+
+        public SettingsAudioPresenter(
+            IAudioSettingsPort audioSettingsPort,
+            ILocalizedTextResolver localizedTextResolver)
         {
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
+            _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
         }
 
         public SettingsAudioViewModel ViewModel { get; } = new SettingsAudioViewModel();
@@ -39,22 +48,28 @@ namespace Game.Feature.UI.Application
             RefreshViewModel();
         }
 
+        public void RefreshLocalization()
+        {
+            RefreshViewModel();
+        }
+
         private void RefreshViewModel()
         {
             var snapshot = _audioSettingsPort.Read();
             ViewModel.SetContent(
-                BuildAudioRow(snapshot.Main),
-                BuildAudioRow(snapshot.Bgm),
-                BuildAudioRow(snapshot.Sfx));
+                BuildAudioRow(snapshot.Main, _localizedTextResolver),
+                BuildAudioRow(snapshot.Bgm, _localizedTextResolver),
+                BuildAudioRow(snapshot.Sfx, _localizedTextResolver));
         }
 
-        private static AudioSettingsRowViewModel BuildAudioRow(AudioSettingsPortChannelState state)
+        private static AudioSettingsRowViewModel BuildAudioRow(
+            AudioSettingsPortChannelState state,
+            ILocalizedTextResolver localizedTextResolver)
         {
             var normalizedVolume = Clamp01(state.Volume);
             var percent = (int)Math.Round(normalizedVolume * 100f, MidpointRounding.AwayFromZero);
-            var valueText = state.IsMuted
-                ? $"{percent}% (Muted)"
-                : $"{percent}%";
+            var valueText = localizedTextResolver.Resolve(
+                SettingsDynamicTextDescriptors.AudioVolumeValue(percent, state.IsMuted));
             return new AudioSettingsRowViewModel(valueText, normalizedVolume, state.IsMuted);
         }
 
@@ -727,7 +742,9 @@ namespace Game.Feature.UI.Application
             IUiLocaleSelectionPort localeSelectionPort)
         {
             LocalizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
-            AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
+            AudioPresenter = new SettingsAudioPresenter(
+                audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)),
+                LocalizedTextResolver);
             DisplayPresenter = new SettingsDisplayPresenter(
                 displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)),
                 LocalizedTextResolver,
@@ -779,6 +796,7 @@ namespace Game.Feature.UI.Application
 
         public void RefreshLocalization()
         {
+            AudioPresenter.RefreshLocalization();
             DisplayPresenter.RefreshLocalization();
             InputPresenter.Apply(new SettingsInputPresenterInput(
                 _payload.MovementLabelDescriptor,
@@ -856,6 +874,8 @@ namespace Game.Feature.UI.Application
             ["ui.settings.language"] = "Language",
             ["ui.settings.language.english"] = "English",
             ["ui.settings.language.korean"] = "Korean",
+            ["ui.settings.audio.volume_value"] = "{percent}%",
+            ["ui.settings.audio.volume_value_muted"] = "{percent}% (Muted)",
             ["ui.common.back"] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",
@@ -884,10 +904,62 @@ namespace Game.Feature.UI.Application
             if (string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) &&
                 Values.TryGetValue(descriptor.Key, out var value))
             {
-                return value;
+                return FormatKnownDynamicText(descriptor, value);
             }
 
             return $"[{descriptor.Table}:{descriptor.Key}]";
+        }
+
+        private static string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
+        {
+            if ((string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.AudioVolumeValueKey, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.AudioVolumeValueMutedKey, StringComparison.Ordinal)) &&
+                TryGetPercentArgument(descriptor, out var percent))
+            {
+                return value
+                    .Replace("{percent}", percent.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Replace("{0}", percent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            return value;
+        }
+
+        private static bool TryGetPercentArgument(LocalizedTextDescriptor descriptor, out int percent)
+        {
+            percent = 0;
+            if (descriptor.Arguments.Count == 0 || descriptor.Arguments[0] == null)
+            {
+                return false;
+            }
+
+            if (descriptor.Arguments[0] is int positionalIntValue)
+            {
+                percent = positionalIntValue;
+                return true;
+            }
+
+            if (descriptor.Arguments[0] is IDictionary<string, object> namedArguments &&
+                namedArguments.TryGetValue("percent", out var namedValue) &&
+                namedValue is int namedIntValue)
+            {
+                percent = namedIntValue;
+                return true;
+            }
+
+            var property = descriptor.Arguments[0].GetType().GetProperty("percent");
+            if (property == null)
+            {
+                return false;
+            }
+
+            var value = property.GetValue(descriptor.Arguments[0]);
+            if (value is int intValue)
+            {
+                percent = intValue;
+                return true;
+            }
+
+            return false;
         }
     }
 }
