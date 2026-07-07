@@ -15,19 +15,20 @@ namespace Game.Feature.UI.Tests
     public sealed class SlotCinematicFlowTests
     {
         [Test]
-        public void CinematicStageLaunchRouter_IntroPlaysOncePerSlot_AndPreservesRequest()
+        public void CinematicStageLaunchRouter_UsesPendingLaunchSlotProvider_ForIntroFlag()
         {
-            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_IntroPlaysOncePerSlot_AndPreservesRequest));
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_UsesPendingLaunchSlotProvider_ForIntroFlag));
             try
             {
                 var saveStore = new SaveSlotStore(keys.SaveKey);
-                var activeSlotProvider = new ActiveSlotProvider(keys.ActiveKey);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(1, stageId));
-                activeSlotProvider.SetActiveSlot(1);
+                saveStore.SaveSlot(CreateSlot(2, stageId));
+                var pendingLaunchSlotProvider = new ManualPendingLaunchSlotProvider();
+                pendingLaunchSlotProvider.SetPendingLaunchSlot(2);
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
-                var router = new CinematicStageLaunchRouter(inner, saveStore, activeSlotProvider, player);
+                var router = new CinematicStageLaunchRouter(inner, saveStore, pendingLaunchSlotProvider, player);
                 var request = new StageNavigationRequest(
                     stageId,
                     StageNavigationKind.Continue,
@@ -36,20 +37,62 @@ namespace Game.Feature.UI.Tests
 
                 router.Launch(request);
 
+                Assert.That(pendingLaunchSlotProvider.TryGetCallCount, Is.EqualTo(1));
                 Assert.That(player.PlayIntroCallCount, Is.EqualTo(1));
                 Assert.That(inner.Requests, Is.Empty);
+                Assert.That(saveStore.LoadSlot(2).IntroPlayed, Is.False);
 
                 player.CompleteIntro();
 
-                Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.True);
+                Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
+                Assert.That(saveStore.LoadSlot(2).IntroPlayed, Is.True);
                 Assert.That(inner.Requests, Has.Count.EqualTo(1));
                 AssertRequestsEqual(request, inner.Requests[0]);
 
                 router.Launch(request);
 
+                Assert.That(pendingLaunchSlotProvider.TryGetCallCount, Is.EqualTo(2));
                 Assert.That(player.PlayIntroCallCount, Is.EqualTo(1));
                 Assert.That(inner.Requests, Has.Count.EqualTo(2));
                 AssertRequestsEqual(request, inner.Requests[1]);
+            }
+            finally
+            {
+                keys.Clear();
+            }
+        }
+
+        [Test]
+        public void CinematicStageLaunchRouter_AdapterPreservesActiveSlotProviderBehavior()
+        {
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_AdapterPreservesActiveSlotProviderBehavior));
+            try
+            {
+                var saveStore = new SaveSlotStore(keys.SaveKey);
+                var activeSlotProvider = new ActiveSlotProvider(keys.ActiveKey);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                saveStore.SaveSlot(CreateSlot(3, stageId));
+                activeSlotProvider.SetActiveSlot(3);
+                var inner = new RecordingStageLaunchRouter();
+                var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
+                var router = new CinematicStageLaunchRouter(
+                    inner,
+                    saveStore,
+                    new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider),
+                    player);
+                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "adapter");
+
+                router.Launch(request);
+
+                Assert.That(player.PlayIntroCallCount, Is.EqualTo(1));
+                Assert.That(inner.Requests, Is.Empty);
+
+                player.CompleteIntro();
+
+                Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(3));
+                Assert.That(saveStore.LoadSlot(3).IntroPlayed, Is.True);
+                Assert.That(inner.Requests, Has.Count.EqualTo(1));
+                AssertRequestsEqual(request, inner.Requests[0]);
             }
             finally
             {
@@ -64,17 +107,46 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var saveStore = new SaveSlotStore(keys.SaveKey);
-                var activeSlotProvider = new ActiveSlotProvider(keys.ActiveKey);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(1, stageId));
-                activeSlotProvider.SetActiveSlot(1);
+                var pendingLaunchSlotProvider = new ManualPendingLaunchSlotProvider();
+                pendingLaunchSlotProvider.SetPendingLaunchSlot(1);
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = false };
-                var router = new CinematicStageLaunchRouter(inner, saveStore, activeSlotProvider, player);
+                var router = new CinematicStageLaunchRouter(inner, saveStore, pendingLaunchSlotProvider, player);
                 var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
 
                 router.Launch(request);
 
+                Assert.That(player.PlayIntroCallCount, Is.Zero);
+                Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
+                Assert.That(inner.Requests, Has.Count.EqualTo(1));
+                AssertRequestsEqual(request, inner.Requests[0]);
+            }
+            finally
+            {
+                keys.Clear();
+            }
+        }
+
+        [Test]
+        public void CinematicStageLaunchRouter_MissingPendingLaunchSlot_DelegatesImmediately()
+        {
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_MissingPendingLaunchSlot_DelegatesImmediately));
+            try
+            {
+                var saveStore = new SaveSlotStore(keys.SaveKey);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                saveStore.SaveSlot(CreateSlot(1, stageId));
+                var pendingLaunchSlotProvider = new ManualPendingLaunchSlotProvider();
+                var inner = new RecordingStageLaunchRouter();
+                var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
+                var router = new CinematicStageLaunchRouter(inner, saveStore, pendingLaunchSlotProvider, player);
+                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "missing-pending-slot");
+
+                router.Launch(request);
+
+                Assert.That(pendingLaunchSlotProvider.TryGetCallCount, Is.EqualTo(1));
                 Assert.That(player.PlayIntroCallCount, Is.Zero);
                 Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
                 Assert.That(inner.Requests, Has.Count.EqualTo(1));
@@ -193,6 +265,38 @@ namespace Game.Feature.UI.Tests
                 Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
                 Assert.That(saveStore.LoadSlot(1).OutroPlayed, Is.False);
                 Assert.That(saveStore.LoadSlot(1).IsEmpty, Is.True);
+            }
+            finally
+            {
+                keys.Clear();
+            }
+        }
+
+        [Test]
+        public void SlotCinematicProgressStore_RemainsExplicitSlotNeutral()
+        {
+            var source = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/SlotCinematicProgressStore.cs");
+            var keys = TestKeys.Create(nameof(SlotCinematicProgressStore_RemainsExplicitSlotNeutral));
+            try
+            {
+                var saveStore = new SaveSlotStore(keys.SaveKey);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                saveStore.SaveSlot(CreateSlot(1, stageId));
+                saveStore.SaveSlot(CreateSlot(2, stageId));
+                saveStore.SaveSlot(CreateSlot(3, stageId));
+                var progressStore = new SlotCinematicProgressStore(saveStore);
+
+                progressStore.MarkIntroPlayed(2);
+                progressStore.MarkOutroPlayed(3);
+
+                Assert.That(source, Does.Not.Contain("IPendingLaunchSlotProvider"));
+                Assert.That(source, Does.Not.Contain("ActiveSlotProvider"));
+                Assert.That(progressStore.IsIntroPlayed(1), Is.False);
+                Assert.That(progressStore.IsOutroPlayed(1), Is.False);
+                Assert.That(progressStore.IsIntroPlayed(2), Is.True);
+                Assert.That(progressStore.IsOutroPlayed(2), Is.False);
+                Assert.That(progressStore.IsIntroPlayed(3), Is.False);
+                Assert.That(progressStore.IsOutroPlayed(3), Is.True);
             }
             finally
             {
@@ -430,7 +534,11 @@ namespace Game.Feature.UI.Tests
                 var view = root.AddComponent<CinematicVideoOverlayView>();
                 var audioFocus = root.AddComponent<CinematicAudioFocusController>();
                 var player = new CinematicFlowCoordinator(definition, view, audioFocus);
-                var router = new CinematicStageLaunchRouter(inner, saveStore, activeSlotProvider, player);
+                var router = new CinematicStageLaunchRouter(
+                    inner,
+                    saveStore,
+                    new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider),
+                    player);
                 var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
 
                 router.Launch(request);
@@ -1163,6 +1271,42 @@ namespace Game.Feature.UI.Tests
                 PlayerPrefs.DeleteKey(SaveKey);
                 PlayerPrefs.DeleteKey(ActiveKey);
                 PlayerPrefs.Save();
+            }
+        }
+
+        private sealed class ManualPendingLaunchSlotProvider : IPendingLaunchSlotProvider
+        {
+            private int _slotNumber;
+
+            public int TryGetCallCount { get; private set; }
+
+            public bool TryGetPendingLaunchSlot(out int slotNumber)
+            {
+                TryGetCallCount++;
+                if (SaveSlotStore.IsValidSlotNumber(_slotNumber))
+                {
+                    slotNumber = _slotNumber;
+                    return true;
+                }
+
+                slotNumber = 0;
+                return false;
+            }
+
+            public void SetPendingLaunchSlot(int slotNumber)
+            {
+                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                _slotNumber = slotNumber;
+            }
+
+            public void ClearPendingLaunchSlot()
+            {
+                _slotNumber = 0;
+            }
+
+            public bool IsPendingLaunchSlot(int slotNumber)
+            {
+                return SaveSlotStore.IsValidSlotNumber(slotNumber) && _slotNumber == slotNumber;
             }
         }
 

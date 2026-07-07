@@ -222,7 +222,7 @@ namespace Game.Feature.UI.Composition
             stageLaunchRouter = new CinematicStageLaunchRouter(
                 stageLaunchRouter,
                 saveSlotStore,
-                activeSlotProvider,
+                new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider),
                 EnsureCinematicFlowCoordinator());
             Controller = new MainMenuController(
                 saveSlotStore,

@@ -35,7 +35,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(mainMenuInstaller, Does.Contain("new ActiveSlotProvider()"));
             Assert.That(gameplayInstaller, Does.Contain("new ActiveSlotProvider()"));
             Assert.That(mainMenuController, Does.Contain("ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey"));
-            Assert.That(mainMenuInstaller, Does.Not.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(mainMenuInstaller, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(gameplayInstaller, Does.Not.Contain("IPendingLaunchSlotProvider"));
             Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
             Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
@@ -52,9 +52,11 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void Phase7Policy_AddsPendingLaunchWrapperWithoutProductionWiring()
+        public void Phase9Policy_WiresCinematicLaunchThroughPendingLaunchAdapterOnly()
         {
             var pendingLaunchProvider = File.ReadAllText(PendingLaunchProviderPath);
+            var launchRouter = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs");
             var mainMenuInstaller = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
             var gameplayInstaller = File.ReadAllText(
@@ -65,7 +67,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(pendingLaunchProvider, Does.Contain("IPendingLaunchSlotProvider"));
             Assert.That(pendingLaunchProvider, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(pendingLaunchProvider, Does.Contain("CampaignRunningSlotContext"));
-            Assert.That(mainMenuInstaller, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+            Assert.That(launchRouter, Does.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(launchRouter, Does.Contain("TryGetPendingLaunchSlot"));
+            Assert.That(launchRouter, Does.Not.Contain("ActiveSlotProvider"));
+            Assert.That(mainMenuInstaller, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(gameplayInstaller, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(stageInstaller, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
         }
@@ -105,6 +110,8 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void StageLaunchAndGameplayMutation_DoNotUseLastPlayedSlotNumberAsSlotIdentity()
         {
+            AssertCinematicLaunchSourceUsesPendingLaunchSlot(
+                "Assets/_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs");
             AssertStageLaunchSourceUsesPendingLaunchSlot(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
             AssertGameplayMutationSourceUsesRunningSlotContext(
@@ -134,6 +141,17 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(demoBridge, Does.Contain("ActiveSlotProvider"));
             Assert.That(demoBridge, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(demoBridge, Does.Not.Contain("CampaignProfileDocument"));
+        }
+
+        private static void AssertCinematicLaunchSourceUsesPendingLaunchSlot(string path)
+        {
+            var source = File.ReadAllText(path);
+
+            Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"), path);
+            Assert.That(source, Does.Not.Contain("CampaignProfileDocument"), path);
+            Assert.That(source, Does.Not.Contain("TryGetActiveSlotNumber"), path);
+            Assert.That(source, Does.Contain("IPendingLaunchSlotProvider"), path);
+            Assert.That(source, Does.Contain("TryGetPendingLaunchSlot"), path);
         }
 
         private static void AssertStageLaunchSourceUsesPendingLaunchSlot(string path)
