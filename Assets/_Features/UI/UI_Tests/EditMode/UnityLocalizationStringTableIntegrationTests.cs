@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
@@ -31,6 +33,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(collection, Is.Not.Null);
             Assert.That(collection.GetTable("en-US"), Is.Not.Null);
             Assert.That(collection.GetTable("ko-KR"), Is.Not.Null);
+
+            var stageCollection = LocalizationEditorSettings.GetStringTableCollection("Stage");
+            Assert.That(stageCollection, Is.Not.Null);
+            Assert.That(stageCollection.GetTable("en-US"), Is.Not.Null);
+            Assert.That(stageCollection.GetTable("ko-KR"), Is.Not.Null);
         }
 
         [Test]
@@ -41,6 +48,20 @@ namespace Game.Feature.UI.Tests
 
             AssertTable(collection.GetTable("en-US") as StringTable, useKorean: false);
             AssertTable(collection.GetTable("ko-KR") as StringTable, useKorean: true);
+        }
+
+        [Test]
+        public void StageStringTable_ContainsCompleteStageDisplayNameEntries()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("Stage");
+            Assert.That(collection, Is.Not.Null);
+            var activeStageEntries = LoadActiveStageDisplayNameEntries();
+
+            Assert.That(
+                activeStageEntries.Select(entry => entry.Key).ToArray(),
+                Is.EquivalentTo(StageDisplayNameEntries.Select(entry => entry.Key).ToArray()));
+            AssertStageTable(collection.GetTable("en-US") as StringTable, activeStageEntries);
+            AssertStageTable(collection.GetTable("ko-KR") as StringTable, activeStageEntries);
         }
 
         [Test]
@@ -55,6 +76,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Start), Is.EqualTo("Start"));
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Settings), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Quit), Is.EqualTo("Quit"));
+            Assert.That(
+                resolver.Resolve(StageDisplayNameTextDescriptors.Create("stage.stage-0-1.display_name")),
+                Is.EqualTo("Lab-01"));
 
             var eventCount = 0;
             resolver.LocaleChanged += () => eventCount++;
@@ -67,6 +91,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Start), Is.EqualTo("시작"));
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Settings), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Quit), Is.EqualTo("종료"));
+            Assert.That(
+                resolver.Resolve(StageDisplayNameTextDescriptors.Create("stage.stage-0-1.display_name")),
+                Is.EqualTo("Lab-01"));
             Assert.That(eventCount, Is.EqualTo(1));
 
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
@@ -204,6 +231,7 @@ namespace Game.Feature.UI.Tests
             AssertNoAssemblyReference(typeof(Game.Feature.UI.Application.SettingsScreenPresenter).Assembly, "Unity.Addressables");
             AssertNoAssemblyReference(typeof(LocalizedTextDescriptor).Assembly, "Unity.Localization");
             AssertNoAssemblyReference(typeof(LocalizedTextDescriptor).Assembly, "Unity.Addressables");
+            AssertNoAssemblyReference(typeof(StagePresentationDefinition).Assembly, "Unity.Localization");
             AssertNoAssemblyReference(typeof(Game.Feature.UI.Application.SettingsScreenPresenter).Assembly, "Unity.TextMeshPro");
             AssertNoAssemblyReference(typeof(LocalizedTextDescriptor).Assembly, "Unity.TextMeshPro");
 
@@ -262,6 +290,44 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void AssertStageTable(
+            StringTable table,
+            IReadOnlyList<(string StageId, string Key, string Value)> expectedEntries)
+        {
+            Assert.That(table, Is.Not.Null);
+            foreach (var entry in expectedEntries)
+            {
+                var tableEntry = table.GetEntry(entry.Key);
+                Assert.That(tableEntry, Is.Not.Null, entry.Key);
+                Assert.That(tableEntry.LocalizedValue, Is.EqualTo(entry.Value), entry.StageId);
+                Assert.That(tableEntry.LocalizedValue, Is.Not.Empty);
+            }
+        }
+
+        private static (string StageId, string Key, string Value)[] LoadActiveStageDisplayNameEntries()
+        {
+            var expectedValues = StageDisplayNameEntries.ToDictionary(
+                entry => entry.Key,
+                entry => entry.Value,
+                StringComparer.Ordinal);
+            var entries = AssetDatabase
+                .FindAssets($"t:{nameof(StageContentEntry)}", new[] { StageContentPaths.CampaignLevel01StagesRoot })
+                .Select(guid => AssetDatabase.LoadAssetAtPath<StageContentEntry>(AssetDatabase.GUIDToAssetPath(guid)))
+                .Where(entry => entry != null && entry.StageId.IsValid)
+                .OrderBy(entry => entry.StageId.Value, StringComparer.Ordinal)
+                .Select(entry =>
+                {
+                    Assert.That(entry.PresentationDefinition, Is.Not.Null, entry.StageId.Value);
+                    var key = entry.PresentationDefinition.DisplayNameKey;
+                    Assert.That(expectedValues.TryGetValue(key, out var value), Is.True, entry.StageId.Value);
+                    return (entry.StageId.Value, key, value);
+                })
+                .ToArray();
+
+            Assert.That(entries, Is.Not.Empty);
+            return entries;
+        }
+
         private static void AssertNoAssemblyReference(Assembly assembly, string referenceName)
         {
             Assert.That(
@@ -275,6 +341,20 @@ namespace Game.Feature.UI.Tests
             Assert.That(asset, Is.Not.Null);
             return asset;
         }
+
+        private static readonly (string Key, string Value)[] StageDisplayNameEntries =
+        {
+            ("stage.stage-0-1.display_name", "Lab-01"),
+            ("stage.stage-0-2.display_name", "Lab-02"),
+            ("stage.stage-1-1.display_name", "Lobby-01"),
+            ("stage.stage-2-1.display_name", "Ward[A]-01"),
+            ("stage.stage-2-2.display_name", "Ward[A]-02"),
+            ("stage.stage-3-1.display_name", "Ward[B]-01"),
+            ("stage.stage-3-2.display_name", "Ward[B]-02"),
+            ("stage.stage-4-1.display_name", "Morgue-01"),
+            ("stage.stage-4-2.display_name", "Morgue-02"),
+            ("stage.legacy-stage-5-1.display_name", "Legacy 5-1"),
+        };
 
         private static TMP_Text GetText(object target, string fieldName)
         {

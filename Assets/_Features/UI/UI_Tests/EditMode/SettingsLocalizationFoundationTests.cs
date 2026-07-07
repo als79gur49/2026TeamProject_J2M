@@ -552,7 +552,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageResultPayloadProperties, Does.Not.Contain("TitleText"));
             Assert.That(stageResultPayloadProperties, Does.Not.Contain("DetailText"));
             Assert.That(stageResultPayloadProperties, Does.Not.Contain("ContinueLabel"));
-            Assert.That(stagePresentationProperties, Does.Not.Contain("DisplayNameKey"));
+            Assert.That(stagePresentationProperties, Does.Contain("DisplayNameKey"));
         }
 
         [Test]
