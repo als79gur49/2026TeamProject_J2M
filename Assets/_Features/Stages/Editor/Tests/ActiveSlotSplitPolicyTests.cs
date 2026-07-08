@@ -112,6 +112,37 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void MainMenuPhase11Guard_LastPlayedIsNeitherPendingLaunchNorRunningSlotContext()
+        {
+            var mainMenuController = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+            var mainMenuInstaller = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+            var pendingLaunchProvider = File.ReadAllText(PendingLaunchProviderPath);
+            var saveSlotModels = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs");
+            var saveSlotStageClearProfileStore = ExtractSourceRange(
+                saveSlotModels,
+                "public sealed class SaveSlotStageClearProfileStore",
+                "[Serializable]");
+
+            Assert.That(mainMenuController, Does.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(mainMenuController, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
+            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
+            Assert.That(mainMenuInstaller, Does.Contain("new SaveSlotStore()"));
+            Assert.That(mainMenuInstaller, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+            Assert.That(mainMenuInstaller, Does.Not.Contain("CampaignSaveServiceFactory"));
+            Assert.That(mainMenuInstaller, Does.Not.Contain("FileCampaignProfileRepository"));
+            Assert.That(pendingLaunchProvider, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(pendingLaunchProvider, Does.Not.Contain("CampaignProfileDocument"));
+            Assert.That(saveSlotStageClearProfileStore, Does.Contain("CampaignRunningSlotContext"));
+            Assert.That(saveSlotStageClearProfileStore, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(saveSlotStageClearProfileStore, Does.Not.Contain("CampaignProfileDocument"));
+        }
+
+        [Test]
         public void StageLaunchAndGameplayMutation_DoNotUseLastPlayedSlotNumberAsSlotIdentity()
         {
             AssertCinematicLaunchSourceUsesPendingLaunchSlot(
@@ -191,6 +222,15 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(profileStoreSource, Does.Not.Contain("CampaignProfileDocument"), path);
             Assert.That(profileStoreSource, Does.Not.Contain("ActiveSlotProvider"), path);
             Assert.That(profileStoreSource, Does.Contain("CampaignRunningSlotContext"), path);
+        }
+
+        private static string ExtractSourceRange(string source, string startToken, string endToken)
+        {
+            var start = source.IndexOf(startToken, StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), startToken);
+            var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
+            Assert.That(end, Is.GreaterThan(start), endToken);
+            return source.Substring(start, end - start);
         }
     }
 }

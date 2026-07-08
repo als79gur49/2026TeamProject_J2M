@@ -83,6 +83,37 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenu_Continue_ExplicitIntentOverridesPreviousPendingLaunchSlot()
+        {
+            var saveStore = new SaveSlotStore(_saveKey);
+            var pendingProvider = new SpyPendingLaunchSlotProvider();
+            var router = new FakeStageLaunchRouter();
+            var selectedStage = StageId.CreateOrThrow("stage-1-2");
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = selectedStage,
+                CurrentLevelGroupId = "level-1",
+            });
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 3,
+                CurrentStageId = StageId.CreateOrThrow("stage-3-1"),
+                CurrentLevelGroupId = "level-3",
+            });
+            pendingProvider.SetPendingLaunchSlot(3);
+            var controller = CreateController(saveStore, pendingProvider, CreateResolver(), router);
+
+            controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.Continue));
+
+            Assert.That(pendingProvider.SetSlots, Is.EqualTo(new[] { 3, 1 }));
+            Assert.That(pendingProvider.TryGetPendingLaunchSlot(out var pendingSlot), Is.True);
+            Assert.That(pendingSlot, Is.EqualTo(1));
+            Assert.That(router.Requests.Count, Is.EqualTo(1));
+            Assert.That(router.Requests[0].StageId, Is.EqualTo(selectedStage));
+        }
+
+        [Test]
         public void MainMenu_Continue_DoesNotUseLastPlayedSlotNumber()
         {
             var source = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
