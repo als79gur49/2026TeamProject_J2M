@@ -176,6 +176,73 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CiGuide_DocumentsOwnerDecisionRequirementBeforeWorkflow()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("CI owner decision required"));
+            Assert.That(guide, Does.Contain("GitHub Actions or external CI is not decided by the repository yet"));
+            Assert.That(guide, Does.Contain("must be decided by the CI owner"));
+            Assert.That(guide, Does.Contain("Do not add `.github/workflows` before the owner decision is recorded"));
+            Assert.That(guide, Does.Contain("CI Owner Handoff Checklist"));
+            Assert.That(guide, Does.Contain("CI platform: GitHub Actions / Jenkins / Azure / GitLab / other"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsUnityRunnerLicenseAndWorkingDirectoryHandoff()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("Unity runner, Unity license, cache, and artifact upload policy"));
+            Assert.That(guide, Does.Contain("Runner OS: Windows / Linux / self-hosted / cloud-hosted"));
+            Assert.That(guide, Does.Contain("Unity version: `6000.3.11f1`"));
+            Assert.That(guide, Does.Contain("Unity license activation: owner-provided"));
+            Assert.That(guide, Does.Contain("Working directory: repository root"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsArtifactUploadOwnerDecisionAndGlob()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("Artifact upload failure policy: CI owner decision"));
+            Assert.That(guide, Does.Contain("Artifact upload glob: `TestLogs/SaveReadiness/**/CampaignProfileReadiness.md`"));
+            Assert.That(guide, Does.Contain("TestLogs/SaveReadiness/<run-id>/<commit-sha>/CampaignProfileReadiness.md"));
+            Assert.That(guide, Does.Contain("CampaignProfileReadinessReportCommand.WriteDefaultReportFromCommandLine"));
+            Assert.That(guide, Does.Contain("Upload `TestLogs/SaveReadiness/**/CampaignProfileReadiness.md` as a CI artifact"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsReadinessCommandWithoutBroadFullRecommendation()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("Test command: `./run_tests.sh full --filter CampaignProfileReadiness`"));
+            Assert.That(guide, Does.Contain("Do not use broad unfiltered `./run_tests.sh full` for this readiness lane"));
+            Assert.That(guide, Does.Contain("Forbidden readiness command"));
+            Assert.That(guide, Does.Not.Contain("Test command: `./run_tests.sh full`."));
+            Assert.That(guide, Does.Not.Contain("Test command: ./run_tests.sh full"));
+            Assert.That(guide, Does.Not.Contain("Use broad unfiltered `./run_tests.sh full` for this readiness lane"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsNonBlockingReportAndForbiddenProductionUses()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("Non-blocking policy"));
+            Assert.That(guide, Does.Contain("Findings must not fail release, build, or Steam packaging"));
+            Assert.That(guide, Does.Contain("Compile, test, contract, and generation failures may fail CI"));
+            Assert.That(guide, Does.Contain("is not a release blocker"));
+            Assert.That(guide, Does.Contain("A release gate."));
+            Assert.That(guide, Does.Contain("A build gate."));
+            Assert.That(guide, Does.Contain("A Steam packaging gate."));
+            Assert.That(guide, Does.Contain("A Steam Cloud canonical source."));
+            Assert.That(guide, Does.Contain("Production save truth."));
+            Assert.That(guide, Does.Contain("`profile.json` remains diagnostics metadata"));
+        }
+
+        [Test]
         public void Repository_DoesNotDefineSaveReadinessWorkflowOrRunnerLane()
         {
             Assert.That(Directory.Exists(Path.Combine(".github", "workflows")), Is.False);

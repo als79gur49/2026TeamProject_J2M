@@ -85,10 +85,12 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(guide, Does.Contain("Promote report warnings to release or build gates."));
             Assert.That(guide, Does.Contain("Decide Steam Cloud upload/source file selection."));
             Assert.That(guide, Does.Contain("Use the report as a Steam Cloud canonical source."));
+            Assert.That(
+                guide,
+                Does.Contain("Profile missing, corrupt, stale, mismatch, `LastPlayedSlotNumber` mismatch, or `importedSourceHash` mismatch is not a release blocker."));
             Assert.That(guide, Does.Not.Contain("Steam Cloud canonical file"));
             Assert.That(guide, Does.Not.Contain("ISteamRemoteStorage"));
             Assert.That(guide, Does.Not.Contain("SteamRemoteStorage"));
-            Assert.That(guide, Does.Not.Contain("release blocker"));
             Assert.That(guide, Does.Not.Contain("build blocker"));
             Assert.That(guide, Does.Not.Contain("blocks release"));
             Assert.That(guide, Does.Not.Contain("must fix before release"));
