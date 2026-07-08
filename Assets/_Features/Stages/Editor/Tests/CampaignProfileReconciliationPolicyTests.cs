@@ -93,6 +93,26 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void LastPlayedSlotNumberNotInSaveSlotStore_IsDiagnosticsMismatchOnly()
+        {
+            using var harness = new ProfileHarness();
+            var store = CreateStoreWithPlayerPrefsSlot(1, "stage-1-1");
+            harness.WriteProfile(CreateProfile(
+                lastPlayedSlotNumber: 3,
+                importedSourceHash: "source-hash",
+                slots: CreateProfileSlot(3, "stage-3-1")));
+
+            var slots = store.LoadAll();
+            var probeResult = harness.Probe.Probe();
+
+            Assert.That(probeResult.Status, Is.EqualTo(CampaignProfileMetadataProbeStatus.Loaded));
+            Assert.That(probeResult.LastPlayedSlotNumber, Is.EqualTo(3));
+            Assert.That(slots[0].CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-1-1")));
+            Assert.That(slots[1].IsEmpty, Is.True);
+            Assert.That(slots[2].IsEmpty, Is.True);
+        }
+
+        [Test]
         public void ProfileCorrupt_SaveSlotStoreStillWinsUxAndProbeDoesNotMutateProfile()
         {
             using var harness = new ProfileHarness();
@@ -151,6 +171,35 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(probeResult.HasResetTombstone, Is.True);
             Assert.That(slots[2].CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-3-1")));
             Assert.That(slots[0].IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void DeletedSlotGuards_DoNotHideCurrentPlayerPrefsSlotVisibility()
+        {
+            using var harness = new ProfileHarness();
+            var store = CreateStoreWithPlayerPrefsSlot(2, "stage-2-1");
+            harness.WriteProfile(CreateProfile(
+                lastPlayedSlotNumber: 2,
+                importedSourceHash: "source-hash",
+                deletedSlotGuards: new[]
+                {
+                    new CampaignLegacyDeletedSlotGuardDocument
+                    {
+                        SlotNumber = 2,
+                        ImportedSourceHash = "source-hash",
+                        DeletedAtUtc = "2026-07-08T01:02:03.0000000Z",
+                        Reason = "profile-deleted-guard",
+                    },
+                },
+                slots: CreateProfileSlot(1, "stage-1-1")));
+
+            var slots = store.LoadAll();
+            var probeResult = harness.Probe.Probe();
+
+            Assert.That(probeResult.DeletedSlotGuardCount, Is.EqualTo(1));
+            Assert.That(slots[1].CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-2-1")));
+            Assert.That(slots[0].IsEmpty, Is.True);
+            Assert.That(slots.Count(slot => !slot.IsEmpty), Is.EqualTo(1));
         }
 
         private SaveSlotStore CreateStoreWithPlayerPrefsSlot(int slotNumber, string stageId)

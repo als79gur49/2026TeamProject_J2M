@@ -13,6 +13,7 @@ namespace Game.Feature.Stages.Editor.Tests
             "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs",
+            "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
         };
 
         [TearDown]
@@ -25,6 +26,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         [TestCase("CampaignSaveServiceFactory")]
         [TestCase("CampaignSaveService")]
+        [TestCase("CampaignProfileMetadataProbe")]
         [TestCase("SaveSlotStoreCompatibilityAdapter")]
         [TestCase("CampaignSaveMigrationCoordinator")]
         [TestCase("FileCampaignProfileRepository")]
