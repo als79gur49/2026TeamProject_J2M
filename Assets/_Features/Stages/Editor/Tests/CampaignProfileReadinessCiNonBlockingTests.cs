@@ -7,6 +7,8 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignProfileReadinessCiNonBlockingTests
     {
+        private const string CiGuidePath = "Docs/Testing/Save-Readiness-CI-Guide.md";
+
         private string _saveKey;
 
         [SetUp]
@@ -116,6 +118,31 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(slots[1].CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-2-1")));
             AssertNonBlockingPolicy(markdown);
             Assert.That(markdown, Does.Contain("import/reset marker metadata is inventory, not a PlayerPrefs UX decision"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsNonBlockingDiagnosticsPolicy()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("report findings do not block builds or releases"));
+            Assert.That(guide, Does.Contain("CI may fail for:"));
+            Assert.That(guide, Does.Contain("Compile error."));
+            Assert.That(guide, Does.Contain("Test failure."));
+            Assert.That(guide, Does.Contain("Report writer contract violation."));
+            Assert.That(guide, Does.Contain("Invalid artifact path accepted by the writer."));
+            Assert.That(guide, Does.Contain("Forbidden wording."));
+            Assert.That(guide, Does.Contain("Forbidden runtime consumer."));
+            Assert.That(guide, Does.Contain("Report generation exception."));
+            Assert.That(guide, Does.Contain("CI and release must not fail for valid diagnostics findings"));
+            Assert.That(guide, Does.Contain("Profile missing."));
+            Assert.That(guide, Does.Contain("Profile corrupt."));
+            Assert.That(guide, Does.Contain("Profile stale."));
+            Assert.That(guide, Does.Contain("`LastPlayedSlotNumber` mismatch."));
+            Assert.That(guide, Does.Contain("`importedSourceHash` mismatch."));
+            Assert.That(guide, Does.Contain("Reset tombstone present."));
+            Assert.That(guide, Does.Contain("Deleted guards present."));
+            Assert.That(guide, Does.Contain("Any valid diagnostics warning emitted by the readiness report."));
         }
 
         private SaveSlotStore CreateStoreWithPlayerPrefsSlot(int slotNumber, string stageId)

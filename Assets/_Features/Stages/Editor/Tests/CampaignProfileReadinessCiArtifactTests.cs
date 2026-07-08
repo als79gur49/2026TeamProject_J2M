@@ -6,6 +6,8 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignProfileReadinessCiArtifactTests
     {
+        private const string CiGuidePath = "Docs/Testing/Save-Readiness-CI-Guide.md";
+
         [Test]
         public void EditModeTest_CanGenerateCampaignProfileReadinessMarkdownUnderTestLogsSaveReadiness()
         {
@@ -51,6 +53,31 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(Path.GetFileName(outputPath), Is.EqualTo("CampaignProfileReadiness.md"));
 
             Directory.Delete(Path.GetDirectoryName(outputPath), recursive: true);
+        }
+
+        [Test]
+        public void CiGuide_DocumentsFilteredReadinessCommandAndArtifactGlob()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("./run_tests.sh full --filter CampaignProfileReadiness"));
+            Assert.That(guide, Does.Contain("TestLogs/SaveReadiness/**/CampaignProfileReadiness.md"));
+            Assert.That(guide, Does.Contain("Use the existing filtered full lane"));
+            Assert.That(guide, Does.Contain("The broad unfiltered full lane has known baseline red"));
+            Assert.That(guide, Does.Not.Contain("Use `./run_tests.sh full` as the readiness gate"));
+            Assert.That(guide, Does.Not.Contain("recommended command: ./run_tests.sh full"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsNoNewRunnerLaneOrWorkflowYet()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("Do not add a new `run_tests.sh` lane yet"));
+            Assert.That(guide, Does.Contain("Do not add a new GitHub Actions workflow yet"));
+            Assert.That(guide, Does.Contain("No repo-defined CI workflow currently exists"));
+            Assert.That(guide, Does.Contain("External CI ownership is unknown"));
+            Assert.That(guide, Does.Not.Contain(".github/workflows/"));
         }
 
         private static string CreateRunId()

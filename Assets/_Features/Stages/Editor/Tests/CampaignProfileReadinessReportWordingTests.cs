@@ -7,6 +7,8 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignProfileReadinessReportWordingTests
     {
+        private const string CiGuidePath = "Docs/Testing/Save-Readiness-CI-Guide.md";
+
         [Test]
         public void ReportMarkdown_UsesDiagnosticsReadinessOnlyWording()
         {
@@ -72,6 +74,24 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Steam Cloud canonical file selection",
                 "ISteamRemoteStorage",
                 "SteamRemoteStorage");
+        }
+
+        [Test]
+        public void CiGuide_DoesNotPromoteWarningsOrSteamCloudFileSelection()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("This phase does not:"));
+            Assert.That(guide, Does.Contain("Promote report warnings to release or build gates."));
+            Assert.That(guide, Does.Contain("Decide Steam Cloud upload/source file selection."));
+            Assert.That(guide, Does.Not.Contain("Steam Cloud canonical source"));
+            Assert.That(guide, Does.Not.Contain("Steam Cloud canonical file"));
+            Assert.That(guide, Does.Not.Contain("ISteamRemoteStorage"));
+            Assert.That(guide, Does.Not.Contain("SteamRemoteStorage"));
+            Assert.That(guide, Does.Not.Contain("release blocker"));
+            Assert.That(guide, Does.Not.Contain("build blocker"));
+            Assert.That(guide, Does.Not.Contain("blocks release"));
+            Assert.That(guide, Does.Not.Contain("must fix before release"));
         }
 
         private static string MissingProfileMarkdown()

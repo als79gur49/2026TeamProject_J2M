@@ -7,6 +7,8 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignProfileReadinessArtifactPathTests
     {
+        private const string CiGuidePath = "Docs/Testing/Save-Readiness-CI-Guide.md";
+
         [Test]
         public void DefaultArtifactPath_IsUnderTestLogsSaveReadinessWithCiFileName()
         {
@@ -69,6 +71,20 @@ namespace Game.Feature.Stages.Editor.Tests
             var gitignore = File.ReadAllText(".gitignore");
 
             Assert.That(gitignore, Does.Contain("/TestLogs/SaveReadiness/"));
+        }
+
+        [Test]
+        public void CiGuide_DocumentsArtifactUploadPolicyAndForbiddenOutputRoots()
+        {
+            var guide = File.ReadAllText(CiGuidePath);
+
+            Assert.That(guide, Does.Contain("TestLogs/SaveReadiness/**/CampaignProfileReadiness.md"));
+            Assert.That(guide, Does.Contain("The artifact is a CI upload target, not a source asset."));
+            Assert.That(guide, Does.Contain("must not be generated under `Assets/`"));
+            Assert.That(guide, Does.Contain("must not be generated under `Application.persistentDataPath` or any save root"));
+            Assert.That(guide, Does.Contain("must not be committed"));
+            Assert.That(guide, Does.Contain("`/TestLogs/SaveReadiness/` is ignored by Git"));
+            Assert.That(guide, Does.Contain("current artifact test may delete the generated output"));
         }
 
         private sealed class ProfileHarness : IDisposable
