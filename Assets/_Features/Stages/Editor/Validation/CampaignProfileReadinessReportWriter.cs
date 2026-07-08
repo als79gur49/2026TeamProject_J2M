@@ -38,6 +38,13 @@ namespace Game.Feature.Stages.Editor
             var requestedFileName = string.IsNullOrWhiteSpace(fileName)
                 ? DefaultFileName
                 : fileName;
+            if (!string.Equals(requestedFileName, DefaultFileName, StringComparison.Ordinal) ||
+                Path.GetFileName(requestedFileName) != requestedFileName)
+            {
+                throw new InvalidOperationException(
+                    $"Campaign profile readiness reports must be written as {DefaultFileName}.");
+            }
+
             var outputPath = Path.IsPathRooted(requestedDirectory)
                 ? Path.Combine(requestedDirectory, requestedFileName)
                 : Path.Combine(projectRoot, requestedDirectory, requestedFileName);

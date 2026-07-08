@@ -35,6 +35,16 @@ namespace Game.Feature.Stages.Editor.Tests
                     Path.Combine("Assets", "_Generated", "SaveReadiness")));
         }
 
+        [TestCase("Library")]
+        [TestCase("ProjectSettings")]
+        [TestCase("Packages")]
+        public void ArtifactPathUnderProjectRuntimeOrConfigurationRoots_IsRejected(string root)
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => CampaignProfileReadinessReportWriter.ResolveOutputPath(
+                    Path.Combine(root, "SaveReadiness")));
+        }
+
         [Test]
         public void ArtifactPathTraversalIntoAssets_IsRejected()
         {
@@ -66,6 +76,15 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ArtifactFileNameOtherThanCampaignProfileReadinessMarkdown_IsRejected()
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => CampaignProfileReadinessReportWriter.ResolveOutputPath(
+                    CampaignProfileReadinessReportOptions.DefaultOutputDirectory,
+                    "OtherReadiness.md"));
+        }
+
+        [Test]
         public void TestLogsSaveReadinessArtifact_IsIgnoredByGit()
         {
             var gitignore = File.ReadAllText(".gitignore");
@@ -81,10 +100,14 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(guide, Does.Contain("TestLogs/SaveReadiness/**/CampaignProfileReadiness.md"));
             Assert.That(guide, Does.Contain("The artifact is a CI upload target, not a source asset."));
             Assert.That(guide, Does.Contain("must not be generated under `Assets/`"));
+            Assert.That(guide, Does.Contain("must not be generated under `Library/`, `ProjectSettings/`, or `Packages/`"));
             Assert.That(guide, Does.Contain("must not be generated under `Application.persistentDataPath` or any save root"));
+            Assert.That(guide, Does.Contain("must not be generated at an arbitrary external path"));
+            Assert.That(guide, Does.Contain("artifact file name is always `CampaignProfileReadiness.md`"));
             Assert.That(guide, Does.Contain("must not be committed"));
             Assert.That(guide, Does.Contain("`/TestLogs/SaveReadiness/` is ignored by Git"));
-            Assert.That(guide, Does.Contain("current artifact test may delete the generated output"));
+            Assert.That(guide, Does.Contain("Contract tests may create and clean up temporary outputs."));
+            Assert.That(guide, Does.Contain("Persistent artifact upload must use the editor command output"));
         }
 
         private sealed class ProfileHarness : IDisposable
