@@ -143,6 +143,33 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void Phase12Guard_LastPlayedIsNotLaunchFocusOrRuntimeSlotSource()
+        {
+            var mainMenuController = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+            var mainMenuViewModelMapper = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs");
+            var pendingLaunchProvider = File.ReadAllText(PendingLaunchProviderPath);
+            var saveSlotModels = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs");
+            var saveSlotStageClearProfileStore = ExtractSourceRange(
+                saveSlotModels,
+                "public sealed class SaveSlotStageClearProfileStore",
+                "[Serializable]");
+
+            Assert.That(mainMenuController, Does.Contain("Continue(int slotNumber)"));
+            Assert.That(mainMenuController, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
+            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(mainMenuController, Does.Not.Contain("QuickContinue"));
+            Assert.That(mainMenuController, Does.Not.Contain("DefaultFocus"));
+            Assert.That(mainMenuViewModelMapper, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(pendingLaunchProvider, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(saveSlotStageClearProfileStore, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(saveSlotStageClearProfileStore, Does.Contain("CampaignRunningSlotContext"));
+        }
+
+        [Test]
         public void StageLaunchAndGameplayMutation_DoNotUseLastPlayedSlotNumberAsSlotIdentity()
         {
             AssertCinematicLaunchSourceUsesPendingLaunchSlot(

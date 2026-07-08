@@ -35,6 +35,7 @@ namespace Game.Feature.UI.Tests
                 "CampaignSaveService",
                 "CampaignSaveServiceFactory",
                 "FileCampaignProfileRepository",
+                "ICampaignProfileRepository",
                 "profile.json",
                 "Steamworks",
                 "ISteamRemoteStorage");
@@ -43,6 +44,9 @@ namespace Game.Feature.UI.Tests
                 "CampaignSaveService",
                 "CampaignSaveServiceFactory",
                 "FileCampaignProfileRepository",
+                "ICampaignProfileRepository",
+                "CampaignProfileDocument",
+                "LastPlayedSlotNumber",
                 "profile.json",
                 "Steamworks",
                 "ISteamRemoteStorage");
@@ -63,7 +67,22 @@ namespace Game.Feature.UI.Tests
             var source = ReadRepoFile(MainMenuUiFlowInstallerPath);
 
             Assert.That(source, Does.Not.Contain("FileCampaignProfileRepository"));
+            Assert.That(source, Does.Not.Contain("ICampaignProfileRepository"));
             Assert.That(source, Does.Not.Contain("profile.json"));
+        }
+
+        [TestCase("profile.json")]
+        [TestCase("CampaignProfileDocument")]
+        [TestCase("CampaignSaveService")]
+        [TestCase("CampaignSaveServiceFactory")]
+        [TestCase("FileCampaignProfileRepository")]
+        [TestCase("ICampaignProfileRepository")]
+        public void MainMenuController_DoesNotReadV2ProfileOrStorage(string forbiddenToken)
+        {
+            var source = ReadRepoFile(MainMenuControllerPath);
+
+            Assert.That(source, Does.Not.Contain(forbiddenToken));
+            Assert.That(source, Does.Contain("_saveSlotStore.LoadAll()"));
         }
 
         [Test]
@@ -76,6 +95,7 @@ namespace Game.Feature.UI.Tests
                 "CampaignSaveService",
                 "CampaignSaveServiceFactory",
                 "FileCampaignProfileRepository",
+                "ICampaignProfileRepository",
                 "profile.json");
             Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("IPendingLaunchSlotProvider"));
             Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));

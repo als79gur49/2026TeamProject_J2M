@@ -41,6 +41,9 @@ namespace Game.Feature.UI.Tests
         [TestCase("LastPlayedSlotNumber")]
         [TestCase("CampaignProfileDocument")]
         [TestCase("CampaignSaveService")]
+        [TestCase("CampaignSaveServiceFactory")]
+        [TestCase("FileCampaignProfileRepository")]
+        [TestCase("ICampaignProfileRepository")]
         [TestCase("profile.json")]
         public void MainMenuController_DoesNotReferenceV2ProfileOrStorageTokens(string forbiddenToken)
         {
@@ -90,6 +93,20 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void LastPlayedSlotNumber_IsNotQuickContinueOrDefaultFocusSource()
+        {
+            var source = ReadRepoFile(MainMenuControllerPath);
+
+            Assert.That(source, Does.Contain("public void Continue(int slotNumber)"));
+            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
+            Assert.That(source, Does.Contain("MainMenuSlotViewModelMapper.Map(\n                _saveSlotStore.LoadAll(),"));
+            Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(source, Does.Not.Contain("QuickContinue"));
+            Assert.That(source, Does.Not.Contain("DefaultFocus"));
+            Assert.That(source, Does.Not.Contain("CampaignProfileDocument"));
+        }
+
+        [Test]
         public void MainMenuPendingLaunch_RemainsIPendingLaunchSlotProviderBased()
         {
             var source = ReadRepoFile(MainMenuControllerPath);
@@ -99,6 +116,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.TryGetPendingLaunchSlot"));
             Assert.That(source, Does.Not.Contain("ActiveSlotProvider _activeSlotProvider"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
+            Assert.That(source, Does.Not.Contain("CampaignProfileDocument"));
         }
 
         private MainMenuController CreateController(

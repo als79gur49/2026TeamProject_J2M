@@ -37,6 +37,36 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [TestCase("CampaignSaveServiceFactory")]
+        [TestCase("CampaignSaveService")]
+        [TestCase("FileCampaignProfileRepository")]
+        [TestCase("ICampaignProfileRepository")]
+        [TestCase("CampaignProfileDocument")]
+        [TestCase("profile.json")]
+        [TestCase("LastPlayedSlotNumber")]
+        public void MainMenuProductionPath_DoesNotReferenceV2MetadataTruthTokens(string forbiddenToken)
+        {
+            Assert.That(
+                File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs"),
+                Does.Not.Contain(forbiddenToken),
+                forbiddenToken);
+            Assert.That(
+                File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
+                Does.Not.Contain(forbiddenToken),
+                forbiddenToken);
+        }
+
+        [Test]
+        public void MainMenuProductionPath_KeepsPlayerPrefsSaveSlotStoreAsUxSource()
+        {
+            var controller = File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+            var installer = File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+
+            Assert.That(controller, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(installer, Does.Contain("var saveSlotStore = new SaveSlotStore();"));
+            Assert.That(installer, Does.Contain("new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider)"));
+        }
+
         [Test]
         public void SaveSlotStorePublicConstructor_DefaultStillUsesPlayerPrefsBackend()
         {
