@@ -34,7 +34,10 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(mainMenuInstaller, Does.Contain("new ActiveSlotProvider()"));
             Assert.That(gameplayInstaller, Does.Contain("new ActiveSlotProvider()"));
-            Assert.That(mainMenuController, Does.Contain("ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey"));
+            Assert.That(mainMenuController, Does.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(mainMenuController, Does.Contain("_pendingLaunchSlotProvider"));
+            Assert.That(mainMenuController, Does.Contain("ActiveSlotProviderKey = _pendingLaunchSlotProviderDiagnosticsKey"));
+            Assert.That(mainMenuController, Does.Not.Contain("ActiveSlotProvider _activeSlotProvider"));
             Assert.That(mainMenuInstaller, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(gameplayInstaller, Does.Not.Contain("IPendingLaunchSlotProvider"));
             Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
@@ -98,11 +101,12 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
 
             Assert.That(source, Does.Contain("_saveSlotStore.InitializeNewGame("));
-            Assert.That(source, Does.Contain("_activeSlotProvider.SetActiveSlot(slotNumber);"));
+            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
             Assert.That(source, Does.Contain("Launch(validation.Slot.CurrentStageId, StageNavigationKind.Continue, \"main-menu-new-game\")"));
             Assert.That(source, Does.Contain("Launch(validation.Slot.CurrentStageId, StageNavigationKind.Continue, \"main-menu-continue\")"));
             Assert.That(source, Does.Contain("_saveSlotStore.DeleteSlot(slotNumber);"));
-            Assert.That(source, Does.Contain("_activeSlotProvider.ClearActiveSlot();"));
+            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.IsPendingLaunchSlot(slotNumber)"));
+            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.ClearPendingLaunchSlot();"));
             Assert.That(source, Does.Contain("_saveSlotStore.LoadAll()"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
         }

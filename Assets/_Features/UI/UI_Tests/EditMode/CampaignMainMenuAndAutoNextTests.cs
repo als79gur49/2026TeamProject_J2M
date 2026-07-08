@@ -59,13 +59,15 @@ namespace Game.Feature.UI.Tests
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
             var confirmPort = new FakeConfirmPopupPort();
             var controller = new MainMenuController(
                 saveStore,
-                activeSlotProvider,
+                pendingLaunchSlotProvider,
                 new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
                 new FakeStageLaunchRouter(),
-                confirmPort);
+                confirmPort,
+                pendingLaunchSlotProviderDiagnosticsKey: activeSlotProvider.PlayerPrefsKey);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData

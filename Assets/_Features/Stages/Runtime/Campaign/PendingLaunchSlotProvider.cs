@@ -22,6 +22,8 @@ namespace Game.Feature.Stages
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
         }
 
+        public string DiagnosticsKey => _activeSlotProvider.PlayerPrefsKey;
+
         public bool TryGetPendingLaunchSlot(out int slotNumber)
         {
             return _activeSlotProvider.TryGetActiveSlotNumber(out slotNumber);

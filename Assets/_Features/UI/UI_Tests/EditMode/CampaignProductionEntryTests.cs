@@ -610,6 +610,7 @@ namespace Game.Feature.UI.Tests
             var activeKey = CreatePrefsKey("active");
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
@@ -618,11 +619,12 @@ namespace Game.Feature.UI.Tests
             var validationService = new SaveSlotValidationService(resolver, provider.Provider);
             var controller = new MainMenuController(
                 saveStore,
-                activeSlotProvider,
+                pendingLaunchSlotProvider,
                 resolver,
                 router,
                 confirmPort,
-                validationService);
+                validationService,
+                activeSlotProvider.PlayerPrefsKey);
             return new ControllerHarness(
                 provider,
                 saveStore,
