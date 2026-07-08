@@ -98,6 +98,8 @@ namespace Game.Feature.Stages.Editor
             builder.AppendLine("# Campaign Profile Readiness Report");
             builder.AppendLine();
             builder.AppendLine("Scope: Editor-only diagnostics/readiness report.");
+            builder.AppendLine("Report findings are diagnostics/readiness-only.");
+            builder.AppendLine("Report findings do not block build or release.");
             builder.AppendLine("profile.json is a diagnostics/readiness inventory input, not the current production save truth.");
             builder.AppendLine("Current production UX truth remains SaveSlotStore / PlayerPrefs.");
             builder.AppendLine("V2 metadata is readiness inventory and is not used to render MainMenu slots.");

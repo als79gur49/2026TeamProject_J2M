@@ -47,6 +47,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         [TestCase("CampaignProfileReadinessReport")]
         [TestCase("CampaignProfileReadinessReportBuilder")]
+        [TestCase("CampaignProfileReadinessReportWriter")]
         [TestCase("CampaignProfileMetadataProbe")]
         [TestCase("LastPlayedSlotNumber")]
         [TestCase("profile.json")]
@@ -66,9 +67,11 @@ namespace Game.Feature.Stages.Editor.Tests
                 AssertSourceDoesNotContain(
                     File.ReadAllText(path),
                     "CampaignProfileReadinessReport",
+                    "CampaignProfileReadinessReportWriter",
                     "CampaignProfileMetadataProbe",
                     "QuickContinue",
                     "DefaultFocus",
+                    "SaveReadiness",
                     "ISteamRemoteStorage",
                     "SteamRemoteStorage");
             }

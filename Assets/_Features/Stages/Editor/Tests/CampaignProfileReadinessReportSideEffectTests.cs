@@ -130,6 +130,42 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ReportWriter_CiArtifactGeneration_DoesNotMutateProfileBackupQuarantineOrMarkers()
+        {
+            using var harness = new ProfileHarness();
+            harness.WriteProfile(CreateProfile(1));
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.BackupPath, "backup-content");
+            File.WriteAllText(Path.Combine(harness.SaveRootPath, "profile.json.corrupt.20260708"), "quarantine-content");
+            PlayerPrefs.SetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey, 1);
+            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey, "marker-source");
+            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey, "2026-07-08T01:02:03.0000000Z");
+            PlayerPrefs.SetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey, "marker-guards");
+            PlayerPrefs.Save();
+            var beforeFiles = harness.SnapshotFileNames();
+            var beforeProfile = harness.ReadRawProfile();
+            var beforeBackup = File.ReadAllText(harness.BackupPath);
+
+            var report = harness.BuildReport();
+            var outputDirectory = Path.Combine(
+                CampaignProfileReadinessReportOptions.DefaultOutputDirectory,
+                nameof(ReportWriter_CiArtifactGeneration_DoesNotMutateProfileBackupQuarantineOrMarkers),
+                Guid.NewGuid().ToString("N"));
+            var outputPath = CampaignProfileReadinessReportWriter.Write(report, outputDirectory);
+
+            Assert.That(report.MetadataLoadStatus, Is.EqualTo(CampaignProfileMetadataProbeStatus.Loaded));
+            Assert.That(harness.SnapshotFileNames(), Is.EquivalentTo(beforeFiles));
+            Assert.That(harness.ReadRawProfile(), Is.EqualTo(beforeProfile));
+            Assert.That(File.ReadAllText(harness.BackupPath), Is.EqualTo(beforeBackup));
+            Assert.That(PlayerPrefs.GetInt(CampaignLegacyImportMarkerStore.ImportDisabledKey), Is.EqualTo(1));
+            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ImportedSourceHashKey), Is.EqualTo("marker-source"));
+            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey), Is.EqualTo("2026-07-08T01:02:03.0000000Z"));
+            Assert.That(PlayerPrefs.GetString(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey), Is.EqualTo("marker-guards"));
+
+            Directory.Delete(Path.GetDirectoryName(outputPath), recursive: true);
+        }
+
+        [Test]
         public void ReportWriter_RejectsOutputOutsideTestLogsSaveReadiness()
         {
             using var harness = new ProfileHarness();

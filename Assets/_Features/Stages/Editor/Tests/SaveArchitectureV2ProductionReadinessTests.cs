@@ -26,6 +26,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
         [TestCase("CampaignSaveServiceFactory")]
         [TestCase("CampaignSaveService")]
+        [TestCase("CampaignProfileReadinessReport")]
+        [TestCase("CampaignProfileReadinessReportWriter")]
         [TestCase("CampaignProfileMetadataProbe")]
         [TestCase("SaveSlotStoreCompatibilityAdapter")]
         [TestCase("CampaignSaveMigrationCoordinator")]

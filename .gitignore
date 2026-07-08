@@ -83,6 +83,7 @@ __pycache__/
 # Local test outputs
 /[Tt]est[Rr]esult/
 /[Tt]est[Rr]esults/
+/TestLogs/SaveReadiness/
 
 # Unity PlayMode test runner temporary scenes
 /[Aa]ssets/InitTestScene*.unity

@@ -66,7 +66,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var normalized = outputPath.Replace('\\', '/');
 
             Assert.That(normalized, Does.Contain("/TestLogs/SaveReadiness/"));
-            Assert.That(Path.GetFileName(outputPath), Is.EqualTo("campaign-profile-readiness-report.md"));
+            Assert.That(Path.GetFileName(outputPath), Is.EqualTo("CampaignProfileReadiness.md"));
         }
 
         private static CampaignProfileDocument CreateProfile()

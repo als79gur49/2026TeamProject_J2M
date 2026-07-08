@@ -18,6 +18,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 .ToMarkdown();
 
             Assert.That(markdown, Does.Contain("Editor-only diagnostics/readiness report"));
+            Assert.That(markdown, Does.Contain("Report findings are diagnostics/readiness-only."));
+            Assert.That(markdown, Does.Contain("Report findings do not block build or release."));
             Assert.That(markdown, Does.Contain("profile.json is a diagnostics/readiness inventory input"));
             Assert.That(markdown, Does.Contain("Current production UX truth remains SaveSlotStore / PlayerPrefs"));
             Assert.That(markdown, Does.Contain("metadata load status"));
@@ -34,7 +36,10 @@ namespace Game.Feature.Stages.Editor.Tests
             AssertForbiddenWordingAbsent(
                 markdown,
                 "profile.json is production save truth",
+                "profile.json is the production save truth",
+                "profile.json is current production save truth",
                 "profile slot list is MainMenu slot list",
+                "profile slot document count is MainMenu slot list",
                 "corrupt profile blocks current UX",
                 "ImportDisabled blocks current PlayerPrefs UX",
                 "DeletedSlotGuards hide current PlayerPrefs slots");
@@ -48,6 +53,8 @@ namespace Game.Feature.Stages.Editor.Tests
             AssertForbiddenWordingAbsent(
                 markdown,
                 "LastPlayedSlotNumber is resume target",
+                "LastPlayedSlotNumber is Quick Continue target",
+                "LastPlayedSlotNumber is default focus target",
                 "Quick Continue target",
                 "default focus target");
         }
@@ -60,6 +67,9 @@ namespace Game.Feature.Stages.Editor.Tests
             AssertForbiddenWordingAbsent(
                 markdown,
                 "Steam Cloud upload source",
+                "Steam Cloud canonical source",
+                "Steam Cloud canonical file",
+                "Steam Cloud canonical file selection",
                 "ISteamRemoteStorage",
                 "SteamRemoteStorage");
         }

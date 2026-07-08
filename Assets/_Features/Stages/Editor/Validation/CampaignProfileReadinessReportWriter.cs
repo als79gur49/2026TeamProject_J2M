@@ -6,7 +6,7 @@ namespace Game.Feature.Stages.Editor
 {
     public static class CampaignProfileReadinessReportWriter
     {
-        public const string DefaultFileName = "campaign-profile-readiness-report.md";
+        public const string DefaultFileName = "CampaignProfileReadiness.md";
 
         public static string Write(
             CampaignProfileReadinessReport report,
