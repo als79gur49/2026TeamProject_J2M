@@ -9,27 +9,39 @@ namespace Game.Feature.Stages.Editor.Tests
         private const string PolicyPath = "Docs/Architecture/Save-Architecture-V2-Phase4-Policy-Closeout.md";
 
         [Test]
-        public void PolicyCloseout_RequiresSlotLevelRemigrationGuardBeforeProductionDeleteSlotSwitch()
+        public void PolicyCloseout_DocumentsSelectedDeleteSlotRemigrationGuardPolicy()
         {
             var source = File.ReadAllText(PolicyPath);
 
             Assert.That(source, Does.Contain("DeleteSlot"));
-            Assert.That(source, Does.Contain("slot-level legacy deletion marker or tombstone"));
-            Assert.That(source, Does.Contain("retained legacy PlayerPrefs may still contain the deleted slot"));
-            Assert.That(source, Does.Contain("resurrect"));
-            Assert.That(source, Does.Contain("deleted slots"));
-            Assert.That(source, Does.Contain("profile-document deletion only"));
+            Assert.That(source, Does.Contain("records a deleted-slot legacy guard"));
+            Assert.That(source, Does.Contain("`CampaignLegacyDeletedSlotGuardDocument`"));
+            Assert.That(source, Does.Contain("`SlotNumber`"));
+            Assert.That(source, Does.Contain("`ImportedSourceHash`"));
+            Assert.That(source, Does.Contain("`DeletedAtUtc`"));
+            Assert.That(source, Does.Contain("`Reason = \"DeleteSlot\"`"));
+            Assert.That(source, Does.Contain("Same imported source hash"));
+            Assert.That(source, Does.Contain("guarded slots are filtered"));
+            Assert.That(source, Does.Contain("Changed imported source hash"));
+            Assert.That(source, Does.Contain("`MigrationDeferred`"));
+            Assert.That(source, Does.Contain("Empty `ImportedSourceHash`"));
+            Assert.That(source, Does.Contain("source-agnostic guard"));
+            Assert.That(source, Does.Contain("`LastPlayedSlotNumber`"));
+            Assert.That(source, Does.Contain("`ClearAll`"));
+            Assert.That(source, Does.Contain("`InitializeNewGame`"));
+            Assert.That(source, Does.Contain("Old/null profile compatibility"));
         }
 
         [Test]
-        public void FactoryReadinessGuard_ReportsDeleteSlotProductionIntegrationNotReady()
+        public void FactoryReadinessGuard_ReportsProductionIntegrationDeferredDespiteGuardCoverage()
         {
             var readiness = CampaignSaveProductionReadinessPolicy.EvaluateDeleteSlotProductionReadiness();
 
             Assert.That(readiness.IsReady, Is.False);
-            Assert.That(readiness.Reason, Does.Contain("slot-level"));
-            Assert.That(readiness.Reason, Does.Contain("tombstone"));
-            Assert.That(readiness.Reason, Does.Contain("remigration"));
+            Assert.That(readiness.Reason, Does.Contain("deleted-slot guard"));
+            Assert.That(readiness.Reason, Does.Contain("production integration"));
+            Assert.That(readiness.Reason, Does.Contain("deferred"));
+            Assert.That(readiness.Reason, Does.Contain("SaveSlotStore"));
         }
 
         [Test]

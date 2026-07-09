@@ -146,7 +146,7 @@ namespace Game.Feature.Stages
         {
             return new CampaignSaveProductionReadinessResult(
                 false,
-                "DeleteSlot production integration is blocked until a slot-level tombstone or source-hash remigration guard exists.");
+                "DeleteSlot has deleted-slot guard coverage, but production integration remains deferred until SaveSlotStore call-site migration, profile writes, and adapter wiring are explicitly switched.");
         }
     }
 

@@ -590,9 +590,12 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Docs/Architecture/Save-Architecture-V2-Phase4-Policy-Closeout.md");
 
             Assert.That(source, Does.Contain("DeleteSlot"));
-            Assert.That(source, Does.Contain("slot-level legacy deletion marker or tombstone"));
-            Assert.That(source, Does.Contain("automatic legacy reimport to resurrect"));
-            Assert.That(source, Does.Contain("remigration prevention policy"));
+            Assert.That(source, Does.Contain("records a deleted-slot legacy guard"));
+            Assert.That(source, Does.Contain("`CampaignLegacyDeletedSlotGuardDocument`"));
+            Assert.That(source, Does.Contain("Same imported source hash"));
+            Assert.That(source, Does.Contain("Changed imported source hash"));
+            Assert.That(source, Does.Contain("`MigrationDeferred`"));
+            Assert.That(source, Does.Contain("source-agnostic guard"));
             Assert.That(source, Does.Contain("`LastPlayedSlotNumber` and pending launch slot are separate concepts"));
             Assert.That(source, Does.Contain("ActiveSlotProvider"));
             Assert.That(source, Does.Contain("production-local until an explicit active slot split phase"));

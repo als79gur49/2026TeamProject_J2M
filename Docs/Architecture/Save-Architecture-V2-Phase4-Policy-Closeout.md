@@ -27,29 +27,46 @@ APIs.
   `ICampaignSaveResetMarkerPort`, but it does not delete the retained legacy
   PlayerPrefs campaign payload.
 
-## DeleteSlot Resurrection Risk
+## DeleteSlot Legacy Guard Policy
 
-`DeleteSlot` in Phase 4 removes the slot from the V2 profile document and
-adjusts `LastPlayedSlotNumber`, but it does not write a slot-level legacy deletion marker or tombstone.
+`DeleteSlot` removes the slot from the V2 profile document, adjusts
+`LastPlayedSlotNumber`, and records a deleted-slot legacy guard so retained
+legacy PlayerPrefs data cannot automatically resurrect the deleted slot.
 
-Because retained legacy PlayerPrefs may still contain the deleted slot,
-production integration must not allow automatic legacy reimport to resurrect
-deleted slots. This is especially relevant if a V2 profile is missing,
-quarantined, reset, or otherwise routed back through legacy import while the
-legacy PlayerPrefs campaign source is still present.
+The guard document is `CampaignLegacyDeletedSlotGuardDocument`:
 
-Before or during the production switch, Phase 5 or Phase 6 must explicitly
-select and test one remigration prevention policy:
+- `SlotNumber`
+- `ImportedSourceHash`
+- `DeletedAtUtc`
+- `Reason = "DeleteSlot"`
 
-1. Slot-level deletion marker/tombstone.
-2. Imported legacy source hash plus deleted slot guard.
-3. Legacy fallback disabled after profile reset/delete.
-4. Another tested remigration prevention policy.
+Guard behavior:
 
-Until that selection is made, slot-level marker/tombstone work is deferred and
-`DeleteSlot` must be treated as profile-document deletion only. Phase 5 planning
-must carry this risk forward rather than assuming that Phase 4 deletion is a
-complete legacy-source deletion guard.
+- Same imported source hash: guarded slots are filtered from automatic legacy
+  import, while unguarded legacy slots from the same source may still import.
+- Changed imported source hash: if the changed legacy source contains a guarded
+  deleted slot, automatic import returns `MigrationDeferred` and performs no
+  profile write. This avoids overwriting the user's deletion decision with an
+  ambiguous changed legacy source.
+- Empty `ImportedSourceHash`: treated as a source-agnostic guard for that slot.
+  It blocks automatic resurrection of that slot from any legacy source hash.
+- `LastPlayedSlotNumber`: if it points at a guarded/deleted slot after filtering,
+  it is recomputed to an imported unguarded slot and must not point back to the
+  guarded slot.
+- `ClearAll`: full reset/import-disabled/reset tombstone policy supersedes
+  slot-level guards. ClearAll writes an empty valid profile with
+  `ImportDisabled = true` and `ResetTombstoneUtc`, clears retained slot guards in
+  the profile document, and blocks later legacy import through the local reset
+  marker when the marker port is present.
+- `InitializeNewGame`: creating a new V2 slot after deleting an imported legacy
+  slot must not remove the retained delete guard for the older legacy source.
+- Old/null profile compatibility: profiles that omit `DeletedSlotGuards` or
+  deserialize it as null normalize safely to an empty guard array.
+
+This guard policy does not delete retained legacy PlayerPrefs payloads and does
+not switch production storage. Production integration remains deferred until a
+separate production switch decision validates SaveSlotStore call-site migration,
+profile write enablement, and adapter wiring on the same revision.
 
 ## Active Slot Split Defer
 
@@ -78,10 +95,10 @@ integration only under these constraints:
 - Do not enable production `profile.json` writes without an explicit switch
   decision and validation plan.
 - Do not delete legacy PlayerPrefs campaign keys as part of this closeout.
-- Do not add slot-level tombstone implementation as part of this closeout.
+- Do not treat deleted-slot guard coverage as permission to wire production
+  `CampaignSaveService` or `SaveSlotStoreCompatibilityAdapter`.
 - Do not implement the active slot split as part of this closeout.
 - Do not add Steamworks.NET, Steam Cloud, `ISteamRemoteStorage`, or any Steam
   Remote Storage API as part of this closeout.
-- Phase 5 must include a decision point for retained legacy deletion risk before
-  production legacy import can run automatically against retained PlayerPrefs
-  data.
+- Phase 5 must still include a production switch decision point before automatic
+  legacy import can run in production against retained PlayerPrefs data.
