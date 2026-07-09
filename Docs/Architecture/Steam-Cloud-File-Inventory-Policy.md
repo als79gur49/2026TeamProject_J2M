@@ -61,6 +61,10 @@ Exclude these files, patterns, PlayerPrefs keys, and artifact roots from Steam C
 - `Saves/profile.*.tmp`
 - `Saves/profile.json.corrupt.*`
 - `campaign-save-seed.json`
+- `Settings/local-settings.json`
+- `Saves/local-launch-state.json`
+- `Saves/editor-direct-play.json`
+- `Saves/direct-play-temp.json`
 - `settings.audio.*`
 - `settings.display.*`
 - `Game.Feature.Input.*`
@@ -82,6 +86,70 @@ Cloud exclusion notes:
 - Direct-play temp save and temp active-slot keys are never Cloud targets.
 - Readiness reports are CI artifacts only and are not Cloud targets.
 - Audio, display, and input settings remain outside the campaign save Cloud inventory.
+
+## PlayerPrefs inventory freeze
+
+This section freezes the current PlayerPrefs key and prefix inventory for the
+PlayerPrefs Inventory Freeze slice. It is documentation and guard coverage only.
+It does not switch `SaveSlotStore`, enable production `profile.json` writes, wire
+`CampaignSaveServiceFactory` or `CampaignSaveService` into production, delete
+PlayerPrefs keys, enable Steam Cloud, add Steam APIs, or add SteamPipe upload
+configuration.
+
+JSON target classifications:
+
+- `CampaignProfileJson`: future `Saves/profile.json` campaign profile target.
+- `LocalSettingsJson`: future local settings JSON target; never Cloud profile.
+- `LocalLaunchStateJson`: future local launch/session state target; never Cloud profile.
+- `EditorOnlyJson`: editor-only JSON target; never Cloud profile or release content.
+- `DeleteOnlyLegacy`: legacy key retained until an explicit cleanup slice; no import target.
+- `ImportOnlyLegacy`: legacy-only import source classification reserved for future source keys that must not become production write targets.
+- `Remove`: key/prefix should be removed in a later explicit cleanup decision.
+- `UnknownNeedsDecision`: observed key/prefix needs a product/owner decision before migration.
+
+Frozen inventory:
+
+| Key or prefix | Owner | Read | Write | Delete | Production read/write | JSON target | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `Game.Feature.Stages.StageClearSaveSlots` | `SaveSlotStore`, `CampaignLegacySourceReader` | yes | yes | existing reset paths only | yes | `CampaignProfileJson` | Campaign save payload; future `Saves/profile.json` target; retained after switch as rollback/import source for a bounded period. |
+| `Game.Feature.Stages.ActiveStageClearSaveSlot` | `ActiveSlotProvider`, `PendingLaunchSlotProvider` | yes | yes | existing clear/reset paths only | yes | `LocalLaunchStateJson` | Pending launch/menu selection state, not campaign progression and not Cloud profile metadata. |
+| `Game.Feature.Stages.SaveSlots` | legacy stage clear cleanup | no production read | no production write | existing cleanup paths only | no | `DeleteOnlyLegacy` | Old pre-stage-clear key; do not import into profile in this slice. |
+| `Game.Feature.Stages.ActiveSaveSlot` | legacy active slot cleanup | no production read | no production write | existing cleanup paths only | no | `DeleteOnlyLegacy` | Old pre-stage-clear active key; do not import into profile in this slice. |
+| `Game.Feature.Stages.DirectPlay.TempSaveSlots` | `EditorDirectPlayContextStore`, editor launcher | yes | yes | editor temp clear only | no | `EditorOnlyJson` | Direct-play temp state; later cleanup may choose `Remove`, but this slice keeps it editor-only. |
+| `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot` | `EditorDirectPlayContextStore`, editor launcher | yes | yes | editor temp clear only | no | `EditorOnlyJson` | Direct-play temp launch state; later cleanup may choose `Remove`, but this slice keeps it editor-only. |
+| `Game.Feature.Stages.CampaignProfile.LegacyImportDisabled` | `CampaignLegacyImportMarkerStore` | yes | yes | test/reset cleanup only | no | `CampaignProfileJson` | Migration marker; should move into campaign profile metadata when the production switch is explicitly approved. |
+| `Game.Feature.Stages.CampaignProfile.LegacyImportedSourceHash` | `CampaignLegacyImportMarkerStore` | yes | yes | test/reset cleanup only | no | `CampaignProfileJson` | Migration marker; binds retained PlayerPrefs source to profile import state. |
+| `Game.Feature.Stages.CampaignProfile.LegacyResetTombstoneUtc` | `CampaignLegacyImportMarkerStore` | yes | yes | test/reset cleanup only | no | `CampaignProfileJson` | Migration marker; records reset tombstone in profile metadata. |
+| `Game.Feature.Stages.CampaignProfile.LegacyDeletedSlotGuards` | `CampaignLegacyImportMarkerStore` | yes | yes | test/reset cleanup only | no | `CampaignProfileJson` | Migration marker; records deleted-slot resurrection guards in profile metadata. |
+| `settings.audio.*` | `PlayerPrefsAudioSettingsStore` | yes | yes | no runtime delete | yes | `LocalSettingsJson` | Local user setting; excluded from campaign profile and Steam Cloud. |
+| `settings.display.*` | `PlayerPrefsDisplaySettingsStore` | yes | yes | no runtime delete | yes | `LocalSettingsJson` | Local machine/display setting; excluded from campaign profile and Steam Cloud. |
+| `Game.Feature.Input.KeyboardMovementScheme` | `PlayerPrefsKeyboardBindingStore` | yes | yes | no runtime delete | yes | `LocalSettingsJson` | Local input setting; excluded from campaign profile and Steam Cloud. |
+| `Game.Feature.Input.KeyboardBindingOverridesJson` | `PlayerPrefsKeyboardBindingStore` | yes | yes | clear binding override only | yes | `LocalSettingsJson` | Local input setting; excluded from campaign profile and Steam Cloud. |
+| `All1Shader*` | All In 1 Sprite Shader editor tooling | yes | yes | no runtime delete | no | `EditorOnlyJson` | Plugin editor preferences; excluded from campaign profile, Cloud, and release content. |
+| `allIn1DefaultShader` | All In 1 Sprite Shader editor tooling | yes | yes | no runtime delete | no | `EditorOnlyJson` | Plugin editor preference; excluded from campaign profile, Cloud, and release content. |
+| `Assets/` | All In 1 Sprite Shader editor tooling | write-only observed literal | yes | no runtime delete | no | `UnknownNeedsDecision` | Observed editor PlayerPrefs key literal in plugin code; needs owner decision before migration. |
+| test-only dynamic keys | editor/UI/gameplay tests | yes | yes | test cleanup only | no | `Remove` | Prefix families such as `Game.Feature.Stages.Editor.Tests.*`, `Game.Feature.Stages.Tests.*`, `Game.Feature.UI.Tests.*`, `Game.Feature.Tests.*`, and `pending-launch-slot-provider-tests-*`; not production data. |
+
+Target consistency:
+
+- Campaign save keys target `CampaignProfileJson`.
+- Pending launch keys target `LocalLaunchStateJson` and must not be stored in the Cloud profile.
+- Audio, display, and input keys target `LocalSettingsJson` and must not be stored in the Cloud profile.
+- Direct-play temp keys target `EditorOnlyJson` in this slice; a later explicit cleanup decision may move them to `Remove`.
+- Old stage save keys target `DeleteOnlyLegacy`.
+- Migration marker keys target `CampaignProfileJson`.
+- Current campaign PlayerPrefs keys must be retained after a future switch as rollback/import source for a bounded period. PlayerPrefs key deletion is not part of this slice.
+
+## Aggressive migration slice plan
+
+| Slice | Purpose | Included keys | Risk | Rollback |
+| --- | --- | --- | --- | --- |
+| 1. Inventory freeze | Freeze all current PlayerPrefs keys/prefixes and add drift guards. | All keys and prefixes in the frozen inventory table. | Low; documentation and tests only. | Revert docs/tests; production behavior is unchanged. |
+| 2. Campaign profile switch investigation | Validate `SaveSlotStore` call-site migration, profile write enablement, and adapter wiring on one revision before any production switch. | `Game.Feature.Stages.StageClearSaveSlots`, migration marker keys. | High; can affect campaign progression persistence. | Keep PlayerPrefs source retained and default constructor unchanged until switch approval. |
+| 3. Local launch state schema | Split pending launch/session state away from campaign profile metadata. | `Game.Feature.Stages.ActiveStageClearSaveSlot`. | Medium; can affect continue/launch UX. | Fall back to existing `ActiveSlotProvider` PlayerPrefs key. |
+| 4. Local settings schema | Move local settings into non-Cloud local JSON. | `settings.audio.*`, `settings.display.*`, `Game.Feature.Input.*`. | Medium; can affect user settings and machine-specific display config. | Keep PlayerPrefs reads as import fallback during transition. |
+| 5. Editor/direct-play cleanup decision | Decide whether direct-play temp state becomes editor JSON or is removed. | `Game.Feature.Stages.DirectPlay.TempSaveSlots`, `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot`. | Low; editor workflow only. | Keep current editor PlayerPrefs temp keys. |
+| 6. Legacy tombstone cleanup | Remove retained legacy keys only after explicit retention-window closeout. | Delete-only legacy keys and test-only dynamic keys. | Medium; irreversible if users still need rollback/import. | Do not delete until import/rollback window and backups are closed. |
 
 ## SteamPipe content exclusion policy
 
@@ -137,6 +205,10 @@ SteamPipe release content staging must exclude:
 - `Saves/profile.json.bak`
 - `Saves/profile.*.tmp`
 - `Saves/profile.json.corrupt.*`
+- `Settings/local-settings.json`
+- `Saves/local-launch-state.json`
+- `Saves/editor-direct-play.json`
+- `Saves/direct-play-temp.json`
 - `*.pdb`
 - `*.mdb`
 - `*.log`

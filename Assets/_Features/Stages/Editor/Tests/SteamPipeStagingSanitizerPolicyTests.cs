@@ -149,6 +149,10 @@ namespace Game.Feature.Stages.Editor.Tests
                    (value.StartsWith("Saves/profile.", StringComparison.Ordinal) &&
                     value.EndsWith(".tmp", StringComparison.Ordinal)) ||
                    value.StartsWith("Saves/profile.json.corrupt.", StringComparison.Ordinal) ||
+                   value == "Settings/local-settings.json" ||
+                   value == "Saves/local-launch-state.json" ||
+                   value == "Saves/editor-direct-play.json" ||
+                   value == "Saves/direct-play-temp.json" ||
                    value.EndsWith(".pdb", StringComparison.Ordinal) ||
                    value.EndsWith(".mdb", StringComparison.Ordinal) ||
                    value.EndsWith(".log", StringComparison.Ordinal) ||
@@ -191,6 +195,14 @@ namespace Game.Feature.Stages.Editor.Tests
             if (value.StartsWith("Saves/profile.json.corrupt.", StringComparison.Ordinal))
             {
                 return "`Saves/profile.json.corrupt.*`";
+            }
+
+            if (value == "Settings/local-settings.json" ||
+                value == "Saves/local-launch-state.json" ||
+                value == "Saves/editor-direct-play.json" ||
+                value == "Saves/direct-play-temp.json")
+            {
+                return $"`{value}`";
             }
 
             if (value.EndsWith(".pdb", StringComparison.Ordinal))
@@ -273,6 +285,10 @@ namespace Game.Feature.Stages.Editor.Tests
             yield return "Saves/profile.json.bak";
             yield return "Saves/profile.123.tmp";
             yield return "Saves/profile.json.corrupt.202607090000000000000";
+            yield return "Settings/local-settings.json";
+            yield return "Saves/local-launch-state.json";
+            yield return "Saves/editor-direct-play.json";
+            yield return "Saves/direct-play-temp.json";
             yield return "Game.pdb";
             yield return "Game.mdb";
             yield return "player.log";
@@ -394,6 +410,10 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("Saves/profile.json.bak")]
         [TestCase("Saves/profile.123.tmp")]
         [TestCase("Saves/profile.json.corrupt.202607090000000000000")]
+        [TestCase("Settings/local-settings.json")]
+        [TestCase("Saves/local-launch-state.json")]
+        [TestCase("Saves/editor-direct-play.json")]
+        [TestCase("Saves/direct-play-temp.json")]
         public void SteamPipePolicy_ExcludesLocalUserSaveFiles(string candidate)
         {
             Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent(candidate), Is.True);

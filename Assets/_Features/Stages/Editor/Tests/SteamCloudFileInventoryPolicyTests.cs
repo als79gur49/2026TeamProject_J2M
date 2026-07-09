@@ -28,6 +28,10 @@ namespace Game.Feature.Stages.Editor.Tests
             "Saves/profile.123.tmp",
             "Saves/profile.json.corrupt.202607090000000000000",
             "campaign-save-seed.json",
+            "Settings/local-settings.json",
+            "Saves/local-launch-state.json",
+            "Saves/editor-direct-play.json",
+            "Saves/direct-play-temp.json",
             "settings.audio.master.volume",
             "settings.display.width",
             "Game.Feature.Input.KeyboardMovementScheme",
@@ -53,6 +57,10 @@ namespace Game.Feature.Stages.Editor.Tests
             "CampaignProfileReadiness.md",
             "TestLogs/SaveReadiness/20260709/abc123/CampaignProfileReadiness.md",
             "campaign-save-seed.json",
+            "Settings/local-settings.json",
+            "Saves/local-launch-state.json",
+            "Saves/editor-direct-play.json",
+            "Saves/direct-play-temp.json",
             "Game.pdb",
             "Game.mdb",
             "player.log",
@@ -121,6 +129,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(doc, Does.Contain("`Saves/profile.json.bak`"));
             Assert.That(doc, Does.Contain("`Saves/profile.*.tmp`"));
             Assert.That(doc, Does.Contain("`Saves/profile.json.corrupt.*`"));
+            Assert.That(doc, Does.Contain("`Settings/local-settings.json`"));
+            Assert.That(doc, Does.Contain("`Saves/local-launch-state.json`"));
+            Assert.That(doc, Does.Contain("`Saves/editor-direct-play.json`"));
+            Assert.That(doc, Does.Contain("`Saves/direct-play-temp.json`"));
             Assert.That(doc, Does.Contain("`settings.audio.*`"));
             Assert.That(doc, Does.Contain("`settings.display.*`"));
             Assert.That(doc, Does.Contain("`Game.Feature.Input.*`"));
@@ -132,6 +144,21 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(doc, Does.Contain("Backup clouding requires a separate tested backup-cloud policy"));
             Assert.That(doc, Does.Contain("Direct-play temp save and temp active-slot keys are never Cloud targets."));
             Assert.That(doc, Does.Contain("Readiness reports are CI artifacts only"));
+        }
+
+        [Test]
+        public void SteamCloudPolicy_ExcludesLocalSettingsLaunchAndEditorTargets()
+        {
+            Assert.That(IsFutureCloudIncluded("Saves/profile.json"), Is.True);
+            Assert.That(IsFutureCloudIncluded("Settings/local-settings.json"), Is.False);
+            Assert.That(IsFutureCloudIncluded("Saves/local-launch-state.json"), Is.False);
+            Assert.That(IsFutureCloudIncluded("Saves/editor-direct-play.json"), Is.False);
+            Assert.That(IsFutureCloudIncluded("Saves/direct-play-temp.json"), Is.False);
+            Assert.That(IsFutureCloudIncluded("settings.audio.master.volume"), Is.False);
+            Assert.That(IsFutureCloudIncluded("settings.display.width"), Is.False);
+            Assert.That(IsFutureCloudIncluded("Game.Feature.Input.KeyboardMovementScheme"), Is.False);
+            Assert.That(IsFutureCloudIncluded("Game.Feature.Stages.ActiveStageClearSaveSlot"), Is.False);
+            Assert.That(IsFutureCloudIncluded("Game.Feature.Stages.DirectPlay.TempSaveSlots"), Is.False);
         }
 
         [TestCaseSource(nameof(SteamPipeExclusions))]
@@ -153,6 +180,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(doc, Does.Contain("Stage sanitized build output from an explicit release staging directory."));
             Assert.That(doc, Does.Contain("Debug symbols are excluded until a separate shipping-symbol decision"));
             Assert.That(doc, Does.Contain("`steam_appid.txt`"));
+            Assert.That(doc, Does.Contain("`Settings/local-settings.json`"));
+            Assert.That(doc, Does.Contain("`Saves/local-launch-state.json`"));
+            Assert.That(doc, Does.Contain("`Saves/editor-direct-play.json`"));
+            Assert.That(doc, Does.Contain("`Saves/direct-play-temp.json`"));
             Assert.That(doc, Does.Contain("`*.pdb`"));
             Assert.That(doc, Does.Contain("`*.mdb`"));
             Assert.That(doc, Does.Contain("`*.log`"));
@@ -232,6 +263,10 @@ namespace Game.Feature.Stages.Editor.Tests
             return value == "steam_appid.txt" ||
                    value == "CampaignProfileReadiness.md" ||
                    value == "campaign-save-seed.json" ||
+                   value == "Settings/local-settings.json" ||
+                   value == "Saves/local-launch-state.json" ||
+                   value == "Saves/editor-direct-play.json" ||
+                   value == "Saves/direct-play-temp.json" ||
                    value.EndsWith(".pdb", StringComparison.Ordinal) ||
                    value.EndsWith(".mdb", StringComparison.Ordinal) ||
                    value.EndsWith(".log", StringComparison.Ordinal) ||
@@ -279,6 +314,14 @@ namespace Game.Feature.Stages.Editor.Tests
             if (value.StartsWith("Saves/profile.json.corrupt.", StringComparison.Ordinal))
             {
                 return "`Saves/profile.json.corrupt.*`";
+            }
+
+            if (value == "Settings/local-settings.json" ||
+                value == "Saves/local-launch-state.json" ||
+                value == "Saves/editor-direct-play.json" ||
+                value == "Saves/direct-play-temp.json")
+            {
+                return $"`{value}`";
             }
 
             if (value.StartsWith("settings.audio.", StringComparison.Ordinal))
