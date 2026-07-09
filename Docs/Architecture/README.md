@@ -176,6 +176,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - current supporting truth for Phase 4 policy closeout before Phase 5 SaveSlotStore call-site migration / adapter production integration investigation
   - records that `DeleteSlot` removes V2 profile slots but does not write a slot-level legacy deletion marker/tombstone, so retained legacy PlayerPrefs must not be allowed to resurrect deleted slots without a selected and tested remigration prevention policy
   - records that `LastPlayedSlotNumber` is Cloud-friendly profile metadata, while the existing `ActiveSlotProvider` pending launch slot remains local/session state until an explicit active slot split phase
+- [Steam-Cloud-File-Inventory-Policy.md](./Steam-Cloud-File-Inventory-Policy.md)
+  - current supporting truth for Steam Release Phase B Cloud inventory policy, Auto-Cloud defer status, future exact `profile.json` include rule, Cloud/SteamPipe exclusions, Company/Product path guard, and no-Steam-API guard
 
 ## Historical Supporting Notes
 
