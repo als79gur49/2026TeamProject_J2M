@@ -37,7 +37,7 @@ namespace Game.Feature.UI.Application
             return new SaveSlotPanelViewModel(cards);
         }
 
-        public static SaveSlotPanelViewModel MapRepairRequired(CampaignSaveLoadReport report)
+        public static SaveSlotPanelViewModel MapCampaignAccessBlocked(CampaignSaveLoadReport report)
         {
             var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
             for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
@@ -46,8 +46,8 @@ namespace Game.Feature.UI.Application
                     slotNumber,
                     SaveSlotCardState.Corrupted,
                     $"Slot {slotNumber}",
-                    "Needs Repair",
-                    string.IsNullOrWhiteSpace(report.Reason) ? "Campaign save unavailable" : report.Reason,
+                    ResolveBlockedStatusText(report.Status),
+                    ResolveBlockedDetailText(report),
                     string.Empty,
                     string.Empty,
                     string.Empty,
@@ -57,6 +57,11 @@ namespace Game.Feature.UI.Application
             }
 
             return new SaveSlotPanelViewModel(cards);
+        }
+
+        public static SaveSlotPanelViewModel MapRepairRequired(CampaignSaveLoadReport report)
+        {
+            return MapCampaignAccessBlocked(report);
         }
 
         public static SaveSlotCardViewModel MapSlot(
@@ -187,6 +192,43 @@ namespace Game.Feature.UI.Application
                    status == SaveSlotValidationStatus.StageMissingFromSequence
                 ? $"Stage {slot.CurrentStageId.Value}"
                 : "Invalid stage";
+        }
+
+        private static string ResolveBlockedStatusText(CampaignSaveLoadStatus status)
+        {
+            switch (status)
+            {
+                case CampaignSaveLoadStatus.IoFailed:
+                    return "Load Blocked";
+                case CampaignSaveLoadStatus.Unauthorized:
+                    return "Permission Denied";
+                case CampaignSaveLoadStatus.CorruptRepairRequired:
+                case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
+                    return "Needs Repair";
+                default:
+                    return "Unavailable";
+            }
+        }
+
+        private static string ResolveBlockedDetailText(CampaignSaveLoadReport report)
+        {
+            if (!string.IsNullOrWhiteSpace(report.Reason))
+            {
+                return report.Reason;
+            }
+
+            switch (report.Status)
+            {
+                case CampaignSaveLoadStatus.IoFailed:
+                    return "Save data cannot be loaded";
+                case CampaignSaveLoadStatus.Unauthorized:
+                    return "Save data permission denied";
+                case CampaignSaveLoadStatus.CorruptRepairRequired:
+                case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
+                    return "Save data needs repair";
+                default:
+                    return "Campaign save unavailable";
+            }
         }
 
         private static SaveSlotData ResolveSlot(IReadOnlyList<SaveSlotData> slots, int slotNumber)

@@ -116,8 +116,76 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result.Report.Status, Is.EqualTo(expectedStatus));
             Assert.That(result.Report.RequiresRepair, Is.True);
+            Assert.That(result.Report.BlocksCampaignAccess, Is.True);
             Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
             Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
+        }
+
+        [TestCase(CampaignProfileLoadStatus.CorruptNoFallback, CampaignSaveLoadStatus.CorruptRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.CorruptQuarantined, CampaignSaveLoadStatus.CorruptRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.SchemaInvalid, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.IoFailed, CampaignSaveLoadStatus.IoFailed)]
+        [TestCase(CampaignProfileLoadStatus.Unauthorized, CampaignSaveLoadStatus.Unauthorized)]
+        public void ProfileBackedFacadeReportsCampaignAccessBlocked(
+            CampaignProfileLoadStatus profileStatus,
+            CampaignSaveLoadStatus expectedStatus)
+        {
+            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
+                new StatusRepository(profileStatus),
+                new NoOpResetMarkerPort(),
+                () => "2026-07-09T00:00:00Z",
+                "repair-test-profile",
+                "repair-test-product"));
+
+            var result = adapter.LoadAllWithReport();
+
+            Assert.That(result.Report.Status, Is.EqualTo(expectedStatus));
+            Assert.That(result.Report.BlocksCampaignAccess, Is.True);
+            Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
+            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
+        }
+
+        [Test]
+        public void MissingNoLegacy_RemainsFreshEmptyReport()
+        {
+            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
+                new StatusRepository(CampaignProfileLoadStatus.Missing),
+                new NoOpResetMarkerPort(),
+                () => "2026-07-09T00:00:00Z",
+                "repair-test-profile",
+                "repair-test-product"));
+
+            var result = adapter.LoadAllWithReport();
+
+            Assert.That(result.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.Missing));
+            Assert.That(result.Report.RequiresRepair, Is.False);
+            Assert.That(result.Report.BlocksCampaignAccess, Is.False);
+            Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
+            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
+        }
+
+        [Test]
+        public void BackupRecovered_IsNotBlockingReport()
+        {
+            var document = CampaignProfileDocumentMapper.ToDocument(
+                new[] { CreateSlot(1, "stage-1-1", "level-1") },
+                "backup-profile",
+                1,
+                "2026-07-09T00:00:00Z",
+                "facade-test-product");
+            var adapter = new SaveSlotStoreCompatibilityAdapter(new CampaignSaveService(
+                new StatusRepository(CampaignProfileLoadStatus.BackupRecovered, document),
+                new NoOpResetMarkerPort(),
+                () => "2026-07-09T00:00:00Z",
+                "repair-test-profile",
+                "repair-test-product"));
+
+            var result = adapter.LoadAllWithReport();
+
+            Assert.That(result.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.BackupRecovered));
+            Assert.That(result.Report.RequiresRepair, Is.False);
+            Assert.That(result.Report.BlocksCampaignAccess, Is.False);
+            Assert.That(result.Slots[0].IsEmpty, Is.False);
         }
 
         [Test]
@@ -272,15 +340,17 @@ namespace Game.Feature.Stages.Editor.Tests
         private sealed class StatusRepository : ICampaignProfileRepository
         {
             private readonly CampaignProfileLoadStatus _status;
+            private readonly CampaignProfileDocument _document;
 
-            public StatusRepository(CampaignProfileLoadStatus status)
+            public StatusRepository(CampaignProfileLoadStatus status, CampaignProfileDocument document = null)
             {
                 _status = status;
+                _document = document;
             }
 
             public CampaignProfileLoadResult Load()
             {
-                return new CampaignProfileLoadResult(_status, null, _status.ToString());
+                return new CampaignProfileLoadResult(_status, _document, _status.ToString());
             }
 
             public void Save(CampaignProfileDocument document)

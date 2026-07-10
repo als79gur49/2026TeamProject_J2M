@@ -36,6 +36,12 @@ namespace Game.Feature.Stages
             Status == CampaignSaveLoadStatus.CorruptRepairRequired ||
             Status == CampaignSaveLoadStatus.SchemaInvalidRepairRequired;
 
+        public bool BlocksCampaignAccess =>
+            Status == CampaignSaveLoadStatus.CorruptRepairRequired ||
+            Status == CampaignSaveLoadStatus.SchemaInvalidRepairRequired ||
+            Status == CampaignSaveLoadStatus.IoFailed ||
+            Status == CampaignSaveLoadStatus.Unauthorized;
+
         public static CampaignSaveLoadReport Missing(string reason)
         {
             return new CampaignSaveLoadReport(CampaignSaveLoadStatus.Missing, reason, string.Empty);

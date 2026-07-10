@@ -44,9 +44,9 @@ namespace Game.Feature.UI.Application
         public SaveSlotPanelViewModel BuildViewModel()
         {
             var loadResult = _saveSlotStore.LoadAllWithReport();
-            if (loadResult.Report.RequiresRepair)
+            if (loadResult.Report.BlocksCampaignAccess)
             {
-                return MainMenuSlotViewModelMapper.MapRepairRequired(loadResult.Report);
+                return MainMenuSlotViewModelMapper.MapCampaignAccessBlocked(loadResult.Report);
             }
 
             return MainMenuSlotViewModelMapper.Map(
@@ -80,6 +80,12 @@ namespace Game.Feature.UI.Application
         public void Continue(int slotNumber)
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (IsCampaignAccessBlocked())
+            {
+                RefreshViewModel();
+                return;
+            }
+
             var validation = ValidateAndSync(slotNumber);
             if (validation.Status == SaveSlotValidationStatus.Empty)
             {
@@ -100,6 +106,12 @@ namespace Game.Feature.UI.Application
         public void RequestRestart(int slotNumber)
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (IsCampaignAccessBlocked())
+            {
+                RefreshViewModel();
+                return;
+            }
+
             _confirmPopupPort.Request(
                 new ConfirmPopupPayload(
                     "Restart Slot",
@@ -119,6 +131,12 @@ namespace Game.Feature.UI.Application
         public void RequestDelete(int slotNumber)
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (IsCampaignAccessBlocked())
+            {
+                RefreshViewModel();
+                return;
+            }
+
             _confirmPopupPort.Request(
                 new ConfirmPopupPayload(
                     "Delete Slot",
@@ -131,6 +149,11 @@ namespace Game.Feature.UI.Application
                     try
                     {
                         if (!confirmed)
+                        {
+                            return;
+                        }
+
+                        if (IsCampaignAccessBlocked())
                         {
                             return;
                         }
@@ -151,6 +174,12 @@ namespace Game.Feature.UI.Application
         private void StartNewGame(int slotNumber, bool confirmIfOccupied)
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (IsCampaignAccessBlocked())
+            {
+                RefreshViewModel();
+                return;
+            }
+
             var existingValidation = ValidateAndSync(slotNumber);
             if (confirmIfOccupied && existingValidation.Status != SaveSlotValidationStatus.Empty)
             {
@@ -190,6 +219,16 @@ namespace Game.Feature.UI.Application
             {
                 RefreshViewModel();
             }
+        }
+
+        private bool IsCampaignAccessBlocked()
+        {
+            if (_saveSlotStore.LastCampaignLoadReport.BlocksCampaignAccess)
+            {
+                return true;
+            }
+
+            return _saveSlotStore.LoadAllWithReport().Report.BlocksCampaignAccess;
         }
 
         private void Launch(StageId stageId, StageNavigationKind navigationKind, string source)
