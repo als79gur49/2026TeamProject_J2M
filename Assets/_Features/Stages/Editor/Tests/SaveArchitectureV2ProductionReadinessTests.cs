@@ -71,8 +71,10 @@ namespace Game.Feature.Stages.Editor.Tests
             var controller = File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
             var installer = File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
 
-            Assert.That(controller, Does.Contain("_saveSlotStore.LoadAll()"));
-            Assert.That(installer, Does.Contain("var saveSlotStore = new SaveSlotStore();"));
+            Assert.That(controller, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
+            Assert.That(installer, Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+            Assert.That(installer, Does.Not.Contain("ProfileJsonExplicit"));
+            Assert.That(installer, Does.Not.Contain("EnableProfileWrite"));
             Assert.That(installer, Does.Contain("new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider)"));
         }
 

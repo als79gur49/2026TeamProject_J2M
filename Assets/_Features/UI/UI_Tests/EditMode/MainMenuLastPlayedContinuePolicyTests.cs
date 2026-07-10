@@ -88,7 +88,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewModel.SlotCards.Count, Is.EqualTo(SaveSlotStore.SlotCount));
             Assert.That(viewModel.SlotCards[0].State, Is.EqualTo(SaveSlotCardState.Empty));
             Assert.That(viewModel.SlotCards[1].State, Is.EqualTo(SaveSlotCardState.Existing));
-            Assert.That(ReadRepoFile(MainMenuControllerPath), Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(ReadRepoFile(MainMenuControllerPath), Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(ReadRepoFile(MainMenuControllerPath), Does.Not.Contain("CampaignSaveService"));
         }
 
@@ -99,7 +99,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(source, Does.Contain("public void Continue(int slotNumber)"));
             Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
-            Assert.That(source, Does.Contain("MainMenuSlotViewModelMapper.Map(\n                _saveSlotStore.LoadAll(),"));
+            Assert.That(source, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(source, Does.Not.Contain("QuickContinue"));
             Assert.That(source, Does.Not.Contain("DefaultFocus"));

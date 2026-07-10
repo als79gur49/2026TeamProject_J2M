@@ -33,7 +33,6 @@ namespace Game.Feature.UI.Tests
                 "LastPlayedSlotNumber",
                 "CampaignProfileDocument",
                 "CampaignSaveService",
-                "CampaignSaveServiceFactory",
                 "FileCampaignProfileRepository",
                 "ICampaignProfileRepository",
                 "profile.json",
@@ -42,7 +41,6 @@ namespace Game.Feature.UI.Tests
             AssertSourceDoesNotContain(
                 MainMenuUiFlowInstallerPath,
                 "CampaignSaveService",
-                "CampaignSaveServiceFactory",
                 "FileCampaignProfileRepository",
                 "ICampaignProfileRepository",
                 "CampaignProfileDocument",
@@ -53,12 +51,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuUiFlowInstaller_DoesNotWireCampaignSaveServiceFactory()
+        public void MainMenuUiFlowInstaller_DefaultsToLegacyFacadeFactory()
         {
             var source = ReadRepoFile(MainMenuUiFlowInstallerPath);
 
-            Assert.That(source, Does.Not.Contain("CampaignSaveServiceFactory"));
-            Assert.That(source, Does.Contain("new SaveSlotStore()"));
+            Assert.That(source, Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+            Assert.That(source, Does.Not.Contain("ProfileJsonExplicit"));
+            Assert.That(source, Does.Not.Contain("EnableProfileWrite"));
         }
 
         [Test]
@@ -74,7 +73,6 @@ namespace Game.Feature.UI.Tests
         [TestCase("profile.json")]
         [TestCase("CampaignProfileDocument")]
         [TestCase("CampaignSaveService")]
-        [TestCase("CampaignSaveServiceFactory")]
         [TestCase("FileCampaignProfileRepository")]
         [TestCase("ICampaignProfileRepository")]
         public void MainMenuController_DoesNotReadV2ProfileOrStorage(string forbiddenToken)
@@ -82,7 +80,7 @@ namespace Game.Feature.UI.Tests
             var source = ReadRepoFile(MainMenuControllerPath);
 
             Assert.That(source, Does.Not.Contain(forbiddenToken));
-            Assert.That(source, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(source, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
         }
 
         [Test]

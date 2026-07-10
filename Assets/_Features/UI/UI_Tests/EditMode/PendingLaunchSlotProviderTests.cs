@@ -172,7 +172,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(viewModel.SlotCards[0].State, Is.EqualTo(SaveSlotCardState.Existing));
             Assert.That(ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs"),
-                Does.Contain("_saveSlotStore.LoadAll()"));
+                Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs"),
                 Does.Not.Contain("CampaignSaveService"));
         }

@@ -107,7 +107,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(source, Does.Contain("_saveSlotStore.DeleteSlot(slotNumber);"));
             Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.IsPendingLaunchSlot(slotNumber)"));
             Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.ClearPendingLaunchSlot();"));
-            Assert.That(source, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(source, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
         }
 
@@ -128,12 +128,14 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(mainMenuController, Does.Contain("IPendingLaunchSlotProvider"));
             Assert.That(mainMenuController, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
-            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
-            Assert.That(mainMenuInstaller, Does.Contain("new SaveSlotStore()"));
+            Assert.That(mainMenuInstaller, Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
             Assert.That(mainMenuInstaller, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(mainMenuInstaller, Does.Not.Contain("CampaignSaveServiceFactory"));
+            Assert.That(mainMenuInstaller, Does.Not.Contain("ProfileJsonExplicit"));
+            Assert.That(mainMenuInstaller, Does.Not.Contain("EnableProfileWrite"));
             Assert.That(mainMenuInstaller, Does.Not.Contain("FileCampaignProfileRepository"));
             Assert.That(pendingLaunchProvider, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(pendingLaunchProvider, Does.Not.Contain("CampaignProfileDocument"));
@@ -159,7 +161,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(mainMenuController, Does.Contain("Continue(int slotNumber)"));
             Assert.That(mainMenuController, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
-            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAll()"));
+            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(mainMenuController, Does.Not.Contain("QuickContinue"));
             Assert.That(mainMenuController, Does.Not.Contain("DefaultFocus"));
