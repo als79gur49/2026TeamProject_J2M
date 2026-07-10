@@ -22,7 +22,9 @@ namespace Game.Feature.Stages
             CampaignSlotDocument slot,
             CampaignSlotDocument[] slots,
             CampaignStageClearProfileDocument stageClearProfile,
-            string message)
+            string message,
+            bool hasProfileLoadStatus = false,
+            CampaignProfileLoadStatus profileLoadStatus = CampaignProfileLoadStatus.Missing)
         {
             Status = status;
             Document = document;
@@ -30,6 +32,8 @@ namespace Game.Feature.Stages
             Slots = slots ?? Array.Empty<CampaignSlotDocument>();
             StageClearProfile = stageClearProfile;
             Message = message ?? string.Empty;
+            HasProfileLoadStatus = hasProfileLoadStatus;
+            ProfileLoadStatus = profileLoadStatus;
         }
 
         public CampaignSaveCommandStatus Status { get; }
@@ -45,6 +49,10 @@ namespace Game.Feature.Stages
         public CampaignStageClearProfileDocument StageClearProfile { get; }
 
         public string Message { get; }
+
+        public bool HasProfileLoadStatus { get; }
+
+        public CampaignProfileLoadStatus ProfileLoadStatus { get; }
 
         public static CampaignSaveServiceResult Success(
             CampaignProfileDocument document,
@@ -64,7 +72,9 @@ namespace Game.Feature.Stages
         public static CampaignSaveServiceResult Failure(
             CampaignSaveCommandStatus status,
             string message,
-            CampaignProfileDocument document = null)
+            CampaignProfileDocument document = null,
+            bool hasProfileLoadStatus = false,
+            CampaignProfileLoadStatus profileLoadStatus = CampaignProfileLoadStatus.Missing)
         {
             return new CampaignSaveServiceResult(
                 status,
@@ -72,7 +82,9 @@ namespace Game.Feature.Stages
                 null,
                 document?.Slots,
                 null,
-                message);
+                message,
+                hasProfileLoadStatus,
+                profileLoadStatus);
         }
     }
 
@@ -722,7 +734,9 @@ namespace Game.Feature.Stages
 
             failure = CampaignSaveServiceResult.Failure(
                 CampaignSaveCommandStatus.LoadFailed,
-                loadResult.Message);
+                loadResult.Message,
+                hasProfileLoadStatus: true,
+                profileLoadStatus: loadResult.Status);
             return false;
         }
 

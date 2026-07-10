@@ -380,7 +380,7 @@ namespace Game.Feature.UI.Composition
                 : NoOpMainMenuReturnRouter.Instance;
             return new CinematicMainMenuReturnRouter(
                 inner,
-                new SaveSlotStore(),
+                CampaignSaveFacadeFactory.Create().CampaignSaveSlots,
                 new ActiveSlotProvider(),
                 EnsureCinematicFlowCoordinator(),
                 () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);

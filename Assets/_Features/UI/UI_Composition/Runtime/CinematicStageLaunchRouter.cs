@@ -12,7 +12,7 @@ namespace Game.Feature.UI.Composition
 
         public CinematicStageLaunchRouter(
             IStageLaunchRouter inner,
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             IPendingLaunchSlotProvider pendingLaunchSlotProvider,
             ISlotCinematicPlayer player)
             : this(inner, new SlotCinematicProgressStore(saveSlotStore), pendingLaunchSlotProvider, player)

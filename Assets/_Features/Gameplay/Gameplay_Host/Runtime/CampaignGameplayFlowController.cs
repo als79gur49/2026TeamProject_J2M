@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplaySceneHost _host;
         private readonly CampaignRunningSlotContext _runningSlotContext;
         private readonly IStageLaunchRouter _stageLaunchRouter;
-        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly StageRetryChanceTracker _retryChanceTracker;
         private GameplayHostPresentationFeed _presentationFeed;
@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Host
 
         public CampaignGameplayFlowController(
             GameplaySceneHost host,
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             CampaignRunningSlotContext runningSlotContext,
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,

@@ -1633,7 +1633,7 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class SaveSlotStore
+    public sealed class SaveSlotStore : ICampaignSaveSlotStore
     {
         public const string SchemaId = "StageClearSaveSlots";
         public const int SchemaVersion = 2;
@@ -1654,6 +1654,7 @@ namespace Game.Feature.Stages
             DeleteLegacyPrefsIfUsingDefaultScope(prefsScope);
             _storageBackend = new PlayerPrefsSaveSlotStorageBackend(_playerPrefsKey, prefsScope);
             LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
+            LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Load has not run.");
         }
 
         internal SaveSlotStore(ISaveSlotStorageBackend storageBackend, string playerPrefsKey = DefaultPlayerPrefsKey)
@@ -1663,11 +1664,16 @@ namespace Game.Feature.Stages
                 ? DefaultPlayerPrefsKey
                 : playerPrefsKey;
             LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
+            LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Load has not run.");
         }
 
         public string PlayerPrefsKey => _playerPrefsKey;
 
+        public string DiagnosticsKey => _playerPrefsKey;
+
         public StageClearSaveLoadReport LastLoadReport { get; private set; }
+
+        public CampaignSaveLoadReport LastCampaignLoadReport { get; private set; }
 
         public static bool IsValidSlotNumber(int slotNumber)
         {
@@ -1684,7 +1690,14 @@ namespace Game.Feature.Stages
 
         public SaveSlotData[] LoadAll()
         {
-            return SaveSlotDtoMapper.FromDto(LoadDto());
+            return LoadAllWithReport().Slots;
+        }
+
+        public CampaignSaveLoadResult LoadAllWithReport()
+        {
+            var slots = SaveSlotDtoMapper.FromDto(LoadDto());
+            LastCampaignLoadReport = ToCampaignLoadReport(LastLoadReport);
+            return new CampaignSaveLoadResult(slots, LastCampaignLoadReport);
         }
 
         public SaveSlotData LoadSlot(int slotNumber)
@@ -1809,15 +1822,29 @@ namespace Game.Feature.Stages
                 StageClearSavePrefsResetPolicy.DeleteLegacyStageSavePrefs();
             }
         }
+
+        private static CampaignSaveLoadReport ToCampaignLoadReport(StageClearSaveLoadReport report)
+        {
+            switch (report.Status)
+            {
+                case StageClearSavePayloadStatus.Current:
+                    return CampaignSaveLoadReport.Loaded(report.Reason, report.MatchedToken);
+                case StageClearSavePayloadStatus.Empty:
+                case StageClearSavePayloadStatus.LegacyRejected:
+                case StageClearSavePayloadStatus.InvalidRejected:
+                default:
+                    return CampaignSaveLoadReport.Missing(report.Reason);
+            }
+        }
     }
 
     public sealed class SaveSlotStageClearProfileStore : IStageClearProfileStore
     {
-        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly CampaignRunningSlotContext _runningSlotContext;
 
         public SaveSlotStageClearProfileStore(
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             CampaignRunningSlotContext runningSlotContext)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));

@@ -56,10 +56,10 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly CampaignChanceDisplayOverride _displayOverride;
         private readonly CampaignRunningSlotContext _runningSlotContext;
-        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveSlotStore _saveSlotStore;
 
         public SaveSlotCampaignChancesReadSource(
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             CampaignRunningSlotContext runningSlotContext,
             CampaignChanceDisplayOverride displayOverride = null)
         {
@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Host
                     FailureReason = maxChances > 0
                         ? CampaignChanceReadFailureReason.None
                         : CampaignChanceReadFailureReason.MaxChancesZero,
-                    SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
+                    SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
                     ActiveSlotNumber = _runningSlotContext.SlotNumber,
                 });
                 return true;
@@ -125,7 +125,7 @@ namespace Game.Feature.Gameplay.Host
                 ActiveSlotNumber = runningSlotNumber,
                 RemainingChances = remainingChances,
                 MaxChances = maxChances,
-                SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
+                SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
             });
             return true;
         }

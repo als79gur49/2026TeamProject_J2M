@@ -5,9 +5,9 @@ namespace Game.Feature.UI.Composition
 {
     public sealed class SlotCinematicProgressStore
     {
-        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveSlotStore _saveSlotStore;
 
-        public SlotCinematicProgressStore(SaveSlotStore saveSlotStore)
+        public SlotCinematicProgressStore(ICampaignSaveSlotStore saveSlotStore)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
         }

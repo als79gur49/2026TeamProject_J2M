@@ -56,26 +56,44 @@ namespace Game.Feature.Stages
         public const string CampaignSourceKey = SaveSlotPrefsKeys.SaveSlotsKey;
         public const string ActiveSlotKey = SaveSlotPrefsKeys.ActiveSaveSlotKey;
 
+        private readonly string _campaignSourceKey;
+        private readonly string _activeSlotKey;
+
+        public CampaignLegacySourceReader()
+            : this(CampaignSourceKey, ActiveSlotKey)
+        {
+        }
+
+        public CampaignLegacySourceReader(string campaignSourceKey, string activeSlotKey)
+        {
+            _campaignSourceKey = string.IsNullOrWhiteSpace(campaignSourceKey)
+                ? throw new ArgumentException("A campaign source key is required.", nameof(campaignSourceKey))
+                : campaignSourceKey;
+            _activeSlotKey = string.IsNullOrWhiteSpace(activeSlotKey)
+                ? throw new ArgumentException("An active slot key is required.", nameof(activeSlotKey))
+                : activeSlotKey;
+        }
+
         public bool HasCampaignSource()
         {
-            return PlayerPrefs.HasKey(CampaignSourceKey);
+            return PlayerPrefs.HasKey(_campaignSourceKey);
         }
 
         public bool TryReadCampaignSource(out string rawPayload)
         {
-            if (!PlayerPrefs.HasKey(CampaignSourceKey))
+            if (!PlayerPrefs.HasKey(_campaignSourceKey))
             {
                 rawPayload = string.Empty;
                 return false;
             }
 
-            rawPayload = PlayerPrefs.GetString(CampaignSourceKey, string.Empty);
+            rawPayload = PlayerPrefs.GetString(_campaignSourceKey, string.Empty);
             return true;
         }
 
         public bool TryReadActiveSlotNumber(out int slotNumber)
         {
-            slotNumber = PlayerPrefs.GetInt(ActiveSlotKey, 0);
+            slotNumber = PlayerPrefs.GetInt(_activeSlotKey, 0);
             return SaveSlotStore.IsValidSlotNumber(slotNumber);
         }
     }
@@ -120,36 +138,62 @@ namespace Game.Feature.Stages
         public const string DeletedSlotGuardsKey =
             "Game.Feature.Stages.CampaignProfile.LegacyDeletedSlotGuards";
 
+        private readonly string _importDisabledKey;
+        private readonly string _importedSourceHashKey;
+        private readonly string _resetTombstoneUtcKey;
+        private readonly string _deletedSlotGuardsKey;
+
+        public CampaignLegacyImportMarkerStore()
+            : this(
+                ImportDisabledKey,
+                ImportedSourceHashKey,
+                ResetTombstoneUtcKey,
+                DeletedSlotGuardsKey)
+        {
+        }
+
+        public CampaignLegacyImportMarkerStore(
+            string importDisabledKey,
+            string importedSourceHashKey,
+            string resetTombstoneUtcKey,
+            string deletedSlotGuardsKey)
+        {
+            _importDisabledKey = RequireKey(importDisabledKey, nameof(importDisabledKey));
+            _importedSourceHashKey = RequireKey(importedSourceHashKey, nameof(importedSourceHashKey));
+            _resetTombstoneUtcKey = RequireKey(resetTombstoneUtcKey, nameof(resetTombstoneUtcKey));
+            _deletedSlotGuardsKey = RequireKey(deletedSlotGuardsKey, nameof(deletedSlotGuardsKey));
+        }
+
         public bool IsImportDisabled()
         {
-            return PlayerPrefs.GetInt(ImportDisabledKey, 0) != 0;
+            return PlayerPrefs.GetInt(_importDisabledKey, 0) != 0;
         }
 
         public void SetImportDisabled(bool disabled)
         {
-            PlayerPrefs.SetInt(ImportDisabledKey, disabled ? 1 : 0);
+            PlayerPrefs.SetInt(_importDisabledKey, disabled ? 1 : 0);
             PlayerPrefs.Save();
         }
 
         public string GetImportedSourceHash()
         {
-            return PlayerPrefs.GetString(ImportedSourceHashKey, string.Empty);
+            return PlayerPrefs.GetString(_importedSourceHashKey, string.Empty);
         }
 
         public void SetImportedSourceHash(string importedSourceHash)
         {
-            PlayerPrefs.SetString(ImportedSourceHashKey, importedSourceHash ?? string.Empty);
+            PlayerPrefs.SetString(_importedSourceHashKey, importedSourceHash ?? string.Empty);
             PlayerPrefs.Save();
         }
 
         public string GetResetTombstoneUtc()
         {
-            return PlayerPrefs.GetString(ResetTombstoneUtcKey, string.Empty);
+            return PlayerPrefs.GetString(_resetTombstoneUtcKey, string.Empty);
         }
 
         public void SetResetTombstoneUtc(string resetTombstoneUtc)
         {
-            PlayerPrefs.SetString(ResetTombstoneUtcKey, resetTombstoneUtc ?? string.Empty);
+            PlayerPrefs.SetString(_resetTombstoneUtcKey, resetTombstoneUtc ?? string.Empty);
             PlayerPrefs.Save();
         }
 
@@ -203,7 +247,7 @@ namespace Game.Feature.Stages
             }
 
             PlayerPrefs.SetString(
-                DeletedSlotGuardsKey,
+                _deletedSlotGuardsKey,
                 JsonUtility.ToJson(new DeletedSlotGuardMarkerDocument
                 {
                     Guards = guards.ToArray(),
@@ -213,7 +257,7 @@ namespace Game.Feature.Stages
 
         public CampaignLegacyDeletedSlotGuardDocument[] ReadDeletedSlotGuards()
         {
-            var raw = PlayerPrefs.GetString(DeletedSlotGuardsKey, string.Empty);
+            var raw = PlayerPrefs.GetString(_deletedSlotGuardsKey, string.Empty);
             if (string.IsNullOrWhiteSpace(raw))
             {
                 return Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
@@ -247,6 +291,13 @@ namespace Game.Feature.Stages
             {
                 return Array.Empty<CampaignLegacyDeletedSlotGuardDocument>();
             }
+        }
+
+        private static string RequireKey(string key, string paramName)
+        {
+            return string.IsNullOrWhiteSpace(key)
+                ? throw new ArgumentException("A PlayerPrefs key is required.", paramName)
+                : key;
         }
 
         [Serializable]

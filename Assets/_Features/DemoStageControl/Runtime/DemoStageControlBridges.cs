@@ -6,11 +6,11 @@ namespace Game.Feature.DemoStageControl
     public sealed class DemoStageControlCampaignBridge : IDemoStageControlCampaignBridge
     {
         private readonly ActiveSlotProvider _activeSlotProvider;
-        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
 
         public DemoStageControlCampaignBridge(
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver)
         {

@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _campaignRuntimeActive;
         private CampaignRunningSlotContext _runningSlotContext;
         private StagePresentationDefinition _resolvedPresentationDefinition;
-        private SaveSlotStore _saveSlotStore;
+        private ICampaignSaveSlotStore _saveSlotStore;
         private StageAudioResolvedData _resolvedAudioData = StageAudioAssembler.EmptyResolvedData;
         private readonly StageVisualRuntimeAdapter _stageVisualRuntimeAdapter = new();
         private readonly StageAudioRuntimeRequestSource _stageAudioRuntimeRequestSource = new();
@@ -136,7 +136,7 @@ namespace Game.Feature.Gameplay.Host
                     ActiveSlotNumber = _activeSlotProvider != null && _activeSlotProvider.TryGetActiveSlotNumber(out var inactiveSlotNumber)
                         ? inactiveSlotNumber
                         : 0,
-                    SaveSlotStoreKey = _saveSlotStore != null ? _saveSlotStore.PlayerPrefsKey : string.Empty,
+                    SaveSlotStoreKey = _saveSlotStore != null ? _saveSlotStore.DiagnosticsKey : string.Empty,
                     ActiveSlotProviderKey = _activeSlotProvider != null ? _activeSlotProvider.PlayerPrefsKey : string.Empty,
                     SourceIsNull = true,
                     FailureReason = !activation.HasActiveSlot
@@ -174,7 +174,7 @@ namespace Game.Feature.Gameplay.Host
                 CampaignRuntimeActive = true,
                 HasActiveSlot = activation.HasActiveSlot,
                 ActiveSlotNumber = _runningSlotContext.SlotNumber,
-                SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
+                SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
                 ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
                 SourceType = configuration.CampaignChancesReadSource.GetType().Name,
                 SourceIsNull = false,
@@ -325,7 +325,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _saveSlotStore ??= new SaveSlotStore();
+            _saveSlotStore ??= CampaignSaveFacadeFactory.Create().CampaignSaveSlots;
             _activeSlotProvider ??= new ActiveSlotProvider();
         }
 

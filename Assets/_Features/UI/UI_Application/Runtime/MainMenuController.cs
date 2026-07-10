@@ -16,12 +16,12 @@ namespace Game.Feature.UI.Application
         private readonly IPendingLaunchSlotProvider _pendingLaunchSlotProvider;
         private readonly string _pendingLaunchSlotProviderDiagnosticsKey;
         private readonly IStageLaunchRouter _stageLaunchRouter;
-        private readonly SaveSlotStore _saveSlotStore;
+        private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly SaveSlotValidationService _saveSlotValidationService;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
 
         public MainMenuController(
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             IPendingLaunchSlotProvider pendingLaunchSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
@@ -43,8 +43,14 @@ namespace Game.Feature.UI.Application
 
         public SaveSlotPanelViewModel BuildViewModel()
         {
+            var loadResult = _saveSlotStore.LoadAllWithReport();
+            if (loadResult.Report.RequiresRepair)
+            {
+                return MainMenuSlotViewModelMapper.MapRepairRequired(loadResult.Report);
+            }
+
             return MainMenuSlotViewModelMapper.Map(
-                _saveSlotStore.LoadAll(),
+                loadResult.Slots,
                 _sequenceResolver,
                 _saveSlotValidationService);
         }
@@ -196,7 +202,7 @@ namespace Game.Feature.UI.Application
                 HasActiveSlot = hasPendingLaunchSlot,
                 ActiveSlotNumber = pendingSlotNumber,
                 ActiveSlotProviderKey = _pendingLaunchSlotProviderDiagnosticsKey,
-                SaveSlotStoreKey = _saveSlotStore.PlayerPrefsKey,
+                SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
             });
             _stageLaunchRouter.Launch(new StageNavigationRequest(
                 stageId,

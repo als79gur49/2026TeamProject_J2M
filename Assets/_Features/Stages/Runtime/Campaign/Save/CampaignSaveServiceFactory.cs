@@ -3,6 +3,103 @@ using System.Globalization;
 
 namespace Game.Feature.Stages
 {
+    public enum CampaignSaveBackendMode
+    {
+        PlayerPrefsLegacy = 0,
+        ProfileJsonExplicit = 1,
+    }
+
+    public sealed class CampaignSaveCompositionOptions
+    {
+        public CampaignSaveBackendMode BackendMode { get; set; } = CampaignSaveBackendMode.PlayerPrefsLegacy;
+
+        public ISavePathProvider PathProvider { get; set; }
+
+        public string ProductVersion { get; set; } = string.Empty;
+
+        public string ProfileId { get; set; } = "campaign-profile";
+
+        public Func<DateTime> UtcNow { get; set; }
+
+        public bool EnableProfileWrite { get; set; }
+
+        public bool AllowLegacyImport { get; set; } = true;
+
+        public string LegacyCampaignSourceKey { get; set; }
+
+        public string LegacyActiveSlotKey { get; set; }
+
+        public CampaignLegacyImportMarkerStore LegacyImportMarkerStore { get; set; }
+    }
+
+    public sealed class CampaignSaveFacadeFactoryResult
+    {
+        internal CampaignSaveFacadeFactoryResult(
+            CampaignSaveBackendMode backendMode,
+            ICampaignSaveSlotStore campaignSaveSlots,
+            CampaignSaveServiceFactoryResult profileServices,
+            CampaignSaveMigrationResult migrationResult)
+        {
+            BackendMode = backendMode;
+            CampaignSaveSlots = campaignSaveSlots ?? throw new ArgumentNullException(nameof(campaignSaveSlots));
+            ProfileServices = profileServices;
+            MigrationResult = migrationResult;
+        }
+
+        public CampaignSaveBackendMode BackendMode { get; }
+
+        public ICampaignSaveSlotStore CampaignSaveSlots { get; }
+
+        public CampaignSaveServiceFactoryResult ProfileServices { get; }
+
+        public CampaignSaveMigrationResult MigrationResult { get; }
+    }
+
+    public static class CampaignSaveFacadeFactory
+    {
+        public static CampaignSaveFacadeFactoryResult Create(CampaignSaveCompositionOptions options = null)
+        {
+            options ??= new CampaignSaveCompositionOptions();
+            switch (options.BackendMode)
+            {
+                case CampaignSaveBackendMode.PlayerPrefsLegacy:
+                    return new CampaignSaveFacadeFactoryResult(
+                        options.BackendMode,
+                        new SaveSlotStore(),
+                        null,
+                        null);
+
+                case CampaignSaveBackendMode.ProfileJsonExplicit:
+                    var profileServices = CampaignSaveServiceFactory.CreateForTests(
+                        new CampaignSaveServiceFactoryOptions
+                        {
+                            PathProvider = options.PathProvider,
+                            ProductVersion = options.ProductVersion,
+                            ProfileId = options.ProfileId,
+                            UtcNow = options.UtcNow,
+                            EnableProfileWrite = options.EnableProfileWrite,
+                            AllowLegacyImport = options.AllowLegacyImport,
+                            LegacyCampaignSourceKey = options.LegacyCampaignSourceKey,
+                            LegacyActiveSlotKey = options.LegacyActiveSlotKey,
+                            LegacyImportMarkerStore = options.LegacyImportMarkerStore,
+                            CreateCompatibilityAdapter = true,
+                        });
+                    var migrationResult = profileServices.Coordinator.Run();
+                    return new CampaignSaveFacadeFactoryResult(
+                        options.BackendMode,
+                        profileServices.CompatibilityAdapter,
+                        profileServices,
+                        migrationResult);
+
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(options),
+                        options.BackendMode,
+                        "Unsupported campaign save backend mode.");
+            }
+        }
+    }
+
     public sealed class CampaignSaveServiceFactoryOptions
     {
         public ISavePathProvider PathProvider { get; set; }
@@ -16,6 +113,12 @@ namespace Game.Feature.Stages
         public bool EnableProfileWrite { get; set; }
 
         public bool AllowLegacyImport { get; set; } = true;
+
+        public string LegacyCampaignSourceKey { get; set; }
+
+        public string LegacyActiveSlotKey { get; set; }
+
+        public CampaignLegacyImportMarkerStore LegacyImportMarkerStore { get; set; }
 
         public bool CreateCompatibilityAdapter { get; set; }
     }
@@ -81,9 +184,11 @@ namespace Game.Feature.Stages
 
             var textFileStore = new AtomicTextFileStore(pathProvider.SaveRootPath);
             var repository = new FileCampaignProfileRepository(textFileStore);
-            var markerStore = new CampaignLegacyImportMarkerStore();
+            var markerStore = options.LegacyImportMarkerStore ?? new CampaignLegacyImportMarkerStore();
             var legacyImporter = new LegacyPlayerPrefsCampaignImporter(
-                new CampaignLegacySourceReader(),
+                new CampaignLegacySourceReader(
+                    options.LegacyCampaignSourceKey ?? CampaignLegacySourceReader.CampaignSourceKey,
+                    options.LegacyActiveSlotKey ?? CampaignLegacySourceReader.ActiveSlotKey),
                 markerStore,
                 UtcNowString,
                 options.ProfileId,

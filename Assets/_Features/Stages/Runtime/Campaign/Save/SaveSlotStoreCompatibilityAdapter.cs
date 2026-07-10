@@ -2,7 +2,7 @@ using System;
 
 namespace Game.Feature.Stages
 {
-    public sealed class SaveSlotStoreCompatibilityAdapter
+    public sealed class SaveSlotStoreCompatibilityAdapter : ICampaignSaveSlotStore
     {
         private readonly CampaignSaveService _campaignSaveService;
 
@@ -10,11 +10,21 @@ namespace Game.Feature.Stages
         {
             _campaignSaveService = campaignSaveService ?? throw new ArgumentNullException(nameof(campaignSaveService));
             LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
+            LastCampaignLoadReport = CampaignSaveLoadReport.Missing("Load has not run.");
         }
 
         public StageClearSaveLoadReport LastLoadReport { get; private set; }
 
+        public string DiagnosticsKey => CampaignSaveServiceResultStatusToken;
+
+        public CampaignSaveLoadReport LastCampaignLoadReport { get; private set; }
+
         public SaveSlotData[] LoadAll()
+        {
+            return LoadAllWithReport().Slots;
+        }
+
+        public CampaignSaveLoadResult LoadAllWithReport()
         {
             var result = _campaignSaveService.GetSlots();
             if (!result.Succeeded)
@@ -23,14 +33,18 @@ namespace Game.Feature.Stages
                     StageClearSavePayloadStatus.InvalidRejected,
                     result.Message,
                     string.Empty);
-                return CreateEmptySlots();
+                LastCampaignLoadReport = ToCampaignLoadReport(result);
+                return new CampaignSaveLoadResult(CreateEmptySlots(), LastCampaignLoadReport);
             }
 
             LastLoadReport = new StageClearSaveLoadReport(
                 StageClearSavePayloadStatus.Current,
                 "Campaign profile loaded successfully.",
                 CampaignSaveServiceResultStatusToken);
-            return ToSaveSlotDataArray(result.Document);
+            LastCampaignLoadReport = CampaignSaveLoadReport.Loaded(
+                "Campaign profile loaded successfully.",
+                CampaignSaveServiceResultStatusToken);
+            return new CampaignSaveLoadResult(ToSaveSlotDataArray(result.Document), LastCampaignLoadReport);
         }
 
         public SaveSlotData LoadSlot(int slotNumber)
@@ -106,6 +120,60 @@ namespace Game.Feature.Stages
         }
 
         private const string CampaignSaveServiceResultStatusToken = "CampaignProfileDocument";
+
+        private static CampaignSaveLoadReport ToCampaignLoadReport(CampaignSaveServiceResult result)
+        {
+            if (result == null)
+            {
+                return new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.IoFailed,
+                    "Campaign save command did not return a result.",
+                    string.Empty);
+            }
+
+            if (!result.HasProfileLoadStatus)
+            {
+                return new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.IoFailed,
+                    result.Message,
+                    string.Empty);
+            }
+
+            switch (result.ProfileLoadStatus)
+            {
+                case CampaignProfileLoadStatus.Missing:
+                    return CampaignSaveLoadReport.Missing(result.Message);
+                case CampaignProfileLoadStatus.Loaded:
+                    return CampaignSaveLoadReport.Loaded(result.Message, CampaignSaveServiceResultStatusToken);
+                case CampaignProfileLoadStatus.BackupRecovered:
+                    return new CampaignSaveLoadReport(
+                        CampaignSaveLoadStatus.BackupRecovered,
+                        result.Message,
+                        CampaignSaveServiceResultStatusToken);
+                case CampaignProfileLoadStatus.CorruptQuarantined:
+                case CampaignProfileLoadStatus.CorruptNoFallback:
+                    return new CampaignSaveLoadReport(
+                        CampaignSaveLoadStatus.CorruptRepairRequired,
+                        result.Message,
+                        CampaignSaveServiceResultStatusToken);
+                case CampaignProfileLoadStatus.SchemaInvalid:
+                    return new CampaignSaveLoadReport(
+                        CampaignSaveLoadStatus.SchemaInvalidRepairRequired,
+                        result.Message,
+                        CampaignSaveServiceResultStatusToken);
+                case CampaignProfileLoadStatus.Unauthorized:
+                    return new CampaignSaveLoadReport(
+                        CampaignSaveLoadStatus.Unauthorized,
+                        result.Message,
+                        CampaignSaveServiceResultStatusToken);
+                case CampaignProfileLoadStatus.IoFailed:
+                default:
+                    return new CampaignSaveLoadReport(
+                        CampaignSaveLoadStatus.IoFailed,
+                        result.Message,
+                        CampaignSaveServiceResultStatusToken);
+            }
+        }
 
         private static CampaignSlotUpdate ToUpdate(SaveSlotData slot)
         {

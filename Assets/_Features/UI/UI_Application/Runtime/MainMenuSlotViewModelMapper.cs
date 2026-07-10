@@ -37,6 +37,28 @@ namespace Game.Feature.UI.Application
             return new SaveSlotPanelViewModel(cards);
         }
 
+        public static SaveSlotPanelViewModel MapRepairRequired(CampaignSaveLoadReport report)
+        {
+            var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
+            for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
+            {
+                cards.Add(new SaveSlotCardViewModel(
+                    slotNumber,
+                    SaveSlotCardState.Corrupted,
+                    $"Slot {slotNumber}",
+                    "Needs Repair",
+                    string.IsNullOrWhiteSpace(report.Reason) ? "Campaign save unavailable" : report.Reason,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    SaveSlotIntentKind.None,
+                    showDelete: false));
+            }
+
+            return new SaveSlotPanelViewModel(cards);
+        }
+
         public static SaveSlotCardViewModel MapSlot(
             SaveSlotData slot,
             CampaignStageSequenceResolver sequenceResolver)

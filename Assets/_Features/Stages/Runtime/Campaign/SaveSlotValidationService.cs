@@ -168,7 +168,7 @@ namespace Game.Feature.Stages
                 requiresSaveSync: true);
         }
 
-        public SaveSlotValidationResult ValidateAndSync(SaveSlotStore saveSlotStore, int slotNumber)
+        public SaveSlotValidationResult ValidateAndSync(ICampaignSaveSlotStore saveSlotStore, int slotNumber)
         {
             if (saveSlotStore == null)
             {

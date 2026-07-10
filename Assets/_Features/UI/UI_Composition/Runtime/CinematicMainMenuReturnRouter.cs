@@ -14,7 +14,7 @@ namespace Game.Feature.UI.Composition
 
         public CinematicMainMenuReturnRouter(
             IMainMenuReturnRouter inner,
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             ISlotCinematicPlayer player,
             Func<bool> isFinalClearMainReturn)
