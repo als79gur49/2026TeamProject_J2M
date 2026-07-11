@@ -58,7 +58,9 @@ namespace Game.Feature.Stages
             CampaignProfileDocument document,
             CampaignSlotDocument slot = null,
             CampaignStageClearProfileDocument stageClearProfile = null,
-            string message = "")
+            string message = "",
+            bool hasProfileLoadStatus = false,
+            CampaignProfileLoadStatus profileLoadStatus = CampaignProfileLoadStatus.Missing)
         {
             return new CampaignSaveServiceResult(
                 CampaignSaveCommandStatus.Succeeded,
@@ -66,7 +68,9 @@ namespace Game.Feature.Stages
                 slot,
                 document?.Slots,
                 stageClearProfile,
-                message);
+                message,
+                hasProfileLoadStatus,
+                profileLoadStatus);
         }
 
         public static CampaignSaveServiceResult Failure(
@@ -235,6 +239,7 @@ namespace Game.Feature.Stages
         private readonly Func<string> _utcNowProvider;
         private readonly string _profileId;
         private readonly string _productVersion;
+        private CampaignProfileLoadStatus _lastProfileLoadStatus = CampaignProfileLoadStatus.Missing;
 
         public CampaignSaveService(
             ICampaignProfileRepository repository,
@@ -267,7 +272,11 @@ namespace Game.Feature.Stages
                 return failure;
             }
 
-            return CampaignSaveServiceResult.Success(document, message: "Campaign profile loaded.");
+            return CampaignSaveServiceResult.Success(
+                document,
+                message: "Campaign profile loaded.",
+                hasProfileLoadStatus: true,
+                profileLoadStatus: _lastProfileLoadStatus);
         }
 
         public CampaignSaveServiceResult GetSlots()
@@ -277,7 +286,11 @@ namespace Game.Feature.Stages
                 return failure;
             }
 
-            return CampaignSaveServiceResult.Success(document, message: "Campaign slots loaded.");
+            return CampaignSaveServiceResult.Success(
+                document,
+                message: "Campaign slots loaded.",
+                hasProfileLoadStatus: true,
+                profileLoadStatus: _lastProfileLoadStatus);
         }
 
         public CampaignSaveServiceResult GetSlot(int slotNumber)
@@ -721,6 +734,7 @@ namespace Game.Feature.Stages
             if (loadResult.Status == CampaignProfileLoadStatus.Loaded ||
                 loadResult.Status == CampaignProfileLoadStatus.BackupRecovered)
             {
+                _lastProfileLoadStatus = loadResult.Status;
                 document = CloneProfile(loadResult.Document);
                 Normalize(document);
                 return true;
@@ -728,10 +742,12 @@ namespace Game.Feature.Stages
 
             if (allowMissing && loadResult.Status == CampaignProfileLoadStatus.Missing)
             {
+                _lastProfileLoadStatus = loadResult.Status;
                 document = CreateEmptyProfile();
                 return true;
             }
 
+            _lastProfileLoadStatus = loadResult.Status;
             failure = CampaignSaveServiceResult.Failure(
                 CampaignSaveCommandStatus.LoadFailed,
                 loadResult.Message,

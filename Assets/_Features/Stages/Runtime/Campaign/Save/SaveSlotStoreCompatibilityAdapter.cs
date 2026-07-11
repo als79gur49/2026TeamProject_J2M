@@ -41,9 +41,11 @@ namespace Game.Feature.Stages
                 StageClearSavePayloadStatus.Current,
                 "Campaign profile loaded successfully.",
                 CampaignSaveServiceResultStatusToken);
-            LastCampaignLoadReport = CampaignSaveLoadReport.Loaded(
-                "Campaign profile loaded successfully.",
-                CampaignSaveServiceResultStatusToken);
+            LastCampaignLoadReport = result.HasProfileLoadStatus
+                ? ToCampaignLoadReport(result)
+                : CampaignSaveLoadReport.Loaded(
+                    "Campaign profile loaded successfully.",
+                    CampaignSaveServiceResultStatusToken);
             return new CampaignSaveLoadResult(ToSaveSlotDataArray(result.Document), LastCampaignLoadReport);
         }
 

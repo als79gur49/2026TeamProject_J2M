@@ -25,6 +25,8 @@ namespace Game.Feature.Stages
 
         public bool AllowLegacyImport { get; set; } = true;
 
+        public bool PreservePlayerPrefsSource { get; set; } = true;
+
         public string LegacyCampaignSourceKey { get; set; }
 
         public string LegacyActiveSlotKey { get; set; }
@@ -250,8 +252,8 @@ namespace Game.Feature.Stages
         public static CampaignSaveProductionReadinessResult EvaluateDeleteSlotProductionReadiness()
         {
             return new CampaignSaveProductionReadinessResult(
-                false,
-                "DeleteSlot has deleted-slot guard coverage, but production integration remains deferred until SaveSlotStore call-site migration, profile writes, and adapter wiring are explicitly switched.");
+                true,
+                "DeleteSlot records deleted-slot guards on the profile-backed production provider while retaining PlayerPrefs as a legacy import and rollback source.");
         }
     }
 

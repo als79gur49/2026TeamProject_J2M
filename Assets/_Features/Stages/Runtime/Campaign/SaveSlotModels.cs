@@ -2276,6 +2276,8 @@ namespace Game.Feature.Stages
         }
 
         public static bool TryImportDefaultSeed(
+            ICampaignSaveSlotStore saveSlotStore,
+            ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
             IStageCatalogProvider stageCatalogProvider,
             out StandaloneCampaignSaveSeedImportResult result)
@@ -2289,8 +2291,16 @@ namespace Game.Feature.Stages
                 "Standalone save seed import is skipped in the Unity editor.");
             return false;
 #else
-            var saveSlotStore = new SaveSlotStore();
-            var activeSlotProvider = new ActiveSlotProvider();
+            if (saveSlotStore == null)
+            {
+                throw new ArgumentNullException(nameof(saveSlotStore));
+            }
+
+            if (activeSlotProvider == null)
+            {
+                throw new ArgumentNullException(nameof(activeSlotProvider));
+            }
+
             foreach (var seedPath in EnumerateDefaultSeedPaths())
             {
                 if (!File.Exists(seedPath))
@@ -2320,7 +2330,7 @@ namespace Game.Feature.Stages
 
         public static bool TryImportSeedFile(
             string seedPath,
-            SaveSlotStore saveSlotStore,
+            ICampaignSaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
             CampaignStageSequenceResolver sequenceResolver,
             IStageCatalogProvider stageCatalogProvider,

@@ -160,7 +160,15 @@ namespace Game.Feature.Stages
 
                 case CampaignProfileLoadStatus.CorruptQuarantined:
                 case CampaignProfileLoadStatus.CorruptNoFallback:
-                    return HandleLegacyCandidate(loadResult, allowWrite: false, requiresRepair: true);
+                    return Result(
+                        CampaignSaveMigrationStatus.RepairRequired,
+                        loadResult,
+                        null,
+                        null,
+                        profileWriteAttempted: false,
+                        profileWriteSucceeded: false,
+                        requiresRepair: true,
+                        "profile.json is corrupt and requires repair; legacy import was not consulted.");
 
                 case CampaignProfileLoadStatus.Missing:
                     return HandleLegacyCandidate(
