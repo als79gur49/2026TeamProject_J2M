@@ -143,9 +143,9 @@ The readiness report is not:
 - A build gate.
 - A Steam packaging gate.
 - A Steam Cloud canonical source.
-- Production save truth.
+- A production repair UX gate.
 
-`profile.json` remains diagnostics metadata for readiness reporting only and must not be treated as production save truth.
+`profile.json` is production campaign progression truth. This readiness report remains diagnostics-only and must not be treated as a release, build, Steam packaging, or Steam Cloud gate.
 
 ## CI Owner Handoff Checklist
 
@@ -193,10 +193,7 @@ This phase does not:
 - Promote report warnings to Steam packaging gates.
 - Decide Steam Cloud upload/source file selection.
 - Use the report as a Steam Cloud canonical source.
-- Treat `profile.json` as production save truth.
 - Wire the report into MainMenu, Gameplay, DemoStageControl, runtime UI, or production composition.
 - Change `SaveSlotStore()` default PlayerPrefs behavior.
-- Enable production `profile.json` writes.
-- Integrate `CampaignSaveServiceFactory` or `CampaignSaveService` into production flow.
 - Add `.github/workflows` files.
 - Add a new `run_tests.sh` lane.

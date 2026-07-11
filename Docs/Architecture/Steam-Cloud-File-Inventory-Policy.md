@@ -1,16 +1,15 @@
 # Steam Cloud File Inventory Policy
 
-This policy freezes the Steam Cloud file inventory for Steam Release Phase B. It does not enable Steam Cloud, add Steamworks.NET, call Steam APIs, switch the production save backend, enable production `profile.json` writes, delete legacy PlayerPrefs keys, or define SteamPipe VDF/admin settings.
+This policy freezes the Steam Cloud file inventory for Steam Release Phase B. It does not enable Steam Cloud, add Steamworks.NET, call Steam APIs, delete legacy PlayerPrefs keys, or define SteamPipe VDF/admin settings.
 
 ## Current production save truth
 
-- Campaign save truth: `SaveSlotStore` backed by PlayerPrefs.
-- Production save key: `Game.Feature.Stages.StageClearSaveSlots`.
+- Campaign progression save truth: `Saves/profile.json` through `CampaignSaveCompositionProvider.CreateProductionProfileBacked()`.
+- Retained legacy import / rollback source key: `Game.Feature.Stages.StageClearSaveSlots`.
 - Pending launch / active slot key: `Game.Feature.Stages.ActiveStageClearSaveSlot`.
 - Pending launch state is local/session only and is not a Steam Cloud target.
-- Current V2 profile file: `Saves/profile.json`.
-- `Saves/profile.json` is a future file-backed save target and diagnostics/readiness inventory input. It is not the current production canonical save.
-- Current Steam Cloud action: Auto-Cloud application is deferred. Revisit after the production file-backed save switch, when `profile.json` is canonical production save.
+- Current profile file: `Saves/profile.json`.
+- Current Steam Cloud action: Auto-Cloud application is deferred. Revisit after the separate Steam Cloud enable decision.
 
 ## Company/Product path guard
 
@@ -23,7 +22,7 @@ This policy freezes the Steam Cloud file inventory for Steam Release Phase B. It
 
 ## Future Steam Auto-Cloud draft
 
-Future only. Do not apply this rule until production saves are file-backed and `profile.json` is canonical production save.
+Future only. Do not apply this rule until a separate Steam Cloud enable decision.
 
 ```text
 Root:
@@ -42,8 +41,8 @@ Include:
 - profile.json
 
 Apply timing:
-- after production file-backed save switch
-- after profile.json becomes canonical production save
+- after a separate Steam Cloud enable decision
+- after validation confirms the production profile path remains Saves/profile.json
 ```
 
 Policy constraints:

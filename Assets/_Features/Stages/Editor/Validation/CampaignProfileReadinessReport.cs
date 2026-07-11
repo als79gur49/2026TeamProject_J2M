@@ -100,11 +100,11 @@ namespace Game.Feature.Stages.Editor
             builder.AppendLine("Scope: Editor-only diagnostics/readiness report.");
             builder.AppendLine("Report findings are diagnostics/readiness-only.");
             builder.AppendLine("Report findings do not block build or release.");
-            builder.AppendLine("profile.json is a diagnostics/readiness inventory input, not the current production save truth.");
-            builder.AppendLine("Current production UX truth remains SaveSlotStore / PlayerPrefs.");
-            builder.AppendLine("V2 metadata is readiness inventory and is not used to render MainMenu slots.");
+            builder.AppendLine("profile.json is the production campaign progression save truth and a diagnostics/readiness inventory input.");
+            builder.AppendLine("Current production UX truth uses the profile-backed campaign save provider.");
+            builder.AppendLine("Profile metadata is readiness inventory and is not used for pending launch selection.");
             builder.AppendLine("Diagnostic LastPlayedSlotNumber is metadata only and is not used for resume, quick-continue, or default focus.");
-            builder.AppendLine("Corrupt or invalid profile metadata is a diagnostics/readiness finding only; SaveSlotStore / PlayerPrefs remains current UX truth.");
+            builder.AppendLine("Corrupt or invalid profile metadata blocks campaign access at runtime; this report remains non-blocking diagnostics.");
             builder.AppendLine("No Steam/cloud canonical file selection is produced by this report.");
             builder.AppendLine();
             builder.AppendLine("## Inventory");
