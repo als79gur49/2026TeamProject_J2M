@@ -325,7 +325,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _saveSlotStore ??= CampaignSaveFacadeFactory.Create().CampaignSaveSlots;
+            _saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             _activeSlotProvider ??= new ActiveSlotProvider();
         }
 

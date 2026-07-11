@@ -214,9 +214,9 @@ namespace Game.Feature.UI.Composition
                 ? _campaignStageSequenceDefinition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
             var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
-            ImportStandaloneCampaignSaveSeed(sequenceResolver);
-            var saveSlotStore = CampaignSaveFacadeFactory.Create().CampaignSaveSlots;
+            var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var activeSlotProvider = new ActiveSlotProvider();
+            ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
             var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
             var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);
             IStageLaunchRouter stageLaunchRouter = new ConfiguredGameplayStageLaunchRouter(_routeConfig);
@@ -239,9 +239,14 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.SaveSlotPanel.Bind(Controller.BuildViewModel());
         }
 
-        private void ImportStandaloneCampaignSaveSeed(CampaignStageSequenceResolver sequenceResolver)
+        private void ImportStandaloneCampaignSaveSeed(
+            ICampaignSaveSlotStore saveSlotStore,
+            ActiveSlotProvider activeSlotProvider,
+            CampaignStageSequenceResolver sequenceResolver)
         {
             if (!StandaloneCampaignSaveSeedImporter.TryImportDefaultSeed(
+                    saveSlotStore,
+                    activeSlotProvider,
                     sequenceResolver,
                     _stageCatalogProvider,
                     out var importResult))

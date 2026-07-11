@@ -308,7 +308,7 @@ namespace Game.Feature.Stages.Editor
                 throw new OperationCanceledException("Production Direct Play launch was cancelled.");
             }
 
-            var saveStore = new SaveSlotStore();
+            var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var activeSlotProvider = new ActiveSlotProvider();
             saveStore.SaveSlot(new SaveSlotData
             {
