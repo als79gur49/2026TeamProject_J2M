@@ -19,6 +19,7 @@ namespace Game.Feature.UI.Tests
     public sealed class SettingsProductionLocalizationRuntimeTests
     {
         private const int SettingsStaticBindingCount = 13;
+        private const int SettingsTypographyBindingCount = 15;
         private const string ScaleRatioA = "_ScaleRatioA";
         private const string ScaleRatioC = "_ScaleRatioC";
 
@@ -105,10 +106,10 @@ namespace Game.Feature.UI.Tests
             using var harness = GameplaySettingsHarness.Create(resolver);
 
             harness.ShowSettings();
-            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(SettingsStaticBindingCount));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(SettingsTypographyBindingCount));
 
             harness.ShowSettings();
-            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(SettingsStaticBindingCount));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(SettingsTypographyBindingCount));
 
             harness.DisposeController();
 
@@ -340,12 +341,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_SettingsRuntime_NullKoreanFontKeepsExistingTargetFont()
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_ThemeOverridesNullLegacyKoreanFontResolver()
         {
-            var expectedFont = GetText(
-                UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
-                    UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
-                "_titleLabel").font;
+            var expectedFont = LoadNanumGothic();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             var fontResolver = new DefaultLocalizedTmpFontResolver(null);
