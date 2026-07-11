@@ -56,7 +56,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(report.MetadataLoadStatus, Is.EqualTo(CampaignProfileMetadataProbeStatus.Corrupt));
             AssertNonBlockingPolicy(markdown);
             Assert.That(markdown, Does.Contain("metadata load status: Corrupt"));
-            Assert.That(markdown, Does.Contain("Corrupt or invalid profile metadata is a diagnostics/readiness finding only"));
+            Assert.That(markdown, Does.Contain("Corrupt or invalid profile metadata blocks campaign access at runtime"));
         }
 
         [Test]
@@ -202,7 +202,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             Assert.That(markdown, Does.Contain("Report findings are diagnostics/readiness-only."));
             Assert.That(markdown, Does.Contain("Report findings do not block build or release."));
-            Assert.That(markdown, Does.Contain("Current production UX truth remains SaveSlotStore / PlayerPrefs."));
+            Assert.That(markdown, Does.Contain("profile.json is the production campaign progression save truth"));
             Assert.That(markdown, Does.Not.Contain("release blocker"));
             Assert.That(markdown, Does.Not.Contain("build blocker"));
             Assert.That(markdown, Does.Not.Contain("blocks release"));

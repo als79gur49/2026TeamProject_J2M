@@ -716,8 +716,15 @@ namespace Game.Feature.UI.Tests
             var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
             var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
             var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+            var importDisabledBackup = PlayerPrefsIntBackup.Capture(CampaignLegacyImportMarkerStore.ImportDisabledKey);
+            var importedSourceHashBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
+            var resetTombstoneBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
+            var deletedSlotGuardsBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
+            var profileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json"));
+            var profileFileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json.bak"));
             try
             {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 PrepareProductionDefaultSlot(stageId, remainingChances: 2);
                 EditorDirectPlayContextStore.SetCurrent(staleContext);
@@ -767,8 +774,15 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+                profileFileBackup.Restore();
+                profileBackup.Restore();
                 saveBackup.Restore();
                 activeBackup.Restore();
+                importDisabledBackup.Restore();
+                importedSourceHashBackup.Restore();
+                resetTombstoneBackup.Restore();
+                deletedSlotGuardsBackup.Restore();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
                 EditorDirectPlayContextStore.ClearTempDirectPlaySave();
@@ -779,7 +793,7 @@ namespace Game.Feature.UI.Tests
 
         private static void PrepareProductionDefaultSlot(StageId stageId, int remainingChances)
         {
-            var saveStore = new SaveSlotStore();
+            var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var activeSlotProvider = new ActiveSlotProvider();
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
@@ -1008,6 +1022,41 @@ namespace Game.Feature.UI.Tests
                 }
 
                 PlayerPrefs.Save();
+            }
+        }
+
+        private readonly struct FileBackup
+        {
+            private readonly bool _hadValue;
+            private readonly string _path;
+            private readonly string _value;
+
+            private FileBackup(string path, bool hadValue, string value)
+            {
+                _path = path;
+                _hadValue = hadValue;
+                _value = value;
+            }
+
+            public static FileBackup Capture(string path)
+            {
+                return new FileBackup(
+                    path,
+                    File.Exists(path),
+                    File.Exists(path) ? File.ReadAllText(path) : string.Empty);
+            }
+
+            public void Restore()
+            {
+                if (_hadValue)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(_path));
+                    File.WriteAllText(_path, _value);
+                }
+                else if (File.Exists(_path))
+                {
+                    File.Delete(_path);
+                }
             }
         }
 

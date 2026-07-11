@@ -38,6 +38,39 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ProductionProvider_DefaultsToProfileJsonExplicit()
+        {
+            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
+
+            Assert.That(options.BackendMode, Is.EqualTo(CampaignSaveBackendMode.ProfileJsonExplicit));
+            Assert.That(options.EnableProfileWrite, Is.True);
+            Assert.That(options.AllowLegacyImport, Is.True);
+            Assert.That(options.PreservePlayerPrefsSource, Is.True);
+        }
+
+        [Test]
+        public void ProductionProvider_UsesApplicationPersistentDataSavesProfileJson()
+        {
+            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
+
+            Assert.That(options.PathProvider, Is.TypeOf<ApplicationPersistentDataSavePathProvider>());
+            Assert.That(
+                options.PathProvider.GetSaveFilePath(FileCampaignProfileRepository.ProfileFileName),
+                Is.EqualTo(Path.Combine(Application.persistentDataPath, "Saves", "profile.json")));
+        }
+
+        [Test]
+        public void RollbackProvider_CanCreatePlayerPrefsLegacy()
+        {
+            var options = CampaignSaveCompositionProvider.CreateProductionLegacyRollbackOptions();
+            var store = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
+
+            Assert.That(options.BackendMode, Is.EqualTo(CampaignSaveBackendMode.PlayerPrefsLegacy));
+            Assert.That(store, Is.TypeOf<SaveSlotStore>());
+            Assert.That(store.DiagnosticsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
+        }
+
+        [Test]
         public void ExplicitProfileModeImportsLegacyOnlyWhenProfileWriteEnabled()
         {
             using var harness = new Harness();
@@ -207,7 +240,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void ProductionCallSitesAcceptCampaignSaveFacadeContract()
         {
-            var facade = CampaignSaveFacadeFactory.Create().CampaignSaveSlots;
+            var facade = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
             Assert.That(facade, Is.InstanceOf<ICampaignSaveSlotStore>());
 
             Assert.That(
@@ -233,10 +266,42 @@ namespace Game.Feature.Stages.Editor.Tests
                 Does.Contain("ICampaignSaveSlotStore"));
             Assert.That(
                 ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(
                 ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
-                Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(
+                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+        }
+
+        [Test]
+        public void MainMenuGameplayCinematicAndValidationUseProviderBackedStore()
+        {
+            Assert.That(
+                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
+                Does.Contain("var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
+            Assert.That(
+                ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
+                Does.Contain("new CinematicStageLaunchRouter("));
+            Assert.That(
+                ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(
+                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
+                Does.Contain("_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
+            Assert.That(
+                ReadAssetText("_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs"),
+                Does.Contain("ValidateAndSync(ICampaignSaveSlotStore saveSlotStore"));
+        }
+
+        [Test]
+        public void ProductionProviderSource_DoesNotDeleteLegacyPlayerPrefsCampaignKey()
+        {
+            var source = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
+
+            Assert.That(source, Does.Not.Contain("PlayerPrefs.DeleteKey"));
+            Assert.That(source, Does.Not.Contain("PlayerPrefs.SetString"));
         }
 
         private static void WriteLegacyPayload(Harness harness, params SaveSlotData[] slots)

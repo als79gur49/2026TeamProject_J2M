@@ -27,7 +27,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(Path.GetFileName(outputPath), Is.EqualTo("CampaignProfileReadiness.md"));
             Assert.That(markdown, Does.Contain("Report findings are diagnostics/readiness-only."));
             Assert.That(markdown, Does.Contain("Report findings do not block build or release."));
-            Assert.That(markdown, Does.Contain("Current production UX truth remains SaveSlotStore / PlayerPrefs."));
+            Assert.That(markdown, Does.Contain("profile.json is the production campaign progression save truth"));
 
             Directory.Delete(Path.GetDirectoryName(outputPath), recursive: true);
         }
@@ -238,8 +238,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(guide, Does.Contain("A build gate."));
             Assert.That(guide, Does.Contain("A Steam packaging gate."));
             Assert.That(guide, Does.Contain("A Steam Cloud canonical source."));
-            Assert.That(guide, Does.Contain("Production save truth."));
-            Assert.That(guide, Does.Contain("`profile.json` remains diagnostics metadata"));
+            Assert.That(guide, Does.Contain("A production repair UX gate."));
+            Assert.That(guide, Does.Contain("`profile.json` is production campaign progression truth"));
         }
 
         [Test]

@@ -82,9 +82,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(SaveSlotPrefsKeys.SaveSlotsKey, Is.EqualTo("Game.Feature.Stages.StageClearSaveSlots"));
             Assert.That(SaveSlotPrefsKeys.ActiveSaveSlotKey, Is.EqualTo("Game.Feature.Stages.ActiveStageClearSaveSlot"));
             Assert.That(CampaignSaveMigrationOptions.Default.EnableProfileWrite, Is.False);
-            Assert.That(doc, Does.Contain("Campaign save truth: `SaveSlotStore` backed by PlayerPrefs."));
+            Assert.That(doc, Does.Contain("Campaign progression save truth: `Saves/profile.json`"));
             Assert.That(doc, Does.Contain("Auto-Cloud application is deferred."));
-            Assert.That(doc, Does.Contain("It is not the current production canonical save."));
+            Assert.That(doc, Does.Contain("Retained legacy import / rollback source key"));
         }
 
         [Test]
@@ -108,7 +108,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(doc, Does.Contain("Recursive:\n- false"));
             Assert.That(doc, Does.Contain("Include:\n- profile.json"));
             Assert.That(doc, Does.Contain("Do not use a `*.json` include pattern."));
-            Assert.That(doc, Does.Contain("after production file-backed save switch"));
+            Assert.That(doc, Does.Contain("after a separate Steam Cloud enable decision"));
         }
 
         [TestCaseSource(nameof(CloudExclusions))]

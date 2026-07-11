@@ -301,7 +301,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void ProductionComposition_RemainsUnconnected()
+        public void ProductionComposition_UsesProviderWithoutDirectProfileInternals()
         {
             var paths = new[]
             {
@@ -318,6 +318,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(source, Does.Not.Contain("CampaignSaveMigrationCoordinator"), paths[i]);
                 Assert.That(source, Does.Not.Contain("profile.json"), paths[i]);
             }
+
+            Assert.That(
+                File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
         }
 
         private static CampaignSaveService CreateService(

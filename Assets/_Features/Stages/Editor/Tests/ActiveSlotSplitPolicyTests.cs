@@ -131,7 +131,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(mainMenuController, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(mainMenuController, Does.Not.Contain("CampaignProfileDocument"));
-            Assert.That(mainMenuInstaller, Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+            Assert.That(mainMenuInstaller, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(mainMenuInstaller, Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
             Assert.That(mainMenuInstaller, Does.Not.Contain("CampaignSaveServiceFactory"));
             Assert.That(mainMenuInstaller, Does.Not.Contain("ProfileJsonExplicit"));

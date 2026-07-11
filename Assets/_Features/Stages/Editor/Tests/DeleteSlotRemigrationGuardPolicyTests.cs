@@ -33,15 +33,14 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void FactoryReadinessGuard_ReportsProductionIntegrationDeferredDespiteGuardCoverage()
+        public void FactoryReadinessGuard_ReportsProductionProviderReady()
         {
             var readiness = CampaignSaveProductionReadinessPolicy.EvaluateDeleteSlotProductionReadiness();
 
-            Assert.That(readiness.IsReady, Is.False);
-            Assert.That(readiness.Reason, Does.Contain("deleted-slot guard"));
-            Assert.That(readiness.Reason, Does.Contain("production integration"));
-            Assert.That(readiness.Reason, Does.Contain("deferred"));
-            Assert.That(readiness.Reason, Does.Contain("SaveSlotStore"));
+            Assert.That(readiness.IsReady, Is.True);
+            Assert.That(readiness.Reason, Does.Contain("deleted-slot guards"));
+            Assert.That(readiness.Reason, Does.Contain("profile-backed production provider"));
+            Assert.That(readiness.Reason, Does.Contain("legacy import and rollback source"));
         }
 
         [Test]

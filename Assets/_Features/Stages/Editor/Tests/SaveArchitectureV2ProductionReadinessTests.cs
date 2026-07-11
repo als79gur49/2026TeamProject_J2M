@@ -29,8 +29,6 @@ namespace Game.Feature.Stages.Editor.Tests
             PlayerPrefs.Save();
         }
 
-        [TestCase("CampaignSaveServiceFactory")]
-        [TestCase("CampaignSaveService")]
         [TestCase("CampaignProfileReadinessReport")]
         [TestCase("CampaignProfileReadinessReportWriter")]
         [TestCase("CampaignProfileMetadataProbe")]
@@ -38,7 +36,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("CampaignSaveMigrationCoordinator")]
         [TestCase("FileCampaignProfileRepository")]
         [TestCase("profile.json")]
-        public void ProductionComposition_DoesNotReferenceV2FactoryOrServiceTypes(string forbiddenToken)
+        public void ProductionComposition_DoesNotReferenceProfileInternalsDirectly(string forbiddenToken)
         {
             foreach (var path in EnumerateProductionReadinessSourceFiles())
             {
@@ -47,7 +45,6 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase("CampaignSaveServiceFactory")]
-        [TestCase("CampaignSaveService")]
         [TestCase("FileCampaignProfileRepository")]
         [TestCase("ICampaignProfileRepository")]
         [TestCase("CampaignProfileDocument")]
@@ -66,13 +63,13 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void MainMenuProductionPath_KeepsPlayerPrefsSaveSlotStoreAsUxSource()
+        public void MainMenuProductionPath_UsesProfileBackedProviderAsUxSource()
         {
             var controller = File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
             var installer = File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
 
             Assert.That(controller, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
-            Assert.That(installer, Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+            Assert.That(installer, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(installer, Does.Not.Contain("ProfileJsonExplicit"));
             Assert.That(installer, Does.Not.Contain("EnableProfileWrite"));
             Assert.That(installer, Does.Contain("new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider)"));
@@ -187,7 +184,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void InventoryFreeze_DoesNotSwitchProductionStorageOrEnableProfileWrites()
+        public void ProductionStorageSwitch_UsesProviderAndKeepsLowLevelDefaultsLegacy()
         {
             Assert.That(SaveSlotStore.DefaultPlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
             Assert.That(new SaveSlotStore().PlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
@@ -201,6 +198,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(source, Does.Not.Contain("FileCampaignProfileRepository"), path);
                 Assert.That(source, Does.Not.Contain("profile.json"), path);
             }
+
+            Assert.That(
+                File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
         }
 
         private static IEnumerable<string> EnumerateProductionReadinessSourceFiles()

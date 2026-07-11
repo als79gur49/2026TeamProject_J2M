@@ -259,7 +259,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CorruptQuarantinedAndValidLegacy_DefersCandidateWithoutWrite()
+        public void CorruptQuarantinedAndValidLegacy_DoesNotConsultLegacyOrFallback()
         {
             var marker = new RecordingMarkerStore();
             var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.CorruptQuarantined));
@@ -272,9 +272,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     new CampaignSaveMigrationOptions { EnableProfileWrite = true })
                 .Run();
 
-            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.MigrationDeferred));
-            Assert.That(result.HasImportCandidate, Is.True);
+            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.RepairRequired));
+            Assert.That(result.HasImportCandidate, Is.False);
             Assert.That(result.RequiresRepair, Is.True);
+            Assert.That(importer.CallCount, Is.Zero);
             Assert.That(repository.SaveCount, Is.Zero);
             Assert.That(marker.SetImportedSourceHashCount, Is.Zero);
         }
@@ -289,11 +290,12 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.RepairRequired));
             Assert.That(result.RequiresRepair, Is.True);
+            Assert.That(importer.CallCount, Is.Zero);
             Assert.That(repository.SaveCount, Is.Zero);
         }
 
         [Test]
-        public void CorruptNoFallbackAndValidLegacy_FollowsOptionCDeferredNoWrite()
+        public void CorruptNoFallbackAndValidLegacy_DoesNotConsultLegacyOrFallback()
         {
             var marker = new RecordingMarkerStore();
             var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.CorruptNoFallback));
@@ -306,16 +308,17 @@ namespace Game.Feature.Stages.Editor.Tests
                     new CampaignSaveMigrationOptions { EnableProfileWrite = true })
                 .Run();
 
-            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.MigrationDeferred));
-            Assert.That(result.HasImportCandidate, Is.True);
+            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.RepairRequired));
+            Assert.That(result.HasImportCandidate, Is.False);
             Assert.That(result.RequiresRepair, Is.True);
+            Assert.That(importer.CallCount, Is.Zero);
             Assert.That(repository.SaveCount, Is.Zero);
             Assert.That(marker.SetImportedSourceHashCount, Is.Zero);
         }
 
         [TestCase(true, "")]
         [TestCase(false, "2026-07-07T01:00:00Z")]
-        public void CorruptNoFallbackAndBlockedMarker_ReturnsBlockedRepairStatus(
+        public void CorruptNoFallbackAndBlockedMarker_ReturnsRepairRequiredWithoutImport(
             bool importDisabled,
             string resetTombstoneUtc)
         {
@@ -329,7 +332,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var result = CreateCoordinator(repository, importer, marker).Run();
 
-            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.ImportBlocked));
+            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.RepairRequired));
             Assert.That(result.RequiresRepair, Is.True);
             Assert.That(importer.CallCount, Is.Zero);
             Assert.That(repository.SaveCount, Is.Zero);

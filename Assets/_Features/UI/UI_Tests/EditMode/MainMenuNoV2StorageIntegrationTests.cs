@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Tests
 {
-    public sealed class MainMenuNoV2StorageIntegrationTests
+    public sealed class MainMenuProfileBackedProviderIntegrationTests
     {
         private const string MainMenuControllerPath =
             "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs";
@@ -26,24 +26,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuProductionPath_DoesNotReferenceV2StorageOrProfileJson()
+        public void MainMenuProductionPath_ReferencesProviderButNotProfileInternals()
         {
             AssertSourceDoesNotContain(
                 MainMenuControllerPath,
                 "LastPlayedSlotNumber",
                 "CampaignProfileDocument",
-                "CampaignSaveService",
-                "FileCampaignProfileRepository",
-                "ICampaignProfileRepository",
-                "profile.json",
+                    "FileCampaignProfileRepository",
+                    "ICampaignProfileRepository",
+                    "profile.json",
                 "Steamworks",
                 "ISteamRemoteStorage");
             AssertSourceDoesNotContain(
                 MainMenuUiFlowInstallerPath,
-                "CampaignSaveService",
-                "FileCampaignProfileRepository",
-                "ICampaignProfileRepository",
-                "CampaignProfileDocument",
+                    "FileCampaignProfileRepository",
+                    "ICampaignProfileRepository",
+                    "CampaignProfileDocument",
                 "LastPlayedSlotNumber",
                 "profile.json",
                 "Steamworks",
@@ -51,13 +49,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuUiFlowInstaller_DefaultsToLegacyFacadeFactory()
+        public void MainMenuUiFlowInstaller_DefaultsToProfileBackedProvider()
         {
             var source = ReadRepoFile(MainMenuUiFlowInstallerPath);
 
-            Assert.That(source, Does.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
+            Assert.That(source, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(source, Does.Not.Contain("ProfileJsonExplicit"));
             Assert.That(source, Does.Not.Contain("EnableProfileWrite"));
+            Assert.That(source, Does.Not.Contain("CampaignSaveFacadeFactory.Create().CampaignSaveSlots"));
         }
 
         [Test]

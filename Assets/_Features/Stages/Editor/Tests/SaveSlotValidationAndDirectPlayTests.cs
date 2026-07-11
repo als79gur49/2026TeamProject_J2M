@@ -394,14 +394,23 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StandaloneCampaignSeedImport_PrimesDefaultSaveStoreAndActiveSlot()
+        public void StandaloneCampaignSeedImport_WritesProfileBackedStore_NotPlayerPrefs()
         {
             var seedPath = CreateTempSeedPath();
             var provider = CreateProvider("stage-2-2");
             var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
-            var saveStore = new SaveSlotStore();
-            var activeSlotProvider = new ActiveSlotProvider();
-            saveStore.ClearAll();
+            var saveRootPath = Path.Combine("Temp", "StandaloneCampaignSeedProfileTests", Guid.NewGuid().ToString("N"));
+            var saveStore = CampaignSaveCompositionProvider.Create(new CampaignSaveCompositionOptions
+            {
+                BackendMode = CampaignSaveBackendMode.ProfileJsonExplicit,
+                PathProvider = new TemporarySavePathProvider(saveRootPath),
+                EnableProfileWrite = true,
+                AllowLegacyImport = false,
+                ProductVersion = "seed-import-test",
+                ProfileId = "seed-import-test-profile",
+                LegacyImportMarkerStore = CreateMarkerStore("SeedImport"),
+            });
+            var activeSlotProvider = new ActiveSlotProvider(CreatePrefsKey("seed-active"));
             activeSlotProvider.ClearActiveSlot();
             try
             {
@@ -426,6 +435,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 var slot = saveStore.LoadSlot(2);
                 Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.Imported));
                 Assert.That(File.Exists(seedPath), Is.False);
+                Assert.That(File.Exists(Path.Combine(saveRootPath, FileCampaignProfileRepository.ProfileFileName)), Is.True);
+                Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
                 Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
                 Assert.That(slot.CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-2-2")));
                 Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-2"));
@@ -434,6 +445,12 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 DeleteFileIfExists(seedPath);
+                if (Directory.Exists(saveRootPath))
+                {
+                    Directory.Delete(saveRootPath, recursive: true);
+                }
+
+                activeSlotProvider.ClearActiveSlot();
                 provider.Dispose();
             }
         }
@@ -498,18 +515,32 @@ namespace Game.Feature.Stages.Editor.Tests
                     }).Status,
                     Is.EqualTo(SaveSlotValidationStatus.StageMissingFromSequence));
 
-                Assert.That(
-                    validation.Validate(new SaveSlotData
-                    {
-                        SlotNumber = 1,
-                        CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
-                    }).Status,
-                    Is.EqualTo(SaveSlotValidationStatus.StageMissingFromCatalog));
+	                Assert.That(
+	                    validation.Validate(new SaveSlotData
+	                    {
+	                        SlotNumber = 1,
+	                        CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
+	                    }).Status,
+	                    Is.EqualTo(SaveSlotValidationStatus.StageMissingFromCatalog));
             }
             finally
             {
                 provider.Dispose();
             }
+        }
+
+        [Test]
+        public void DirectPlayTemp_RemainsTempPlayerPrefsAndProductionOverwriteUsesProvider()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
+            var tempMethod = ExtractSourceRange(source, "private static void PrimeCampaignTempSlot", "private static void PrimeCampaignProductionSlot");
+            var productionMethod = ExtractSourceRange(source, "private static void PrimeCampaignProductionSlot", "private static void ValidateCampaignStage");
+
+            Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempSaveSlotStoreKey"));
+            Assert.That(tempMethod, Does.Contain("new SaveSlotStore("));
+            Assert.That(tempMethod, Does.Not.Contain("CampaignSaveCompositionProvider"));
+            Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(productionMethod, Does.Not.Contain("new SaveSlotStore()"));
         }
 
         [Test]
@@ -669,6 +700,24 @@ namespace Game.Feature.Stages.Editor.Tests
         private static string CreatePrefsKey(string suffix)
         {
             return "Game.Feature.Stages.Editor.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
+        }
+
+        private static CampaignLegacyImportMarkerStore CreateMarkerStore(string suffix)
+        {
+            return new CampaignLegacyImportMarkerStore(
+                CreatePrefsKey(suffix + ".ImportDisabled"),
+                CreatePrefsKey(suffix + ".ImportedSourceHash"),
+                CreatePrefsKey(suffix + ".ResetTombstoneUtc"),
+                CreatePrefsKey(suffix + ".DeletedSlotGuards"));
+        }
+
+        private static string ExtractSourceRange(string source, string startToken, string endToken)
+        {
+            var start = source.IndexOf(startToken, StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), startToken);
+            var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
+            Assert.That(end, Is.GreaterThan(start), endToken);
+            return source.Substring(start, end - start);
         }
 
         private static SaveFileHarness CreateSaveFileHarness()
