@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
-    public sealed class CampaignSavePlayerPrefsWriteRemovalTests
+    public sealed class CampaignPlayerPrefsWriteRemovalTests
     {
         private static readonly DateTime FixedNowUtc =
             new DateTime(2026, 7, 11, 0, 0, 0, DateTimeKind.Utc);
@@ -195,6 +195,22 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void MainMenuNewGame_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
+        {
+            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
+            using var harness = new Harness();
+            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(MainMenuNewGame_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
+            var store = CreateProfileBackedStore(harness);
+
+            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
+
+            var profile = ReadProfile(harness);
+            Assert.That(profile.Slots[0].SlotNumber, Is.EqualTo(1));
+            Assert.That(profile.Slots[0].StageId, Is.EqualTo("stage-0-1"));
+            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
+        }
+
+        [Test]
         public void MainMenu_DeleteSlot_WritesProfileJsonGuard_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
         {
             using var harness = new Harness();
@@ -208,6 +224,23 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(profile.Slots, Is.Empty);
             Assert.That(profile.LegacyImport.DeletedSlotGuards, Has.Length.EqualTo(1));
             AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
+        }
+
+        [Test]
+        public void MainMenuDeleteSlot_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
+        {
+            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
+            using var harness = new Harness();
+            var store = CreateProfileBackedStore(harness);
+            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
+            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(MainMenuDeleteSlot_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
+
+            store.DeleteSlot(1);
+
+            var profile = ReadProfile(harness);
+            Assert.That(profile.Slots, Is.Empty);
+            Assert.That(profile.LegacyImport.DeletedSlotGuards, Has.Length.EqualTo(1));
+            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
         }
 
         [Test]
@@ -225,6 +258,24 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(profile.LegacyImport.ImportDisabled, Is.True);
             Assert.That(profile.LegacyImport.ResetTombstoneUtc, Is.Not.Empty);
             AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
+        }
+
+        [Test]
+        public void MainMenuClearAll_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
+        {
+            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
+            using var harness = new Harness();
+            var store = CreateProfileBackedStore(harness);
+            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
+            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(MainMenuClearAll_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
+
+            store.ClearAll();
+
+            var profile = ReadProfile(harness);
+            Assert.That(profile.Slots, Is.Empty);
+            Assert.That(profile.LegacyImport.ImportDisabled, Is.True);
+            Assert.That(profile.LegacyImport.ResetTombstoneUtc, Is.Not.Empty);
+            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
         }
 
         [Test]
@@ -281,6 +332,28 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(slot.StageId, Is.EqualTo("stage-0-2"));
             Assert.That(slot.LevelGroupId, Is.EqualTo("level-0"));
             AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
+        }
+
+        [Test]
+        public void GameplayStageClear_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
+        {
+            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
+            using var harness = new Harness();
+            var store = CreateProfileBackedStore(harness);
+            store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
+            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(GameplayStageClear_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
+
+            store.UpdateSlot(1, slot =>
+            {
+                slot.CurrentStageId = StageId.CreateOrThrow("stage-0-2");
+                slot.CurrentLevelGroupId = "level-0";
+                slot.LastPlayedAt = "2026-07-11T00:02:00Z";
+            });
+
+            var slot = ReadProfile(harness).Slots[0];
+            Assert.That(slot.StageId, Is.EqualTo("stage-0-2"));
+            Assert.That(slot.LevelGroupId, Is.EqualTo("level-0"));
+            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
         }
 
         [Test]
@@ -367,6 +440,42 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(slot.StageId, Is.EqualTo("stage-0-1"));
             Assert.That(slot.RemainingChances, Is.EqualTo(2));
             AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
+        }
+
+        [Test]
+        public void SeedImport_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots()
+        {
+            using var defaultSaveSlotsBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
+            using var harness = new Harness();
+            using var provider = CreateProvider("stage-0-1");
+            var seedPath = Path.Combine(harness.SaveRootPath, "seed.json");
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(
+                seedPath,
+                StandaloneCampaignSaveSeedImporter.BuildSeedJson(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    2,
+                    2));
+            var store = CreateProfileBackedStore(harness);
+            var activeSlotProvider = new ActiveSlotProvider(harness.ActiveSlotKey);
+            var sentinel = WriteStageClearSentinel(SaveSlotPrefsKeys.SaveSlotsKey, nameof(SeedImport_ProfileOnly_DoesNotTouchDefaultStageClearSaveSlots));
+
+            var imported = StandaloneCampaignSaveSeedImporter.TryImportSeedFile(
+                seedPath,
+                store,
+                activeSlotProvider,
+                CreateResolver(),
+                provider.Provider,
+                deleteAfterImport: false,
+                out var result);
+
+            Assert.That(imported, Is.True);
+            Assert.That(result.Status, Is.EqualTo(StandaloneCampaignSaveSeedImportStatus.Imported));
+            var slot = ReadProfile(harness).Slots[0];
+            Assert.That(slot.SlotNumber, Is.EqualTo(2));
+            Assert.That(slot.StageId, Is.EqualTo("stage-0-1"));
+            Assert.That(slot.RemainingChances, Is.EqualTo(2));
+            AssertStageClearSentinelUnchanged(SaveSlotPrefsKeys.SaveSlotsKey, sentinel);
         }
 
         [Test]
