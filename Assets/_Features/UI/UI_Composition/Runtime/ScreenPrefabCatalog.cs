@@ -9,11 +9,14 @@ namespace Game.Feature.UI.Composition
     public sealed class ScreenPrefabCatalog : ScriptableObject
     {
         [SerializeField] private SettingsScreenView _settingsPrefab;
+        [SerializeField] private GameplayUiTypographyTheme _settingsTypographyTheme;
         [SerializeField] private StageResultScreenView _stageResultPrefab;
         [SerializeField] private LevelFailedScreenView _levelFailedPrefab;
         [SerializeField] private GameClearScreenView _gameClearPrefab;
 
         public SettingsScreenView SettingsPrefab => _settingsPrefab;
+
+        internal GameplayUiTypographyTheme SettingsTypographyTheme => _settingsTypographyTheme;
 
         public StageResultScreenView StageResultPrefab => _stageResultPrefab;
 

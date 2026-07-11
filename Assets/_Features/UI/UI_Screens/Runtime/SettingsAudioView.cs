@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.Composition;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine.Events;
 using UnityEngine;
@@ -24,6 +26,8 @@ namespace Game.Feature.UI.Screens
         private readonly Dictionary<AudioSettingsChannel, Action> _interactionCompletedHandlers = new();
         private readonly Dictionary<AudioSettingsChannel, float> _interactionStartValues = new();
         private readonly Dictionary<AudioSettingsChannel, float> _lastKnownValues = new();
+        private ILocalizedTextResolver _localizedTextResolver;
+        private GameplayUiTypographyTheme _typographyTheme;
         private bool _isVisible;
         private SettingsAudioViewModel _viewModel;
 
@@ -32,6 +36,37 @@ namespace Game.Feature.UI.Screens
         public event Action<AudioSettingsChannel, bool> MuteChanged;
 
         public event Action InteractionCompleted;
+
+        public void BindTypography(
+            ILocalizedTextResolver textResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            UnbindTypography();
+            if (typographyTheme == null)
+            {
+                return;
+            }
+
+            _localizedTextResolver = textResolver;
+            _typographyTheme = typographyTheme;
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
+            }
+
+            RefreshTypography();
+        }
+
+        public void UnbindTypography()
+        {
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            }
+
+            _localizedTextResolver = null;
+            _typographyTheme = null;
+        }
 
         public void BeginInteraction(AudioSettingsChannel channel)
         {
@@ -171,6 +206,7 @@ namespace Game.Feature.UI.Screens
                 _viewModel.Changed -= HandleViewModelChanged;
             }
 
+            UnbindTypography();
             UnbindAudioControls();
         }
 
@@ -264,6 +300,11 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
+        private void HandleLocaleChanged()
+        {
+            RefreshTypography();
+        }
+
         private void RefreshAudioControl(AudioSettingsChannel channel, AudioSettingsRowViewModel rowViewModel)
         {
             if (!_audioControls.TryGetValue(channel, out var widgets))
@@ -301,6 +342,33 @@ namespace Game.Feature.UI.Screens
             RefreshAudioControl(AudioSettingsChannel.Main, _viewModel.MainAudio);
             RefreshAudioControl(AudioSettingsChannel.Bgm, _viewModel.BgmAudio);
             RefreshAudioControl(AudioSettingsChannel.Sfx, _viewModel.SfxAudio);
+            RefreshTypography();
+        }
+
+        private void RefreshTypography()
+        {
+            if (_typographyTheme == null)
+            {
+                return;
+            }
+
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            ApplyTypography(_mainRow, localeCode);
+            ApplyTypography(_bgmRow, localeCode);
+            ApplyTypography(_sfxRow, localeCode);
+        }
+
+        private void ApplyTypography(AudioControlRowRefs row, string localeCode)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(row.Label, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(row.Value, _typographyTheme, localeCode);
         }
 
         private void RebindAudioControls()

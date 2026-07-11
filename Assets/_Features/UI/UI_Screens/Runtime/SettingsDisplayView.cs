@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
@@ -43,6 +44,7 @@ namespace Game.Feature.UI.Screens
         private ILocalizedTextResolver _localizedTextResolver;
         private ILocalizedTypographyResolver _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
         private ILocalizedTmpFontResolver _localizedTmpFontResolver;
+        private GameplayUiTypographyTheme _typographyTheme;
         private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
         private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
         private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
@@ -100,7 +102,8 @@ namespace Game.Feature.UI.Screens
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver = null)
+            ILocalizedTmpFontResolver fontResolver = null,
+            GameplayUiTypographyTheme typographyTheme = null)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -114,6 +117,7 @@ namespace Game.Feature.UI.Screens
             _localizedTextResolver = textResolver;
             _localizedTypographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             _localizedTmpFontResolver = fontResolver;
+            _typographyTheme = typographyTheme;
             _languageLabelDefaultFontAsset ??= _languageLabel != null ? _languageLabel.font : null;
             _languageLabelDefaultMaterialPreset ??= _languageLabel != null ? _languageLabel.fontSharedMaterial : null;
             _languageCycleButtonLabelDefaultFontAsset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.font : null;
@@ -137,6 +141,7 @@ namespace Game.Feature.UI.Screens
             _localizedTextResolver = null;
             _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
             _localizedTmpFontResolver = null;
+            _typographyTheme = null;
         }
 
         public void Bind(SettingsDisplayViewModel viewModel)
@@ -578,6 +583,7 @@ namespace Game.Feature.UI.Screens
                 }
 
                 RefreshLocalizedLanguageTextStyle();
+                RefreshTypography();
             }
             finally
             {
@@ -588,6 +594,7 @@ namespace Game.Feature.UI.Screens
         private void HandleLocaleChanged()
         {
             RefreshLocalizedLanguageTextStyle();
+            RefreshTypography();
         }
 
         private void RefreshLocalizedLanguageTextStyle()
@@ -621,6 +628,11 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
+            if (LocalizedTmpTextApplicator.ApplyTypographyTheme(target, _typographyTheme, localeCode))
+            {
+                return;
+            }
+
             LocalizedTmpTextApplicator.ApplyTypography(
                 target,
                 _localizedTypographyResolver.Resolve(
@@ -645,6 +657,27 @@ namespace Game.Feature.UI.Screens
             return string.Equals(localeCode, "ko-KR", StringComparison.Ordinal)
                 ? _koreanLanguageLabelDescriptor
                 : _englishLanguageLabelDescriptor;
+        }
+
+        private void RefreshTypography()
+        {
+            if (_typographyTheme == null)
+            {
+                return;
+            }
+
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_currentDisplayLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_currentDisplayValue, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_resolutionLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_resolutionHoverHintLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_fullscreenLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_displayStatusLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_previewCountdownLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_applyButtonLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_revertButtonLabel, _typographyTheme, localeCode);
         }
 
         private void RefreshView()

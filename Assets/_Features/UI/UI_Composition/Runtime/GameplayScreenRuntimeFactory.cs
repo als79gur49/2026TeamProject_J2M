@@ -152,10 +152,11 @@ namespace Game.Feature.UI.Composition
                     _displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
                     _displayStatusTransientRelay,
-                    _localizedTextResolver,
-                    _localizedTypographyResolver,
-                    _localizedTmpFontResolver,
-                    _localeSelectionPort)));
+                _localizedTextResolver,
+                _localizedTypographyResolver,
+                _localizedTmpFontResolver,
+                _screenPrefabCatalog.SettingsTypographyTheme,
+                _localeSelectionPort)));
         }
 
         private ScreenRuntimeFactoryResult CreateStageResultRuntime()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.Composition;
 using DG.Tweening;
 using Game.Feature.UI.ViewShared;
 using TMPro;
@@ -93,7 +94,8 @@ namespace Game.Feature.UI.Screens
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver = null)
+            ILocalizedTmpFontResolver fontResolver = null,
+            GameplayUiTypographyTheme typographyTheme = null)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -108,41 +110,51 @@ namespace Game.Feature.UI.Screens
                     payload.TitleTextDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
                 new(
                     _backButtonLabel,
                     payload.BackLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
                 new(
                     _audioTabButtonLabel,
                     payload.AudioTabLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
                 new(
                     _displayTabButtonLabel,
                     payload.DisplayTabLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
                 new(
                     _inputTabButtonLabel,
                     payload.InputTabLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
             };
+
+            if (_audioView != null)
+            {
+                _audioView.BindTypography(textResolver, typographyTheme);
+            }
 
             if (_inputView != null)
             {
-                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver);
+                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver, typographyTheme);
             }
 
             if (_displayView != null)
             {
-                _displayView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver);
+                _displayView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver, typographyTheme);
             }
         }
 
@@ -152,6 +164,11 @@ namespace Game.Feature.UI.Screens
             if (_displayView != null)
             {
                 _displayView.UnbindStaticLocalization();
+            }
+
+            if (_audioView != null)
+            {
+                _audioView.UnbindTypography();
             }
 
             if (_inputView != null)

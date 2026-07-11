@@ -23,6 +23,7 @@ namespace Game.Feature.UI.Composition
             ILocalizedTextResolver localizedTextResolver = null,
             ILocalizedTypographyResolver localizedTypographyResolver = null,
             ILocalizedTmpFontResolver localizedTmpFontResolver = null,
+            GameplayUiTypographyTheme typographyTheme = null,
             IUiLocaleSelectionPort localeSelectionPort = null)
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
@@ -39,6 +40,7 @@ namespace Game.Feature.UI.Composition
                     "SettingsScreenRuntimeBuildContext requires an explicit production localized text resolver.");
             LocalizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
             LocalizedTmpFontResolver = localizedTmpFontResolver;
+            TypographyTheme = typographyTheme;
             LocaleSelectionPort = localeSelectionPort ?? LocalizedTextResolver as IUiLocaleSelectionPort;
         }
 
@@ -65,6 +67,8 @@ namespace Game.Feature.UI.Composition
         public ILocalizedTypographyResolver LocalizedTypographyResolver { get; }
 
         public ILocalizedTmpFontResolver LocalizedTmpFontResolver { get; }
+
+        public GameplayUiTypographyTheme TypographyTheme { get; }
 
         public IUiLocaleSelectionPort LocaleSelectionPort { get; }
     }
@@ -106,6 +110,7 @@ namespace Game.Feature.UI.Composition
                 context.LocalizedTextResolver,
                 context.LocalizedTypographyResolver,
                 context.LocalizedTmpFontResolver,
+                context.TypographyTheme,
                 context.LocaleSelectionPort,
                 () => DestroyObject(view.gameObject));
         }
@@ -164,6 +169,7 @@ namespace Game.Feature.UI.Composition
             private readonly ILocalizedTextResolver _localizedTextResolver;
             private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
             private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
+            private readonly GameplayUiTypographyTheme _typographyTheme;
             private readonly IUiLocaleSelectionPort _localeSelectionPort;
             private readonly SettingsScreenPresenter _presenter;
             private readonly IUiAudioPort _uiAudioPort;
@@ -180,6 +186,7 @@ namespace Game.Feature.UI.Composition
                 ILocalizedTextResolver localizedTextResolver,
                 ILocalizedTypographyResolver localizedTypographyResolver,
                 ILocalizedTmpFontResolver localizedTmpFontResolver,
+                GameplayUiTypographyTheme typographyTheme,
                 IUiLocaleSelectionPort localeSelectionPort,
                 Action dispose)
             {
@@ -195,6 +202,7 @@ namespace Game.Feature.UI.Composition
                 _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
                 _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
                 _localizedTmpFontResolver = localizedTmpFontResolver;
+                _typographyTheme = typographyTheme;
                 _localeSelectionPort = localeSelectionPort;
                 _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
 
@@ -228,7 +236,8 @@ namespace Game.Feature.UI.Composition
                     settingsPayload,
                     _localizedTextResolver,
                     _localizedTypographyResolver,
-                    _localizedTmpFontResolver);
+                    _localizedTmpFontResolver,
+                    _typographyTheme);
             }
 
             public void Dispose()
