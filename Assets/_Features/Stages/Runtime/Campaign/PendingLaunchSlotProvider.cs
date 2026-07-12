@@ -22,7 +22,7 @@ namespace Game.Feature.Stages
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
         }
 
-        public string DiagnosticsKey => _activeSlotProvider.PlayerPrefsKey;
+        public string DiagnosticsKey => _activeSlotProvider.DiagnosticsKey;
 
         public bool TryGetPendingLaunchSlot(out int slotNumber)
         {

@@ -70,6 +70,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(controller, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(installer, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(installer, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore)"));
             Assert.That(installer, Does.Not.Contain("ProfileJsonExplicit"));
             Assert.That(installer, Does.Not.Contain("EnableProfileWrite"));
             Assert.That(installer, Does.Contain("new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider)"));

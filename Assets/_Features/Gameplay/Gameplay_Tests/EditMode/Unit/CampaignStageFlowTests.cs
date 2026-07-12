@@ -230,7 +230,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
             Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(1));
             Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
         }
 
@@ -273,7 +274,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             _ = new SaveSlotStore().LoadAll();
 
             Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(2));
         }
 
         [Test]
@@ -456,7 +458,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(stageId), Is.False);
             Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
             Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
-            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(1));
             Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
         }
 

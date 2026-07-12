@@ -326,7 +326,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();
-            _activeSlotProvider ??= new ActiveSlotProvider();
+            _activeSlotProvider ??= CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(_saveSlotStore);
         }
 
         private int ValidateActiveSlotMatchesLaunchStage(StageId launchStageId)

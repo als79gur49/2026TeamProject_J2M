@@ -676,8 +676,12 @@ namespace Game.Feature.UI.Tests
             var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
             var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
             var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
+            var profileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json"));
+            var profileFileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json.bak"));
+            var localLaunchStateBackup = FileBackup.Capture(ProductionLocalLaunchStatePath());
             try
             {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 PrepareProductionDefaultSlot(stageId, remainingChances: 2);
                 EditorDirectPlayContextStore.SetCurrent(staleContext);
@@ -701,6 +705,10 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+                localLaunchStateBackup.Restore();
+                profileFileBackup.Restore();
+                profileBackup.Restore();
                 saveBackup.Restore();
                 activeBackup.Restore();
                 UnityEngine.Object.DestroyImmediate(routeConfig);
@@ -722,6 +730,7 @@ namespace Game.Feature.UI.Tests
             var deletedSlotGuardsBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
             var profileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json"));
             var profileFileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json.bak"));
+            var localLaunchStateBackup = FileBackup.Capture(ProductionLocalLaunchStatePath());
             try
             {
                 CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
@@ -775,6 +784,7 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
+                localLaunchStateBackup.Restore();
                 profileFileBackup.Restore();
                 profileBackup.Restore();
                 saveBackup.Restore();
@@ -794,7 +804,7 @@ namespace Game.Feature.UI.Tests
         private static void PrepareProductionDefaultSlot(StageId stageId, int remainingChances)
         {
             var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
-            var activeSlotProvider = new ActiveSlotProvider();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData
@@ -806,6 +816,14 @@ namespace Game.Feature.UI.Tests
                 LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
             activeSlotProvider.SetActiveSlot(1);
+        }
+
+        private static string ProductionLocalLaunchStatePath()
+        {
+            return Path.Combine(
+                UnityEngine.Application.persistentDataPath,
+                "Saves",
+                CampaignLocalLaunchStateRepository.FileName);
         }
 
         private static void AssignStageCatalogProvider(StageBackedGameplaySceneInstaller installer)

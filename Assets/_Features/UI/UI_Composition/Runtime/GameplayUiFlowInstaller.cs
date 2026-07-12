@@ -378,10 +378,11 @@ namespace Game.Feature.UI.Composition
             IMainMenuReturnRouter inner = _routeConfig != null
                 ? new ConfiguredMainMenuReturnRouter(_routeConfig)
                 : NoOpMainMenuReturnRouter.Instance;
+            var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             return new CinematicMainMenuReturnRouter(
                 inner,
-                CampaignSaveCompositionProvider.CreateProductionProfileBacked(),
-                new ActiveSlotProvider(),
+                saveSlotStore,
+                CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore),
                 EnsureCinematicFlowCoordinator(),
                 () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
         }

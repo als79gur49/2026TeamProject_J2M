@@ -215,7 +215,7 @@ namespace Game.Feature.UI.Composition
                 : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
             var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
             var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
-            var activeSlotProvider = new ActiveSlotProvider();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore);
             ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
             var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
             var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);

@@ -922,7 +922,6 @@ namespace Game.Feature.Stages
         public static void ResetProductionStageClearPrefs()
         {
             var deleted = DeleteKeyIfPresent(SaveSlotPrefsKeys.SaveSlotsKey);
-            deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.ActiveSaveSlotKey);
             deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.LegacySaveSlotsKey);
             deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
             SaveIfDeleted(deleted);
@@ -1568,21 +1567,38 @@ namespace Game.Feature.Stages
     public sealed class ActiveSlotProvider
     {
         private const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.ActiveSaveSlotKey;
+        private readonly IActiveSlotStorage _storage;
         private readonly string _playerPrefsKey;
         private int _activeSlotNumber;
 
         public ActiveSlotProvider(string playerPrefsKey = DefaultPlayerPrefsKey)
+            : this(new PlayerPrefsActiveSlotStorage(
+                string.IsNullOrWhiteSpace(playerPrefsKey) ? DefaultPlayerPrefsKey : playerPrefsKey))
         {
-            _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
-                ? DefaultPlayerPrefsKey
-                : playerPrefsKey;
-            DeleteLegacyPrefsIfUsingDefaultKey(_playerPrefsKey);
-            _activeSlotNumber = PlayerPrefs.GetInt(_playerPrefsKey, 0);
         }
 
-        public bool HasActiveSlot => SaveSlotStore.IsValidSlotNumber(_activeSlotNumber);
+        public ActiveSlotProvider(IActiveSlotStorage storage)
+        {
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            _playerPrefsKey = _storage.DiagnosticsKey;
+            DeleteLegacyPrefsIfUsingDefaultKey(_playerPrefsKey);
+            _activeSlotNumber = _storage.TryGetActiveSlot(out var activeSlotNumber)
+                ? activeSlotNumber
+                : 0;
+        }
+
+        public bool HasActiveSlot
+        {
+            get
+            {
+                RefreshActiveSlot();
+                return SaveSlotStore.IsValidSlotNumber(_activeSlotNumber);
+            }
+        }
 
         public string PlayerPrefsKey => _playerPrefsKey;
+
+        public string DiagnosticsKey => _storage.DiagnosticsKey;
 
         public int ActiveSlotNumber
         {
@@ -1599,6 +1615,7 @@ namespace Game.Feature.Stages
 
         public bool TryGetActiveSlotNumber(out int slotNumber)
         {
+            RefreshActiveSlot();
             if (HasActiveSlot)
             {
                 slotNumber = _activeSlotNumber;
@@ -1612,16 +1629,14 @@ namespace Game.Feature.Stages
         public void SetActiveSlot(int slotNumber)
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            _storage.SetActiveSlot(slotNumber);
             _activeSlotNumber = slotNumber;
-            PlayerPrefs.SetInt(_playerPrefsKey, slotNumber);
-            PlayerPrefs.Save();
         }
 
         public void ClearActiveSlot()
         {
+            _storage.ClearActiveSlot();
             _activeSlotNumber = 0;
-            PlayerPrefs.DeleteKey(_playerPrefsKey);
-            PlayerPrefs.Save();
         }
 
         private static void DeleteLegacyPrefsIfUsingDefaultKey(string playerPrefsKey)
@@ -1630,6 +1645,13 @@ namespace Game.Feature.Stages
             {
                 StageClearSavePrefsResetPolicy.DeleteLegacyStageSavePrefs();
             }
+        }
+
+        private void RefreshActiveSlot()
+        {
+            _activeSlotNumber = _storage.TryGetActiveSlot(out var activeSlotNumber)
+                ? activeSlotNumber
+                : 0;
         }
     }
 

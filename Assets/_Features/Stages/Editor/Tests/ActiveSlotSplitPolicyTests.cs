@@ -32,8 +32,8 @@ namespace Game.Feature.Stages.Editor.Tests
             var mainMenuController = File.ReadAllText(
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
 
-            Assert.That(mainMenuInstaller, Does.Contain("new ActiveSlotProvider()"));
-            Assert.That(gameplayInstaller, Does.Contain("new ActiveSlotProvider()"));
+            Assert.That(mainMenuInstaller, Does.Contain("CreateProductionActiveSlotProvider(saveSlotStore)"));
+            Assert.That(gameplayInstaller, Does.Contain("CreateProductionActiveSlotProvider(saveSlotStore)"));
             Assert.That(mainMenuController, Does.Contain("IPendingLaunchSlotProvider"));
             Assert.That(mainMenuController, Does.Contain("_pendingLaunchSlotProvider"));
             Assert.That(mainMenuController, Does.Contain("ActiveSlotProviderKey = _pendingLaunchSlotProviderDiagnosticsKey"));
