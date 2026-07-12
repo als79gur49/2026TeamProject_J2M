@@ -5,6 +5,7 @@ using System.Linq;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Localization.Tables;
 using UnityEngine.TextCore.LowLevel;
 
 namespace Game.Feature.UI.Tests
@@ -13,6 +14,8 @@ namespace Game.Feature.UI.Tests
     {
         public const string SourceFontPath = "Assets/_Shared/UI/Fonts/NanumGothic.ttf";
         public const string FontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
+        public const string UiKoreanStringTablePath = "Assets/Localization/StringTables/UI/UI_ko-KR.asset";
+        public const string StageKoreanStringTablePath = "Assets/Localization/StringTables/Stage/Stage_ko-KR.asset";
         public const int AtlasSize = 2048;
         public const int SamplingPointSize = 90;
         public const int Padding = 9;
@@ -36,6 +39,28 @@ namespace Game.Feature.UI.Tests
             "뒤로",
         };
 
+        public static readonly string[] PauseKoreanLabels =
+        {
+            "일시 정지",
+            "일시 정지 팝업",
+            "계속하기",
+            "다시 시도",
+            "메인 메뉴",
+        };
+
+        public static readonly string[] MainMenuKoreanLabels =
+        {
+            "시작",
+            "설정",
+            "종료",
+        };
+
+        public static readonly string[] RequiredKoreanStringTablePaths =
+        {
+            UiKoreanStringTablePath,
+            StageKoreanStringTablePath,
+        };
+
         [MenuItem("Tools/UI/Generate NanumGothic TMP Validation Font")]
         public static void GenerateFromMenu()
         {
@@ -50,12 +75,46 @@ namespace Game.Feature.UI.Tests
                 throw new InvalidOperationException($"Missing source font: {SourceFontPath}");
             }
 
-            var existingAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(FontAssetPath);
-            if (existingAsset != null && !AssetDatabase.DeleteAsset(FontAssetPath))
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
+            if (fontAsset == null)
             {
-                throw new InvalidOperationException($"Failed to delete existing font asset: {FontAssetPath}");
+                fontAsset = CreateFontAsset(sourceFont);
             }
 
+            var characterSet = BuildValidationCharacterSet();
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+            if (!fontAsset.TryAddCharacters(characterSet, out var missingCharacters))
+            {
+                throw new InvalidOperationException(
+                    $"NanumGothic validation asset is missing requested glyphs: {FormatCharacters(missingCharacters)}");
+            }
+
+            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
+            fontAsset.ReadFontAssetDefinition();
+            EditorUtility.SetDirty(fontAsset);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(FontAssetPath, ImportAssetOptions.ForceUpdate);
+
+            var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
+            if (reloaded == null)
+            {
+                throw new InvalidOperationException($"Failed to reload generated font asset: {FontAssetPath}");
+            }
+
+            var missingCoverage = GetMissingCharacters(
+                reloaded,
+                LoadRequiredKoreanFontCoverageStrings().Append(CommonUiCharacters));
+            if (missingCoverage.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Generated NanumGothic asset does not cover validation strings: {FormatCharacters(missingCoverage)}");
+            }
+
+            return reloaded;
+        }
+
+        private static TMP_FontAsset CreateFontAsset(Font sourceFont)
+        {
             var fontAsset = TMP_FontAsset.CreateFontAsset(
                 sourceFont,
                 SamplingPointSize,
@@ -94,39 +153,13 @@ namespace Game.Feature.UI.Tests
                 AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
             }
 
-            var characterSet = BuildValidationCharacterSet();
-            if (!fontAsset.TryAddCharacters(characterSet, out var missingCharacters))
-            {
-                throw new InvalidOperationException(
-                    $"NanumGothic validation asset is missing requested glyphs: {FormatCharacters(missingCharacters)}");
-            }
-
-            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
-            fontAsset.ReadFontAssetDefinition();
-            EditorUtility.SetDirty(fontAsset);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.ImportAsset(FontAssetPath, ImportAssetOptions.ForceUpdate);
-
-            var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
-            if (reloaded == null)
-            {
-                throw new InvalidOperationException($"Failed to reload generated font asset: {FontAssetPath}");
-            }
-
-            var missingCoverage = GetMissingCharacters(reloaded, SettingsKoreanLabels.Append(CommonUiCharacters));
-            if (missingCoverage.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    $"Generated NanumGothic asset does not cover validation strings: {FormatCharacters(missingCoverage)}");
-            }
-
-            return reloaded;
+            return fontAsset;
         }
 
         public static string BuildValidationCharacterSet()
         {
             var characters = new SortedSet<char>();
-            foreach (var text in SettingsKoreanLabels.Append(CommonUiCharacters))
+            foreach (var text in LoadRequiredKoreanFontCoverageStrings().Append(CommonUiCharacters))
             {
                 foreach (var character in text)
                 {
@@ -138,6 +171,32 @@ namespace Game.Feature.UI.Tests
             }
 
             return string.Concat(characters);
+        }
+
+        public static IReadOnlyList<string> LoadRequiredKoreanFontCoverageStrings()
+        {
+            var strings = new List<string>();
+            foreach (var tablePath in RequiredKoreanStringTablePaths)
+            {
+                strings.AddRange(LoadLocalizedValues(tablePath));
+            }
+
+            return strings;
+        }
+
+        public static IReadOnlyList<string> LoadLocalizedValues(string tablePath)
+        {
+            var table = AssetDatabase.LoadAssetAtPath<StringTable>(tablePath);
+            if (table == null)
+            {
+                throw new InvalidOperationException($"Missing String Table asset: {tablePath}");
+            }
+
+            return table.SharedData.Entries
+                .Select(entry => table.GetEntry(entry.Key)?.LocalizedValue)
+                .Where(value => !string.IsNullOrEmpty(value))
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
         }
 
         public static IReadOnlyList<char> GetMissingCharacters(TMP_FontAsset fontAsset, IEnumerable<string> texts)

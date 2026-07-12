@@ -88,6 +88,64 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void NanumGothicSdfAsset_CoversUiKoreanStringTableWithoutFallback()
+        {
+            var fontAsset = LoadFontAsset();
+            var missing = NanumGothicFontValidationUtility.GetMissingCharacters(
+                fontAsset,
+                NanumGothicFontValidationUtility.LoadLocalizedValues(
+                    NanumGothicFontValidationUtility.UiKoreanStringTablePath));
+
+            Assert.That(
+                missing,
+                Is.Empty,
+                NanumGothicFontValidationUtility.FormatCharacters(missing));
+        }
+
+        [Test]
+        public void NanumGothicSdfAsset_CoversPauseKoreanLabelsWithoutFallback()
+        {
+            var fontAsset = LoadFontAsset();
+            var missing = NanumGothicFontValidationUtility.GetMissingCharacters(
+                fontAsset,
+                NanumGothicFontValidationUtility.PauseKoreanLabels);
+
+            Assert.That(
+                missing,
+                Is.Empty,
+                NanumGothicFontValidationUtility.FormatCharacters(missing));
+        }
+
+        [Test]
+        public void NanumGothicSdfAsset_CoversMainMenuKoreanLabelsWithoutFallback()
+        {
+            var fontAsset = LoadFontAsset();
+            var missing = NanumGothicFontValidationUtility.GetMissingCharacters(
+                fontAsset,
+                NanumGothicFontValidationUtility.MainMenuKoreanLabels);
+
+            Assert.That(
+                missing,
+                Is.Empty,
+                NanumGothicFontValidationUtility.FormatCharacters(missing));
+        }
+
+        [Test]
+        public void NanumGothicGenerationCharacterSet_ComesFromProductionKoreanStringTables()
+        {
+            var requiredCharacters = NanumGothicFontValidationUtility.BuildValidationCharacterSet();
+
+            foreach (var label in NanumGothicFontValidationUtility.PauseKoreanLabels
+                         .Concat(NanumGothicFontValidationUtility.MainMenuKoreanLabels))
+            {
+                foreach (var character in label.Where(character => !char.IsControl(character)))
+                {
+                    Assert.That(requiredCharacters, Does.Contain(character), $"{label}: {character}");
+                }
+            }
+        }
+
+        [Test]
         public void NanumGothicSdfAsset_CoversCommonSettingsUiSymbols()
         {
             var fontAsset = LoadFontAsset();
