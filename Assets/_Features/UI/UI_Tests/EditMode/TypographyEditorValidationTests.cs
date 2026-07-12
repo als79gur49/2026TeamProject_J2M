@@ -8,7 +8,9 @@ using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -229,13 +231,18 @@ namespace Game.Feature.UI.Tests
                 Assert.That(File.Exists(capture.FilePath), Is.True, capture.FilePath);
                 Assert.That(new FileInfo(capture.FilePath).Length, Is.GreaterThan(0), capture.FilePath);
                 Assert.That(capture.AppliedBindingCount, Is.GreaterThan(0), capture.FilePath);
+                Assert.That(capture.LocalizedTextAppliedCount, Is.EqualTo(ExpectedLocalizedTextCount(capture.Target.FileStem)), capture.FilePath);
 
                 var texture = new Texture2D(2, 2);
                 try
                 {
                     Assert.That(ImageConversion.LoadImage(texture, File.ReadAllBytes(capture.FilePath)), Is.True, capture.FilePath);
-                    Assert.That(texture.width, Is.GreaterThan(0), capture.FilePath);
-                    Assert.That(texture.height, Is.GreaterThan(0), capture.FilePath);
+                    Assert.That(texture.width, Is.EqualTo(960), capture.FilePath);
+                    Assert.That(texture.height, Is.EqualTo(540), capture.FilePath);
+                    if (IsGraphicsCaptureAvailable())
+                    {
+                        AssertTextureIsNonBlank(texture, capture.FilePath);
+                    }
                 }
                 finally
                 {
@@ -246,6 +253,51 @@ namespace Game.Feature.UI.Tests
             AssertGuardedAssetsAreClean(guardedAssets);
 
             Directory.Delete(result.OutputDirectory, recursive: true);
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotUtility_CapturesLeftRightOrientationWithoutHorizontalMirror()
+        {
+            var root = new GameObject("TypographyOrientationRoot", typeof(RectTransform));
+            var rectTransform = root.GetComponent<RectTransform>();
+            rectTransform.sizeDelta = new Vector2(320f, 180f);
+
+            if (!IsGraphicsCaptureAvailable())
+            {
+                Assert.Pass("Graphics readback orientation validation is skipped because the Unity UI lane runs with -nographics.");
+            }
+
+            var redTexture = CreateSolidTexture(Color.red);
+            var blueTexture = CreateSolidTexture(Color.blue);
+            CreateOrientationMarker(root.transform, "LeftRedMarker", new Vector2(0f, 0f), new Vector2(0.5f, 1f), redTexture);
+            CreateOrientationMarker(root.transform, "RightBlueMarker", new Vector2(0.5f, 0f), new Vector2(1f, 1f), blueTexture);
+
+            Texture2D texture = null;
+            try
+            {
+                texture = TypographyPreviewScreenshotUtility.CaptureRootForValidation(
+                    root,
+                    new TypographyPreviewScreenshotOptions
+                    {
+                        Width = 320,
+                        Height = 180,
+                        BackgroundColor = Color.black,
+                    });
+
+                AssertDominantColor(texture.GetPixel(80, 90), Color.red, "left sample should be red");
+                AssertDominantColor(texture.GetPixel(240, 90), Color.blue, "right sample should be blue");
+            }
+            finally
+            {
+                if (texture != null)
+                {
+                    Object.DestroyImmediate(texture);
+                }
+
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(redTexture);
+                Object.DestroyImmediate(blueTexture);
+            }
         }
 
         [Test]
@@ -287,6 +339,87 @@ namespace Game.Feature.UI.Tests
                 var asset = AssetDatabase.LoadAssetAtPath<Object>(assetPath);
                 Assert.That(asset, Is.Not.Null, assetPath);
                 Assert.That(EditorUtility.IsDirty(asset), Is.False, assetPath);
+            }
+        }
+
+        private static int ExpectedLocalizedTextCount(string fileStem)
+        {
+            switch (fileStem)
+            {
+                case "Settings":
+                    return 11;
+
+                case "Pause":
+                    return 6;
+
+                case "MainMenu":
+                    return 3;
+
+                default:
+                    Assert.Fail("Unexpected screenshot target: " + fileStem);
+                    return 0;
+            }
+        }
+
+        private static bool IsGraphicsCaptureAvailable()
+        {
+            return SystemInfo.graphicsDeviceType != GraphicsDeviceType.Null;
+        }
+
+        private static void AssertTextureIsNonBlank(Texture2D texture, string context)
+        {
+            var pixels = texture.GetPixels32();
+            Assert.That(pixels.Length, Is.GreaterThan(0), context);
+            var first = pixels[0];
+            Assert.That(
+                pixels.Any(pixel => !pixel.Equals(first)),
+                Is.True,
+                $"{context} should not be a single-color image. First pixel RGBA=({first.r},{first.g},{first.b},{first.a}).");
+        }
+
+        private static void CreateOrientationMarker(
+            Transform parent,
+            string name,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Texture texture)
+        {
+            var marker = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            marker.transform.SetParent(parent, false);
+            var markerRect = marker.GetComponent<RectTransform>();
+            markerRect.anchorMin = anchorMin;
+            markerRect.anchorMax = anchorMax;
+            markerRect.offsetMin = Vector2.zero;
+            markerRect.offsetMax = Vector2.zero;
+            marker.GetComponent<RawImage>().texture = texture;
+        }
+
+        private static Texture2D CreateSolidTexture(Color color)
+        {
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            return texture;
+        }
+
+        private static void AssertDominantColor(Color actual, Color expected, string context)
+        {
+            const float dominantThreshold = 0.85f;
+            const float quietThreshold = 0.15f;
+            var actualMessage = $"{context}. Actual RGBA=({actual.r:F3},{actual.g:F3},{actual.b:F3},{actual.a:F3})";
+            if (expected == Color.red)
+            {
+                Assert.That(actual.r, Is.GreaterThan(dominantThreshold), actualMessage);
+                Assert.That(actual.g, Is.LessThan(quietThreshold), actualMessage);
+                Assert.That(actual.b, Is.LessThan(quietThreshold), actualMessage);
+                return;
+            }
+
+            if (expected == Color.blue)
+            {
+                Assert.That(actual.b, Is.GreaterThan(dominantThreshold), actualMessage);
+                Assert.That(actual.r, Is.LessThan(quietThreshold), actualMessage);
+                Assert.That(actual.g, Is.LessThan(quietThreshold), actualMessage);
             }
         }
 

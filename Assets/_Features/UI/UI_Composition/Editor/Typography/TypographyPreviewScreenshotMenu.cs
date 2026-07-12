@@ -41,11 +41,11 @@ namespace Game.Feature.UI.Composition.Editor
                 {
                     "Typography preview screenshot capture completed.",
                     $"Output: {result.OutputDirectory}",
-                    "| Target | Locale | File | Exists | Size |",
-                    "|---|---|---|---|---|",
+                    "| Target | Locale | File | Exists | Size | Typography Bindings | Localized Texts |",
+                    "|---|---|---|---|---|---|---|",
                 }
                 .Concat(result.Captures.Select(capture =>
-                    $"| {capture.Target.Name} | {capture.LocaleCode} | {capture.FilePath} | {capture.Exists} | {capture.FileSizeBytes} |"))
+                    $"| {capture.Target.Name} | {capture.LocaleCode} | {capture.FilePath} | {capture.Exists} | {capture.FileSizeBytes} | {capture.AppliedBindingCount} | {capture.LocalizedTextAppliedCount} |"))
                 .Concat(result.Errors.Select(error => $"ERROR: {error}"))
                 .Concat(result.Captures.SelectMany(capture => capture.Errors.Select(error => $"ERROR: {error}")));
 

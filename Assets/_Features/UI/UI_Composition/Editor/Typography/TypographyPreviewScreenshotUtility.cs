@@ -2,10 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Game.Feature.UI.Popups;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
+using UnityEngine.Localization.Tables;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -66,6 +72,8 @@ namespace Game.Feature.UI.Composition.Editor
         public long FileSizeBytes { get; set; }
 
         public int AppliedBindingCount { get; set; }
+
+        public int LocalizedTextAppliedCount { get; set; }
 
         public IReadOnlyList<string> Errors => errors;
 
@@ -301,6 +309,8 @@ namespace Game.Feature.UI.Composition.Editor
             var shouldClosePreviewScene = false;
             RenderTexture renderTexture = null;
             RenderTexture previousRenderTexture = null;
+            IDisposable localizedTextScope = null;
+            IDisposable fontAssetRestoreScope = null;
 
             try
             {
@@ -325,6 +335,12 @@ namespace Game.Feature.UI.Composition.Editor
 
                 var captureTheme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
                     TypographyThemeValidator.ThemeAssetPath);
+                localizedTextScope = ApplyLocalizedTextPreview(prefabRoot, target, localeCode, captureTheme, capture);
+                if (capture.HasErrors)
+                {
+                    return capture;
+                }
+
                 var previewResult = TypographyPreviewUtility.ApplyPreview(prefabRoot, localeCode, captureTheme, recordUndo: false);
                 capture.AppliedBindingCount = previewResult.AppliedCount;
                 foreach (var error in previewResult.Errors)
@@ -337,28 +353,15 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
+                fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(prefabRoot);
                 SetupPreviewScene(prefabRoot, options, out cameraObject, out canvasObject, out var camera);
+                ForceCanvasGroupsVisible(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
 
-                renderTexture = new RenderTexture(options.Width, options.Height, 24, RenderTextureFormat.ARGB32)
-                {
-                    name = "TypographyPreviewScreenshotRT",
-                    antiAliasing = 1,
-                };
-                renderTexture.Create();
-
-                camera.targetTexture = renderTexture;
-                previousRenderTexture = RenderTexture.active;
-                RenderTexture.active = renderTexture;
-                GL.Clear(true, true, options.BackgroundColor);
-                camera.Render();
-
-                var texture = new Texture2D(options.Width, options.Height, TextureFormat.RGBA32, false);
+                var texture = RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
                 try
                 {
-                    texture.ReadPixels(new Rect(0, 0, options.Width, options.Height), 0, 0);
-                    texture.Apply();
                     File.WriteAllBytes(filePath, texture.EncodeToPNG());
                 }
                 finally
@@ -381,6 +384,8 @@ namespace Game.Feature.UI.Composition.Editor
             }
             finally
             {
+                fontAssetRestoreScope?.Dispose();
+                localizedTextScope?.Dispose();
                 RenderTexture.active = previousRenderTexture;
                 if (renderTexture != null)
                 {
@@ -423,6 +428,233 @@ namespace Game.Feature.UI.Composition.Editor
             return capture;
         }
 
+        public static Texture2D CaptureRootForValidation(
+            GameObject root,
+            TypographyPreviewScreenshotOptions options = null)
+        {
+            if (root == null)
+            {
+                throw new ArgumentNullException(nameof(root));
+            }
+
+            options ??= new TypographyPreviewScreenshotOptions();
+            GameObject cameraObject = null;
+            GameObject canvasObject = null;
+            RenderTexture renderTexture = null;
+            RenderTexture previousRenderTexture = null;
+            var originalParent = root.transform.parent;
+            var originalPosition = root.transform.localPosition;
+            var originalRotation = root.transform.localRotation;
+            var originalScale = root.transform.localScale;
+
+            try
+            {
+                SetupPreviewScene(root, options, out cameraObject, out canvasObject, out var camera);
+                Canvas.ForceUpdateCanvases();
+                return RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
+            }
+            finally
+            {
+                RenderTexture.active = previousRenderTexture;
+                if (renderTexture != null)
+                {
+                    if (cameraObject != null)
+                    {
+                        cameraObject.GetComponent<Camera>().targetTexture = null;
+                    }
+
+                    renderTexture.Release();
+                    UnityEngine.Object.DestroyImmediate(renderTexture);
+                }
+
+                root.transform.SetParent(originalParent, false);
+                root.transform.localPosition = originalPosition;
+                root.transform.localRotation = originalRotation;
+                root.transform.localScale = originalScale;
+
+                if (cameraObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(cameraObject);
+                }
+
+                if (canvasObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(canvasObject);
+                }
+            }
+        }
+
+        private static IDisposable ApplyLocalizedTextPreview(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotTarget target,
+            string localeCode,
+            GameplayUiTypographyTheme theme,
+            TypographyPreviewScreenshotCaptureResult capture)
+        {
+            if (!CaptureStringTableTextResolver.TryCreate(localeCode, out var resolver, out var failureReason))
+            {
+                capture.AddError($"{target.Name} {localeCode}: {failureReason}");
+                return null;
+            }
+
+            IDisposable scope = resolver;
+            if (string.Equals(target.FileStem, "Settings", StringComparison.Ordinal))
+            {
+                var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: SettingsScreenView was not found.");
+                    return scope;
+                }
+
+                view.BindStaticLocalization(
+                    SettingsScreenPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+                view.SetIsCurrent(true);
+                ValidateLocalizedText(
+                    target,
+                    resolver,
+                    capture,
+                    GetSettingsDescriptors(SettingsScreenPayload.Default),
+                    prefabRoot);
+                return new DisposableAction(() =>
+                {
+                    view.UnbindStaticLocalization();
+                    scope.Dispose();
+                });
+            }
+
+            if (string.Equals(target.FileStem, "Pause", StringComparison.Ordinal))
+            {
+                var view = prefabRoot.GetComponentInChildren<PausePopupView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: PausePopupView was not found.");
+                    return scope;
+                }
+
+                view.BindStaticLocalization(
+                    PausePopupPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance);
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                ValidateLocalizedText(
+                    target,
+                    resolver,
+                    capture,
+                    GetPauseDescriptors(PausePopupPayload.Default),
+                    prefabRoot);
+                return new DisposableAction(() =>
+                {
+                    view.UnbindStaticLocalization();
+                    scope.Dispose();
+                });
+            }
+
+            if (string.Equals(target.FileStem, "MainMenu", StringComparison.Ordinal))
+            {
+                var view = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: MainMenuScreenView was not found.");
+                    return scope;
+                }
+
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+                view.SetVisible(true);
+                view.ShowSection(MainMenuSectionId.None);
+                ValidateLocalizedText(
+                    target,
+                    resolver,
+                    capture,
+                    GetMainMenuDescriptors(MainMenuStaticTextPayload.Default),
+                    prefabRoot);
+                return new DisposableAction(() =>
+                {
+                    view.UnbindStaticLocalization();
+                    scope.Dispose();
+                });
+            }
+
+            capture.AddError($"{target.Name}: No localized preview applicator exists for screenshot target '{target.FileStem}'.");
+            return scope;
+        }
+
+        private static void ValidateLocalizedText(
+            TypographyPreviewScreenshotTarget target,
+            CaptureStringTableTextResolver resolver,
+            TypographyPreviewScreenshotCaptureResult capture,
+            IEnumerable<LocalizedTextDescriptor> descriptors,
+            GameObject root)
+        {
+            var allText = root.GetComponentsInChildren<TMP_Text>(true);
+            foreach (var descriptor in descriptors)
+            {
+                if (!resolver.TryResolveExact(descriptor, out var expected))
+                {
+                    capture.AddError($"{target.Name} {resolver.CurrentLocaleCode}: Missing String Table entry {descriptor.Table}:{descriptor.Key}.");
+                    continue;
+                }
+
+                if (allText.Any(text => text != null && string.Equals(text.text, expected, StringComparison.Ordinal)))
+                {
+                    capture.LocalizedTextAppliedCount++;
+                    continue;
+                }
+
+                capture.AddError(
+                    $"{target.Name} {resolver.CurrentLocaleCode}: Expected localized text '{expected}' from {descriptor.Table}:{descriptor.Key} was not applied before capture.");
+            }
+        }
+
+        private static IReadOnlyList<LocalizedTextDescriptor> GetSettingsDescriptors(SettingsScreenPayload payload)
+        {
+            return new[]
+            {
+                payload.TitleTextDescriptor,
+                payload.AudioTabLabelDescriptor,
+                payload.DisplayTabLabelDescriptor,
+                payload.InputTabLabelDescriptor,
+                payload.MovementLabelDescriptor,
+                payload.UseArrowKeysLabelDescriptor,
+                payload.PushLabelDescriptor,
+                payload.FlipLabelDescriptor,
+                payload.InputChangeLabelDescriptor,
+                payload.ResetInputLabelDescriptor,
+                payload.BackLabelDescriptor,
+            };
+        }
+
+        private static IReadOnlyList<LocalizedTextDescriptor> GetPauseDescriptors(PausePopupPayload payload)
+        {
+            return new[]
+            {
+                payload.TitleTextDescriptor,
+                payload.DescriptionTextDescriptor,
+                payload.ResumeLabelDescriptor,
+                payload.SettingsLabelDescriptor,
+                payload.RetryLabelDescriptor,
+                payload.MainMenuLabelDescriptor,
+            };
+        }
+
+        private static IReadOnlyList<LocalizedTextDescriptor> GetMainMenuDescriptors(MainMenuStaticTextPayload payload)
+        {
+            return new[]
+            {
+                payload.StartLabelDescriptor,
+                payload.SettingsLabelDescriptor,
+                payload.QuitLabelDescriptor,
+            };
+        }
+
         private static void SetupPreviewScene(
             GameObject prefabRoot,
             TypographyPreviewScreenshotOptions options,
@@ -441,8 +673,8 @@ namespace Game.Feature.UI.Composition.Editor
             camera.nearClipPlane = 0.01f;
             camera.farClipPlane = 1000f;
             camera.cullingMask = ~0;
-            cameraObject.transform.position = new Vector3(0f, 0f, 100f);
-            cameraObject.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            cameraObject.transform.position = new Vector3(0f, 0f, -100f);
+            cameraObject.transform.rotation = Quaternion.identity;
 
             canvasObject = new GameObject("Typography Preview Screenshot Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             EditorSceneManager.MoveGameObjectToScene(canvasObject, scene);
@@ -453,8 +685,9 @@ namespace Game.Feature.UI.Composition.Editor
             canvasRect.anchoredPosition = Vector2.zero;
 
             var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
             canvas.worldCamera = camera;
+            canvas.planeDistance = 100f;
 
             var scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -471,8 +704,9 @@ namespace Game.Feature.UI.Composition.Editor
         {
             foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
             {
-                canvas.renderMode = RenderMode.WorldSpace;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
+                canvas.planeDistance = 100f;
                 canvas.pixelPerfect = false;
 
                 if (canvas.transform is RectTransform rectTransform &&
@@ -491,6 +725,50 @@ namespace Game.Feature.UI.Composition.Editor
             {
                 text.ForceMeshUpdate(true, true);
             }
+        }
+
+        private static void ForceCanvasGroupsVisible(GameObject root)
+        {
+            foreach (var canvasGroup in root.GetComponentsInChildren<CanvasGroup>(true))
+            {
+                canvasGroup.alpha = 1f;
+            }
+        }
+
+        private static Texture2D RenderCameraToTexture(
+            Camera camera,
+            TypographyPreviewScreenshotOptions options,
+            out RenderTexture renderTexture,
+            out RenderTexture previousRenderTexture)
+        {
+            renderTexture = new RenderTexture(options.Width, options.Height, 24, RenderTextureFormat.ARGB32)
+            {
+                name = "TypographyPreviewScreenshotRT",
+                antiAliasing = 1,
+            };
+            renderTexture.Create();
+
+            camera.targetTexture = renderTexture;
+            previousRenderTexture = RenderTexture.active;
+            Graphics.SetRenderTarget(renderTexture);
+            RenderTexture.active = renderTexture;
+            GL.Clear(true, true, options.BackgroundColor);
+            camera.Render();
+            Graphics.SetRenderTarget(renderTexture);
+            RenderTexture.active = renderTexture;
+
+            var texture = new Texture2D(options.Width, options.Height, TextureFormat.RGBA32, false);
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                Graphics.CopyTexture(renderTexture, texture);
+            }
+            else
+            {
+                texture.ReadPixels(new Rect(0, 0, options.Width, options.Height), 0, 0, false);
+            }
+
+            texture.Apply();
+            return texture;
         }
 
         private static string NormalizeOutputDirectory(string outputDirectory)
@@ -512,6 +790,256 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             return sanitized;
+        }
+
+        private sealed class CaptureStringTableTextResolver : ILocalizedTextResolver, IDisposable
+        {
+            private readonly Locale locale;
+            private readonly Locale fallbackLocale;
+
+            private CaptureStringTableTextResolver(string localeCode, Locale locale, Locale fallbackLocale)
+            {
+                CurrentLocaleCode = localeCode;
+                this.locale = locale;
+                this.fallbackLocale = fallbackLocale;
+            }
+
+            public string CurrentLocaleCode { get; }
+
+            public event Action LocaleChanged
+            {
+                add { }
+                remove { }
+            }
+
+            public static bool TryCreate(
+                string localeCode,
+                out CaptureStringTableTextResolver resolver,
+                out string failureReason)
+            {
+                resolver = null;
+                failureReason = string.Empty;
+                try
+                {
+                    if (!LocalizationSettings.HasSettings)
+                    {
+                        failureReason = "Unity Localization settings are not configured.";
+                        return false;
+                    }
+
+                    var initialization = LocalizationSettings.InitializationOperation;
+                    if (!initialization.IsDone)
+                    {
+                        initialization.WaitForCompletion();
+                    }
+
+                    if (initialization.Result == null)
+                    {
+                        failureReason = "Unity Localization initialization did not complete successfully.";
+                        return false;
+                    }
+
+                    var normalizedLocaleCode = string.IsNullOrWhiteSpace(localeCode)
+                        ? "en-US"
+                        : localeCode;
+                    var locale = LocalizationSettings.AvailableLocales?.GetLocale(normalizedLocaleCode);
+                    var fallbackLocale = LocalizationSettings.AvailableLocales?.GetLocale("en-US");
+                    if (locale == null)
+                    {
+                        failureReason = $"Locale '{normalizedLocaleCode}' is not available.";
+                        return false;
+                    }
+
+                    if (fallbackLocale == null)
+                    {
+                        failureReason = "Fallback locale 'en-US' is not available.";
+                        return false;
+                    }
+
+                    resolver = new CaptureStringTableTextResolver(normalizedLocaleCode, locale, fallbackLocale);
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    failureReason = exception.Message;
+                    return false;
+                }
+            }
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                if (TryResolve(locale, descriptor, out var value) ||
+                    TryResolve(fallbackLocale, descriptor, out value))
+                {
+                    return value;
+                }
+
+                return $"[{descriptor.Table}:{descriptor.Key}]";
+            }
+
+            public bool TryResolveExact(LocalizedTextDescriptor descriptor, out string value)
+            {
+                return TryResolve(locale, descriptor, out value);
+            }
+
+            public void Dispose()
+            {
+            }
+
+            private static bool TryResolve(Locale locale, LocalizedTextDescriptor descriptor, out string value)
+            {
+                value = null;
+                var table = LocalizationSettings.StringDatabase.GetTable(descriptor.Table, locale);
+                var entry = table != null ? table.GetEntry(descriptor.Key) : null;
+                if (entry == null)
+                {
+                    return false;
+                }
+
+                value = ResolveEntry(entry, descriptor);
+                return !string.IsNullOrEmpty(value);
+            }
+
+            private static string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
+            {
+                if (descriptor.Arguments.Count == 0)
+                {
+                    return entry.GetLocalizedString();
+                }
+
+                var arguments = new object[descriptor.Arguments.Count];
+                for (var i = 0; i < descriptor.Arguments.Count; i++)
+                {
+                    arguments[i] = descriptor.Arguments[i];
+                }
+
+                return entry.GetLocalizedString(arguments);
+            }
+        }
+
+        private sealed class DisposableAction : IDisposable
+        {
+            private readonly Action action;
+            private bool isDisposed;
+
+            public DisposableAction(Action action)
+            {
+                this.action = action;
+            }
+
+            public void Dispose()
+            {
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                action?.Invoke();
+            }
+        }
+
+        private sealed class TmpFontAssetFileRestoreScope : IDisposable
+        {
+            private readonly Dictionary<string, byte[]> snapshots;
+            private bool isDisposed;
+
+            private TmpFontAssetFileRestoreScope(Dictionary<string, byte[]> snapshots)
+            {
+                this.snapshots = snapshots;
+            }
+
+            public static TmpFontAssetFileRestoreScope Capture(GameObject root)
+            {
+                var snapshots = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                if (root == null)
+                {
+                    return new TmpFontAssetFileRestoreScope(snapshots);
+                }
+
+                var fontAssets = new HashSet<TMP_FontAsset>();
+                foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    CollectFontAssets(text != null ? text.font : null, fontAssets);
+                }
+
+                CollectFontAssets(TMP_Settings.defaultFontAsset, fontAssets);
+                if (TMP_Settings.fallbackFontAssets != null)
+                {
+                    foreach (var fallback in TMP_Settings.fallbackFontAssets)
+                    {
+                        CollectFontAssets(fallback, fontAssets);
+                    }
+                }
+
+                foreach (var fontAsset in fontAssets)
+                {
+                    var assetPath = AssetDatabase.GetAssetPath(fontAsset);
+                    if (string.IsNullOrWhiteSpace(assetPath) ||
+                        !assetPath.StartsWith("Assets/", StringComparison.Ordinal) ||
+                        !File.Exists(assetPath) ||
+                        snapshots.ContainsKey(assetPath))
+                    {
+                        continue;
+                    }
+
+                    snapshots.Add(assetPath, File.ReadAllBytes(assetPath));
+                }
+
+                return new TmpFontAssetFileRestoreScope(snapshots);
+            }
+
+            public void Dispose()
+            {
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                foreach (var snapshot in snapshots)
+                {
+                    if (!File.Exists(snapshot.Key) ||
+                        File.ReadAllBytes(snapshot.Key).SequenceEqual(snapshot.Value))
+                    {
+                        ClearDirty(snapshot.Key);
+                        continue;
+                    }
+
+                    File.WriteAllBytes(snapshot.Key, snapshot.Value);
+                    AssetDatabase.ImportAsset(snapshot.Key, ImportAssetOptions.ForceUpdate);
+                    ClearDirty(snapshot.Key);
+                }
+            }
+
+            private static void CollectFontAssets(TMP_FontAsset fontAsset, HashSet<TMP_FontAsset> fontAssets)
+            {
+                if (fontAsset == null || !fontAssets.Add(fontAsset))
+                {
+                    return;
+                }
+
+                if (fontAsset.fallbackFontAssetTable == null)
+                {
+                    return;
+                }
+
+                foreach (var fallback in fontAsset.fallbackFontAssetTable)
+                {
+                    CollectFontAssets(fallback, fontAssets);
+                }
+            }
+
+            private static void ClearDirty(string assetPath)
+            {
+                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+                {
+                    if (asset != null)
+                    {
+                        EditorUtility.ClearDirty(asset);
+                    }
+                }
+            }
         }
     }
 }
