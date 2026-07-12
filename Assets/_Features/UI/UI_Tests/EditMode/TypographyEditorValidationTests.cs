@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
@@ -7,6 +8,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.UI.Tests
 {
@@ -14,6 +16,7 @@ namespace Game.Feature.UI.Tests
     {
         private const string LiberationSansFontAssetPath =
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
+        private const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
 
         [Test]
         public void TypographyThemeValidator_DetectsMissingLocaleFontSet()
@@ -155,6 +158,119 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void TypographyPreviewScreenshotUtility_ResolvesRequiredTargetsAndFileNames()
+        {
+            var targets = TypographyPreviewScreenshotUtility.RequiredTargets;
+
+            Assert.That(targets.Select(target => target.PrefabPath), Is.EquivalentTo(TypographyBindingValidator.RequiredPrefabPaths));
+            foreach (var target in targets)
+            {
+                Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(target.PrefabPath), Is.Not.Null, target.PrefabPath);
+            }
+
+            var fileNames = targets
+                .SelectMany(target => TypographyThemeValidator.RequiredLocaleCodes.Select(locale =>
+                    TypographyPreviewScreenshotUtility.BuildFileName(target, locale)))
+                .ToArray();
+
+            Assert.That(fileNames, Does.Contain("Settings_en-US.png"));
+            Assert.That(fileNames, Does.Contain("Settings_ko-KR.png"));
+            Assert.That(fileNames, Does.Contain("Pause_en-US.png"));
+            Assert.That(fileNames, Does.Contain("Pause_ko-KR.png"));
+            Assert.That(fileNames, Does.Contain("MainMenu_en-US.png"));
+            Assert.That(fileNames, Does.Contain("MainMenu_ko-KR.png"));
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotUtility_CreatesRequiredScreenshotsWithoutDirtyingGuardedAssets()
+        {
+            var outputDirectory = Path.Combine(
+                "Temp",
+                "TypographyPreviewScreenshotTests",
+                "TestRun-" + System.DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture));
+
+            var guardedAssets = new[]
+            {
+                UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
+                UiTestPrefabAssetUtility.PausePopupPrefabPath,
+                UiTestPrefabAssetUtility.MainMenuScreenPrefabPath,
+                UiTestPrefabAssetUtility.NanumGothicFontAssetPath,
+                TmpSettingsAssetPath,
+            };
+
+            AssertGuardedAssetsAreClean(guardedAssets);
+
+            TypographyPreviewScreenshotBatchResult result;
+            var previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                result = TypographyPreviewScreenshotUtility.CaptureRequiredScreenshots(
+                    outputDirectory,
+                    new TypographyPreviewScreenshotOptions
+                    {
+                        Width = 960,
+                        Height = 540,
+                    });
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
+            }
+
+            TestContext.WriteLine("Typography screenshot output: " + result.OutputDirectory);
+
+            Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors.Concat(result.Captures.SelectMany(capture => capture.Errors))));
+            Assert.That(result.Captures, Has.Count.EqualTo(6));
+
+            foreach (var capture in result.Captures)
+            {
+                Assert.That(File.Exists(capture.FilePath), Is.True, capture.FilePath);
+                Assert.That(new FileInfo(capture.FilePath).Length, Is.GreaterThan(0), capture.FilePath);
+                Assert.That(capture.AppliedBindingCount, Is.GreaterThan(0), capture.FilePath);
+
+                var texture = new Texture2D(2, 2);
+                try
+                {
+                    Assert.That(ImageConversion.LoadImage(texture, File.ReadAllBytes(capture.FilePath)), Is.True, capture.FilePath);
+                    Assert.That(texture.width, Is.GreaterThan(0), capture.FilePath);
+                    Assert.That(texture.height, Is.GreaterThan(0), capture.FilePath);
+                }
+                finally
+                {
+                    Object.DestroyImmediate(texture);
+                }
+            }
+
+            AssertGuardedAssetsAreClean(guardedAssets);
+
+            Directory.Delete(result.OutputDirectory, recursive: true);
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotUtility_ValidatesTargetsBeforeRendering()
+        {
+            var outputDirectory = Path.Combine(
+                "Temp",
+                "TypographyPreviewScreenshotValidation",
+                System.Guid.NewGuid().ToString("N"));
+            var missingTarget = new TypographyPreviewScreenshotTarget(
+                "Missing",
+                "Missing",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MissingTypographyScreenshotTarget.prefab");
+
+            var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                new[] { missingTarget },
+                TypographyThemeValidator.RequiredLocaleCodes,
+                outputDirectory);
+
+            Assert.That(result.HasErrors, Is.True);
+            Assert.That(result.Captures, Is.Empty);
+            Assert.That(Directory.Exists(outputDirectory), Is.False);
+            Assert.That(result.Errors, Has.Some.Contains("Prefab asset was not found"));
+        }
+
         private static void AssertPrefabHasNoValidationErrors(string prefabPath)
         {
             var report = TypographyBindingValidator.ValidatePrefabAtPath(
@@ -162,6 +278,16 @@ namespace Game.Feature.UI.Tests
                 TypographyThemeValidator.FindThemeAsset());
 
             Assert.That(report.HasErrors, Is.False, string.Join("; ", report.Issues.Select(issue => issue.ToString())));
+        }
+
+        private static void AssertGuardedAssetsAreClean(IEnumerable<string> assetPaths)
+        {
+            foreach (var assetPath in assetPaths)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<Object>(assetPath);
+                Assert.That(asset, Is.Not.Null, assetPath);
+                Assert.That(EditorUtility.IsDirty(asset), Is.False, assetPath);
+            }
         }
 
         private static GameplayUiTypographyTheme CreateTheme(IEnumerable<LocaleFontSet> fontSets)
