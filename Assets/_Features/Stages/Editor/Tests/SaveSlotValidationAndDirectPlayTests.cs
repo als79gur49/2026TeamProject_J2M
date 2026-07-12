@@ -537,10 +537,15 @@ namespace Game.Feature.Stages.Editor.Tests
             var productionMethod = ExtractSourceRange(source, "private static void PrimeCampaignProductionSlot", "private static void ValidateCampaignStage");
 
             Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempSaveSlotStoreKey"));
+            Assert.That(tempMethod, Does.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
             Assert.That(tempMethod, Does.Contain("new SaveSlotStore("));
+            Assert.That(tempMethod, Does.Contain("new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey)"));
             Assert.That(tempMethod, Does.Not.Contain("CampaignSaveCompositionProvider"));
             Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore)"));
             Assert.That(productionMethod, Does.Not.Contain("new SaveSlotStore()"));
+            Assert.That(productionMethod, Does.Not.Contain("new ActiveSlotProvider()"));
+            Assert.That(productionMethod, Does.Not.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
         }
 
         [Test]

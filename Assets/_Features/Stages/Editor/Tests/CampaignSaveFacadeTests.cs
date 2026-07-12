@@ -442,8 +442,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(tempMethod, Does.Contain("new SaveSlotStore("));
             Assert.That(tempMethod, Does.Not.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+            Assert.That(productionMethod, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore)"));
             Assert.That(productionMethod, Does.Not.Contain("EditorDirectPlayContextStore.TempSaveSlotStoreKey"));
+            Assert.That(productionMethod, Does.Not.Contain("EditorDirectPlayContextStore.TempActiveSlotProviderKey"));
             Assert.That(productionMethod, Does.Not.Contain("new SaveSlotStore("));
+            Assert.That(productionMethod, Does.Not.Contain("new ActiveSlotProvider()"));
         }
 
         [Test]

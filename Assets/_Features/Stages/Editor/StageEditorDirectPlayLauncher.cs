@@ -219,6 +219,25 @@ namespace Game.Feature.Stages.Editor
             RememberLastStage(stageId);
         }
 
+        public static void PrimeCampaignProductionSlotForTests(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver,
+            int remainingChances,
+            int productionSlotNumber,
+            ICampaignSaveSlotStore saveStore,
+            ActiveSlotProvider activeSlotProvider)
+        {
+            PrimeCampaignProductionSlotCore(
+                stageId,
+                sequenceResolver,
+                remainingChances,
+                productionSlotNumber,
+                saveStore,
+                activeSlotProvider);
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+            RememberLastStage(stageId);
+        }
+
         private static void HandlePlayModeStateChanged(PlayModeStateChange change)
         {
             if (change == PlayModeStateChange.ExitingPlayMode)
@@ -309,7 +328,36 @@ namespace Game.Feature.Stages.Editor
             }
 
             var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
-            var activeSlotProvider = new ActiveSlotProvider();
+            var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore);
+            PrimeCampaignProductionSlotCore(
+                stageId,
+                sequenceResolver,
+                remainingChances,
+                productionSlotNumber,
+                saveStore,
+                activeSlotProvider);
+        }
+
+        private static void PrimeCampaignProductionSlotCore(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver,
+            int remainingChances,
+            int productionSlotNumber,
+            ICampaignSaveSlotStore saveStore,
+            ActiveSlotProvider activeSlotProvider)
+        {
+            if (saveStore == null)
+            {
+                throw new ArgumentNullException(nameof(saveStore));
+            }
+
+            if (activeSlotProvider == null)
+            {
+                throw new ArgumentNullException(nameof(activeSlotProvider));
+            }
+
+            SaveSlotStore.ThrowIfInvalidSlotNumber(productionSlotNumber);
+            remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
             saveStore.SaveSlot(new SaveSlotData
             {
                 SlotNumber = productionSlotNumber,

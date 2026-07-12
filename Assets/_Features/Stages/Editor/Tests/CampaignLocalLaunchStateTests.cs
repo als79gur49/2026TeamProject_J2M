@@ -14,7 +14,11 @@ namespace Game.Feature.Stages.Editor.Tests
         public void TearDown()
         {
             PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
             PlayerPrefs.Save();
+            StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
         }
 
@@ -180,6 +184,44 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(mainMenuInstaller, Does.Contain("CreateProductionActiveSlotProvider(saveSlotStore)"));
             Assert.That(gameplayInstaller, Does.Contain("CreateProductionActiveSlotProvider(saveSlotStore)"));
             Assert.That(stageInstaller, Does.Contain("CreateProductionActiveSlotProvider(_saveSlotStore)"));
+        }
+
+        [Test]
+        public void DirectPlayProductionSlot_WritesLocalStateActiveSlot_NotPlayerPrefsActiveSlot()
+        {
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            using var harness = new Harness();
+            var resolver = new CampaignStageSequenceResolver(
+                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var stageId = StageId.CreateOrThrow("stage-2-2");
+            const int playerPrefsActiveSentinel = 3;
+            const string playerPrefsSaveSentinel = "retained-stage-clear-save-slots-sentinel";
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, playerPrefsActiveSentinel);
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, playerPrefsSaveSentinel);
+            PlayerPrefs.Save();
+            var activeSlotProvider = new ActiveSlotProvider(harness.CreateStorage());
+
+            StageEditorDirectPlayLauncher.PrimeCampaignProductionSlotForTests(
+                stageId,
+                resolver,
+                remainingChances: 2,
+                productionSlotNumber: 2,
+                harness.Profile,
+                activeSlotProvider);
+
+            var slot = harness.Profile.LoadSlot(2);
+            Assert.That(slot.CurrentStageId, Is.EqualTo(stageId));
+            Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-2"));
+            Assert.That(slot.RemainingChances, Is.EqualTo(2));
+            Assert.That(ReadLocalState(harness).campaign.activeSlotNumber, Is.EqualTo(2));
+            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 0), Is.EqualTo(playerPrefsActiveSentinel));
+            Assert.That(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey), Is.EqualTo(playerPrefsSaveSentinel));
+            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out var context), Is.True);
+            Assert.That(context.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
+            Assert.That(context.SaveSlotStoreKey, Is.Empty);
+            Assert.That(context.ActiveSlotProviderKey, Is.Empty);
         }
 
         [Test]
