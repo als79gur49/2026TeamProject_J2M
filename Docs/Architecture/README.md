@@ -160,7 +160,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - 저장 모델은 `StageClearProfileSnapshot`, `PlayerStageClearRecord`, `IStageClearProfileStore`, `SaveSlotStageClearProfileStore`를 사용한다.
 - 저장 DTO schema는 `StageClearProfileSnapshot`, `ClearRecordsByStageId`, `HasAttempted`, `ProcessedClearAttemptIds` vocabulary만 쓴다.
 - 현재 테스트 단계에서는 old save compatibility와 migration adapter를 제공하지 않는다.
-- Production save slot PlayerPrefs read/write key는 `Game.Feature.Stages.StageClearSaveSlots` / `Game.Feature.Stages.ActiveStageClearSaveSlot`이다.
+- Production campaign progression save truth는 `Saves/profile.json`이며, retained PlayerPrefs rollback/import source는 `Game.Feature.Stages.StageClearSaveSlots`이다.
+- Production active launch pointer는 non-Cloud `Saves/local-launch-state.json`이며, `Game.Feature.Stages.ActiveStageClearSaveSlot`은 profile-slot validation 후 import source로만 보존한다.
 - Old PlayerPrefs key `Game.Feature.Stages.SaveSlots` / `Game.Feature.Stages.ActiveSaveSlot`은 delete-only cleanup 대상이며 production read/write path에 사용하지 않는다.
 - Direct-play temp key `Game.Feature.Stages.DirectPlay.TempSaveSlots` / `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot`은 production key split 대상이 아닌 별도 임시 namespace다.
 - Stage clear save root DTO는 `SchemaId = StageClearSaveSlots`, `SchemaVersion = 2` marker를 쓴다. `StageClearProfileSnapshot.Version`은 profile snapshot version이며 root schema marker와 다른 개념이다.
@@ -180,6 +181,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - current supporting truth for Steam Release Phase B Cloud inventory policy, Auto-Cloud defer status, future exact `profile.json` include rule, Cloud/SteamPipe exclusions, Company/Product path guard, and no-Steam-API guard
 - [Campaign-Save-Rollback-Retention-Policy.md](./Campaign-Save-Rollback-Retention-Policy.md)
   - current supporting truth for retained `Game.Feature.Stages.StageClearSaveSlots` rollback/import policy, retained read/read-disable gate, 2 profile-backed public releases retention window, cleanup/delete evidence gate, operator/dev rollback semantics, and marker removal defer status
+- [Campaign-LocalState-Launch-State.md](./Campaign-LocalState-Launch-State.md)
+  - current supporting truth for non-Cloud `Saves/local-launch-state.json` active launch pointer ownership, PlayerPrefs active-slot import retention, profile-slot validation, pending/running session boundaries, and DirectPlay temp separation
 
 ## Historical Supporting Notes
 
