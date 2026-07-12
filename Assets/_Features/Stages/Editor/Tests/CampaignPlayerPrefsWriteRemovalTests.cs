@@ -199,6 +199,61 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ReadDisablePolicy_DocumentsRetainedReadUntilGate()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("retained read"));
+            Assert.That(policy, Does.Contain("read-disable"));
+            Assert.That(policy, Does.Contain("not currently enabled"));
+            Assert.That(policy, Does.Contain("missing profile"));
+            Assert.That(policy, Does.Contain("valid legacy"));
+            Assert.That(policy, Does.Contain("production behavior change"));
+            Assert.That(policy, Does.Contain("gate-controlled"));
+            Assert.That(policy, Does.Contain("2 profile-backed public releases"));
+            Assert.That(policy, Does.Contain("operator/dev fallback"));
+            Assert.That(policy, Does.Contain("marker cleanup"));
+            Assert.That(policy, Does.Contain("future slice"));
+        }
+
+        [Test]
+        public void ReadDisablePolicy_DoesNotDeleteStageClearSaveSlots()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("Do not delete the `Game.Feature.Stages.StageClearSaveSlots` PlayerPrefs key"));
+            Assert.That(policy, Does.Contain("Invalid legacy payloads are not deleted"));
+            Assert.That(policy, Does.Contain("Do not implement read-disable before a"));
+        }
+
+        [Test]
+        public void ReadDisablePolicy_KeepsExplicitRollbackLegacyView()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("Production auto-import read-disable and the explicit rollback provider are"));
+            Assert.That(policy, Does.Contain("separate policies"));
+            Assert.That(policy, Does.Contain("CreateProductionLegacyRollback"));
+            Assert.That(policy, Does.Contain("retained PlayerPrefs legacy"));
+            Assert.That(policy, Does.Contain("operator/dev fallback"));
+            Assert.That(policy, Does.Contain("Rollback provider decommission is a separate"));
+            Assert.That(policy, Does.Contain("future slice"));
+        }
+
+        [Test]
+        public void ReadDisablePolicy_KeepsMarkersUntilPayloadCleanup()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("Read-disable does not mean marker cleanup"));
+            Assert.That(policy, Does.Contain("CampaignProfile.Legacy*"));
+            Assert.That(policy, Does.Contain("marker"));
+            Assert.That(policy, Does.Contain("payload"));
+            Assert.That(policy, Does.Contain("ClearAll remigration"));
+            Assert.That(policy, Does.Contain("DeleteSlot resurrection"));
+        }
+
+        [Test]
         public void RollbackProvider_IsOperatorDevFallback_NotUserFacingContinuity()
         {
             var policy = ReadRollbackRetentionPolicy();
@@ -215,6 +270,71 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(rollbackOptions, Does.Not.Contain("PathProvider"));
             Assert.That(rollbackOptions, Does.Not.Contain("ProfileJsonExplicit"));
             Assert.That(rollbackOptions, Does.Not.Contain("EnableProfileWrite = true"));
+        }
+
+        [Test]
+        public void MissingProfileValidLegacy_WithAllowLegacyImportTrue_ImportsProfileAndRetainsPlayerPrefs()
+        {
+            using var harness = new Harness();
+            WriteLegacyPayload(
+                harness.LegacySourceKey,
+                harness.LegacyActiveSlotKey,
+                CreateSlot(1, "stage-0-1", "level-0"));
+            var retainedLegacy = PlayerPrefs.GetString(harness.LegacySourceKey);
+
+            var result = CampaignSaveFacadeFactory.Create(harness.Options(
+                CampaignSaveBackendMode.ProfileJsonExplicit,
+                enableProfileWrite: true,
+                allowLegacyImport: true));
+
+            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.ImportSucceeded));
+            Assert.That(result.MigrationResult.LegacyImportResult.Status, Is.EqualTo(CampaignLegacyImportStatus.Importable));
+            Assert.That(result.CampaignSaveSlots.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
+            Assert.That(ReadProfile(harness).Slots[0].StageId, Is.EqualTo("stage-0-1"));
+            Assert.That(PlayerPrefs.GetString(harness.LegacySourceKey), Is.EqualTo(retainedLegacy));
+        }
+
+        [Test]
+        public void ValidProfileExists_IgnoresRetainedLegacy()
+        {
+            using var harness = new Harness();
+            var store = CreateProfileBackedStore(harness);
+            store.SaveSlot(CreateSlot(1, "stage-0-2", "level-0"));
+            WriteLegacyPayload(
+                harness.LegacySourceKey,
+                harness.LegacyActiveSlotKey,
+                CreateSlot(1, "stage-0-1", "level-0"));
+
+            var result = CampaignSaveFacadeFactory.Create(harness.Options(
+                CampaignSaveBackendMode.ProfileJsonExplicit,
+                enableProfileWrite: true,
+                allowLegacyImport: true));
+
+            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.FileLoaded));
+            Assert.That(result.MigrationResult.LegacyImportResult, Is.Null);
+            Assert.That(result.CampaignSaveSlots.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-2"));
+        }
+
+        [Test]
+        public void CorruptProfile_WithValidLegacy_DoesNotFallbackToLegacy()
+        {
+            using var harness = new Harness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(harness.ProfilePath, "{\"value\":");
+            WriteLegacyPayload(
+                harness.LegacySourceKey,
+                harness.LegacyActiveSlotKey,
+                CreateSlot(1, "stage-0-1", "level-0"));
+
+            var result = CampaignSaveFacadeFactory.Create(harness.Options(
+                CampaignSaveBackendMode.ProfileJsonExplicit,
+                enableProfileWrite: true,
+                allowLegacyImport: true));
+
+            Assert.That(result.MigrationResult.Status, Is.EqualTo(CampaignSaveMigrationStatus.RepairRequired));
+            Assert.That(result.MigrationResult.LegacyImportResult, Is.Null);
+            Assert.That(result.MigrationResult.ProfileWriteAttempted, Is.False);
+            Assert.That(result.MigrationResult.RequiresRepair, Is.True);
         }
 
         [Test]

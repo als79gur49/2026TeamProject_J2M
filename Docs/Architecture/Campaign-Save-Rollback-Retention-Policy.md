@@ -64,6 +64,49 @@ retained PlayerPrefs payload. The future investigation must restate the current
 release count, evidence status, rollback impact, and Steam Cloud inventory
 decision.
 
+## Read-disable / Ignore-only Policy
+
+Read-disable is not currently enabled. The current policy is retained read:
+
+- Do not delete the `Game.Feature.Stages.StageClearSaveSlots` PlayerPrefs key.
+- The production profile-backed path does not read legacy when a valid
+  `profile.json` exists.
+- When `profile.json` is missing, a valid legacy save remains importable when
+  `AllowLegacyImport=true`.
+- Corrupt, schema-invalid, IO-failed, or unauthorized `profile.json` states
+  block without legacy fallback.
+- Invalid legacy payloads are not deleted.
+
+Read-disable is not currently allowed because stopping missing profile + valid
+legacy save auto-import can break legacy-only user save continuity. That is a
+production behavior change. Do not implement read-disable before a
+retention/evidence gate is satisfied.
+
+Future read-disable may only be considered as a gate-controlled future phase
+after all of the following evidence and decisions are available:
+
+1. At least 2 profile-backed public releases are complete.
+2. Legacy-only import smoke evidence is captured.
+3. Stale legacy ignored after valid profile evidence is captured.
+4. Profile-backed relaunch persistence evidence is captured.
+5. DeleteSlot no resurrection evidence is captured.
+6. ClearAll no remigration evidence is captured.
+7. Corrupt profile blocks fallback evidence is captured.
+8. Rollback provider operator/dev fallback policy is retained.
+9. Marker cleanup/removal policy is decided.
+10. Steam Cloud include/exclude policy is reviewed again.
+
+Production auto-import read-disable and the explicit rollback provider are
+separate policies. Even if a future read-disable is introduced,
+`CreateProductionLegacyRollback` may still read the retained PlayerPrefs legacy
+view as an operator/dev fallback. Rollback provider decommission is a separate
+future slice from read-disable.
+
+Read-disable does not mean marker cleanup. `CampaignProfile.Legacy*` marker
+writes remain until retained payload cleanup is approved. Removing markers
+before the payload can allow ClearAll remigration or DeleteSlot resurrection by
+losing the local evidence that blocks legacy import.
+
 ## Marker Relationship
 
 `CampaignProfile.Legacy*` marker writes remain in place:
