@@ -7,6 +7,9 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class CampaignPlayerPrefsWriteRemovalTests
     {
+        private const string RollbackRetentionPolicyPath =
+            "Docs/Architecture/Campaign-Save-Rollback-Retention-Policy.md";
+
         private static readonly DateTime FixedNowUtc =
             new DateTime(2026, 7, 11, 0, 0, 0, DateTimeKind.Utc);
 
@@ -177,6 +180,41 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(rollbackOptions, Does.Not.Contain("ProfileJsonExplicit"));
             Assert.That(factory, Does.Contain("case CampaignSaveBackendMode.PlayerPrefsLegacy:"));
             Assert.That(factory, Does.Contain("new SaveSlotStore()"));
+        }
+
+        [Test]
+        public void RollbackRetentionPolicy_DocumentsHybridWindowAndCleanupGate()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("profile.json"));
+            Assert.That(policy, Does.Contain("StageClearSaveSlots"));
+            Assert.That(policy, Does.Contain("legacy import source"));
+            Assert.That(policy, Does.Contain("2 profile-backed public releases"));
+            Assert.That(policy, Does.Contain("evidence gate"));
+            Assert.That(policy, Does.Contain("cleanup/delete"));
+            Assert.That(policy, Does.Contain("future investigation"));
+            Assert.That(policy, Does.Contain("operator/dev fallback"));
+            Assert.That(policy, Does.Contain("not user-facing continuity"));
+        }
+
+        [Test]
+        public void RollbackProvider_IsOperatorDevFallback_NotUserFacingContinuity()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
+            var rollbackOptions = ExtractSourceRange(
+                provider,
+                "public static CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()",
+                "public static void ResetProductionProfileBackedForTests()");
+
+            Assert.That(policy, Does.Contain("Rollback provider may show stale legacy data"));
+            Assert.That(policy, Does.Contain("It must not be presented as a user-facing save continuity path"));
+            Assert.That(policy, Does.Contain("operator/dev fallback"));
+            Assert.That(rollbackOptions, Does.Contain("BackendMode = CampaignSaveBackendMode.PlayerPrefsLegacy"));
+            Assert.That(rollbackOptions, Does.Not.Contain("PathProvider"));
+            Assert.That(rollbackOptions, Does.Not.Contain("ProfileJsonExplicit"));
+            Assert.That(rollbackOptions, Does.Not.Contain("EnableProfileWrite = true"));
         }
 
         [Test]
@@ -584,6 +622,34 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void RollbackProvider_DoesNotDeleteOrModifyProfileJson()
+        {
+            using var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotPrefsKeys.SaveSlotsKey);
+            using var activeBackup = PlayerPrefsIntBackup.Capture(SaveSlotPrefsKeys.ActiveSaveSlotKey);
+            using var harness = new Harness();
+            var profileStore = CreateProfileBackedStore(harness);
+            profileStore.SaveSlot(CreateSlot(1, "stage-0-2", "level-0"));
+            var before = File.ReadAllText(harness.ProfilePath);
+
+            var rollback = CampaignSaveCompositionProvider.CreateProductionLegacyRollback();
+            rollback.SaveSlot(CreateSlot(1, "stage-0-1", "level-0"));
+
+            Assert.That(rollback.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
+            Assert.That(File.Exists(harness.ProfilePath), Is.True);
+            Assert.That(File.ReadAllText(harness.ProfilePath), Is.EqualTo(before));
+        }
+
+        [Test]
+        public void RollbackProvider_MayShowRetainedLegacyView()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("Rollback provider may show stale legacy data"));
+            Assert.That(policy, Does.Contain("This is expected"));
+            Assert.That(policy, Does.Contain("Does not backfill profile-era progress into PlayerPrefs"));
+        }
+
+        [Test]
         public void RollbackProvider_IsOperatorFallbackNotDataContinuityPath()
         {
             var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
@@ -592,6 +658,22 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(provider, Does.Not.Contain("profile.json"));
             Assert.That(provider, Does.Not.Contain("DeleteKey"));
             Assert.That(provider, Does.Not.Contain("migrate"));
+        }
+
+        [Test]
+        public void MarkerRemoval_IsNotAllowedBeforeRetentionWindow()
+        {
+            var policy = ReadRollbackRetentionPolicy();
+
+            Assert.That(policy, Does.Contain("CampaignProfile.Legacy*"));
+            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyImportDisabled"));
+            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyImportedSourceHash"));
+            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyResetTombstoneUtc"));
+            Assert.That(policy, Does.Contain("Game.Feature.Stages.CampaignProfile.LegacyDeletedSlotGuards"));
+            Assert.That(policy, Does.Contain("Marker removal is not ready"));
+            Assert.That(policy, Does.Contain("ClearAll remigration"));
+            Assert.That(policy, Does.Contain("DeleteSlot resurrection"));
+            Assert.That(policy, Does.Contain("separate future slice"));
         }
 
         private static void AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(string relativeAssetPath)
@@ -677,6 +759,12 @@ namespace Game.Feature.Stages.Editor.Tests
         private static string ReadAssetText(string relativeAssetPath)
         {
             return File.ReadAllText(Path.Combine(Application.dataPath, relativeAssetPath));
+        }
+
+        private static string ReadRollbackRetentionPolicy()
+        {
+            Assert.That(File.Exists(RollbackRetentionPolicyPath), Is.True, RollbackRetentionPolicyPath);
+            return File.ReadAllText(RollbackRetentionPolicyPath);
         }
 
         private static string ExtractSourceRange(string source, string startToken, string endToken)

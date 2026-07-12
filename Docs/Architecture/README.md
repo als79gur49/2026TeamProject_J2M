@@ -178,6 +178,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - records that `LastPlayedSlotNumber` is Cloud-friendly profile metadata, while the existing `ActiveSlotProvider` pending launch slot remains local/session state until an explicit active slot split phase
 - [Steam-Cloud-File-Inventory-Policy.md](./Steam-Cloud-File-Inventory-Policy.md)
   - current supporting truth for Steam Release Phase B Cloud inventory policy, Auto-Cloud defer status, future exact `profile.json` include rule, Cloud/SteamPipe exclusions, Company/Product path guard, and no-Steam-API guard
+- [Campaign-Save-Rollback-Retention-Policy.md](./Campaign-Save-Rollback-Retention-Policy.md)
+  - current supporting truth for retained `Game.Feature.Stages.StageClearSaveSlots` rollback/import policy, 2 profile-backed public releases retention window, cleanup/delete evidence gate, operator/dev rollback semantics, and marker removal defer status
 
 ## Historical Supporting Notes
 
