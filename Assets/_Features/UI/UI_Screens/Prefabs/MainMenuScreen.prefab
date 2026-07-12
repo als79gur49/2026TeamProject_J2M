@@ -52,7 +52,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dfd106a175ee6da1676d71298fb58395, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.MainMenuScreenView
   _root: {fileID: 100000}
   _topBar: {fileID: 200001}
@@ -95,7 +95,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 59f8146938fff824cb5fd77236b75775, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.VerticalLayoutGroup
   m_Padding:
     m_Left: 0
@@ -170,7 +170,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f85c716c24564e8809d02582803e5f49, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.SaveSlotCardView
   _titleLabel: {fileID: 1506256721287789419}
   _statusLabel: {fileID: 3770475817148229975}
@@ -9096,6 +9096,7 @@ GameObject:
   - component: {fileID: 8128019814806853866}
   - component: {fileID: 2890038886867125881}
   - component: {fileID: 2461240810325506205}
+  - component: {fileID: -7300000000000000001}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -13254,6 +13255,7 @@ GameObject:
   - component: {fileID: 7158869047238056125}
   - component: {fileID: 6802606290212365467}
   - component: {fileID: 4199779365756622544}
+  - component: {fileID: -7300000000000000002}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -15841,6 +15843,7 @@ GameObject:
   - component: {fileID: 1659590256825757543}
   - component: {fileID: 7062690071894424294}
   - component: {fileID: 741626671843260670}
+  - component: {fileID: -7300000000000000003}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -16125,6 +16128,57 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &-7300000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 992799426782300686}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 2461240810325506205}
+  styleTag: 6
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
+--- !u!114 &-7300000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5490195251670737126}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 4199779365756622544}
+  styleTag: 6
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
+--- !u!114 &-7300000000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9013305242072732809}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 741626671843260670}
+  styleTag: 6
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
 --- !u!1 &9201790996586948642
 GameObject:
   m_ObjectHideFlags: 0

@@ -123,7 +123,8 @@ namespace Game.Feature.UI.Composition
                 MainMenuStaticTextPayload.Default,
                 _localizedTextResolver,
                 DefaultLocalizedTypographyResolver.Instance,
-                _koreanSettingsFont != null ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont) : null);
+                _koreanSettingsFont != null ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont) : null,
+                _popupPrefabCatalog.TypographyTheme);
             BuildPopupModule();
             BuildSettingsModule();
             BuildAudioFeedbackModule();

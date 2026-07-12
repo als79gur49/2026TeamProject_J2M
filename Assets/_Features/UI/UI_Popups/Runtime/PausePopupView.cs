@@ -31,6 +31,7 @@ namespace Game.Feature.UI.Popups
         private bool _hasRootRestAlpha;
         private bool _hasRootRestScale;
         private List<PausePopupLocalizedTmpTextBinding> _localizedStaticBindings;
+        private bool _hasExternalStaticLocalization;
         private float _rootRestAlpha = 1f;
         private Vector3 _rootRestScale = Vector3.one;
 
@@ -90,8 +91,34 @@ namespace Game.Feature.UI.Popups
             };
         }
 
+        public IReadOnlyList<PausePopupLocalizedTextTarget> CreateStaticLocalizationTargets(PausePopupPayload payload)
+        {
+            if (payload == null)
+            {
+                return Array.Empty<PausePopupLocalizedTextTarget>();
+            }
+
+            return new[]
+            {
+                new PausePopupLocalizedTextTarget(_titleLabel, payload.TitleTextDescriptor),
+                new PausePopupLocalizedTextTarget(_descriptionLabel, payload.DescriptionTextDescriptor),
+                new PausePopupLocalizedTextTarget(_resumeButtonLabel, payload.ResumeLabelDescriptor),
+                new PausePopupLocalizedTextTarget(_settingsButtonLabel, payload.SettingsLabelDescriptor),
+                new PausePopupLocalizedTextTarget(_retryButtonLabel, payload.RetryLabelDescriptor),
+                new PausePopupLocalizedTextTarget(_mainMenuButtonLabel, payload.MainMenuLabelDescriptor),
+            };
+        }
+
+        public void BindExternalStaticLocalization()
+        {
+            DisposeLocalizedStaticBindings();
+            _hasExternalStaticLocalization = true;
+            RefreshView();
+        }
+
         public void UnbindStaticLocalization()
         {
+            _hasExternalStaticLocalization = false;
             DisposeLocalizedStaticBindings();
             RefreshView();
         }
@@ -380,7 +407,9 @@ namespace Game.Feature.UI.Popups
             button.onClick.RemoveListener(action);
         }
 
-        private bool HasStaticLocalization => _localizedStaticBindings != null && _localizedStaticBindings.Count > 0;
+        private bool HasStaticLocalization =>
+            _hasExternalStaticLocalization ||
+            (_localizedStaticBindings != null && _localizedStaticBindings.Count > 0);
 
         private void DisposeLocalizedStaticBindings()
         {
@@ -396,6 +425,19 @@ namespace Game.Feature.UI.Popups
 
             _localizedStaticBindings = null;
         }
+    }
+
+    public readonly struct PausePopupLocalizedTextTarget
+    {
+        public PausePopupLocalizedTextTarget(TMP_Text target, LocalizedTextDescriptor descriptor)
+        {
+            Target = target;
+            Descriptor = descriptor;
+        }
+
+        public TMP_Text Target { get; }
+
+        public LocalizedTextDescriptor Descriptor { get; }
     }
 
     internal sealed class PausePopupLocalizedTmpTextBinding : IDisposable

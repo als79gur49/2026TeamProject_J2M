@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using UnityEngine;
 
@@ -17,6 +19,7 @@ namespace Game.Feature.UI.Composition
         private readonly IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
+        private readonly GameplayUiTypographyTheme _typographyTheme;
 
         public GameplayPopupRuntimeFactory(
             PopupLayerView popupLayerView,
@@ -24,7 +27,8 @@ namespace Game.Feature.UI.Composition
             IDemoStageControlCommandPort demoStageControlCommandPort = null,
             IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
             ILocalizedTextResolver localizedTextResolver = null,
-            ILocalizedTypographyResolver localizedTypographyResolver = null)
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            GameplayUiTypographyTheme typographyTheme = null)
         {
             _popupLayerView = popupLayerView ?? throw new ArgumentNullException(nameof(popupLayerView));
             _popupPrefabCatalog = popupPrefabCatalog ?? throw new ArgumentNullException(nameof(popupPrefabCatalog));
@@ -34,6 +38,7 @@ namespace Game.Feature.UI.Composition
                 ?? throw new InvalidOperationException(
                     "GameplayPopupRuntimeFactory requires an explicit production localized text resolver.");
             _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            _typographyTheme = typographyTheme ?? _popupPrefabCatalog.TypographyTheme;
         }
 
         public PopupRuntimeFactoryResult Create(PopupRequest request)
@@ -61,7 +66,7 @@ namespace Game.Feature.UI.Composition
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.PausePrefab, PopupId.Pause);
             view.Bind(presenter.ViewModel);
-            view.BindStaticLocalization(payload, _localizedTextResolver, _localizedTypographyResolver);
+            var localizedBindings = BindPauseStaticLocalization(view, payload);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -74,10 +79,46 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<PausePopupView>(view, () =>
                 {
+                    DisposeBindings(localizedBindings);
                     view.UnbindStaticLocalization();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));
+        }
+
+        private List<LocalizedTmpTextBinding> BindPauseStaticLocalization(
+            PausePopupView view,
+            PausePopupPayload payload)
+        {
+            view.BindExternalStaticLocalization();
+            var targets = view.CreateStaticLocalizationTargets(payload);
+            var bindings = new List<LocalizedTmpTextBinding>(targets.Count);
+            for (var i = 0; i < targets.Count; i++)
+            {
+                bindings.Add(new LocalizedTmpTextBinding(
+                    targets[i].Target,
+                    targets[i].Descriptor,
+                    _localizedTextResolver,
+                    _localizedTypographyResolver,
+                    typographyTheme: _typographyTheme));
+            }
+
+            return bindings;
+        }
+
+        private static void DisposeBindings(List<LocalizedTmpTextBinding> bindings)
+        {
+            if (bindings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                bindings[i]?.Dispose();
+            }
+
+            bindings.Clear();
         }
 
         private PopupRuntimeFactoryResult CreateConfirmPopup(ConfirmPopupPayload payload)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
@@ -72,7 +73,8 @@ namespace Game.Feature.UI.Screens
             MainMenuStaticTextPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver = null)
+            ILocalizedTmpFontResolver fontResolver = null,
+            GameplayUiTypographyTheme typographyTheme = null)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -87,19 +89,22 @@ namespace Game.Feature.UI.Screens
                     payload.StartLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
                 new(
                     _settingsButtonLabel,
                     payload.SettingsLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
                 new(
                     _quitButtonLabel,
                     payload.QuitLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver),
+                    fontResolver,
+                    typographyTheme),
             };
         }
 
