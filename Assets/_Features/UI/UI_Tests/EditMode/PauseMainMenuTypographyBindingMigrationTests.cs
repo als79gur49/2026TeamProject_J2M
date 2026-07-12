@@ -33,6 +33,19 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PausePrefab_DescriptionTextIsVisibleSurface()
+        {
+            var prefab = LoadPausePrefab();
+            var description = GetField<TMP_Text>(prefab, "_descriptionLabel");
+
+            Assert.That(description.gameObject.activeSelf, Is.True, "Pause description is product copy, not a hidden template.");
+            Assert.That(description.enabled, Is.True);
+            Assert.That(description.color.a, Is.GreaterThan(0f));
+            Assert.That(description.rectTransform.rect.width, Is.GreaterThan(0f));
+            Assert.That(description.rectTransform.rect.height, Is.GreaterThan(0f));
+        }
+
+        [Test]
         public void MainMenuPrefab_HasTypographyBindingsForCommandText()
         {
             var prefab = LoadMainMenuPrefab();
