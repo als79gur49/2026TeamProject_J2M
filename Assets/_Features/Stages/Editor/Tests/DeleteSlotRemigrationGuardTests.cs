@@ -11,8 +11,20 @@ namespace Game.Feature.Stages.Editor.Tests
         private const string ProfileId = "delete-slot-remigration-guard-profile";
         private const string ProductVersion = "delete-slot-remigration-guard-product";
 
+        [SetUp]
+        public void SetUp()
+        {
+            CleanupPlayerPrefsState();
+            AssertPlayerPrefsStateClean();
+        }
+
         [TearDown]
         public void TearDown()
+        {
+            CleanupPlayerPrefsState();
+        }
+
+        private static void CleanupPlayerPrefsState()
         {
             PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
             PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
@@ -23,6 +35,18 @@ namespace Game.Feature.Stages.Editor.Tests
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
             PlayerPrefs.DeleteKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
             PlayerPrefs.Save();
+        }
+
+        private static void AssertPlayerPrefsStateClean()
+        {
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(CampaignLegacyImportMarkerStore.ImportDisabledKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(CampaignLegacyImportMarkerStore.ImportedSourceHashKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey), Is.False);
         }
 
         [Test]
