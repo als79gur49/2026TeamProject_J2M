@@ -4,22 +4,24 @@
 
 Localization is implemented to a substantial production baseline. The current project has the Unity Localization package baseline, local/default Addressables settings, `en-US` and `ko-KR` Locale assets, `UI` and `Stage` String Tables, the `UnityStringTableTextResolver` production path, removal of the package-free production fallback, Settings / Pause / Main Menu / Stage display name localization, selected locale persistence, and selected Settings Smart String dynamic text.
 
-Typography is at the foundation stage. The project has `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, the `NanumGothic SDF` baseline, and partial `ko-KR` Settings font-path validation.
+Typography foundation and production wiring are implemented for Settings, Pause, and Main Menu.
 
-Typography is not complete. Typography has structure and partial application, but production separation based on the existing three English font types is not complete. Specifically, the project has not yet extracted the existing English three-font hierarchy into a canonical production profile, has not defined per-locale Title / Subtitle / Body `TMP_FontAsset` plus material preset profiles, has not introduced a Cascading Typography Theme, and has not introduced production `StyleTag` / `TypographyBinding` authoring or Editor validation / preview / optional bake tooling.
+The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and `NanumGothic SDF` glyph coverage generated from Korean String Tables.
 
-Current baseline captured before this document was written:
+Typography is not globally applied to every future UI surface. The current production wiring is scoped to Settings, Pause, and Main Menu. HUD/objective/save slot/inventory/audio/voice localization remains outside this migration.
+
+Current baseline captured for this cleanup pass:
 
 | Item | Value |
 |---|---|
-| Repo root | `/mnt/c/Users/user/2026teamproject_j2m-ui-audio` |
+| Repo root | `/mnt/c/users/user/2026teamproject_j2m-ui-audio` |
 | Branch | `worktree/ui-audio` |
-| HEAD | `6aae405eaa14f9ed5de05af5ec82e353de04e93b` |
-| Worktree status | Clean; branch ahead of origin by 63 commits |
-| Tracked diff | None before document creation |
-| Staged diff | None before document creation |
-| Untracked files | None before document creation |
-| Document-only policy | This change may create or modify documentation only |
+| HEAD before cleanup | `d8bed9d8ef339a3484a44d578de841e4c9aed34e` |
+| Worktree status before cleanup | Clean; branch ahead of origin by 80 commits |
+| Tracked diff before cleanup | None |
+| Staged diff before cleanup | None |
+| Untracked files before cleanup | None |
+| Cleanup policy | Trailing-whitespace cleanup plus documentation only |
 
 ## 2. Current Implemented State
 
@@ -69,6 +71,24 @@ Current baseline captured before this document was written:
 | Pause popup static shell | Done | Pause title, description, resume, settings, retry, and main-menu labels localize and refresh on locale changes. |
 | Main Menu command shell | Done | Start, Settings, and Quit command labels localize and refresh on locale changes. |
 
+### Typography Production Wiring
+
+| Area | Status | Current state |
+|---|---|---|
+| `TypographyStyleTag` | Done | Semantic typography tokens exist for governed TMP labels. |
+| `FontCategory` | Done | Display, Heading, Body, UI, Utility, and Symbol categories are represented in the runtime theme model. |
+| `GameplayUiTypographyTheme` | Done | ScriptableObject theme owns required locales, base rules, locale font sets, sparse overrides, and cache invalidation. |
+| `LocaleFontSet` | Done | Per-locale font/material mappings are centralized by locale, category, and weight. |
+| Resolved style cache | Done | `ResolvedTypographyStyleCache` resolves `locale + styleTag` to `ResolvedTmpTypographyStyle`. |
+| `TypographyBinding` | Done | Prefabs/views carry style tag, sizing-source override, and optional apply-mask override without owning text keys. |
+| Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
+| Pause / Main Menu typography migration | Done | Pause and Main Menu governed labels use the same typography-binding production path. |
+| Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. |
+| Screenshot capture tooling | Done | Typography preview screenshot capture tooling exists and produced visual QA evidence. |
+| NanumGothic glyph coverage | Done | `NanumGothic SDF` coverage was expanded from Korean String Tables and is validated by UI tests. |
+| Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
+| Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
+
 ### Stage
 
 | Area | Status | Current state |
@@ -81,30 +101,20 @@ Current baseline captured before this document was written:
 
 ## 3. Current Limitations
 
-Typography has `Role` / `Weight` and TMP binding foundation, but it has not split the existing English three-font asset hierarchy into production Title / Subtitle / Body profiles.
+Typography has moved beyond the foundation-only stage for the governed Settings, Pause, and Main Menu surfaces. The project now has the theme model, locale font sets, style tags, binding authoring, resolved style cache, editor validation / preview, and screenshot capture tooling.
 
-Current `LocalizedTypographyStyle` mainly handles:
+Current limitations are scope and polish limitations, not missing foundation pieces:
 
-| Property | Status |
-|---|---|
-| `fontSize` | Partial |
-| `lineSpacing` | Partial |
-| bold flag | Partial |
-
-Missing typography foundation-to-production pieces:
-
-| Missing piece | Status | Why it matters |
+| Limitation | Status | Decision |
 |---|---|---|
-| `TMP_FontAsset` in a theme model | Deferred | Current font resolver is direct and simple, not a canonical style database. |
-| Material preset profile | Deferred | Font/material pairing is not governed by a reusable style rule. |
-| `FontCategory` | Deferred | Display / Heading / Body / UI / Symbol categories are not represented. |
-| `LocaleFontSet` | Deferred | Per-locale font mappings are not centralized. |
-| Cascading override | Deferred | Locale-specific differences would require duplicated complete rules today. |
-| `StyleTag` | Deferred | Prefabs cannot select semantic typography tokens independent from text keys. |
-| `ApplyMask` | Deferred | Fine-grained theme application policy is not modeled. |
-| `SizingSource` | Deferred | Authored-vs-theme sizing ownership is not explicit. |
-| Editor preview / validation | Deferred | Missing style, missing glyph, and invalid font/material pairs are not centrally reported. |
-| Optional bake | Deferred | No build/editor-time static typography bake exists. |
+| Global UI coverage | Not complete | Typography is not globally applied to every future UI surface. New surfaces must opt into the same governed binding/theme path. |
+| Korean real bold font / material polish | Deferred P2 | `ko-KR` currently accepts NanumGothic plus synthetic bold where mapped. ko-KR synthetic bold/material polish remains optional P2. |
+| Broader Theme sizing patch | Deferred | Hybrid sizing preserves authored size/auto-size/min/max for the migrated surfaces; broader theme-owned sizing was not needed for this PR. |
+| Optional bake | Deferred | Runtime switching remains canonical; bake is not approved in this PR. |
+| General locale-specific Prefab Variants | Deferred | Variants remain reserved for structural layout differences, not ordinary font/text changes. |
+| Binary localization DB | Deferred | Unity String Tables are not a proven bottleneck. |
+| Dynamic CJK fallback | Deferred | Static atlas coverage from current String Tables remains the predictable baseline. |
+| Korean Josa formatter | Deferred | Current migrated UI strings do not need generated Korean postposition logic. |
 
 Deferred localization scope:
 
@@ -174,7 +184,7 @@ Localization and typography must stay separate:
 
 ## 5. Stage 1: Practical Production Theme
 
-Stage 1 is the next practical production architecture for this project. It preserves runtime locale switching, Unity String Tables, and the current production resolver while adding production typography structure.
+Stage 1 is implemented for the current PR scope. It preserves runtime locale switching, Unity String Tables, and the current production resolver while adding production typography structure for Settings, Pause, and Main Menu.
 
 Stage 1 goals:
 
@@ -183,12 +193,12 @@ Stage 1 goals:
 | Keep runtime locale switching | Required |
 | Keep Unity String Table | Required |
 | Keep `UnityStringTableTextResolver` production resolver | Required |
-| Introduce `TypographyStyleTag` | Required |
-| Introduce Cascading Theme | Required |
-| Introduce `LocaleFontSet` | Required |
-| Introduce `TypographyBinding` | Required |
-| Introduce Editor validation / preview | Required |
-| Preserve size / auto-size initially | Required through Hybrid sizing |
+| Introduce `TypographyStyleTag` | Done |
+| Introduce Cascading Theme | Done through `GameplayUiTypographyTheme` base rules and sparse overrides |
+| Introduce `LocaleFontSet` | Done |
+| Introduce `TypographyBinding` | Done |
+| Introduce Editor validation / preview | Done |
+| Preserve size / auto-size initially | Done through Hybrid sizing |
 
 ### TypographyStyleTag
 
@@ -213,11 +223,12 @@ Stage 1 goals:
 | `Heading` | Section and popup headings. |
 | `Body` | Paragraph and descriptive text. |
 | `UI` | Compact labels, buttons, values, and controls. |
+| `Utility` | Utility/control text that does not fit primary display/body categories. |
 | `Symbol` | Icon/symbol-like TMP glyph runs when needed. |
 
 ### LocaleFontSet
 
-Initial `en-US` mapping:
+Implemented `en-US` mapping policy:
 
 | Category / Weight | Mapping |
 |---|---|
@@ -227,15 +238,15 @@ Initial `en-US` mapping:
 | `UI` / `Regular` | Existing UI label font |
 | `UI` / `Bold` | Existing button/bold UI font |
 
-Initial `ko-KR` mapping:
+Implemented `ko-KR` mapping policy:
 
 | Category / Weight | Mapping |
 |---|---|
-| `Display` / `Bold` | `NanumGothic SDF` plus synthetic bold initially |
-| `Heading` / `Bold` | `NanumGothic SDF` plus synthetic bold initially |
+| `Display` / `Bold` | `NanumGothic SDF` plus synthetic bold |
+| `Heading` / `Bold` | `NanumGothic SDF` plus synthetic bold |
 | `Body` / `Regular` | `NanumGothic SDF` |
 | `UI` / `Regular` | `NanumGothic SDF` |
-| `UI` / `Bold` | `NanumGothic SDF` plus synthetic bold initially |
+| `UI` / `Bold` | `NanumGothic SDF` plus synthetic bold |
 
 ### Cascading TypographyTheme
 
@@ -256,7 +267,7 @@ Base rules define the default category, weight, sizing, and spacing for each `St
 | `Theme` | Theme owns sizing and spacing. |
 | `Hybrid` | Theme applies font, material, and font style; prefab preserves font size, auto-size, min/max initially. |
 
-Initial default is `Hybrid`.
+Current default is `Hybrid`.
 
 Hybrid means:
 
@@ -277,7 +288,7 @@ Hybrid means:
 | `LineSpacing` | Apply line spacing. |
 | `CharacterSpacing` | Apply character spacing. |
 
-Initial application should focus on `Font + Material + FontStyle`. `Sizing` should be applied selectively after visual QA to avoid clipping and layout shifts.
+Current application focuses on `Font + Material + FontStyle`, with authored sizing preserved by Hybrid policy unless a binding explicitly overrides the policy. Broader `Sizing` rollout remains deferred after visual QA.
 
 ### TypographyBinding
 
@@ -305,9 +316,9 @@ Initial examples:
 | Pause description | `BodySmall` |
 | Main Menu command button | `Button` |
 
-## 6. Stage 2: High-Performance Final Architecture
+## 6. Stage 2: Deferred High-Performance Architecture
 
-Stage 2 is not the immediate implementation target. It becomes useful when UI scale, supported languages, localized content types, or platform packaging complexity grows.
+Stage 2 is not part of this PR. It becomes useful when UI scale, supported languages, localized content types, or platform packaging complexity grows.
 
 ### Optional Editor / Build-time Bake
 
@@ -417,7 +428,7 @@ Purpose:
 
 ## 8. Data Model / Runtime Model
 
-Planned model shape:
+Implemented model shape:
 
 ```csharp
 public enum TypographyStyleTag
@@ -441,6 +452,7 @@ public enum FontCategory
     Heading,
     Body,
     UI,
+    Utility,
     Symbol
 }
 
@@ -499,7 +511,7 @@ ResolvedTmpTypographyStyle
 LocalizedTmpTextBinding.Apply
 ```
 
-The existing `LocalizedTextDescriptor` can remain the text-side descriptor. Future typography should avoid encoding final production font identity in `LocalizedTextRole` / `LocalizedTextWeight`; those are useful foundation concepts but are too coarse for the final production theme.
+The existing `LocalizedTextDescriptor` remains the text-side descriptor. Production typography identity is selected through `TypographyStyleTag` and the theme path; `LocalizedTextRole` / `LocalizedTextWeight` remain foundation metadata and compatibility inputs rather than final font identity.
 
 ## 9. Unity Editor / Prefab Authoring Policy
 
@@ -523,7 +535,7 @@ Theme owns:
 | Optional sizing override | Allowed after visual QA and only when enabled by sizing policy. |
 | Line spacing / character spacing | Theme-owned only when the apply mask enables it. |
 
-Required Editor tooling:
+Implemented Editor tooling:
 
 | Tooling | Purpose |
 |---|---|
@@ -534,6 +546,7 @@ Required Editor tooling:
 | `en-US` / `ko-KR` preview | Let authors inspect both supported locales in Editor. |
 | Glyph coverage check | Report characters missing from the selected static atlas. |
 | Build-time validation | Stop broken theme or font mappings before player build. |
+| Screenshot capture tooling | Capture Settings, Pause, and Main Menu typography previews for visual QA evidence. |
 
 Optional Editor tooling:
 
@@ -602,13 +615,13 @@ Editor validation:
 
 | Phase | Name | Work |
 |---|---|---|
-| Phase 1 | Typography Audit | Inspect Settings / Pause / Main Menu `TMP_Text`; identify existing `en-US` font hierarchy; create font/material/size/auto-size table. |
-| Phase 2 | Theme Model | Add `StyleTag`, `FontCategory`, `LocaleFontSet`, base rules, sparse overrides, and resolved cache. |
-| Phase 3 | Editor Validation | Add missing tag, missing profile, invalid material pair, glyph coverage, and preview validation. |
-| Phase 4 | Settings Aggressive Migration | Attach `TypographyBinding`; use Hybrid sizing; preserve existing `en-US` fonts; apply `ko-KR` NanumGothic. |
-| Phase 5 | Pause / Main Menu Migration | Expand the same pattern to Pause and Main Menu. |
-| Phase 6 | Visual QA | Validate font weight, clipping, auto-size, line height, material, and `ko-KR` readability. |
-| Phase 7 | Optional Optimization | Evaluate bake, prefab variant, dynamic fallback, Josa formatter, and Addressables Analyze. |
+| Phase 1 | Typography Audit | Done for Settings / Pause / Main Menu. |
+| Phase 2 | Theme Model | Done: `StyleTag`, `FontCategory`, `LocaleFontSet`, base rules, sparse overrides, and resolved cache exist. |
+| Phase 3 | Editor Validation | Done: missing tag/profile, invalid material pair, glyph coverage, preview, and report tooling exist. |
+| Phase 4 | Settings Migration | Done: `TypographyBinding`, Hybrid sizing, existing `en-US` font preservation, and `ko-KR` NanumGothic path are wired. |
+| Phase 5 | Pause / Main Menu Migration | Done: Pause and Main Menu use the same typography-binding pattern. |
+| Phase 6 | Visual QA | Done for PR scope; closeout evidence is recorded in `Docs/Architecture/Typography-Visual-QA-Closeout.md`. |
+| Phase 7 | Optional Optimization | Deferred: bake, prefab variant, dynamic fallback, Josa formatter, and Addressables Analyze remain future-only unless separately approved. |
 
 ## 13. Glossary
 
@@ -620,11 +633,11 @@ Editor validation:
 | `PackageFreeLocalizedTextResolver` | Test/fixture resolver retained as an explicit seam, not production fallback. |
 | `LocalizedTypographyStyle` | Current foundation style carrying font size, line spacing, and bold flag. |
 | `LocalizedTmpTextBinding` | View-side runtime binding that applies resolved text and current foundation typography/font to `TMP_Text`. |
-| `TypographyStyleTag` | Planned semantic token used by prefabs to request a typography style. |
-| `TypographyTheme` | Planned cascading style database that resolves locale plus style tag to TMP font/material/style. |
-| `LocaleFontSet` | Planned per-locale mapping from font category/weight to TMP font/material profile. |
-| `SizingSource` | Planned ownership policy for prefab-authored sizing versus theme-applied sizing. |
-| `ApplyMask` | Planned bitmask controlling which style properties are applied by the theme. |
+| `TypographyStyleTag` | Implemented semantic token used by prefabs to request a typography style. |
+| `TypographyTheme` | Implemented through `GameplayUiTypographyTheme`, resolving locale plus style tag to TMP font/material/style. |
+| `LocaleFontSet` | Implemented per-locale mapping from font category/weight to TMP font/material profile. |
+| `SizingSource` | Implemented ownership policy for prefab-authored sizing versus theme-applied sizing. |
+| `ApplyMask` | Implemented bitmask controlling which style properties are applied by the theme. |
 | Bake | Optional Editor/build-time process that pre-applies static typography values. |
 | Prefab Variant | Locale-specific prefab hierarchy/layout variant, reserved for structural differences. |
 
@@ -632,11 +645,7 @@ Editor validation:
 
 | Question | Owner / next step |
 |---|---|
-| Which exact existing English font assets map to Display, Heading, Body, UI Regular, and UI Bold? | Typography Audit should inventory Settings / Pause / Main Menu authored font assets and material presets. |
-| Should `LocalizedTextRole` / `LocalizedTextWeight` be kept as compatibility inputs or retired after `TypographyStyleTag` migration? | Theme Model design decision. |
-| Should `TypographyBinding` be a separate component or folded into an updated localized TMP binding component? | Theme Model design decision; prefer separate component unless prefab ergonomics argue otherwise. |
-| What severity should invalid font/material pairs use: warning or fail? | Editor Validation phase should define fail policy for production prefabs. |
-| Which labels are governed by typography in the first migration slice? | Typography Audit should produce the initial governed TMP inventory. |
-| When does sizing move from Hybrid to Theme-owned? | Visual QA should decide after Settings migration evidence. |
-| Do Korean bold styles need real bold TMP assets instead of synthetic bold? | Visual QA and font asset audit. |
+| Should `LocalizedTextRole` / `LocalizedTextWeight` be retired after broader `TypographyStyleTag` migration? | Keep as foundation/compatibility metadata for now; revisit only during broader UI migration. |
+| When does sizing move from Hybrid to Theme-owned? | Deferred until a broader Theme sizing patch is explicitly approved and visually validated. |
+| Do Korean bold styles need real bold TMP assets instead of synthetic bold? | Deferred P2; ko-KR synthetic bold/material polish remains optional P2. |
 | When should Addressables Analyze become mandatory for localization assets? | Stage 2, once asset tables, prefab variants, tutorial images, or voice assets are introduced. |

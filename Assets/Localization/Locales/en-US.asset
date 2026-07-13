@@ -17,7 +17,7 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_LocaleName: en-US
-  m_CustomFormatCultureCode: 
+  m_CustomFormatCultureCode:
   m_UseCustomFormatter: 0
   m_SortOrder: 10000
   references:
