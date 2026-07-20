@@ -84,7 +84,7 @@ Current baseline captured for this cleanup pass:
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
 | Pause / Main Menu typography migration | Done | Pause and Main Menu governed labels use the same typography-binding production path. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. |
-| Screenshot capture tooling | Done | Typography preview screenshot capture tooling produced the latest 1920x1080 bilingual evidence in `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/`. |
+| Screenshot capture tooling | Done | Typography preview screenshot capture tooling produced the latest 1920x1080 bilingual evidence and canonical `capture.log` manifest in `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/`. Future aggregate captures write the manifest directly and reject partial PASS evidence. |
 | NanumGothic glyph coverage | Done | `NanumGothic SDF` coverage was expanded from Korean String Tables and is validated by UI tests. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
@@ -96,8 +96,8 @@ Current baseline captured for this cleanup pass:
 | Production SmartFormat integration | Restored; actual Localization Settings, formatter/source graph, and bilingual Smart Strings pass integration coverage. |
 | Settings static shell | Complete for the governed audio/display targets; raw action and physical key names remain intentional non-goals. |
 | Localization integration tests | 22/22 passed. |
-| Full UI lane | 851/851 passed. |
-| Latest visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` at 1920x1080. |
+| Full UI lane | 853/853 passed. |
+| Latest visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` at 1920x1080, with six SHA-256-addressed entries in `capture.log`. |
 | Remaining closeout work | Optional P2 Korean synthetic-bold/material polish only; broader Theme sizing and optional bake are not required. |
 
 ### Stage
