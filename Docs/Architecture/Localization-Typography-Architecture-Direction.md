@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-Localization is implemented to a substantial production baseline. The current project has the Unity Localization package baseline, local/default Addressables settings, `en-US` and `ko-KR` Locale assets, `UI` and `Stage` String Tables, the `UnityStringTableTextResolver` production path, removal of the package-free production fallback, Settings / Pause / Main Menu / Stage display name localization, selected locale persistence, and selected Settings Smart String dynamic text.
+Localization is implemented to a substantial production baseline. The current project has the Unity Localization package baseline, local/default Addressables settings, `en-US` and `ko-KR` Locale assets, `UI` and `Stage` String Tables, the `UnityStringTableTextResolver` production path, removal of the package-free production fallback, Settings / Pause / Main Menu / Stage display name localization, selected locale persistence, and Settings Smart String dynamic text. The production Localization Settings asset now loads with a valid SmartFormat source/formatter graph, and the Settings audio/display static shell is descriptor-backed in both locales.
 
 Typography foundation and production wiring are implemented for Settings, Pause, and Main Menu.
 
@@ -34,7 +34,7 @@ Current baseline captured for this cleanup pass:
 | `en-US` / `ko-KR` Locale | Done | Locale assets exist and are required by `UnityStringTableTextResolver`. |
 | `UI` String Table | Done | `UI` collection has `en-US` and `ko-KR` tables for Settings, Pause, and Main Menu shell entries. |
 | `Stage` String Table | Done | `Stage` collection has `en-US` and `ko-KR` tables for active stage display names. |
-| Localization Settings active registration | Done | Active Localization Settings are present and validated by integration tests. |
+| Localization Settings active registration | Done | Active Localization Settings and its serialized SmartFormat source/formatter graph load successfully and are validated by production integration tests. |
 | TMP Settings fallback unchanged | Done | `TMP Settings.asset` does not include `NanumGothic SDF` as a global fallback. |
 
 ### Production Resolver
@@ -51,7 +51,7 @@ Current baseline captured for this cleanup pass:
 
 | Area | Status | Current state |
 |---|---|---|
-| Static labels | Done | Settings title, tabs, input labels, language labels, and back command use `LocalizedTextDescriptor`. |
+| Static labels | Done | Settings title, tabs, input labels, language labels, audio headings/mute labels, display labels/actions, and back command use `LocalizedTextDescriptor`. |
 | Language row | Done | Display settings owns an authored language row and cycles supported locales at runtime. |
 | Runtime locale selection | Done | `IUiLocaleSelectionPort` exposes supported locales and locale switching. |
 | Selected locale persistence | Done | Supported locale selections are saved; invalid persisted locale falls back to `en-US`. |
@@ -84,10 +84,21 @@ Current baseline captured for this cleanup pass:
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
 | Pause / Main Menu typography migration | Done | Pause and Main Menu governed labels use the same typography-binding production path. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. |
-| Screenshot capture tooling | Done | Typography preview screenshot capture tooling exists and produced visual QA evidence. |
+| Screenshot capture tooling | Done | Typography preview screenshot capture tooling produced the latest 1920x1080 bilingual evidence in `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/`. |
 | NanumGothic glyph coverage | Done | `NanumGothic SDF` coverage was expanded from Korean String Tables and is validated by UI tests. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
+
+### Localization Blocker Closeout
+
+| Check | Result |
+|---|---|
+| Production SmartFormat integration | Restored; actual Localization Settings, formatter/source graph, and bilingual Smart Strings pass integration coverage. |
+| Settings static shell | Complete for the governed audio/display targets; raw action and physical key names remain intentional non-goals. |
+| Localization integration tests | 22/22 passed. |
+| Full UI lane | 851/851 passed. |
+| Latest visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` at 1920x1080. |
+| Remaining closeout work | Optional P2 Korean synthetic-bold/material polish only; broader Theme sizing and optional bake are not required. |
 
 ### Stage
 
