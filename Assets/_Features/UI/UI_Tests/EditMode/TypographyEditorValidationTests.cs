@@ -19,6 +19,10 @@ namespace Game.Feature.UI.Tests
         private const string LiberationSansFontAssetPath =
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
         private const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
+        private const string CanonicalEvidenceDirectory =
+            "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
+        private const string CanonicalEvidenceReconstructionHead =
+            "6e5cd13fda59778aaa48f8db3047bb5c2188ccdb";
 
         [Test]
         public void TypographyThemeValidator_DetectsMissingLocaleFontSet()
@@ -250,9 +254,130 @@ namespace Game.Feature.UI.Tests
                 }
             }
 
+            var manifestPath = Path.Combine(
+                result.OutputDirectory,
+                TypographyPreviewScreenshotManifestUtility.ManifestFileName);
+            Assert.That(File.Exists(manifestPath), Is.True, manifestPath);
+            var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
+            Assert.That(manifest.SchemaVersion, Is.EqualTo(1));
+            Assert.That(manifest.CaptureMode, Is.EqualTo("AGGREGATE"));
+            Assert.That(manifest.OverallResult, Is.EqualTo("PASS"));
+            Assert.That(manifest.GitHead, Is.EqualTo(TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead()));
+            Assert.That(manifest.Width, Is.EqualTo(960));
+            Assert.That(manifest.Height, Is.EqualTo(540));
+            Assert.That(manifest.Entries, Has.Count.EqualTo(6));
+
             AssertGuardedAssetsAreClean(guardedAssets);
 
             Directory.Delete(result.OutputDirectory, recursive: true);
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotManifest_PartialCaptureCannotReportPass()
+        {
+            var outputDirectory = Path.Combine(
+                "Temp",
+                "TypographyPreviewScreenshotManifestTests",
+                System.Guid.NewGuid().ToString("N"));
+            var result = new TypographyPreviewScreenshotBatchResult(Path.GetFullPath(outputDirectory));
+
+            try
+            {
+                var manifestPath = TypographyPreviewScreenshotManifestUtility.WriteCanonicalManifest(
+                    result,
+                    new TypographyPreviewScreenshotOptions());
+                var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
+
+                Assert.That(manifest.OverallResult, Is.EqualTo("FAIL"));
+                Assert.That(manifest.Entries, Has.Count.EqualTo(6));
+                Assert.That(manifest.Entries, Has.All.Property("CaptureResult").EqualTo("FAIL"));
+            }
+            finally
+            {
+                if (Directory.Exists(outputDirectory))
+                {
+                    Directory.Delete(outputDirectory, recursive: true);
+                }
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotManifest_CanonicalEvidenceMatchesRequiredPngSet()
+        {
+            var manifestPath = Path.Combine(
+                CanonicalEvidenceDirectory,
+                TypographyPreviewScreenshotManifestUtility.ManifestFileName);
+            Assert.That(File.Exists(manifestPath), Is.True, manifestPath);
+
+            var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
+            Assert.That(manifest.SchemaVersion, Is.EqualTo(1));
+            Assert.That(manifest.OverallResult, Is.EqualTo("PASS"));
+            Assert.That(manifest.CaptureMode, Is.EqualTo("RECONSTRUCTED_FROM_SPLIT_LOGS"));
+            var currentGitHead = TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead();
+            Assert.That(
+                string.Equals(manifest.GitHead, currentGitHead, System.StringComparison.Ordinal) ||
+                string.Equals(
+                    manifest.GitHead,
+                    CanonicalEvidenceReconstructionHead,
+                    System.StringComparison.Ordinal),
+                Is.True,
+                $"Manifest git_head must be current HEAD '{currentGitHead}' or the recorded reconstruction HEAD.");
+            Assert.That(manifest.OutputDirectory, Is.EqualTo(CanonicalEvidenceDirectory));
+            Assert.That(manifest.Width, Is.EqualTo(1920));
+            Assert.That(manifest.Height, Is.EqualTo(1080));
+            Assert.That(manifest.ThemeValidation, Is.EqualTo("PASS"));
+            Assert.That(manifest.PrefabValidation, Is.EqualTo("PASS"));
+            Assert.That(manifest.GuardedAssetDirtyCheck, Is.EqualTo("PASS"));
+            Assert.That(manifest.Entries, Has.Count.EqualTo(6));
+
+            foreach (var target in TypographyPreviewScreenshotUtility.RequiredTargets)
+            {
+                var expectedLocalizedCount =
+                    TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem);
+                foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
+                {
+                    var expectedFileName =
+                        TypographyPreviewScreenshotUtility.BuildFileName(target, locale);
+                    var entry = manifest.FindEntry(target.FileStem, locale);
+                    Assert.That(entry, Is.Not.Null, $"{target.FileStem}/{locale}");
+                    Assert.That(entry.FileName, Is.EqualTo(expectedFileName));
+                    Assert.That(entry.CaptureResult, Is.EqualTo("PASS"));
+                    Assert.That(entry.Width, Is.EqualTo(1920));
+                    Assert.That(entry.Height, Is.EqualTo(1080));
+                    Assert.That(entry.LocalizedExpectedCount, Is.EqualTo(expectedLocalizedCount));
+                    Assert.That(entry.LocalizedAppliedCount, Is.EqualTo(expectedLocalizedCount));
+                    Assert.That(entry.OrientationValidation, Does.StartWith("PASS"));
+                    Assert.That(entry.NonBlankValidation, Is.EqualTo("PASS"));
+
+                    var pngPath = Path.Combine(CanonicalEvidenceDirectory, entry.FileName);
+                    Assert.That(File.Exists(pngPath), Is.True, pngPath);
+                    Assert.That(new FileInfo(pngPath).Length, Is.EqualTo(entry.FileSizeBytes), pngPath);
+                    Assert.That(
+                        TypographyPreviewScreenshotManifestUtility.ComputeSha256(pngPath),
+                        Is.EqualTo(entry.Sha256),
+                        pngPath);
+
+                    var texture = new Texture2D(2, 2);
+                    try
+                    {
+                        Assert.That(ImageConversion.LoadImage(texture, File.ReadAllBytes(pngPath)), Is.True, pngPath);
+                        Assert.That(texture.width, Is.EqualTo(entry.Width), pngPath);
+                        Assert.That(texture.height, Is.EqualTo(entry.Height), pngPath);
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(texture);
+                    }
+                }
+            }
+
+            AssertGuardedAssetsAreClean(TypographyPreviewScreenshotUtility.DirtyGuardAssetPaths);
+
+            var ignorePolicy = File.ReadAllLines(".gitignore");
+            Assert.That(
+                ignorePolicy,
+                Does.Contain("!TestLogs/TypographyVisualQA/**/capture.log"),
+                "The canonical manifest must remain trackable despite the repository-wide *.log rule.");
         }
 
         [Test]

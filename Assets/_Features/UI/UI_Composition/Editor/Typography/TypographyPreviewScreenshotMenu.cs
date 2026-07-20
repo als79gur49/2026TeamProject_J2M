@@ -30,9 +30,41 @@ namespace Game.Feature.UI.Composition.Editor
                 options.Height = height;
             }
 
+            ThrowIfUnityLogConflictsWithManifest(args, outputDirectory);
             var result = TypographyPreviewScreenshotUtility.CaptureRequiredScreenshots(outputDirectory, options);
             LogResult(result);
             result.ThrowIfFailed();
+        }
+
+        public static void ReconstructCanonicalManifestFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
+            var result = TypographyPreviewScreenshotManifestUtility.ReconstructCanonicalManifest(outputDirectory);
+            LogResult(result);
+            result.ThrowIfFailed();
+        }
+
+        private static void ThrowIfUnityLogConflictsWithManifest(string[] args, string outputDirectory)
+        {
+            var unityLogPath = ReadArg(args, "-logFile");
+            if (string.IsNullOrWhiteSpace(unityLogPath) || string.IsNullOrWhiteSpace(outputDirectory))
+            {
+                return;
+            }
+
+            var manifestPath = System.IO.Path.Combine(
+                outputDirectory,
+                TypographyPreviewScreenshotManifestUtility.ManifestFileName);
+            if (string.Equals(
+                    System.IO.Path.GetFullPath(unityLogPath),
+                    System.IO.Path.GetFullPath(manifestPath),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Unity stdout -logFile must not use the canonical manifest path. " +
+                    "Use a split/raw name such as capture-unity.log; capture.log is written by the screenshot utility.");
+            }
         }
 
         private static void LogResult(TypographyPreviewScreenshotBatchResult result)
@@ -41,6 +73,7 @@ namespace Game.Feature.UI.Composition.Editor
                 {
                     "Typography preview screenshot capture completed.",
                     $"Output: {result.OutputDirectory}",
+                    $"Manifest: {System.IO.Path.Combine(result.OutputDirectory, TypographyPreviewScreenshotManifestUtility.ManifestFileName)}",
                     "| Target | Locale | File | Exists | Size | Typography Bindings | Localized Texts |",
                     "|---|---|---|---|---|---|---|",
                 }

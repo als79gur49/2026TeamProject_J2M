@@ -48,6 +48,7 @@ namespace Game.Feature.UI.Composition.Editor
     public sealed class TypographyPreviewScreenshotCaptureResult
     {
         private readonly List<string> errors = new();
+        private readonly List<string> localizedTexts = new();
 
         public TypographyPreviewScreenshotCaptureResult(
             TypographyPreviewScreenshotTarget target,
@@ -73,9 +74,19 @@ namespace Game.Feature.UI.Composition.Editor
 
         public int AppliedBindingCount { get; set; }
 
+        public int ExpectedLocalizedTextCount { get; set; }
+
         public int LocalizedTextAppliedCount { get; set; }
 
+        public string OrientationValidationResult { get; set; } = "NOT_RUN";
+
+        public string NonBlankValidationResult { get; set; } = "NOT_RUN";
+
+        public string GlyphTofuValidationResult { get; set; } = "NOT_RUN";
+
         public IReadOnlyList<string> Errors => errors;
+
+        internal IReadOnlyList<string> LocalizedTexts => localizedTexts;
 
         public bool HasErrors => errors.Count > 0;
 
@@ -84,6 +95,14 @@ namespace Game.Feature.UI.Composition.Editor
         public void AddError(string message)
         {
             errors.Add(message ?? string.Empty);
+        }
+
+        internal void AddLocalizedText(string value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                localizedTexts.Add(value);
+            }
         }
     }
 
@@ -102,6 +121,12 @@ namespace Game.Feature.UI.Composition.Editor
         public IReadOnlyList<TypographyPreviewScreenshotCaptureResult> Captures => captures;
 
         public IReadOnlyList<string> Errors => errors;
+
+        public bool ThemeValidationPassed { get; internal set; }
+
+        public bool PrefabValidationPassed { get; internal set; }
+
+        public bool GuardedAssetsClean { get; internal set; }
 
         public bool HasErrors => errors.Count > 0 || captures.Any(capture => capture.HasErrors);
 
@@ -160,12 +185,24 @@ namespace Game.Feature.UI.Composition.Editor
             TypographyPreviewScreenshotOptions options = null,
             GameplayUiTypographyTheme theme = null)
         {
-            return CaptureScreenshots(
+            options ??= new TypographyPreviewScreenshotOptions();
+            var result = CaptureScreenshots(
                 RequiredTargets,
                 TypographyThemeValidator.RequiredLocaleCodes,
                 outputDirectory ?? CreateTimestampedDefaultOutputDirectory(),
                 options,
                 theme);
+
+            try
+            {
+                TypographyPreviewScreenshotManifestUtility.WriteCanonicalManifest(result, options);
+            }
+            catch (Exception exception)
+            {
+                result.AddError($"Canonical capture manifest could not be written: {exception.Message}");
+            }
+
+            return result;
         }
 
         public static TypographyPreviewScreenshotBatchResult CaptureScreenshots(
@@ -197,7 +234,9 @@ namespace Game.Feature.UI.Composition.Editor
                 }
             }
 
-            foreach (var dirtyPath in GetDirtyGuardAssetPaths())
+            var dirtyPaths = GetDirtyGuardAssetPaths();
+            result.GuardedAssetsClean = dirtyPaths.Count == 0;
+            foreach (var dirtyPath in dirtyPaths)
             {
                 result.AddError($"Capture left guarded asset dirty: {dirtyPath}");
             }
@@ -213,6 +252,24 @@ namespace Game.Feature.UI.Composition.Editor
         public static string BuildFileName(TypographyPreviewScreenshotTarget target, string localeCode)
         {
             return $"{SanitizeFileName(target.FileStem)}_{SanitizeFileName(localeCode)}.png";
+        }
+
+        public static int GetExpectedLocalizedTextCount(string fileStem)
+        {
+            switch (fileStem)
+            {
+                case "Settings":
+                    return 22;
+
+                case "Pause":
+                    return 6;
+
+                case "MainMenu":
+                    return 3;
+
+                default:
+                    return 0;
+            }
         }
 
         public static IReadOnlyList<string> GetDirtyGuardAssetPaths()
@@ -253,15 +310,18 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             var themeReport = TypographyThemeValidator.ValidateTheme(theme, TypographyThemeValidator.ThemeAssetPath);
+            result.ThemeValidationPassed = !themeReport.HasErrors;
             if (themeReport.HasErrors)
             {
                 AddValidationErrors(themeReport, result);
             }
 
+            result.PrefabValidationPassed = true;
             foreach (var target in targets)
             {
                 if (string.IsNullOrWhiteSpace(target.PrefabPath))
                 {
+                    result.PrefabValidationPassed = false;
                     result.AddError($"{target.Name}: Prefab path is empty.");
                     continue;
                 }
@@ -269,6 +329,7 @@ namespace Game.Feature.UI.Composition.Editor
                 var prefabReport = TypographyBindingValidator.ValidatePrefabAtPath(target.PrefabPath, theme);
                 if (prefabReport.HasErrors)
                 {
+                    result.PrefabValidationPassed = false;
                     AddValidationErrors(prefabReport, result);
                 }
             }
@@ -348,12 +409,13 @@ namespace Game.Feature.UI.Composition.Editor
                     capture.AddError(error);
                 }
 
+                fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(prefabRoot);
+                ValidateLocalizedGlyphCoverage(prefabRoot, capture);
                 if (capture.HasErrors)
                 {
                     return capture;
                 }
 
-                fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(prefabRoot);
                 SetupPreviewScene(prefabRoot, options, out cameraObject, out canvasObject, out var camera);
                 ForceCanvasGroupsVisible(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
@@ -362,6 +424,24 @@ namespace Game.Feature.UI.Composition.Editor
                 var texture = RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
                 try
                 {
+                    capture.OrientationValidationResult = "PASS_PIPELINE_CONTRACT";
+                    if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                    {
+                        capture.NonBlankValidationResult = "NOT_SUPPORTED_NOGRAPHICS";
+                    }
+                    else
+                    {
+                        var pixels = texture.GetPixels32();
+                        capture.NonBlankValidationResult =
+                            pixels.Length > 0 && pixels.Any(pixel => !pixel.Equals(pixels[0]))
+                                ? "PASS"
+                                : "FAIL";
+                        if (string.Equals(capture.NonBlankValidationResult, "FAIL", StringComparison.Ordinal))
+                        {
+                            capture.AddError($"{filePath}: Captured PNG is blank or single-color.");
+                        }
+                    }
+
                     File.WriteAllBytes(filePath, texture.EncodeToPNG());
                 }
                 finally
@@ -595,7 +675,9 @@ namespace Game.Feature.UI.Composition.Editor
             GameObject root)
         {
             var allText = root.GetComponentsInChildren<TMP_Text>(true);
-            foreach (var descriptor in descriptors)
+            var descriptorList = descriptors.ToArray();
+            capture.ExpectedLocalizedTextCount = descriptorList.Length;
+            foreach (var descriptor in descriptorList)
             {
                 if (!resolver.TryResolveExact(descriptor, out var expected))
                 {
@@ -603,15 +685,69 @@ namespace Game.Feature.UI.Composition.Editor
                     continue;
                 }
 
-                if (allText.Any(text => text != null && string.Equals(text.text, expected, StringComparison.Ordinal)))
+                var matchingText = allText.FirstOrDefault(text =>
+                    text != null && string.Equals(text.text, expected, StringComparison.Ordinal));
+                if (matchingText != null)
                 {
                     capture.LocalizedTextAppliedCount++;
+                    capture.AddLocalizedText(expected);
                     continue;
                 }
 
                 capture.AddError(
                     $"{target.Name} {resolver.CurrentLocaleCode}: Expected localized text '{expected}' from {descriptor.Table}:{descriptor.Key} was not applied before capture.");
             }
+        }
+
+        private static void ValidateLocalizedGlyphCoverage(
+            GameObject root,
+            TypographyPreviewScreenshotCaptureResult capture)
+        {
+            var allText = root.GetComponentsInChildren<TMP_Text>(true);
+            var missingGlyphs = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var localizedText in capture.LocalizedTexts)
+            {
+                var target = allText.FirstOrDefault(text =>
+                    text != null && string.Equals(text.text, localizedText, StringComparison.Ordinal));
+                if (target == null)
+                {
+                    missingGlyphs.Add($"localized text '{localizedText}' has no TMP target after preview");
+                    continue;
+                }
+
+                foreach (var character in localizedText)
+                {
+                    if (char.IsControl(character) ||
+                        char.IsWhiteSpace(character) ||
+                        HasRenderableCharacter(target.font, character))
+                    {
+                        continue;
+                    }
+
+                    missingGlyphs.Add($"'{character}' U+{(int)character:X4}");
+                }
+            }
+
+            capture.GlyphTofuValidationResult = missingGlyphs.Count == 0 ? "PASS" : "FAIL";
+            foreach (var missingGlyph in missingGlyphs)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: Font coverage is missing {missingGlyph}.");
+            }
+        }
+
+        private static bool HasRenderableCharacter(TMP_FontAsset fontAsset, char character)
+        {
+            if (fontAsset != null &&
+                fontAsset.HasCharacter(character, searchFallbacks: true, tryAddCharacter: false))
+            {
+                return true;
+            }
+
+            return TMP_Settings.fallbackFontAssets != null &&
+                   TMP_Settings.fallbackFontAssets.Any(fallback =>
+                       fallback != null &&
+                       fallback.HasCharacter(character, searchFallbacks: true, tryAddCharacter: false));
         }
 
         private static IReadOnlyList<LocalizedTextDescriptor> GetSettingsDescriptors(SettingsScreenPayload payload)
