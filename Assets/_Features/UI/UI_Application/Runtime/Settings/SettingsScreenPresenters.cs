@@ -145,13 +145,6 @@ namespace Game.Feature.UI.Application
 
     public sealed class SettingsDisplayPresenter
     {
-        private const string PreviewRevertedStatusText =
-            "Preview reverted to the previous saved display settings.";
-        private const string PreviewCommittedStatusText =
-            "Display settings saved.";
-        private const string ExternalDriftStatusText =
-            "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.";
-
         private readonly IDisplaySettingsPort _displaySettingsPort;
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly IUiLocaleSelectionPort _localeSelectionPort;
@@ -167,7 +160,7 @@ namespace Game.Feature.UI.Application
         private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
-        private string _displayStatusText = string.Empty;
+        private LocalizedTextDescriptor _displayStatusDescriptor;
         private bool _isDisplayStatusTransient;
         private DisplayPreviewCountdownSnapshot _previewCountdown = DisplayPreviewCountdownSnapshot.Inactive;
 
@@ -255,7 +248,7 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: false,
                 previewTimeoutSeconds: previewTimeoutSeconds,
-                overrideStatusText: started ? BuildPreviewActiveStatusText(previewTimeoutSeconds) : null,
+                overrideStatusDescriptor: started ? BuildPreviewActiveStatusDescriptor(previewTimeoutSeconds) : default,
                 overrideStatusTransient: false);
             return started;
         }
@@ -267,7 +260,9 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: true,
                 previewTimeoutSeconds: 0d,
-                overrideStatusText: reverted ? PreviewRevertedStatusText : null,
+                overrideStatusDescriptor: reverted
+                    ? SettingsDynamicTextDescriptors.DisplayPreviewRevertedStatus()
+                    : default,
                 overrideStatusTransient: reverted);
             return reverted;
         }
@@ -279,7 +274,9 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: true,
                 previewTimeoutSeconds: 0d,
-                overrideStatusText: committed ? PreviewCommittedStatusText : null,
+                overrideStatusDescriptor: committed
+                    ? SettingsDynamicTextDescriptors.DisplaySavedStatus()
+                    : default,
                 overrideStatusTransient: committed);
             return committed;
         }
@@ -352,7 +349,7 @@ namespace Game.Feature.UI.Application
         private void ResyncState(
             bool resetStagedToCommitted,
             double previewTimeoutSeconds,
-            string overrideStatusText = null,
+            LocalizedTextDescriptor overrideStatusDescriptor = default,
             bool overrideStatusTransient = false)
         {
             _displaySnapshot = _displaySettingsPort.Read();
@@ -377,8 +374,10 @@ namespace Game.Feature.UI.Application
                 _stagedDisplayModeIndex = ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count);
             }
 
-            _displayStatusText = overrideStatusText ?? BuildDisplayStatusText(previewTimeoutSeconds);
-            _isDisplayStatusTransient = overrideStatusText != null && overrideStatusTransient;
+            _displayStatusDescriptor = HasDescriptor(overrideStatusDescriptor)
+                ? overrideStatusDescriptor
+                : BuildDisplayStatusDescriptor(previewTimeoutSeconds);
+            _isDisplayStatusTransient = HasDescriptor(overrideStatusDescriptor) && overrideStatusTransient;
             RefreshViewModel();
         }
 
@@ -389,42 +388,42 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            _displayStatusText = string.Empty;
+            _displayStatusDescriptor = default;
             _isDisplayStatusTransient = false;
         }
 
-        private static string BuildPreviewActiveStatusText(double previewTimeoutSeconds)
+        private static LocalizedTextDescriptor BuildPreviewActiveStatusDescriptor(double previewTimeoutSeconds)
         {
             var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
                 previewTimeoutSeconds,
                 previewTimeoutSeconds);
-            return $"Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {visibleTimeoutSeconds} seconds.";
+            return SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(visibleTimeoutSeconds);
         }
 
-        private string BuildDisplayStatusText(double previewTimeoutSeconds)
+        private LocalizedTextDescriptor BuildDisplayStatusDescriptor(double previewTimeoutSeconds)
         {
             if (_displaySnapshot.IsPreviewActive)
             {
-                return BuildPreviewActiveStatusText(previewTimeoutSeconds);
+                return BuildPreviewActiveStatusDescriptor(previewTimeoutSeconds);
             }
 
             if (_displaySnapshot.CurrentRuntimeWindowMode != _displaySnapshot.CommittedWindowMode)
             {
-                return ExternalDriftStatusText;
+                return SettingsDynamicTextDescriptors.DisplayExternalDriftStatus();
             }
 
             if (_displaySnapshot.AvailableModes.Count == 0)
             {
-                return string.Empty;
+                return default;
             }
 
             var committedIndex = ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count);
             if (_displaySnapshot.CurrentRuntimeResolutionLabel != _displaySnapshot.AvailableModes[committedIndex].LabelText)
             {
-                return ExternalDriftStatusText;
+                return SettingsDynamicTextDescriptors.DisplayExternalDriftStatus();
             }
 
-            return string.Empty;
+            return default;
         }
 
         private void RefreshViewModel()
@@ -445,6 +444,9 @@ namespace Game.Feature.UI.Application
             var previewCountdownNormalized = isPreviewCountdownVisible
                 ? Clamp01((float)_previewCountdown.RemainingSeconds / _previewCountdown.TotalSeconds)
                 : 0f;
+            var displayStatusText = HasDescriptor(_displayStatusDescriptor)
+                ? Resolve(_displayStatusDescriptor)
+                : string.Empty;
 
             ViewModel.SetContent(
                 Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue(
@@ -452,14 +454,14 @@ namespace Game.Feature.UI.Application
                 resolutionOptions,
                 _stagedDisplayModeIndex,
                 _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
-                _displayStatusText,
+                displayStatusText,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 _displaySnapshot.IsPreviewActive,
                 previewCountdownText,
                 previewCountdownNormalized,
                 isPreviewCountdownVisible,
-                _displayStatusText.Length > 0,
+                displayStatusText.Length > 0,
                 _isDisplayStatusTransient,
                 Resolve(_languageLabelDescriptor),
                 Resolve(CurrentLanguageDescriptor),
@@ -528,6 +530,12 @@ namespace Game.Feature.UI.Application
         private string Resolve(LocalizedTextDescriptor descriptor)
         {
             return _localizedTextResolver.Resolve(descriptor);
+        }
+
+        private static bool HasDescriptor(LocalizedTextDescriptor descriptor)
+        {
+            return !string.IsNullOrEmpty(descriptor.Table) ||
+                   !string.IsNullOrEmpty(descriptor.Key);
         }
     }
 
@@ -912,6 +920,17 @@ namespace Game.Feature.UI.Application
             ["ui.settings.audio"] = "Audio",
             ["ui.settings.display"] = "Display",
             ["ui.settings.input"] = "Input",
+            ["ui.settings.audio.main"] = "Main",
+            ["ui.settings.audio.bgm"] = "Background Music",
+            ["ui.settings.audio.sfx"] = "Effects",
+            ["ui.settings.audio.mute"] = "Mute",
+            ["ui.settings.display.current"] = "Current Display",
+            ["ui.settings.display.resolution"] = "Resolution",
+            ["ui.settings.display.resolution_hint"] = "Only automatically detected resolutions are shown.",
+            ["ui.settings.display.fullscreen_window"] = "Fullscreen Window",
+            ["ui.settings.display.fullscreen_on"] = "On",
+            ["ui.settings.display.apply"] = "Apply",
+            ["ui.settings.display.revert"] = "Revert",
             ["ui.settings.input.movement_keys"] = "Movement Keys",
             ["ui.settings.input.use_arrow_keys"] = "Use Arrow Keys",
             ["ui.settings.input.push"] = "Push",
@@ -924,6 +943,10 @@ namespace Game.Feature.UI.Application
             ["ui.settings.audio.volume_value"] = "{percent}%",
             ["ui.settings.audio.volume_value_muted"] = "{percent}% (Muted)",
             ["ui.settings.display.resolution_value"] = "{0}",
+            ["ui.settings.display.status.preview_active"] = "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.",
+            ["ui.settings.display.status.preview_reverted"] = "Preview reverted to the previous saved display settings.",
+            ["ui.settings.display.status.saved"] = "Display settings saved.",
+            ["ui.settings.display.status.external_drift"] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
             ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
             ["ui.settings.input.reset_complete"] = "Input settings reset.",
             ["ui.common.back"] = "Back",
@@ -975,6 +998,16 @@ namespace Game.Feature.UI.Application
                 descriptor.Arguments.Count > 0)
             {
                 return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
+            }
+
+            if (string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey, StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace(
+                    "{0}",
+                    Convert.ToString(
+                        descriptor.Arguments[0],
+                        System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
             }
 
             return value;

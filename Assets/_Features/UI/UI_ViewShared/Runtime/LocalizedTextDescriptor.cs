@@ -264,7 +264,8 @@ namespace Game.Feature.UI.ViewShared
                 return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
             }
 
-            if (string.Equals(descriptor.Key, "ui.settings.display.preview_countdown", StringComparison.Ordinal) &&
+            if ((string.Equals(descriptor.Key, "ui.settings.display.preview_countdown", StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, "ui.settings.display.status.preview_active", StringComparison.Ordinal)) &&
                 descriptor.Arguments.Count > 0)
             {
                 return value.Replace(
@@ -374,6 +375,10 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.audio.volume_value_muted"] = "{0}% (Muted)",
                     ["ui.settings.display.resolution_value"] = "{0}",
                     ["ui.settings.display.preview_countdown"] = "Reverting in {0}s",
+                    ["ui.settings.display.status.preview_active"] = "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.",
+                    ["ui.settings.display.status.preview_reverted"] = "Preview reverted to the previous saved display settings.",
+                    ["ui.settings.display.status.saved"] = "Display settings saved.",
+                    ["ui.settings.display.status.external_drift"] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
                     ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
                     ["ui.settings.input.reset_complete"] = "Input settings reset.",
                     ["ui.settings.input.reserved_key"] = "This key is reserved.",
@@ -408,6 +413,10 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.settings.audio.volume_value_muted"] = "{0}% (음소거)",
                     ["ui.settings.display.resolution_value"] = "{0}",
                     ["ui.settings.display.preview_countdown"] = "{0}초 후 되돌림",
+                    ["ui.settings.display.status.preview_active"] = "미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 {0}초 후 되돌아갑니다.",
+                    ["ui.settings.display.status.preview_reverted"] = "미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다.",
+                    ["ui.settings.display.status.saved"] = "화면 설정이 저장되었습니다.",
+                    ["ui.settings.display.status.external_drift"] = "현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다.",
                     ["ui.settings.input.rebind_canceled"] = "키 변경 취소됨",
                     ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
                     ["ui.settings.input.reserved_key"] = "이 키는 예약되어 있습니다.",

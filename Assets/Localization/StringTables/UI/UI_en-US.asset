@@ -148,6 +148,69 @@ MonoBehaviour:
     m_Localized: Rebind already in progress.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587484864512
+    m_Localized: Main
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499328
+    m_Localized: Background Music
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499329
+    m_Localized: Effects
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499330
+    m_Localized: Mute
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499331
+    m_Localized: Current Display
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499332
+    m_Localized: Resolution
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499333
+    m_Localized: Only automatically detected resolutions are shown.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499334
+    m_Localized: Fullscreen Window
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499335
+    m_Localized: On
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499336
+    m_Localized: Apply
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499337
+    m_Localized: Revert
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693632
+    m_Localized: Preview active. Current display is temporary and not saved. Confirm
+      to keep it, or it will revert in {0} seconds.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693633
+    m_Localized: Preview reverted to the previous saved display settings.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693634
+    m_Localized: Display settings saved.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693635
+    m_Localized: Current display changed outside saved settings. Saved settings remain
+      unchanged until you apply again.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -161,3 +224,4 @@ MonoBehaviour:
         - id: 283195138859008
         - id: 283195180802048
         - id: 283195222745088
+        - id: 4971587610693632

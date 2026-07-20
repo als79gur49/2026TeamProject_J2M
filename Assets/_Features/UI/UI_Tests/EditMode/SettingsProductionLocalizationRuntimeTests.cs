@@ -18,8 +18,8 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SettingsProductionLocalizationRuntimeTests
     {
-        private const int SettingsStaticBindingCount = 13;
-        private const int SettingsTypographyBindingCount = 15;
+        private const int SettingsStaticBindingCount = 27;
+        private const int SettingsTypographyBindingCount = 28;
         private const string ScaleRatioA = "_ScaleRatioA";
         private const string ScaleRatioC = "_ScaleRatioC";
 

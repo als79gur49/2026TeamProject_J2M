@@ -347,7 +347,7 @@ namespace Game.Feature.UI.Tests
             switch (fileStem)
             {
                 case "Settings":
-                    return 11;
+                    return 22;
 
                 case "Pause":
                     return 6;

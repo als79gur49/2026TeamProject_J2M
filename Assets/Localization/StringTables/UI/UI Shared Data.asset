@@ -139,6 +139,66 @@ MonoBehaviour:
     m_Key: ui.settings.input.already_rebinding
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587484864512
+    m_Key: ui.settings.audio.main
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499328
+    m_Key: ui.settings.audio.bgm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499329
+    m_Key: ui.settings.audio.sfx
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499330
+    m_Key: ui.settings.audio.mute
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499331
+    m_Key: ui.settings.display.current
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499332
+    m_Key: ui.settings.display.resolution
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499333
+    m_Key: ui.settings.display.resolution_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499334
+    m_Key: ui.settings.display.fullscreen_window
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499335
+    m_Key: ui.settings.display.fullscreen_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499336
+    m_Key: ui.settings.display.apply
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499337
+    m_Key: ui.settings.display.revert
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693632
+    m_Key: ui.settings.display.status.preview_active
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693633
+    m_Key: ui.settings.display.status.preview_reverted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693634
+    m_Key: ui.settings.display.status.saved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693635
+    m_Key: ui.settings.display.status.external_drift
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

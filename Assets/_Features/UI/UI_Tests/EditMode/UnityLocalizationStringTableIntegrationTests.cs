@@ -75,11 +75,13 @@ namespace Game.Feature.UI.Tests
             AssertDisplaySmartEntries(
                 collection.GetTable("en-US") as StringTable,
                 "{0}",
-                "Reverting in {0}s");
+                "Reverting in {0}s",
+                "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.");
             AssertDisplaySmartEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "{0}",
-                "{0}초 후 되돌림");
+                "{0}초 후 되돌림",
+                "미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 {0}초 후 되돌아갑니다.");
         }
 
         [Test]
@@ -191,6 +193,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
                 Is.EqualTo("Reverting in 10s"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(10)),
+                Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 10 seconds."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewRevertedStatus()),
+                Is.EqualTo("Preview reverted to the previous saved display settings."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplaySavedStatus()),
+                Is.EqualTo("Display settings saved."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayExternalDriftStatus()),
+                Is.EqualTo("Current display changed outside saved settings. Saved settings remain unchanged until you apply again."));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
@@ -200,6 +214,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(10)),
                 Is.EqualTo("10초 후 되돌림"));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(10)),
+                Is.EqualTo("미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 10초 후 되돌아갑니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewRevertedStatus()),
+                Is.EqualTo("미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplaySavedStatus()),
+                Is.EqualTo("화면 설정이 저장되었습니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.DisplayExternalDriftStatus()),
+                Is.EqualTo("현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다."));
         }
 
         [Test]
@@ -286,6 +312,68 @@ namespace Game.Feature.UI.Tests
             Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
             Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+        }
+
+        [Test]
+        public void RuntimeSettings_RequiredStaticShellUsesUnityTableBindingsAndRawKeyNamesRemainUnlocalized()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+
+            AssertSettingsStaticShell(
+                harness.SettingsView,
+                "Main",
+                "Background Music",
+                "Effects",
+                "Mute",
+                "Current Display",
+                "Resolution",
+                "Only automatically detected resolutions are shown.",
+                "Fullscreen Window",
+                "On",
+                "Apply",
+                "Revert");
+            AssertRawInputNames(harness.SettingsView, "WASD", "E", "Q");
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+
+            AssertSettingsStaticShell(
+                harness.SettingsView,
+                "마스터",
+                "배경 음악",
+                "효과음",
+                "음소거",
+                "현재 디스플레이",
+                "해상도",
+                "자동으로 감지된 해상도만 표시됩니다.",
+                "전체 화면 창",
+                "켜짐",
+                "적용",
+                "되돌리기");
+            AssertRawInputNames(harness.SettingsView, "WASD", "E", "Q");
+        }
+
+        [Test]
+        public void RuntimeSettings_StaticShellLocaleSwitchPreservesAuthoredLayoutGeometry()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            ForceSettingsLayout(harness.SettingsView);
+            var englishGeometry = CaptureSettingsGeometry(harness.SettingsView);
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            ForceSettingsLayout(harness.SettingsView);
+            var koreanGeometry = CaptureSettingsGeometry(harness.SettingsView);
+
+            foreach (var pair in englishGeometry)
+            {
+                Assert.That(koreanGeometry[pair.Key].x, Is.EqualTo(pair.Value.x).Within(0.01f), $"{pair.Key} width");
+                Assert.That(koreanGeometry[pair.Key].y, Is.EqualTo(pair.Value.y).Within(0.01f), $"{pair.Key} height");
+            }
         }
 
         [Test]
@@ -511,7 +599,8 @@ namespace Game.Feature.UI.Tests
         private static void AssertDisplaySmartEntries(
             StringTable table,
             string resolutionValue,
-            string previewCountdownValue)
+            string previewCountdownValue,
+            string previewActiveStatusValue)
         {
             Assert.That(table, Is.Not.Null);
             var entry = table.GetEntry(SettingsDynamicTextDescriptors.DisplayResolutionValueKey);
@@ -525,6 +614,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(previewCountdownValue));
             Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
             Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(previewActiveStatusValue));
+            Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
+            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey);
         }
 
         private static void AssertInputDynamicEntries(
@@ -650,6 +745,92 @@ namespace Game.Feature.UI.Tests
             var value = field.GetValue(target) as TMP_Text;
             Assert.That(value, Is.Not.Null);
             return value;
+        }
+
+        private static void AssertSettingsStaticShell(
+            SettingsScreenView view,
+            string audioMain,
+            string audioBgm,
+            string audioSfx,
+            string mute,
+            string currentDisplay,
+            string resolution,
+            string resolutionHint,
+            string fullscreenWindow,
+            string fullscreenOn,
+            string apply,
+            string revert)
+        {
+            const string audioRoot = "SettingsSectionHost/SettingsAudioSection";
+            Assert.That(GetTextAtPath(view, $"{audioRoot}/MainAudioRow/Label").text, Is.EqualTo(audioMain));
+            Assert.That(GetTextAtPath(view, $"{audioRoot}/BgmAudioRow/Label").text, Is.EqualTo(audioBgm));
+            Assert.That(GetTextAtPath(view, $"{audioRoot}/SfxAudioRow/Label").text, Is.EqualTo(audioSfx));
+            Assert.That(GetTextAtPath(view, $"{audioRoot}/MainAudioRow/MuteToggle/Label").text, Is.EqualTo(mute));
+            Assert.That(GetTextAtPath(view, $"{audioRoot}/BgmAudioRow/MuteToggle/Label").text, Is.EqualTo(mute));
+            Assert.That(GetTextAtPath(view, $"{audioRoot}/SfxAudioRow/MuteToggle/Label").text, Is.EqualTo(mute));
+
+            const string displayRoot = "SettingsSectionHost/SettingsDisplaySection";
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/CurrentDisplayRow/CurrentDisplayLabel").text, Is.EqualTo(currentDisplay));
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/ResolutionRow/ResolutionLabel").text, Is.EqualTo(resolution));
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/ResolutionHoverHint/ResolutionHoverHintText").text, Is.EqualTo(resolutionHint));
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/FullscreenRow/FullscreenLabel").text, Is.EqualTo(fullscreenWindow));
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/FullscreenRow/FullscreenToggle/Label").text, Is.EqualTo(fullscreenOn));
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/DisplayActionRow/DisplayApplyButton_New/MASK/Item/FlipChangeLabel").text, Is.EqualTo(apply));
+            Assert.That(GetTextAtPath(view, $"{displayRoot}/DisplayActionRow/DisplayRevertButton_New/MASK/Item/FlipChangeLabel").text, Is.EqualTo(revert));
+        }
+
+        private static void AssertRawInputNames(
+            SettingsScreenView view,
+            string movement,
+            string push,
+            string flip)
+        {
+            Assert.That(GetText(view.InputView, "_movementCurrentText").text, Is.EqualTo(movement));
+            Assert.That(GetText(view.InputView, "_pushCurrentText").text, Is.EqualTo(push));
+            Assert.That(GetText(view.InputView, "_flipCurrentText").text, Is.EqualTo(flip));
+        }
+
+        private static TMP_Text GetTextAtPath(SettingsScreenView view, string path)
+        {
+            var target = view.transform.Find(path);
+            Assert.That(target, Is.Not.Null, path);
+            var text = target.GetComponent<TMP_Text>();
+            Assert.That(text, Is.Not.Null, path);
+            return text;
+        }
+
+        private static Dictionary<string, UnityEngine.Vector2> CaptureSettingsGeometry(SettingsScreenView view)
+        {
+            var paths = new[]
+            {
+                "SettingsTabRow",
+                "SettingsSectionHost",
+                "SettingsSectionHost/SettingsAudioSection",
+                "SettingsSectionHost/SettingsAudioSection/MainAudioRow",
+                "SettingsSectionHost/SettingsAudioSection/MainAudioRow/Label",
+                "SettingsSectionHost/SettingsAudioSection/MainAudioRow/Slider",
+                "SettingsSectionHost/SettingsAudioSection/MainAudioRow/Value",
+                "SettingsSectionHost/SettingsAudioSection/MainAudioRow/MuteToggle",
+            };
+            var geometry = new Dictionary<string, UnityEngine.Vector2>(StringComparer.Ordinal)
+            {
+                ["SettingsScreen"] = ((UnityEngine.RectTransform)view.transform).rect.size,
+            };
+            foreach (var path in paths)
+            {
+                var target = view.transform.Find(path) as UnityEngine.RectTransform;
+                Assert.That(target, Is.Not.Null, path);
+                geometry[path] = target.rect.size;
+            }
+
+            return geometry;
+        }
+
+        private static void ForceSettingsLayout(SettingsScreenView view)
+        {
+            UnityEngine.Canvas.ForceUpdateCanvases();
+            UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate((UnityEngine.RectTransform)view.transform);
+            UnityEngine.Canvas.ForceUpdateCanvases();
         }
 
         private static void AssertPauseLabels(

@@ -144,7 +144,12 @@ namespace Game.Feature.UI.Screens
 
             if (_audioView != null)
             {
-                _audioView.BindTypography(textResolver, typographyTheme);
+                _audioView.BindStaticLocalization(
+                    payload,
+                    textResolver,
+                    typographyResolver,
+                    fontResolver,
+                    typographyTheme);
             }
 
             if (_inputView != null)
@@ -168,7 +173,7 @@ namespace Game.Feature.UI.Screens
 
             if (_audioView != null)
             {
-                _audioView.UnbindTypography();
+                _audioView.UnbindStaticLocalization();
             }
 
             if (_inputView != null)

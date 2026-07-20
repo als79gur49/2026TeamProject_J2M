@@ -25,6 +25,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _resolutionHoverHintLabel;
         [SerializeField] private TMP_Text _fullscreenLabel;
         [SerializeField] private Toggle _fullscreenToggle;
+        [SerializeField] private TMP_Text _fullscreenToggleLabel;
         [SerializeField] private TMP_Text _languageLabel;
         [SerializeField] private Button _languageCycleButton;
         [SerializeField] private TMP_Text _languageCycleButtonLabel;
@@ -41,6 +42,7 @@ namespace Game.Feature.UI.Screens
         private bool _isResolutionHoverHintVisible;
         private bool _isVisible;
         private int _resolutionKeyboardHighlightedIndex = -1;
+        private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private ILocalizedTextResolver _localizedTextResolver;
         private ILocalizedTypographyResolver _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
         private ILocalizedTmpFontResolver _localizedTmpFontResolver;
@@ -122,6 +124,16 @@ namespace Game.Feature.UI.Screens
             _languageLabelDefaultMaterialPreset ??= _languageLabel != null ? _languageLabel.fontSharedMaterial : null;
             _languageCycleButtonLabelDefaultFontAsset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.font : null;
             _languageCycleButtonLabelDefaultMaterialPreset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.fontSharedMaterial : null;
+            _localizedStaticBindings = new List<LocalizedTmpTextBinding>
+            {
+                CreateBinding(_currentDisplayLabel, payload.DisplayCurrentLabelDescriptor),
+                CreateBinding(_resolutionLabel, payload.DisplayResolutionTextDescriptor),
+                CreateBinding(_resolutionHoverHintLabel, payload.ResolutionHintDescriptor),
+                CreateBinding(_fullscreenLabel, payload.FullscreenWindowLabelDescriptor),
+                CreateBinding(_fullscreenToggleLabel, payload.FullscreenOnLabelDescriptor),
+                CreateBinding(_applyButtonLabel, payload.DisplayApplyButtonTextDescriptor),
+                CreateBinding(_revertButtonLabel, payload.DisplayRevertButtonTextDescriptor),
+            };
 
             if (_localizedTextResolver != null)
             {
@@ -138,6 +150,7 @@ namespace Game.Feature.UI.Screens
                 _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
             }
 
+            DisposeLocalizedStaticBindings();
             _localizedTextResolver = null;
             _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
             _localizedTmpFontResolver = null;
@@ -176,6 +189,7 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel), issues);
             ValidateControl(_fullscreenLabel, nameof(_fullscreenLabel), issues);
             ValidateControl(_fullscreenToggle, nameof(_fullscreenToggle), issues);
+            ValidateControl(_fullscreenToggleLabel, nameof(_fullscreenToggleLabel), issues);
             ValidateControl(_languageLabel, nameof(_languageLabel), issues);
             ValidateControl(_languageCycleButton, nameof(_languageCycleButton), issues);
             ValidateControl(_languageCycleButtonLabel, nameof(_languageCycleButtonLabel), issues);
@@ -364,6 +378,7 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel));
             ValidateSerializedReference(_fullscreenLabel, nameof(_fullscreenLabel));
             ValidateSerializedReference(_fullscreenToggle, nameof(_fullscreenToggle));
+            ValidateSerializedReference(_fullscreenToggleLabel, nameof(_fullscreenToggleLabel));
             ValidateSerializedReference(_languageLabel, nameof(_languageLabel));
             ValidateSerializedReference(_languageCycleButton, nameof(_languageCycleButton));
             ValidateSerializedReference(_languageCycleButtonLabel, nameof(_languageCycleButtonLabel));
@@ -674,10 +689,39 @@ namespace Game.Feature.UI.Screens
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_resolutionLabel, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_resolutionHoverHintLabel, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_fullscreenLabel, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(_fullscreenToggleLabel, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_displayStatusLabel, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_previewCountdownLabel, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_applyButtonLabel, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(_revertButtonLabel, _typographyTheme, localeCode);
+        }
+
+        private LocalizedTmpTextBinding CreateBinding(
+            TMP_Text target,
+            LocalizedTextDescriptor descriptor)
+        {
+            return new LocalizedTmpTextBinding(
+                target,
+                descriptor,
+                _localizedTextResolver,
+                _localizedTypographyResolver,
+                _localizedTmpFontResolver,
+                _typographyTheme);
+        }
+
+        private void DisposeLocalizedStaticBindings()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            foreach (var binding in _localizedStaticBindings)
+            {
+                binding?.Dispose();
+            }
+
+            _localizedStaticBindings = null;
         }
 
         private void RefreshView()

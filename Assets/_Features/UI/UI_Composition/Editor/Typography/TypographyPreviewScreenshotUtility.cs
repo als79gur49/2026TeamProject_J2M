@@ -628,6 +628,17 @@ namespace Game.Feature.UI.Composition.Editor
                 payload.FlipLabelDescriptor,
                 payload.InputChangeLabelDescriptor,
                 payload.ResetInputLabelDescriptor,
+                payload.AudioMainLabelDescriptor,
+                payload.AudioBgmLabelDescriptor,
+                payload.AudioSfxLabelDescriptor,
+                payload.AudioMuteLabelDescriptor,
+                payload.DisplayCurrentLabelDescriptor,
+                payload.DisplayResolutionTextDescriptor,
+                payload.ResolutionHintDescriptor,
+                payload.FullscreenWindowLabelDescriptor,
+                payload.FullscreenOnLabelDescriptor,
+                payload.DisplayApplyButtonTextDescriptor,
+                payload.DisplayRevertButtonTextDescriptor,
                 payload.BackLabelDescriptor,
             };
         }

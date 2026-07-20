@@ -36,7 +36,18 @@ namespace Game.Feature.UI.Screens
             LocalizedTextDescriptor backLabelDescriptor = default,
             LocalizedTextDescriptor languageLabelDescriptor = default,
             LocalizedTextDescriptor englishLanguageLabelDescriptor = default,
-            LocalizedTextDescriptor koreanLanguageLabelDescriptor = default)
+            LocalizedTextDescriptor koreanLanguageLabelDescriptor = default,
+            LocalizedTextDescriptor audioMainLabelDescriptor = default,
+            LocalizedTextDescriptor audioBgmLabelDescriptor = default,
+            LocalizedTextDescriptor audioSfxLabelDescriptor = default,
+            LocalizedTextDescriptor audioMuteLabelDescriptor = default,
+            LocalizedTextDescriptor currentDisplayLabelDescriptor = default,
+            LocalizedTextDescriptor resolutionLabelDescriptor = default,
+            LocalizedTextDescriptor resolutionHintDescriptor = default,
+            LocalizedTextDescriptor fullscreenWindowLabelDescriptor = default,
+            LocalizedTextDescriptor fullscreenOnLabelDescriptor = default,
+            LocalizedTextDescriptor displayApplyLabelDescriptor = default,
+            LocalizedTextDescriptor displayRevertLabelDescriptor = default)
         {
             TitleTextDescriptor = OrDefault(titleTextDescriptor, SettingsStaticTextDescriptors.Title);
             AudioTabLabelDescriptor = OrDefault(audioTabLabelDescriptor, SettingsStaticTextDescriptors.AudioTab);
@@ -52,6 +63,17 @@ namespace Game.Feature.UI.Screens
             LanguageLabelDescriptor = OrDefault(languageLabelDescriptor, SettingsStaticTextDescriptors.Language);
             EnglishLanguageLabelDescriptor = OrDefault(englishLanguageLabelDescriptor, SettingsStaticTextDescriptors.LanguageEnglish);
             KoreanLanguageLabelDescriptor = OrDefault(koreanLanguageLabelDescriptor, SettingsStaticTextDescriptors.LanguageKorean);
+            AudioMainLabelDescriptor = OrDefault(audioMainLabelDescriptor, SettingsStaticTextDescriptors.AudioMain);
+            AudioBgmLabelDescriptor = OrDefault(audioBgmLabelDescriptor, SettingsStaticTextDescriptors.AudioBgm);
+            AudioSfxLabelDescriptor = OrDefault(audioSfxLabelDescriptor, SettingsStaticTextDescriptors.AudioSfx);
+            AudioMuteLabelDescriptor = OrDefault(audioMuteLabelDescriptor, SettingsStaticTextDescriptors.AudioMute);
+            DisplayCurrentLabelDescriptor = OrDefault(currentDisplayLabelDescriptor, SettingsStaticTextDescriptors.DisplayCurrent);
+            DisplayResolutionTextDescriptor = OrDefault(resolutionLabelDescriptor, SettingsStaticTextDescriptors.DisplayResolution);
+            ResolutionHintDescriptor = OrDefault(resolutionHintDescriptor, SettingsStaticTextDescriptors.DisplayResolutionHint);
+            FullscreenWindowLabelDescriptor = OrDefault(fullscreenWindowLabelDescriptor, SettingsStaticTextDescriptors.DisplayFullscreenWindow);
+            FullscreenOnLabelDescriptor = OrDefault(fullscreenOnLabelDescriptor, SettingsStaticTextDescriptors.DisplayFullscreenOn);
+            DisplayApplyButtonTextDescriptor = OrDefault(displayApplyLabelDescriptor, SettingsStaticTextDescriptors.DisplayApply);
+            DisplayRevertButtonTextDescriptor = OrDefault(displayRevertLabelDescriptor, SettingsStaticTextDescriptors.DisplayRevert);
         }
 
         public LocalizedTextDescriptor TitleTextDescriptor { get; }
@@ -81,6 +103,28 @@ namespace Game.Feature.UI.Screens
         public LocalizedTextDescriptor EnglishLanguageLabelDescriptor { get; }
 
         public LocalizedTextDescriptor KoreanLanguageLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor AudioMainLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor AudioBgmLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor AudioSfxLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor AudioMuteLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor DisplayCurrentLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor DisplayResolutionTextDescriptor { get; }
+
+        public LocalizedTextDescriptor ResolutionHintDescriptor { get; }
+
+        public LocalizedTextDescriptor FullscreenWindowLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor FullscreenOnLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor DisplayApplyButtonTextDescriptor { get; }
+
+        public LocalizedTextDescriptor DisplayRevertButtonTextDescriptor { get; }
 
         private static LocalizedTextDescriptor OrDefault(
             LocalizedTextDescriptor descriptor,
@@ -119,6 +163,72 @@ namespace Game.Feature.UI.Screens
             "ui.settings.input",
             LocalizedTextRole.Subtitle,
             LocalizedTextWeight.Bold);
+
+        public static readonly LocalizedTextDescriptor AudioMain = new(
+            Table,
+            "ui.settings.audio.main",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor AudioBgm = new(
+            Table,
+            "ui.settings.audio.bgm",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor AudioSfx = new(
+            Table,
+            "ui.settings.audio.sfx",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor AudioMute = new(
+            Table,
+            "ui.settings.audio.mute",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayCurrent = new(
+            Table,
+            "ui.settings.display.current",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayResolution = new(
+            Table,
+            "ui.settings.display.resolution",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayResolutionHint = new(
+            Table,
+            "ui.settings.display.resolution_hint",
+            LocalizedTextRole.Body,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayFullscreenWindow = new(
+            Table,
+            "ui.settings.display.fullscreen_window",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayFullscreenOn = new(
+            Table,
+            "ui.settings.display.fullscreen_on",
+            LocalizedTextRole.Label,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayApply = new(
+            Table,
+            "ui.settings.display.apply",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayRevert = new(
+            Table,
+            "ui.settings.display.revert",
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor MovementKeys = new(
             Table,
@@ -187,6 +297,10 @@ namespace Game.Feature.UI.Screens
         public const string AudioVolumeValueMutedKey = "ui.settings.audio.volume_value_muted";
         public const string DisplayResolutionValueKey = "ui.settings.display.resolution_value";
         public const string DisplayPreviewCountdownKey = "ui.settings.display.preview_countdown";
+        public const string DisplayPreviewActiveStatusKey = "ui.settings.display.status.preview_active";
+        public const string DisplayPreviewRevertedStatusKey = "ui.settings.display.status.preview_reverted";
+        public const string DisplaySavedStatusKey = "ui.settings.display.status.saved";
+        public const string DisplayExternalDriftStatusKey = "ui.settings.display.status.external_drift";
         public const string InputRebindCanceledKey = "ui.settings.input.rebind_canceled";
         public const string InputResetCompleteKey = "ui.settings.input.reset_complete";
         public const string InputReservedKeyKey = "ui.settings.input.reserved_key";
@@ -221,6 +335,43 @@ namespace Game.Feature.UI.Screens
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular,
                 new object[] { seconds });
+        }
+
+        public static LocalizedTextDescriptor DisplayPreviewActiveStatus(int seconds)
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                DisplayPreviewActiveStatusKey,
+                LocalizedTextRole.Body,
+                LocalizedTextWeight.Regular,
+                new object[] { seconds });
+        }
+
+        public static LocalizedTextDescriptor DisplayPreviewRevertedStatus()
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                DisplayPreviewRevertedStatusKey,
+                LocalizedTextRole.Body,
+                LocalizedTextWeight.Regular);
+        }
+
+        public static LocalizedTextDescriptor DisplaySavedStatus()
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                DisplaySavedStatusKey,
+                LocalizedTextRole.Body,
+                LocalizedTextWeight.Regular);
+        }
+
+        public static LocalizedTextDescriptor DisplayExternalDriftStatus()
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                DisplayExternalDriftStatusKey,
+                LocalizedTextRole.Body,
+                LocalizedTextWeight.Regular);
         }
 
         public static LocalizedTextDescriptor InputRebindCanceled()

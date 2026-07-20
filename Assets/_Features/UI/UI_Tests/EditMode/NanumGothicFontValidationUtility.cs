@@ -83,6 +83,7 @@ namespace Game.Feature.UI.Tests
 
             var characterSet = BuildValidationCharacterSet();
             fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+            fontAsset.ClearFontAssetData();
             if (!fontAsset.TryAddCharacters(characterSet, out var missingCharacters))
             {
                 throw new InvalidOperationException(

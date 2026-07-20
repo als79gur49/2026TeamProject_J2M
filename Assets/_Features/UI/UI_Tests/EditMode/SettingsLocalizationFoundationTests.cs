@@ -30,6 +30,17 @@ namespace Game.Feature.UI.Tests
             SettingsStaticTextDescriptors.Language,
             SettingsStaticTextDescriptors.LanguageEnglish,
             SettingsStaticTextDescriptors.LanguageKorean,
+            SettingsStaticTextDescriptors.AudioMain,
+            SettingsStaticTextDescriptors.AudioBgm,
+            SettingsStaticTextDescriptors.AudioSfx,
+            SettingsStaticTextDescriptors.AudioMute,
+            SettingsStaticTextDescriptors.DisplayCurrent,
+            SettingsStaticTextDescriptors.DisplayResolution,
+            SettingsStaticTextDescriptors.DisplayResolutionHint,
+            SettingsStaticTextDescriptors.DisplayFullscreenWindow,
+            SettingsStaticTextDescriptors.DisplayFullscreenOn,
+            SettingsStaticTextDescriptors.DisplayApply,
+            SettingsStaticTextDescriptors.DisplayRevert,
             SettingsStaticTextDescriptors.Back,
         };
 
@@ -118,6 +129,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptor.Table, Is.EqualTo("UI"));
             Assert.That(descriptor.Key, Is.EqualTo("ui.settings.display.preview_countdown"));
             Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { 10 }));
+        }
+
+        [Test]
+        public void SettingsDisplayPreviewStatusDynamicDescriptor_UsesUiSmartStringArgument()
+        {
+            var descriptor = SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(10);
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo("ui.settings.display.status.preview_active"));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Body));
             Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
             Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { 10 }));
         }
@@ -267,6 +290,17 @@ namespace Game.Feature.UI.Tests
                     "ui.settings.language",
                     "ui.settings.language.english",
                     "ui.settings.language.korean",
+                    "ui.settings.audio.main",
+                    "ui.settings.audio.bgm",
+                    "ui.settings.audio.sfx",
+                    "ui.settings.audio.mute",
+                    "ui.settings.display.current",
+                    "ui.settings.display.resolution",
+                    "ui.settings.display.resolution_hint",
+                    "ui.settings.display.fullscreen_window",
+                    "ui.settings.display.fullscreen_on",
+                    "ui.settings.display.apply",
+                    "ui.settings.display.revert",
                     "ui.common.back",
                 }));
         }
@@ -1176,6 +1210,17 @@ namespace Game.Feature.UI.Tests
                 payload.LanguageLabelDescriptor,
                 payload.EnglishLanguageLabelDescriptor,
                 payload.KoreanLanguageLabelDescriptor,
+                payload.AudioMainLabelDescriptor,
+                payload.AudioBgmLabelDescriptor,
+                payload.AudioSfxLabelDescriptor,
+                payload.AudioMuteLabelDescriptor,
+                payload.DisplayCurrentLabelDescriptor,
+                payload.DisplayResolutionTextDescriptor,
+                payload.ResolutionHintDescriptor,
+                payload.FullscreenWindowLabelDescriptor,
+                payload.FullscreenOnLabelDescriptor,
+                payload.DisplayApplyButtonTextDescriptor,
+                payload.DisplayRevertButtonTextDescriptor,
                 payload.BackLabelDescriptor,
             };
         }

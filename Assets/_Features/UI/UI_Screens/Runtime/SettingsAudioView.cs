@@ -26,6 +26,7 @@ namespace Game.Feature.UI.Screens
         private readonly Dictionary<AudioSettingsChannel, Action> _interactionCompletedHandlers = new();
         private readonly Dictionary<AudioSettingsChannel, float> _interactionStartValues = new();
         private readonly Dictionary<AudioSettingsChannel, float> _lastKnownValues = new();
+        private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private ILocalizedTextResolver _localizedTextResolver;
         private GameplayUiTypographyTheme _typographyTheme;
         private bool _isVisible;
@@ -37,18 +38,30 @@ namespace Game.Feature.UI.Screens
 
         public event Action InteractionCompleted;
 
-        public void BindTypography(
+        public void BindStaticLocalization(
+            SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver,
             GameplayUiTypographyTheme typographyTheme)
         {
-            UnbindTypography();
-            if (typographyTheme == null)
+            UnbindStaticLocalization();
+            if (payload == null)
             {
                 return;
             }
 
             _localizedTextResolver = textResolver;
             _typographyTheme = typographyTheme;
+            _localizedStaticBindings = new List<LocalizedTmpTextBinding>
+            {
+                CreateBinding(_mainRow.Label, payload.AudioMainLabelDescriptor, typographyResolver, fontResolver),
+                CreateBinding(_mainRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver, fontResolver),
+                CreateBinding(_bgmRow.Label, payload.AudioBgmLabelDescriptor, typographyResolver, fontResolver),
+                CreateBinding(_bgmRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver, fontResolver),
+                CreateBinding(_sfxRow.Label, payload.AudioSfxLabelDescriptor, typographyResolver, fontResolver),
+                CreateBinding(_sfxRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver, fontResolver),
+            };
             if (_localizedTextResolver != null)
             {
                 _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
@@ -57,13 +70,14 @@ namespace Game.Feature.UI.Screens
             RefreshTypography();
         }
 
-        public void UnbindTypography()
+        public void UnbindStaticLocalization()
         {
             if (_localizedTextResolver != null)
             {
                 _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
             }
 
+            DisposeLocalizedStaticBindings();
             _localizedTextResolver = null;
             _typographyTheme = null;
         }
@@ -206,7 +220,7 @@ namespace Game.Feature.UI.Screens
                 _viewModel.Changed -= HandleViewModelChanged;
             }
 
-            UnbindTypography();
+            UnbindStaticLocalization();
             UnbindAudioControls();
         }
 
@@ -369,6 +383,37 @@ namespace Game.Feature.UI.Screens
 
             LocalizedTmpTextApplicator.ApplyTypographyTheme(row.Label, _typographyTheme, localeCode);
             LocalizedTmpTextApplicator.ApplyTypographyTheme(row.Value, _typographyTheme, localeCode);
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(row.MuteLabel, _typographyTheme, localeCode);
+        }
+
+        private LocalizedTmpTextBinding CreateBinding(
+            TMP_Text target,
+            LocalizedTextDescriptor descriptor,
+            ILocalizedTypographyResolver typographyResolver,
+            ILocalizedTmpFontResolver fontResolver)
+        {
+            return new LocalizedTmpTextBinding(
+                target,
+                descriptor,
+                _localizedTextResolver,
+                typographyResolver,
+                fontResolver,
+                _typographyTheme);
+        }
+
+        private void DisposeLocalizedStaticBindings()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            foreach (var binding in _localizedStaticBindings)
+            {
+                binding?.Dispose();
+            }
+
+            _localizedStaticBindings = null;
         }
 
         private void RebindAudioControls()
@@ -554,6 +599,7 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(row.RowRoot, $"{fieldName}._rowRoot");
             ValidateSerializedReference(row.Label, $"{fieldName}._label");
             ValidateSerializedReference(row.Value, $"{fieldName}._value");
+            ValidateSerializedReference(row.MuteLabel, $"{fieldName}._muteLabel");
             ValidateSerializedReference(row.Slider, $"{fieldName}._slider");
             ValidateSerializedReference(row.Toggle, $"{fieldName}._toggle");
             ValidateSerializedReference(row.InteractionRelay, $"{fieldName}._interactionRelay");
@@ -584,6 +630,7 @@ namespace Game.Feature.UI.Screens
             [SerializeField] private RectTransform _rowRoot;
             [SerializeField] private TMP_Text _label;
             [SerializeField] private TMP_Text _value;
+            [SerializeField] private TMP_Text _muteLabel;
             [SerializeField] private Slider _slider;
             [SerializeField] private Toggle _toggle;
             [SerializeField] private SettingsSliderInteractionRelay _interactionRelay;
@@ -593,6 +640,8 @@ namespace Game.Feature.UI.Screens
             public TMP_Text Label => _label;
 
             public TMP_Text Value => _value;
+
+            public TMP_Text MuteLabel => _muteLabel;
 
             public Slider Slider => _slider;
 
@@ -605,6 +654,7 @@ namespace Game.Feature.UI.Screens
                 ValidateAssigned(_rowRoot, $"{rowName} row root", issues);
                 ValidateAssigned(_label, $"{rowName} label", issues);
                 ValidateAssigned(_value, $"{rowName} value label", issues);
+                ValidateAssigned(_muteLabel, $"{rowName} mute label", issues);
                 ValidateAssigned(_slider, $"{rowName} slider", issues);
                 ValidateAssigned(_toggle, $"{rowName} mute toggle", issues);
                 ValidateAssigned(_interactionRelay, $"{rowName} interaction relay", issues);
@@ -612,6 +662,7 @@ namespace Game.Feature.UI.Screens
                 ValidateChildOf(_rowRoot, sectionRoot, $"{rowName} row root", issues);
                 ValidateChildOf(_label, sectionRoot, $"{rowName} label", issues);
                 ValidateChildOf(_value, sectionRoot, $"{rowName} value label", issues);
+                ValidateChildOf(_muteLabel, sectionRoot, $"{rowName} mute label", issues);
                 ValidateChildOf(_slider, sectionRoot, $"{rowName} slider", issues);
                 ValidateChildOf(_toggle, sectionRoot, $"{rowName} mute toggle", issues);
                 ValidateChildOf(_interactionRelay, sectionRoot, $"{rowName} interaction relay", issues);

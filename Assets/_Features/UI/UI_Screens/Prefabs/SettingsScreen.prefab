@@ -23501,6 +23501,7 @@ MonoBehaviour:
   _resolutionHoverHintLabel: {fileID: 7964683249213566524}
   _fullscreenLabel: {fileID: 1089727914513330716}
   _fullscreenToggle: {fileID: 8059191994840306692}
+  _fullscreenToggleLabel: {fileID: 6797351849218954298}
   _languageLabel: {fileID: 6731348768901069781}
   _languageCycleButton: {fileID: 4631783173909078616}
   _languageCycleButtonLabel: {fileID: 6186895683398727908}
@@ -30307,6 +30308,7 @@ MonoBehaviour:
   _mainRow:
     _rowRoot: {fileID: 8037971709732897518}
     _label: {fileID: 2896739372126504891}
+    _muteLabel: {fileID: 7698467935857533061}
     _value: {fileID: 2627708318595729499}
     _slider: {fileID: 911202231720152638}
     _toggle: {fileID: 2018180775868635682}
@@ -30314,6 +30316,7 @@ MonoBehaviour:
   _bgmRow:
     _rowRoot: {fileID: 1904299484244785584}
     _label: {fileID: 3045418262135742510}
+    _muteLabel: {fileID: 8798739125250045428}
     _value: {fileID: 8552953236779049283}
     _slider: {fileID: 195998157351973282}
     _toggle: {fileID: 1254884342407105717}
@@ -30321,6 +30324,7 @@ MonoBehaviour:
   _sfxRow:
     _rowRoot: {fileID: 4991587507219778642}
     _label: {fileID: 4737727379004041050}
+    _muteLabel: {fileID: 2372702643370204561}
     _value: {fileID: 4090853517994724430}
     _slider: {fileID: 8267307858641380133}
     _toggle: {fileID: 7797158487336064926}
