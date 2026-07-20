@@ -73,7 +73,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(installer, Does.Contain("CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore)"));
             Assert.That(installer, Does.Not.Contain("ProfileJsonExplicit"));
             Assert.That(installer, Does.Not.Contain("EnableProfileWrite"));
-            Assert.That(installer, Does.Contain("new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider)"));
+            Assert.That(installer, Does.Contain("CampaignLaunchHandoffSessionStore.Instance"));
+            Assert.That(installer, Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
         }
 
         [Test]

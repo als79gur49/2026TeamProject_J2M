@@ -119,15 +119,15 @@ namespace Game.Feature.UI.Tests
         {
             var store = new RecordingSaveSlotStore(BlockedReport(CampaignSaveLoadStatus.IoFailed));
             var router = new RecordingStageLaunchRouter();
-            var pending = new RecordingPendingLaunchSlotProvider();
-            var controller = CreateController(store, router: router, pendingLaunchSlotProvider: pending);
+            var pending = new RecordingCampaignLaunchHandoffStore();
+            var controller = CreateController(store, router: router, launchHandoffStore: pending);
 
             controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
 
             Assert.That(store.InitializeNewGameCount, Is.Zero);
             Assert.That(store.ProfileWriteCount, Is.Zero);
             Assert.That(router.LaunchCount, Is.Zero);
-            Assert.That(pending.SetPendingLaunchSlotCount, Is.Zero);
+            Assert.That(pending.BeginCount, Is.Zero);
         }
 
         [Test]
@@ -135,15 +135,15 @@ namespace Game.Feature.UI.Tests
         {
             var store = new RecordingSaveSlotStore(BlockedReport(CampaignSaveLoadStatus.Unauthorized));
             var router = new RecordingStageLaunchRouter();
-            var pending = new RecordingPendingLaunchSlotProvider();
-            var controller = CreateController(store, router: router, pendingLaunchSlotProvider: pending);
+            var pending = new RecordingCampaignLaunchHandoffStore();
+            var controller = CreateController(store, router: router, launchHandoffStore: pending);
 
             controller.Continue(1);
 
             Assert.That(store.LoadSlotCount, Is.Zero);
             Assert.That(store.InitializeNewGameCount, Is.Zero);
             Assert.That(router.LaunchCount, Is.Zero);
-            Assert.That(pending.SetPendingLaunchSlotCount, Is.Zero);
+            Assert.That(pending.BeginCount, Is.Zero);
         }
 
         [Test]
@@ -242,13 +242,13 @@ namespace Game.Feature.UI.Tests
 
         private static MainMenuController CreateController(
             RecordingSaveSlotStore store,
-            RecordingPendingLaunchSlotProvider pendingLaunchSlotProvider = null,
+            RecordingCampaignLaunchHandoffStore launchHandoffStore = null,
             RecordingStageLaunchRouter router = null,
             RecordingConfirmPopupPort confirmPopupPort = null)
         {
             return new MainMenuController(
                 store,
-                pendingLaunchSlotProvider ?? new RecordingPendingLaunchSlotProvider(),
+                launchHandoffStore ?? new RecordingCampaignLaunchHandoffStore(),
                 new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
                 router ?? new RecordingStageLaunchRouter(),
                 confirmPopupPort ?? new RecordingConfirmPopupPort());
@@ -389,41 +389,6 @@ namespace Game.Feature.UI.Tests
                 {
                     _slots[i] = SaveSlotData.CreateEmpty(i + 1);
                 }
-            }
-        }
-
-        private sealed class RecordingPendingLaunchSlotProvider : IPendingLaunchSlotProvider
-        {
-            private int _slotNumber;
-            private bool _hasSlot;
-
-            public int SetPendingLaunchSlotCount { get; private set; }
-
-            public int ClearPendingLaunchSlotCount { get; private set; }
-
-            public bool TryGetPendingLaunchSlot(out int slotNumber)
-            {
-                slotNumber = _slotNumber;
-                return _hasSlot;
-            }
-
-            public void SetPendingLaunchSlot(int slotNumber)
-            {
-                SetPendingLaunchSlotCount++;
-                _slotNumber = slotNumber;
-                _hasSlot = true;
-            }
-
-            public void ClearPendingLaunchSlot()
-            {
-                ClearPendingLaunchSlotCount++;
-                _slotNumber = 0;
-                _hasSlot = false;
-            }
-
-            public bool IsPendingLaunchSlot(int slotNumber)
-            {
-                return _hasSlot && _slotNumber == slotNumber;
             }
         }
 

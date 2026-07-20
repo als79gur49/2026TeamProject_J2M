@@ -72,6 +72,17 @@ namespace Game.Feature.Stages
             hasCurrentStageId = false;
         }
 
+        public static bool TryClearCurrent(StageId expectedStageId)
+        {
+            if (!hasCurrentStageId || !currentStageId.Equals(expectedStageId))
+            {
+                return false;
+            }
+
+            ClearCurrent();
+            return true;
+        }
+
         public static void ConfigurePendingEditorDirectPlayStore(
             System.Action<StageId> primePending,
             TryGetPendingStageId tryPeekPending,

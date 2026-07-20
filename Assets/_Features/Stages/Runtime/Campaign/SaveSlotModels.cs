@@ -71,6 +71,12 @@ namespace Game.Feature.Stages
 
         public int ActiveSlotNumber { get; set; }
 
+        public bool HasLaunchHandoff { get; set; }
+
+        public int HandoffSlotNumber { get; set; }
+
+        public string HandoffToken { get; set; } = string.Empty;
+
         public string SaveSlotStoreKey { get; set; } = string.Empty;
 
         public string ActiveSlotProviderKey { get; set; } = string.Empty;
@@ -96,7 +102,7 @@ namespace Game.Feature.Stages
         public override string ToString()
         {
             return
-                $"[CampaignChanceHUD] kind={Kind} scene={SceneName} source={Source} requested={RequestedStageId} launch={LaunchStageId} resolved={ResolvedStageId} directPlay={EditorDirectPlayMode} suppress={SuppressCampaignFlow} customNamespace={HasCustomSaveNamespace} activeSlot={ActiveSlotNumber} hasActiveSlot={HasActiveSlot} runtimeActive={CampaignRuntimeActive} sourceType={SourceType} sourceNull={SourceIsNull} read={TryReadResult} reason={FailureReason} sourceStage={SourceStageId} remaining={RemainingChances} max={MaxChances} playerFound={PlayerFound} finalHas={FinalHasChances}";
+                $"[CampaignChanceHUD] kind={Kind} scene={SceneName} source={Source} requested={RequestedStageId} launch={LaunchStageId} resolved={ResolvedStageId} directPlay={EditorDirectPlayMode} suppress={SuppressCampaignFlow} customNamespace={HasCustomSaveNamespace} activeSlot={ActiveSlotNumber} hasActiveSlot={HasActiveSlot} handoffSlot={HandoffSlotNumber} hasHandoff={HasLaunchHandoff} handoffToken={HandoffToken} runtimeActive={CampaignRuntimeActive} sourceType={SourceType} sourceNull={SourceIsNull} read={TryReadResult} reason={FailureReason} sourceStage={SourceStageId} remaining={RemainingChances} max={MaxChances} playerFound={PlayerFound} finalHas={FinalHasChances}";
         }
     }
 

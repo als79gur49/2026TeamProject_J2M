@@ -13,8 +13,7 @@ namespace Game.Feature.UI.Application
     public sealed class MainMenuController
     {
         private readonly IConfirmPopupPort _confirmPopupPort;
-        private readonly IPendingLaunchSlotProvider _pendingLaunchSlotProvider;
-        private readonly string _pendingLaunchSlotProviderDiagnosticsKey;
+        private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly SaveSlotValidationService _saveSlotValidationService;
@@ -22,17 +21,15 @@ namespace Game.Feature.UI.Application
 
         public MainMenuController(
             ICampaignSaveSlotStore saveSlotStore,
-            IPendingLaunchSlotProvider pendingLaunchSlotProvider,
+            ICampaignLaunchHandoffStore launchHandoffStore,
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
             IConfirmPopupPort confirmPopupPort,
-            SaveSlotValidationService saveSlotValidationService = null,
-            string pendingLaunchSlotProviderDiagnosticsKey = "")
+            SaveSlotValidationService saveSlotValidationService = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
-            _pendingLaunchSlotProvider = pendingLaunchSlotProvider ??
-                throw new ArgumentNullException(nameof(pendingLaunchSlotProvider));
-            _pendingLaunchSlotProviderDiagnosticsKey = pendingLaunchSlotProviderDiagnosticsKey ?? string.Empty;
+            _launchHandoffStore = launchHandoffStore ??
+                throw new ArgumentNullException(nameof(launchHandoffStore));
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _confirmPopupPort = confirmPopupPort ?? throw new ArgumentNullException(nameof(confirmPopupPort));
@@ -99,8 +96,11 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            _pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);
-            Launch(validation.Slot.CurrentStageId, StageNavigationKind.Continue, "main-menu-continue");
+            BeginLaunch(
+                slotNumber,
+                validation.Slot.CurrentStageId,
+                StageNavigationKind.Continue,
+                "main-menu-continue");
         }
 
         public void RequestRestart(int slotNumber)
@@ -159,9 +159,10 @@ namespace Game.Feature.UI.Application
                         }
 
                         _saveSlotStore.DeleteSlot(slotNumber);
-                        if (_pendingLaunchSlotProvider.IsPendingLaunchSlot(slotNumber))
+                        if (_launchHandoffStore.TryPeek(out var pendingHandoff) &&
+                            pendingHandoff.SlotNumber == slotNumber)
                         {
-                            _pendingLaunchSlotProvider.ClearPendingLaunchSlot();
+                            _launchHandoffStore.TryClear(pendingHandoff.Token);
                         }
                     }
                     finally
@@ -175,6 +176,12 @@ namespace Game.Feature.UI.Application
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
             if (IsCampaignAccessBlocked())
+            {
+                RefreshViewModel();
+                return;
+            }
+
+            if (_launchHandoffStore.TryPeek(out _))
             {
                 RefreshViewModel();
                 return;
@@ -212,8 +219,11 @@ namespace Game.Feature.UI.Application
                     return;
                 }
 
-                _pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);
-                Launch(validation.Slot.CurrentStageId, StageNavigationKind.Continue, "main-menu-new-game");
+                BeginLaunch(
+                    slotNumber,
+                    validation.Slot.CurrentStageId,
+                    StageNavigationKind.Continue,
+                    "main-menu-new-game");
             }
             finally
             {
@@ -231,23 +241,45 @@ namespace Game.Feature.UI.Application
             return _saveSlotStore.LoadAllWithReport().Report.BlocksCampaignAccess;
         }
 
-        private void Launch(StageId stageId, StageNavigationKind navigationKind, string source)
+        private void BeginLaunch(
+            int slotNumber,
+            StageId stageId,
+            StageNavigationKind navigationKind,
+            string source)
         {
-            var hasPendingLaunchSlot = _pendingLaunchSlotProvider.TryGetPendingLaunchSlot(out var pendingSlotNumber);
+            if (!_launchHandoffStore.TryBegin(
+                    slotNumber,
+                    stageId,
+                    navigationKind,
+                    source,
+                    out var handoff))
+            {
+                RefreshViewModel();
+                return;
+            }
+
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
             {
                 Source = source,
                 RequestedStageId = stageId.IsValid ? stageId.Value : string.Empty,
-                HasActiveSlot = hasPendingLaunchSlot,
-                ActiveSlotNumber = pendingSlotNumber,
-                ActiveSlotProviderKey = _pendingLaunchSlotProviderDiagnosticsKey,
+                HasLaunchHandoff = true,
+                HandoffSlotNumber = handoff.SlotNumber,
+                HandoffToken = handoff.Token.ToString("N"),
                 SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
             });
-            _stageLaunchRouter.Launch(new StageNavigationRequest(
-                stageId,
-                navigationKind,
-                source,
-                StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)));
+            try
+            {
+                _stageLaunchRouter.Launch(new StageNavigationRequest(
+                    stageId,
+                    navigationKind,
+                    source,
+                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)));
+            }
+            catch
+            {
+                _launchHandoffStore.TryClear(handoff.Token);
+                throw;
+            }
         }
 
         private SaveSlotValidationResult ValidateAndSync(int slotNumber)

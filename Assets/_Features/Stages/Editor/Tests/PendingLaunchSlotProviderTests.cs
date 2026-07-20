@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -8,62 +10,132 @@ namespace Game.Feature.Stages.Editor.Tests
     {
         private const string PendingLaunchProviderSourcePath =
             "Assets/_Features/Stages/Runtime/Campaign/PendingLaunchSlotProvider.cs";
-        private readonly string _activeSlotKey = $"pending-launch-slot-provider-tests-{System.Guid.NewGuid():N}";
+        private readonly string _activeSlotKey =
+            $"pending-launch-slot-provider-tests-{Guid.NewGuid():N}";
+
+        [SetUp]
+        public void SetUp()
+        {
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+            PlayerPrefs.DeleteKey(_activeSlotKey);
+            PlayerPrefs.Save();
+        }
 
         [TearDown]
         public void TearDown()
         {
+            CampaignLaunchHandoffSessionStore.ResetForTests();
             PlayerPrefs.DeleteKey(_activeSlotKey);
             PlayerPrefs.Save();
         }
 
         [Test]
-        public void PendingLaunchSlotProvider_WrapsExistingActiveSlotProviderBehavior()
+        public void PendingBegin_DoesNotModifyPersistentActiveSlot()
         {
             var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
-            IPendingLaunchSlotProvider pendingLaunchSlotProvider =
-                new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
+            var store = CampaignLaunchHandoffSessionStore.Instance;
 
-            Assert.That(pendingLaunchSlotProvider.TryGetPendingLaunchSlot(out _), Is.False);
+            Assert.That(
+                store.TryBegin(
+                    2,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "main-menu-continue",
+                    out var handoff),
+                Is.True);
 
-            pendingLaunchSlotProvider.SetPendingLaunchSlot(2);
-
-            Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
-            Assert.That(PlayerPrefs.GetInt(_activeSlotKey), Is.EqualTo(2));
-            Assert.That(pendingLaunchSlotProvider.TryGetPendingLaunchSlot(out var pendingSlot), Is.True);
-            Assert.That(pendingSlot, Is.EqualTo(2));
-            Assert.That(pendingLaunchSlotProvider.IsPendingLaunchSlot(2), Is.True);
-            Assert.That(pendingLaunchSlotProvider.IsPendingLaunchSlot(1), Is.False);
-
-            pendingLaunchSlotProvider.ClearPendingLaunchSlot();
-
+            Assert.That(handoff.SlotNumber, Is.EqualTo(2));
             Assert.That(activeSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
             Assert.That(PlayerPrefs.HasKey(_activeSlotKey), Is.False);
         }
 
         [Test]
-        public void PendingLaunchSlotProvider_SeesLegacyActiveSlotProviderChanges()
+        public void FirstAcceptedRequest_WinsUntilMatchingTokenConsumesIt()
         {
-            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
-            IPendingLaunchSlotProvider pendingLaunchSlotProvider =
-                new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
+            var store = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                store.TryBegin(
+                    1,
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Continue,
+                    "first",
+                    out var first),
+                Is.True);
 
-            activeSlotProvider.SetActiveSlot(3);
+            Assert.That(
+                store.TryBegin(
+                    3,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "second",
+                    out var rejected),
+                Is.False);
+            Assert.That(rejected, Is.SameAs(first));
+            Assert.That(store.TryClear(Guid.NewGuid()), Is.False);
+            Assert.That(store.TryConsume(Guid.NewGuid(), out _), Is.False);
+            Assert.That(store.TryPeek(out var stillPending), Is.True);
+            Assert.That(stillPending, Is.SameAs(first));
 
-            Assert.That(pendingLaunchSlotProvider.TryGetPendingLaunchSlot(out var pendingSlot), Is.True);
-            Assert.That(pendingSlot, Is.EqualTo(3));
-            Assert.That(pendingLaunchSlotProvider.IsPendingLaunchSlot(3), Is.True);
+            Assert.That(store.TryConsume(first.Token, out var consumed), Is.True);
+            Assert.That(consumed, Is.SameAs(first));
+            Assert.That(store.TryPeek(out _), Is.False);
         }
 
         [Test]
-        public void PendingLaunchSlotProvider_DoesNotReferenceCampaignProfileDocument()
+        public void NewApplicationSessionReset_DropsPendingHandoff()
+        {
+            var store = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                store.TryBegin(
+                    1,
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Continue,
+                    "session-reset",
+                    out _),
+                Is.True);
+
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+
+            Assert.That(store.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        public void PendingClear_DoesNotClearPersistentActiveSlot()
+        {
+            var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
+            activeSlotProvider.SetActiveSlot(3);
+            var store = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                store.TryBegin(
+                    2,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "clear-only-pending",
+                    out var handoff),
+                Is.True);
+
+            Assert.That(store.TryClear(handoff.Token), Is.True);
+            Assert.That(activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber), Is.True);
+            Assert.That(activeSlotNumber, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void PendingOwner_IsSessionOnlyAndDoesNotReferenceProfileOrLocalStateStorage()
         {
             var source = File.ReadAllText(PendingLaunchProviderSourcePath);
+            var writableProperties = typeof(CampaignLaunchHandoff)
+                .GetProperties()
+                .Where(property => property.CanWrite)
+                .Select(property => property.Name)
+                .ToArray();
 
+            Assert.That(source, Does.Contain("RuntimeInitializeLoadType.SubsystemRegistration"));
             Assert.That(source, Does.Not.Contain("CampaignProfileDocument"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
-            Assert.That(source, Does.Not.Contain("ICampaignProfileRepository"));
-            Assert.That(source, Does.Not.Contain("profile.json"));
+            Assert.That(source, Does.Not.Contain("ICampaignLocalLaunchStateRepository"));
+            Assert.That(source, Does.Not.Contain("PlayerPrefs"));
+            Assert.That(source, Does.Not.Contain("MonoBehaviour"));
+            Assert.That(writableProperties, Is.Empty);
         }
     }
 }

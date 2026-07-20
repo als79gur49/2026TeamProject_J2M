@@ -31,6 +31,18 @@ namespace Game.Feature.UI.Composition
 
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            CampaignLaunchHandoff launchHandoff = null;
+            if (launchHandoffStore.TryPeek(out var pendingHandoff))
+            {
+                if (!pendingHandoff.Matches(request))
+                {
+                    throw new InvalidOperationException(
+                        "Configured gameplay launch request does not match the pending campaign launch handoff.");
+                }
+
+                launchHandoff = pendingHandoff;
+            }
 
             if (_sceneLoadPort != null)
             {
@@ -42,14 +54,27 @@ namespace Game.Feature.UI.Composition
                     LaunchStageId = request.StageId.Value,
                     EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
                 });
-                StageLaunchContextStore.SetCurrent(request.StageId);
-                _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
+                try
+                {
+                    StageLaunchContextStore.SetCurrent(request.StageId);
+                    _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
+                }
+                catch
+                {
+                    StageLaunchContextStore.TryClearCurrent(request.StageId);
+                    if (launchHandoff != null)
+                    {
+                        launchHandoffStore.TryClear(launchHandoff.Token);
+                    }
+
+                    throw;
+                }
+
                 return;
             }
 
             if (UnityEngine.Application.isPlaying)
             {
-                StageLaunchContextStore.SetCurrent(request.StageId);
                 SceneTransitionCoordinator.Instance.TryStartStageTransition(
                     request.TransitionHint.HasExplicitKind
                         ? request
@@ -58,7 +83,8 @@ namespace Game.Feature.UI.Composition
                             request.NavigationKind,
                             request.Source,
                             StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)),
-                    _routeConfig.GameplayShellSceneName);
+                    _routeConfig.GameplayShellSceneName,
+                    launchHandoff?.Token);
                 return;
             }
 
@@ -70,8 +96,21 @@ namespace Game.Feature.UI.Composition
                 LaunchStageId = request.StageId.Value,
                 EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
             });
-            StageLaunchContextStore.SetCurrent(request.StageId);
-            UnitySceneLoadPort.Instance.LoadScene(_routeConfig.GameplayShellSceneName);
+            try
+            {
+                StageLaunchContextStore.SetCurrent(request.StageId);
+                UnitySceneLoadPort.Instance.LoadScene(_routeConfig.GameplayShellSceneName);
+            }
+            catch
+            {
+                StageLaunchContextStore.TryClearCurrent(request.StageId);
+                if (launchHandoff != null)
+                {
+                    launchHandoffStore.TryClear(launchHandoff.Token);
+                }
+
+                throw;
+            }
         }
     }
 }

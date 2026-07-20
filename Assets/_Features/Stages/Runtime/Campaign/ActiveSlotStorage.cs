@@ -165,17 +165,20 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class ActiveSlotRepairingCampaignSaveSlotStore : ICampaignSaveSlotStore
+    public sealed class CampaignLaunchStateRepairingCampaignSaveSlotStore : ICampaignSaveSlotStore
     {
         private readonly ICampaignSaveSlotStore _inner;
         private readonly IActiveSlotStorage _activeSlotStorage;
+        private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
 
-        public ActiveSlotRepairingCampaignSaveSlotStore(
+        public CampaignLaunchStateRepairingCampaignSaveSlotStore(
             ICampaignSaveSlotStore inner,
-            IActiveSlotStorage activeSlotStorage)
+            IActiveSlotStorage activeSlotStorage,
+            ICampaignLaunchHandoffStore launchHandoffStore)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _activeSlotStorage = activeSlotStorage ?? throw new ArgumentNullException(nameof(activeSlotStorage));
+            _launchHandoffStore = launchHandoffStore ?? throw new ArgumentNullException(nameof(launchHandoffStore));
         }
 
         public string DiagnosticsKey => _inner.DiagnosticsKey;
@@ -220,7 +223,15 @@ namespace Game.Feature.Stages
             var deletedSlotWasActive =
                 _activeSlotStorage.TryGetActiveSlot(out var activeSlotNumber) &&
                 activeSlotNumber == slotNumber;
+            var deletedSlotWasPending =
+                _launchHandoffStore.TryPeek(out var pendingHandoff) &&
+                pendingHandoff.SlotNumber == slotNumber;
             _inner.DeleteSlot(slotNumber);
+            if (deletedSlotWasPending)
+            {
+                _launchHandoffStore.TryClear(pendingHandoff.Token);
+            }
+
             if (deletedSlotWasActive)
             {
                 _activeSlotStorage.ClearActiveSlot();
@@ -229,7 +240,13 @@ namespace Game.Feature.Stages
 
         public void ClearAll()
         {
+            var hadPendingLaunch = _launchHandoffStore.TryPeek(out var pendingHandoff);
             _inner.ClearAll();
+            if (hadPendingLaunch)
+            {
+                _launchHandoffStore.TryClear(pendingHandoff.Token);
+            }
+
             _activeSlotStorage.ClearActiveSlot();
         }
     }

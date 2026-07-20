@@ -5,6 +5,7 @@ namespace Game.Feature.UI.Composition
         Completed = 0,
         Skipped = 1,
         Failed = 2,
+        Cancelled = 3,
     }
 
     public readonly struct CinematicPlaybackCompletion

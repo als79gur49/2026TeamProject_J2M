@@ -58,16 +58,20 @@ namespace Game.Feature.UI.Tests
             var saveKey = CreatePrefsKey(nameof(MainMenuController_DeleteMutatesOnlyWhenConfirmed));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
-            var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
+            var activeSlotStorage = new PlayerPrefsActiveSlotStorage(activeKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeSlotStorage);
+            var launchHandoffStore = new RecordingCampaignLaunchHandoffStore();
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                saveStore,
+                activeSlotStorage,
+                launchHandoffStore);
             var confirmPort = new FakeConfirmPopupPort();
             var controller = new MainMenuController(
-                saveStore,
-                pendingLaunchSlotProvider,
+                repairingStore,
+                launchHandoffStore,
                 new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
                 new FakeStageLaunchRouter(),
-                confirmPort,
-                pendingLaunchSlotProviderDiagnosticsKey: activeSlotProvider.PlayerPrefsKey);
+                confirmPort);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             saveStore.SaveSlot(new SaveSlotData

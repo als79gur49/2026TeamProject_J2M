@@ -112,8 +112,18 @@ namespace Game.Feature.Gameplay.Host
         {
             EnsureCampaignStores();
             var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
-            var activation = CampaignRuntimeActivationPolicy.Evaluate(enableCampaignFlow, _activeSlotProvider);
-            _campaignRuntimeActive = activation.IsActive;
+            var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            var canUseProductionHandoff = directPlayContext.Mode == EditorDirectPlayMode.None;
+            CampaignLaunchHandoff pendingHandoff = null;
+            var hasPendingLaunch =
+                canUseProductionHandoff &&
+                launchHandoffStore.TryPeek(out pendingHandoff);
+            var hasActiveSlot = _activeSlotProvider != null && _activeSlotProvider.HasActiveSlot;
+            var isSuppressed = directPlayContext.SuppressCampaignFlow;
+            _campaignRuntimeActive =
+                enableCampaignFlow &&
+                !isSuppressed &&
+                (hasPendingLaunch || hasActiveSlot);
             if (!_campaignRuntimeActive)
             {
                 _campaignChanceDisplayOverride = null;
@@ -130,28 +140,34 @@ namespace Game.Feature.Gameplay.Host
                     EditorDirectPlayMode = directPlayContext.Mode,
                     SuppressCampaignFlow = directPlayContext.SuppressCampaignFlow,
                     HasCustomSaveNamespace = directPlayContext.HasCustomSaveNamespace,
-                    EnableCampaignFlow = activation.EnableCampaignFlow,
+                    EnableCampaignFlow = enableCampaignFlow,
                     CampaignRuntimeActive = false,
-                    HasActiveSlot = activation.HasActiveSlot,
+                    HasActiveSlot = hasActiveSlot,
                     ActiveSlotNumber = _activeSlotProvider != null && _activeSlotProvider.TryGetActiveSlotNumber(out var inactiveSlotNumber)
                         ? inactiveSlotNumber
                         : 0,
+                    HasLaunchHandoff = hasPendingLaunch,
+                    HandoffSlotNumber = hasPendingLaunch ? pendingHandoff.SlotNumber : 0,
+                    HandoffToken = hasPendingLaunch ? pendingHandoff.Token.ToString("N") : string.Empty,
                     SaveSlotStoreKey = _saveSlotStore != null ? _saveSlotStore.DiagnosticsKey : string.Empty,
                     ActiveSlotProviderKey = _activeSlotProvider != null ? _activeSlotProvider.PlayerPrefsKey : string.Empty,
                     SourceIsNull = true,
-                    FailureReason = !activation.HasActiveSlot
+                    FailureReason = !hasActiveSlot && !hasPendingLaunch
                         ? CampaignChanceReadFailureReason.NoActiveSlot
-                        : directPlayContext.SuppressCampaignFlow
+                        : isSuppressed
                             ? CampaignChanceReadFailureReason.EditorDirectPlaySuppressed
                             : CampaignChanceReadFailureReason.SourceMissing,
                 });
                 return;
             }
 
-            var runningSlotNumber = ValidateActiveSlotMatchesLaunchStage(initialState.StageContentEntry != null
+            var resolvedStageId = initialState.StageContentEntry != null
                 ? initialState.StageContentEntry.StageId
-                : StageId.None);
-            _runningSlotContext = new CampaignRunningSlotContext(runningSlotNumber);
+                : StageId.None;
+            _runningSlotContext = ResolveRunningSlotContext(
+                resolvedStageId,
+                directPlayContext,
+                hasPendingLaunch ? pendingHandoff : null);
             _campaignChanceDisplayOverride = new CampaignChanceDisplayOverride();
             configuration.DisablePlayerRespawn = true;
             configuration.CampaignChancesReadSource = new SaveSlotCampaignChancesReadSource(
@@ -170,10 +186,13 @@ namespace Game.Feature.Gameplay.Host
                 EditorDirectPlayMode = directPlayContext.Mode,
                 SuppressCampaignFlow = directPlayContext.SuppressCampaignFlow,
                 HasCustomSaveNamespace = directPlayContext.HasCustomSaveNamespace,
-                EnableCampaignFlow = activation.EnableCampaignFlow,
+                EnableCampaignFlow = enableCampaignFlow,
                 CampaignRuntimeActive = true,
-                HasActiveSlot = activation.HasActiveSlot,
+                HasActiveSlot = _activeSlotProvider.HasActiveSlot,
                 ActiveSlotNumber = _runningSlotContext.SlotNumber,
+                HasLaunchHandoff = hasPendingLaunch,
+                HandoffSlotNumber = hasPendingLaunch ? pendingHandoff.SlotNumber : 0,
+                HandoffToken = hasPendingLaunch ? pendingHandoff.Token.ToString("N") : string.Empty,
                 SaveSlotStoreKey = _saveSlotStore.DiagnosticsKey,
                 ActiveSlotProviderKey = _activeSlotProvider.PlayerPrefsKey,
                 SourceType = configuration.CampaignChancesReadSource.GetType().Name,
@@ -329,22 +348,116 @@ namespace Game.Feature.Gameplay.Host
             _activeSlotProvider ??= CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(_saveSlotStore);
         }
 
-        private int ValidateActiveSlotMatchesLaunchStage(StageId launchStageId)
+        private CampaignRunningSlotContext ResolveRunningSlotContext(
+            StageId resolvedStageId,
+            EditorDirectPlayContext directPlayContext,
+            CampaignLaunchHandoff pendingHandoff)
         {
+            if (directPlayContext.Mode != EditorDirectPlayMode.None || pendingHandoff == null)
+            {
+                return new CampaignRunningSlotContext(
+                    ValidateCommittedActiveSlotMatchesLaunchStage(resolvedStageId));
+            }
+
+            var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            var hadPreviousActiveSlot =
+                _activeSlotProvider.TryGetActiveSlotNumber(out var previousActiveSlotNumber);
+            var activeSlotCommitted = false;
+            try
+            {
+                ValidateLaunchStageIds(pendingHandoff.StageId, resolvedStageId);
+                var slot = LoadNonEmptySlot(pendingHandoff.SlotNumber);
+                if (!slot.CurrentStageId.Equals(pendingHandoff.StageId))
+                {
+                    throw new System.InvalidOperationException(
+                        $"Campaign pending slot stage '{slot.CurrentStageId.Value}' does not match handoff stage '{pendingHandoff.StageId.Value}'.");
+                }
+
+                _activeSlotProvider.SetActiveSlot(pendingHandoff.SlotNumber);
+                activeSlotCommitted = true;
+                var runningContext = new CampaignRunningSlotContext(pendingHandoff.SlotNumber);
+                if (!launchHandoffStore.TryConsume(pendingHandoff.Token, out var consumedHandoff) ||
+                    !object.ReferenceEquals(consumedHandoff, pendingHandoff))
+                {
+                    throw new System.InvalidOperationException(
+                        "Campaign launch handoff changed before gameplay installer commit completed.");
+                }
+
+                return runningContext;
+            }
+            catch
+            {
+                launchHandoffStore.TryClear(pendingHandoff.Token);
+                if (activeSlotCommitted)
+                {
+                    if (hadPreviousActiveSlot)
+                    {
+                        _activeSlotProvider.SetActiveSlot(previousActiveSlotNumber);
+                    }
+                    else
+                    {
+                        _activeSlotProvider.ClearActiveSlot();
+                    }
+                }
+
+                throw;
+            }
+        }
+
+        private int ValidateCommittedActiveSlotMatchesLaunchStage(StageId resolvedStageId)
+        {
+            if (_activeSlotProvider == null ||
+                !_activeSlotProvider.TryGetActiveSlotNumber(out var activeSlotNumber))
+            {
+                throw new System.InvalidOperationException(
+                    "Campaign runtime requires a committed active slot when no pending handoff exists.");
+            }
+
+            ValidateLaunchStageIds(resolvedStageId, resolvedStageId);
+            var activeSlot = LoadNonEmptySlot(activeSlotNumber);
+            if (!activeSlot.CurrentStageId.Equals(resolvedStageId))
+            {
+                throw new System.InvalidOperationException(
+                    $"Campaign active slot stage '{activeSlot.CurrentStageId.Value}' does not match resolved launch stage '{resolvedStageId.Value}'.");
+            }
+
+            return activeSlotNumber;
+        }
+
+        private static void ValidateLaunchStageIds(
+            StageId requestedStageId,
+            StageId resolvedStageId)
+        {
+            var launchStageId = StageLaunchContextStore.CurrentStageId;
             if (!launchStageId.IsValid)
             {
                 throw new System.InvalidOperationException("Campaign runtime requires a valid launch StageId.");
             }
 
-            var activeSlotNumber = _activeSlotProvider.ActiveSlotNumber;
-            var activeSlot = _saveSlotStore.LoadSlot(activeSlotNumber);
-            if (!activeSlot.CurrentStageId.Equals(launchStageId))
+            if (!requestedStageId.IsValid || !resolvedStageId.IsValid)
             {
                 throw new System.InvalidOperationException(
-                    $"Campaign active slot stage '{activeSlot.CurrentStageId.Value}' does not match launch stage '{launchStageId.Value}'.");
+                    "Campaign runtime requires valid requested and resolved StageIds.");
             }
 
-            return activeSlotNumber;
+            if (!requestedStageId.Equals(launchStageId) ||
+                !requestedStageId.Equals(resolvedStageId))
+            {
+                throw new System.InvalidOperationException(
+                    $"Campaign launch StageIds do not match. requested='{requestedStageId.Value}', context='{launchStageId.Value}', resolved='{resolvedStageId.Value}'.");
+            }
+        }
+
+        private SaveSlotData LoadNonEmptySlot(int slotNumber)
+        {
+            var slot = _saveSlotStore.LoadSlot(slotNumber);
+            if (slot == null || slot.IsEmpty || !slot.CurrentStageId.IsValid)
+            {
+                throw new System.InvalidOperationException(
+                    $"Campaign slot '{slotNumber}' is empty or missing.");
+            }
+
+            return slot;
         }
     }
 }

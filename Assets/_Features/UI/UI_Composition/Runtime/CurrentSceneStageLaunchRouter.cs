@@ -33,8 +33,17 @@ namespace Game.Feature.UI.Composition
 
             if (_sceneLoadPort != null)
             {
-                StageLaunchContextStore.SetCurrent(request.StageId);
-                _sceneLoadPort.LoadScene(_sceneName);
+                try
+                {
+                    StageLaunchContextStore.SetCurrent(request.StageId);
+                    _sceneLoadPort.LoadScene(_sceneName);
+                }
+                catch
+                {
+                    StageLaunchContextStore.TryClearCurrent(request.StageId);
+                    throw;
+                }
+
                 return;
             }
 

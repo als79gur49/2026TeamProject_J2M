@@ -679,11 +679,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageBackedGameplaySceneInstaller_ProductionCampaignLaunch_InjectsChanceReadSource()
+        public void StageBackedGameplaySceneInstaller_CommittedActiveRetryWithoutPending_InjectsChanceReadSource()
         {
             var installerObject = new GameObject(
-                "StageBackedGameplaySceneInstaller_ProductionCampaignLaunch_InjectsChanceReadSource");
-            var saveKey = CreatePrefsKey(nameof(StageBackedGameplaySceneInstaller_ProductionCampaignLaunch_InjectsChanceReadSource));
+                "StageBackedGameplaySceneInstaller_CommittedActiveRetryWithoutPending_InjectsChanceReadSource");
+            var saveKey = CreatePrefsKey(nameof(StageBackedGameplaySceneInstaller_CommittedActiveRetryWithoutPending_InjectsChanceReadSource));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -702,6 +702,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
                 });
                 activeSlotProvider.SetActiveSlot(1);
+                Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryPeek(out _), Is.False);
 
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
@@ -728,6 +729,139 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageBackedGameplaySceneInstaller_ValidatedPendingLaunch_CommitsActiveAndPinsRunningContext()
+        {
+            var installerObject = new GameObject(
+                "StageBackedGameplaySceneInstaller_ValidatedPendingLaunch_CommitsActiveAndPinsRunningContext");
+            var saveKey = CreatePrefsKey(
+                nameof(StageBackedGameplaySceneInstaller_ValidatedPendingLaunch_CommitsActiveAndPinsRunningContext));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+
+            try
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = launchStageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = 2,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        launchStageId,
+                        StageNavigationKind.Continue,
+                        "main-menu-continue",
+                        out _),
+                    Is.True);
+
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, launchStageId);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveStore, activeSlotProvider);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(1));
+                Assert.That(
+                    ReadInstallerPrivateField<CampaignRunningSlotContext>(
+                        installer,
+                        "_runningSlotContext").SlotNumber,
+                    Is.EqualTo(1));
+                Assert.That(handoffStore.TryPeek(out _), Is.False);
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageBackedGameplaySceneInstaller_PendingStageMismatch_DoesNotCommitActiveOrRunningContext()
+        {
+            var installerObject = new GameObject(
+                "StageBackedGameplaySceneInstaller_PendingStageMismatch_DoesNotCommitActiveOrRunningContext");
+            var saveKey = CreatePrefsKey(
+                nameof(StageBackedGameplaySceneInstaller_PendingStageMismatch_DoesNotCommitActiveOrRunningContext));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var launchStageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+            var mismatchedStageId = StageId.CreateOrThrow("stage-0-1");
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+
+            try
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = mismatchedStageId,
+                    CurrentLevelGroupId = "level-0",
+                    RemainingChances = 2,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = launchStageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = 3,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                activeSlotProvider.SetActiveSlot(2);
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        mismatchedStageId,
+                        StageNavigationKind.Continue,
+                        "main-menu-continue",
+                        out _),
+                    Is.True);
+
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, launchStageId);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveStore, activeSlotProvider);
+
+                Assert.Throws<TargetInvocationException>(() => BuildConfiguration(installer));
+
+                Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
+                Assert.That(
+                    ReadInstallerPrivateField<CampaignRunningSlotContext>(
+                        installer,
+                        "_runningSlotContext"),
+                    Is.Null);
+                Assert.That(handoffStore.TryPeek(out _), Is.False);
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
                 DestroyAssignedStageContent(installerObject);

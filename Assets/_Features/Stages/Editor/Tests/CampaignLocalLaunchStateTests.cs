@@ -19,6 +19,7 @@ namespace Game.Feature.Stages.Editor.Tests
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            CampaignLaunchHandoffSessionStore.ResetForTests();
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
         }
 
@@ -130,7 +131,10 @@ namespace Game.Feature.Stages.Editor.Tests
             harness.Profile.SaveSlot(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
-            var repairingStore = new ActiveSlotRepairingCampaignSaveSlotStore(harness.Profile, storage);
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                harness.Profile,
+                storage,
+                CampaignLaunchHandoffSessionStore.Instance);
 
             repairingStore.DeleteSlot(1);
 
@@ -147,7 +151,10 @@ namespace Game.Feature.Stages.Editor.Tests
             harness.Profile.SaveSlot(CreateSlot(2));
             harness.Repository.SaveActiveSlot(2);
             var storage = harness.CreateStorage();
-            var repairingStore = new ActiveSlotRepairingCampaignSaveSlotStore(harness.Profile, storage);
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                harness.Profile,
+                storage,
+                CampaignLaunchHandoffSessionStore.Instance);
 
             repairingStore.DeleteSlot(1);
 
@@ -162,13 +169,72 @@ namespace Game.Feature.Stages.Editor.Tests
             harness.Profile.SaveSlot(CreateSlot(1));
             harness.Repository.SaveActiveSlot(1);
             var storage = harness.CreateStorage();
-            var repairingStore = new ActiveSlotRepairingCampaignSaveSlotStore(harness.Profile, storage);
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                harness.Profile,
+                storage,
+                CampaignLaunchHandoffSessionStore.Instance);
 
             repairingStore.ClearAll();
 
             Assert.That(harness.Profile.LoadAll().All(slot => slot.IsEmpty), Is.True);
             Assert.That(storage.TryGetActiveSlot(out _), Is.False);
             Assert.That(ReadLocalState(harness).campaign.activeSlotNumber, Is.Zero);
+        }
+
+        [Test]
+        public void DeleteSlot_RepairsMatchingActiveAndPendingIndependently()
+        {
+            using var harness = new Harness();
+            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Profile.SaveSlot(CreateSlot(2));
+            harness.Repository.SaveActiveSlot(2);
+            var storage = harness.CreateStorage();
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                handoffStore.TryBegin(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "delete-repair",
+                    out _),
+                Is.True);
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                harness.Profile,
+                storage,
+                handoffStore);
+
+            repairingStore.DeleteSlot(1);
+
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(storage.TryGetActiveSlot(out var activeSlotNumber), Is.True);
+            Assert.That(activeSlotNumber, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ClearAll_ClearsActiveAndPending()
+        {
+            using var harness = new Harness();
+            harness.Profile.SaveSlot(CreateSlot(1));
+            harness.Repository.SaveActiveSlot(1);
+            var storage = harness.CreateStorage();
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                handoffStore.TryBegin(
+                    1,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "clear-all-repair",
+                    out _),
+                Is.True);
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                harness.Profile,
+                storage,
+                handoffStore);
+
+            repairingStore.ClearAll();
+
+            Assert.That(storage.TryGetActiveSlot(out _), Is.False);
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
         }
 
         [Test]
@@ -248,7 +314,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(localStateDocument, Does.Not.Contain("pendingLaunchSlotNumber"));
             Assert.That(localStateDocument, Does.Not.Contain("PendingLaunch"));
-            Assert.That(pendingProvider, Does.Contain("IPendingLaunchSlotProvider"));
+            Assert.That(pendingProvider, Does.Contain("CampaignLaunchHandoffSessionStore"));
+            Assert.That(pendingProvider, Does.Contain("RuntimeInitializeLoadType.SubsystemRegistration"));
             Assert.That(pendingProvider, Does.Not.Contain("CampaignProfileDocument"));
         }
 

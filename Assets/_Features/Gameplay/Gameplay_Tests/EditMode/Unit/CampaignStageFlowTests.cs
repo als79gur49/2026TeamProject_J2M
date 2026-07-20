@@ -1985,9 +1985,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 SetPrivateField(installer, "_saveSlotStore", saveStore);
                 SetPrivateField(installer, "_activeSlotProvider", activeSlotProvider);
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-2-1"));
 
                 var method = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
-                    "ValidateActiveSlotMatchesLaunchStage",
+                    "ValidateCommittedActiveSlotMatchesLaunchStage",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(method, Is.Not.Null);
                 var exception = Assert.Throws<TargetInvocationException>(() => method.Invoke(
@@ -1995,12 +1996,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new object[] { StageId.CreateOrThrow("stage-2-1") }));
 
                 Assert.That(exception?.InnerException, Is.TypeOf<InvalidOperationException>());
-                StringAssert.Contains("does not match launch stage", exception?.InnerException?.Message);
+                StringAssert.Contains("does not match resolved launch stage", exception?.InnerException?.Message);
             }
             finally
             {
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
+                StageLaunchContextStore.Clear();
                 UnityEngine.Object.DestroyImmediate(installerObject);
             }
         }

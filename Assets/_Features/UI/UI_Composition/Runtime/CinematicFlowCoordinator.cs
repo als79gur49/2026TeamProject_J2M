@@ -11,9 +11,9 @@ namespace Game.Feature.UI.Composition
 
         bool IsPlaying { get; }
 
-        void PlayIntro(Action completion);
+        void PlayIntro(Action<CinematicPlaybackCompletion> completion);
 
-        void PlayOutro(Action completion);
+        void PlayOutro(Action<CinematicPlaybackCompletion> completion);
 
         void RequestSkip();
     }
@@ -41,12 +41,12 @@ namespace Game.Feature.UI.Composition
 
         public bool IsPlaying => _overlayView != null && _overlayView.IsPlaying;
 
-        public void PlayIntro(Action completion)
+        public void PlayIntro(Action<CinematicPlaybackCompletion> completion)
         {
             Play(SlotCinematicKind.Intro, completion);
         }
 
-        public void PlayOutro(Action completion)
+        public void PlayOutro(Action<CinematicPlaybackCompletion> completion)
         {
             Play(SlotCinematicKind.Outro, completion);
         }
@@ -56,18 +56,23 @@ namespace Game.Feature.UI.Composition
             _overlayView.RequestSkip();
         }
 
-        private void Play(SlotCinematicKind kind, Action completion)
+        private void Play(
+            SlotCinematicKind kind,
+            Action<CinematicPlaybackCompletion> completion)
         {
             var clip = _definition != null ? _definition.GetClip(kind) : null;
             if (clip == null)
             {
-                completion?.Invoke();
+                completion?.Invoke(new CinematicPlaybackCompletion(
+                    CinematicPlaybackCompletionKind.Completed));
                 return;
             }
 
             if (IsPlaying)
             {
-                completion?.Invoke();
+                completion?.Invoke(new CinematicPlaybackCompletion(
+                    CinematicPlaybackCompletionKind.Failed,
+                    "A cinematic is already playing."));
                 return;
             }
 
@@ -79,10 +84,12 @@ namespace Game.Feature.UI.Composition
             _overlayView.Play(
                 clip,
                 options,
-                _ => CompleteOnce(completion));
+                result => CompleteOnce(result, completion));
         }
 
-        private void CompleteOnce(Action completion)
+        private void CompleteOnce(
+            CinematicPlaybackCompletion result,
+            Action<CinematicPlaybackCompletion> completion)
         {
             if (_completionDispatched)
             {
@@ -91,7 +98,7 @@ namespace Game.Feature.UI.Composition
 
             _completionDispatched = true;
             _audioFocusController?.EndFocus();
-            completion?.Invoke();
+            completion?.Invoke(result);
         }
     }
 }

@@ -49,8 +49,34 @@ namespace Game.Feature.Stages
                 throw new InvalidOperationException("Stage launch router requires a configured scene name.");
             }
 
-            StageLaunchContextStore.SetCurrent(request.StageId);
-            _sceneLoadPort.LoadScene(_sceneName);
+            var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            CampaignLaunchHandoff launchHandoff = null;
+            if (launchHandoffStore.TryPeek(out var pendingHandoff))
+            {
+                if (!pendingHandoff.Matches(request))
+                {
+                    throw new InvalidOperationException(
+                        "Stage launch request does not match the pending campaign launch handoff.");
+                }
+
+                launchHandoff = pendingHandoff;
+            }
+
+            try
+            {
+                StageLaunchContextStore.SetCurrent(request.StageId);
+                _sceneLoadPort.LoadScene(_sceneName);
+            }
+            catch
+            {
+                StageLaunchContextStore.TryClearCurrent(request.StageId);
+                if (launchHandoff != null)
+                {
+                    launchHandoffStore.TryClear(launchHandoff.Token);
+                }
+
+                throw;
+            }
         }
     }
 }

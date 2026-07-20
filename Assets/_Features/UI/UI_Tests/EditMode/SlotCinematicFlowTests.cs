@@ -15,29 +15,37 @@ namespace Game.Feature.UI.Tests
     public sealed class SlotCinematicFlowTests
     {
         [Test]
-        public void CinematicStageLaunchRouter_UsesPendingLaunchSlotProvider_ForIntroFlag()
+        public void CinematicStageLaunchRouter_UsesHandoffSlot_ForIntroFlag()
         {
-            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_UsesPendingLaunchSlotProvider_ForIntroFlag));
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_UsesHandoffSlot_ForIntroFlag));
             try
             {
                 var saveStore = new SaveSlotStore(keys.SaveKey);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(1, stageId));
                 saveStore.SaveSlot(CreateSlot(2, stageId));
-                var pendingLaunchSlotProvider = new ManualPendingLaunchSlotProvider();
-                pendingLaunchSlotProvider.SetPendingLaunchSlot(2);
+                var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
-                var router = new CinematicStageLaunchRouter(inner, saveStore, pendingLaunchSlotProvider, player);
                 var request = new StageNavigationRequest(
                     stageId,
                     StageNavigationKind.Continue,
                     "main-menu-new-game",
                     StageTransitionHint.ForKindWithMinimum(StageTransitionKind.MainToGameplay, 0.25f));
+                handoffStore.TryBegin(
+                    2,
+                    request.StageId,
+                    request.NavigationKind,
+                    request.Source,
+                    out _);
+                var router = new CinematicStageLaunchRouter(
+                    inner,
+                    saveStore,
+                    handoffStore,
+                    player);
 
                 router.Launch(request);
 
-                Assert.That(pendingLaunchSlotProvider.TryGetCallCount, Is.EqualTo(1));
                 Assert.That(player.PlayIntroCallCount, Is.EqualTo(1));
                 Assert.That(inner.Requests, Is.Empty);
                 Assert.That(saveStore.LoadSlot(2).IntroPlayed, Is.False);
@@ -51,7 +59,6 @@ namespace Game.Feature.UI.Tests
 
                 router.Launch(request);
 
-                Assert.That(pendingLaunchSlotProvider.TryGetCallCount, Is.EqualTo(2));
                 Assert.That(player.PlayIntroCallCount, Is.EqualTo(1));
                 Assert.That(inner.Requests, Has.Count.EqualTo(2));
                 AssertRequestsEqual(request, inner.Requests[1]);
@@ -63,9 +70,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CinematicStageLaunchRouter_AdapterPreservesActiveSlotProviderBehavior()
+        public void CinematicStageLaunchRouter_PendingHandoffDoesNotModifyActiveSlot()
         {
-            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_AdapterPreservesActiveSlotProviderBehavior));
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_PendingHandoffDoesNotModifyActiveSlot));
             try
             {
                 var saveStore = new SaveSlotStore(keys.SaveKey);
@@ -73,14 +80,21 @@ namespace Game.Feature.UI.Tests
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(3, stageId));
                 activeSlotProvider.SetActiveSlot(3);
+                var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
+                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "handoff");
+                handoffStore.TryBegin(
+                    3,
+                    request.StageId,
+                    request.NavigationKind,
+                    request.Source,
+                    out _);
                 var router = new CinematicStageLaunchRouter(
                     inner,
                     saveStore,
-                    new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider),
+                    handoffStore,
                     player);
-                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "adapter");
 
                 router.Launch(request);
 
@@ -109,12 +123,17 @@ namespace Game.Feature.UI.Tests
                 var saveStore = new SaveSlotStore(keys.SaveKey);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(1, stageId));
-                var pendingLaunchSlotProvider = new ManualPendingLaunchSlotProvider();
-                pendingLaunchSlotProvider.SetPendingLaunchSlot(1);
+                var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = false };
-                var router = new CinematicStageLaunchRouter(inner, saveStore, pendingLaunchSlotProvider, player);
                 var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
+                handoffStore.TryBegin(
+                    1,
+                    request.StageId,
+                    request.NavigationKind,
+                    request.Source,
+                    out _);
+                var router = new CinematicStageLaunchRouter(inner, saveStore, handoffStore, player);
 
                 router.Launch(request);
 
@@ -130,27 +149,69 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CinematicStageLaunchRouter_MissingPendingLaunchSlot_DelegatesImmediately()
+        public void CinematicStageLaunchRouter_MissingPendingHandoff_FailsClosed()
         {
-            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_MissingPendingLaunchSlot_DelegatesImmediately));
+            var keys = TestKeys.Create(nameof(CinematicStageLaunchRouter_MissingPendingHandoff_FailsClosed));
             try
             {
                 var saveStore = new SaveSlotStore(keys.SaveKey);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(1, stageId));
-                var pendingLaunchSlotProvider = new ManualPendingLaunchSlotProvider();
+                var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
-                var router = new CinematicStageLaunchRouter(inner, saveStore, pendingLaunchSlotProvider, player);
+                var router = new CinematicStageLaunchRouter(inner, saveStore, handoffStore, player);
                 var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "missing-pending-slot");
 
-                router.Launch(request);
+                Assert.Throws<InvalidOperationException>(() => router.Launch(request));
 
-                Assert.That(pendingLaunchSlotProvider.TryGetCallCount, Is.EqualTo(1));
                 Assert.That(player.PlayIntroCallCount, Is.Zero);
                 Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
-                Assert.That(inner.Requests, Has.Count.EqualTo(1));
-                AssertRequestsEqual(request, inner.Requests[0]);
+                Assert.That(inner.Requests, Is.Empty);
+            }
+            finally
+            {
+                keys.Clear();
+            }
+        }
+
+        [TestCase(CinematicPlaybackCompletionKind.Failed)]
+        [TestCase(CinematicPlaybackCompletionKind.Cancelled)]
+        public void CinematicStageLaunchRouter_FailureOrCancellation_ClearsMatchingHandoff(
+            CinematicPlaybackCompletionKind completionKind)
+        {
+            var keys = TestKeys.Create(
+                nameof(CinematicStageLaunchRouter_FailureOrCancellation_ClearsMatchingHandoff));
+            try
+            {
+                var saveStore = new SaveSlotStore(keys.SaveKey);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                saveStore.SaveSlot(CreateSlot(1, stageId));
+                var handoffStore = new RecordingCampaignLaunchHandoffStore();
+                var inner = new RecordingStageLaunchRouter();
+                var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "cinematic-failure");
+                handoffStore.TryBegin(
+                    1,
+                    request.StageId,
+                    request.NavigationKind,
+                    request.Source,
+                    out _);
+                var router = new CinematicStageLaunchRouter(
+                    inner,
+                    saveStore,
+                    handoffStore,
+                    player);
+
+                router.Launch(request);
+                player.CompleteIntro(completionKind);
+
+                Assert.That(handoffStore.TryPeek(out _), Is.False);
+                Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
+                Assert.That(inner.Requests, Is.Empty);
             }
             finally
             {
@@ -526,20 +587,25 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var saveStore = new SaveSlotStore(keys.SaveKey);
-                var activeSlotProvider = new ActiveSlotProvider(keys.ActiveKey);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
                 saveStore.SaveSlot(CreateSlot(1, stageId));
-                activeSlotProvider.SetActiveSlot(1);
+                var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var view = root.AddComponent<CinematicVideoOverlayView>();
                 var audioFocus = root.AddComponent<CinematicAudioFocusController>();
                 var player = new CinematicFlowCoordinator(definition, view, audioFocus);
+                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
+                handoffStore.TryBegin(
+                    1,
+                    request.StageId,
+                    request.NavigationKind,
+                    request.Source,
+                    out _);
                 var router = new CinematicStageLaunchRouter(
                     inner,
                     saveStore,
-                    new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider),
+                    handoffStore,
                     player);
-                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
 
                 router.Launch(request);
                 view.NotifyPreparedFirstFrame();
@@ -609,7 +675,7 @@ namespace Game.Feature.UI.Tests
                 var player = new CinematicFlowCoordinator(definition, view, null);
                 var completionCount = 0;
 
-                player.PlayIntro(() => completionCount++);
+                player.PlayIntro(_ => completionCount++);
 
                 Assert.That(completionCount, Is.EqualTo(1));
                 Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Idle));
@@ -1274,46 +1340,10 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class ManualPendingLaunchSlotProvider : IPendingLaunchSlotProvider
-        {
-            private int _slotNumber;
-
-            public int TryGetCallCount { get; private set; }
-
-            public bool TryGetPendingLaunchSlot(out int slotNumber)
-            {
-                TryGetCallCount++;
-                if (SaveSlotStore.IsValidSlotNumber(_slotNumber))
-                {
-                    slotNumber = _slotNumber;
-                    return true;
-                }
-
-                slotNumber = 0;
-                return false;
-            }
-
-            public void SetPendingLaunchSlot(int slotNumber)
-            {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
-                _slotNumber = slotNumber;
-            }
-
-            public void ClearPendingLaunchSlot()
-            {
-                _slotNumber = 0;
-            }
-
-            public bool IsPendingLaunchSlot(int slotNumber)
-            {
-                return SaveSlotStore.IsValidSlotNumber(slotNumber) && _slotNumber == slotNumber;
-            }
-        }
-
         private sealed class ManualSlotCinematicPlayer : ISlotCinematicPlayer
         {
-            private Action _introCompletion;
-            private Action _outroCompletion;
+            private Action<CinematicPlaybackCompletion> _introCompletion;
+            private Action<CinematicPlaybackCompletion> _outroCompletion;
 
             public bool HasIntroClipValue { get; set; }
 
@@ -1329,14 +1359,14 @@ namespace Game.Feature.UI.Tests
 
             public int PlayOutroCallCount { get; private set; }
 
-            public void PlayIntro(Action completion)
+            public void PlayIntro(Action<CinematicPlaybackCompletion> completion)
             {
                 PlayIntroCallCount++;
                 IsPlaying = true;
                 _introCompletion = completion;
             }
 
-            public void PlayOutro(Action completion)
+            public void PlayOutro(Action<CinematicPlaybackCompletion> completion)
             {
                 PlayOutroCallCount++;
                 IsPlaying = true;
@@ -1349,20 +1379,22 @@ namespace Game.Feature.UI.Tests
                 CompleteOutro();
             }
 
-            public void CompleteIntro()
+            public void CompleteIntro(
+                CinematicPlaybackCompletionKind kind = CinematicPlaybackCompletionKind.Completed)
             {
                 var completion = _introCompletion;
                 _introCompletion = null;
                 IsPlaying = false;
-                completion?.Invoke();
+                completion?.Invoke(new CinematicPlaybackCompletion(kind));
             }
 
-            public void CompleteOutro()
+            public void CompleteOutro(
+                CinematicPlaybackCompletionKind kind = CinematicPlaybackCompletionKind.Completed)
             {
                 var completion = _outroCompletion;
                 _outroCompletion = null;
                 IsPlaying = false;
-                completion?.Invoke();
+                completion?.Invoke(new CinematicPlaybackCompletion(kind));
             }
         }
 

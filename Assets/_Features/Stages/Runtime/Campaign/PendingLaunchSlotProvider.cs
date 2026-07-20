@@ -1,49 +1,193 @@
 using System;
+using UnityEngine;
 
 namespace Game.Feature.Stages
 {
-    public interface IPendingLaunchSlotProvider
+    public sealed class CampaignLaunchHandoff : IEquatable<CampaignLaunchHandoff>
     {
-        bool TryGetPendingLaunchSlot(out int slotNumber);
+        internal CampaignLaunchHandoff(
+            int slotNumber,
+            StageId stageId,
+            StageNavigationKind navigationKind,
+            string source,
+            Guid token)
+        {
+            SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException("Campaign launch handoff requires a canonical StageId.", nameof(stageId));
+            }
 
-        void SetPendingLaunchSlot(int slotNumber);
+            if (navigationKind == StageNavigationKind.None)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(navigationKind),
+                    navigationKind,
+                    "Campaign launch handoff requires a navigation kind.");
+            }
 
-        void ClearPendingLaunchSlot();
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                throw new ArgumentException("Campaign launch handoff requires a source.", nameof(source));
+            }
 
-        bool IsPendingLaunchSlot(int slotNumber);
+            if (token == Guid.Empty)
+            {
+                throw new ArgumentException("Campaign launch handoff requires a unique token.", nameof(token));
+            }
+
+            SlotNumber = slotNumber;
+            StageId = stageId;
+            NavigationKind = navigationKind;
+            Source = source;
+            Token = token;
+        }
+
+        public int SlotNumber { get; }
+
+        public StageId StageId { get; }
+
+        public StageNavigationKind NavigationKind { get; }
+
+        public string Source { get; }
+
+        public Guid Token { get; }
+
+        public bool Matches(StageNavigationRequest request)
+        {
+            return request.IsValid &&
+                   StageId.Equals(request.StageId) &&
+                   NavigationKind == request.NavigationKind &&
+                   string.Equals(Source, request.Source, StringComparison.Ordinal);
+        }
+
+        public bool Equals(CampaignLaunchHandoff other)
+        {
+            return other != null && Token == other.Token;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as CampaignLaunchHandoff);
+        }
+
+        public override int GetHashCode()
+        {
+            return Token.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return
+                $"CampaignLaunchHandoff(slot={SlotNumber}, stage={StageId.Value}, navigation={NavigationKind}, source={Source}, token={Token:N})";
+        }
     }
 
-    public sealed class ActiveSlotProviderPendingLaunchAdapter : IPendingLaunchSlotProvider
+    public interface ICampaignLaunchHandoffStore
     {
-        private readonly ActiveSlotProvider _activeSlotProvider;
+        bool TryBegin(
+            int slotNumber,
+            StageId stageId,
+            StageNavigationKind navigationKind,
+            string source,
+            out CampaignLaunchHandoff handoff);
 
-        public ActiveSlotProviderPendingLaunchAdapter(ActiveSlotProvider activeSlotProvider)
+        bool TryPeek(out CampaignLaunchHandoff handoff);
+
+        bool TryClear(Guid token);
+
+        bool TryConsume(Guid token, out CampaignLaunchHandoff handoff);
+    }
+
+    public sealed class CampaignLaunchHandoffSessionStore : ICampaignLaunchHandoffStore
+    {
+        private static readonly object Sync = new();
+        private static CampaignLaunchHandoff pending;
+
+        public static CampaignLaunchHandoffSessionStore Instance { get; } = new();
+
+        private CampaignLaunchHandoffSessionStore()
         {
-            _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
         }
 
-        public string DiagnosticsKey => _activeSlotProvider.DiagnosticsKey;
-
-        public bool TryGetPendingLaunchSlot(out int slotNumber)
+        public bool TryBegin(
+            int slotNumber,
+            StageId stageId,
+            StageNavigationKind navigationKind,
+            string source,
+            out CampaignLaunchHandoff handoff)
         {
-            return _activeSlotProvider.TryGetActiveSlotNumber(out slotNumber);
+            var candidate = new CampaignLaunchHandoff(
+                slotNumber,
+                stageId,
+                navigationKind,
+                source,
+                Guid.NewGuid());
+            lock (Sync)
+            {
+                if (pending != null)
+                {
+                    handoff = pending;
+                    return false;
+                }
+
+                pending = candidate;
+                handoff = candidate;
+                return true;
+            }
         }
 
-        public void SetPendingLaunchSlot(int slotNumber)
+        public bool TryPeek(out CampaignLaunchHandoff handoff)
         {
-            _activeSlotProvider.SetActiveSlot(slotNumber);
+            lock (Sync)
+            {
+                handoff = pending;
+                return handoff != null;
+            }
         }
 
-        public void ClearPendingLaunchSlot()
+        public bool TryClear(Guid token)
         {
-            _activeSlotProvider.ClearActiveSlot();
+            lock (Sync)
+            {
+                if (pending == null || token == Guid.Empty || pending.Token != token)
+                {
+                    return false;
+                }
+
+                pending = null;
+                return true;
+            }
         }
 
-        public bool IsPendingLaunchSlot(int slotNumber)
+        public bool TryConsume(Guid token, out CampaignLaunchHandoff handoff)
         {
-            return SaveSlotStore.IsValidSlotNumber(slotNumber) &&
-                _activeSlotProvider.TryGetActiveSlotNumber(out var pendingSlotNumber) &&
-                pendingSlotNumber == slotNumber;
+            lock (Sync)
+            {
+                if (pending == null || token == Guid.Empty || pending.Token != token)
+                {
+                    handoff = null;
+                    return false;
+                }
+
+                handoff = pending;
+                pending = null;
+                return true;
+            }
+        }
+
+        internal static void ResetForTests()
+        {
+            ResetOnSubsystemRegistration();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetOnSubsystemRegistration()
+        {
+            lock (Sync)
+            {
+                pending = null;
+            }
         }
     }
 

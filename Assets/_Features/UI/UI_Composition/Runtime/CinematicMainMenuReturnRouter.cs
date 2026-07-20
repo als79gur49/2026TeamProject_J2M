@@ -47,9 +47,19 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            _player.PlayOutro(() =>
+            _player.PlayOutro(result =>
             {
-                _progressStore.MarkOutroPlayed(slotNumber);
+                if (result.Kind == CinematicPlaybackCompletionKind.Cancelled)
+                {
+                    return;
+                }
+
+                if (result.Kind == CinematicPlaybackCompletionKind.Completed ||
+                    result.Kind == CinematicPlaybackCompletionKind.Skipped)
+                {
+                    _progressStore.MarkOutroPlayed(slotNumber);
+                }
+
                 _inner.ReturnToMainMenu();
             });
         }

@@ -54,20 +54,18 @@ namespace Game.Feature.UI.Tests
         public void MainMenuContinue_RemainsExplicitSelectedSlotIntent()
         {
             var saveStore = new SaveSlotStore(_saveKey);
-            var pendingProvider = new SpyPendingLaunchSlotProvider();
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
             var router = new RecordingStageLaunchRouter();
             var selectedStage = StageId.CreateOrThrow("stage-1-2");
             var otherStage = StageId.CreateOrThrow("stage-3-1");
             saveStore.SaveSlot(CreateExistingSlot(1, selectedStage));
             saveStore.SaveSlot(CreateExistingSlot(3, otherStage));
-            pendingProvider.SetPendingLaunchSlot(3);
-            var controller = CreateController(saveStore, pendingProvider, router);
+            var controller = CreateController(saveStore, handoffStore, router);
 
             controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.Continue));
 
-            Assert.That(pendingProvider.SetSlots, Is.EqualTo(new[] { 3, 1 }));
-            Assert.That(pendingProvider.TryGetPendingLaunchSlot(out var pendingSlot), Is.True);
-            Assert.That(pendingSlot, Is.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out var handoff), Is.True);
+            Assert.That(handoff.SlotNumber, Is.EqualTo(1));
             Assert.That(router.Requests.Count, Is.EqualTo(1));
             Assert.That(router.Requests[0].StageId, Is.EqualTo(selectedStage));
             Assert.That(router.Requests[0].Source, Is.EqualTo("main-menu-continue"));
@@ -79,7 +77,7 @@ namespace Game.Feature.UI.Tests
             var saveStore = new SaveSlotStore(_saveKey);
             var controller = CreateController(
                 saveStore,
-                new SpyPendingLaunchSlotProvider(),
+                new RecordingCampaignLaunchHandoffStore(),
                 new RecordingStageLaunchRouter());
             saveStore.SaveSlot(CreateExistingSlot(2, StageId.CreateOrThrow("stage-2-1")));
 
@@ -98,7 +96,7 @@ namespace Game.Feature.UI.Tests
             var source = ReadRepoFile(MainMenuControllerPath);
 
             Assert.That(source, Does.Contain("public void Continue(int slotNumber)"));
-            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
+            Assert.That(source, Does.Contain("_launchHandoffStore.TryBegin"));
             Assert.That(source, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(source, Does.Not.Contain("QuickContinue"));
@@ -107,13 +105,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuPendingLaunch_RemainsIPendingLaunchSlotProviderBased()
+        public void MainMenuPendingLaunch_UsesSessionHandoffStore()
         {
             var source = ReadRepoFile(MainMenuControllerPath);
 
-            Assert.That(source, Does.Contain("IPendingLaunchSlotProvider pendingLaunchSlotProvider"));
-            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.SetPendingLaunchSlot(slotNumber);"));
-            Assert.That(source, Does.Contain("_pendingLaunchSlotProvider.TryGetPendingLaunchSlot"));
+            Assert.That(source, Does.Contain("ICampaignLaunchHandoffStore launchHandoffStore"));
+            Assert.That(source, Does.Contain("_launchHandoffStore.TryBegin"));
+            Assert.That(source, Does.Contain("_launchHandoffStore.TryPeek"));
             Assert.That(source, Does.Not.Contain("ActiveSlotProvider _activeSlotProvider"));
             Assert.That(source, Does.Not.Contain("LastPlayedSlotNumber"));
             Assert.That(source, Does.Not.Contain("CampaignProfileDocument"));
@@ -121,16 +119,15 @@ namespace Game.Feature.UI.Tests
 
         private MainMenuController CreateController(
             SaveSlotStore saveStore,
-            IPendingLaunchSlotProvider pendingProvider,
+            ICampaignLaunchHandoffStore handoffStore,
             IStageLaunchRouter router)
         {
             return new MainMenuController(
                 saveStore,
-                pendingProvider,
+                handoffStore,
                 new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
                 router,
-                new ImmediateConfirmPopupPort(),
-                pendingLaunchSlotProviderDiagnosticsKey: _activeKey);
+                new ImmediateConfirmPopupPort());
         }
 
         private static SaveSlotData CreateExistingSlot(int slotNumber, StageId stageId)
@@ -174,40 +171,5 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class SpyPendingLaunchSlotProvider : IPendingLaunchSlotProvider
-        {
-            private int _pendingSlotNumber;
-
-            public List<int> SetSlots { get; } = new();
-
-            public bool TryGetPendingLaunchSlot(out int slotNumber)
-            {
-                if (SaveSlotStore.IsValidSlotNumber(_pendingSlotNumber))
-                {
-                    slotNumber = _pendingSlotNumber;
-                    return true;
-                }
-
-                slotNumber = 0;
-                return false;
-            }
-
-            public void SetPendingLaunchSlot(int slotNumber)
-            {
-                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
-                _pendingSlotNumber = slotNumber;
-                SetSlots.Add(slotNumber);
-            }
-
-            public void ClearPendingLaunchSlot()
-            {
-                _pendingSlotNumber = 0;
-            }
-
-            public bool IsPendingLaunchSlot(int slotNumber)
-            {
-                return SaveSlotStore.IsValidSlotNumber(slotNumber) && _pendingSlotNumber == slotNumber;
-            }
-        }
     }
 }

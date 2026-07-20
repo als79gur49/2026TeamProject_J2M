@@ -24,6 +24,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private SceneTransitionOverlayContentCatalog _contentCatalog;
         private ISceneTransitionOverlayShellView _overlayShell;
         private IUiAudioPort _uiAudioPort;
+        private Guid? _currentCampaignLaunchToken;
 
         public static SceneTransitionCoordinator Instance
         {
@@ -50,11 +51,34 @@ namespace Game.Feature.UI.Composition
 
         public bool IsTransitionInProgress => _guard.IsTransitionInProgress;
 
-        public bool TryStartStageTransition(StageNavigationRequest request, string targetSceneName)
+        public bool TryStartStageTransition(
+            StageNavigationRequest request,
+            string targetSceneName,
+            Guid? campaignLaunchToken = null)
         {
             if (!request.IsValid)
             {
                 throw new ArgumentException("Scene transition requires a valid stage navigation request.", nameof(request));
+            }
+
+            var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            if (launchHandoffStore.TryPeek(out var pendingHandoff))
+            {
+                if (!campaignLaunchToken.HasValue ||
+                    pendingHandoff.Token != campaignLaunchToken.Value)
+                {
+                    return false;
+                }
+
+                if (!pendingHandoff.Matches(request))
+                {
+                    launchHandoffStore.TryClear(campaignLaunchToken.Value);
+                    return false;
+                }
+            }
+            else if (campaignLaunchToken.HasValue)
+            {
+                return false;
             }
 
             return TryStartTransition(
@@ -71,7 +95,8 @@ namespace Game.Feature.UI.Composition
                         LaunchStageId = request.StageId.Value,
                         EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
                     });
-                });
+                },
+                campaignLaunchToken);
         }
 
         public bool TryStartMainMenuReturn(string targetSceneName)
@@ -83,7 +108,8 @@ namespace Game.Feature.UI.Composition
                     "gameplay-to-main",
                     StageTransitionHint.ForKind(StageTransitionKind.GameplayToMain)),
                 targetSceneName,
-                beforeLoad: StageLaunchContextStore.Clear);
+                beforeLoad: StageLaunchContextStore.Clear,
+                campaignLaunchToken: null);
         }
 
         private void Awake()
@@ -103,7 +129,8 @@ namespace Game.Feature.UI.Composition
         private bool TryStartTransition(
             StageNavigationRequest request,
             string targetSceneName,
-            Action beforeLoad)
+            Action beforeLoad,
+            Guid? campaignLaunchToken)
         {
             if (string.IsNullOrWhiteSpace(targetSceneName))
             {
@@ -114,12 +141,19 @@ namespace Game.Feature.UI.Composition
             var profile = _profileResolver.Resolve(request, fromSceneName, targetSceneName);
             if (!_guard.TryBegin(out var transitionId))
             {
+                if (campaignLaunchToken.HasValue &&
+                    _currentCampaignLaunchToken != campaignLaunchToken)
+                {
+                    CampaignLaunchHandoffSessionStore.Instance.TryClear(campaignLaunchToken.Value);
+                }
+
                 Debug.LogWarning(
                     $"Ignoring scene transition to '{targetSceneName}' because transition {_guard.CurrentTransitionId} is already in progress.",
                     this);
                 return false;
             }
 
+            _currentCampaignLaunchToken = campaignLaunchToken;
             try
             {
                 beforeLoad?.Invoke();
@@ -130,13 +164,20 @@ namespace Game.Feature.UI.Composition
                     shell.ShowBlockerOnly(true);
                 }
 
-                StartCoroutine(RunTransition(transitionId, request, targetSceneName, profile));
+                StartCoroutine(RunTransition(
+                    transitionId,
+                    request,
+                    targetSceneName,
+                    profile,
+                    campaignLaunchToken));
                 return true;
             }
             catch
             {
+                ClearFailedCampaignLaunch(request.StageId, campaignLaunchToken);
                 TryHideOverlay();
                 _guard.Complete(transitionId);
+                _currentCampaignLaunchToken = null;
                 throw;
             }
         }
@@ -145,72 +186,125 @@ namespace Game.Feature.UI.Composition
             int transitionId,
             StageNavigationRequest request,
             string targetSceneName,
-            StageTransitionProfile profile)
+            StageTransitionProfile profile,
+            Guid? campaignLaunchToken)
         {
-            AsyncOperation operation = null;
+            var state = new TransitionExecutionState();
+            var routine = RunTransitionCore(request, targetSceneName, profile, state);
             try
             {
-                if (profile.StartAsyncLoadBeforeOverlay)
+                while (true)
                 {
-                    operation = BeginLoad(targetSceneName);
-                }
+                    bool hasNext;
+                    object current;
+                    try
+                    {
+                        hasNext = routine.MoveNext();
+                        current = hasNext ? routine.Current : null;
+                    }
+                    catch
+                    {
+                        ClearFailedCampaignLaunch(request.StageId, campaignLaunchToken);
+                        throw;
+                    }
 
-                var preOverlayDelaySeconds = Math.Max(0f, profile.PreOverlayDelaySeconds);
-                var preOverlayStartedAt = Time.unscaledTime;
-                while (Time.unscaledTime - preOverlayStartedAt < preOverlayDelaySeconds)
-                {
-                    yield return null;
-                }
+                    if (!hasNext)
+                    {
+                        break;
+                    }
 
-                var overlay = EnsureOverlayShell();
-                var viewModel = CreateViewModel(profile, request.TransitionHint, 0f);
-                var contentPrefab = ResolveContentPrefab(viewModel);
-                var content = overlay.MountContent(contentPrefab);
-                overlay.ShowContent(viewModel, content);
-                PlayTransitionAudio(viewModel);
-                var overlayShownAt = Time.unscaledTime;
-
-                if (operation == null)
-                {
-                    operation = BeginLoad(targetSceneName);
-                }
-
-                var minimumVisibleSeconds = Math.Max(0f, profile.MinimumVisibleSeconds);
-                var loadReady = false;
-                var minimumElapsed = !profile.HoldSceneActivationUntilMinimumElapsed;
-                while (!loadReady || !minimumElapsed)
-                {
-                    loadReady = operation.progress >= 0.9f;
-                    overlay.SetProgress(loadReady ? 1f : NormalizeProgress(operation.progress));
-                    minimumElapsed = IsMinimumVisibleElapsedForActivation(
-                        profile,
-                        overlayShownAt,
-                        Time.unscaledTime);
-                    yield return null;
-                }
-
-                overlay.SetProgress(1f);
-                operation.allowSceneActivation = true;
-                while (!operation.isDone)
-                {
-                    yield return null;
-                }
-
-                while (!profile.HoldSceneActivationUntilMinimumElapsed &&
-                       Time.unscaledTime - overlayShownAt < minimumVisibleSeconds)
-                {
-                    yield return null;
+                    yield return current;
                 }
             }
             finally
             {
-                if (operation != null && !operation.allowSceneActivation)
+                (routine as IDisposable)?.Dispose();
+                if (state.Operation != null && !state.Operation.allowSceneActivation)
                 {
-                    operation.allowSceneActivation = true;
+                    state.Operation.allowSceneActivation = true;
                 }
 
                 TryHideOverlay();
                 _guard.Complete(transitionId);
+                if (_currentCampaignLaunchToken == campaignLaunchToken)
+                {
+                    _currentCampaignLaunchToken = null;
+                }
+            }
+        }
+
+        private IEnumerator RunTransitionCore(
+            StageNavigationRequest request,
+            string targetSceneName,
+            StageTransitionProfile profile,
+            TransitionExecutionState state)
+        {
+            if (profile.StartAsyncLoadBeforeOverlay)
+            {
+                state.Operation = BeginLoad(targetSceneName);
+            }
+
+            var preOverlayDelaySeconds = Math.Max(0f, profile.PreOverlayDelaySeconds);
+            var preOverlayStartedAt = Time.unscaledTime;
+            while (Time.unscaledTime - preOverlayStartedAt < preOverlayDelaySeconds)
+            {
+                yield return null;
+            }
+
+            var overlay = EnsureOverlayShell();
+            var viewModel = CreateViewModel(profile, request.TransitionHint, 0f);
+            var contentPrefab = ResolveContentPrefab(viewModel);
+            var content = overlay.MountContent(contentPrefab);
+            overlay.ShowContent(viewModel, content);
+            PlayTransitionAudio(viewModel);
+            var overlayShownAt = Time.unscaledTime;
+
+            if (state.Operation == null)
+            {
+                state.Operation = BeginLoad(targetSceneName);
+            }
+
+            var minimumVisibleSeconds = Math.Max(0f, profile.MinimumVisibleSeconds);
+            var loadReady = false;
+            var minimumElapsed = !profile.HoldSceneActivationUntilMinimumElapsed;
+            while (!loadReady || !minimumElapsed)
+            {
+                loadReady = state.Operation.progress >= 0.9f;
+                overlay.SetProgress(loadReady ? 1f : NormalizeProgress(state.Operation.progress));
+                minimumElapsed = IsMinimumVisibleElapsedForActivation(
+                    profile,
+                    overlayShownAt,
+                    Time.unscaledTime);
+                yield return null;
+            }
+
+            overlay.SetProgress(1f);
+            state.Operation.allowSceneActivation = true;
+            while (!state.Operation.isDone)
+            {
+                yield return null;
+            }
+
+            while (!profile.HoldSceneActivationUntilMinimumElapsed &&
+                   Time.unscaledTime - overlayShownAt < minimumVisibleSeconds)
+            {
+                yield return null;
+            }
+        }
+
+        private sealed class TransitionExecutionState
+        {
+            public AsyncOperation Operation;
+        }
+
+        private static void ClearFailedCampaignLaunch(
+            StageId stageId,
+            Guid? campaignLaunchToken)
+        {
+            StageLaunchContextStore.TryClearCurrent(stageId);
+            if (campaignLaunchToken.HasValue)
+            {
+                CampaignLaunchHandoffSessionStore.Instance.TryClear(campaignLaunchToken.Value);
             }
         }
 

@@ -94,8 +94,9 @@ namespace Game.Feature.UI.Tests
                 "FileCampaignProfileRepository",
                 "ICampaignProfileRepository",
                 "profile.json");
-            Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("IPendingLaunchSlotProvider"));
-            Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("ActiveSlotProviderPendingLaunchAdapter"));
+            Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("ICampaignLaunchHandoffStore"));
+            Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Contain("CampaignLaunchHandoffSessionStore"));
+            Assert.That(ReadRepoFile(PendingLaunchProviderPath), Does.Not.Contain("ActiveSlotProviderPendingLaunchAdapter"));
         }
 
         [Test]

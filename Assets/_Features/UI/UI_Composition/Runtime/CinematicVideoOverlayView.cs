@@ -1025,6 +1025,17 @@ namespace Game.Feature.UI.Composition
                 _videoPlayer.errorReceived -= HandleErrorReceived;
             }
 
+            if (IsPlaying && !_completionDispatched)
+            {
+                _completionDispatched = true;
+                IsPlaying = false;
+                var callback = _completion;
+                _completion = null;
+                callback?.Invoke(new CinematicPlaybackCompletion(
+                    CinematicPlaybackCompletionKind.Cancelled,
+                    "Cinematic overlay was destroyed before playback completed."));
+            }
+
             ReleaseRenderTexture();
         }
 

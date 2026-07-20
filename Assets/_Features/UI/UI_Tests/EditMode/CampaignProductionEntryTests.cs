@@ -45,6 +45,7 @@ namespace Game.Feature.UI.Tests
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            CampaignLaunchHandoffSessionStore.ResetForTests();
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.Clear();
             var eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
@@ -197,7 +198,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void EmptySlot_NewGame_InitializesFirstStage_SetsActiveSlot_AndLaunches()
+        public void EmptySlot_NewGame_InitializesFirstStage_CreatesPendingHandoff_AndLaunches()
         {
             var harness = CreateControllerHarness("stage-0-1");
             try
@@ -205,7 +206,9 @@ namespace Game.Feature.UI.Tests
                 harness.Controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
 
                 Assert.That(harness.SaveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
-                Assert.That(harness.ActiveSlotProvider.ActiveSlotNumber, Is.EqualTo(1));
+                Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
+                Assert.That(harness.LaunchHandoffStore.TryPeek(out var handoff), Is.True);
+                Assert.That(handoff.SlotNumber, Is.EqualTo(1));
                 Assert.That(harness.Router.Requests.Count, Is.EqualTo(1));
                 Assert.That(harness.Router.Requests[0].StageId.Value, Is.EqualTo("stage-0-1"));
             }
@@ -216,7 +219,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ExistingValidSlot_Continue_ValidatesSyncsActiveSlot_AndLaunchesSavedStage()
+        public void ExistingValidSlot_Continue_ValidatesSyncsPendingHandoff_AndLaunchesSavedStage()
         {
             var harness = CreateControllerHarness("stage-2-2");
             try
@@ -231,7 +234,9 @@ namespace Game.Feature.UI.Tests
                 harness.Controller.Continue(2);
 
                 Assert.That(harness.SaveStore.LoadSlot(2).CurrentLevelGroupId, Is.EqualTo("level-2"));
-                Assert.That(harness.ActiveSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
+                Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
+                Assert.That(harness.LaunchHandoffStore.TryPeek(out var handoff), Is.True);
+                Assert.That(handoff.SlotNumber, Is.EqualTo(2));
                 Assert.That(harness.Router.Requests[0].StageId.Value, Is.EqualTo("stage-2-2"));
             }
             finally
@@ -369,6 +374,87 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [Test]
+        public void ConfiguredGameplayStageLaunchRouter_LoadFailure_ClearsMatchingPendingAndContext()
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            try
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "load-failure");
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        request.StageId,
+                        request.NavigationKind,
+                        request.Source,
+                        out _),
+                    Is.True);
+                var router = new ConfiguredGameplayStageLaunchRouter(
+                    routeConfig,
+                    new FakeSceneLoadPort(_ => throw new InvalidOperationException("load failed")));
+
+                Assert.Throws<InvalidOperationException>(() => router.Launch(request));
+
+                Assert.That(handoffStore.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [Test]
+        public void ConfiguredGameplayStageLaunchRouter_MismatchedRequest_DoesNotOverwriteAcceptedContextOrHandoff()
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            try
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                var firstStage = StageId.CreateOrThrow("stage-0-1");
+                var secondStage = StageId.CreateOrThrow("stage-0-2");
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        firstStage,
+                        StageNavigationKind.Continue,
+                        "first",
+                        out var firstHandoff),
+                    Is.True);
+                StageLaunchContextStore.SetCurrent(firstStage);
+                var router = new ConfiguredGameplayStageLaunchRouter(
+                    routeConfig,
+                    new FakeSceneLoadPort());
+
+                Assert.Throws<InvalidOperationException>(() => router.Launch(
+                    new StageNavigationRequest(
+                        secondStage,
+                        StageNavigationKind.Continue,
+                        "second")));
+
+                Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
+                Assert.That(stillPending, Is.SameAs(firstHandoff));
+                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(firstStage));
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
                 UnityEngine.Object.DestroyImmediate(routeConfig);
             }
         }
@@ -603,14 +689,112 @@ namespace Game.Feature.UI.Tests
             StageLaunchContextStore.Clear();
         }
 
+        [Test]
+        public void TransitionGuardRejection_ClearsMatchingPendingWithoutOverwritingStageContext()
+        {
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+            var coordinatorObject = new GameObject("Coordinator");
+            coordinatorObject.SetActive(false);
+            var firstStage = StageId.CreateOrThrow("stage-0-1");
+            var rejectedStage = StageId.CreateOrThrow("stage-0-2");
+            var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+            var guardField = typeof(SceneTransitionCoordinator).GetField(
+                "_guard",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(guardField, Is.Not.Null);
+            var guard = (StageTransitionLaunchGuard)guardField.GetValue(coordinator);
+            Assert.That(guard.TryBegin(out var transitionId), Is.True);
+            StageLaunchContextStore.SetCurrent(firstStage);
+
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                handoffStore.TryBegin(
+                    1,
+                    rejectedStage,
+                    StageNavigationKind.Continue,
+                    "guard-rejection",
+                    out var handoff),
+                Is.True);
+
+            try
+            {
+                var accepted = coordinator.TryStartStageTransition(
+                    new StageNavigationRequest(
+                        rejectedStage,
+                        StageNavigationKind.Continue,
+                        "guard-rejection"),
+                    "unused-scene",
+                    handoff.Token);
+
+                Assert.That(accepted, Is.False);
+                Assert.That(handoffStore.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(firstStage));
+            }
+            finally
+            {
+                guard.Complete(transitionId);
+                StageLaunchContextStore.Clear();
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void TransitionRequestMismatch_WithMatchingToken_ClearsPendingWithoutMutatingStageContext()
+        {
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+            var coordinatorObject = new GameObject("Coordinator");
+            coordinatorObject.SetActive(false);
+            var currentStage = StageId.CreateOrThrow("stage-0-1");
+            var handoffStage = StageId.CreateOrThrow("stage-0-2");
+            var mismatchedStage = StageId.CreateOrThrow("stage-1-1");
+            StageLaunchContextStore.SetCurrent(currentStage);
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            Assert.That(
+                handoffStore.TryBegin(
+                    1,
+                    handoffStage,
+                    StageNavigationKind.Continue,
+                    "matching-token-mismatch",
+                    out var handoff),
+                Is.True);
+
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var accepted = coordinator.TryStartStageTransition(
+                    new StageNavigationRequest(
+                        mismatchedStage,
+                        StageNavigationKind.Continue,
+                        "matching-token-mismatch"),
+                    "unused-scene",
+                    handoff.Token);
+
+                Assert.That(accepted, Is.False);
+                Assert.That(handoffStore.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(currentStage));
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
         private static ControllerHarness CreateControllerHarness(params string[] catalogStageIds)
         {
             var provider = CreateProvider(catalogStageIds);
             var saveKey = CreatePrefsKey("saves");
             var activeKey = CreatePrefsKey("active");
             var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
-            var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
+            var activeSlotStorage = new PlayerPrefsActiveSlotStorage(activeKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeSlotStorage);
+            var launchHandoffStore = new RecordingCampaignLaunchHandoffStore();
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                saveStore,
+                activeSlotStorage,
+                launchHandoffStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
             var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
@@ -618,17 +802,17 @@ namespace Game.Feature.UI.Tests
             var router = new FakeStageLaunchRouter();
             var validationService = new SaveSlotValidationService(resolver, provider.Provider);
             var controller = new MainMenuController(
-                saveStore,
-                pendingLaunchSlotProvider,
+                repairingStore,
+                launchHandoffStore,
                 resolver,
                 router,
                 confirmPort,
-                validationService,
-                activeSlotProvider.PlayerPrefsKey);
+                validationService);
             return new ControllerHarness(
                 provider,
                 saveStore,
                 activeSlotProvider,
+                launchHandoffStore,
                 confirmPort,
                 router,
                 controller);
@@ -1086,6 +1270,7 @@ namespace Game.Feature.UI.Tests
                 ProviderHarness provider,
                 SaveSlotStore saveStore,
                 ActiveSlotProvider activeSlotProvider,
+                RecordingCampaignLaunchHandoffStore launchHandoffStore,
                 FakeConfirmPopupPort confirmPort,
                 FakeStageLaunchRouter router,
                 MainMenuController controller)
@@ -1093,6 +1278,7 @@ namespace Game.Feature.UI.Tests
                 _provider = provider;
                 SaveStore = saveStore;
                 ActiveSlotProvider = activeSlotProvider;
+                LaunchHandoffStore = launchHandoffStore;
                 ConfirmPort = confirmPort;
                 Router = router;
                 Controller = controller;
@@ -1101,6 +1287,8 @@ namespace Game.Feature.UI.Tests
             public SaveSlotStore SaveStore { get; }
 
             public ActiveSlotProvider ActiveSlotProvider { get; }
+
+            public RecordingCampaignLaunchHandoffStore LaunchHandoffStore { get; }
 
             public FakeConfirmPopupPort ConfirmPort { get; }
 
@@ -1112,6 +1300,10 @@ namespace Game.Feature.UI.Tests
             {
                 SaveStore.ClearAll();
                 ActiveSlotProvider.ClearActiveSlot();
+                if (LaunchHandoffStore.TryPeek(out var handoff))
+                {
+                    LaunchHandoffStore.TryClear(handoff.Token);
+                }
                 _provider.Dispose();
             }
         }

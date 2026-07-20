@@ -217,22 +217,21 @@ namespace Game.Feature.UI.Composition
             var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore);
             ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
-            var pendingLaunchSlotProvider = new ActiveSlotProviderPendingLaunchAdapter(activeSlotProvider);
+            var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             var validationService = new SaveSlotValidationService(sequenceResolver, _stageCatalogProvider);
             IStageLaunchRouter stageLaunchRouter = new ConfiguredGameplayStageLaunchRouter(_routeConfig);
             stageLaunchRouter = new CinematicStageLaunchRouter(
                 stageLaunchRouter,
                 saveSlotStore,
-                pendingLaunchSlotProvider,
+                launchHandoffStore,
                 EnsureCinematicFlowCoordinator());
             Controller = new MainMenuController(
                 saveSlotStore,
-                pendingLaunchSlotProvider,
+                launchHandoffStore,
                 sequenceResolver,
                 stageLaunchRouter,
                 _confirmPopupPort,
-                validationService,
-                pendingLaunchSlotProvider.DiagnosticsKey);
+                validationService);
 
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;

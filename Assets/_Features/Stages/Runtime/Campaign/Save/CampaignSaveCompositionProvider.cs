@@ -16,9 +16,10 @@ namespace Game.Feature.Stages
             var activeSlotStorage = CreateProductionLocalStateActiveSlotStorage(
                 facade.CampaignSaveSlots,
                 options.PathProvider);
-            productionProfileBackedStore = new ActiveSlotRepairingCampaignSaveSlotStore(
+            productionProfileBackedStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
                 facade.CampaignSaveSlots,
-                activeSlotStorage);
+                activeSlotStorage,
+                CampaignLaunchHandoffSessionStore.Instance);
             return productionProfileBackedStore;
         }
 
