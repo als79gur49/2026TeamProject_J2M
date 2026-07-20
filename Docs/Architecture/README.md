@@ -162,8 +162,13 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - 현재 테스트 단계에서는 old save compatibility와 migration adapter를 제공하지 않는다.
 - Production campaign progression save truth는 `Saves/profile.json`이며, retained PlayerPrefs rollback/import source는 `Game.Feature.Stages.StageClearSaveSlots`이다.
 - Production active launch pointer는 non-Cloud `Saves/local-launch-state.json`이며, `Game.Feature.Stages.ActiveStageClearSaveSlot`은 profile-slot validation 후 import source로만 보존한다.
+- Local active는 gameplay installer가 non-empty profile slot과 request/context/resolved/profile stage identity를 검증한 뒤 commit한 slot이다. MainMenu NewGame/Continue는 active를 쓰지 않는다.
+- Pending launch는 slot/stage/navigation/source/token을 묶는 application-session `CampaignLaunchHandoffSessionStore`가 소유하며 first accepted request wins와 matching-token clear/consume을 적용한다.
+- Pending은 cinematic과 scene transition을 통과하지만 failure/cancel/rejection/load/installer validation failure에서 matching request만 clear되고, process restart에서는 복원되지 않는다.
+- `CampaignRunningSlotContext`는 active commit 직후 생성되는 scene-local mutation identity이며 이후 active 변경과 무관하게 고정된다.
 - Old PlayerPrefs key `Game.Feature.Stages.SaveSlots` / `Game.Feature.Stages.ActiveSaveSlot`은 delete-only cleanup 대상이며 production read/write path에 사용하지 않는다.
 - Direct-play temp key `Game.Feature.Stages.DirectPlay.TempSaveSlots` / `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot`은 production key split 대상이 아닌 별도 임시 namespace다.
+- Production Campaign DirectPlay의 explicit active overwrite/prime은 editor launch exception으로 유지되며 normal production handoff를 생성하거나 소비하지 않는다.
 - Stage clear save root DTO는 `SchemaId = StageClearSaveSlots`, `SchemaVersion = 2` marker를 쓴다. `StageClearProfileSnapshot.Version`은 profile snapshot version이며 root schema marker와 다른 개념이다.
 - Current key contamination 또는 invalid payload는 `SaveSlotStore.LoadDto()` raw JSON read 직후 검사한다. old save compatibility는 제공하지 않고, legacy/corrupt payload는 rejected/reset되며 store/API에 노출되지 않는다.
 - Legacy/corrupt payload reset은 non-crash path이고 empty current database로 닫힌다. `StageClearSaveLoadReport`는 logic-level report로만 남기며 Diagnostics overlay 연결은 이번 PR 범위가 아니다.
@@ -176,13 +181,13 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - [Save-Architecture-V2-Phase4-Policy-Closeout.md](./Save-Architecture-V2-Phase4-Policy-Closeout.md)
   - current supporting truth for Phase 4 policy closeout before Phase 5 SaveSlotStore call-site migration / adapter production integration investigation
   - records that `DeleteSlot` removes V2 profile slots and records a deleted-slot legacy guard, while production SaveSlotStore migration / adapter wiring remains deferred until a separate production switch decision
-  - records that `LastPlayedSlotNumber` is Cloud-friendly profile metadata, while the existing `ActiveSlotProvider` pending launch slot remains local/session state until an explicit active slot split phase
+  - historical phase-close record for `LastPlayedSlotNumber` metadata and the pre-split active/pending state; the current split contract is `Campaign-LocalState-Launch-State.md`
 - [Steam-Cloud-File-Inventory-Policy.md](./Steam-Cloud-File-Inventory-Policy.md)
   - current supporting truth for Steam Release Phase B Cloud inventory policy, Auto-Cloud defer status, future exact `profile.json` include rule, Cloud/SteamPipe exclusions, Company/Product path guard, and no-Steam-API guard
 - [Campaign-Save-Rollback-Retention-Policy.md](./Campaign-Save-Rollback-Retention-Policy.md)
   - current supporting truth for retained `Game.Feature.Stages.StageClearSaveSlots` rollback/import policy, retained read/read-disable gate, 2 profile-backed public releases retention window, cleanup/delete evidence gate, operator/dev rollback semantics, and marker removal defer status
 - [Campaign-LocalState-Launch-State.md](./Campaign-LocalState-Launch-State.md)
-  - current supporting truth for non-Cloud `Saves/local-launch-state.json` active launch pointer ownership, PlayerPrefs active-slot import retention, profile-slot validation, pending/running session boundaries, and DirectPlay temp separation
+  - current supporting truth for committed LocalState active ownership and active commit point, application-session pending handoff, scene-local running context, matching-token failure policy, restart reset, and DirectPlay exception
 
 ## Historical Supporting Notes
 

@@ -8,7 +8,8 @@ This policy freezes the Steam Cloud file inventory for Steam Release Phase B. It
 - Retained legacy import / rollback source key: `Game.Feature.Stages.StageClearSaveSlots`.
 - Active launch pointer file: `Saves/local-launch-state.json`.
 - Retained active launch import source key: `Game.Feature.Stages.ActiveStageClearSaveSlot`.
-- Pending launch state is session only and is not written to the active launch pointer file or Steam Cloud.
+- Pending launch state is application-session memory only and is not written to any file or PlayerPrefs key, including the active launch pointer file, and is not a Steam Cloud target.
+- Production Campaign DirectPlay explicit active overwrite/prime remains an editor-launch exception; DirectPlay temp state stays in its existing temp namespace and neither path persists the normal production handoff.
 - Current profile file: `Saves/profile.json`.
 - Current Steam Cloud action: Auto-Cloud application is deferred. Revisit after the separate Steam Cloud enable decision.
 
@@ -100,7 +101,7 @@ JSON target classifications:
 
 - `CampaignProfileJson`: future `Saves/profile.json` campaign profile target.
 - `LocalSettingsJson`: future local settings JSON target; never Cloud profile.
-- `LocalLaunchStateJson`: future local launch/session state target; never Cloud profile.
+- `LocalLaunchStateJson`: committed local active launch pointer target; never Cloud profile.
 - `EditorOnlyJson`: editor-only JSON target; never Cloud profile or release content.
 - `DeleteOnlyLegacy`: legacy key retained until an explicit cleanup slice; no import target.
 - `ImportOnlyLegacy`: legacy-only import source classification reserved for future source keys that must not become production write targets.
@@ -133,7 +134,7 @@ Frozen inventory:
 Target consistency:
 
 - Campaign save keys target `CampaignProfileJson`.
-- Pending launch keys target `LocalLaunchStateJson` and must not be stored in the Cloud profile.
+- Pending launch has no key or JSON target. It remains application-session memory and must not be stored in LocalState or the Cloud profile.
 - Audio, display, and input keys target `LocalSettingsJson` and must not be stored in the Cloud profile.
 - Direct-play temp keys target `EditorOnlyJson` in this slice; a later explicit cleanup decision may move them to `Remove`.
 - Old stage save keys target `DeleteOnlyLegacy`.
@@ -146,7 +147,7 @@ Target consistency:
 | --- | --- | --- | --- | --- |
 | 1. Inventory freeze | Freeze all current PlayerPrefs keys/prefixes and add drift guards. | All keys and prefixes in the frozen inventory table. | Low; documentation and tests only. | Revert docs/tests; production behavior is unchanged. |
 | 2. Campaign profile switch investigation | Validate `SaveSlotStore` call-site migration, profile write enablement, and adapter wiring on one revision before any production switch. | `Game.Feature.Stages.StageClearSaveSlots`, migration marker keys. | High; can affect campaign progression persistence. | Keep PlayerPrefs source retained and default constructor unchanged until switch approval. |
-| 3. Local launch state schema | Split persistent active launch pointer away from campaign profile metadata and keep pending launch session-only. | `Saves/local-launch-state.json`, `Game.Feature.Stages.ActiveStageClearSaveSlot` import source. | Medium; can affect continue/launch UX. | Retain the PlayerPrefs key as an import/diagnostic source while avoiding silent fallback from corrupt LocalState. |
+| 3. Local launch state schema | Keep installer-committed active separate from profile metadata and keep pending launch in application-session memory only. | `Saves/local-launch-state.json`, `Game.Feature.Stages.ActiveStageClearSaveSlot` import source; no pending key/file. | Medium; can affect continue/launch UX. | Retain the PlayerPrefs key as an import/diagnostic source while avoiding silent fallback from corrupt LocalState. |
 | 4. Local settings schema | Move local settings into non-Cloud local JSON. | `settings.audio.*`, `settings.display.*`, `Game.Feature.Input.*`. | Medium; can affect user settings and machine-specific display config. | Keep PlayerPrefs reads as import fallback during transition. |
 | 5. Editor/direct-play cleanup decision | Decide whether direct-play temp state becomes editor JSON or is removed. | `Game.Feature.Stages.DirectPlay.TempSaveSlots`, `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot`. | Low; editor workflow only. | Keep current editor PlayerPrefs temp keys. |
 | 6. Legacy tombstone cleanup | Remove retained legacy keys only after explicit retention-window closeout. | Delete-only legacy keys and test-only dynamic keys. | Medium; irreversible if users still need rollback/import. | Do not delete until import/rollback window and backups are closed. |
