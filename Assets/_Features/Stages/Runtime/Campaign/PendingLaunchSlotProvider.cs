@@ -61,6 +61,16 @@ namespace Game.Feature.Stages
                    string.Equals(Source, request.Source, StringComparison.Ordinal);
         }
 
+        public bool Matches(CampaignLaunchHandoff other)
+        {
+            return other != null &&
+                   Token == other.Token &&
+                   SlotNumber == other.SlotNumber &&
+                   StageId.Equals(other.StageId) &&
+                   NavigationKind == other.NavigationKind &&
+                   string.Equals(Source, other.Source, StringComparison.Ordinal);
+        }
+
         public bool Equals(CampaignLaunchHandoff other)
         {
             return other != null && Token == other.Token;

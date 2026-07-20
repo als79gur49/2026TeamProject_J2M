@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Composition
@@ -48,41 +49,48 @@ namespace Game.Feature.UI.Composition
             if (!_player.HasIntroClip ||
                 _progressStore.IsIntroPlayed(handoff.SlotNumber))
             {
-                LaunchOrClear(request, handoff.Token);
+                LaunchOrClear(request, handoff);
                 return;
             }
 
+            var terminalClaimed = 0;
             try
             {
                 _player.PlayIntro(result =>
                 {
-                    if (result.Kind == CinematicPlaybackCompletionKind.Failed ||
-                        result.Kind == CinematicPlaybackCompletionKind.Cancelled)
+                    if (Volatile.Read(ref terminalClaimed) != 0 ||
+                        !IsCurrentHandoff(handoff) ||
+                        Interlocked.CompareExchange(ref terminalClaimed, 1, 0) != 0)
                     {
-                        _launchHandoffStore.TryClear(handoff.Token);
                         return;
                     }
 
-                    try
+                    switch (result.Kind)
                     {
-                        _progressStore.MarkIntroPlayed(handoff.SlotNumber);
-                        LaunchOrClear(request, handoff.Token);
-                    }
-                    catch
-                    {
-                        _launchHandoffStore.TryClear(handoff.Token);
-                        throw;
+                        case CinematicPlaybackCompletionKind.Completed:
+                        case CinematicPlaybackCompletionKind.Skipped:
+                            LaunchOrClear(request, handoff);
+                            _progressStore.MarkIntroPlayed(handoff.SlotNumber);
+                            return;
+
+                        case CinematicPlaybackCompletionKind.Failed:
+                        case CinematicPlaybackCompletionKind.Cancelled:
+                        default:
+                            TryClearCurrentHandoff(handoff);
+                            return;
                     }
                 });
             }
             catch
             {
-                _launchHandoffStore.TryClear(handoff.Token);
+                TryClearCurrentHandoff(handoff);
                 throw;
             }
         }
 
-        private void LaunchOrClear(StageNavigationRequest request, Guid token)
+        private void LaunchOrClear(
+            StageNavigationRequest request,
+            CampaignLaunchHandoff handoff)
         {
             try
             {
@@ -90,8 +98,28 @@ namespace Game.Feature.UI.Composition
             }
             catch
             {
-                _launchHandoffStore.TryClear(token);
+                TryClearCurrentHandoff(handoff);
                 throw;
+            }
+        }
+
+        private bool IsCurrentHandoff(CampaignLaunchHandoff expected)
+        {
+            return expected != null &&
+                   expected.Token != Guid.Empty &&
+                   SaveSlotStore.IsValidSlotNumber(expected.SlotNumber) &&
+                   expected.StageId.IsValid &&
+                   expected.NavigationKind != StageNavigationKind.None &&
+                   !string.IsNullOrWhiteSpace(expected.Source) &&
+                   _launchHandoffStore.TryPeek(out var current) &&
+                   expected.Matches(current);
+        }
+
+        private void TryClearCurrentHandoff(CampaignLaunchHandoff expected)
+        {
+            if (IsCurrentHandoff(expected))
+            {
+                _launchHandoffStore.TryClear(expected.Token);
             }
         }
     }

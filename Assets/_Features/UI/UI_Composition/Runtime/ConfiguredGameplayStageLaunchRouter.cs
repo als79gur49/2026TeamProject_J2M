@@ -75,7 +75,7 @@ namespace Game.Feature.UI.Composition
 
             if (UnityEngine.Application.isPlaying)
             {
-                SceneTransitionCoordinator.Instance.TryStartStageTransition(
+                var accepted = SceneTransitionCoordinator.Instance.TryStartStageTransition(
                     request.TransitionHint.HasExplicitKind
                         ? request
                         : new StageNavigationRequest(
@@ -85,6 +85,12 @@ namespace Game.Feature.UI.Composition
                             StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)),
                     _routeConfig.GameplayShellSceneName,
                     launchHandoff?.Token);
+                if (!accepted)
+                {
+                    throw new InvalidOperationException(
+                        "Configured gameplay launch was rejected before the scene transition started.");
+                }
+
                 return;
             }
 

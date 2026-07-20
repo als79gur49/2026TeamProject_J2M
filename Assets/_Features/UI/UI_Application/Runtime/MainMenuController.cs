@@ -411,11 +411,7 @@ namespace Game.Feature.UI.Application
         {
             return expected != null &&
                    _launchHandoffStore.TryPeek(out var current) &&
-                   current.Token == expected.Token &&
-                   current.SlotNumber == expected.SlotNumber &&
-                   current.StageId.Equals(expected.StageId) &&
-                   current.NavigationKind == expected.NavigationKind &&
-                   string.Equals(current.Source, expected.Source, StringComparison.Ordinal);
+                   expected.Matches(current);
         }
 
         private SaveSlotValidationResult Validate(int slotNumber)
