@@ -26,7 +26,7 @@ Future aggregate captures write `capture.log` directly from `TypographyPreviewSc
 | Pause / Main Menu `ko-KR` tofu | Resolved |
 | Settings `ko-KR` authored English shell | Resolved |
 | Production SmartFormat integration | Restored |
-| Full UI lane | 853/853 passed |
+| Full UI lane | 854/854 PASS |
 
 ## Visual Fixes
 
@@ -35,6 +35,31 @@ Future aggregate captures write `capture.log` directly from `TypographyPreviewSc
 | Settings Mute wrapping | Fixed |
 | Settings audio/display static shell | Descriptor/String Table path complete |
 | Pause description visibility | Fixed |
+
+## Validation Alignment
+
+| Evidence | Result |
+|---|---|
+| Localization integration | 23/23 PASS |
+| Settings production runtime | 20/20 PASS |
+| Typography | 44/44 PASS |
+| UI Architecture | 58/58 PASS |
+| Typography preview screenshot manifest | 2/2 PASS |
+| Full UI | 854/854 PASS |
+| Core EditMode | 197/197 PASS |
+| Core PlayMode | 92/92 PASS |
+
+## Smart Metadata Closeout
+
+The final Smart metadata correction did not change localized copy, layout, runtime display output, or screenshot assets. Existing visual evidence remains valid.
+
+| Check | Final state |
+|---|---|
+| Shared UI entries | 46 |
+| Smart entries | 5 |
+| Non-Smart entries | 41 |
+| Violations | 0 |
+| `ui.settings.input.rebind_canceled` | Static localized status; no runtime argument; non-Smart |
 
 ## Remaining
 

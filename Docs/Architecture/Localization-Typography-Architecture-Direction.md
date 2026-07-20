@@ -58,7 +58,7 @@ Current baseline captured for this cleanup pass:
 | Audio volume / muted Smart String | Done | Volume value and muted value are Smart String entries with runtime arguments. |
 | Display resolution value | Done | Resolution label is resolved through a Smart String descriptor. |
 | Display preview countdown | Done | Countdown text is resolved through a Smart String descriptor. |
-| Input `rebind_canceled` | Done | Localized descriptor and table entries exist. |
+| Input `rebind_canceled` | Done | Static localized status with no runtime argument; both locale entries are non-Smart. |
 | Input `reserved_key` | Done | Localized descriptor and table entries exist. |
 | Input `movement_conflict` | Done | Localized descriptor and table entries exist. |
 | Input `already_rebinding` | Done | Localized descriptor and table entries exist. |
@@ -95,10 +95,29 @@ Current baseline captured for this cleanup pass:
 |---|---|
 | Production SmartFormat integration | Restored; actual Localization Settings, formatter/source graph, and bilingual Smart Strings pass integration coverage. |
 | Settings static shell | Complete for the governed audio/display targets; raw action and physical key names remain intentional non-goals. |
-| Localization integration tests | 22/22 passed. |
-| Full UI lane | 853/853 passed. |
+| Localization integration tests | 23/23 PASS. |
+| Settings production runtime tests | 20/20 PASS. |
+| Typography tests | 44/44 PASS. |
+| UI architecture tests | 58/58 PASS. |
+| Typography preview screenshot manifest | 2/2 PASS. |
+| Full UI lane | 854/854 PASS. |
+| Core lane | EditMode 197/197 PASS; PlayMode 92/92 PASS. |
 | Latest visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` at 1920x1080, with six SHA-256-addressed entries in `capture.log`. |
 | Remaining closeout work | Optional P2 Korean synthetic-bold/material polish only; broader Theme sizing and optional bake are not required. |
+
+### Smart Entry Contract
+
+A String Table entry is marked Smart if and only if its localized value contains a valid runtime argument or SmartFormat expression. Static copy and status entries that do not use an argument remain non-Smart.
+
+이 계약은 UI Shared Table의 모든 entry와 `en-US` / `ko-KR` 양 locale에 동일하게 적용된다. Production SmartFormatter parser 기반 invariant test는 실제 argument expression 여부와 locale 간 Smart metadata parity를 함께 검증한다.
+
+| Check | Final state |
+|---|---|
+| Shared UI entries | 46 |
+| Smart entries | 5 |
+| Non-Smart entries | 41 |
+| Violations | 0 |
+| `ui.settings.input.rebind_canceled` | Static localized status; no runtime argument; non-Smart |
 
 ### Stage
 
@@ -574,7 +593,7 @@ Localization validation:
 | Validation | Expected result |
 |---|---|
 | UI / Stage table completeness | Required entries exist for `en-US` and `ko-KR`. |
-| Smart String placeholder validation | Placeholder count and Smart String flags match descriptor usage. |
+| Smart String placeholder validation | An entry is Smart if and only if its localized value contains a valid runtime argument or SmartFormat expression; parser validation and locale metadata parity cover all shared UI entries. |
 | Missing key deterministic marker | Missing key returns `[Table:Key]`. |
 | Production resolver Unity adapter only | Production composition creates `UnityStringTableTextResolver`. |
 | Package-free resolver production fallback absence | Runtime production source does not reference package-free resolver. |
