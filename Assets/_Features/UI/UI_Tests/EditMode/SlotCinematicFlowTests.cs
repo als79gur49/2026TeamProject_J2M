@@ -220,6 +220,291 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DeletePendingSlot_LateCompletedCallbackDoesNotMutateProfileOrRoute()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(DeletePendingSlot_LateCompletedCallbackDoesNotMutateProfileOrRoute));
+            harness.StartCinematic();
+
+            harness.SaveStore.DeleteSlot(harness.Handoff.SlotNumber);
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+
+            Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IsEmpty, Is.True);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+        }
+
+        [Test]
+        public void ClearAll_LateSkippedCallbackDoesNotMutateProfileOrRoute()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(ClearAll_LateSkippedCallbackDoesNotMutateProfileOrRoute));
+            harness.StartCinematic();
+
+            harness.SaveStore.ClearAll();
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped);
+
+            Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IsEmpty, Is.True);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+        }
+
+        [Test]
+        public void ExpiredHandoff_LateCallbackIsNoOp()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(ExpiredHandoff_LateCallbackIsNoOp));
+            harness.StartCinematic();
+            Assert.That(harness.HandoffStore.TryClear(harness.Handoff.Token), Is.True);
+            harness.HandoffStore.ResetClearCounts();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.HandoffStore.ClearAttemptCount, Is.Zero);
+            Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IntroPlayed, Is.False);
+        }
+
+        [Test]
+        public void LateCallback_DoesNotClearNewerHandoff()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(LateCallback_DoesNotClearNewerHandoff));
+            harness.StartCinematic();
+            Assert.That(harness.HandoffStore.TryClear(harness.Handoff.Token), Is.True);
+            Assert.That(
+                harness.HandoffStore.TryBegin(
+                    2,
+                    StageId.CreateOrThrow("stage-1-1"),
+                    StageNavigationKind.Continue,
+                    "newer-operation",
+                    out var newer),
+                Is.True);
+            harness.HandoffStore.ResetClearCounts();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Failed);
+
+            Assert.That(harness.HandoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(newer));
+            Assert.That(harness.HandoffStore.ClearAttemptCount, Is.Zero);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+        }
+
+        [Test]
+        public void SameTokenDifferentStage_CallbackIsRejected()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(SameTokenDifferentStage_CallbackIsRejected));
+            harness.StartCinematic();
+            harness.HandoffStore.ForcePending(new CampaignLaunchHandoff(
+                harness.Handoff.SlotNumber,
+                StageId.CreateOrThrow("stage-9-9"),
+                harness.Handoff.NavigationKind,
+                harness.Handoff.Source,
+                harness.Handoff.Token));
+
+            AssertOwnedCallbackIsRejected(harness);
+        }
+
+        [Test]
+        public void SameTokenDifferentNavigation_CallbackIsRejected()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(SameTokenDifferentNavigation_CallbackIsRejected));
+            harness.StartCinematic();
+            harness.HandoffStore.ForcePending(new CampaignLaunchHandoff(
+                harness.Handoff.SlotNumber,
+                harness.Handoff.StageId,
+                StageNavigationKind.Retry,
+                harness.Handoff.Source,
+                harness.Handoff.Token));
+
+            AssertOwnedCallbackIsRejected(harness);
+        }
+
+        [Test]
+        public void SameTokenDifferentSource_CallbackIsRejected()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(SameTokenDifferentSource_CallbackIsRejected));
+            harness.StartCinematic();
+            harness.HandoffStore.ForcePending(new CampaignLaunchHandoff(
+                harness.Handoff.SlotNumber,
+                harness.Handoff.StageId,
+                harness.Handoff.NavigationKind,
+                "different-source",
+                harness.Handoff.Token));
+
+            AssertOwnedCallbackIsRejected(harness);
+        }
+
+        [Test]
+        public void WrongSlot_CallbackIsRejected()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(WrongSlot_CallbackIsRejected));
+            harness.StartCinematic();
+            harness.HandoffStore.ForcePending(new CampaignLaunchHandoff(
+                2,
+                harness.Handoff.StageId,
+                harness.Handoff.NavigationKind,
+                harness.Handoff.Source,
+                harness.Handoff.Token));
+
+            AssertOwnedCallbackIsRejected(harness);
+        }
+
+        [Test]
+        public void CompletedThenCancelled_ProcessesOnlyCompleted()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(CompletedThenCancelled_ProcessesOnlyCompleted));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Cancelled);
+
+            AssertSuccessfulTerminalProcessedOnce(harness);
+            Assert.That(harness.HandoffStore.ClearAttemptCount, Is.Zero);
+            Assert.That(harness.HandoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(harness.Handoff));
+        }
+
+        [Test]
+        public void SkippedThenCompleted_RoutesOnlyOnce()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(SkippedThenCompleted_RoutesOnlyOnce));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped);
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+
+            AssertSuccessfulTerminalProcessedOnce(harness);
+        }
+
+        [Test]
+        public void DuplicateCompleted_WritesProgressAndRoutesOnce()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(DuplicateCompleted_WritesProgressAndRoutesOnce));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+
+            AssertSuccessfulTerminalProcessedOnce(harness);
+        }
+
+        [Test]
+        public void FailedThenCancelled_ClearsMatchingHandoffOnce()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(FailedThenCancelled_ClearsMatchingHandoffOnce));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Failed);
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Cancelled);
+
+            Assert.That(harness.HandoffStore.ClearAttemptCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.ClearSuccessCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+        }
+
+        [Test]
+        public void RouteRejected_DoesNotWriteIntroProgressAndClearsMatchingHandoff()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(RouteRejected_DoesNotWriteIntroProgressAndClearsMatchingHandoff));
+            harness.Route.RejectOnLaunch = true;
+            harness.StartCinematic();
+
+            Assert.Throws<ImmediateRouteRejectedException>(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Cancelled));
+
+            Assert.That(harness.Route.AttemptCount, Is.EqualTo(1));
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.HandoffStore.ClearSuccessCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        public void RouteThrows_DoesNotWriteIntroProgressAndClearsMatchingHandoff()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(RouteThrows_DoesNotWriteIntroProgressAndClearsMatchingHandoff));
+            harness.Route.ExceptionToThrow = new ApplicationException("Injected route exception.");
+            harness.StartCinematic();
+
+            Assert.Throws<ApplicationException>(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped));
+
+            Assert.That(harness.Route.AttemptCount, Is.EqualTo(1));
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.HandoffStore.ClearSuccessCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        public void ValidCompleted_RoutesAndWritesIntroProgressOnce()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(ValidCompleted_RoutesAndWritesIntroProgressOnce));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+
+            AssertSuccessfulTerminalProcessedOnce(harness);
+            Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
+        }
+
+        [Test]
+        public void ValidSkipped_RoutesAndWritesIntroProgressOnce()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(ValidSkipped_RoutesAndWritesIntroProgressOnce));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped);
+
+            AssertSuccessfulTerminalProcessedOnce(harness);
+        }
+
+        [Test]
+        public void ValidFailed_ClearsMatchingHandoffWithoutProgress()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(ValidFailed_ClearsMatchingHandoffWithoutProgress));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Failed);
+
+            AssertFailedTerminalProcessedOnce(harness);
+        }
+
+        [Test]
+        public void ValidCancelled_ClearsMatchingHandoffWithoutProgress()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(ValidCancelled_ClearsMatchingHandoffWithoutProgress));
+            harness.StartCinematic();
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Cancelled);
+
+            AssertFailedTerminalProcessedOnce(harness);
+        }
+
+        [Test]
         public void CinematicMainMenuReturnRouter_OutroPlaysOnceOnlyForFinalClearMainReturn()
         {
             var keys = TestKeys.Create(nameof(CinematicMainMenuReturnRouter_OutroPlaysOnceOnlyForFinalClearMainReturn));
@@ -1177,6 +1462,42 @@ namespace Game.Feature.UI.Tests
             Assert.That(actual.TransitionHint.MinimumVisibleSecondsOverride, Is.EqualTo(expected.TransitionHint.MinimumVisibleSecondsOverride));
         }
 
+        private static void AssertOwnedCallbackIsRejected(CinematicLaunchHarness harness)
+        {
+            var expectedCurrent = harness.HandoffStore.Current;
+
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+
+            Assert.That(harness.HandoffStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(expectedCurrent));
+            Assert.That(harness.HandoffStore.ClearAttemptCount, Is.Zero);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IntroPlayed, Is.False);
+        }
+
+        private static void AssertSuccessfulTerminalProcessedOnce(CinematicLaunchHarness harness)
+        {
+            Assert.That(harness.Route.AttemptCount, Is.EqualTo(1));
+            Assert.That(harness.Route.Requests, Has.Count.EqualTo(1));
+            AssertRequestsEqual(harness.Request, harness.Route.Requests[0]);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.EqualTo(1));
+            Assert.That(
+                harness.ProgressStore.UpdatedSlotNumbers,
+                Is.EqualTo(new[] { harness.Handoff.SlotNumber }));
+            Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IntroPlayed, Is.True);
+        }
+
+        private static void AssertFailedTerminalProcessedOnce(CinematicLaunchHarness harness)
+        {
+            Assert.That(harness.HandoffStore.ClearAttemptCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.ClearSuccessCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IntroPlayed, Is.False);
+        }
+
         private static string ReadRepoFile(string relativePath)
         {
             var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
@@ -1388,6 +1709,12 @@ namespace Game.Feature.UI.Tests
                 completion?.Invoke(new CinematicPlaybackCompletion(kind));
             }
 
+            public void EmitIntro(CinematicPlaybackCompletionKind kind)
+            {
+                IsPlaying = false;
+                _introCompletion?.Invoke(new CinematicPlaybackCompletion(kind));
+            }
+
             public void CompleteOutro(
                 CinematicPlaybackCompletionKind kind = CinematicPlaybackCompletionKind.Completed)
             {
@@ -1479,9 +1806,248 @@ namespace Game.Feature.UI.Tests
 
             public IReadOnlyList<StageNavigationRequest> Requests => _requests;
 
+            public int AttemptCount { get; private set; }
+
+            public bool RejectOnLaunch { get; set; }
+
+            public Exception ExceptionToThrow { get; set; }
+
             public void Launch(StageNavigationRequest request)
             {
+                AttemptCount++;
+                if (RejectOnLaunch)
+                {
+                    throw new ImmediateRouteRejectedException();
+                }
+
+                if (ExceptionToThrow != null)
+                {
+                    throw ExceptionToThrow;
+                }
+
                 _requests.Add(request);
+            }
+        }
+
+        private sealed class ImmediateRouteRejectedException : InvalidOperationException
+        {
+            public ImmediateRouteRejectedException()
+                : base("Injected immediate route rejection.")
+            {
+            }
+        }
+
+        private sealed class CinematicLaunchHarness : IDisposable
+        {
+            private readonly TestKeys _keys;
+
+            public CinematicLaunchHarness(string testName)
+            {
+                _keys = TestKeys.Create(testName);
+                StageLaunchContextStore.Clear();
+                RawSaveStore = new SaveSlotStore(_keys.SaveKey);
+                ProgressStore = new RecordingUpdateSaveSlotStore(RawSaveStore);
+                HandoffStore = new ControllableCampaignLaunchHandoffStore();
+                var activeStorage = new PlayerPrefsActiveSlotStorage(_keys.ActiveKey);
+                ActiveSlotProvider = new ActiveSlotProvider(activeStorage);
+                SaveStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                    ProgressStore,
+                    activeStorage,
+                    HandoffStore);
+                Route = new RecordingStageLaunchRouter();
+                Player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
+                Request = new StageNavigationRequest(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Continue,
+                    "main-menu-new-game",
+                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay));
+                SaveStore.SaveSlot(CreateSlot(1, Request.StageId));
+                Assert.That(
+                    HandoffStore.TryBegin(
+                        1,
+                        Request.StageId,
+                        Request.NavigationKind,
+                        Request.Source,
+                        out var handoff),
+                    Is.True);
+                Handoff = handoff;
+                Router = new CinematicStageLaunchRouter(
+                    Route,
+                    SaveStore,
+                    HandoffStore,
+                    Player);
+            }
+
+            public SaveSlotStore RawSaveStore { get; }
+
+            public RecordingUpdateSaveSlotStore ProgressStore { get; }
+
+            public CampaignLaunchStateRepairingCampaignSaveSlotStore SaveStore { get; }
+
+            public ControllableCampaignLaunchHandoffStore HandoffStore { get; }
+
+            public ActiveSlotProvider ActiveSlotProvider { get; }
+
+            public RecordingStageLaunchRouter Route { get; }
+
+            public ManualSlotCinematicPlayer Player { get; }
+
+            public StageNavigationRequest Request { get; }
+
+            public CampaignLaunchHandoff Handoff { get; }
+
+            public CinematicStageLaunchRouter Router { get; }
+
+            public void StartCinematic()
+            {
+                Router.Launch(Request);
+                Assert.That(Player.PlayIntroCallCount, Is.EqualTo(1));
+            }
+
+            public void Dispose()
+            {
+                StageLaunchContextStore.Clear();
+                _keys.Clear();
+            }
+        }
+
+        private sealed class ControllableCampaignLaunchHandoffStore : ICampaignLaunchHandoffStore
+        {
+            private CampaignLaunchHandoff _pending;
+
+            public CampaignLaunchHandoff Current => _pending;
+
+            public int ClearAttemptCount { get; private set; }
+
+            public int ClearSuccessCount { get; private set; }
+
+            public bool TryBegin(
+                int slotNumber,
+                StageId stageId,
+                StageNavigationKind navigationKind,
+                string source,
+                out CampaignLaunchHandoff handoff)
+            {
+                if (_pending != null)
+                {
+                    handoff = _pending;
+                    return false;
+                }
+
+                _pending = new CampaignLaunchHandoff(
+                    slotNumber,
+                    stageId,
+                    navigationKind,
+                    source,
+                    Guid.NewGuid());
+                handoff = _pending;
+                return true;
+            }
+
+            public bool TryPeek(out CampaignLaunchHandoff handoff)
+            {
+                handoff = _pending;
+                return handoff != null;
+            }
+
+            public bool TryClear(Guid token)
+            {
+                ClearAttemptCount++;
+                if (_pending == null || _pending.Token != token)
+                {
+                    return false;
+                }
+
+                _pending = null;
+                ClearSuccessCount++;
+                return true;
+            }
+
+            public bool TryConsume(Guid token, out CampaignLaunchHandoff handoff)
+            {
+                if (_pending == null || _pending.Token != token)
+                {
+                    handoff = null;
+                    return false;
+                }
+
+                handoff = _pending;
+                _pending = null;
+                return true;
+            }
+
+            public void ForcePending(CampaignLaunchHandoff handoff)
+            {
+                _pending = handoff ?? throw new ArgumentNullException(nameof(handoff));
+            }
+
+            public void ResetClearCounts()
+            {
+                ClearAttemptCount = 0;
+                ClearSuccessCount = 0;
+            }
+        }
+
+        private sealed class RecordingUpdateSaveSlotStore : ICampaignSaveSlotStore
+        {
+            private readonly ICampaignSaveSlotStore _inner;
+
+            public RecordingUpdateSaveSlotStore(ICampaignSaveSlotStore inner)
+            {
+                _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            }
+
+            public int UpdateSlotCallCount { get; private set; }
+
+            public List<int> UpdatedSlotNumbers { get; } = new();
+
+            public string DiagnosticsKey => _inner.DiagnosticsKey;
+
+            public CampaignSaveLoadReport LastCampaignLoadReport => _inner.LastCampaignLoadReport;
+
+            public SaveSlotData[] LoadAll()
+            {
+                return _inner.LoadAll();
+            }
+
+            public CampaignSaveLoadResult LoadAllWithReport()
+            {
+                return _inner.LoadAllWithReport();
+            }
+
+            public SaveSlotData LoadSlot(int slotNumber)
+            {
+                return _inner.LoadSlot(slotNumber);
+            }
+
+            public void SaveSlot(SaveSlotData slot)
+            {
+                _inner.SaveSlot(slot);
+            }
+
+            public SaveSlotData InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt)
+            {
+                return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt);
+            }
+
+            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+            {
+                UpdateSlotCallCount++;
+                UpdatedSlotNumbers.Add(slotNumber);
+                _inner.UpdateSlot(slotNumber, mutation);
+            }
+
+            public void DeleteSlot(int slotNumber)
+            {
+                _inner.DeleteSlot(slotNumber);
+            }
+
+            public void ClearAll()
+            {
+                _inner.ClearAll();
             }
         }
 
