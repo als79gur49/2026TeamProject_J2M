@@ -28,6 +28,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(LocalizationEditorSettings.GetLocale("en-US"), Is.Not.Null);
             Assert.That(LocalizationEditorSettings.GetLocale("ko-KR"), Is.Not.Null);
             Assert.That(LocalizationEditorSettings.ActiveLocalizationSettings, Is.Not.Null);
+            var smartFormatter = LocalizationSettings.StringDatabase?.SmartFormatter;
+            Assert.That(smartFormatter, Is.Not.Null);
+            Assert.That(smartFormatter.SourceExtensions, Is.Not.Empty);
+            Assert.That(smartFormatter.SourceExtensions, Has.None.Null);
+            Assert.That(smartFormatter.FormatterExtensions, Is.Not.Empty);
+            Assert.That(smartFormatter.FormatterExtensions, Has.None.Null);
 
             var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
             Assert.That(collection, Is.Not.Null);
