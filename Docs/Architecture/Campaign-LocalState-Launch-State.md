@@ -18,7 +18,7 @@ Campaign progression truth remains `Saves/profile.json`. The profile schema owns
 
 `activeSlotNumber` may be absent or `0`, meaning no committed local active slot. The active commit point is inside the gameplay installer, after confirming that the profile slot is non-empty and that request/handoff, `StageLaunchContextStore`, resolved stage content, and profile `CurrentStageId` identify the same stage. Commit order is `SetActiveSlot`, create `CampaignRunningSlotContext`, then consume the matching pending token.
 
-NewGame and Continue do not update LocalState. Pre-commit validation, cinematic, transition, or load failure leaves the previous committed active unchanged. If commit completion fails after `SetActiveSlot`, the installer restores the previous active value before surfacing the failure. Clearing a pending request never clears committed active.
+NewGame, Restart, and Continue do not update LocalState. Pre-commit validation, cinematic, transition, or load failure leaves the previous committed active unchanged. If commit completion fails after `SetActiveSlot`, the installer restores the previous active value before surfacing the failure. Clearing a pending request never clears committed active.
 
 A loaded active slot is usable only when it points to an existing non-empty campaign profile slot. A valid LocalState file wins over PlayerPrefs. When LocalState is missing, `Game.Feature.Stages.ActiveStageClearSaveSlot` may still be imported after profile-slot validation; the retained PlayerPrefs key is not deleted. Corrupt or schema-invalid LocalState never silently falls back to PlayerPrefs.
 
@@ -28,6 +28,8 @@ A loaded active slot is usable only when it points to an existing non-empty camp
 
 - The first accepted request wins; a second request cannot overwrite it.
 - Clear and consume require the matching token.
+- MainMenu NewGame, Restart, and empty-slot Continue create the complete handoff before profile initialization or validation sync can write. The handoff acts as the application-session launch reservation; acquiring it does not commit persistent active.
+- Overwrite and restart confirmations capture the reservation token, slot, and operation kind. A callback may initialize the profile at most once and only while that exact operation remains current. Cancelled, duplicate, replaced, or otherwise stale callbacks are no-ops and cannot clear a newer operation.
 - The request survives MainMenu cinematic playback and the required scene transition.
 - Cinematic failure/cancellation, transition rejection, load failure, and installer pre-commit validation failure clear only the matching request.
 - `RuntimeInitializeOnLoadType.SubsystemRegistration` resets the owner, so process/application-session restart never restores pending state.

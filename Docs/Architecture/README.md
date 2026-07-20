@@ -162,8 +162,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - 현재 테스트 단계에서는 old save compatibility와 migration adapter를 제공하지 않는다.
 - Production campaign progression save truth는 `Saves/profile.json`이며, retained PlayerPrefs rollback/import source는 `Game.Feature.Stages.StageClearSaveSlots`이다.
 - Production active launch pointer는 non-Cloud `Saves/local-launch-state.json`이며, `Game.Feature.Stages.ActiveStageClearSaveSlot`은 profile-slot validation 후 import source로만 보존한다.
-- Local active는 gameplay installer가 non-empty profile slot과 request/context/resolved/profile stage identity를 검증한 뒤 commit한 slot이다. MainMenu NewGame/Continue는 active를 쓰지 않는다.
-- Pending launch는 slot/stage/navigation/source/token을 묶는 application-session `CampaignLaunchHandoffSessionStore`가 소유하며 first accepted request wins와 matching-token clear/consume을 적용한다.
+- Local active는 gameplay installer가 non-empty profile slot과 request/context/resolved/profile stage identity를 검증한 뒤 commit한 slot이다. MainMenu NewGame/Restart/Continue는 active를 쓰지 않는다.
+- Pending launch는 slot/stage/navigation/source/token을 묶는 application-session `CampaignLaunchHandoffSessionStore`가 소유하며 first accepted request wins와 matching-token clear/consume을 적용한다. MainMenu NewGame/Restart/empty Continue는 profile mutation 전에 complete handoff를 reservation으로 선점하고, confirmation callback은 captured token/slot/operation kind가 current일 때 한 번만 실행된다. stale callback은 no-op이며 reservation 성공은 persistent active commit이 아니다.
 - Pending은 cinematic과 scene transition을 통과하지만 failure/cancel/rejection/load/installer validation failure에서 matching request만 clear되고, process restart에서는 복원되지 않는다.
 - `CampaignRunningSlotContext`는 active commit 직후 생성되는 scene-local mutation identity이며 이후 active 변경과 무관하게 고정된다.
 - Old PlayerPrefs key `Game.Feature.Stages.SaveSlots` / `Game.Feature.Stages.ActiveSaveSlot`은 delete-only cleanup 대상이며 production read/write path에 사용하지 않는다.
