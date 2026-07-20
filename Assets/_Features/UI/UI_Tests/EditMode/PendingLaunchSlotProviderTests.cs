@@ -116,6 +116,355 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void TryBeginFailure_LeavesProfileAndLastPlayedUnchanged()
+        {
+            var repository = new CloningCampaignProfileRepository();
+            var saveStore = new SaveSlotStoreCompatibilityAdapter(
+                new CampaignSaveService(
+                    repository,
+                    utcNowProvider: () => "2026-07-21T00:00:00Z"));
+            var resolver = CreateResolver();
+            saveStore.InitializeNewGame(1, resolver, "2026-07-20T00:00:00Z");
+            saveStore.InitializeNewGame(2, resolver, "2026-07-20T01:00:00Z");
+            repository.ResetSaveCount();
+            var before = JsonUtility.ToJson(repository.CurrentDocument);
+            var beforeLastPlayed = repository.CurrentDocument.LastPlayedSlotNumber;
+            var handoffStore = new RacingCampaignLaunchHandoffStore(
+                3,
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.Continue,
+                "existing-owner");
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                resolver,
+                router,
+                confirmPort);
+
+            controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+
+            Assert.That(JsonUtility.ToJson(repository.CurrentDocument), Is.EqualTo(before));
+            Assert.That(repository.CurrentDocument.LastPlayedSlotNumber, Is.EqualTo(beforeLastPlayed));
+            Assert.That(repository.SaveCount, Is.Zero);
+            Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
+            Assert.That(stillPending, Is.SameAs(handoffStore.Existing));
+            Assert.That(confirmPort.RequestCount, Is.Zero);
+            Assert.That(router.Requests, Is.Empty);
+        }
+
+        [Test]
+        public void SecondRestartRequest_WhenPendingExists_DoesNotResetProfile()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            handoffStore.TryBegin(
+                2,
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.Continue,
+                "existing-owner",
+                out var existing);
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+            var before = JsonUtility.ToJson(inner.LoadSlot(1));
+
+            controller.RequestRestart(1);
+
+            Assert.That(JsonUtility.ToJson(inner.LoadSlot(1)), Is.EqualTo(before));
+            Assert.That(saveStore.InitializeNewGameCount, Is.Zero);
+            Assert.That(confirmPort.RequestCount, Is.Zero);
+            Assert.That(router.Requests, Is.Empty);
+            Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
+            Assert.That(stillPending, Is.SameAs(existing));
+        }
+
+        [Test]
+        public void EmptyContinue_WhenPendingExists_DoesNotInitializeSlot()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            handoffStore.TryBegin(
+                2,
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.Continue,
+                "existing-owner",
+                out var existing);
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                new FakeConfirmPopupPort());
+
+            controller.Continue(1);
+
+            Assert.That(inner.LoadSlot(1).IsEmpty, Is.True);
+            Assert.That(saveStore.InitializeNewGameCount, Is.Zero);
+            Assert.That(router.Requests, Is.Empty);
+            Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
+            Assert.That(stillPending, Is.SameAs(existing));
+        }
+
+        [Test]
+        public void CancelledConfirmation_ReleasesOnlyMatchingReservation()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                new FakeStageLaunchRouter(),
+                confirmPort);
+            var before = JsonUtility.ToJson(inner.LoadSlot(1));
+
+            controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+
+            Assert.That(handoffStore.TryPeek(out var reservation), Is.True);
+            Assert.That(confirmPort.RequestCount, Is.EqualTo(1));
+            confirmPort.CompleteRequest(0, false);
+
+            Assert.That(JsonUtility.ToJson(inner.LoadSlot(1)), Is.EqualTo(before));
+            Assert.That(saveStore.InitializeNewGameCount, Is.Zero);
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(handoffStore.ClearedTokens, Is.EqualTo(new[] { reservation.Token }));
+        }
+
+        [Test]
+        public void LateOverwriteConfirmation_DoesNotMutateAfterNewerLaunchOperation()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+            var slotOneBefore = JsonUtility.ToJson(inner.LoadSlot(1));
+
+            controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+            confirmPort.CompleteRequest(0, false);
+            controller.Continue(2);
+            Assert.That(handoffStore.TryPeek(out var newer), Is.True);
+
+            confirmPort.CompleteRequest(0, true);
+
+            Assert.That(JsonUtility.ToJson(inner.LoadSlot(1)), Is.EqualTo(slotOneBefore));
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out var stillCurrent), Is.True);
+            Assert.That(stillCurrent, Is.SameAs(newer));
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+            Assert.That(router.Requests[0].StageId, Is.EqualTo(CreateResolver().FirstStageId));
+        }
+
+        [Test]
+        public void LateRestartConfirmation_DoesNotResetAfterOperationInvalidated()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+            var before = JsonUtility.ToJson(inner.LoadSlot(1));
+
+            controller.RequestRestart(1);
+            Assert.That(handoffStore.TryPeek(out var restartReservation), Is.True);
+            Assert.That(handoffStore.TryClear(restartReservation.Token), Is.True);
+            controller.Continue(2);
+            Assert.That(handoffStore.TryPeek(out var newer), Is.True);
+
+            confirmPort.CompleteRequest(0, true);
+
+            Assert.That(JsonUtility.ToJson(inner.LoadSlot(1)), Is.EqualTo(before));
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out var stillCurrent), Is.True);
+            Assert.That(stillCurrent, Is.SameAs(newer));
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void DuplicateConfirmationCallback_MutatesProfileAtMostOnce()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                confirmPort);
+
+            controller.RequestRestart(1);
+            confirmPort.CompleteRequest(0, true);
+            confirmPort.CompleteRequest(0, true);
+
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void WrongConfirmationToken_DoesNotClearCurrentOperation()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            inner.SaveSlot(CreateExistingSlot(1, "stage-3-1"));
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var confirmPort = new FakeConfirmPopupPort();
+            var controller = new MainMenuController(
+                new RecordingCampaignSaveSlotStore(inner),
+                handoffStore,
+                CreateResolver(),
+                new FakeStageLaunchRouter(),
+                confirmPort);
+
+            controller.RequestRestart(1);
+            Assert.That(handoffStore.TryPeek(out var stale), Is.True);
+            Assert.That(handoffStore.TryClear(stale.Token), Is.True);
+            handoffStore.TryBegin(
+                2,
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.Continue,
+                "newer-owner",
+                out var newer);
+
+            confirmPort.CompleteRequest(0, false);
+
+            Assert.That(handoffStore.TryPeek(out var stillCurrent), Is.True);
+            Assert.That(stillCurrent, Is.SameAs(newer));
+            Assert.That(handoffStore.ClearedTokens.Contains(newer.Token), Is.False);
+        }
+
+        [Test]
+        public void SuccessfulNewGame_DoesNotWritePersistentActive()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var activeStorage = new RecordingActiveSlotStorage(3);
+            var repairingStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                inner,
+                activeStorage,
+                handoffStore);
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                repairingStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                new FakeConfirmPopupPort());
+
+            controller.Continue(1);
+
+            Assert.That(inner.LoadSlot(1).IsEmpty, Is.False);
+            Assert.That(activeStorage.TryGetActiveSlot(out var activeSlot), Is.True);
+            Assert.That(activeSlot, Is.EqualTo(3));
+            Assert.That(activeStorage.SetCount, Is.Zero);
+            Assert.That(activeStorage.ClearCount, Is.Zero);
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void InitializeNewGameFailure_ClearsMatchingReservationAndDoesNotRoute()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            var saveStore = new RecordingCampaignSaveSlotStore(inner)
+            {
+                ThrowOnInitializeNewGame = true,
+            };
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                new FakeConfirmPopupPort());
+
+            Assert.Throws<InvalidOperationException>(() => controller.Continue(1));
+
+            Assert.That(inner.LoadSlot(1).IsEmpty, Is.True);
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(router.Requests, Is.Empty);
+        }
+
+        [Test]
+        public void RoutingFailure_ClearsMatchingOwnership()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            var saveStore = new RecordingCampaignSaveSlotStore(inner);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var router = new FakeStageLaunchRouter
+            {
+                ThrowOnLaunch = true,
+            };
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                new FakeConfirmPopupPort());
+
+            Assert.Throws<InvalidOperationException>(() => controller.Continue(1));
+
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(router.Requests, Is.Empty);
+        }
+
+        [Test]
+        public void RoutingPreparationFailure_ClearsMatchingOwnership()
+        {
+            var inner = new SaveSlotStore(_saveKey);
+            var saveStore = new RecordingCampaignSaveSlotStore(inner)
+            {
+                LoadedStageOverrideAfterInitialize = StageId.CreateOrThrow("stage-2-1"),
+            };
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            var router = new FakeStageLaunchRouter();
+            var controller = new MainMenuController(
+                saveStore,
+                handoffStore,
+                CreateResolver(),
+                router,
+                new FakeConfirmPopupPort());
+
+            controller.Continue(1);
+
+            Assert.That(saveStore.InitializeNewGameCount, Is.EqualTo(1));
+            Assert.That(handoffStore.TryPeek(out _), Is.False);
+            Assert.That(router.Requests, Is.Empty);
+        }
+
+        [Test]
         public void MainMenu_Delete_ClearsOnlyMatchingPendingHandoff()
         {
             var saveStore = new SaveSlotStore(_saveKey);
@@ -227,18 +576,28 @@ namespace Game.Feature.UI.Tests
 
         private sealed class FakeConfirmPopupPort : IConfirmPopupPort
         {
-            private Action<bool> _completion;
+            private readonly List<Action<bool>> _completions = new();
+
+            public int RequestCount => _completions.Count;
 
             public void Request(ConfirmPopupPayload payload, Action<bool> completion)
             {
-                _completion = completion ?? throw new ArgumentNullException(nameof(completion));
+                _completions.Add(completion ?? throw new ArgumentNullException(nameof(completion)));
             }
 
             public void Complete(bool confirmed)
             {
-                var completion = _completion;
-                _completion = null;
-                completion?.Invoke(confirmed);
+                if (_completions.Count == 0)
+                {
+                    return;
+                }
+
+                _completions[_completions.Count - 1].Invoke(confirmed);
+            }
+
+            public void CompleteRequest(int requestIndex, bool confirmed)
+            {
+                _completions[requestIndex].Invoke(confirmed);
             }
         }
 
@@ -253,10 +612,248 @@ namespace Game.Feature.UI.Tests
 
             public List<StageNavigationRequest> Requests { get; } = new();
 
+            public bool ThrowOnLaunch { get; set; }
+
             public void Launch(StageNavigationRequest request)
             {
                 _beforeRecord?.Invoke();
+                if (ThrowOnLaunch)
+                {
+                    throw new InvalidOperationException("Injected routing failure.");
+                }
+
                 Requests.Add(request);
+            }
+        }
+
+        private sealed class RecordingCampaignSaveSlotStore : ICampaignSaveSlotStore
+        {
+            private readonly ICampaignSaveSlotStore _inner;
+
+            public RecordingCampaignSaveSlotStore(ICampaignSaveSlotStore inner)
+            {
+                _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            }
+
+            public int InitializeNewGameCount { get; private set; }
+
+            public bool ThrowOnInitializeNewGame { get; set; }
+
+            public StageId LoadedStageOverrideAfterInitialize { get; set; }
+
+            public string DiagnosticsKey => _inner.DiagnosticsKey;
+
+            public CampaignSaveLoadReport LastCampaignLoadReport => _inner.LastCampaignLoadReport;
+
+            public SaveSlotData[] LoadAll()
+            {
+                return _inner.LoadAll();
+            }
+
+            public CampaignSaveLoadResult LoadAllWithReport()
+            {
+                return _inner.LoadAllWithReport();
+            }
+
+            public SaveSlotData LoadSlot(int slotNumber)
+            {
+                var slot = _inner.LoadSlot(slotNumber);
+                if (InitializeNewGameCount > 0 &&
+                    LoadedStageOverrideAfterInitialize.IsValid)
+                {
+                    slot.CurrentStageId = LoadedStageOverrideAfterInitialize;
+                }
+
+                return slot;
+            }
+
+            public void SaveSlot(SaveSlotData slot)
+            {
+                _inner.SaveSlot(slot);
+            }
+
+            public SaveSlotData InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt)
+            {
+                InitializeNewGameCount++;
+                if (ThrowOnInitializeNewGame)
+                {
+                    throw new InvalidOperationException("Injected initialization failure.");
+                }
+
+                return _inner.InitializeNewGame(slotNumber, sequenceResolver, lastPlayedAt);
+            }
+
+            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation)
+            {
+                _inner.UpdateSlot(slotNumber, mutation);
+            }
+
+            public void DeleteSlot(int slotNumber)
+            {
+                _inner.DeleteSlot(slotNumber);
+            }
+
+            public void ClearAll()
+            {
+                _inner.ClearAll();
+            }
+        }
+
+        private sealed class CloningCampaignProfileRepository : ICampaignProfileRepository
+        {
+            public CampaignProfileDocument CurrentDocument { get; private set; }
+
+            public int SaveCount { get; private set; }
+
+            public CampaignProfileLoadResult Load()
+            {
+                return CurrentDocument == null
+                    ? new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.Missing,
+                        null,
+                        "missing")
+                    : new CampaignProfileLoadResult(
+                        CampaignProfileLoadStatus.Loaded,
+                        Clone(CurrentDocument),
+                        "loaded");
+            }
+
+            public void Save(CampaignProfileDocument document)
+            {
+                SaveCount++;
+                CurrentDocument = Clone(document);
+            }
+
+            public void ResetSaveCount()
+            {
+                SaveCount = 0;
+            }
+
+            private static CampaignProfileDocument Clone(CampaignProfileDocument document)
+            {
+                return JsonUtility.FromJson<CampaignProfileDocument>(JsonUtility.ToJson(document));
+            }
+        }
+
+        private sealed class RecordingActiveSlotStorage : IActiveSlotStorage
+        {
+            private int _slotNumber;
+
+            public RecordingActiveSlotStorage(int initialSlotNumber)
+            {
+                _slotNumber = initialSlotNumber;
+            }
+
+            public string DiagnosticsKey => "recording-active";
+
+            public int SetCount { get; private set; }
+
+            public int ClearCount { get; private set; }
+
+            public bool TryGetActiveSlot(out int slotNumber)
+            {
+                slotNumber = _slotNumber;
+                return SaveSlotStore.IsValidSlotNumber(slotNumber);
+            }
+
+            public void SetActiveSlot(int slotNumber)
+            {
+                SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
+                SetCount++;
+                _slotNumber = slotNumber;
+            }
+
+            public void ClearActiveSlot()
+            {
+                ClearCount++;
+                _slotNumber = 0;
+            }
+        }
+
+        private sealed class RacingCampaignLaunchHandoffStore : ICampaignLaunchHandoffStore
+        {
+            private bool _hideNextPeek = true;
+            private CampaignLaunchHandoff _pending;
+
+            public RacingCampaignLaunchHandoffStore(
+                int slotNumber,
+                StageId stageId,
+                StageNavigationKind navigationKind,
+                string source)
+            {
+                Existing = new CampaignLaunchHandoff(
+                    slotNumber,
+                    stageId,
+                    navigationKind,
+                    source,
+                    Guid.NewGuid());
+                _pending = Existing;
+            }
+
+            public CampaignLaunchHandoff Existing { get; }
+
+            public bool TryBegin(
+                int slotNumber,
+                StageId stageId,
+                StageNavigationKind navigationKind,
+                string source,
+                out CampaignLaunchHandoff handoff)
+            {
+                _hideNextPeek = false;
+                if (_pending != null)
+                {
+                    handoff = _pending;
+                    return false;
+                }
+
+                handoff = new CampaignLaunchHandoff(
+                    slotNumber,
+                    stageId,
+                    navigationKind,
+                    source,
+                    Guid.NewGuid());
+                _pending = handoff;
+                return true;
+            }
+
+            public bool TryPeek(out CampaignLaunchHandoff handoff)
+            {
+                if (_hideNextPeek)
+                {
+                    _hideNextPeek = false;
+                    handoff = null;
+                    return false;
+                }
+
+                handoff = _pending;
+                return handoff != null;
+            }
+
+            public bool TryClear(Guid token)
+            {
+                if (_pending == null || _pending.Token != token)
+                {
+                    return false;
+                }
+
+                _pending = null;
+                return true;
+            }
+
+            public bool TryConsume(Guid token, out CampaignLaunchHandoff handoff)
+            {
+                if (_pending == null || _pending.Token != token)
+                {
+                    handoff = null;
+                    return false;
+                }
+
+                handoff = _pending;
+                _pending = null;
+                return true;
             }
         }
     }
@@ -270,6 +867,8 @@ namespace Game.Feature.UI.Tests
         public int ClearCount { get; private set; }
 
         public int ConsumeCount { get; private set; }
+
+        public List<Guid> ClearedTokens { get; } = new();
 
         public bool TryBegin(
             int slotNumber,
@@ -309,6 +908,7 @@ namespace Game.Feature.UI.Tests
             }
 
             ClearCount++;
+            ClearedTokens.Add(token);
             _pending = null;
             return true;
         }
