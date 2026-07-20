@@ -18,6 +18,7 @@ namespace Game.Feature.UI.Application
         private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly SaveSlotValidationService _saveSlotValidationService;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
+        private LaunchConfirmationOperation _currentLaunchConfirmation;
 
         public MainMenuController(
             ICampaignSaveSlotStore saveSlotStore,
@@ -57,7 +58,10 @@ namespace Game.Feature.UI.Application
             switch (intent.IntentKind)
             {
                 case SaveSlotIntentKind.NewGame:
-                    StartNewGame(intent.SlotNumber, confirmIfOccupied: true);
+                    StartNewGame(
+                        intent.SlotNumber,
+                        MainMenuLaunchOperationKind.NewGame,
+                        confirmIfOccupied: true);
                     break;
 
                 case SaveSlotIntentKind.Continue:
@@ -83,10 +87,13 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            var validation = ValidateAndSync(slotNumber);
+            var validation = Validate(slotNumber);
             if (validation.Status == SaveSlotValidationStatus.Empty)
             {
-                StartNewGame(slotNumber, confirmIfOccupied: false);
+                StartNewGame(
+                    slotNumber,
+                    MainMenuLaunchOperationKind.EmptyContinue,
+                    confirmIfOccupied: false);
                 return;
             }
 
@@ -96,11 +103,30 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            BeginLaunch(
-                slotNumber,
-                validation.Slot.CurrentStageId,
-                StageNavigationKind.Continue,
-                "main-menu-continue");
+            if (!TryReserveLaunch(
+                    slotNumber,
+                    validation.Slot.CurrentStageId,
+                    StageNavigationKind.Continue,
+                    "main-menu-continue",
+                    out var handoff))
+            {
+                return;
+            }
+
+            try
+            {
+                if (validation.RequiresSaveSync)
+                {
+                    _saveSlotStore.SaveSlot(validation.Slot);
+                }
+
+                TryRouteOwnedLaunch(handoff);
+            }
+            catch
+            {
+                _launchHandoffStore.TryClear(handoff.Token);
+                throw;
+            }
         }
 
         public void RequestRestart(int slotNumber)
@@ -112,20 +138,10 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            _confirmPopupPort.Request(
-                new ConfirmPopupPayload(
-                    "Restart Slot",
-                    $"Restart slot {slotNumber}? Existing campaign progress will be overwritten.",
-                    "Restart",
-                    "Cancel",
-                    true),
-                confirmed =>
-                {
-                    if (confirmed)
-                    {
-                        StartNewGame(slotNumber, confirmIfOccupied: false);
-                    }
-                });
+            StartNewGame(
+                slotNumber,
+                MainMenuLaunchOperationKind.Restart,
+                confirmIfOccupied: true);
         }
 
         public void RequestDelete(int slotNumber)
@@ -172,7 +188,10 @@ namespace Game.Feature.UI.Application
                 });
         }
 
-        private void StartNewGame(int slotNumber, bool confirmIfOccupied)
+        private void StartNewGame(
+            int slotNumber,
+            MainMenuLaunchOperationKind operationKind,
+            bool confirmIfOccupied)
         {
             SaveSlotStore.ThrowIfInvalidSlotNumber(slotNumber);
             if (IsCampaignAccessBlocked())
@@ -181,49 +200,143 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            if (_launchHandoffStore.TryPeek(out _))
+            var existingValidation = Validate(slotNumber);
+            if (operationKind == MainMenuLaunchOperationKind.Restart &&
+                !existingValidation.CanRestart)
             {
                 RefreshViewModel();
                 return;
             }
 
-            var existingValidation = ValidateAndSync(slotNumber);
-            if (confirmIfOccupied && existingValidation.Status != SaveSlotValidationStatus.Empty)
+            var candidate = SaveSlotData.CreateNewGame(
+                slotNumber,
+                _sequenceResolver,
+                string.Empty);
+            var candidateValidation = Validate(candidate);
+            if (!candidateValidation.CanContinue)
+            {
+                RefreshViewModel();
+                return;
+            }
+
+            if (!TryReserveLaunch(
+                    slotNumber,
+                    candidateValidation.Slot.CurrentStageId,
+                    StageNavigationKind.Continue,
+                    "main-menu-new-game",
+                    out var handoff))
+            {
+                return;
+            }
+
+            var requiresConfirmation =
+                operationKind == MainMenuLaunchOperationKind.Restart ||
+                (confirmIfOccupied &&
+                 existingValidation.Status != SaveSlotValidationStatus.Empty);
+            if (requiresConfirmation)
+            {
+                RequestLaunchConfirmation(handoff, operationKind);
+                return;
+            }
+
+            InitializeAndRouteNewGame(handoff);
+        }
+
+        private void RequestLaunchConfirmation(
+            CampaignLaunchHandoff handoff,
+            MainMenuLaunchOperationKind operationKind)
+        {
+            var operation = new LaunchConfirmationOperation(handoff, operationKind);
+            _currentLaunchConfirmation = operation;
+            var payload = operationKind == MainMenuLaunchOperationKind.Restart
+                ? new ConfirmPopupPayload(
+                    "Restart Slot",
+                    $"Restart slot {handoff.SlotNumber}? Existing campaign progress will be overwritten.",
+                    "Restart",
+                    "Cancel",
+                    true)
+                : new ConfirmPopupPayload(
+                    "Overwrite Slot",
+                    $"Overwrite slot {handoff.SlotNumber}? Existing campaign progress will be replaced.",
+                    "Overwrite",
+                    "Cancel",
+                    true);
+
+            try
             {
                 _confirmPopupPort.Request(
-                    new ConfirmPopupPayload(
-                        "Overwrite Slot",
-                        $"Overwrite slot {slotNumber}? Existing campaign progress will be replaced.",
-                        "Overwrite",
-                        "Cancel",
-                        true),
-                    confirmed =>
-                    {
-                        if (confirmed)
-                        {
-                            StartNewGame(slotNumber, confirmIfOccupied: false);
-                        }
-                    });
+                    payload,
+                    confirmed => CompleteLaunchConfirmation(operation, operationKind, confirmed));
+            }
+            catch
+            {
+                if (ReferenceEquals(_currentLaunchConfirmation, operation))
+                {
+                    _currentLaunchConfirmation = null;
+                }
+
+                _launchHandoffStore.TryClear(handoff.Token);
+                RefreshViewModel();
+                throw;
+            }
+        }
+
+        private void CompleteLaunchConfirmation(
+            LaunchConfirmationOperation operation,
+            MainMenuLaunchOperationKind expectedKind,
+            bool confirmed)
+        {
+            if (!ReferenceEquals(_currentLaunchConfirmation, operation))
+            {
+                return;
+            }
+
+            _currentLaunchConfirmation = null;
+            if (operation.Kind != expectedKind ||
+                operation.SlotNumber != operation.Handoff.SlotNumber ||
+                !IsCurrentHandoff(operation.Handoff))
+            {
+                return;
+            }
+
+            if (!confirmed)
+            {
+                _launchHandoffStore.TryClear(operation.Handoff.Token);
+                RefreshViewModel();
+                return;
+            }
+
+            InitializeAndRouteNewGame(operation.Handoff);
+        }
+
+        private void InitializeAndRouteNewGame(CampaignLaunchHandoff handoff)
+        {
+            if (!IsCurrentHandoff(handoff))
+            {
                 return;
             }
 
             try
             {
                 _saveSlotStore.InitializeNewGame(
-                    slotNumber,
+                    handoff.SlotNumber,
                     _sequenceResolver,
                     DateTimeOffset.UtcNow.ToString("O"));
-                var validation = ValidateAndSync(slotNumber);
-                if (!validation.CanContinue)
+                var validation = Validate(handoff.SlotNumber);
+                if (!validation.CanContinue ||
+                    validation.Slot.SlotNumber != handoff.SlotNumber ||
+                    !validation.Slot.CurrentStageId.Equals(handoff.StageId))
                 {
+                    _launchHandoffStore.TryClear(handoff.Token);
                     return;
                 }
 
-                BeginLaunch(
-                    slotNumber,
-                    validation.Slot.CurrentStageId,
-                    StageNavigationKind.Continue,
-                    "main-menu-new-game");
+                TryRouteOwnedLaunch(handoff);
+            }
+            catch
+            {
+                _launchHandoffStore.TryClear(handoff.Token);
+                throw;
             }
             finally
             {
@@ -241,27 +354,38 @@ namespace Game.Feature.UI.Application
             return _saveSlotStore.LoadAllWithReport().Report.BlocksCampaignAccess;
         }
 
-        private void BeginLaunch(
+        private bool TryReserveLaunch(
             int slotNumber,
             StageId stageId,
             StageNavigationKind navigationKind,
-            string source)
+            string source,
+            out CampaignLaunchHandoff handoff)
         {
             if (!_launchHandoffStore.TryBegin(
                     slotNumber,
                     stageId,
                     navigationKind,
                     source,
-                    out var handoff))
+                    out handoff))
             {
                 RefreshViewModel();
-                return;
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryRouteOwnedLaunch(CampaignLaunchHandoff handoff)
+        {
+            if (!IsCurrentHandoff(handoff))
+            {
+                return false;
             }
 
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
             {
-                Source = source,
-                RequestedStageId = stageId.IsValid ? stageId.Value : string.Empty,
+                Source = handoff.Source,
+                RequestedStageId = handoff.StageId.Value,
                 HasLaunchHandoff = true,
                 HandoffSlotNumber = handoff.SlotNumber,
                 HandoffToken = handoff.Token.ToString("N"),
@@ -270,10 +394,11 @@ namespace Game.Feature.UI.Application
             try
             {
                 _stageLaunchRouter.Launch(new StageNavigationRequest(
-                    stageId,
-                    navigationKind,
-                    source,
+                    handoff.StageId,
+                    handoff.NavigationKind,
+                    handoff.Source,
                     StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)));
+                return true;
             }
             catch
             {
@@ -282,13 +407,33 @@ namespace Game.Feature.UI.Application
             }
         }
 
-        private SaveSlotValidationResult ValidateAndSync(int slotNumber)
+        private bool IsCurrentHandoff(CampaignLaunchHandoff expected)
+        {
+            return expected != null &&
+                   _launchHandoffStore.TryPeek(out var current) &&
+                   current.Token == expected.Token &&
+                   current.SlotNumber == expected.SlotNumber &&
+                   current.StageId.Equals(expected.StageId) &&
+                   current.NavigationKind == expected.NavigationKind &&
+                   string.Equals(current.Source, expected.Source, StringComparison.Ordinal);
+        }
+
+        private SaveSlotValidationResult Validate(int slotNumber)
+        {
+            return Validate(_saveSlotStore.LoadSlot(slotNumber));
+        }
+
+        private SaveSlotValidationResult Validate(SaveSlotData slot)
         {
             return _saveSlotValidationService != null
-                ? _saveSlotValidationService.ValidateAndSync(_saveSlotStore, slotNumber)
+                ? _saveSlotValidationService.Validate(slot)
                 : new SaveSlotValidationResult(
-                    _saveSlotStore.LoadSlot(slotNumber),
-                    SaveSlotValidationStatus.Valid,
+                    slot,
+                    slot.IsEmpty
+                        ? SaveSlotValidationStatus.Empty
+                        : slot.CampaignCompleted
+                            ? SaveSlotValidationStatus.Completed
+                            : SaveSlotValidationStatus.Valid,
                     string.Empty,
                     levelGroupWasSynced: false);
         }
@@ -296,6 +441,31 @@ namespace Game.Feature.UI.Application
         private void RefreshViewModel()
         {
             ViewModelChanged?.Invoke(BuildViewModel());
+        }
+
+        private enum MainMenuLaunchOperationKind
+        {
+            NewGame = 1,
+            Restart = 2,
+            EmptyContinue = 3,
+        }
+
+        private sealed class LaunchConfirmationOperation
+        {
+            public LaunchConfirmationOperation(
+                CampaignLaunchHandoff handoff,
+                MainMenuLaunchOperationKind kind)
+            {
+                Handoff = handoff ?? throw new ArgumentNullException(nameof(handoff));
+                Kind = kind;
+                SlotNumber = handoff.SlotNumber;
+            }
+
+            public CampaignLaunchHandoff Handoff { get; }
+
+            public MainMenuLaunchOperationKind Kind { get; }
+
+            public int SlotNumber { get; }
         }
     }
 }
