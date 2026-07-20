@@ -16,6 +16,8 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEditor.Localization;
 using UnityEngine.Localization.Settings;
+using UnityEngine.Localization.SmartFormat;
+using UnityEngine.Localization.SmartFormat.Core.Parsing;
 using UnityEngine.Localization.Tables;
 
 namespace Game.Feature.UI.Tests
@@ -104,6 +106,34 @@ namespace Game.Feature.UI.Tests
                 "이 키는 예약되어 있습니다.",
                 "이 키는 이동 키와 충돌합니다.",
                 "키 변경이 이미 진행 중입니다.");
+        }
+
+        [Test]
+        public void UiStringTable_SmartFlagsMatchParsedArgumentExpressionsAcrossRequiredLocales()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
+            Assert.That(collection, Is.Not.Null);
+            var englishTable = collection.GetTable("en-US") as StringTable;
+            var koreanTable = collection.GetTable("ko-KR") as StringTable;
+            Assert.That(englishTable, Is.Not.Null);
+            Assert.That(koreanTable, Is.Not.Null);
+
+            var smartFormatter = LocalizationSettings.StringDatabase?.SmartFormatter;
+            Assert.That(smartFormatter, Is.Not.Null);
+
+            foreach (var sharedEntry in collection.SharedData.Entries)
+            {
+                var englishEntry = englishTable.GetEntry(sharedEntry.Key);
+                var koreanEntry = koreanTable.GetEntry(sharedEntry.Key);
+                Assert.That(englishEntry, Is.Not.Null, $"en-US: {sharedEntry.Key}");
+                Assert.That(koreanEntry, Is.Not.Null, $"ko-KR: {sharedEntry.Key}");
+                Assert.That(
+                    koreanEntry.IsSmart,
+                    Is.EqualTo(englishEntry.IsSmart),
+                    $"Smart metadata parity: {sharedEntry.Key}");
+                AssertSmartFlagMatchesParsedArguments(smartFormatter, englishEntry, "en-US");
+                AssertSmartFlagMatchesParsedArguments(smartFormatter, koreanEntry, "ko-KR");
+            }
         }
 
         [Test]
@@ -635,7 +665,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputRebindCanceledKey);
             Assert.That(entry.LocalizedValue, Is.EqualTo(rebindCanceledValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
-            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.InputRebindCanceledKey);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputRebindCanceledKey);
 
             entry = table.GetEntry(SettingsDynamicTextDescriptors.InputResetCompleteKey);
             Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputResetCompleteKey);
@@ -660,6 +690,22 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(alreadyRebindingValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
+        }
+
+        private static void AssertSmartFlagMatchesParsedArguments(
+            SmartFormatter smartFormatter,
+            StringTableEntry entry,
+            string localeCode)
+        {
+            var parsedFormat = smartFormatter.Parser.ParseFormat(
+                entry.LocalizedValue,
+                smartFormatter.GetNotEmptyFormatterExtensionNames());
+            var hasArgumentExpression = parsedFormat.Items.Any(item => item is Placeholder);
+
+            Assert.That(
+                entry.IsSmart,
+                Is.EqualTo(hasArgumentExpression),
+                $"{localeCode}: {entry.Key} must be Smart if and only if its parsed value contains an argument expression.");
         }
 
         private static void AssertStageTable(

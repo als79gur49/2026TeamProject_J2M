@@ -130,8 +130,7 @@ MonoBehaviour:
   - m_Id: 283195222745088
     m_Localized: Rebind canceled.
     m_Metadata:
-      m_Items:
-      - rid: 5336917459874873344
+      m_Items: []
   - m_Id: 283195264688128
     m_Localized: Input settings reset.
     m_Metadata:
@@ -223,5 +222,4 @@ MonoBehaviour:
         - id: 283195096915968
         - id: 283195138859008
         - id: 283195180802048
-        - id: 283195222745088
         - id: 4971587610693632

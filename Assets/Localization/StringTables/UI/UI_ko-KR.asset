@@ -130,8 +130,7 @@ MonoBehaviour:
   - m_Id: 283195222745088
     m_Localized: "\uD0A4 \uBCC0\uACBD \uCDE8\uC18C\uB428"
     m_Metadata:
-      m_Items:
-      - rid: 5336917459874873345
+      m_Items: []
   - m_Id: 283195264688128
     m_Localized: "\uC785\uB825 \uC124\uC815\uC774 \uCD08\uAE30\uD654\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
     m_Metadata:
@@ -228,5 +227,4 @@ MonoBehaviour:
         - id: 283195096915968
         - id: 283195138859008
         - id: 283195180802048
-        - id: 283195222745088
         - id: 4971587610693632

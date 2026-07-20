@@ -53,7 +53,7 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.settings.display.status.preview_reverted", "Preview reverted to the previous saved display settings.", "미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다.", false),
             ("ui.settings.display.status.saved", "Display settings saved.", "화면 설정이 저장되었습니다.", false),
             ("ui.settings.display.status.external_drift", "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.", "현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다.", false),
-            ("ui.settings.input.rebind_canceled", "Rebind canceled.", "키 변경 취소됨", true),
+            ("ui.settings.input.rebind_canceled", "Rebind canceled.", "키 변경 취소됨", false),
             ("ui.settings.input.reset_complete", "Input settings reset.", "입력 설정이 초기화되었습니다.", false),
             ("ui.settings.input.reserved_key", "This key is reserved.", "이 키는 예약되어 있습니다.", false),
             ("ui.settings.input.movement_conflict", "This key conflicts with movement keys.", "이 키는 이동 키와 충돌합니다.", false),
