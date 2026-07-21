@@ -62,7 +62,7 @@ namespace Game.Feature.UI.Tests
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
             var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
-            var settingsPrefab = AssetDatabase.LoadAssetAtPath<SettingsScreenView>(SettingsScreenPrefabPath);
+            var screenCatalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
 
             try
@@ -72,7 +72,7 @@ namespace Game.Feature.UI.Tests
                 root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
                 SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
-                SetPrivateField(installer, "_settingsScreenPrefab", settingsPrefab);
+                SetPrivateField(installer, "_screenPrefabCatalog", screenCatalog);
                 SetPrivateField(installer, "_popupPrefabCatalog", catalog);
                 SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
@@ -104,7 +104,7 @@ namespace Game.Feature.UI.Tests
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
             var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
-            var settingsPrefab = AssetDatabase.LoadAssetAtPath<SettingsScreenView>(SettingsScreenPrefabPath);
+            var screenCatalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
             var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
 
             try
@@ -114,7 +114,7 @@ namespace Game.Feature.UI.Tests
                 root.AddComponent<DisplayRuntimeInstaller>();
                 SetPrivateField(installer, "_installOnStart", false);
                 SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
-                SetPrivateField(installer, "_settingsScreenPrefab", settingsPrefab);
+                SetPrivateField(installer, "_screenPrefabCatalog", screenCatalog);
                 SetPrivateField(installer, "_popupPrefabCatalog", catalog);
                 SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
