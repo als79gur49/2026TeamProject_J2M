@@ -417,59 +417,6 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [Test]
-        public void GameplayUiFlowInstaller_SettingsScreen_UsesSerializedKoreanSettingsFontResolver()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_UsesSerializedKoreanSettingsFontResolver");
-            var nanumGothic = UiTestPrefabAssetUtility.LoadNanumGothicFont();
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                UiTestPrefabAssetUtility.AssignKoreanSettingsFont(installer, nanumGothic);
-                installer.Install(CreatePortsWithValidStage());
-
-                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
-
-                var resolver = GetCurrentSettingsFontResolver(installer.ScreenController);
-                Assert.That(resolver, Is.Not.Null);
-                var style = resolver.ResolveFont(
-                    PackageFreeLocalizedTextResolver.KoreanLocaleCode,
-                    LocalizedTextRole.Title,
-                    LocalizedTextWeight.Bold);
-
-                Assert.That(style.FontAsset, Is.SameAs(nanumGothic));
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        public void GameplayUiFlowInstaller_SettingsScreen_NullSerializedKoreanSettingsFontKeepsTargetFonts()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_NullSerializedKoreanSettingsFontKeepsTargetFonts");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(CreatePortsWithValidStage());
-
-                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
-
-                Assert.That(GetCurrentSettingsFontResolver(installer.ScreenController), Is.Null);
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
         private static GameplayUiFlowPorts CreatePortsWithValidStage(FakeGameplayPauseService pauseService = null)
         {
             var queryFacade = new FakeGameplayQueryFacade(
@@ -480,29 +427,6 @@ namespace Game.Feature.UI.Tests
                     StageId.CreateOrThrow("ui-audio-pause-test"),
                     "stage.ui-audio-pause-test.display_name"));
             return UiTestPortFactory.CreatePorts(queryFacade: queryFacade, pauseService: pauseService);
-        }
-
-        private static ILocalizedTmpFontResolver GetCurrentSettingsFontResolver(ScreenController screenController)
-        {
-            Assert.That(screenController, Is.Not.Null);
-
-            var currentField = typeof(ScreenController).GetField("_current", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(currentField, Is.Not.Null);
-
-            var currentRecord = currentField.GetValue(screenController);
-            Assert.That(currentRecord, Is.Not.Null);
-
-            var runtimeProperty = currentRecord.GetType().GetProperty("Runtime", BindingFlags.Instance | BindingFlags.Public);
-            Assert.That(runtimeProperty, Is.Not.Null);
-
-            var runtime = runtimeProperty.GetValue(currentRecord);
-            Assert.That(runtime, Is.Not.Null);
-            Assert.That(runtime.GetType().Name, Is.EqualTo("SettingsRuntime"));
-
-            var resolverField = runtime.GetType().GetField("_localizedTmpFontResolver", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(resolverField, Is.Not.Null);
-
-            return resolverField.GetValue(runtime) as ILocalizedTmpFontResolver;
         }
 
         private static void DestroyEventSystemIfPresent()

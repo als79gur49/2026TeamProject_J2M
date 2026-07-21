@@ -107,17 +107,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuUiAudioFeedback_SettingsSectionChange_PlaysSelectCue()
-        {
-            var uiAudioPort = new RecordingUiAudioPort();
-            var controller = new MainMenuUiAudioFeedbackController(uiAudioPort);
-
-            controller.HandleSettingsSectionChanged(SettingsSectionId.Display);
-
-            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
-        }
-
-        [Test]
         public void MainMenuUiAudioFeedback_QuitConfirm_PlaysConfirmCueOnce()
         {
             var uiAudioPort = new RecordingUiAudioPort();

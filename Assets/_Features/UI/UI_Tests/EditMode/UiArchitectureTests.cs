@@ -936,6 +936,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload, Double)",
+                    "Dispose()",
                     "RefreshLocalization()",
                     "SelectNextLocale()",
                     "SelectSection(SettingsSectionId)",

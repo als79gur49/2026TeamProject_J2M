@@ -48,7 +48,6 @@ namespace Game.Feature.UI.Composition
             {
                 _settingsOverlayController.Opened += HandleSettingsOpened;
                 _settingsOverlayController.Closed += HandleSettingsClosed;
-                _settingsOverlayController.SectionChanged += HandleSettingsSectionChanged;
             }
         }
 
@@ -151,11 +150,6 @@ namespace Game.Feature.UI.Composition
             Play(UiAudioCueId.NavigateBack);
         }
 
-        internal void HandleSettingsSectionChanged(SettingsSectionId sectionId)
-        {
-            Play(UiAudioCueId.Select);
-        }
-
         private void Detach()
         {
             if (_mainMenuScreenView != null)
@@ -179,7 +173,6 @@ namespace Game.Feature.UI.Composition
             {
                 _settingsOverlayController.Opened -= HandleSettingsOpened;
                 _settingsOverlayController.Closed -= HandleSettingsClosed;
-                _settingsOverlayController.SectionChanged -= HandleSettingsSectionChanged;
             }
 
             _mainMenuScreenView = null;

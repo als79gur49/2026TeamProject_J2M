@@ -6,7 +6,6 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using Game.Shared.Input;
-using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -25,8 +24,12 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a MainMenuScreenView prefab reference.";
         private const string MissingPopupPrefabCatalogMessage =
             "MainMenuUiFlowInstaller requires a PopupPrefabCatalog reference.";
+        private const string MissingScreenPrefabCatalogMessage =
+            "MainMenuUiFlowInstaller requires the production ScreenPrefabCatalog reference.";
         private const string MissingSettingsScreenPrefabMessage =
-            "MainMenuUiFlowInstaller requires a SettingsScreenView prefab reference.";
+            "MainMenuUiFlowInstaller ScreenPrefabCatalog requires a SettingsScreenView prefab reference.";
+        private const string MissingSettingsTypographyThemeMessage =
+            "MainMenuUiFlowInstaller ScreenPrefabCatalog requires the production Settings typography theme.";
         private const string MissingAudioInstallerMessage =
             "MainMenuUiFlowInstaller requires a same-root AudioRuntimeInstaller with audio runtime services.";
         private const string MissingDisplayInstallerMessage =
@@ -35,12 +38,11 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a serialized UiAudioCueMap for MainMenu UI SFX.";
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
-        [SerializeField] private SettingsScreenView _settingsScreenPrefab;
+        [SerializeField] private ScreenPrefabCatalog _screenPrefabCatalog;
         [SerializeField] private InputActionAsset _inputActions;
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
-        [SerializeField] private TMP_FontAsset _koreanSettingsFont;
         [SerializeField] private MainMenuCameraPresentationController _cameraPresentationController;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private ScriptableObjectStageCatalogProvider _stageCatalogProvider;
@@ -123,7 +125,7 @@ namespace Game.Feature.UI.Composition
                 MainMenuStaticTextPayload.Default,
                 _localizedTextResolver,
                 DefaultLocalizedTypographyResolver.Instance,
-                _koreanSettingsFont != null ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont) : null,
+                null,
                 _popupPrefabCatalog.TypographyTheme);
             BuildPopupModule();
             BuildSettingsModule();
@@ -186,9 +188,19 @@ namespace Game.Feature.UI.Composition
 
         private void BuildSettingsModule()
         {
-            if (_settingsScreenPrefab == null)
+            if (_screenPrefabCatalog == null)
+            {
+                throw new InvalidOperationException(MissingScreenPrefabCatalogMessage);
+            }
+
+            if (_screenPrefabCatalog.SettingsPrefab == null)
             {
                 throw new InvalidOperationException(MissingSettingsScreenPrefabMessage);
+            }
+
+            if (_screenPrefabCatalog.SettingsTypographyTheme == null)
+            {
+                throw new InvalidOperationException(MissingSettingsTypographyThemeMessage);
             }
 
             var audioSettingsPort = UiSettingsBridgeAssembly.CreateAudioSettingsPort(gameObject, MissingAudioInstallerMessage);
@@ -208,21 +220,19 @@ namespace Game.Feature.UI.Composition
                 transform,
                 _popupLayerView != null ? _popupLayerView.transform : null,
                 contentRoot => new MainMenuSettingsRuntime(
-                    _settingsScreenPrefab,
-                    contentRoot,
-                    audioSettingsPort,
-                    displaySettingsPort,
-                    _keyboardBindingSettingsPort,
-                    PopupController,
-                    displayPreviewSessionHost,
-                    _displaySettingsLifecycleRelay,
+                    new SettingsScreenRuntimeBuildContext(
+                        parent: contentRoot,
+                        prefab: _screenPrefabCatalog.SettingsPrefab,
+                        audioSettingsPort: audioSettingsPort,
+                        displaySettingsPort: displaySettingsPort,
+                        keyboardBindingSettingsPort: _keyboardBindingSettingsPort,
+                        uiAudioPort: uiAudioPort,
+                        displayPreviewSessionHost: displayPreviewSessionHost,
+                        displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
+                        typographyTheme: _screenPrefabCatalog.SettingsTypographyTheme,
+                        localizedTextResolver: _localizedTextResolver),
                     SettingsScreenPayload.Default,
-                    _settingsPreviewTimeoutSeconds,
-                    uiAudioPort: uiAudioPort,
-                    localizedTextResolver: _localizedTextResolver,
-                    localizedTmpFontResolver: _koreanSettingsFont != null
-                        ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
-                        : null));
+                    PopupController));
             _settingsPort = new MainMenuSettingsPortAdapter(_settingsOverlayController);
         }
 

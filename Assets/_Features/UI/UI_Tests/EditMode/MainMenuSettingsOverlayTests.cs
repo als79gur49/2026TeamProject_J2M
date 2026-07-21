@@ -79,7 +79,6 @@ namespace Game.Feature.UI.Tests
 
             harness.Runtime.Open();
 
-            Assert.That(harness.Runtime.Presenter, Is.Not.Null);
             Assert.That(harness.Runtime.View, Is.Not.Null);
             Assert.That(harness.Runtime.View.DisplayView.CurrentDisplayValueText, Is.EqualTo("1280 x 720"));
             Assert.That(harness.Runtime.View.DisplayView.IsDisplayApplyInteractable, Is.False);
@@ -405,46 +404,20 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuSettingsRuntime_SectionChanged_EmitsOnlyWhenSelectedSectionChanges()
+        public void MainMenuSettingsRuntime_SectionSelection_UsesCommonRuntimeCueOnce()
         {
             using var harness = new RuntimeHarness();
-            var changedCount = 0;
-            var lastSection = SettingsSectionId.Audio;
-            harness.Runtime.SectionChanged += sectionId =>
-            {
-                changedCount++;
-                lastSection = sectionId;
-            };
             harness.Runtime.Open();
+            harness.UiAudioPort.Clear();
 
             harness.Runtime.View.ClickAudioTab();
-            Assert.That(changedCount, Is.Zero);
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
 
             harness.Runtime.View.ClickDisplayTab();
-            Assert.That(changedCount, Is.EqualTo(1));
-            Assert.That(lastSection, Is.EqualTo(SettingsSectionId.Display));
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
 
             harness.Runtime.View.ClickDisplayTab();
-            Assert.That(changedCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void MainMenuSettingsOverlayController_RelaysSettingsSectionChanges()
-        {
-            using var harness = new OverlayHarness();
-            var changedCount = 0;
-            var lastSection = SettingsSectionId.Audio;
-            harness.OverlayController.SectionChanged += sectionId =>
-            {
-                changedCount++;
-                lastSection = sectionId;
-            };
-
-            harness.OverlayController.Open();
-            harness.CreatedRuntime.View.ClickInputTab();
-
-            Assert.That(changedCount, Is.EqualTo(1));
-            Assert.That(lastSection, Is.EqualTo(SettingsSectionId.Input));
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
         }
 
         [Test]
@@ -595,9 +568,14 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(source, Does.Not.Contain("ScreenController"), path);
                 Assert.That(source, Does.Not.Contain("GameplayScreenRuntimeFactory"), path);
-                Assert.That(source, Does.Not.Contain("ScreenAction"), path);
                 Assert.That(source, Does.Not.Contain("ScreenRequest"), path);
             }
+
+            var adapterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/MainMenuSettingsRuntime.cs");
+            Assert.That(adapterSource, Does.Contain("SettingsScreenRuntimeBuilder"));
+            Assert.That(adapterSource, Does.Contain("ScreenActionKind.BackRequested"));
+            Assert.That(adapterSource, Does.Contain("ScreenActionKind.RequestPopup"));
         }
 
         [Test]
@@ -637,7 +615,9 @@ namespace Game.Feature.UI.Tests
             var serializedInstaller = new SerializedObject(installer);
             var serializedAudioInstaller = new SerializedObject(audioInstaller);
             Assert.That(serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex, Is.EqualTo((int)AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
-            Assert.That(serializedInstaller.FindProperty("_settingsScreenPrefab").objectReferenceValue, Is.Not.Null);
+            Assert.That(
+                serializedInstaller.FindProperty("_screenPrefabCatalog").objectReferenceValue,
+                Is.SameAs(UiTestPrefabAssetUtility.LoadScreenCatalog()));
             Assert.That(serializedInstaller.FindProperty("_settingsPreviewTimeoutSeconds").doubleValue, Is.EqualTo(15d));
 
             var cameraPresentationController = uiRoot.GetComponent<MainMenuCameraPresentationController>();
@@ -915,20 +895,23 @@ namespace Game.Feature.UI.Tests
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort = null,
             RecordingUiAudioPort uiAudioPort = null)
         {
+            var catalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             return new MainMenuSettingsRuntime(
-                UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
-                contentRoot,
-                audioPort,
-                displayPort,
-                keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,
-                popupHarness.PopupController,
-                popupHarness.DisplayPreviewSessionHost,
-                popupHarness.DisplayLifecycleRelay,
+                new SettingsScreenRuntimeBuildContext(
+                    parent: contentRoot,
+                    prefab: catalog.SettingsPrefab,
+                    audioSettingsPort: audioPort,
+                    displaySettingsPort: displayPort,
+                    keyboardBindingSettingsPort: keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,
+                    uiAudioPort: uiAudioPort ?? new RecordingUiAudioPort(),
+                    displayPreviewSessionHost: popupHarness.DisplayPreviewSessionHost,
+                    displaySettingsLifecycleRelay: popupHarness.DisplayLifecycleRelay,
+                    typographyTheme: catalog.SettingsTypographyTheme,
+                    displayStatusTransientRelay: popupHarness.TransientStatusRelay,
+                    localizedTextResolver: resolver),
                 SettingsScreenPayload.Default,
-                15d,
-                popupHarness.TransientStatusRelay,
-                uiAudioPort,
-                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+                popupHarness.PopupController);
         }
 
         private static PopupLayerView CreatePopupLayer(Transform parent)

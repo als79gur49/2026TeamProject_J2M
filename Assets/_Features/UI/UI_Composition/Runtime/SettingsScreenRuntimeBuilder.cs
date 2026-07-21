@@ -19,12 +19,10 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
+            GameplayUiTypographyTheme typographyTheme,
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
             ILocalizedTextResolver localizedTextResolver = null,
-            ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
-            GameplayUiTypographyTheme typographyTheme = null,
-            IUiLocaleSelectionPort localeSelectionPort = null)
+            ILocalizedTypographyResolver localizedTypographyResolver = null)
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
             Prefab = prefab ?? throw new ArgumentNullException(nameof(prefab));
@@ -39,9 +37,12 @@ namespace Game.Feature.UI.Composition
                 ?? throw new InvalidOperationException(
                     "SettingsScreenRuntimeBuildContext requires an explicit production localized text resolver.");
             LocalizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
-            LocalizedTmpFontResolver = localizedTmpFontResolver;
-            TypographyTheme = typographyTheme;
-            LocaleSelectionPort = localeSelectionPort ?? LocalizedTextResolver as IUiLocaleSelectionPort;
+            TypographyTheme = typographyTheme
+                ?? throw new InvalidOperationException(
+                    "SettingsScreenRuntimeBuildContext requires the production Settings typography theme.");
+            LocaleSelectionPort = LocalizedTextResolver as IUiLocaleSelectionPort
+                ?? throw new InvalidOperationException(
+                    "Settings production localization resolver must also implement IUiLocaleSelectionPort.");
         }
 
         public Transform Parent { get; }
@@ -66,16 +67,21 @@ namespace Game.Feature.UI.Composition
 
         public ILocalizedTypographyResolver LocalizedTypographyResolver { get; }
 
-        public ILocalizedTmpFontResolver LocalizedTmpFontResolver { get; }
-
         public GameplayUiTypographyTheme TypographyTheme { get; }
 
         public IUiLocaleSelectionPort LocaleSelectionPort { get; }
     }
 
+    internal interface ISettingsScreenRuntime : IScreenRuntime, IUiNavigationTargetProvider
+    {
+        SettingsScreenView View { get; }
+
+        bool TryHandleBackRequested();
+    }
+
     internal sealed class SettingsScreenRuntimeBuilder
     {
-        public IScreenRuntime Build(SettingsScreenRuntimeBuildContext context)
+        public ISettingsScreenRuntime Build(SettingsScreenRuntimeBuildContext context)
         {
             if (context == null)
             {
@@ -109,9 +115,7 @@ namespace Game.Feature.UI.Composition
                 context.DisplayStatusTransientRelay ?? view.gameObject.AddComponent<DisplayStatusTransientRelay>(),
                 context.LocalizedTextResolver,
                 context.LocalizedTypographyResolver,
-                context.LocalizedTmpFontResolver,
                 context.TypographyTheme,
-                context.LocaleSelectionPort,
                 () => DestroyObject(view.gameObject));
         }
 
@@ -156,7 +160,7 @@ namespace Game.Feature.UI.Composition
             UnityEngine.Object.DestroyImmediate(unityObject);
         }
 
-        private sealed class SettingsRuntime : IScreenRuntime, IUiNavigationTargetProvider
+        private sealed class SettingsRuntime : ISettingsScreenRuntime
         {
             private const double DisplayStatusTransientSeconds = 2d;
             private readonly Action _dispose;
@@ -168,9 +172,7 @@ namespace Game.Feature.UI.Composition
             private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
             private readonly ILocalizedTextResolver _localizedTextResolver;
             private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
-            private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
             private readonly GameplayUiTypographyTheme _typographyTheme;
-            private readonly IUiLocaleSelectionPort _localeSelectionPort;
             private readonly SettingsScreenPresenter _presenter;
             private readonly IUiAudioPort _uiAudioPort;
             private readonly SettingsScreenView _view;
@@ -185,9 +187,7 @@ namespace Game.Feature.UI.Composition
                 DisplayStatusTransientRelay displayStatusTransientRelay,
                 ILocalizedTextResolver localizedTextResolver,
                 ILocalizedTypographyResolver localizedTypographyResolver,
-                ILocalizedTmpFontResolver localizedTmpFontResolver,
                 GameplayUiTypographyTheme typographyTheme,
-                IUiLocaleSelectionPort localeSelectionPort,
                 Action dispose)
             {
                 _view = view ?? throw new ArgumentNullException(nameof(view));
@@ -201,9 +201,7 @@ namespace Game.Feature.UI.Composition
                 _displayStatusTransientRelay = displayStatusTransientRelay ?? throw new ArgumentNullException(nameof(displayStatusTransientRelay));
                 _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
                 _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
-                _localizedTmpFontResolver = localizedTmpFontResolver;
-                _typographyTheme = typographyTheme;
-                _localeSelectionPort = localeSelectionPort;
+                _typographyTheme = typographyTheme ?? throw new ArgumentNullException(nameof(typographyTheme));
                 _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
 
                 _audioView.VolumeChanged += HandleAudioVolumeChanged;
@@ -227,6 +225,8 @@ namespace Game.Feature.UI.Composition
 
             public event Action<ScreenAction> ActionRequested;
 
+            public SettingsScreenView View => _view;
+
             public void ApplyPayload(IScreenPayload payload)
             {
                 ExpectPayload<SettingsScreenPayload>(payload);
@@ -236,7 +236,6 @@ namespace Game.Feature.UI.Composition
                     settingsPayload,
                     _localizedTextResolver,
                     _localizedTypographyResolver,
-                    _localizedTmpFontResolver,
                     _typographyTheme);
             }
 
@@ -270,6 +269,7 @@ namespace Game.Feature.UI.Composition
                 _audioView.Bind(null);
                 _view.Bind(null);
                 _view.SetIsCurrent(false);
+                _presenter.Dispose();
                 _dispose();
             }
 
@@ -298,6 +298,17 @@ namespace Game.Feature.UI.Composition
             {
                 target = _view;
                 return target != null;
+            }
+
+            public bool TryHandleBackRequested()
+            {
+                if (!_isCurrent)
+                {
+                    return false;
+                }
+
+                HandleBackRequested();
+                return true;
             }
 
             private void HandleSectionSelected(SettingsSectionId sectionId)
@@ -416,7 +427,7 @@ namespace Game.Feature.UI.Composition
 
             private void HandleLanguageCycleRequested()
             {
-                if (_localeSelectionPort == null || !_presenter.SelectNextLocale())
+                if (!_presenter.SelectNextLocale())
                 {
                     return;
                 }
