@@ -44,6 +44,12 @@ namespace Game.Feature.UI.Composition
         Hybrid,
     }
 
+    public enum TypographyLocaleParticipation
+    {
+        LocaleThemed = 0,
+        LocaleInvariant = 1,
+    }
+
     public enum TypographySizingMode
     {
         PreserveAuthored,

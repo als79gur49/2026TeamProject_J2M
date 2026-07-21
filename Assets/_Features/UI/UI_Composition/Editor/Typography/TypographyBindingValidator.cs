@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -150,6 +151,19 @@ namespace Game.Feature.UI.Composition.Editor
                 report.AddWarning(objectTarget, "StyleTag is Default; confirm this is intentional.");
             }
 
+            if (!Enum.IsDefined(typeof(TypographyLocaleParticipation), binding.LocaleParticipation))
+            {
+                report.AddError(
+                    objectTarget,
+                    $"Locale participation value '{(int)binding.LocaleParticipation}' is invalid.");
+                return;
+            }
+
+            if (binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant)
+            {
+                return;
+            }
+
             if (theme == null)
             {
                 return;
@@ -179,7 +193,7 @@ namespace Game.Feature.UI.Composition.Editor
             return targetProperty != null ? targetProperty.objectReferenceValue as TMP_Text : null;
         }
 
-        private static string BuildObjectTarget(string rootName, Object target)
+        private static string BuildObjectTarget(string rootName, UnityEngine.Object target)
         {
             return target == null
                 ? rootName

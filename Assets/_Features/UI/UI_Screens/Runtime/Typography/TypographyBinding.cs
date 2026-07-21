@@ -9,6 +9,8 @@ namespace Game.Feature.UI.Composition
     {
         [SerializeField] private TMP_Text target;
         [SerializeField] private TypographyStyleTag styleTag = TypographyStyleTag.Default;
+        [SerializeField] private TypographyLocaleParticipation localeParticipation =
+            TypographyLocaleParticipation.LocaleThemed;
         [SerializeField] private TypographySizingSource sizingSourceOverride = TypographySizingSource.Hybrid;
         [SerializeField] private TypographyApplyMask applyMaskOverride;
         [SerializeField] private bool useApplyMaskOverride;
@@ -19,6 +21,8 @@ namespace Game.Feature.UI.Composition
         public TMP_Text Target => target != null ? target : GetComponent<TMP_Text>();
 
         public TypographyStyleTag StyleTag => styleTag;
+
+        public TypographyLocaleParticipation LocaleParticipation => localeParticipation;
 
         public TypographySizingSource SizingSourceOverride => sizingSourceOverride;
 

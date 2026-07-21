@@ -174,13 +174,23 @@ namespace Game.Feature.UI.Screens
             TypographyBinding binding = null,
             TypographyApplyMask requiredApplyMask = TypographyApplyMask.None)
         {
-            if (target == null || theme == null)
+            if (target == null)
             {
                 return false;
             }
 
             binding ??= TypographyBinding.FindFor(target);
             if (binding == null)
+            {
+                return false;
+            }
+
+            if (binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant)
+            {
+                return true;
+            }
+
+            if (theme == null)
             {
                 return false;
             }
@@ -202,6 +212,11 @@ namespace Game.Feature.UI.Screens
             TypographyApplyMask requiredApplyMask = TypographyApplyMask.None)
         {
             if (target == null || binding == null)
+            {
+                return;
+            }
+
+            if (binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant)
             {
                 return;
             }

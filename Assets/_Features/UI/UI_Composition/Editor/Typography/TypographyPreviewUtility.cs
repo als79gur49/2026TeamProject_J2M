@@ -12,6 +12,8 @@ namespace Game.Feature.UI.Composition.Editor
 
         public int AppliedCount { get; private set; }
 
+        public int LocaleInvariantSkippedCount { get; private set; }
+
         public IReadOnlyList<string> Errors => errors;
 
         public bool HasErrors => errors.Count > 0;
@@ -19,6 +21,11 @@ namespace Game.Feature.UI.Composition.Editor
         public void AddApplied()
         {
             AppliedCount++;
+        }
+
+        public void AddLocaleInvariantSkipped()
+        {
+            LocaleInvariantSkippedCount++;
         }
 
         public void AddError(string message)
@@ -109,6 +116,12 @@ namespace Game.Feature.UI.Composition.Editor
                     continue;
                 }
 
+                if (binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant)
+                {
+                    result.AddLocaleInvariantSkipped();
+                    continue;
+                }
+
                 if (!theme.TryResolve(localeCode, binding.StyleTag, out var style))
                 {
                     result.AddError($"{target.name}: StyleTag '{binding.StyleTag}' does not resolve for '{localeCode}'.");
@@ -187,6 +200,11 @@ namespace Game.Feature.UI.Composition.Editor
             for (var i = 0; i < source.AppliedCount; i++)
             {
                 target.AddApplied();
+            }
+
+            for (var i = 0; i < source.LocaleInvariantSkippedCount; i++)
+            {
+                target.AddLocaleInvariantSkipped();
             }
 
             foreach (var error in source.Errors)

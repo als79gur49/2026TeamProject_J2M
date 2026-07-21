@@ -51,12 +51,15 @@ namespace Game.Feature.UI.Composition.Editor
             if (result.HasErrors)
             {
                 Debug.LogError(
-                    $"Typography preview '{localeCode}' applied {result.AppliedCount} binding(s) with errors: " +
+                    $"Typography preview '{localeCode}' applied {result.AppliedCount} binding(s), " +
+                    $"skipped {result.LocaleInvariantSkippedCount} locale-invariant binding(s), with errors: " +
                     string.Join("; ", result.Errors.Where(error => !string.IsNullOrWhiteSpace(error))));
                 return;
             }
 
-            Debug.Log($"Typography preview '{localeCode}' applied {result.AppliedCount} binding(s).");
+            Debug.Log(
+                $"Typography preview '{localeCode}' applied {result.AppliedCount} binding(s) and skipped " +
+                $"{result.LocaleInvariantSkippedCount} locale-invariant binding(s).");
         }
     }
 }
