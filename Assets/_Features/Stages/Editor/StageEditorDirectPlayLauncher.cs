@@ -79,6 +79,10 @@ namespace Game.Feature.Stages.Editor
                 throw new ArgumentException("Direct Play requires a valid StageId.", nameof(stageId));
             }
 
+            ThrowIfLaunchIsAlreadyInProgress(
+                EditorApplication.isPlaying,
+                EditorApplication.isPlayingOrWillChangePlaymode);
+
             var routeConfig = LoadRouteConfigOrThrow();
             var scenePath = routeConfig.GameplayShellScenePath;
             if (string.IsNullOrWhiteSpace(scenePath))
@@ -130,6 +134,22 @@ namespace Game.Feature.Stages.Editor
                 EditorDirectPlayContextStore.Clear();
                 throw;
             }
+        }
+
+        internal static void ThrowIfLaunchIsAlreadyInProgress(
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            if (!isPlaying &&
+                !isPlayingOrWillChangePlaymode &&
+                !StageLaunchContextStore.TryPeek(out _) &&
+                !StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Direct Play launch was rejected because Play Mode entry or another stage transition is already in progress.");
         }
 
         public static void ClearTempDirectPlaySave()

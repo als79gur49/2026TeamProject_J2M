@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
@@ -112,6 +113,71 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
             Assert.That(current, Is.SameAs(runtimeContext));
+        }
+
+        [Test]
+        public void DirectPlayDuplicateGuard_PlayModeEntry_PreservesFirstPrimeAndContext()
+        {
+            var firstStage = StageId.CreateOrThrow("stage-0-1");
+            var firstContext = EditorDirectPlayContext.CreateNonCampaign(firstStage);
+            EditorDirectPlayContextStore.SetCurrent(firstContext);
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(firstStage);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
+                    isPlaying: false,
+                    isPlayingOrWillChangePlaymode: true));
+
+            Assert.That(exception?.Message, Does.Contain("rejected"));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId, Is.EqualTo(firstStage));
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var primedStage), Is.True);
+            Assert.That(primedStage, Is.EqualTo(firstStage));
+        }
+
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void DirectPlayDuplicateGuard_PlayModeState_RejectsWithoutCreatingLaunchState(
+            bool isPlaying,
+            bool isPlayingOrWillChangePlaymode)
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
+                    isPlaying,
+                    isPlayingOrWillChangePlaymode));
+
+            Assert.That(exception?.Message, Does.Contain("rejected"));
+            Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
+            Assert.That(
+                EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                Is.EqualTo(EditorDirectPlayMode.None));
+        }
+
+        [Test]
+        public void DirectPlayDuplicateGuard_TransitionOwner_RejectsBeforeSecondSceneLoadAndPreservesOwner()
+        {
+            var firstStage = StageId.CreateOrThrow("stage-0-1");
+            var firstContext = new StageLaunchContext(
+                Guid.NewGuid(),
+                0,
+                firstStage,
+                StageNavigationKind.Continue,
+                "editor-direct-play");
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(firstStage));
+            Assert.That(StageLaunchContextStore.TrySetCurrent(firstContext), Is.True);
+            var sceneBeforeDuplicate = SceneManager.GetActiveScene();
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                StageEditorDirectPlayLauncher.LaunchStage(
+                    StageId.CreateOrThrow("stage-1-1"),
+                    EditorDirectPlayMode.NonCampaign,
+                    SaveSlotStore.DefaultRemainingChances));
+
+            Assert.That(exception?.Message, Does.Contain("rejected"));
+            Assert.That(SceneManager.GetActiveScene().handle, Is.EqualTo(sceneBeforeDuplicate.handle));
+            Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(firstContext));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId, Is.EqualTo(firstStage));
         }
 
         [Test]
