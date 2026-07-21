@@ -15,6 +15,8 @@ The source of truth for the existing English hierarchy is the actual TMP authori
 
 Key conclusion: the current English authoring is not a clean three-font hierarchy. It has a clear Display layer through Orbitron, a common Settings label/value layer through Exo SemiBold, a Pause button layer through Exo Regular, and a Settings button/key/status layer through `Font_SciFiSoldier_Bold`. `LiberationSans SDF` is still present in smaller utility/dropdown/helper text.
 
+Post-audit decision: physical keyboard binding display names are locale-independent raw Input System output. Settings uses explicit `TypographyLocaleParticipation.LocaleInvariant` authoring for exactly 13 key-display TMP targets. Runtime application and Editor preview treat those bindings as successful no-ops, while rebinding remains allowed to replace the displayed raw value.
+
 ## 2. Baseline
 
 | Item | Value |
@@ -99,8 +101,9 @@ Observed asset details:
 | Settings | `_applyButtonLabel`, `_revertButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18 | on | 10/18 | Button | Hybrid | Command labels need localized width check |
 | Settings | `_movementLabel`, `_pushLabel`, `_flipLabel` | Exo SemiBold | Exo SemiBold embedded | 20 | on | 10-16/20 | Label | Hybrid | Input row layout sensitive |
 | Settings | `_movementToggleLabel` | Exo SemiBold | Exo SemiBold embedded | 13 | on | 10/13 | Label | Hybrid | Compact control label |
-| Settings | `_movementCurrentText`, `_pushCurrentText`, `_flipCurrentText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | off | 10/40 | Value | Authored initially | Key display values are compact authored boxes |
-| Settings | `_pushKeyDisplayLabel`, `_flipKeyDisplayLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 24 | on | 6/24 | Value | Authored initially | Runtime code changes autosize for key labels |
+| Settings | `_movementCurrentText`, `_pushCurrentText`, `_flipCurrentText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | off | 10/40 | Value | LocaleInvariant | Raw binding names preserve authored typography |
+| Settings | `_pushKeyDisplayLabel`, `_flipKeyDisplayLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 24 | on | 6/24 | Value | LocaleInvariant | Rebinding still updates text; existing keycap autosizing is preserved |
+| Settings | Movement `WASDKeyDisplay` 6 TMP + `ArrowKeyDisplay` 2 TMP | Authored key-display fonts | Authored shared materials | authored | authored | authored | Value | LocaleInvariant | Nested physical-key displays use the same explicit participation contract |
 | Settings | `_pushChangeButtonLabel`, `_flipChangeButtonLabel`, `_resetButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18-20 | on | 10/18-20 | Button | Hybrid | Button width and state frame coupling |
 | Settings | `_statusText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | on | 10/20 | Status | Hybrid | Dynamic input validation strings |
 | Pause | `_titleLabel` | Orbitron ExtraBold | Orbitron embedded | 30 | on | 14/30 | HeaderMedium | Hybrid | Uses TMP bold style flag plus bold font |
@@ -136,7 +139,7 @@ Localized descriptor keys observed:
 | Settings | display status/countdown | Status | Runtime validation/transient text | Countdown may remain authored |
 | Settings | apply/revert/language cycle buttons | Button | Command labels | Font_SciFiSoldier_Bold authoring |
 | Settings | input row labels | Label | Static row labels | Exo SemiBold authoring |
-| Settings | input current/keycap text | Value | Current binding value and key display | Authored sizing initially |
+| Settings | input current/keycap text | Value + LocaleInvariant participation | StyleTag remains semantic metadata; locale theme application is intentionally skipped | Rebinding may replace raw text |
 | Settings | input change/reset buttons | Button | Command labels | Font_SciFiSoldier_Bold authoring |
 | Settings | input status | Status | Runtime validation/transient text | Dynamic string length risk |
 | Pause | popup title | HeaderMedium | Modal title below full screen title scale | Current size 30 |
@@ -256,10 +259,20 @@ Recommended ko-KR locale font set:
 3. Should Settings button labels use `Font_SciFiSoldier_Bold` as UI/Bold while Pause buttons remain UI/Regular, or should one button font be selected after visual QA?
 4. Should `LiberationSans SDF` helper/dropdown text become a first-class `Utility` category, or should those surfaces migrate to Exo/Nanum in the aggressive pass?
 5. Is synthetic bold acceptable for ko-KR HeaderLarge/HeaderMedium/Button in the first production pass?
-6. Should keycap labels share `Value`, or should a dedicated `Keycap`/`ControlValue` StyleTag be added?
+6. Resolved: keycap/current binding labels retain the existing `Value` StyleTag, while `TypographyLocaleParticipation.LocaleInvariant` is the controlling contract. `Value` is not reinterpreted as a keycap-only locale font and no dedicated tag is required for this decision.
 7. Should theme validation inspect runtime-created TMP dropdown template labels, or only authored prefab references?
 
-## 12. Next Implementation Prompt Draft
+## 12. Locale-Independent Key Display Closeout
+
+The Settings inventory remains exactly 51 TMP targets: 25 `LocalizedStatic`, 11 `LocalizedDynamic`, 13 `LocaleInvariantKeyDisplay`, and 2 `Decorative`. The former raw-normal exception classification is retired; locale-invariant targets are actively checked for an exact serialized target, one binding per TMP, and `LocaleParticipation == LocaleInvariant`. The other 36 governed targets remain `LocaleThemed`.
+
+Locale switching must preserve each key display's string, font, `fontSharedMaterial`, `fontStyle`, `fontSize`, autosizing flag and range, line spacing, and character spacing across `en-US -> ko-KR -> en-US`. Editor preview follows the same decision and reports actually applied versus intentionally skipped bindings separately.
+
+Word-shaped raw display names such as `Space`, `Left Shift`, `Enter`, `Numpad Enter`, and `Print Screen` follow the same contract. Existing Push/Flip keycap autosizing remains enabled; layout changes are justified only if overflow or wrapping is reproduced.
+
+World Guide movement key TMPs plus Push E and Flip Q remain outside the locale typography path and are unchanged. Updating World Guide E/Q after Settings rebinding is deferred as a separate synchronization feature. Waiting and duplicate action-label sentences also remain separate localization-policy work.
+
+## 13. Historical Next Implementation Prompt Draft
 
 Implement the first Cascading Typography Theme slice without changing String Tables or localization keys.
 
