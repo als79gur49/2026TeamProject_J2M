@@ -87,8 +87,7 @@ namespace Game.Feature.UI.Screens
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver = null,
-            GameplayUiTypographyTheme typographyTheme = null)
+            GameplayUiTypographyTheme typographyTheme)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -103,50 +102,57 @@ namespace Game.Feature.UI.Screens
                     payload.MovementLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _movementToggleLabel,
                     payload.UseArrowKeysLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _pushLabel,
                     payload.PushLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _pushChangeButtonLabel,
                     payload.InputChangeLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _flipLabel,
                     payload.FlipLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _flipChangeButtonLabel,
                     payload.InputChangeLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _resetButtonLabel,
                     payload.ResetInputLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
             };
             _localizedTextResolver = textResolver;
             _typographyTheme = typographyTheme;
@@ -411,12 +417,21 @@ namespace Game.Feature.UI.Screens
             var localeCode = _localizedTextResolver != null
                 ? _localizedTextResolver.CurrentLocaleCode
                 : string.Empty;
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_movementCurrentText, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_pushCurrentText, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_pushKeyDisplayLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_flipCurrentText, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_flipKeyDisplayLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_statusText, _typographyTheme, localeCode);
+            ApplySettingsTypography(_movementCurrentText, localeCode);
+            ApplySettingsTypography(_pushCurrentText, localeCode);
+            ApplySettingsTypography(_pushKeyDisplayLabel, localeCode);
+            ApplySettingsTypography(_flipCurrentText, localeCode);
+            ApplySettingsTypography(_flipKeyDisplayLabel, localeCode);
+            ApplySettingsTypography(_statusText, localeCode);
+        }
+
+        private void ApplySettingsTypography(TMP_Text target, string localeCode)
+        {
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                target,
+                _typographyTheme,
+                localeCode,
+                requiredApplyMask: TypographyApplyMask.FontStyle);
         }
 
         private void RebindControls()

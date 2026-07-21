@@ -31,19 +31,19 @@ namespace Game.Feature.UI.Tests
             var prefab = LoadSettingsPrefab();
             var required = new[]
             {
-                ("Settings title", GetField<TMP_Text>(prefab, "_titleLabel"), TypographyStyleTag.HeaderLarge),
-                ("Audio tab", GetField<TMP_Text>(prefab, "_audioTabButtonLabel"), TypographyStyleTag.HeaderMedium),
-                ("Display tab", GetField<TMP_Text>(prefab, "_displayTabButtonLabel"), TypographyStyleTag.HeaderMedium),
-                ("Input tab", GetField<TMP_Text>(prefab, "_inputTabButtonLabel"), TypographyStyleTag.HeaderMedium),
-                ("Back button", GetField<TMP_Text>(prefab, "_backButtonLabel"), TypographyStyleTag.Button),
-                ("Language label", GetField<TMP_Text>(prefab.DisplayView, "_languageLabel"), TypographyStyleTag.Label),
-                ("Language value", GetField<TMP_Text>(prefab.DisplayView, "_languageCycleButtonLabel"), TypographyStyleTag.Button),
-                ("Preview countdown", GetField<TMP_Text>(prefab.DisplayView, "_previewCountdownLabel"), TypographyStyleTag.Status),
-                ("Input status", GetField<TMP_Text>(prefab.InputView, "_statusText"), TypographyStyleTag.Status),
-                ("Movement label", GetField<TMP_Text>(prefab.InputView, "_movementLabel"), TypographyStyleTag.Label),
-                ("Push label", GetField<TMP_Text>(prefab.InputView, "_pushLabel"), TypographyStyleTag.Label),
-                ("Flip label", GetField<TMP_Text>(prefab.InputView, "_flipLabel"), TypographyStyleTag.Label),
-                ("Reset input button", GetField<TMP_Text>(prefab.InputView, "_resetButtonLabel"), TypographyStyleTag.Button),
+                ("Settings title", GetField<TMP_Text>(prefab, "_titleLabel"), TypographyStyleTag.SettingsDisplay),
+                ("Audio tab", GetField<TMP_Text>(prefab, "_audioTabButtonLabel"), TypographyStyleTag.SettingsDisplay),
+                ("Display tab", GetField<TMP_Text>(prefab, "_displayTabButtonLabel"), TypographyStyleTag.SettingsDisplay),
+                ("Input tab", GetField<TMP_Text>(prefab, "_inputTabButtonLabel"), TypographyStyleTag.SettingsDisplay),
+                ("Back button", GetField<TMP_Text>(prefab, "_backButtonLabel"), TypographyStyleTag.SettingsDisplay),
+                ("Language label", GetField<TMP_Text>(prefab.DisplayView, "_languageLabel"), TypographyStyleTag.SettingsLabel),
+                ("Language value", GetField<TMP_Text>(prefab.DisplayView, "_languageCycleButtonLabel"), TypographyStyleTag.SettingsAction),
+                ("Preview countdown", GetField<TMP_Text>(prefab.DisplayView, "_previewCountdownLabel"), TypographyStyleTag.SettingsBody),
+                ("Input status", GetField<TMP_Text>(prefab.InputView, "_statusText"), TypographyStyleTag.SettingsAction),
+                ("Movement label", GetField<TMP_Text>(prefab.InputView, "_movementLabel"), TypographyStyleTag.SettingsLabel),
+                ("Push label", GetField<TMP_Text>(prefab.InputView, "_pushLabel"), TypographyStyleTag.SettingsLabel),
+                ("Flip label", GetField<TMP_Text>(prefab.InputView, "_flipLabel"), TypographyStyleTag.SettingsLabel),
+                ("Reset input button", GetField<TMP_Text>(prefab.InputView, "_resetButtonLabel"), TypographyStyleTag.SettingsAction),
             };
 
             foreach (var (name, text, expectedTag) in required)
@@ -87,7 +87,7 @@ namespace Game.Feature.UI.Tests
             var originalAutoSizing = title.enableAutoSizing;
             var originalMin = title.fontSizeMin;
             var originalMax = title.fontSizeMax;
-            var koreanStyle = theme.ResolveOrThrow("ko-KR", TypographyStyleTag.HeaderLarge);
+            var koreanStyle = theme.ResolveOrThrow("ko-KR", TypographyStyleTag.SettingsDisplay);
             var originalScaleRatioA = koreanStyle.MaterialPreset.GetFloat("_ScaleRatioA");
             var originalScaleRatioB = koreanStyle.MaterialPreset.GetFloat("_ScaleRatioB");
             var originalScaleRatioC = koreanStyle.MaterialPreset.GetFloat("_ScaleRatioC");
@@ -126,7 +126,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(LocalizedTmpTextApplicator.ApplyTypographyTheme(title, theme, "en-US"), Is.True);
 
                 Assert.That(title.font, Is.SameAs(LoadOrbitron()));
-                Assert.That(title.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("en-US", TypographyStyleTag.HeaderLarge).MaterialPreset));
+                Assert.That(title.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("en-US", TypographyStyleTag.SettingsDisplay).MaterialPreset));
+                Assert.That(title.fontStyle, Is.EqualTo(FontStyles.UpperCase));
             }
             finally
             {
@@ -197,6 +198,24 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 GetField<GameplayUiTypographyTheme>(catalog, "_settingsTypographyTheme"),
                 Is.SameAs(LoadTheme()));
+            Assert.That(
+                typeof(SettingsScreenRuntimeBuildContext).GetProperty("LocalizedTmpFontResolver"),
+                Is.Null);
+            foreach (var viewType in new[]
+                     {
+                         typeof(SettingsScreenView),
+                         typeof(SettingsAudioView),
+                         typeof(SettingsDisplayView),
+                         typeof(SettingsInputView),
+                     })
+            {
+                var bindMethod = viewType.GetMethod("BindStaticLocalization");
+                Assert.That(bindMethod, Is.Not.Null, viewType.Name);
+                Assert.That(
+                    bindMethod.GetParameters().Select(parameter => parameter.ParameterType),
+                    Has.None.EqualTo(typeof(ILocalizedTmpFontResolver)),
+                    viewType.Name);
+            }
         }
 
         [Test]

@@ -136,17 +136,6 @@ namespace Game.Feature.UI.Tests
             return font;
         }
 
-        internal static void AssignKoreanSettingsFont(GameplayUiFlowInstaller installer, TMP_FontAsset font)
-        {
-            Assert.That(installer, Is.Not.Null);
-
-            var serializedInstaller = new SerializedObject(installer);
-            var fontProperty = serializedInstaller.FindProperty("_koreanSettingsFont");
-            Assert.That(fontProperty, Is.Not.Null);
-            fontProperty.objectReferenceValue = font;
-            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         internal static void AssignCanonicalUiPrefabs(GameplayUiFlowInstaller installer)
         {
             if (installer.GetComponent<AudioRuntimeInstaller>() == null)

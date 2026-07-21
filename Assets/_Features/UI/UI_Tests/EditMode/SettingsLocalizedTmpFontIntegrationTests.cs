@@ -154,39 +154,6 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [Test]
-        public void SettingsScreenView_StaticBindingPassesFontResolverToTitleLabel()
-        {
-            var nanumGothic = LoadNanumGothic();
-            var englishFont = LoadLiberationSans();
-            var resolver = new FakeLocalizedTextResolver();
-            resolver.SetLocale("ko-KR");
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
-            var typographyResolver = new StaticTypographyResolver(new LocalizedTypographyStyle(18f, 0f, false));
-            var root = new GameObject("SettingsScreenViewFontBinding");
-            var view = root.AddComponent<SettingsScreenView>();
-            var titleLabel = CreateTmpText("TitleLabel", root.transform);
-            titleLabel.font = englishFont;
-            SetPrivateField(view, "_titleLabel", titleLabel);
-
-            try
-            {
-                view.BindStaticLocalization(
-                    SettingsScreenPayload.Default,
-                    resolver,
-                    typographyResolver,
-                    fontResolver);
-
-                Assert.That(titleLabel.text, Is.EqualTo("설정"));
-                Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
-            }
-            finally
-            {
-                view.UnbindStaticLocalization();
-                UnityEngine.Object.DestroyImmediate(root);
-            }
-        }
-
         private static TMP_FontAsset LoadNanumGothic()
         {
             var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);

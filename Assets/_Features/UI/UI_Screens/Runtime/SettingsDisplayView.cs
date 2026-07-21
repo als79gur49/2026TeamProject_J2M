@@ -45,15 +45,10 @@ namespace Game.Feature.UI.Screens
         private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private ILocalizedTextResolver _localizedTextResolver;
         private ILocalizedTypographyResolver _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
-        private ILocalizedTmpFontResolver _localizedTmpFontResolver;
         private GameplayUiTypographyTheme _typographyTheme;
         private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
         private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
         private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
-        private TMP_FontAsset _languageLabelDefaultFontAsset;
-        private Material _languageLabelDefaultMaterialPreset;
-        private TMP_FontAsset _languageCycleButtonLabelDefaultFontAsset;
-        private Material _languageCycleButtonLabelDefaultMaterialPreset;
         private SettingsDisplayViewModel _viewModel;
 
         public event Action<int> ResolutionChanged;
@@ -104,8 +99,7 @@ namespace Game.Feature.UI.Screens
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver = null,
-            GameplayUiTypographyTheme typographyTheme = null)
+            GameplayUiTypographyTheme typographyTheme)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -118,12 +112,7 @@ namespace Game.Feature.UI.Screens
             _koreanLanguageLabelDescriptor = payload.KoreanLanguageLabelDescriptor;
             _localizedTextResolver = textResolver;
             _localizedTypographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
-            _localizedTmpFontResolver = fontResolver;
             _typographyTheme = typographyTheme;
-            _languageLabelDefaultFontAsset ??= _languageLabel != null ? _languageLabel.font : null;
-            _languageLabelDefaultMaterialPreset ??= _languageLabel != null ? _languageLabel.fontSharedMaterial : null;
-            _languageCycleButtonLabelDefaultFontAsset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.font : null;
-            _languageCycleButtonLabelDefaultMaterialPreset ??= _languageCycleButtonLabel != null ? _languageCycleButtonLabel.fontSharedMaterial : null;
             _localizedStaticBindings = new List<LocalizedTmpTextBinding>
             {
                 CreateBinding(_currentDisplayLabel, payload.DisplayCurrentLabelDescriptor),
@@ -153,7 +142,6 @@ namespace Game.Feature.UI.Screens
             DisposeLocalizedStaticBindings();
             _localizedTextResolver = null;
             _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
-            _localizedTmpFontResolver = null;
             _typographyTheme = null;
         }
 
@@ -284,6 +272,7 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
+            RefreshResolutionDropdownTypography();
             SetResolutionKeyboardHighlight(Mathf.Clamp(highlightedIndex, 0, ResolutionOptionCount - 1));
             return true;
         }
@@ -620,30 +609,28 @@ namespace Game.Feature.UI.Screens
             ApplyLocalizedStyle(
                 _languageLabel,
                 _languageLabelDescriptor,
-                localeCode,
-                _languageLabelDefaultFontAsset,
-                _languageLabelDefaultMaterialPreset);
+                localeCode);
             ApplyLocalizedStyle(
                 _languageCycleButtonLabel,
                 CurrentLanguageDescriptor(localeCode),
-                localeCode,
-                _languageCycleButtonLabelDefaultFontAsset,
-                _languageCycleButtonLabelDefaultMaterialPreset);
+                localeCode);
         }
 
         private void ApplyLocalizedStyle(
             TMP_Text target,
             LocalizedTextDescriptor descriptor,
-            string localeCode,
-            TMP_FontAsset defaultFontAsset,
-            Material defaultMaterialPreset)
+            string localeCode)
         {
             if (target == null)
             {
                 return;
             }
 
-            if (LocalizedTmpTextApplicator.ApplyTypographyTheme(target, _typographyTheme, localeCode))
+            if (LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                    target,
+                    _typographyTheme,
+                    localeCode,
+                    requiredApplyMask: TypographyApplyMask.FontStyle))
             {
                 return;
             }
@@ -654,17 +641,6 @@ namespace Game.Feature.UI.Screens
                     localeCode,
                     descriptor.Role,
                     descriptor.Weight));
-            if (_localizedTmpFontResolver != null)
-            {
-                LocalizedTmpTextApplicator.ApplyFont(
-                    target,
-                    _localizedTmpFontResolver.ResolveFont(
-                        localeCode,
-                        descriptor.Role,
-                        descriptor.Weight),
-                    defaultFontAsset,
-                    defaultMaterialPreset);
-            }
         }
 
         private LocalizedTextDescriptor CurrentLanguageDescriptor(string localeCode)
@@ -684,16 +660,51 @@ namespace Game.Feature.UI.Screens
             var localeCode = _localizedTextResolver != null
                 ? _localizedTextResolver.CurrentLocaleCode
                 : string.Empty;
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_currentDisplayLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_currentDisplayValue, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_resolutionLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_resolutionHoverHintLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_fullscreenLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_fullscreenToggleLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_displayStatusLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_previewCountdownLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_applyButtonLabel, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(_revertButtonLabel, _typographyTheme, localeCode);
+            ApplySettingsTypography(_currentDisplayLabel, localeCode);
+            ApplySettingsTypography(_currentDisplayValue, localeCode);
+            ApplySettingsTypography(_resolutionLabel, localeCode);
+            ApplySettingsTypography(_resolutionHoverHintLabel, localeCode);
+            ApplySettingsTypography(_fullscreenLabel, localeCode);
+            ApplySettingsTypography(_fullscreenToggleLabel, localeCode);
+            ApplySettingsTypography(_displayStatusLabel, localeCode);
+            ApplySettingsTypography(_previewCountdownLabel, localeCode);
+            ApplySettingsTypography(_applyButtonLabel, localeCode);
+            ApplySettingsTypography(_revertButtonLabel, localeCode);
+            RefreshResolutionDropdownTypography();
+        }
+
+        private void RefreshResolutionDropdownTypography()
+        {
+            if (_resolutionDropdown == null || _typographyTheme == null)
+            {
+                return;
+            }
+
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            ApplySettingsTypography(_resolutionDropdown.captionText, localeCode);
+            ApplySettingsTypography(_resolutionDropdown.itemText, localeCode);
+
+            if (!TryGetNativeResolutionDropdownList(out var nativeList))
+            {
+                return;
+            }
+
+            var liveItemLabels = nativeList.GetComponentsInChildren<TMP_Text>(true);
+            for (var i = 0; i < liveItemLabels.Length; i++)
+            {
+                ApplySettingsTypography(liveItemLabels[i], localeCode);
+            }
+        }
+
+        private void ApplySettingsTypography(TMP_Text target, string localeCode)
+        {
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                target,
+                _typographyTheme,
+                localeCode,
+                requiredApplyMask: TypographyApplyMask.FontStyle);
         }
 
         private LocalizedTmpTextBinding CreateBinding(
@@ -705,8 +716,9 @@ namespace Game.Feature.UI.Screens
                 descriptor,
                 _localizedTextResolver,
                 _localizedTypographyResolver,
-                _localizedTmpFontResolver,
-                _typographyTheme);
+                null,
+                _typographyTheme,
+                requiredThemeApplyMask: TypographyApplyMask.FontStyle);
         }
 
         private void DisposeLocalizedStaticBindings()

@@ -322,10 +322,7 @@ namespace Game.Feature.UI.Tests
         {
             var nanumGothic = LoadNanumGothic();
             using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
-            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(
-                resolver,
-                fontResolver: fontResolver);
+            using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
 
             harness.ShowSettings();
             var titleLabel = GetText(harness.SettingsView, "_titleLabel");
@@ -514,8 +511,9 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
 
             Assert.That(gameplayInstallerSource, Does.Contain("CreatePersistentSettingsLocalizedTextResolver()"));
-            Assert.That(gameplayInstallerSource, Does.Contain("localizedTextResolver: localizedTextResolver"));
-            Assert.That(gameplayInstallerSource, Does.Contain("new StageInfoPresenter(localizedTextResolver)"));
+            Assert.That(gameplayInstallerSource, Does.Contain("localizedTextResolver: _localizedTextResolver"));
+            Assert.That(gameplayInstallerSource, Does.Contain("new StageInfoPresenter(_localizedTextResolver)"));
+            Assert.That(gameplayInstallerSource, Does.Contain("(_localizedTextResolver as IDisposable)?.Dispose()"));
 
             Assert.That(mainMenuInstallerSource, Does.Contain("CreatePersistentSettingsLocalizedTextResolver()"));
             Assert.That(mainMenuInstallerSource, Does.Contain("localizedTextResolver: _localizedTextResolver"));

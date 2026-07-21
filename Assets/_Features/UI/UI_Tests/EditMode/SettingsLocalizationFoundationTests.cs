@@ -599,7 +599,8 @@ namespace Game.Feature.UI.Tests
                 fixture.View.BindStaticLocalization(
                     SettingsScreenPayload.Default,
                     resolver,
-                    typographyResolver);
+                    typographyResolver,
+                    null);
 
                 fixture.ScreenViewModel.SetContent(
                     "MODEL Title",

@@ -94,8 +94,7 @@ namespace Game.Feature.UI.Screens
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver = null,
-            GameplayUiTypographyTheme typographyTheme = null)
+            GameplayUiTypographyTheme typographyTheme)
         {
             UnbindStaticLocalization();
             if (payload == null)
@@ -110,36 +109,41 @@ namespace Game.Feature.UI.Screens
                     payload.TitleTextDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _backButtonLabel,
                     payload.BackLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _audioTabButtonLabel,
                     payload.AudioTabLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _displayTabButtonLabel,
                     payload.DisplayTabLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
                     _inputTabButtonLabel,
                     payload.InputTabLabelDescriptor,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
-                    typographyTheme),
+                    null,
+                    typographyTheme,
+                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
             };
 
             if (_audioView != null)
@@ -148,18 +152,17 @@ namespace Game.Feature.UI.Screens
                     payload,
                     textResolver,
                     typographyResolver,
-                    fontResolver,
                     typographyTheme);
             }
 
             if (_inputView != null)
             {
-                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver, typographyTheme);
+                _inputView.BindStaticLocalization(payload, textResolver, typographyResolver, typographyTheme);
             }
 
             if (_displayView != null)
             {
-                _displayView.BindStaticLocalization(payload, textResolver, typographyResolver, fontResolver, typographyTheme);
+                _displayView.BindStaticLocalization(payload, textResolver, typographyResolver, typographyTheme);
             }
         }
 

@@ -24,8 +24,6 @@ namespace Game.Feature.UI.Composition
         private readonly ScreenLayerView _screenLayerView;
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
-        private readonly ILocalizedTmpFontResolver _localizedTmpFontResolver;
-        private readonly IUiLocaleSelectionPort _localeSelectionPort;
 
         internal GameplayScreenRuntimeFactory(
             ScreenLayerView screenLayerView,
@@ -39,9 +37,7 @@ namespace Game.Feature.UI.Composition
             ScreenPrefabCatalog screenPrefabCatalog,
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
             ILocalizedTextResolver localizedTextResolver = null,
-            ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
-            IUiLocaleSelectionPort localeSelectionPort = null)
+            ILocalizedTypographyResolver localizedTypographyResolver = null)
             : this(
                 screenLayerView,
                 queryFacade,
@@ -55,9 +51,7 @@ namespace Game.Feature.UI.Composition
                 screenPrefabCatalog,
                 displayStatusTransientRelay,
                 localizedTextResolver,
-                localizedTypographyResolver,
-                localizedTmpFontResolver,
-                localeSelectionPort)
+                localizedTypographyResolver)
         {
         }
 
@@ -74,9 +68,7 @@ namespace Game.Feature.UI.Composition
             ScreenPrefabCatalog screenPrefabCatalog,
             DisplayStatusTransientRelay displayStatusTransientRelay = null,
             ILocalizedTextResolver localizedTextResolver = null,
-            ILocalizedTypographyResolver localizedTypographyResolver = null,
-            ILocalizedTmpFontResolver localizedTmpFontResolver = null,
-            IUiLocaleSelectionPort localeSelectionPort = null)
+            ILocalizedTypographyResolver localizedTypographyResolver = null)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
@@ -93,8 +85,6 @@ namespace Game.Feature.UI.Composition
                 ?? throw new InvalidOperationException(
                     "GameplayScreenRuntimeFactory requires an explicit production localized text resolver.");
             _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
-            _localizedTmpFontResolver = localizedTmpFontResolver;
-            _localeSelectionPort = localeSelectionPort ?? _localizedTextResolver as IUiLocaleSelectionPort;
         }
 
         public ScreenRuntimeFactoryResult Create(ScreenRequest request)
@@ -143,20 +133,18 @@ namespace Game.Feature.UI.Composition
                     HudShellMode.Hidden,
                     blocksUiGameplayInput: true),
                 new SettingsScreenRuntimeBuilder().Build(new SettingsScreenRuntimeBuildContext(
-                    _screenLayerView.ContentRoot,
-                    _screenPrefabCatalog.SettingsPrefab,
-                    _audioSettingsPort,
-                    _displaySettingsPort,
-                    _keyboardBindingSettingsPort,
-                    _uiAudioPort,
-                    _displayPreviewSessionHost,
-                    _displaySettingsLifecycleRelay,
-                    _displayStatusTransientRelay,
-                _localizedTextResolver,
-                _localizedTypographyResolver,
-                _localizedTmpFontResolver,
-                _screenPrefabCatalog.SettingsTypographyTheme,
-                _localeSelectionPort)));
+                    parent: _screenLayerView.ContentRoot,
+                    prefab: _screenPrefabCatalog.SettingsPrefab,
+                    audioSettingsPort: _audioSettingsPort,
+                    displaySettingsPort: _displaySettingsPort,
+                    keyboardBindingSettingsPort: _keyboardBindingSettingsPort,
+                    uiAudioPort: _uiAudioPort,
+                    displayPreviewSessionHost: _displayPreviewSessionHost,
+                    displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
+                    typographyTheme: _screenPrefabCatalog.SettingsTypographyTheme,
+                    displayStatusTransientRelay: _displayStatusTransientRelay,
+                    localizedTextResolver: _localizedTextResolver,
+                    localizedTypographyResolver: _localizedTypographyResolver)));
         }
 
         private ScreenRuntimeFactoryResult CreateStageResultRuntime()

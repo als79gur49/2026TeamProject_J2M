@@ -20,6 +20,11 @@ namespace Game.Feature.UI.Composition
         Value,
         Status,
         Tooltip,
+        SettingsDisplay,
+        SettingsLabel,
+        SettingsBody,
+        SettingsAction,
+        SettingsStatus,
     }
 
     public enum FontCategory
@@ -467,6 +472,36 @@ namespace Game.Feature.UI.Composition
                     LocalizedTextWeight.Regular,
                     FontStyles.Normal,
                     TypographyApplyMask.Font | TypographyApplyMask.Material),
+                CreateRule(
+                    TypographyStyleTag.SettingsDisplay,
+                    FontCategory.Display,
+                    LocalizedTextWeight.Bold,
+                    FontStyles.UpperCase,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
+                CreateRule(
+                    TypographyStyleTag.SettingsLabel,
+                    FontCategory.Heading,
+                    LocalizedTextWeight.Bold,
+                    FontStyles.UpperCase,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
+                CreateRule(
+                    TypographyStyleTag.SettingsBody,
+                    FontCategory.Utility,
+                    LocalizedTextWeight.Regular,
+                    FontStyles.Normal,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
+                CreateRule(
+                    TypographyStyleTag.SettingsAction,
+                    FontCategory.UI,
+                    LocalizedTextWeight.Bold,
+                    FontStyles.Normal,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
+                CreateRule(
+                    TypographyStyleTag.SettingsStatus,
+                    FontCategory.UI,
+                    LocalizedTextWeight.Regular,
+                    FontStyles.UpperCase,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
             };
         }
 

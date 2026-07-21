@@ -131,7 +131,7 @@ namespace Game.Feature.UI.Tests
             var root = Object.Instantiate(prefab);
             var binding = root
                 .GetComponentsInChildren<TypographyBinding>(true)
-                .First(candidate => candidate.StyleTag == TypographyStyleTag.HeaderLarge);
+                .First(candidate => candidate.StyleTag == TypographyStyleTag.SettingsDisplay);
             var target = binding.Target;
             var originalFont = target.font;
             var originalMaterial = target.fontSharedMaterial;
@@ -145,8 +145,8 @@ namespace Game.Feature.UI.Tests
                 var result = TypographyPreviewUtility.ApplyPreview(root, "ko-KR", theme, recordUndo: false);
 
                 Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
-                Assert.That(target.font, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.HeaderLarge).FontAsset));
-                Assert.That(target.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.HeaderLarge).MaterialPreset));
+                Assert.That(target.font, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.SettingsDisplay).FontAsset));
+                Assert.That(target.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.SettingsDisplay).MaterialPreset));
                 Assert.That(target.fontSize, Is.EqualTo(originalFontSize));
                 Assert.That(target.enableAutoSizing, Is.EqualTo(originalAutoSizing));
                 Assert.That(target.fontSizeMin, Is.EqualTo(originalMin));

@@ -42,7 +42,6 @@ namespace Game.Feature.UI.Screens
             SettingsScreenPayload payload,
             ILocalizedTextResolver textResolver,
             ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver,
             GameplayUiTypographyTheme typographyTheme)
         {
             UnbindStaticLocalization();
@@ -55,12 +54,12 @@ namespace Game.Feature.UI.Screens
             _typographyTheme = typographyTheme;
             _localizedStaticBindings = new List<LocalizedTmpTextBinding>
             {
-                CreateBinding(_mainRow.Label, payload.AudioMainLabelDescriptor, typographyResolver, fontResolver),
-                CreateBinding(_mainRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver, fontResolver),
-                CreateBinding(_bgmRow.Label, payload.AudioBgmLabelDescriptor, typographyResolver, fontResolver),
-                CreateBinding(_bgmRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver, fontResolver),
-                CreateBinding(_sfxRow.Label, payload.AudioSfxLabelDescriptor, typographyResolver, fontResolver),
-                CreateBinding(_sfxRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver, fontResolver),
+                CreateBinding(_mainRow.Label, payload.AudioMainLabelDescriptor, typographyResolver),
+                CreateBinding(_mainRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver),
+                CreateBinding(_bgmRow.Label, payload.AudioBgmLabelDescriptor, typographyResolver),
+                CreateBinding(_bgmRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver),
+                CreateBinding(_sfxRow.Label, payload.AudioSfxLabelDescriptor, typographyResolver),
+                CreateBinding(_sfxRow.MuteLabel, payload.AudioMuteLabelDescriptor, typographyResolver),
             };
             if (_localizedTextResolver != null)
             {
@@ -381,24 +380,33 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(row.Label, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(row.Value, _typographyTheme, localeCode);
-            LocalizedTmpTextApplicator.ApplyTypographyTheme(row.MuteLabel, _typographyTheme, localeCode);
+            ApplySettingsTypography(row.Label, localeCode);
+            ApplySettingsTypography(row.Value, localeCode);
+            ApplySettingsTypography(row.MuteLabel, localeCode);
+        }
+
+        private void ApplySettingsTypography(TMP_Text target, string localeCode)
+        {
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                target,
+                _typographyTheme,
+                localeCode,
+                requiredApplyMask: TypographyApplyMask.FontStyle);
         }
 
         private LocalizedTmpTextBinding CreateBinding(
             TMP_Text target,
             LocalizedTextDescriptor descriptor,
-            ILocalizedTypographyResolver typographyResolver,
-            ILocalizedTmpFontResolver fontResolver)
+            ILocalizedTypographyResolver typographyResolver)
         {
             return new LocalizedTmpTextBinding(
                 target,
                 descriptor,
                 _localizedTextResolver,
                 typographyResolver,
-                fontResolver,
-                _typographyTheme);
+                null,
+                _typographyTheme,
+                requiredThemeApplyMask: TypographyApplyMask.FontStyle);
         }
 
         private void DisposeLocalizedStaticBindings()

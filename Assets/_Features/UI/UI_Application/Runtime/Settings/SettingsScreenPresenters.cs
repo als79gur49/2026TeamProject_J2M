@@ -222,7 +222,6 @@ namespace Game.Feature.UI.Application
                 return false;
             }
 
-            RefreshViewModel();
             return true;
         }
 
@@ -609,6 +608,11 @@ namespace Game.Feature.UI.Application
             RefreshViewModel(_keyboardBindingSettingsPort.Read());
         }
 
+        public void RefreshLocalization()
+        {
+            RefreshViewModel(_keyboardBindingSettingsPort.Read());
+        }
+
         public void SetMovementScheme(KeyboardMovementScheme scheme)
         {
             var result = _keyboardBindingSettingsPort.TrySetMovementScheme(scheme);
@@ -747,10 +751,11 @@ namespace Game.Feature.UI.Application
         }
     }
 
-    public sealed class SettingsScreenPresenter
+    public sealed class SettingsScreenPresenter : IDisposable
     {
         private SettingsScreenPayload _payload = SettingsScreenPayload.Default;
         private SettingsSectionId _selectedSection = SettingsSectionId.Audio;
+        private bool _isDisposed;
 
         public SettingsScreenPresenter(
             IAudioSettingsPort audioSettingsPort,
@@ -807,6 +812,7 @@ namespace Game.Feature.UI.Application
             InputPresenter = new SettingsInputPresenter(
                 keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)),
                 LocalizedTextResolver);
+            LocalizedTextResolver.LocaleChanged += HandleLocaleChanged;
         }
 
         public SettingsAudioPresenter AudioPresenter { get; }
@@ -840,27 +846,26 @@ namespace Game.Feature.UI.Application
 
         public bool SelectNextLocale()
         {
-            var changed = DisplayPresenter.SelectNextLocale();
-            if (changed)
-            {
-                RefreshLocalization();
-            }
-
-            return changed;
+            return DisplayPresenter.SelectNextLocale();
         }
 
         public void RefreshLocalization()
         {
             AudioPresenter.RefreshLocalization();
             DisplayPresenter.RefreshLocalization();
-            InputPresenter.Apply(new SettingsInputPresenterInput(
-                _payload.MovementLabelDescriptor,
-                _payload.UseArrowKeysLabelDescriptor,
-                _payload.PushLabelDescriptor,
-                _payload.FlipLabelDescriptor,
-                _payload.InputChangeLabelDescriptor,
-                _payload.ResetInputLabelDescriptor));
+            InputPresenter.RefreshLocalization();
             RefreshViewModel();
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            LocalizedTextResolver.LocaleChanged -= HandleLocaleChanged;
         }
 
         public bool SelectSection(SettingsSectionId sectionId)
@@ -889,6 +894,11 @@ namespace Game.Feature.UI.Application
         private string Resolve(LocalizedTextDescriptor descriptor)
         {
             return LocalizedTextResolver.Resolve(descriptor);
+        }
+
+        private void HandleLocaleChanged()
+        {
+            RefreshLocalization();
         }
     }
 

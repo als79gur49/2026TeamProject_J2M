@@ -38387,7 +38387,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999992}
-  styleTag: 2
+  styleTag: 11
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38405,7 +38405,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999983}
-  styleTag: 2
+  styleTag: 11
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38423,7 +38423,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999974}
-  styleTag: 2
+  styleTag: 11
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38441,7 +38441,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999961}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38477,7 +38477,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999953}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38513,7 +38513,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999945}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38549,7 +38549,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999937}
-  styleTag: 9
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38567,7 +38567,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: -8599999999999999895}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38603,7 +38603,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 1218177885472141390}
-  styleTag: 6
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38639,7 +38639,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 761001234567890134}
-  styleTag: 9
+  styleTag: 13
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38657,7 +38657,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 6797351849218954298}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38675,7 +38675,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 2627708318595729499}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38693,7 +38693,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 6731348768901069781}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38711,7 +38711,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 7698467935857533061}
-  styleTag: 7
+  styleTag: 13
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38729,7 +38729,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 4090853517994724430}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38783,7 +38783,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 4656622542197093088}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38801,7 +38801,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 4952323158651615433}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38819,7 +38819,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 7417077306783689052}
-  styleTag: 6
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38837,7 +38837,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 379522587350326131}
-  styleTag: 1
+  styleTag: 11
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38855,7 +38855,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 2372702643370204561}
-  styleTag: 7
+  styleTag: 13
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38891,7 +38891,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 5101593095024986002}
-  styleTag: 6
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38909,7 +38909,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 8552953236779049283}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38963,7 +38963,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 8798739125250045428}
-  styleTag: 7
+  styleTag: 13
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38981,7 +38981,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 8613416921146115632}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -38999,7 +38999,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 280737895300668345}
-  styleTag: 6
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39035,7 +39035,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 7935115406174812122}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39053,7 +39053,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 3045418262135742510}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39071,7 +39071,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 7014501484815232922}
-  styleTag: 8
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39125,7 +39125,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 6186895683398727908}
-  styleTag: 6
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39143,7 +39143,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 7964683249213566524}
-  styleTag: 5
+  styleTag: 13
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39161,7 +39161,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 1089727914513330716}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39179,7 +39179,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 8422897871239560658}
-  styleTag: 6
+  styleTag: 14
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39197,7 +39197,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 2491401565954873925}
-  styleTag: 9
+  styleTag: 15
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39215,7 +39215,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 9032291654497408406}
-  styleTag: 6
+  styleTag: 11
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39233,7 +39233,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 2896739372126504891}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -39251,7 +39251,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 4737727379004041050}
-  styleTag: 7
+  styleTag: 12
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0

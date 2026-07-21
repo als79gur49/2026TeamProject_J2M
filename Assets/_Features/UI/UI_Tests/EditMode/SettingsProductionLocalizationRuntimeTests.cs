@@ -18,8 +18,8 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SettingsProductionLocalizationRuntimeTests
     {
-        private const int SettingsStaticBindingCount = 27;
-        private const int SettingsTypographyBindingCount = 28;
+        private const int SettingsStaticBindingCount = 29;
+        private const int SettingsTypographyBindingCount = 29;
         private const string ScaleRatioA = "_ScaleRatioA";
         private const string ScaleRatioC = "_ScaleRatioC";
 
@@ -117,13 +117,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_SettingsRuntime_UsesInjectedKoreanFontResolver()
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
             var nanumGothic = LoadNanumGothic();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
-            using var harness = GameplaySettingsHarness.Create(resolver, fontResolver: fontResolver);
+            using var harness = GameplaySettingsHarness.Create(resolver);
 
             harness.ShowSettings();
 
@@ -137,8 +136,7 @@ namespace Game.Feature.UI.Tests
         {
             var nanumGothic = LoadNanumGothic();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
-            using var harness = GameplaySettingsHarness.Create(resolver, fontResolver: fontResolver);
+            using var harness = GameplaySettingsHarness.Create(resolver);
 
             harness.ShowSettings();
             var view = harness.SettingsView;
@@ -237,6 +235,61 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_ExternalLocaleChange_RefreshesAllDynamicStateWithoutReplacingViewModels()
+        {
+            var resolver = new CountingLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.ReservedKey);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+            harness.AudioPort.SetVolume(AudioSettingsChannel.Main, 0.5f);
+            harness.AudioPort.SetMuted(AudioSettingsChannel.Main, true);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickDisplayTab();
+            view.DisplayView.SelectResolution(2);
+            view.DisplayView.ClickApply();
+            view.ClickInputTab();
+            view.InputView.ClickPushChange();
+
+            var screenModel = GetField<SettingsScreenViewModel>(view, "_viewModel");
+            var audioModel = GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel");
+            var displayModel = GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel");
+            var inputModel = GetField<SettingsInputViewModel>(view.InputView, "_viewModel");
+            Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15 seconds"));
+            Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("Reverting in 15s"));
+            Assert.That(keyboardPort.IsRebinding, Is.True);
+            Assert.That(inputModel.IsRebinding, Is.True);
+            Assert.That(view.InputView.StatusText, Is.EqualTo("Press a key for Push..."));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.GreaterThan(0));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
+            Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (음소거)"));
+            Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
+            Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
+            Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15초"));
+            Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
+            Assert.That(keyboardPort.IsRebinding, Is.True);
+            Assert.That(view.InputView.StatusText, Is.EqualTo("Press a key for Push..."));
+            Assert.That(GetField<SettingsScreenViewModel>(view, "_viewModel"), Is.SameAs(screenModel));
+            Assert.That(GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel"), Is.SameAs(audioModel));
+            Assert.That(GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel"), Is.SameAs(displayModel));
+            Assert.That(GetField<SettingsInputViewModel>(view.InputView, "_viewModel"), Is.SameAs(inputModel));
+
+            keyboardPort.Complete();
+
+            Assert.That(keyboardPort.IsRebinding, Is.False);
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 예약되어 있습니다."));
+            Assert.That(GetField<SettingsInputViewModel>(view.InputView, "_viewModel"), Is.SameAs(inputModel));
+
+            harness.DisposeController();
+
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(0));
+            Assert.DoesNotThrow(() => resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode));
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleRefreshesInputReservedKeyStatus()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -313,11 +366,9 @@ namespace Game.Feature.UI.Tests
         {
             var store = new FakeUiLocalePreferenceStore();
             var nanumGothic = LoadNanumGothic();
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
 
             using (var firstHarness = GameplaySettingsHarness.Create(
-                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store),
-                       fontResolver))
+                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store)))
             {
                 firstHarness.ShowSettings();
                 firstHarness.SettingsView.ClickDisplayTab();
@@ -327,8 +378,7 @@ namespace Game.Feature.UI.Tests
             }
 
             using (var secondHarness = GameplaySettingsHarness.Create(
-                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store),
-                       fontResolver))
+                       PackageFreeLocalizedTextResolver.CreateSettingsDefault(store)))
             {
                 secondHarness.ShowSettings();
 
@@ -341,13 +391,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_SettingsRuntime_ThemeOverridesNullLegacyKoreanFontResolver()
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_DoesNotRequireLegacyKoreanFontResolver()
         {
             var expectedFont = LoadNanumGothic();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
-            var fontResolver = new DefaultLocalizedTmpFontResolver(null);
-            using var harness = GameplaySettingsHarness.Create(resolver, fontResolver: fontResolver);
+            using var harness = GameplaySettingsHarness.Create(resolver);
 
             harness.ShowSettings();
 
@@ -376,13 +425,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuSettingsRuntime_UsesInjectedKoreanFontResolver()
+        public void MainMenuSettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
             var nanumGothic = LoadNanumGothic();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
-            using var harness = MainMenuSettingsHarness.Create(resolver, fontResolver);
+            using var harness = MainMenuSettingsHarness.Create(resolver);
 
             harness.Runtime.Open();
 
@@ -672,7 +720,6 @@ namespace Game.Feature.UI.Tests
 
             public static GameplaySettingsHarness Create(
                 ILocalizedTextResolver resolver,
-                ILocalizedTmpFontResolver fontResolver = null,
                 IKeyboardBindingSettingsPort keyboardPort = null)
             {
                 var rootObject = new GameObject("SettingsProductionLocalizationRuntimeTests_GameplayHarness");
@@ -695,8 +742,7 @@ namespace Game.Feature.UI.Tests
                     UiTestPrefabAssetUtility.LoadScreenCatalog(),
                     null,
                     resolver,
-                    DefaultLocalizedTypographyResolver.Instance,
-                    fontResolver);
+                    DefaultLocalizedTypographyResolver.Instance);
                 return new GameplaySettingsHarness(
                     rootObject,
                     screenLayerView,
@@ -745,9 +791,7 @@ namespace Game.Feature.UI.Tests
 
             public MainMenuSettingsRuntime Runtime { get; }
 
-            public static MainMenuSettingsHarness Create(
-                ILocalizedTextResolver resolver,
-                ILocalizedTmpFontResolver fontResolver = null)
+            public static MainMenuSettingsHarness Create(ILocalizedTextResolver resolver)
             {
                 var rootObject = new GameObject("SettingsProductionLocalizationRuntimeTests_MainMenuHarness");
                 var contentRootObject = new GameObject("SettingsContentRoot", typeof(RectTransform));
@@ -755,21 +799,22 @@ namespace Game.Feature.UI.Tests
                 var popupController = CreatePopupController(rootObject, out var timeoutRelay);
                 var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
                 var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
+                var catalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
                 var runtime = new MainMenuSettingsRuntime(
-                    UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
-                        UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
-                    contentRootObject.GetComponent<RectTransform>(),
-                    new FakeAudioSettingsPort(),
-                    new FakeDisplaySettingsPort(),
-                    NoOpKeyboardBindingSettingsPort.Instance,
-                    popupController,
-                    previewSessionHost,
-                    lifecycleRelay,
+                    new SettingsScreenRuntimeBuildContext(
+                        parent: contentRootObject.GetComponent<RectTransform>(),
+                        prefab: catalog.SettingsPrefab,
+                        audioSettingsPort: new FakeAudioSettingsPort(),
+                        displaySettingsPort: new FakeDisplaySettingsPort(),
+                        keyboardBindingSettingsPort: NoOpKeyboardBindingSettingsPort.Instance,
+                        uiAudioPort: new RecordingUiAudioPort(),
+                        displayPreviewSessionHost: previewSessionHost,
+                        displaySettingsLifecycleRelay: lifecycleRelay,
+                        typographyTheme: catalog.SettingsTypographyTheme,
+                        localizedTextResolver: resolver,
+                        localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance),
                     SettingsScreenPayload.Default,
-                    previewTimeoutSeconds: 15d,
-                    localizedTextResolver: resolver,
-                    localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance,
-                    localizedTmpFontResolver: fontResolver);
+                    popupController);
                 return new MainMenuSettingsHarness(rootObject, runtime, popupController);
             }
 
@@ -902,13 +947,15 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class CountingLocalizedTextResolver : ILocalizedTextResolver
+        private sealed class CountingLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
         {
             private readonly PackageFreeLocalizedTextResolver _inner =
                 PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             private Action _localeChanged;
 
             public string CurrentLocaleCode => _inner.CurrentLocaleCode;
+
+            public IReadOnlyList<string> AvailableLocaleCodes => _inner.AvailableLocaleCodes;
 
             public int LocaleChangedSubscriberCount =>
                 _localeChanged != null ? _localeChanged.GetInvocationList().Length : 0;
@@ -933,6 +980,17 @@ namespace Game.Feature.UI.Tests
 
                 _inner.SetLocale(localeCode);
                 _localeChanged?.Invoke();
+            }
+
+            public bool TrySetLocale(string localeCode)
+            {
+                if (!_inner.TrySetLocale(localeCode))
+                {
+                    return false;
+                }
+
+                _localeChanged?.Invoke();
+                return true;
             }
         }
 

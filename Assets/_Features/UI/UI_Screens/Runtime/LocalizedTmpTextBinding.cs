@@ -15,6 +15,7 @@ namespace Game.Feature.UI.Screens
         private readonly ILocalizedTmpFontResolver _fontResolver;
         private readonly GameplayUiTypographyTheme _typographyTheme;
         private readonly TypographyBinding _typographyBinding;
+        private readonly TypographyApplyMask _requiredThemeApplyMask;
         private readonly TMP_FontAsset _defaultFontAsset;
         private readonly Material _defaultMaterialPreset;
         private bool _isDisposed;
@@ -26,7 +27,8 @@ namespace Game.Feature.UI.Screens
             ILocalizedTypographyResolver typographyResolver,
             ILocalizedTmpFontResolver fontResolver = null,
             GameplayUiTypographyTheme typographyTheme = null,
-            TypographyBinding typographyBinding = null)
+            TypographyBinding typographyBinding = null,
+            TypographyApplyMask requiredThemeApplyMask = TypographyApplyMask.None)
         {
             _target = target;
             _descriptor = descriptor;
@@ -35,6 +37,7 @@ namespace Game.Feature.UI.Screens
             _fontResolver = fontResolver;
             _typographyTheme = typographyTheme;
             _typographyBinding = typographyBinding ?? TypographyBinding.FindFor(target);
+            _requiredThemeApplyMask = requiredThemeApplyMask;
             _defaultFontAsset = target != null ? target.font : null;
             _defaultMaterialPreset = target != null ? target.fontSharedMaterial : null;
 
@@ -60,7 +63,8 @@ namespace Game.Feature.UI.Screens
                     _target,
                     _typographyTheme,
                     localeCode,
-                    _typographyBinding))
+                    _typographyBinding,
+                    _requiredThemeApplyMask))
             {
                 LocalizedTmpTextApplicator.ApplyTypography(
                     _target,
@@ -167,7 +171,8 @@ namespace Game.Feature.UI.Screens
             TMP_Text target,
             GameplayUiTypographyTheme theme,
             string localeCode,
-            TypographyBinding binding = null)
+            TypographyBinding binding = null,
+            TypographyApplyMask requiredApplyMask = TypographyApplyMask.None)
         {
             if (target == null || theme == null)
             {
@@ -186,14 +191,15 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
-            ApplyResolvedTypography(target, style, binding);
+            ApplyResolvedTypography(target, style, binding, requiredApplyMask);
             return true;
         }
 
         public static void ApplyResolvedTypography(
             TMP_Text target,
             ResolvedTmpTypographyStyle style,
-            TypographyBinding binding)
+            TypographyBinding binding,
+            TypographyApplyMask requiredApplyMask = TypographyApplyMask.None)
         {
             if (target == null || binding == null)
             {
@@ -204,6 +210,7 @@ namespace Game.Feature.UI.Screens
             var applyMask = binding.UseApplyMaskOverride
                 ? binding.ApplyMaskOverride
                 : style.ApplyMask;
+            applyMask |= requiredApplyMask;
             var sizingSource = binding.SizingSourceOverride;
             var appliesFont = (applyMask & TypographyApplyMask.Font) != TypographyApplyMask.None;
             var appliesFontStyle = (applyMask & TypographyApplyMask.FontStyle) != TypographyApplyMask.None;

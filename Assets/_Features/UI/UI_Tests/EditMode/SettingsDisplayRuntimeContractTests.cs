@@ -477,6 +477,36 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_FailsFast_WhenTypographyThemeIsMissing()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_MissingTypographyTheme");
+            var catalog = ScriptableObject.CreateInstance<ScreenPrefabCatalog>();
+            SetPrivateField(
+                catalog,
+                "_settingsPrefab",
+                UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
+                    UiTestPrefabAssetUtility.SettingsScreenPrefabPath));
+
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                var factory = CreateFactory(runtimeContext, new FakeDisplaySettingsPort(), catalog);
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings")));
+
+                Assert.That(
+                    exception.Message,
+                    Does.Contain("requires the production Settings typography theme"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(catalog);
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static GameplayScreenRuntimeFactory CreateFactory(
             RuntimeContext runtimeContext,
             FakeDisplaySettingsPort displayPort,
@@ -544,6 +574,10 @@ namespace Game.Feature.UI.Tests
         {
             var catalog = ScriptableObject.CreateInstance<ScreenPrefabCatalog>();
             SetPrivateField(catalog, "_settingsPrefab", settingsPrefab);
+            SetPrivateField(
+                catalog,
+                "_settingsTypographyTheme",
+                UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme);
             return catalog;
         }
 

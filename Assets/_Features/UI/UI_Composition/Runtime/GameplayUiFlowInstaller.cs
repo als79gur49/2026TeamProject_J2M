@@ -12,7 +12,6 @@ using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Input;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -41,7 +40,6 @@ namespace Game.Feature.UI.Composition
         // Popup-prefab composition remains popup-only. Do not widen this into a cross-layer asset registry.
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
-        [SerializeField] private TMP_FontAsset _koreanSettingsFont;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
         [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
         [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
@@ -54,6 +52,7 @@ namespace Game.Feature.UI.Composition
         private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private ILocalizedTextResolver _localizedTextResolver;
         private UiNavigationInputRouter _navigationInputRouter;
         private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
@@ -188,14 +187,14 @@ namespace Game.Feature.UI.Composition
             _audioSettingsLifecycleRelay = UiSettingsBridgeAssembly.EnsureAudioSettingsLifecycleRelay(gameObject, audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
-            var localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
+            _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog,
                 _demoStageControlCommandPort,
                 _demoGameplayOverrideCommandPort,
-                localizedTextResolver: localizedTextResolver));
+                localizedTextResolver: _localizedTextResolver));
             _gameplayPauseAudioBridge = new GameplayPauseAudioBridge(
                 Ports.GameplayPauseService,
                 audioPauseService,
@@ -205,7 +204,7 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewTimeoutRelay);
 
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter(localizedTextResolver);
+            var stageInfoPresenter = new StageInfoPresenter(_localizedTextResolver);
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
@@ -228,10 +227,7 @@ namespace Game.Feature.UI.Composition
                 displayPreviewSessionHost: displayPreviewSessionHost,
                 displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
                 screenPrefabCatalog: _screenPrefabCatalog,
-                localizedTextResolver: localizedTextResolver,
-                localizedTmpFontResolver: _koreanSettingsFont != null
-                    ? new DefaultLocalizedTmpFontResolver(_koreanSettingsFont)
-                    : null));
+                localizedTextResolver: _localizedTextResolver));
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
@@ -282,6 +278,8 @@ namespace Game.Feature.UI.Composition
             _hudUiAudioFeedbackController?.Dispose();
             HudRootPresenter?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
+            (_localizedTextResolver as IDisposable)?.Dispose();
+            _localizedTextResolver = null;
         }
 
         private void EnsureRootView()

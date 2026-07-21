@@ -148,6 +148,66 @@ MonoBehaviour:
     CharacterSpacing: 0
     FontStyle: 0
     ApplyMask: 3
+  - StyleTag: 11
+    FontCategory: 0
+    Weight: 2
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 16
+    ApplyMask: 7
+  - StyleTag: 12
+    FontCategory: 1
+    Weight: 2
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 16
+    ApplyMask: 7
+  - StyleTag: 13
+    FontCategory: 4
+    Weight: 1
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 0
+    ApplyMask: 7
+  - StyleTag: 14
+    FontCategory: 3
+    Weight: 2
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 0
+    ApplyMask: 7
+  - StyleTag: 15
+    FontCategory: 3
+    Weight: 1
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 16
+    ApplyMask: 7
   localeFontSets:
   - LocaleCode: en-US
     Entries:
@@ -223,4 +283,60 @@ MonoBehaviour:
       FontAsset: {fileID: 11400000, guid: 4662feb1d501d1f479b757a82e304069, type: 2}
       MaterialPreset: {fileID: 2769584723452840789, guid: 4662feb1d501d1f479b757a82e304069, type: 2}
       WeightStrategy: 0
-  sparseOverrides: []
+  sparseOverrides:
+  - LocaleCode: ko-KR
+    Rule:
+      StyleTag: 11
+      FontCategory: 0
+      Weight: 2
+      SizingSource: 2
+      SizingMode: 0
+      FixedSize: 0
+      MinSize: 0
+      MaxSize: 0
+      LineSpacing: 0
+      CharacterSpacing: 0
+      FontStyle: 1
+      ApplyMask: 7
+  - LocaleCode: ko-KR
+    Rule:
+      StyleTag: 12
+      FontCategory: 1
+      Weight: 2
+      SizingSource: 2
+      SizingMode: 0
+      FixedSize: 0
+      MinSize: 0
+      MaxSize: 0
+      LineSpacing: 0
+      CharacterSpacing: 0
+      FontStyle: 1
+      ApplyMask: 7
+  - LocaleCode: ko-KR
+    Rule:
+      StyleTag: 14
+      FontCategory: 3
+      Weight: 2
+      SizingSource: 2
+      SizingMode: 0
+      FixedSize: 0
+      MinSize: 0
+      MaxSize: 0
+      LineSpacing: 0
+      CharacterSpacing: 0
+      FontStyle: 1
+      ApplyMask: 7
+  - LocaleCode: ko-KR
+    Rule:
+      StyleTag: 15
+      FontCategory: 3
+      Weight: 1
+      SizingSource: 2
+      SizingMode: 0
+      FixedSize: 0
+      MinSize: 0
+      MaxSize: 0
+      LineSpacing: 0
+      CharacterSpacing: 0
+      FontStyle: 0
+      ApplyMask: 7
