@@ -16,9 +16,11 @@
 - Current PR-T3 transition content base contract rerun: green on 2026-06-12 KST
 - Current PR-T5 ChanceLost slot root explicit binding rerun: green on 2026-06-12 KST
 - Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
+- Current Settings shared runtime/production typography composition rerun: green on 2026-07-21 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `697 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `697 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `855 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `855 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Settings composition interpretation: failed tests `none`, failure category `none`, touched-cluster regression `no`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -27,6 +29,9 @@
 
 ## Structural Delta
 - Added tests:
+  - production Settings typography composition tests that open Settings through the actual Main Menu scene installer/overlay path and the actual UIAudioScene installer/coordinator path, then verify the shared catalog/builder, exact closure across all 51 TMP targets / binding targets / manifest entries, 36 governed-target font/material/fontStyle parity, open dropdown live-item restyling, and prefab-authored `en-US -> ko-KR -> en-US` restoration
+  - one-event external locale refresh coverage proving shell, Audio muted value, Display status/countdown/language, and Input status update without replacing active ViewModels
+  - production scene serialization guards proving Main Menu and Gameplay reference the same Settings catalog/theme and that `_koreanSettingsFont` / `_settingsScreenPrefab` YAML residue is absent
   - controller/coordinator public-surface freeze tests for `UIFlowCoordinator`, `ScreenController`, `PopupController`, and `UIBlockPolicy`
   - deterministic controller/policy guards for `PopTo`, runtime action relay, close-all ordering, backdrop routing, and older-frame refresh behavior
   - diagnostics overlay residue absence guards proving the removed runtime feature does not remain in production UI code, installer hotkeys, or the canonical root shell
@@ -53,7 +58,7 @@
   - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, `ResultContinueLabel`, StageResult text payload members, hidden title/detail prefab labels, and production YAML residue are absent
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `697 total / 0 failed`
+  - current rerun: `855 total / 0 failed`
   - delta: `+633` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, PR-A Objective UI removal protection, PR-T3 transition content base contract cleanup, PR-T5 ChanceLost explicit slot root binding, and StageResult result text/continue label schema cleanup protection
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
@@ -66,6 +71,8 @@
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
   - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:
+  - title-only and injected Korean font-resolver evidence is replaced by production Scene/Catalog composition coverage over all 36 governed Settings TMP targets, while a separate exact 51-target closure guard catches new unbound TMP or unclassified binding additions
+  - Main Menu-only duplicated Settings assembly assertions are replaced by a thin-adapter guard plus common `SettingsScreenRuntimeBuilder` behavior coverage
   - Stage 5-only freeze language is replaced with Stage 4–8 seam-preservation language
   - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
   - legacy overlay-dependent stage-clear assumptions are replaced with canonical Stage 7 terminal-screen coverage and scene-bootstrap contract coverage
@@ -158,6 +165,7 @@
 - `StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens; their actions stay intent-only and do not locally decide root replacement policy
 - `GameClearScreen` is a result-only terminal screen with title and main label bindings only; retired authored `RestartLevelButton` and `Detail` compatibility objects were removed from its runtime view and prefab
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
+- Main Menu and Gameplay now compose that Settings shell through the same `GameplayScreenPrefabCatalog -> SettingsScreenRuntimeBuilder` path. The catalog theme is mandatory, Main Menu owns only overlay Back/popup translation, external locale refresh preserves child state, and dropdown live item typography follows the same locale theme.
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - current canonical `PopupId` values are `None`, `Pause`, `Confirm`, and `DemoStageControl`

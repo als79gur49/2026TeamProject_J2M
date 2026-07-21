@@ -68,6 +68,14 @@ This file is the external current-structure source for the completed UI cleanup 
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore through the shared `GameplayInputActionPaths` input contract.
 - Settings/rebind setup fails fast when required action paths or Push/Flip keyboard bindings are missing; Flip remains keyboard-only and no gamepad binding is added.
+- Settings production composition is shared: `MainMenuUiFlowInstaller` and `GameplayUiFlowInstaller` both use `GameplayScreenPrefabCatalog -> SettingsScreenRuntimeBuilder`.
+- `GameplayScreenPrefabCatalog.SettingsPrefab` and `SettingsTypographyTheme` are the authoritative Settings asset sources. Main Menu popup typography is not a Settings theme fallback.
+- `MainMenuSettingsRuntime` is a thin overlay adapter for Back/popup action forwarding, open/dispose, and navigation target exposure; it does not assemble Settings presenters or child runtime behavior.
+- Settings locale changes refresh shell, Audio, Display, and Input strings while preserving active preview/rebind/status ViewModels. The Settings runtime owns and releases the locale subscription.
+- Settings font, shared material, and font style come from `GameplayUiTypographyTheme.Resolve(locale, styleTag)` in production; the legacy `_koreanSettingsFont` composition path is absent.
+- Settings typography inventory is closed over every authored TMP target: 51 TMP targets, 51 unique valid binding targets, and 51 manifest classifications; the governed subset is 25 localized static plus 11 localized dynamic/special targets.
+- The 36 governed Settings targets use Settings-specific semantic profiles where shared tags would change other UI: en-US resolves exactly to each prefab-authored font/material/fontStyle, while ko-KR resolves through the same theme to NanumGothic and the corresponding material/style.
+- Settings resolution dropdown caption, authored item template, and generated live item labels use the same theme. An open list is restyled in place; numeric/symbol resolution option strings remain the current raw locale-neutral exception, and future localized options require descriptor-backed option models.
 - Settings tooltip on/off and large text on/off accessibility toggles are removed residue. `AccessibilitySettingsStore` is not a current runtime composition dependency.
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
 - Scene transition semantic ids are preserved, but semantic ids and physical content prefab files are not one-to-one.
@@ -85,6 +93,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not modify prefabs or catalogs for this source regeneration.
 - Do not change `DemoStageControl` runtime behavior.
 - Do not simplify or reroute StageResult, Pause/Confirm popup, settings, audio, display, or UI bridge paths.
+- Do not reintroduce a Main Menu-only Settings presenter/view composition, `_settingsScreenPrefab`, `_koreanSettingsFont`, or `PopupPrefabCatalog.TypographyTheme` as a Settings asset source.
 - Do not restore StageResult result title/summary/detail schema or title/detail labels without a new product decision.
 - Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.

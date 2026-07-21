@@ -46,9 +46,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("targeted display architecture validated"));
             Assert.That(guide, Does.Contain("real-build manual display validation completed"));
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
-            Assert.That(guide, Does.Contain("green on 2026-06-12 KST"));
+            Assert.That(guide, Does.Contain("green on 2026-07-21 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `697 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `855 total / 0 failed`"));
             Assert.That(guide, Does.Contain("UI-Current-Structure-Source.md"));
             Assert.That(guide, Does.Contain("current UI structure or stale-token audit policy changes"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
@@ -126,8 +126,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `697 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `697 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `855 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `855 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
             Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
             Assert.That(baseline, Does.Contain("external structure-source regeneration guard"));

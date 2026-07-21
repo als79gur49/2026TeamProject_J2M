@@ -54,6 +54,10 @@ Current baseline captured for this cleanup pass:
 | Static labels | Done | Settings title, tabs, input labels, language labels, audio headings/mute labels, display labels/actions, and back command use `LocalizedTextDescriptor`. |
 | Language row | Done | Display settings owns an authored language row and cycles supported locales at runtime. |
 | Runtime locale selection | Done | `IUiLocaleSelectionPort` exposes supported locales and locale switching. |
+| Shared production runtime composition | Done | Main Menu and Gameplay both resolve `ScreenPrefabCatalog.SettingsPrefab` and `SettingsTypographyTheme`, then build Settings through `SettingsScreenRuntimeBuilder`; `MainMenuSettingsRuntime` is only an overlay action adapter. |
+| Settings typography authority | Done | `ScreenPrefabCatalog.SettingsTypographyTheme` is required and is the sole production font/material/style source for Settings; the legacy Korean font resolver injection path is absent. |
+| External locale refresh | Done | `SettingsScreenPresenter` owns one `LocaleChanged` subscription and refreshes Audio, Display, Input, and shell strings without replacing their ViewModels; runtime disposal removes the subscription. |
+| Resolution dropdown typography | Done | Caption, authored item template, and generated live item labels use their `TypographyBinding`; an open list remains open and is restyled in place on locale changes. Resolution option text remains locale-neutral raw numeric/symbol data. |
 | Selected locale persistence | Done | Supported locale selections are saved; invalid persisted locale falls back to `en-US`. |
 | Audio volume / muted Smart String | Done | Volume value and muted value are Smart String entries with runtime arguments. |
 | Display resolution value | Done | Resolution label is resolved through a Smart String descriptor. |
@@ -96,11 +100,12 @@ Current baseline captured for this cleanup pass:
 | Production SmartFormat integration | Restored; actual Localization Settings, formatter/source graph, and bilingual Smart Strings pass integration coverage. |
 | Settings static shell | Complete for the governed audio/display targets; raw action and physical key names remain intentional non-goals. |
 | Localization integration tests | 23/23 PASS. |
-| Settings production runtime tests | 20/20 PASS. |
+| Settings production runtime tests | 21/21 PASS. |
+| Settings production typography composition tests | 3/3 PASS across production Main Menu and Gameplay scene paths, including exact 51-TMP inventory closure, 36 governed target parity, and the `en-US -> ko-KR -> en-US` round trip. |
 | Typography tests | 44/44 PASS. |
 | UI architecture tests | 58/58 PASS. |
 | Typography preview screenshot manifest | 2/2 PASS. |
-| Full UI lane | 854/854 PASS. |
+| Full UI lane | 855/855 PASS. |
 | Core lane | EditMode 197/197 PASS; PlayMode 92/92 PASS. |
 | Latest visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` at 1920x1080, with six SHA-256-addressed entries in `capture.log`. |
 | Remaining closeout work | Optional P2 Korean synthetic-bold/material polish only; broader Theme sizing and optional bake are not required. |
@@ -244,6 +249,11 @@ Stage 1 goals:
 | `Value` | Dynamic values paired with labels, e.g. current language or resolution. |
 | `Status` | Runtime status, validation, warning, or transient feedback text. |
 | `Tooltip` | Tooltip or hover/help text. |
+| `SettingsDisplay` | Settings-authored Orbitron display/tab/Back typography without changing shared Header/Button consumers. |
+| `SettingsLabel` | Settings-authored Exo SemiBold uppercase labels and values. |
+| `SettingsBody` | Settings-authored Liberation normal helper/mute/countdown text. |
+| `SettingsAction` | Settings-authored SciFi action/status text with locale-specific weight handling. |
+| `SettingsStatus` | Settings-authored Exo Regular uppercase display status. |
 
 ### FontCategory
 
@@ -473,7 +483,12 @@ public enum TypographyStyleTag
     Label,
     Value,
     Status,
-    Tooltip
+    Tooltip,
+    SettingsDisplay,
+    SettingsLabel,
+    SettingsBody,
+    SettingsAction,
+    SettingsStatus
 }
 
 public enum FontCategory
@@ -608,7 +623,10 @@ Typography validation:
 | Invalid material/font pair warning or fail | Incompatible material preset is reported before runtime. |
 | PreserveAuthored sizing keeps `fontSize` / auto-size / min/max | Hybrid or authored sizing does not overwrite prefab sizing. |
 | `ko-KR` NanumGothic application | Korean locale applies `NanumGothic SDF` where mapped. |
-| `en-US` original font/category preservation | English mapping preserves the existing authored hierarchy. |
+| `en-US` original font/category preservation | Every one of the 36 governed Settings targets resolves to the prefab-authored TMP font asset, shared material preset, and fontStyle without conditional skips. |
+| Settings production composition parity | Main Menu and Gameplay load the same Settings prefab/theme from `GameplayScreenPrefabCatalog` and use the same runtime builder. |
+| Settings TMP inventory closure | The prefab's 51 `TMP_Text` targets, 51 valid unique `TypographyBinding.Target` values, and 51 manifest entries compare exactly: 25 localized static, 11 localized dynamic/special, 13 raw-normal exceptions, and 2 decorative targets. |
+| Open dropdown locale switch | Generated live item labels are restyled immediately without closing the list; raw resolution option copy remains locale-neutral. Future localized options require descriptor-backed option models. |
 | No runtime material instancing | Runtime applies shared material presets, not per-label material instances. |
 | Full UI lane pass | UI lane must pass for typography migration changes, unless explicitly not run with reason. |
 
