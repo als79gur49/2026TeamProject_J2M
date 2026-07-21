@@ -61,7 +61,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsPrefab_TypographyInventory_ClassifiesAllBindingsAndLocksThirtySixProductionTargets()
+        public void SettingsPrefab_TypographyInventory_ClassifiesLocaleInvariantKeyDisplaysAndLocksGovernedTargets()
         {
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -69,7 +69,7 @@ namespace Game.Feature.UI.Tests
             var allTmpTargets = prefab.GetComponentsInChildren<TMP_Text>(true);
             var allBindings = prefab.GetComponentsInChildren<TypographyBinding>(true);
             var nullTargetBindings = allBindings
-                .Where(binding => binding.Target == null)
+                .Where(binding => GetSerializedBindingTarget(binding) == null)
                 .Select(binding => GetHierarchyPath(binding.transform))
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
@@ -85,7 +85,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(36));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic), Is.EqualTo(25));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedDynamic), Is.EqualTo(11));
-            Assert.That(inventory.Count(item => item.Classification == TargetClassification.RawNormalException), Is.EqualTo(13));
+            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocaleInvariantKeyDisplay), Is.EqualTo(13));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.Decorative), Is.EqualTo(2));
             Assert.That(inventory.Select(item => item.Target), Is.Unique);
             Assert.That(nullTargetBindings, Is.Empty, $"Null-target TypographyBindings: {string.Join(", ", nullTargetBindings)}");
@@ -134,6 +134,24 @@ namespace Game.Feature.UI.Tests
                 Is.Empty,
                 $"TypographyBinding targets missing inventory classification: {string.Join(", ", unclassifiedBindings)}");
             Assert.That(missingBindings, Is.Empty, $"Manifest targets missing TypographyBinding: {string.Join(", ", missingBindings)}");
+
+            foreach (var item in inventory)
+            {
+                var binding = TypographyBinding.FindFor(item.Target);
+                Assert.That(binding, Is.Not.Null, item.Name);
+                Assert.That(GetSerializedBindingTarget(binding), Is.SameAs(item.Target), $"{item.Name} serialized target");
+                var expectedParticipation = item.Classification == TargetClassification.LocaleInvariantKeyDisplay
+                    ? TypographyLocaleParticipation.LocaleInvariant
+                    : TypographyLocaleParticipation.LocaleThemed;
+                Assert.That(binding.LocaleParticipation, Is.EqualTo(expectedParticipation), item.Name);
+            }
+
+            Assert.That(
+                inventory.Count(item =>
+                    (item.Classification == TargetClassification.LocalizedStatic ||
+                     item.Classification == TargetClassification.LocalizedDynamic) &&
+                    TypographyBinding.FindFor(item.Target).LocaleParticipation == TypographyLocaleParticipation.LocaleThemed),
+                Is.EqualTo(36));
         }
 
         [Test]
@@ -175,11 +193,17 @@ namespace Game.Feature.UI.Tests
             var authoredByName = authoredInventory.ToDictionary(item => item.Name, StringComparer.Ordinal);
             var authoredStyles = inventory.ToDictionary(
                 item => item.Target,
-                item => new AppliedStyle(authoredByName[item.Name].Target));
+                item => new AppliedStyle(item.Target));
 
             Assert.That(GetField<TMP_Text>(view, "_titleLabel").text, Is.EqualTo("Settings"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_movementCurrentText").text, Is.EqualTo("WASD"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_pushCurrentText").text, Is.EqualTo("E"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("Q"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
             AssertTypography(inventory, theme, "en-US");
             AssertEnglishAuthoredPreservation(inventory, authoredInventory, theme);
+            AssertLocaleInvariantKeyDisplays(inventory, authoredStyles, "initial en-US");
 
             view.ClickDisplayTab();
             EnsureDropdownEditModeLifecycle(view.DisplayView);
@@ -192,6 +216,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
             Assert.That(GetAudioRowText(view.AudioView, "_mainRow", "Value").text, Is.Not.Empty);
             AssertTypography(inventory, theme, "ko-KR");
+            AssertLocaleInvariantKeyDisplays(inventory, authoredStyles, "ko-KR");
             foreach (var item in inventory.Where(item =>
                          item.Classification == TargetClassification.LocalizedStatic ||
                          item.Classification == TargetClassification.LocalizedDynamic))
@@ -208,11 +233,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
             AssertTypography(inventory, theme, "en-US");
+            AssertLocaleInvariantKeyDisplays(inventory, authoredStyles, "restored en-US");
             foreach (var item in inventory.Where(item =>
                          item.Classification == TargetClassification.LocalizedStatic ||
                          item.Classification == TargetClassification.LocalizedDynamic))
             {
-                authoredStyles[item.Target].AssertSame(item.Target, item.Name);
+                authoredStyles[item.Target].AssertThemeIdentitySame(item.Target, item.Name);
             }
 
             Assert.That(view.DisplayView.IsResolutionKeyboardListOpen, Is.True);
@@ -229,7 +255,7 @@ namespace Game.Feature.UI.Tests
             var auditRows = new List<string>();
             foreach (var runtimeItem in runtimeInventory)
             {
-                if (runtimeItem.Classification == TargetClassification.RawNormalException ||
+                if (runtimeItem.Classification == TargetClassification.LocaleInvariantKeyDisplay ||
                     runtimeItem.Classification == TargetClassification.Decorative)
                 {
                     continue;
@@ -350,7 +376,7 @@ namespace Game.Feature.UI.Tests
         {
             foreach (var item in inventory)
             {
-                if (item.Classification == TargetClassification.RawNormalException ||
+                if (item.Classification == TargetClassification.LocaleInvariantKeyDisplay ||
                     item.Classification == TargetClassification.Decorative)
                 {
                     continue;
@@ -362,6 +388,18 @@ namespace Game.Feature.UI.Tests
                 Assert.That(item.Target.font, Is.SameAs(expected.FontAsset), $"{item.Name} font");
                 Assert.That(item.Target.fontSharedMaterial, Is.SameAs(expected.MaterialPreset), $"{item.Name} material");
                 Assert.That(item.Target.fontStyle, Is.EqualTo(expected.FontStyle), $"{item.Name} fontStyle");
+            }
+        }
+
+        private static void AssertLocaleInvariantKeyDisplays(
+            IEnumerable<TargetSpec> inventory,
+            IReadOnlyDictionary<TMP_Text, AppliedStyle> authoredStyles,
+            string stage)
+        {
+            foreach (var item in inventory.Where(item =>
+                         item.Classification == TargetClassification.LocaleInvariantKeyDisplay))
+            {
+                authoredStyles[item.Target].AssertSame(item.Target, $"{item.Name} at {stage}");
             }
         }
 
@@ -427,14 +465,14 @@ namespace Game.Feature.UI.Tests
             {
                 Static("Input movement", GetField<TMP_Text>(input, "_movementLabel")),
                 Static("Input arrow toggle", GetField<TMP_Text>(input, "_movementToggleLabel")),
-                Raw("Input movement current", GetField<TMP_Text>(input, "_movementCurrentText")),
+                LocaleInvariantKeyDisplay("Input movement current", GetField<TMP_Text>(input, "_movementCurrentText")),
                 Static("Input push", GetField<TMP_Text>(input, "_pushLabel")),
-                Raw("Input push current", GetField<TMP_Text>(input, "_pushCurrentText")),
-                Raw("Input push physical key", GetField<TMP_Text>(input, "_pushKeyDisplayLabel")),
+                LocaleInvariantKeyDisplay("Input push current", GetField<TMP_Text>(input, "_pushCurrentText")),
+                LocaleInvariantKeyDisplay("Input push physical key", GetField<TMP_Text>(input, "_pushKeyDisplayLabel")),
                 Static("Input push change", GetField<TMP_Text>(input, "_pushChangeButtonLabel")),
                 Static("Input flip", GetField<TMP_Text>(input, "_flipLabel")),
-                Raw("Input flip current", GetField<TMP_Text>(input, "_flipCurrentText")),
-                Raw("Input flip physical key", GetField<TMP_Text>(input, "_flipKeyDisplayLabel")),
+                LocaleInvariantKeyDisplay("Input flip current", GetField<TMP_Text>(input, "_flipCurrentText")),
+                LocaleInvariantKeyDisplay("Input flip physical key", GetField<TMP_Text>(input, "_flipKeyDisplayLabel")),
                 Static("Input flip change", GetField<TMP_Text>(input, "_flipChangeButtonLabel")),
                 Static("Input reset", GetField<TMP_Text>(input, "_resetButtonLabel")),
                 Dynamic("Input status", GetField<TMP_Text>(input, "_statusText")),
@@ -456,7 +494,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(labels, Has.Length.EqualTo(expectedCount), relativePath);
             for (var i = 0; i < labels.Length; i++)
             {
-                result.Add(Raw($"Movement keycap {relativePath} #{i}", labels[i]));
+                result.Add(LocaleInvariantKeyDisplay($"Movement keycap {relativePath} #{i}", labels[i]));
             }
         }
 
@@ -485,8 +523,8 @@ namespace Game.Feature.UI.Tests
         private static TargetSpec Dynamic(string name, TMP_Text target) =>
             new(name, target, TargetClassification.LocalizedDynamic);
 
-        private static TargetSpec Raw(string name, TMP_Text target) =>
-            new(name, target, TargetClassification.RawNormalException);
+        private static TargetSpec LocaleInvariantKeyDisplay(string name, TMP_Text target) =>
+            new(name, target, TargetClassification.LocaleInvariantKeyDisplay);
 
         private static TargetSpec Decorative(string name, TMP_Text target) =>
             new(name, target, TargetClassification.Decorative);
@@ -505,6 +543,12 @@ namespace Game.Feature.UI.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName}");
             return (T)field.GetValue(target);
+        }
+
+        private static TMP_Text GetSerializedBindingTarget(TypographyBinding binding)
+        {
+            var serializedObject = new SerializedObject(binding);
+            return serializedObject.FindProperty("target")?.objectReferenceValue as TMP_Text;
         }
 
         private static string GetHierarchyPath(Transform transform)
@@ -581,7 +625,7 @@ namespace Game.Feature.UI.Tests
         {
             LocalizedStatic,
             LocalizedDynamic,
-            RawNormalException,
+            LocaleInvariantKeyDisplay,
             Decorative,
         }
 
@@ -604,15 +648,43 @@ namespace Game.Feature.UI.Tests
             private readonly TMP_FontAsset _font;
             private readonly Material _material;
             private readonly FontStyles _fontStyle;
+            private readonly float _fontSize;
+            private readonly bool _enableAutoSizing;
+            private readonly float _fontSizeMin;
+            private readonly float _fontSizeMax;
+            private readonly float _lineSpacing;
+            private readonly float _characterSpacing;
+            private readonly string _text;
 
             public AppliedStyle(TMP_Text target)
             {
                 _font = target.font;
                 _material = target.fontSharedMaterial;
                 _fontStyle = target.fontStyle;
+                _fontSize = target.fontSize;
+                _enableAutoSizing = target.enableAutoSizing;
+                _fontSizeMin = target.fontSizeMin;
+                _fontSizeMax = target.fontSizeMax;
+                _lineSpacing = target.lineSpacing;
+                _characterSpacing = target.characterSpacing;
+                _text = target.text;
             }
 
             public void AssertSame(TMP_Text target, string name)
+            {
+                Assert.That(target.font, Is.SameAs(_font), $"{name} restored font");
+                Assert.That(target.fontSharedMaterial, Is.SameAs(_material), $"{name} restored material");
+                Assert.That(target.fontStyle, Is.EqualTo(_fontStyle), $"{name} restored fontStyle");
+                Assert.That(target.fontSize, Is.EqualTo(_fontSize), $"{name} fontSize");
+                Assert.That(target.enableAutoSizing, Is.EqualTo(_enableAutoSizing), $"{name} enableAutoSizing");
+                Assert.That(target.fontSizeMin, Is.EqualTo(_fontSizeMin), $"{name} fontSizeMin");
+                Assert.That(target.fontSizeMax, Is.EqualTo(_fontSizeMax), $"{name} fontSizeMax");
+                Assert.That(target.lineSpacing, Is.EqualTo(_lineSpacing), $"{name} lineSpacing");
+                Assert.That(target.characterSpacing, Is.EqualTo(_characterSpacing), $"{name} characterSpacing");
+                Assert.That(target.text, Is.EqualTo(_text), $"{name} text");
+            }
+
+            public void AssertThemeIdentitySame(TMP_Text target, string name)
             {
                 Assert.That(target.font, Is.SameAs(_font), $"{name} restored font");
                 Assert.That(target.fontSharedMaterial, Is.SameAs(_material), $"{name} restored material");

@@ -351,6 +351,118 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
         }
 
+        [TestCase("Space", "Left Shift")]
+        [TestCase("Enter", "Numpad Enter")]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_WordKeyNamesRemainRawAndTypographicallyInvariant(
+            string pushDisplayName,
+            string flipDisplayName)
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new MutableKeyboardSettingsPort(pushDisplayName, flipDisplayName);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort);
+
+            harness.ShowSettings();
+            var input = harness.SettingsView.InputView;
+            var pushCurrent = GetText(input, "_pushCurrentText");
+            var pushKeycap = GetText(input, "_pushKeyDisplayLabel");
+            var flipCurrent = GetText(input, "_flipCurrentText");
+            var flipKeycap = GetText(input, "_flipKeyDisplayLabel");
+            var states = new Dictionary<TMP_Text, InvariantTypographyState>
+            {
+                [pushCurrent] = new InvariantTypographyState(pushCurrent),
+                [pushKeycap] = new InvariantTypographyState(pushKeycap),
+                [flipCurrent] = new InvariantTypographyState(flipCurrent),
+                [flipKeycap] = new InvariantTypographyState(flipKeycap),
+            };
+
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
+            AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            AssertInputLabels(input, "이동 키", "화살표 키 사용", "밀기", "뒤집기", "변경", "입력 초기화");
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
+            AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
+            AssertInvariantTypography(states, "ko-KR");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            AssertInputLabels(input, "Movement Keys", "Use Arrow Keys", "Push", "Flip", "Change", "Reset Input");
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
+            AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
+            AssertInvariantTypography(states, "restored en-US");
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindFromEToSpaceRefreshesWithoutLocaleTypographyMutation()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new MutableKeyboardSettingsPort("E", "Q");
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort);
+
+            harness.ShowSettings();
+            var input = harness.SettingsView.InputView;
+            var pushCurrent = GetText(input, "_pushCurrentText");
+            var pushKeycap = GetText(input, "_pushKeyDisplayLabel");
+            var states = new Dictionary<TMP_Text, InvariantTypographyState>
+            {
+                [pushCurrent] = new InvariantTypographyState(pushCurrent),
+                [pushKeycap] = new InvariantTypographyState(pushKeycap),
+            };
+
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, "E");
+            harness.SettingsView.ClickInputTab();
+            input.ClickPushChange();
+            keyboardPort.Complete("Space");
+
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
+            AssertInvariantTypography(states, "after rebind");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
+            AssertInvariantTypography(states, "ko-KR after rebind");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
+            AssertInvariantTypography(states, "restored en-US after rebind");
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_LongWordKeyNamesFitCurrentAndKeycapLabels()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new MutableKeyboardSettingsPort("Print Screen", "Numpad Enter");
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort);
+
+            harness.ShowSettings();
+            var input = harness.SettingsView.InputView;
+            var labels = new[]
+            {
+                GetText(input, "_pushCurrentText"),
+                GetText(input, "_pushKeyDisplayLabel"),
+                GetText(input, "_flipCurrentText"),
+                GetText(input, "_flipKeyDisplayLabel"),
+            };
+
+            foreach (var label in labels)
+            {
+                label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+                Assert.That(label.isTextOverflowing, Is.False, $"{label.name} '{label.text}' overflow");
+                Assert.That(label.textInfo.lineCount, Is.LessThanOrEqualTo(1), $"{label.name} '{label.text}' wrapping");
+            }
+
+            Assert.That(GetText(input, "_pushKeyDisplayLabel").enableAutoSizing, Is.True);
+            Assert.That(GetText(input, "_flipKeyDisplayLabel").enableAutoSizing, Is.True);
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            foreach (var label in labels)
+            {
+                label.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+                Assert.That(label.isTextOverflowing, Is.False, $"ko-KR {label.name} '{label.text}' overflow");
+                Assert.That(label.textInfo.lineCount, Is.LessThanOrEqualTo(1), $"ko-KR {label.name} '{label.text}' wrapping");
+            }
+        }
+
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
@@ -582,6 +694,22 @@ namespace Game.Feature.UI.Tests
         private static TMP_Text GetText(object target, string fieldName)
         {
             return GetField<TMP_Text>(target, fieldName);
+        }
+
+        private static void AssertKeyDisplayPair(TMP_Text current, TMP_Text keycap, string expected)
+        {
+            Assert.That(current.text, Is.EqualTo(expected));
+            Assert.That(keycap.text, Is.EqualTo(expected));
+        }
+
+        private static void AssertInvariantTypography(
+            IReadOnlyDictionary<TMP_Text, InvariantTypographyState> states,
+            string stage)
+        {
+            foreach (var pair in states)
+            {
+                pair.Value.AssertSame(pair.Key, $"{pair.Key.name} at {stage}");
+            }
         }
 
         private static TField GetField<TField>(object target, string fieldName)
@@ -866,6 +994,122 @@ namespace Game.Feature.UI.Tests
                     "Q",
                     _isRebinding,
                     _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
+            }
+        }
+
+        private sealed class MutableKeyboardSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private Action<KeyboardRebindResult> _completed;
+            private string _flipDisplayName;
+            private bool _isRebinding;
+            private string _pushDisplayName;
+            private KeyboardBindableAction _rebindingAction;
+
+            public MutableKeyboardSettingsPort(string pushDisplayName, string flipDisplayName)
+            {
+                _pushDisplayName = pushDisplayName;
+                _flipDisplayName = flipDisplayName;
+            }
+
+            public bool IsRebinding => _isRebinding;
+
+            public KeyboardBindingSettingsSnapshot Read() => BuildSnapshot();
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme) =>
+                KeyboardBindingValidationResult.Success;
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                _isRebinding = true;
+                _rebindingAction = action;
+                _completed = completed;
+                return new KeyboardRebindStartResult(true, KeyboardBindingValidationResult.Success, BuildSnapshot());
+            }
+
+            public void CancelRebind()
+            {
+                _isRebinding = false;
+                _completed = null;
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                _isRebinding = false;
+                _pushDisplayName = "E";
+                _flipDisplayName = "Q";
+                return BuildSnapshot();
+            }
+
+            public void Complete(string displayName)
+            {
+                if (_rebindingAction == KeyboardBindableAction.Push)
+                {
+                    _pushDisplayName = displayName;
+                }
+                else
+                {
+                    _flipDisplayName = displayName;
+                }
+
+                var completed = _completed;
+                _completed = null;
+                _isRebinding = false;
+                completed?.Invoke(new KeyboardRebindResult(
+                    _rebindingAction,
+                    KeyboardBindingValidationResult.Success,
+                    BuildSnapshot()));
+            }
+
+            private KeyboardBindingSettingsSnapshot BuildSnapshot()
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    _pushDisplayName,
+                    _flipDisplayName,
+                    _isRebinding,
+                    _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
+            }
+        }
+
+        private readonly struct InvariantTypographyState
+        {
+            private readonly bool _enableAutoSizing;
+            private readonly TMP_FontAsset _font;
+            private readonly float _fontSize;
+            private readonly float _fontSizeMax;
+            private readonly float _fontSizeMin;
+            private readonly FontStyles _fontStyle;
+            private readonly float _characterSpacing;
+            private readonly float _lineSpacing;
+            private readonly Material _material;
+
+            public InvariantTypographyState(TMP_Text target)
+            {
+                _font = target.font;
+                _material = target.fontSharedMaterial;
+                _fontStyle = target.fontStyle;
+                _fontSize = target.fontSize;
+                _enableAutoSizing = target.enableAutoSizing;
+                _fontSizeMin = target.fontSizeMin;
+                _fontSizeMax = target.fontSizeMax;
+                _lineSpacing = target.lineSpacing;
+                _characterSpacing = target.characterSpacing;
+            }
+
+            public void AssertSame(TMP_Text target, string context)
+            {
+                Assert.That(target.font, Is.SameAs(_font), context + " font");
+                Assert.That(target.fontSharedMaterial, Is.SameAs(_material), context + " material");
+                Assert.That(target.fontStyle, Is.EqualTo(_fontStyle), context + " fontStyle");
+                Assert.That(target.fontSize, Is.EqualTo(_fontSize), context + " fontSize");
+                Assert.That(target.enableAutoSizing, Is.EqualTo(_enableAutoSizing), context + " autoSizing");
+                Assert.That(target.fontSizeMin, Is.EqualTo(_fontSizeMin), context + " fontSizeMin");
+                Assert.That(target.fontSizeMax, Is.EqualTo(_fontSizeMax), context + " fontSizeMax");
+                Assert.That(target.lineSpacing, Is.EqualTo(_lineSpacing), context + " lineSpacing");
+                Assert.That(target.characterSpacing, Is.EqualTo(_characterSpacing), context + " characterSpacing");
             }
         }
 

@@ -190,6 +190,44 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void LocaleInvariantApplicator_IsSuccessfulNoOpEvenWithRequiredMask()
+        {
+            var theme = LoadTheme();
+            var prefab = UnityEngine.Object.Instantiate(LoadSettingsPrefab().gameObject);
+            var view = prefab.GetComponent<SettingsScreenView>();
+            var label = GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel");
+            var binding = TypographyBinding.FindFor(label);
+            var before = TmpTypographyAuthoredState.Capture(label);
+            var beforeText = label.text;
+            var allMasks = TypographyApplyMask.Font |
+                           TypographyApplyMask.Material |
+                           TypographyApplyMask.FontStyle |
+                           TypographyApplyMask.Sizing |
+                           TypographyApplyMask.LineSpacing |
+                           TypographyApplyMask.CharacterSpacing;
+
+            try
+            {
+                Assert.That(binding, Is.Not.Null);
+                Assert.That(binding.LocaleParticipation, Is.EqualTo(TypographyLocaleParticipation.LocaleInvariant));
+                Assert.That(
+                    LocalizedTmpTextApplicator.ApplyTypographyTheme(label, theme, "ko-KR", binding, allMasks),
+                    Is.True);
+                LocalizedTmpTextApplicator.ApplyResolvedTypography(
+                    label,
+                    theme.ResolveOrThrow("ko-KR", binding.StyleTag),
+                    binding,
+                    allMasks);
+
+                AssertTypographyState(label, before, beforeText);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefab);
+            }
+        }
+
+        [Test]
         public void ScreenCatalog_ReferencesSettingsTypographyTheme()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<ScreenPrefabCatalog>(ScreenCatalogPath);
@@ -279,6 +317,23 @@ namespace Game.Feature.UI.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName} must exist.");
             field.SetValue(target, value);
+        }
+
+        private static void AssertTypographyState(
+            TMP_Text target,
+            TmpTypographyAuthoredState expected,
+            string expectedText)
+        {
+            Assert.That(target.font, Is.SameAs(expected.OriginalFont));
+            Assert.That(target.fontSharedMaterial, Is.SameAs(expected.OriginalMaterial));
+            Assert.That(target.fontStyle, Is.EqualTo(expected.OriginalFontStyle));
+            Assert.That(target.fontSize, Is.EqualTo(expected.FontSize));
+            Assert.That(target.enableAutoSizing, Is.EqualTo(expected.EnableAutoSizing));
+            Assert.That(target.fontSizeMin, Is.EqualTo(expected.FontSizeMin));
+            Assert.That(target.fontSizeMax, Is.EqualTo(expected.FontSizeMax));
+            Assert.That(target.lineSpacing, Is.EqualTo(expected.LineSpacing));
+            Assert.That(target.characterSpacing, Is.EqualTo(expected.CharacterSpacing));
+            Assert.That(target.text, Is.EqualTo(expectedText));
         }
 
         private static void AssertRuntimeSourceDoesNotContain(string rootPath, string token)

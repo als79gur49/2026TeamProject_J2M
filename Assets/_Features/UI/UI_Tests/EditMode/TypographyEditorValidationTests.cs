@@ -88,6 +88,61 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void TypographyBindingValidator_LocaleInvariantRequiresStructureButNotThemeResolution()
+        {
+            var root = new GameObject("TypographyLocaleInvariantValidation");
+            var text = root.AddComponent<TextMeshProUGUI>();
+            var binding = root.AddComponent<TypographyBinding>();
+            var serializedBinding = new SerializedObject(binding);
+            serializedBinding.FindProperty("target").objectReferenceValue = text;
+            serializedBinding.FindProperty("styleTag").intValue = int.MaxValue;
+            serializedBinding.FindProperty("localeParticipation").intValue =
+                (int)TypographyLocaleParticipation.LocaleInvariant;
+            serializedBinding.ApplyModifiedPropertiesWithoutUndo();
+
+            try
+            {
+                var report = TypographyBindingValidator.ValidateRoot(
+                    root,
+                    "TestRoot",
+                    TypographyThemeValidator.FindThemeAsset());
+
+                Assert.That(report.HasErrors, Is.False, string.Join("; ", report.Issues));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyBindingValidator_RejectsInvalidLocaleParticipation()
+        {
+            var root = new GameObject("TypographyInvalidLocaleParticipation");
+            var text = root.AddComponent<TextMeshProUGUI>();
+            var binding = root.AddComponent<TypographyBinding>();
+            var serializedBinding = new SerializedObject(binding);
+            serializedBinding.FindProperty("target").objectReferenceValue = text;
+            serializedBinding.FindProperty("localeParticipation").intValue = int.MaxValue;
+            serializedBinding.ApplyModifiedPropertiesWithoutUndo();
+
+            try
+            {
+                var report = TypographyBindingValidator.ValidateRoot(
+                    root,
+                    "TestRoot",
+                    TypographyThemeValidator.FindThemeAsset());
+
+                Assert.That(report.HasErrors, Is.True);
+                Assert.That(report.Issues.Select(issue => issue.Message), Has.Some.Contains("Locale participation value"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void TypographyBindingValidator_ValidatesSettingsPrefab()
         {
             AssertPrefabHasNoValidationErrors(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
@@ -157,6 +212,54 @@ namespace Game.Feature.UI.Tests
                 Assert.That(target.fontSharedMaterial, Is.SameAs(originalMaterial));
                 Assert.That(target.fontSize, Is.EqualTo(originalFontSize));
                 Assert.That(target.enableAutoSizing, Is.EqualTo(originalAutoSizing));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_SettingsKoreanPreview_SkipsThirteenLocaleInvariantBindings()
+        {
+            var theme = TypographyThemeValidator.FindThemeAsset();
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var root = Object.Instantiate(prefab);
+            var bindings = root.GetComponentsInChildren<TypographyBinding>(true);
+            var invariantBindings = bindings
+                .Where(binding => binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant)
+                .ToArray();
+            var snapshots = invariantBindings.ToDictionary(
+                binding => binding.Target,
+                binding => new PreviewTypographyState(binding.Target));
+            var governedBinding = bindings.First(binding =>
+                binding.LocaleParticipation == TypographyLocaleParticipation.LocaleThemed &&
+                binding.StyleTag == TypographyStyleTag.SettingsDisplay);
+
+            try
+            {
+                Assert.That(bindings, Has.Length.EqualTo(51));
+                Assert.That(invariantBindings, Has.Length.EqualTo(13));
+
+                var result = TypographyPreviewUtility.ApplyPreview(root, "ko-KR", theme, recordUndo: false);
+
+                Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
+                Assert.That(result.AppliedCount, Is.EqualTo(38));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
+                Assert.That(governedBinding.Target.font, Is.SameAs(UiTestPrefabAssetUtility.LoadNanumGothicFont()));
+                Assert.That(
+                    governedBinding.Target.fontSharedMaterial,
+                    Is.SameAs(theme.ResolveOrThrow("ko-KR", governedBinding.StyleTag).MaterialPreset));
+                foreach (var binding in invariantBindings)
+                {
+                    snapshots[binding.Target].AssertSame(binding.Target, binding.name + " preview");
+                }
+
+                Assert.That(TypographyPreviewUtility.RestorePreview(root, recordUndo: false), Is.EqualTo(38));
+                foreach (var binding in invariantBindings)
+                {
+                    snapshots[binding.Target].AssertSame(binding.Target, binding.name + " restore");
+                }
             }
             finally
             {
@@ -489,6 +592,48 @@ namespace Game.Feature.UI.Tests
         private static bool IsGraphicsCaptureAvailable()
         {
             return SystemInfo.graphicsDeviceType != GraphicsDeviceType.Null;
+        }
+
+        private readonly struct PreviewTypographyState
+        {
+            private readonly TMP_FontAsset _font;
+            private readonly Material _material;
+            private readonly FontStyles _fontStyle;
+            private readonly float _fontSize;
+            private readonly bool _enableAutoSizing;
+            private readonly float _fontSizeMin;
+            private readonly float _fontSizeMax;
+            private readonly float _lineSpacing;
+            private readonly float _characterSpacing;
+            private readonly string _text;
+
+            public PreviewTypographyState(TMP_Text target)
+            {
+                _font = target.font;
+                _material = target.fontSharedMaterial;
+                _fontStyle = target.fontStyle;
+                _fontSize = target.fontSize;
+                _enableAutoSizing = target.enableAutoSizing;
+                _fontSizeMin = target.fontSizeMin;
+                _fontSizeMax = target.fontSizeMax;
+                _lineSpacing = target.lineSpacing;
+                _characterSpacing = target.characterSpacing;
+                _text = target.text;
+            }
+
+            public void AssertSame(TMP_Text target, string context)
+            {
+                Assert.That(target.font, Is.SameAs(_font), context + " font");
+                Assert.That(target.fontSharedMaterial, Is.SameAs(_material), context + " material");
+                Assert.That(target.fontStyle, Is.EqualTo(_fontStyle), context + " fontStyle");
+                Assert.That(target.fontSize, Is.EqualTo(_fontSize), context + " fontSize");
+                Assert.That(target.enableAutoSizing, Is.EqualTo(_enableAutoSizing), context + " autoSizing");
+                Assert.That(target.fontSizeMin, Is.EqualTo(_fontSizeMin), context + " fontSizeMin");
+                Assert.That(target.fontSizeMax, Is.EqualTo(_fontSizeMax), context + " fontSizeMax");
+                Assert.That(target.lineSpacing, Is.EqualTo(_lineSpacing), context + " lineSpacing");
+                Assert.That(target.characterSpacing, Is.EqualTo(_characterSpacing), context + " characterSpacing");
+                Assert.That(target.text, Is.EqualTo(_text), context + " text");
+            }
         }
 
         private static void AssertTextureIsNonBlank(Texture2D texture, string context)
