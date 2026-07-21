@@ -47,6 +47,30 @@ namespace Game.Feature.Stages
         }
     }
 
+    public static class CampaignPendinglessLaunchPolicy
+    {
+        public static bool IsAllowed(StageNavigationRequest request)
+        {
+            if (!request.IsValid)
+            {
+                return false;
+            }
+
+            switch (request.NavigationKind)
+            {
+                case StageNavigationKind.Retry:
+                    return string.Equals(request.Source, "stage-result-retry", StringComparison.Ordinal) ||
+                           string.Equals(request.Source, "pause-retry", StringComparison.Ordinal) ||
+                           string.Equals(request.Source, "campaign-death-retry", StringComparison.Ordinal) ||
+                           string.Equals(request.Source, "level-failed-restart-level", StringComparison.Ordinal);
+                case StageNavigationKind.NextStage:
+                    return string.Equals(request.Source, "campaign-auto-next", StringComparison.Ordinal);
+                default:
+                    return false;
+            }
+        }
+    }
+
     public interface IStageLaunchRouter
     {
         void Launch(StageNavigationRequest request);
