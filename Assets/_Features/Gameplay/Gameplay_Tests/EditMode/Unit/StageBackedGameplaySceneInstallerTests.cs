@@ -787,6 +787,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         "_runningSlotContext").SlotNumber,
                     Is.EqualTo(1));
                 Assert.That(handoffStore.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
             }
             finally
             {
@@ -838,7 +839,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     handoffStore.TryBegin(
                         1,
-                        mismatchedStageId,
+                        launchStageId,
                         StageNavigationKind.Continue,
                         "main-menu-continue",
                         out _),
@@ -865,6 +866,682 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
                 DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_Success_ConsumesPendingAndContextAndPinsRunning()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+
+            var running = harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId);
+
+            Assert.That(running.SlotNumber, Is.EqualTo(1));
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+            Assert.That(harness.HandoffStore.ConsumeCount, Is.EqualTo(1));
+            Assert.That(harness.ContextStore.ConsumeCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_RunningCreationFailure_RestoresPreviousActive()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.RunningFactory.Fail = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_PendingConsumeFailure_RollsBackActiveAndRunning()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.HandoffStore.FailConsume = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_PendingConsumeException_RollsBackActiveAndRunning()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.HandoffStore.ThrowOnConsume = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_ContextConsumeFailure_RollsBackActiveAndRunning()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.ContextStore.FailConsume = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_ContextConsumeException_RollsBackActiveAndRunning()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.ContextStore.ThrowOnConsume = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_ActiveWriteFailure_LeavesNoRunningAndCleansMatchingState()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.ActiveStorage.FailSetOnCall = 1;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ActiveStorage_WritesThenThrows_RestoresPreviousActive()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.ActiveStorage.WriteThenThrowSetOnCall = 1;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(2));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ActiveStorage_WritesThenThrows_WithNoPreviousActive_RestoresEmpty()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: false);
+            harness.ActiveStorage.WriteThenThrowSetOnCall = 1;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.TryGetActiveSlot(out _), Is.False);
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void WriteAfterThrow_DoesNotAffectNewerOperation()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            var newerHandoff = new CampaignLaunchHandoff(
+                2,
+                harness.StageId,
+                StageNavigationKind.Continue,
+                "newer-operation",
+                Guid.NewGuid());
+            var newerContext = StageLaunchContext.FromHandoff(newerHandoff);
+            harness.ActiveStorage.WriteThenThrowSetOnCall = 1;
+            harness.ActiveStorage.AfterWriteBeforeThrow = () =>
+            {
+                harness.HandoffStore.Set(newerHandoff);
+                harness.ContextStore.Set(newerContext);
+            };
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.HandoffStore.TryPeek(out var currentHandoff), Is.True);
+            Assert.That(currentHandoff, Is.SameAs(newerHandoff));
+            Assert.That(harness.ContextStore.IsCurrent(newerContext), Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void WriteAfterThrow_RestoreFailureSurfacesAggregateFailure()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.ActiveStorage.WriteThenThrowSetOnCall = 1;
+            harness.ActiveStorage.FailSetOnCall = 2;
+
+            var exception = Assert.Throws<AggregateException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(exception.InnerExceptions.Count, Is.EqualTo(2));
+            Assert.That(exception.InnerExceptions[0].Message, Does.Contain("active set failed after write"));
+            Assert.That(exception.InnerExceptions[1].Message, Does.Contain("active set failed"));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_PreviousActiveReadFailure_CleansMatchingStateWithoutWriting()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.ActiveStorage.FailRead = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_RollbackWithoutPreviousActive_RestoresEmptyActive()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: false);
+            harness.RunningFactory.Fail = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.TryGetActiveSlot(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_RollbackFailure_IsSurfaced()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            harness.RunningFactory.Fail = true;
+            harness.ActiveStorage.FailSetOnCall = 2;
+
+            var exception = Assert.Throws<AggregateException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(exception.InnerExceptions.Count, Is.EqualTo(2));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(1));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_ContextMismatch_DoesNotCommitOrClearDifferentOwner()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            var newerContext = new StageLaunchContext(
+                Guid.NewGuid(),
+                2,
+                harness.StageId,
+                StageNavigationKind.Continue,
+                "newer");
+            harness.ContextStore.Set(newerContext);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ContextStore.IsCurrent(newerContext), Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SameTokenDifferentSlot_EarlyCleanupPreservesCurrentOwner()
+        {
+            AssertSameTokenDifferentOwnerPreserved(
+                handoff => new CampaignLaunchHandoff(
+                    2,
+                    handoff.StageId,
+                    handoff.NavigationKind,
+                    handoff.Source,
+                    handoff.Token));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SameTokenDifferentStage_ProfileFailurePreservesCurrentOwner()
+        {
+            AssertSameTokenDifferentOwnerPreserved(
+                handoff => new CampaignLaunchHandoff(
+                    handoff.SlotNumber,
+                    StageId.CreateOrThrow("stage-0-1"),
+                    handoff.NavigationKind,
+                    handoff.Source,
+                    handoff.Token));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SameTokenDifferentNavigation_TransactionCatchPreservesCurrentOwner()
+        {
+            AssertSameTokenDifferentOwnerPreserved(
+                handoff => new CampaignLaunchHandoff(
+                    handoff.SlotNumber,
+                    handoff.StageId,
+                    StageNavigationKind.Retry,
+                    handoff.Source,
+                    handoff.Token));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void SameTokenDifferentSource_RollbackPreservesCurrentOwner()
+        {
+            AssertSameTokenDifferentOwnerPreserved(
+                handoff => new CampaignLaunchHandoff(
+                    handoff.SlotNumber,
+                    handoff.StageId,
+                    handoff.NavigationKind,
+                    "newer-source",
+                    handoff.Token));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void MismatchedExpectedHandoffAndContext_DoesNotClearEitherStore()
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            var mismatchedContext = new StageLaunchContext(
+                harness.Handoff.Token,
+                2,
+                harness.Handoff.StageId,
+                harness.Handoff.NavigationKind,
+                harness.Handoff.Source);
+            harness.ContextStore.Set(mismatchedContext);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                mismatchedContext,
+                harness.StageId));
+
+            Assert.That(harness.HandoffStore.TryPeek(out var currentHandoff), Is.True);
+            Assert.That(currentHandoff, Is.SameAs(harness.Handoff));
+            Assert.That(harness.ContextStore.IsCurrent(mismatchedContext), Is.True);
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CampaignLaunchCommitTransaction_PendinglessRetry_UsesActiveAndConsumesContext()
+        {
+            var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+            var saveStore = new SaveSlotStore(CreatePrefsKey("pendingless-transaction"));
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = "level-01",
+            });
+            var activeStorage = new FaultingActiveSlotStorage(1);
+            var context = StageLaunchContext.CreatePendinglessReload(
+                new StageNavigationRequest(stageId, StageNavigationKind.Retry, "stage-result-retry"));
+            var contextStore = new RecordingStageLaunchContextCommitStore(context);
+            var transaction = new CampaignLaunchCommitTransaction(
+                saveStore,
+                new ActiveSlotProvider(activeStorage),
+                new RecordingCampaignLaunchHandoffStoreForCommit(null),
+                contextStore,
+                new RecordingRunningSlotContextFactory());
+
+            var running = transaction.CommitPendingless(context, stageId);
+
+            Assert.That(running.SlotNumber, Is.EqualTo(1));
+            Assert.That(activeStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(contextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessNextStage_UsesCommittedActiveAndConsumesContext()
+        {
+            var harness = CreatePendinglessHarness(
+                StageNavigationKind.NextStage,
+                "campaign-auto-next");
+
+            var running = harness.Transaction.CommitPendingless(harness.Context, harness.StageId);
+
+            Assert.That(running.SlotNumber, Is.EqualTo(1));
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessRetry_PinsRunningSlot()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "pause-retry");
+
+            var running = harness.Transaction.CommitPendingless(harness.Context, harness.StageId);
+
+            Assert.That(running.SlotNumber, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessNextStage_PinsRunningSlot()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.NextStage, "campaign-auto-next");
+
+            var running = harness.Transaction.CommitPendingless(harness.Context, harness.StageId);
+
+            Assert.That(running.SlotNumber, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessSuccess_DoesNotRewritePersistentActive()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "campaign-death-retry");
+
+            harness.Transaction.CommitPendingless(harness.Context, harness.StageId);
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(1));
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessContinue_IsRejected()
+        {
+            AssertPendinglessRejectedWithoutActiveWrite(StageNavigationKind.Continue, "main-menu");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessArbitrarySource_IsRejected()
+        {
+            AssertPendinglessRejectedWithoutActiveWrite(StageNavigationKind.Retry, "arbitrary-source");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessStartupWithoutAllowlistedNavigation_IsRejected()
+        {
+            AssertPendinglessRejectedWithoutActiveWrite(StageNavigationKind.Continue, "startup");
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessStageMismatch_IsRejected()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "stage-result-retry");
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                StageId.CreateOrThrow("stage-0-1")));
+
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessMissingActive_IsRejected()
+        {
+            var harness = CreatePendinglessHarness(
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                activeSlot: 0);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessInvalidActive_IsRejected()
+        {
+            var harness = CreatePendinglessHarness(
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                activeSlot: SaveSlotStore.SlotCount + 1);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessEmptyProfile_IsRejected()
+        {
+            var harness = CreatePendinglessHarness(
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                saveActiveSlot: false);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessProfileStageMismatch_IsRejected()
+        {
+            var harness = CreatePendinglessHarness(
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                profileStageId: StageId.CreateOrThrow("stage-0-1"));
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessContextConsumeFalse_DoesNotPublishRunning()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "stage-result-retry");
+            harness.ContextStore.FailConsume = true;
+            CampaignRunningSlotContext running = null;
+
+            Assert.Throws<InvalidOperationException>(() =>
+                running = harness.Transaction.CommitPendingless(harness.Context, harness.StageId));
+
+            Assert.That(running, Is.Null);
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessContextConsumeThrows_DoesNotPublishRunning()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "stage-result-retry");
+            harness.ContextStore.ThrowOnConsume = true;
+            CampaignRunningSlotContext running = null;
+
+            Assert.Throws<InvalidOperationException>(() =>
+                running = harness.Transaction.CommitPendingless(harness.Context, harness.StageId));
+
+            Assert.That(running, Is.Null);
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessProfileLoadThrows_CleansOnlyExactContext()
+        {
+            var harness = CreatePendinglessHarness(
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                saveSlotStore: new ThrowingCampaignSaveSlotStore());
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessRunningCreationThrows_CleansOnlyExactContext()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "stage-result-retry");
+            harness.RunningFactory.Fail = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ContextStore.TryPeek(out _), Is.False);
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessFailure_DoesNotModifyPersistentActive()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "stage-result-retry");
+            harness.RunningFactory.Fail = true;
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(1));
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void PendinglessOldFailure_DoesNotClearNewerContext()
+        {
+            var harness = CreatePendinglessHarness(StageNavigationKind.Retry, "stage-result-retry");
+            var newerContext = StageLaunchContext.CreatePendinglessReload(
+                new StageNavigationRequest(
+                    harness.StageId,
+                    StageNavigationKind.Retry,
+                    "pause-retry"));
+            harness.ContextStore.FailConsume = true;
+            harness.ContextStore.OnConsume = () => harness.ContextStore.Set(newerContext);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ContextStore.IsCurrent(newerContext), Is.True);
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageBackedGameplaySceneInstaller_EarlyResolveFailure_ClearsMatchingPendingAndContext()
+        {
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+            StageLaunchContextStore.Clear();
+            var installerObject = new GameObject(
+                "StageBackedGameplaySceneInstaller_EarlyResolveFailure_ClearsMatchingPendingAndContext");
+            try
+            {
+                var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+                Assert.That(
+                    CampaignLaunchHandoffSessionStore.Instance.TryBegin(
+                        1,
+                        stageId,
+                        StageNavigationKind.Continue,
+                        "early-resolve",
+                        out var handoff),
+                    Is.True);
+                Assert.That(
+                    StageLaunchContextStore.TrySetCurrent(StageLaunchContext.FromHandoff(handoff)),
+                    Is.True);
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+
+                Assert.Throws<TargetInvocationException>(() => BuildInitialGameplayState(installer));
+
+                Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryPeek(out _), Is.False);
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
                 Object.DestroyImmediate(installerObject);
             }
         }
@@ -994,6 +1671,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EditorDirectPlayContextStore.ClearTempDirectPlaySave();
                 saveBackup.Restore();
                 activeBackup.Restore();
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void DirectPlayWithNormalPending_RemainsFailClosed()
+        {
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+            StageLaunchContextStore.Clear();
+            var installerObject = new GameObject("DirectPlayWithNormalPending_RemainsFailClosed");
+            var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+            try
+            {
+                Assert.That(
+                    CampaignLaunchHandoffSessionStore.Instance.TryBegin(
+                        1,
+                        stageId,
+                        StageNavigationKind.Continue,
+                        "normal-pending",
+                        out var handoff),
+                    Is.True);
+                Assert.That(
+                    StageLaunchContextStore.TrySetCurrent(StageLaunchContext.FromHandoff(handoff)),
+                    Is.True);
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                AssignStageContentEntryForProductionLaunch(installer, stageId);
+                AssignTimingPresets(installer);
+                EditorDirectPlayContextStore.SetCurrent(
+                    EditorDirectPlayContext.CreateNonCampaign(stageId));
+
+                var exception = Assert.Throws<TargetInvocationException>(() => BuildConfiguration(installer));
+
+                Exception rootFailure = exception;
+                while (rootFailure.InnerException != null)
+                {
+                    rootFailure = rootFailure.InnerException;
+                }
+
+                Assert.That(rootFailure, Is.TypeOf<InvalidOperationException>());
+                Assert.That(rootFailure.Message, Does.Contain("DirectPlay cannot start"));
+                Assert.That(
+                    ReadInstallerPrivateField<CampaignRunningSlotContext>(installer, "_runningSlotContext"),
+                    Is.Null);
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
+                EditorDirectPlayContextStore.Clear();
                 DestroyAssignedStageContent(installerObject);
                 Object.DestroyImmediate(installerObject);
             }
@@ -1263,7 +1991,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            StageLaunchContextStore.SetCurrent(launchStageId);
+            StageLaunchContextStore.Clear();
+            if (CampaignLaunchHandoffSessionStore.Instance.TryPeek(out var handoff))
+            {
+                Assert.That(StageLaunchContextStore.TrySetCurrent(StageLaunchContext.FromHandoff(handoff)), Is.True);
+            }
+            else
+            {
+                Assert.That(
+                    StageLaunchContextStore.TrySetCurrent(
+                        StageLaunchContext.CreatePendinglessReload(
+                            new StageNavigationRequest(
+                                launchStageId,
+                                StageNavigationKind.Retry,
+                                "stage-result-retry"))),
+                    Is.True);
+            }
         }
 
         private static void AssignCampaignStores(
@@ -1551,6 +2294,405 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return false;
+        }
+
+        private static CommitTransactionHarness CreateCommitTransactionHarness(bool hasPreviousActive)
+        {
+            var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+            var saveStore = new SaveSlotStore(CreatePrefsKey("commit-transaction"));
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = "level-01",
+            });
+            saveStore.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 2,
+                CurrentStageId = stageId,
+                CurrentLevelGroupId = "level-01",
+            });
+            var handoff = new CampaignLaunchHandoff(
+                1,
+                stageId,
+                StageNavigationKind.Continue,
+                "transaction-test",
+                Guid.NewGuid());
+            var context = StageLaunchContext.FromHandoff(handoff);
+            var handoffStore = new RecordingCampaignLaunchHandoffStoreForCommit(handoff);
+            var contextStore = new RecordingStageLaunchContextCommitStore(context);
+            var activeStorage = new FaultingActiveSlotStorage(hasPreviousActive ? 2 : 0);
+            var runningFactory = new RecordingRunningSlotContextFactory();
+            var transaction = new CampaignLaunchCommitTransaction(
+                saveStore,
+                new ActiveSlotProvider(activeStorage),
+                handoffStore,
+                contextStore,
+                runningFactory);
+            return new CommitTransactionHarness(
+                stageId,
+                handoff,
+                context,
+                handoffStore,
+                contextStore,
+                activeStorage,
+                runningFactory,
+                transaction);
+        }
+
+        private static void AssertSameTokenDifferentOwnerPreserved(
+            Func<CampaignLaunchHandoff, CampaignLaunchHandoff> createNewerHandoff)
+        {
+            var harness = CreateCommitTransactionHarness(hasPreviousActive: true);
+            var newerHandoff = createNewerHandoff(harness.Handoff);
+            Assert.That(newerHandoff.Matches(harness.Handoff), Is.False);
+            var newerContext = StageLaunchContext.FromHandoff(newerHandoff);
+            harness.HandoffStore.Set(newerHandoff);
+            harness.ContextStore.Set(newerContext);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPending(
+                harness.Handoff,
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.HandoffStore.TryPeek(out var currentHandoff), Is.True);
+            Assert.That(currentHandoff, Is.SameAs(newerHandoff));
+            Assert.That(harness.ContextStore.IsCurrent(newerContext), Is.True);
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(2));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        private static PendinglessTransactionHarness CreatePendinglessHarness(
+            StageNavigationKind navigationKind,
+            string source,
+            int activeSlot = 1,
+            bool saveActiveSlot = true,
+            StageId profileStageId = default,
+            ICampaignSaveSlotStore saveSlotStore = null)
+        {
+            var stageId = StageId.CreateOrThrow(CombinedLaunchStageId);
+            var store = saveSlotStore ?? new SaveSlotStore(CreatePrefsKey("pendingless-matrix"));
+            if (saveActiveSlot && saveSlotStore == null)
+            {
+                store.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = profileStageId.IsValid ? profileStageId : stageId,
+                    CurrentLevelGroupId = "level-01",
+                });
+            }
+
+            var activeStorage = new FaultingActiveSlotStorage(activeSlot);
+            var context = StageLaunchContext.CreatePendinglessReload(
+                new StageNavigationRequest(stageId, navigationKind, source));
+            var contextStore = new RecordingStageLaunchContextCommitStore(context);
+            var runningFactory = new RecordingRunningSlotContextFactory();
+            var transaction = new CampaignLaunchCommitTransaction(
+                store,
+                new ActiveSlotProvider(activeStorage),
+                new RecordingCampaignLaunchHandoffStoreForCommit(null),
+                contextStore,
+                runningFactory);
+            return new PendinglessTransactionHarness(
+                stageId,
+                context,
+                contextStore,
+                activeStorage,
+                runningFactory,
+                transaction);
+        }
+
+        private static void AssertPendinglessRejectedWithoutActiveWrite(
+            StageNavigationKind navigationKind,
+            string source)
+        {
+            var harness = CreatePendinglessHarness(navigationKind, source);
+
+            Assert.Throws<InvalidOperationException>(() => harness.Transaction.CommitPendingless(
+                harness.Context,
+                harness.StageId));
+
+            Assert.That(harness.ActiveStorage.CurrentSlot, Is.EqualTo(1));
+            Assert.That(harness.ActiveStorage.SetCallCount, Is.EqualTo(0));
+            Assert.That(harness.RunningFactory.CreateCount, Is.EqualTo(0));
+        }
+
+        private sealed class CommitTransactionHarness
+        {
+            public CommitTransactionHarness(
+                StageId stageId,
+                CampaignLaunchHandoff handoff,
+                StageLaunchContext context,
+                RecordingCampaignLaunchHandoffStoreForCommit handoffStore,
+                RecordingStageLaunchContextCommitStore contextStore,
+                FaultingActiveSlotStorage activeStorage,
+                RecordingRunningSlotContextFactory runningFactory,
+                CampaignLaunchCommitTransaction transaction)
+            {
+                StageId = stageId;
+                Handoff = handoff;
+                Context = context;
+                HandoffStore = handoffStore;
+                ContextStore = contextStore;
+                ActiveStorage = activeStorage;
+                RunningFactory = runningFactory;
+                Transaction = transaction;
+            }
+
+            public StageId StageId { get; }
+            public CampaignLaunchHandoff Handoff { get; }
+            public StageLaunchContext Context { get; }
+            public RecordingCampaignLaunchHandoffStoreForCommit HandoffStore { get; }
+            public RecordingStageLaunchContextCommitStore ContextStore { get; }
+            public FaultingActiveSlotStorage ActiveStorage { get; }
+            public RecordingRunningSlotContextFactory RunningFactory { get; }
+            public CampaignLaunchCommitTransaction Transaction { get; }
+        }
+
+        private sealed class PendinglessTransactionHarness
+        {
+            public PendinglessTransactionHarness(
+                StageId stageId,
+                StageLaunchContext context,
+                RecordingStageLaunchContextCommitStore contextStore,
+                FaultingActiveSlotStorage activeStorage,
+                RecordingRunningSlotContextFactory runningFactory,
+                CampaignLaunchCommitTransaction transaction)
+            {
+                StageId = stageId;
+                Context = context;
+                ContextStore = contextStore;
+                ActiveStorage = activeStorage;
+                RunningFactory = runningFactory;
+                Transaction = transaction;
+            }
+
+            public StageId StageId { get; }
+            public StageLaunchContext Context { get; }
+            public RecordingStageLaunchContextCommitStore ContextStore { get; }
+            public FaultingActiveSlotStorage ActiveStorage { get; }
+            public RecordingRunningSlotContextFactory RunningFactory { get; }
+            public CampaignLaunchCommitTransaction Transaction { get; }
+        }
+
+        private sealed class FaultingActiveSlotStorage : IActiveSlotStorage
+        {
+            public FaultingActiveSlotStorage(int currentSlot)
+            {
+                CurrentSlot = currentSlot;
+            }
+
+            public string DiagnosticsKey => "faulting-active";
+            public int CurrentSlot { get; private set; }
+            public int SetCallCount { get; private set; }
+            public int FailSetOnCall { get; set; }
+            public int WriteThenThrowSetOnCall { get; set; }
+            public Action AfterWriteBeforeThrow { get; set; }
+            public bool FailRead { get; set; }
+            public bool FailClear { get; set; }
+
+            public bool TryGetActiveSlot(out int slotNumber)
+            {
+                if (FailRead)
+                {
+                    throw new InvalidOperationException("active read failed");
+                }
+
+                slotNumber = CurrentSlot;
+                return SaveSlotStore.IsValidSlotNumber(slotNumber);
+            }
+
+            public void SetActiveSlot(int slotNumber)
+            {
+                SetCallCount++;
+                if (FailSetOnCall == SetCallCount)
+                {
+                    throw new InvalidOperationException("active set failed");
+                }
+
+                CurrentSlot = slotNumber;
+                if (WriteThenThrowSetOnCall == SetCallCount)
+                {
+                    AfterWriteBeforeThrow?.Invoke();
+                    throw new InvalidOperationException("active set failed after write");
+                }
+            }
+
+            public void ClearActiveSlot()
+            {
+                if (FailClear)
+                {
+                    throw new InvalidOperationException("active clear failed");
+                }
+
+                CurrentSlot = 0;
+            }
+        }
+
+        private sealed class RecordingCampaignLaunchHandoffStoreForCommit : ICampaignLaunchHandoffStore
+        {
+            private CampaignLaunchHandoff _pending;
+
+            public RecordingCampaignLaunchHandoffStoreForCommit(CampaignLaunchHandoff pending)
+            {
+                _pending = pending;
+            }
+
+            public bool FailConsume { get; set; }
+            public bool ThrowOnConsume { get; set; }
+            public int ConsumeCount { get; private set; }
+
+            public void Set(CampaignLaunchHandoff handoff)
+            {
+                _pending = handoff;
+            }
+
+            public bool TryBegin(
+                int slotNumber,
+                StageId stageId,
+                StageNavigationKind navigationKind,
+                string source,
+                out CampaignLaunchHandoff handoff)
+            {
+                handoff = _pending;
+                return false;
+            }
+
+            public bool TryPeek(out CampaignLaunchHandoff handoff)
+            {
+                handoff = _pending;
+                return handoff != null;
+            }
+
+            public bool TryClear(Guid token)
+            {
+                if (_pending == null || _pending.Token != token)
+                {
+                    return false;
+                }
+
+                _pending = null;
+                return true;
+            }
+
+            public bool TryConsume(Guid token, out CampaignLaunchHandoff handoff)
+            {
+                ConsumeCount++;
+                if (ThrowOnConsume)
+                {
+                    throw new InvalidOperationException("pending consume failed");
+                }
+
+                if (FailConsume || _pending == null || _pending.Token != token)
+                {
+                    handoff = null;
+                    return false;
+                }
+
+                handoff = _pending;
+                _pending = null;
+                return true;
+            }
+        }
+
+        private sealed class RecordingStageLaunchContextCommitStore : IStageLaunchContextCommitStore
+        {
+            private StageLaunchContext _current;
+
+            public RecordingStageLaunchContextCommitStore(StageLaunchContext current)
+            {
+                _current = current;
+            }
+
+            public bool FailConsume { get; set; }
+            public bool ThrowOnConsume { get; set; }
+            public Action OnConsume { get; set; }
+            public int ConsumeCount { get; private set; }
+
+            public void Set(StageLaunchContext context)
+            {
+                _current = context;
+            }
+
+            public bool TryPeek(out StageLaunchContext context)
+            {
+                context = _current;
+                return context != null;
+            }
+
+            public bool IsCurrent(StageLaunchContext expected)
+            {
+                return _current != null && _current.Equals(expected);
+            }
+
+            public bool TryClear(StageLaunchContext expected)
+            {
+                if (!IsCurrent(expected))
+                {
+                    return false;
+                }
+
+                _current = null;
+                return true;
+            }
+
+            public bool TryConsume(StageLaunchContext expected, out StageLaunchContext consumed)
+            {
+                ConsumeCount++;
+                OnConsume?.Invoke();
+                if (ThrowOnConsume)
+                {
+                    throw new InvalidOperationException("context consume failed");
+                }
+
+                if (FailConsume || !IsCurrent(expected))
+                {
+                    consumed = null;
+                    return false;
+                }
+
+                consumed = _current;
+                _current = null;
+                return true;
+            }
+        }
+
+        private sealed class ThrowingCampaignSaveSlotStore : ICampaignSaveSlotStore
+        {
+            public string DiagnosticsKey => "throwing-profile";
+            public CampaignSaveLoadReport LastCampaignLoadReport =>
+                CampaignSaveLoadReport.Missing("profile load throws");
+
+            public SaveSlotData[] LoadAll() => throw new NotSupportedException();
+            public CampaignSaveLoadResult LoadAllWithReport() => throw new NotSupportedException();
+            public SaveSlotData LoadSlot(int slotNumber) =>
+                throw new InvalidOperationException("profile load failed");
+            public void SaveSlot(SaveSlotData slot) => throw new NotSupportedException();
+            public SaveSlotData InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt) => throw new NotSupportedException();
+            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation) =>
+                throw new NotSupportedException();
+            public void DeleteSlot(int slotNumber) => throw new NotSupportedException();
+            public void ClearAll() => throw new NotSupportedException();
+        }
+
+        private sealed class RecordingRunningSlotContextFactory : ICampaignRunningSlotContextFactory
+        {
+            public bool Fail { get; set; }
+            public int CreateCount { get; private set; }
+
+            public CampaignRunningSlotContext Create(int slotNumber)
+            {
+                CreateCount++;
+                if (Fail)
+                {
+                    throw new InvalidOperationException("running context creation failed");
+                }
+
+                return new CampaignRunningSlotContext(slotNumber);
+            }
         }
 
         private static bool TryGetUnitAt(IReadOnlyList<EntityState> entities, SurfaceCell cell, out EntityState unit)

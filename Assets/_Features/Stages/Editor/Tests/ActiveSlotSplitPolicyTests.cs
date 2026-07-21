@@ -66,23 +66,27 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GameplayInstaller_CommitsActiveThenPinsRunningThenConsumesMatchingPending()
+        public void GameplayInstaller_CommitsActiveThenPinsRunningThenConsumesMatchingOwners()
         {
             var source = Read(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
             var setActive = source.IndexOf(
-                "_activeSlotProvider.SetActiveSlot(pendingHandoff.SlotNumber)",
+                "_activeSlotProvider.SetActiveSlot(slot.SlotNumber)",
                 StringComparison.Ordinal);
             var createRunning = source.IndexOf(
-                "new CampaignRunningSlotContext(pendingHandoff.SlotNumber)",
+                "_runningFactory.Create(slot.SlotNumber)",
                 StringComparison.Ordinal);
-            var consume = source.IndexOf(
-                "launchHandoffStore.TryConsume(pendingHandoff.Token",
+            var consumePending = source.IndexOf(
+                "_handoffStore.TryConsume(expectedHandoff.Token",
+                StringComparison.Ordinal);
+            var consumeContext = source.IndexOf(
+                "_contextStore.TryConsume(expectedContext",
                 StringComparison.Ordinal);
 
             Assert.That(setActive, Is.GreaterThanOrEqualTo(0));
             Assert.That(createRunning, Is.GreaterThan(setActive));
-            Assert.That(consume, Is.GreaterThan(createRunning));
+            Assert.That(consumePending, Is.GreaterThan(createRunning));
+            Assert.That(consumeContext, Is.GreaterThan(consumePending));
             Assert.That(source, Does.Contain("LoadNonEmptySlot"));
             Assert.That(source, Does.Contain("ValidateLaunchStageIds"));
         }
