@@ -20,15 +20,6 @@ namespace Game.Feature.UI.Tests
     {
         private const int SettingsStaticBindingCount = 29;
         private const int SettingsTypographyBindingCount = 29;
-        private const string ScaleRatioA = "_ScaleRatioA";
-        private const string ScaleRatioC = "_ScaleRatioC";
-
-        [TearDown]
-        public void TearDown()
-        {
-            RestoreNanumGothicMaterialRatios();
-        }
-
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_BindsPackageFreeResolverAndRefreshesLocale()
         {
@@ -622,26 +613,6 @@ namespace Game.Feature.UI.Tests
             var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
             Assert.That(fontAsset, Is.Not.Null, $"{NanumGothicFontValidationUtility.FontAssetPath} must be present.");
             return fontAsset;
-        }
-
-        private static void RestoreNanumGothicMaterialRatios()
-        {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
-            if (fontAsset == null || fontAsset.material == null)
-            {
-                return;
-            }
-
-            if (Mathf.Approximately(fontAsset.material.GetFloat(ScaleRatioA), 1f) &&
-                Mathf.Approximately(fontAsset.material.GetFloat(ScaleRatioC), 1f))
-            {
-                return;
-            }
-
-            fontAsset.material.SetFloat(ScaleRatioA, 1f);
-            fontAsset.material.SetFloat(ScaleRatioC, 1f);
-            EditorUtility.SetDirty(fontAsset.material);
-            AssetDatabase.SaveAssetIfDirty(fontAsset.material);
         }
 
         private static ScreenLayerView CreateScreenLayer(GameObject rootObject)

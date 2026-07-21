@@ -15,18 +15,10 @@ namespace Game.Feature.UI.Tests
     {
         private const string LiberationSansFontAssetPath =
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
-        private const string ScaleRatioA = "_ScaleRatioA";
-        private const string ScaleRatioC = "_ScaleRatioC";
         private const string UiApplicationRuntimePath = "Assets/_Features/UI/UI_Application/Runtime";
         private const string UiViewSharedRuntimePath = "Assets/_Features/UI/UI_ViewShared/Runtime";
         private const string UnityStringTableTextResolverPath =
             "Assets/_Features/UI/UI_Composition/Runtime/UnityStringTableTextResolver.cs";
-
-        [TearDown]
-        public void TearDown()
-        {
-            RestoreNanumGothicMaterialRatios();
-        }
 
         [Test]
         public void ThemeModel_CanResolveAllRequiredStyleTags()
@@ -354,26 +346,6 @@ namespace Game.Feature.UI.Tests
         private static TMP_FontAsset LoadNanumGothic()
         {
             return LoadFont(NanumGothicFontValidationUtility.FontAssetPath);
-        }
-
-        private static void RestoreNanumGothicMaterialRatios()
-        {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
-            if (fontAsset == null || fontAsset.material == null)
-            {
-                return;
-            }
-
-            if (Mathf.Approximately(fontAsset.material.GetFloat(ScaleRatioA), 1f) &&
-                Mathf.Approximately(fontAsset.material.GetFloat(ScaleRatioC), 1f))
-            {
-                return;
-            }
-
-            fontAsset.material.SetFloat(ScaleRatioA, 1f);
-            fontAsset.material.SetFloat(ScaleRatioC, 1f);
-            EditorUtility.SetDirty(fontAsset.material);
-            AssetDatabase.SaveAssetIfDirty(fontAsset.material);
         }
 
         private static TMP_FontAsset LoadFont(string assetPath)
