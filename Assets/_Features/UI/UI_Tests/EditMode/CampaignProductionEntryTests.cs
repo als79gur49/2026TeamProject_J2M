@@ -363,17 +363,30 @@ namespace Game.Feature.UI.Tests
             var sceneLoader = new FakeSceneLoadPort();
             try
             {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 var stageId = StageId.CreateOrThrow("stage-0-1");
+                Assert.That(
+                    CampaignLaunchHandoffSessionStore.Instance.TryBegin(
+                        1,
+                        stageId,
+                        StageNavigationKind.Continue,
+                        "test",
+                        out var handoff),
+                    Is.True);
                 new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(
                     new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test"));
 
                 Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
                 Assert.That(current, Is.EqualTo(stageId));
+                Assert.That(StageLaunchContextStore.TryPeek(out var context), Is.True);
+                Assert.That(context.Matches(handoff), Is.True);
                 Assert.That(sceneLoader.LoadedScenes, Is.EqualTo(new[] { "UIAudioScene" }));
             }
             finally
             {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
                 UnityEngine.Object.DestroyImmediate(routeConfig);
             }
         }
@@ -408,6 +421,48 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(handoffStore.TryPeek(out _), Is.False);
                 Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+            }
+            finally
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [Test]
+        public void ConfiguredGameplayStageLaunchRouter_DuplicateExactRoute_DoesNotStartSecondLoadOrClearOriginalOwners()
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var sceneLoader = new FakeSceneLoadPort();
+            var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            try
+            {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
+                StageLaunchContextStore.Clear();
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                var request = new StageNavigationRequest(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Continue,
+                    "duplicate-exact-route");
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        request.StageId,
+                        request.NavigationKind,
+                        request.Source,
+                        out var handoff),
+                    Is.True);
+                var router = new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader);
+
+                router.Launch(request);
+                Assert.Throws<InvalidOperationException>(() => router.Launch(request));
+
+                Assert.That(sceneLoader.LoadedScenes.Count, Is.EqualTo(1));
+                Assert.That(StageLaunchContextStore.TryPeek(out var currentContext), Is.True);
+                Assert.That(currentContext.Matches(handoff), Is.True);
+                Assert.That(handoffStore.TryPeek(out var currentHandoff), Is.True);
+                Assert.That(currentHandoff, Is.SameAs(handoff));
             }
             finally
             {
@@ -626,6 +681,61 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void CurrentSceneStageLaunchRouter_GuardRejection_IsSurfaced()
+        {
+            var result = RunCurrentSceneGuardRejection(injectPendingDuringAttempt: false);
+
+            Assert.That(result.Exception, Is.TypeOf<InvalidOperationException>());
+        }
+
+        [Test]
+        public void CurrentSceneStageLaunchRouter_GuardRejection_DoesNotStartLoad()
+        {
+            var result = RunCurrentSceneGuardRejection(injectPendingDuringAttempt: false);
+
+            Assert.That(result.TransitionAttemptCount, Is.EqualTo(1));
+            Assert.That(result.LoadStartCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CurrentSceneStageLaunchRouter_GuardRejection_DoesNotWriteOrClearContext()
+        {
+            var result = RunCurrentSceneGuardRejection(injectPendingDuringAttempt: false);
+
+            Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(result.OriginalContext));
+        }
+
+        [Test]
+        public void CurrentSceneStageLaunchRouter_GuardRejection_DoesNotClearPending()
+        {
+            var result = RunCurrentSceneGuardRejection(injectPendingDuringAttempt: true);
+
+            Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryPeek(out var pending), Is.True);
+            Assert.That(pending, Is.SameAs(result.PendingCreatedDuringAttempt));
+        }
+
+        [Test]
+        public void CurrentSceneStageLaunchRouter_AcceptedRoute_ReturnsNormally()
+        {
+            var transitionAttemptCount = 0;
+            var router = new CurrentSceneStageLaunchRouter(
+                "UIAudioScene",
+                sceneLoadPort: null,
+                tryStartStageTransition: (_, __) =>
+                {
+                    transitionAttemptCount++;
+                    return true;
+                });
+
+            Assert.DoesNotThrow(() => router.Launch(new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-0-1"),
+                StageNavigationKind.Retry,
+                "stage-result-retry")));
+            Assert.That(transitionAttemptCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void MinimumVisible_StartsAfterOverlayVisible()
         {
             var profile = new StageTransitionProfile(
@@ -690,7 +800,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TransitionGuardRejection_ClearsMatchingPendingWithoutOverwritingStageContext()
+        public void TransitionGuardRejection_PreservesPendingAndDoesNotOverwriteStageContext()
         {
             CampaignLaunchHandoffSessionStore.ResetForTests();
             var coordinatorObject = new GameObject("Coordinator");
@@ -727,7 +837,8 @@ namespace Game.Feature.UI.Tests
                     handoff.Token);
 
                 Assert.That(accepted, Is.False);
-                Assert.That(handoffStore.TryPeek(out _), Is.False);
+                Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
+                Assert.That(stillPending, Is.SameAs(handoff));
                 Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(firstStage));
             }
             finally
@@ -818,6 +929,55 @@ namespace Game.Feature.UI.Tests
                 controller);
         }
 
+        private static CurrentSceneGuardRejectionResult RunCurrentSceneGuardRejection(
+            bool injectPendingDuringAttempt)
+        {
+            StageLaunchContextStore.Clear();
+            CampaignLaunchHandoffSessionStore.ResetForTests();
+            var originalContext = new StageLaunchContext(
+                Guid.NewGuid(),
+                1,
+                StageId.CreateOrThrow("stage-0-2"),
+                StageNavigationKind.Continue,
+                "existing-owner");
+            Assert.That(StageLaunchContextStore.TrySetCurrent(originalContext), Is.True);
+            var transitionAttemptCount = 0;
+            var loadStartCount = 0;
+            CampaignLaunchHandoff pendingCreatedDuringAttempt = null;
+            var router = new CurrentSceneStageLaunchRouter(
+                "UIAudioScene",
+                sceneLoadPort: null,
+                tryStartStageTransition: (_, __) =>
+                {
+                    transitionAttemptCount++;
+                    if (injectPendingDuringAttempt)
+                    {
+                        Assert.That(
+                            CampaignLaunchHandoffSessionStore.Instance.TryBegin(
+                                1,
+                                StageId.CreateOrThrow("stage-0-1"),
+                                StageNavigationKind.Continue,
+                                "concurrent-owner",
+                                out pendingCreatedDuringAttempt),
+                            Is.True);
+                    }
+
+                    return false;
+                });
+
+            var exception = Assert.Throws<InvalidOperationException>(() => router.Launch(
+                new StageNavigationRequest(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Retry,
+                    "stage-result-retry")));
+            return new CurrentSceneGuardRejectionResult(
+                exception,
+                originalContext,
+                pendingCreatedDuringAttempt,
+                transitionAttemptCount,
+                loadStartCount);
+        }
+
         private static ProviderHarness CreateProvider(params string[] stageIds)
         {
             var catalog = ScriptableObject.CreateInstance<StageCatalog>();
@@ -865,11 +1025,20 @@ namespace Game.Feature.UI.Tests
             var localLaunchStateBackup = FileBackup.Capture(ProductionLocalLaunchStatePath());
             try
             {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
                 CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 PrepareProductionDefaultSlot(stageId, remainingChances: 2);
                 EditorDirectPlayContextStore.SetCurrent(staleContext);
                 Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
+                Assert.That(
+                    CampaignLaunchHandoffSessionStore.Instance.TryBegin(
+                        1,
+                        stageId,
+                        StageNavigationKind.Continue,
+                        "test",
+                        out _),
+                    Is.True);
 
                 var sceneLoader = new FakeSceneLoadPort(sceneName =>
                 {
@@ -889,6 +1058,7 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
                 CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 localLaunchStateBackup.Restore();
                 profileFileBackup.Restore();
@@ -917,11 +1087,20 @@ namespace Game.Feature.UI.Tests
             var localLaunchStateBackup = FileBackup.Capture(ProductionLocalLaunchStatePath());
             try
             {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
                 CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
                 PrepareProductionDefaultSlot(stageId, remainingChances: 2);
                 EditorDirectPlayContextStore.SetCurrent(staleContext);
                 Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
+                Assert.That(
+                    CampaignLaunchHandoffSessionStore.Instance.TryBegin(
+                        1,
+                        stageId,
+                        StageNavigationKind.Continue,
+                        "test",
+                        out _),
+                    Is.True);
 
                 var sceneLoader = new FakeSceneLoadPort();
                 new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(
@@ -967,6 +1146,7 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                CampaignLaunchHandoffSessionStore.ResetForTests();
                 CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 localLaunchStateBackup.Restore();
                 profileFileBackup.Restore();
@@ -1122,6 +1302,29 @@ namespace Game.Feature.UI.Tests
                 _completion?.Invoke(confirmed);
                 _completion = null;
             }
+        }
+
+        private readonly struct CurrentSceneGuardRejectionResult
+        {
+            public CurrentSceneGuardRejectionResult(
+                Exception exception,
+                StageLaunchContext originalContext,
+                CampaignLaunchHandoff pendingCreatedDuringAttempt,
+                int transitionAttemptCount,
+                int loadStartCount)
+            {
+                Exception = exception;
+                OriginalContext = originalContext;
+                PendingCreatedDuringAttempt = pendingCreatedDuringAttempt;
+                TransitionAttemptCount = transitionAttemptCount;
+                LoadStartCount = loadStartCount;
+            }
+
+            public Exception Exception { get; }
+            public StageLaunchContext OriginalContext { get; }
+            public CampaignLaunchHandoff PendingCreatedDuringAttempt { get; }
+            public int TransitionAttemptCount { get; }
+            public int LoadStartCount { get; }
         }
 
         private sealed class FakeStageLaunchRouter : IStageLaunchRouter

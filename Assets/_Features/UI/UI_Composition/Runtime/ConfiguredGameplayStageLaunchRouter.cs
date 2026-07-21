@@ -33,6 +33,7 @@ namespace Game.Feature.UI.Composition
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             CampaignLaunchHandoff launchHandoff = null;
+            StageLaunchContext launchContext;
             if (launchHandoffStore.TryPeek(out var pendingHandoff))
             {
                 if (!pendingHandoff.Matches(request))
@@ -42,6 +43,17 @@ namespace Game.Feature.UI.Composition
                 }
 
                 launchHandoff = pendingHandoff;
+                launchContext = StageLaunchContext.FromHandoff(pendingHandoff);
+            }
+            else
+            {
+                if (!CampaignPendinglessLaunchPolicy.IsAllowed(request))
+                {
+                    throw new InvalidOperationException(
+                        "Configured gameplay launch without a pending handoff is restricted to committed retry/next-stage routes.");
+                }
+
+                launchContext = StageLaunchContext.CreatePendinglessReload(request);
             }
 
             if (_sceneLoadPort != null)
@@ -54,17 +66,41 @@ namespace Game.Feature.UI.Composition
                     LaunchStageId = request.StageId.Value,
                     EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
                 });
+                var contextRegisteredByThisAttempt = false;
                 try
                 {
-                    StageLaunchContextStore.SetCurrent(request.StageId);
-                    _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
+                    if (!StageLaunchContextStore.TrySetCurrent(launchContext))
+                    {
+                        throw new InvalidOperationException(
+                            "A different stage launch operation already owns the context.");
+                    }
+
+                    contextRegisteredByThisAttempt = true;
+                    if (_sceneLoadPort is ICallbackSceneLoadPort callbackPort)
+                    {
+                        var terminal = new StageLoadCallbackOwnership(
+                            launchContext,
+                            launchHandoff,
+                            launchHandoffStore);
+                        callbackPort.LoadScene(
+                            _routeConfig.GameplayShellSceneName,
+                            () => terminal.CompleteSuccess(),
+                            exception => terminal.CompleteFailure(exception));
+                    }
+                    else
+                    {
+                        _sceneLoadPort.LoadScene(_routeConfig.GameplayShellSceneName);
+                    }
                 }
                 catch
                 {
-                    StageLaunchContextStore.TryClearCurrent(request.StageId);
-                    if (launchHandoff != null)
+                    if (contextRegisteredByThisAttempt)
                     {
-                        launchHandoffStore.TryClear(launchHandoff.Token);
+                        StageLaunchContextStore.TryClear(launchContext);
+                        if (launchHandoff != null)
+                        {
+                            launchHandoffStore.TryClear(launchHandoff.Token);
+                        }
                     }
 
                     throw;
@@ -102,17 +138,27 @@ namespace Game.Feature.UI.Composition
                 LaunchStageId = request.StageId.Value,
                 EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
             });
+            var fallbackContextRegisteredByThisAttempt = false;
             try
             {
-                StageLaunchContextStore.SetCurrent(request.StageId);
+                if (!StageLaunchContextStore.TrySetCurrent(launchContext))
+                {
+                    throw new InvalidOperationException(
+                        "A different stage launch operation already owns the context.");
+                }
+
+                fallbackContextRegisteredByThisAttempt = true;
                 UnitySceneLoadPort.Instance.LoadScene(_routeConfig.GameplayShellSceneName);
             }
             catch
             {
-                StageLaunchContextStore.TryClearCurrent(request.StageId);
-                if (launchHandoff != null)
+                if (fallbackContextRegisteredByThisAttempt)
                 {
-                    launchHandoffStore.TryClear(launchHandoff.Token);
+                    StageLaunchContextStore.TryClear(launchContext);
+                    if (launchHandoff != null)
+                    {
+                        launchHandoffStore.TryClear(launchHandoff.Token);
+                    }
                 }
 
                 throw;

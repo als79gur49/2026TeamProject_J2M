@@ -25,6 +25,7 @@ namespace Game.Feature.UI.Composition
         private ISceneTransitionOverlayShellView _overlayShell;
         private IUiAudioPort _uiAudioPort;
         private Guid? _currentCampaignLaunchToken;
+        private StageLaunchContext _currentLaunchContext;
 
         public static SceneTransitionCoordinator Instance
         {
@@ -62,6 +63,7 @@ namespace Game.Feature.UI.Composition
             }
 
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
+            StageLaunchContext launchContext;
             if (launchHandoffStore.TryPeek(out var pendingHandoff))
             {
                 if (!campaignLaunchToken.HasValue ||
@@ -75,10 +77,21 @@ namespace Game.Feature.UI.Composition
                     launchHandoffStore.TryClear(campaignLaunchToken.Value);
                     return false;
                 }
+
+                launchContext = StageLaunchContext.FromHandoff(pendingHandoff);
             }
             else if (campaignLaunchToken.HasValue)
             {
                 return false;
+            }
+            else
+            {
+                if (!CampaignPendinglessLaunchPolicy.IsAllowed(request))
+                {
+                    return false;
+                }
+
+                launchContext = StageLaunchContext.CreatePendinglessReload(request);
             }
 
             return TryStartTransition(
@@ -86,7 +99,12 @@ namespace Game.Feature.UI.Composition
                 targetSceneName,
                 beforeLoad: () =>
                 {
-                    StageLaunchContextStore.SetCurrent(request.StageId);
+                    if (!StageLaunchContextStore.TrySetCurrent(launchContext))
+                    {
+                        throw new InvalidOperationException(
+                            "A different stage launch operation already owns the context.");
+                    }
+
                     CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
                     {
                         SceneName = targetSceneName,
@@ -96,7 +114,8 @@ namespace Game.Feature.UI.Composition
                         EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
                     });
                 },
-                campaignLaunchToken);
+                campaignLaunchToken,
+                launchContext);
         }
 
         public bool TryStartMainMenuReturn(string targetSceneName)
@@ -109,7 +128,8 @@ namespace Game.Feature.UI.Composition
                     StageTransitionHint.ForKind(StageTransitionKind.GameplayToMain)),
                 targetSceneName,
                 beforeLoad: StageLaunchContextStore.Clear,
-                campaignLaunchToken: null);
+                campaignLaunchToken: null,
+                launchContext: null);
         }
 
         private void Awake()
@@ -130,7 +150,8 @@ namespace Game.Feature.UI.Composition
             StageNavigationRequest request,
             string targetSceneName,
             Action beforeLoad,
-            Guid? campaignLaunchToken)
+            Guid? campaignLaunchToken,
+            StageLaunchContext launchContext)
         {
             if (string.IsNullOrWhiteSpace(targetSceneName))
             {
@@ -141,12 +162,6 @@ namespace Game.Feature.UI.Composition
             var profile = _profileResolver.Resolve(request, fromSceneName, targetSceneName);
             if (!_guard.TryBegin(out var transitionId))
             {
-                if (campaignLaunchToken.HasValue &&
-                    _currentCampaignLaunchToken != campaignLaunchToken)
-                {
-                    CampaignLaunchHandoffSessionStore.Instance.TryClear(campaignLaunchToken.Value);
-                }
-
                 Debug.LogWarning(
                     $"Ignoring scene transition to '{targetSceneName}' because transition {_guard.CurrentTransitionId} is already in progress.",
                     this);
@@ -154,9 +169,11 @@ namespace Game.Feature.UI.Composition
             }
 
             _currentCampaignLaunchToken = campaignLaunchToken;
+            _currentLaunchContext = null;
             try
             {
                 beforeLoad?.Invoke();
+                _currentLaunchContext = launchContext;
                 var shell = EnsureOverlayShell();
                 shell.HideAll();
                 if (profile.BlockInputDuringPreOverlayDelay)
@@ -169,15 +186,17 @@ namespace Game.Feature.UI.Composition
                     request,
                     targetSceneName,
                     profile,
-                    campaignLaunchToken));
+                    campaignLaunchToken,
+                    launchContext));
                 return true;
             }
             catch
             {
-                ClearFailedCampaignLaunch(request.StageId, campaignLaunchToken);
+                ClearFailedCampaignLaunch(_currentLaunchContext, campaignLaunchToken);
                 TryHideOverlay();
                 _guard.Complete(transitionId);
                 _currentCampaignLaunchToken = null;
+                _currentLaunchContext = null;
                 throw;
             }
         }
@@ -187,7 +206,8 @@ namespace Game.Feature.UI.Composition
             StageNavigationRequest request,
             string targetSceneName,
             StageTransitionProfile profile,
-            Guid? campaignLaunchToken)
+            Guid? campaignLaunchToken,
+            StageLaunchContext launchContext)
         {
             var state = new TransitionExecutionState();
             var routine = RunTransitionCore(request, targetSceneName, profile, state);
@@ -204,7 +224,12 @@ namespace Game.Feature.UI.Composition
                     }
                     catch
                     {
-                        ClearFailedCampaignLaunch(request.StageId, campaignLaunchToken);
+                        if (!state.TerminalClaimed)
+                        {
+                            state.TerminalClaimed = true;
+                            ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
+                        }
+
                         throw;
                     }
 
@@ -229,6 +254,13 @@ namespace Game.Feature.UI.Composition
                 if (_currentCampaignLaunchToken == campaignLaunchToken)
                 {
                     _currentCampaignLaunchToken = null;
+                }
+
+                if (_currentLaunchContext != null &&
+                    launchContext != null &&
+                    _currentLaunchContext.Equals(launchContext))
+                {
+                    _currentLaunchContext = null;
                 }
             }
         }
@@ -295,17 +327,46 @@ namespace Game.Feature.UI.Composition
         private sealed class TransitionExecutionState
         {
             public AsyncOperation Operation;
+            public bool TerminalClaimed;
         }
 
         private static void ClearFailedCampaignLaunch(
-            StageId stageId,
+            StageLaunchContext launchContext,
             Guid? campaignLaunchToken)
         {
-            StageLaunchContextStore.TryClearCurrent(stageId);
+            if (launchContext != null)
+            {
+                StageLaunchContextStore.TryClear(launchContext);
+            }
+
             if (campaignLaunchToken.HasValue)
             {
-                CampaignLaunchHandoffSessionStore.Instance.TryClear(campaignLaunchToken.Value);
+                var handoffStore = CampaignLaunchHandoffSessionStore.Instance;
+                if (handoffStore.TryPeek(out var currentHandoff) &&
+                    launchContext != null &&
+                    launchContext.Matches(currentHandoff))
+                {
+                    handoffStore.TryClear(campaignLaunchToken.Value);
+                }
             }
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance != this)
+            {
+                return;
+            }
+
+            ClearFailedCampaignLaunch(_currentLaunchContext, _currentCampaignLaunchToken);
+            if (_guard.IsTransitionInProgress)
+            {
+                _guard.Complete(_guard.CurrentTransitionId);
+            }
+
+            _currentLaunchContext = null;
+            _currentCampaignLaunchToken = null;
+            _instance = null;
         }
 
         private static AsyncOperation BeginLoad(string targetSceneName)

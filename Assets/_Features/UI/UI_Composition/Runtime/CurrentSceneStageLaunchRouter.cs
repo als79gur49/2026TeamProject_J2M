@@ -7,11 +7,16 @@ namespace Game.Feature.UI.Composition
     {
         private readonly ISceneLoadPort _sceneLoadPort;
         private readonly string _sceneName;
+        private readonly Func<StageNavigationRequest, string, bool> _tryStartStageTransition;
 
-        public CurrentSceneStageLaunchRouter(string sceneName, ISceneLoadPort sceneLoadPort = null)
+        public CurrentSceneStageLaunchRouter(
+            string sceneName,
+            ISceneLoadPort sceneLoadPort = null,
+            Func<StageNavigationRequest, string, bool> tryStartStageTransition = null)
         {
             _sceneName = sceneName ?? string.Empty;
             _sceneLoadPort = sceneLoadPort;
+            _tryStartStageTransition = tryStartStageTransition;
         }
 
         public bool IsLaunchInProgress =>
@@ -31,25 +36,71 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            if (CampaignLaunchHandoffSessionStore.Instance.TryPeek(out _))
+            {
+                throw new InvalidOperationException(
+                    "Current-scene reload cannot run while a normal campaign handoff is pending.");
+            }
+
+            if (!CampaignPendinglessLaunchPolicy.IsAllowed(request))
+            {
+                throw new InvalidOperationException(
+                    "Current-scene launch is restricted to committed retry/next-stage routes.");
+            }
+
+            var launchContext = StageLaunchContext.CreatePendinglessReload(request);
+
             if (_sceneLoadPort != null)
             {
+                var contextRegisteredByThisAttempt = false;
                 try
                 {
-                    StageLaunchContextStore.SetCurrent(request.StageId);
-                    _sceneLoadPort.LoadScene(_sceneName);
+                    if (!StageLaunchContextStore.TrySetCurrent(launchContext))
+                    {
+                        throw new InvalidOperationException(
+                            "A different stage launch operation already owns the context.");
+                    }
+
+                    contextRegisteredByThisAttempt = true;
+                    if (_sceneLoadPort is ICallbackSceneLoadPort callbackPort)
+                    {
+                        var terminal = new StageLoadCallbackOwnership(
+                            launchContext,
+                            capturedHandoff: null,
+                            CampaignLaunchHandoffSessionStore.Instance);
+                        callbackPort.LoadScene(
+                            _sceneName,
+                            () => terminal.CompleteSuccess(),
+                            exception => terminal.CompleteFailure(exception));
+                    }
+                    else
+                    {
+                        _sceneLoadPort.LoadScene(_sceneName);
+                    }
                 }
                 catch
                 {
-                    StageLaunchContextStore.TryClearCurrent(request.StageId);
+                    if (contextRegisteredByThisAttempt)
+                    {
+                        StageLaunchContextStore.TryClear(launchContext);
+                    }
+
                     throw;
                 }
 
                 return;
             }
 
-            if (UnityEngine.Application.isPlaying)
+            if (_tryStartStageTransition != null || UnityEngine.Application.isPlaying)
             {
-                SceneTransitionCoordinator.Instance.TryStartStageTransition(request, _sceneName);
+                var accepted = _tryStartStageTransition != null
+                    ? _tryStartStageTransition(request, _sceneName)
+                    : SceneTransitionCoordinator.Instance.TryStartStageTransition(request, _sceneName);
+                if (!accepted)
+                {
+                    throw new InvalidOperationException(
+                        "Current-scene gameplay launch was rejected before the scene transition started.");
+                }
             }
         }
     }
