@@ -602,6 +602,24 @@ namespace Game.Feature.UI.Composition.Editor
                     string.Empty,
                     SettingsSectionId.Input);
                 view.Bind(viewModel);
+                var inputViewModel = new SettingsInputViewModel();
+                inputViewModel.SetContent(
+                    string.Empty,
+                    string.Empty,
+                    false,
+                    "WASD",
+                    string.Empty,
+                    "E",
+                    string.Empty,
+                    string.Empty,
+                    "Q",
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    false,
+                    null,
+                    true);
+                view.InputView.Bind(inputViewModel);
                 view.SetIsCurrent(true);
                 ValidateLocalizedText(
                     target,
@@ -611,6 +629,7 @@ namespace Game.Feature.UI.Composition.Editor
                     prefabRoot);
                 return new DisposableAction(() =>
                 {
+                    view.InputView.Bind(null);
                     view.Bind(null);
                     view.UnbindStaticLocalization();
                     scope.Dispose();
