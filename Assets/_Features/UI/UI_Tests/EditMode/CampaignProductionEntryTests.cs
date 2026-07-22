@@ -529,6 +529,48 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ProductionSaveComposition_WiresPersistentDataRepositories_WithoutWritingSaveRoot()
+        {
+            var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
+            var expectedRoot = Path.Combine(
+                UnityEngine.Application.persistentDataPath,
+                ApplicationPersistentDataSavePathProvider.SavesDirectoryName);
+            var before = CaptureFileSetSnapshot(expectedRoot);
+
+            Assert.That(options.PathProvider, Is.TypeOf<ApplicationPersistentDataSavePathProvider>());
+            Assert.That(options.PathProvider.SaveRootPath, Is.EqualTo(expectedRoot));
+
+            var profileServices = CampaignSaveServiceFactory.CreateForTests(
+                new CampaignSaveServiceFactoryOptions
+                {
+                    PathProvider = options.PathProvider,
+                    ProductVersion = options.ProductVersion,
+                    ProfileId = options.ProfileId,
+                    UtcNow = options.UtcNow,
+                    EnableProfileWrite = options.EnableProfileWrite,
+                    AllowLegacyImport = options.AllowLegacyImport,
+                    LegacyCampaignSourceKey = options.LegacyCampaignSourceKey,
+                    LegacyActiveSlotKey = options.LegacyActiveSlotKey,
+                    LegacyImportMarkerStore = options.LegacyImportMarkerStore,
+                    CreateCompatibilityAdapter = true,
+                });
+            var localStateRepository = new FileCampaignLocalLaunchStateRepository(
+                new AtomicTextFileStore(options.PathProvider.SaveRootPath));
+
+            Assert.That(profileServices.TextFileStore, Is.TypeOf<AtomicTextFileStore>());
+            Assert.That(profileServices.Repository, Is.TypeOf<FileCampaignProfileRepository>());
+            Assert.That(localStateRepository, Is.TypeOf<FileCampaignLocalLaunchStateRepository>());
+
+            var compositionSource = ReadRepoFile(
+                "Assets/_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
+            Assert.That(compositionSource, Does.Contain("new ApplicationPersistentDataSavePathProvider()"));
+            Assert.That(compositionSource, Does.Contain("new FileCampaignLocalLaunchStateRepository("));
+            Assert.That(compositionSource, Does.Contain("new AtomicTextFileStore(pathProvider.SaveRootPath)"));
+
+            AssertFileSetSnapshotEqual(before, CaptureFileSetSnapshot(expectedRoot));
+        }
+
+        [Test]
         [Category("Full")]
         public void ProductionMainMenuLaunch_WithStaleCampaignTempDirectPlayContext_InjectsChanceReadSource()
         {
@@ -1017,18 +1059,10 @@ namespace Game.Feature.UI.Tests
         {
             var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
             var stageId = StageId.CreateOrThrow("stage-0-1");
-            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
-            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
-            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
-            var profileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json"));
-            var profileFileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json.bak"));
-            var localLaunchStateBackup = FileBackup.Capture(ProductionLocalLaunchStatePath());
             try
             {
                 CampaignLaunchHandoffSessionStore.ResetForTests();
-                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
-                PrepareProductionDefaultSlot(stageId, remainingChances: 2);
                 EditorDirectPlayContextStore.SetCurrent(staleContext);
                 Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
                 Assert.That(
@@ -1059,12 +1093,6 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 CampaignLaunchHandoffSessionStore.ResetForTests();
-                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
-                localLaunchStateBackup.Restore();
-                profileFileBackup.Restore();
-                profileBackup.Restore();
-                saveBackup.Restore();
-                activeBackup.Restore();
                 UnityEngine.Object.DestroyImmediate(routeConfig);
             }
         }
@@ -1075,22 +1103,13 @@ namespace Game.Feature.UI.Tests
             var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
             var installerObject = new GameObject("ProductionMainMenuLaunch_WithStaleDirectPlayContext_InjectsChanceReadSource");
             var stageId = StageId.CreateOrThrow(CombinedStageId);
-            var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
-            var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
-            var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
-            var importDisabledBackup = PlayerPrefsIntBackup.Capture(CampaignLegacyImportMarkerStore.ImportDisabledKey);
-            var importedSourceHashBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.ImportedSourceHashKey);
-            var resetTombstoneBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.ResetTombstoneUtcKey);
-            var deletedSlotGuardsBackup = PlayerPrefsStringBackup.Capture(CampaignLegacyImportMarkerStore.DeletedSlotGuardsKey);
-            var profileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json"));
-            var profileFileBackup = FileBackup.Capture(Path.Combine(UnityEngine.Application.persistentDataPath, "Saves", "profile.json.bak"));
-            var localLaunchStateBackup = FileBackup.Capture(ProductionLocalLaunchStatePath());
+            var saveHarness = new TemporaryProductionSaveHarness();
+            var tempTestRoot = saveHarness.TestRootPath;
             try
             {
                 CampaignLaunchHandoffSessionStore.ResetForTests();
-                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
                 routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
-                PrepareProductionDefaultSlot(stageId, remainingChances: 2);
+                saveHarness.PrepareDefaultSlot(stageId, remainingChances: 2);
                 EditorDirectPlayContextStore.SetCurrent(staleContext);
                 Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(staleContext.Mode));
                 Assert.That(
@@ -1115,6 +1134,7 @@ namespace Game.Feature.UI.Tests
                 DisableAutoCreateViews(installer);
                 AssignStageCatalogProvider(installer);
                 AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveHarness.SaveStore, saveHarness.ActiveSlotProvider);
                 var configuration = BuildConfiguration(installer);
 
                 Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
@@ -1147,47 +1167,32 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 CampaignLaunchHandoffSessionStore.ResetForTests();
-                CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
-                localLaunchStateBackup.Restore();
-                profileFileBackup.Restore();
-                profileBackup.Restore();
-                saveBackup.Restore();
-                activeBackup.Restore();
-                importDisabledBackup.Restore();
-                importedSourceHashBackup.Restore();
-                resetTombstoneBackup.Restore();
-                deletedSlotGuardsBackup.Restore();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
                 EditorDirectPlayContextStore.ClearTempDirectPlaySave();
                 UnityEngine.Object.DestroyImmediate(installerObject);
                 UnityEngine.Object.DestroyImmediate(routeConfig);
+                saveHarness.Dispose();
+                Assert.That(Directory.Exists(tempTestRoot), Is.False, tempTestRoot);
             }
         }
 
-        private static void PrepareProductionDefaultSlot(StageId stageId, int remainingChances)
+        private static void AssignCampaignStores(
+            StageBackedGameplaySceneInstaller installer,
+            ICampaignSaveSlotStore saveStore,
+            ActiveSlotProvider activeSlotProvider)
         {
-            var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
-            var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveStore);
-            saveStore.ClearAll();
-            activeSlotProvider.ClearActiveSlot();
-            saveStore.SaveSlot(new SaveSlotData
-            {
-                SlotNumber = 1,
-                CurrentStageId = stageId,
-                CurrentLevelGroupId = "level-01",
-                RemainingChances = remainingChances,
-                LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
-            activeSlotProvider.SetActiveSlot(1);
-        }
+            var saveStoreField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
+                "_saveSlotStore",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(saveStoreField, Is.Not.Null);
+            saveStoreField.SetValue(installer, saveStore);
 
-        private static string ProductionLocalLaunchStatePath()
-        {
-            return Path.Combine(
-                UnityEngine.Application.persistentDataPath,
-                "Saves",
-                CampaignLocalLaunchStateRepository.FileName);
+            var activeSlotProviderField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
+                "_activeSlotProvider",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(activeSlotProviderField, Is.Not.Null);
+            activeSlotProviderField.SetValue(installer, activeSlotProvider);
         }
 
         private static void AssignStageCatalogProvider(StageBackedGameplaySceneInstaller installer)
@@ -1288,6 +1293,38 @@ namespace Game.Feature.UI.Tests
             return (T)field.GetValue(target);
         }
 
+        private static Dictionary<string, byte[]> CaptureFileSetSnapshot(string rootPath)
+        {
+            var snapshot = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            if (!Directory.Exists(rootPath))
+            {
+                return snapshot;
+            }
+
+            var rootPrefix = rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                             Path.DirectorySeparatorChar;
+            foreach (var filePath in Directory.GetFiles(rootPath, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = filePath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)
+                    ? filePath.Substring(rootPrefix.Length)
+                    : filePath;
+                snapshot[relativePath.Replace('\\', '/')] = File.ReadAllBytes(filePath);
+            }
+
+            return snapshot;
+        }
+
+        private static void AssertFileSetSnapshotEqual(
+            IReadOnlyDictionary<string, byte[]> expected,
+            IReadOnlyDictionary<string, byte[]> actual)
+        {
+            Assert.That(actual.Keys, Is.EquivalentTo(expected.Keys));
+            foreach (var pair in expected)
+            {
+                Assert.That(actual[pair.Key], Is.EqualTo(pair.Value), pair.Key);
+            }
+        }
+
         private sealed class FakeConfirmPopupPort : IConfirmPopupPort
         {
             private Action<bool> _completion;
@@ -1358,110 +1395,140 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private readonly struct PlayerPrefsStringBackup
+        private sealed class TemporaryProductionSaveHarness : IDisposable
         {
-            private readonly bool _hadValue;
-            private readonly string _key;
-            private readonly string _value;
+            private readonly IAtomicTextFileStore _localStateTextFileStore;
+            private readonly string[] _playerPrefsKeys;
+            private readonly IAtomicTextFileStore _profileTextFileStore;
 
-            private PlayerPrefsStringBackup(string key, bool hadValue, string value)
+            public TemporaryProductionSaveHarness()
             {
-                _key = key;
-                _hadValue = hadValue;
-                _value = value;
+                var id = Guid.NewGuid().ToString("N");
+                TestRootPath = Path.Combine("Temp", "CampaignProductionEntryTests", id);
+                SaveRootPath = Path.Combine(TestRootPath, "Saves");
+                var keyPrefix = "Game.Feature.UI.Tests.CampaignProductionEntry." + id;
+                _playerPrefsKeys = new[]
+                {
+                    keyPrefix + ".LegacyCampaign",
+                    keyPrefix + ".LegacyActive",
+                    keyPrefix + ".ImportDisabled",
+                    keyPrefix + ".ImportedSourceHash",
+                    keyPrefix + ".ResetTombstoneUtc",
+                    keyPrefix + ".DeletedSlotGuards",
+                };
+
+                var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
+                options.PathProvider = new TemporarySavePathProvider(SaveRootPath);
+                options.AllowLegacyImport = false;
+                options.LegacyCampaignSourceKey = _playerPrefsKeys[0];
+                options.LegacyActiveSlotKey = _playerPrefsKeys[1];
+                options.LegacyImportMarkerStore = new CampaignLegacyImportMarkerStore(
+                    _playerPrefsKeys[2],
+                    _playerPrefsKeys[3],
+                    _playerPrefsKeys[4],
+                    _playerPrefsKeys[5]);
+
+                var facade = CampaignSaveFacadeFactory.Create(options);
+                SaveStore = facade.CampaignSaveSlots;
+                _profileTextFileStore = facade.ProfileServices.TextFileStore;
+                _localStateTextFileStore = new AtomicTextFileStore(SaveRootPath);
+                var activeSlotStorage = new LocalStateActiveSlotStorage(
+                    new FileCampaignLocalLaunchStateRepository(_localStateTextFileStore),
+                    new PlayerPrefsActiveSlotStorage(_playerPrefsKeys[1]),
+                    SaveStore);
+                ActiveSlotProvider = new ActiveSlotProvider(activeSlotStorage);
             }
 
-            public static PlayerPrefsStringBackup Capture(string key)
+            public string TestRootPath { get; }
+
+            public string SaveRootPath { get; }
+
+            public ICampaignSaveSlotStore SaveStore { get; }
+
+            public ActiveSlotProvider ActiveSlotProvider { get; }
+
+            public void PrepareDefaultSlot(StageId stageId, int remainingChances)
             {
-                return new PlayerPrefsStringBackup(
-                    key,
-                    PlayerPrefs.HasKey(key),
-                    PlayerPrefs.GetString(key, string.Empty));
+                var originalSlot = new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = stageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = remainingChances,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                };
+
+                SaveStore.ClearAll();
+                ActiveSlotProvider.ClearActiveSlot();
+                SaveStore.SaveSlot(originalSlot);
+                ActiveSlotProvider.SetActiveSlot(1);
+
+                Assert.That(SaveStore.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
+                Assert.That(ActiveSlotProvider.TryGetActiveSlotNumber(out var activeSlot), Is.True);
+                Assert.That(activeSlot, Is.EqualTo(1));
+                AssertExpectedFileSet();
+
+                SaveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = stageId,
+                    CurrentLevelGroupId = "level-01",
+                    RemainingChances = remainingChances - 1,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                Assert.That(
+                    _profileTextFileStore.TryRestoreBackup(FileCampaignProfileRepository.ProfileFileName),
+                    Is.True);
+                Assert.That(SaveStore.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
+
+                ActiveSlotProvider.ClearActiveSlot();
+                Assert.That(
+                    _localStateTextFileStore.TryRestoreBackup(CampaignLocalLaunchStateRepository.FileName),
+                    Is.True);
+                Assert.That(ActiveSlotProvider.TryGetActiveSlotNumber(out activeSlot), Is.True);
+                Assert.That(activeSlot, Is.EqualTo(1));
+                AssertExpectedFileSet();
             }
 
-            public void Restore()
+            public void Dispose()
             {
-                if (_hadValue)
+                for (var i = 0; i < _playerPrefsKeys.Length; i++)
                 {
-                    PlayerPrefs.SetString(_key, _value);
-                }
-                else
-                {
-                    PlayerPrefs.DeleteKey(_key);
+                    PlayerPrefs.DeleteKey(_playerPrefsKeys[i]);
                 }
 
                 PlayerPrefs.Save();
+                if (Directory.Exists(TestRootPath))
+                {
+                    Directory.Delete(TestRootPath, recursive: true);
+                }
+            }
+
+            private void AssertExpectedFileSet()
+            {
+                var actual = Directory.GetFiles(SaveRootPath, "*", SearchOption.TopDirectoryOnly);
+                for (var i = 0; i < actual.Length; i++)
+                {
+                    actual[i] = Path.GetFileName(actual[i]);
+                }
+
+                Assert.That(
+                    actual,
+                    Is.EquivalentTo(new[]
+                    {
+                        FileCampaignProfileRepository.ProfileFileName,
+                        FileCampaignProfileRepository.ProfileFileName + ".bak",
+                        CampaignLocalLaunchStateRepository.FileName,
+                        CampaignLocalLaunchStateRepository.FileName + ".bak",
+                    }));
             }
         }
 
-        private readonly struct PlayerPrefsIntBackup
+        private sealed class TemporarySavePathProvider : SavePathProviderBase
         {
-            private readonly bool _hadValue;
-            private readonly string _key;
-            private readonly int _value;
-
-            private PlayerPrefsIntBackup(string key, bool hadValue, int value)
+            public TemporarySavePathProvider(string saveRootPath)
+                : base(saveRootPath)
             {
-                _key = key;
-                _hadValue = hadValue;
-                _value = value;
-            }
-
-            public static PlayerPrefsIntBackup Capture(string key)
-            {
-                return new PlayerPrefsIntBackup(
-                    key,
-                    PlayerPrefs.HasKey(key),
-                    PlayerPrefs.GetInt(key, 0));
-            }
-
-            public void Restore()
-            {
-                if (_hadValue)
-                {
-                    PlayerPrefs.SetInt(_key, _value);
-                }
-                else
-                {
-                    PlayerPrefs.DeleteKey(_key);
-                }
-
-                PlayerPrefs.Save();
-            }
-        }
-
-        private readonly struct FileBackup
-        {
-            private readonly bool _hadValue;
-            private readonly string _path;
-            private readonly string _value;
-
-            private FileBackup(string path, bool hadValue, string value)
-            {
-                _path = path;
-                _hadValue = hadValue;
-                _value = value;
-            }
-
-            public static FileBackup Capture(string path)
-            {
-                return new FileBackup(
-                    path,
-                    File.Exists(path),
-                    File.Exists(path) ? File.ReadAllText(path) : string.Empty);
-            }
-
-            public void Restore()
-            {
-                if (_hadValue)
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(_path));
-                    File.WriteAllText(_path, _value);
-                }
-                else if (File.Exists(_path))
-                {
-                    File.Delete(_path);
-                }
             }
         }
 
