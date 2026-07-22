@@ -419,7 +419,6 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
-                ApplySettingsInputPreviewState(prefabRoot, target);
                 localeInvariantTypographyScope.Restore();
 
                 var previewResult = TypographyPreviewUtility.ApplyPreview(prefabRoot, localeCode, captureTheme, recordUndo: false);
@@ -624,6 +623,7 @@ namespace Game.Feature.UI.Composition.Editor
                     string.Empty,
                     SettingsSectionId.Input);
                 view.Bind(viewModel);
+                ApplySettingsInputPreviewState(prefabRoot, target);
                 view.SetIsCurrent(true);
                 ValidateLocalizedText(
                     target,
