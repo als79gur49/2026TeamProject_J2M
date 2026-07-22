@@ -247,11 +247,9 @@ prepare_typography_visual_paths() {
 
 print_typography_visual_plan() {
     local output_dir_win
-    local target
     local locale
     local slice_log
     local slice_log_win
-    local current_unity_log
     local -a unity_command
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
@@ -263,32 +261,28 @@ print_typography_visual_plan() {
     echo "  execute method:   $TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  resolution:       ${TYPOGRAPHY_VISUAL_WIDTH}x${TYPOGRAPHY_VISUAL_HEIGHT}"
-    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<target>-<locale>.log"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<locale>.log"
     echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
     echo "  revision gate:    P2 files must match Git HEAD in index and worktree"
     echo "Would run isolated Unity typography visual evidence slices:"
-    for target in Settings Pause MainMenu; do
-        for locale in en-US ko-KR; do
-            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${target}-${locale}.log"
-            slice_log_win="$(wslpath -w "$slice_log")"
-            current_unity_log="$slice_log"
-            unity_command=(
-                timeout --kill-after=10 600
-                "$UNITY_PATH"
-                -batchmode
-                -quit
-                -projectPath "$PROJECT_PATH_WIN"
-                -logFile "$slice_log_win"
-                -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
-                -typographyScreenshotOutput "$output_dir_win"
-                -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
-                -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
-                -typographyScreenshotTarget "$target"
-                -typographyScreenshotLocale "$locale"
-            )
-            print_shell_command "${unity_command[@]}"
-        done
+    for locale in en-US ko-KR; do
+        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${locale}.log"
+        slice_log_win="$(wslpath -w "$slice_log")"
+        unity_command=(
+            timeout --kill-after=10 600
+            "$UNITY_PATH"
+            -batchmode
+            -quit
+            -projectPath "$PROJECT_PATH_WIN"
+            -logFile "$slice_log_win"
+            -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+            -typographyScreenshotOutput "$output_dir_win"
+            -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+            -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+            -typographyScreenshotLocale "$locale"
+        )
+        print_shell_command "${unity_command[@]}"
     done
     echo "Would reconstruct the canonical manifest:"
     unity_command=(
@@ -1125,8 +1119,8 @@ run_typography_visual() {
     local unity_log_win
     local slice_log
     local slice_log_win
-    local target
     local locale
+    local current_unity_log
     local expected_head
     local nanum_hash_before
     local nanum_hash_after
@@ -1164,35 +1158,33 @@ run_typography_visual() {
     process_before="$(find_current_project_unity_processes)"
     echo "Running isolated Unity typography visual evidence slices..."
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<target>-<locale>.log"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<locale>.log"
     echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
-    for target in Settings Pause MainMenu; do
-        for locale in en-US ko-KR; do
-            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${target}-${locale}.log"
-            slice_log_win="$(wslpath -w "$slice_log")"
-            unity_command=(
-                timeout --kill-after=10 600
-                "$UNITY_PATH"
-                -batchmode
-                -quit
-                -projectPath "$PROJECT_PATH_WIN"
-                -logFile "$slice_log_win"
-                -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
-                -typographyScreenshotOutput "$output_dir_win"
-                -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
-                -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
-                -typographyScreenshotTarget "$target"
-                -typographyScreenshotLocale "$locale"
-            )
-            echo "  capture: $target/$locale"
-            if "${unity_command[@]}"; then
-                unity_exit=0
-            else
-                unity_exit=$?
-                break 2
-            fi
-        done
+    for locale in en-US ko-KR; do
+        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${locale}.log"
+        slice_log_win="$(wslpath -w "$slice_log")"
+        current_unity_log="$slice_log"
+        unity_command=(
+            timeout --kill-after=10 600
+            "$UNITY_PATH"
+            -batchmode
+            -quit
+            -projectPath "$PROJECT_PATH_WIN"
+            -logFile "$slice_log_win"
+            -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+            -typographyScreenshotOutput "$output_dir_win"
+            -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+            -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+            -typographyScreenshotLocale "$locale"
+        )
+        echo "  capture locale: $locale"
+        if "${unity_command[@]}"; then
+            unity_exit=0
+        else
+            unity_exit=$?
+            break
+        fi
     done
 
     if [ "$unity_exit" -eq 0 ]; then

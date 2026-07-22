@@ -33,13 +33,19 @@ namespace Game.Feature.UI.Composition.Editor
             var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
             var targetName = ReadArg(args, "-typographyScreenshotTarget");
             var localeCode = ReadArg(args, "-typographyScreenshotLocale");
-            var target = TypographyPreviewScreenshotUtility.RequiredTargets.SingleOrDefault(candidate =>
-                string.Equals(candidate.FileStem, targetName, StringComparison.Ordinal));
-            if (string.IsNullOrWhiteSpace(target.FileStem))
+            var targets = TypographyPreviewScreenshotUtility.RequiredTargets;
+            if (!string.IsNullOrWhiteSpace(targetName))
             {
-                throw new InvalidOperationException(
-                    $"-typographyScreenshotTarget must be one of: " +
-                    $"{string.Join(", ", TypographyPreviewScreenshotUtility.RequiredTargets.Select(candidate => candidate.FileStem))}.");
+                var target = targets.SingleOrDefault(candidate =>
+                    string.Equals(candidate.FileStem, targetName, StringComparison.Ordinal));
+                if (string.IsNullOrWhiteSpace(target.FileStem))
+                {
+                    throw new InvalidOperationException(
+                        $"-typographyScreenshotTarget must be one of: " +
+                        $"{string.Join(", ", targets.Select(candidate => candidate.FileStem))}.");
+                }
+
+                targets = new[] { target };
             }
 
             if (!TypographyThemeValidator.RequiredLocaleCodes.Contains(localeCode, StringComparer.Ordinal))
@@ -50,7 +56,7 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
-                new[] { target },
+                targets,
                 new[] { localeCode },
                 outputDirectory,
                 ReadOptions(args));
