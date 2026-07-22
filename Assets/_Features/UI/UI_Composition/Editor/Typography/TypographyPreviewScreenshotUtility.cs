@@ -943,6 +943,11 @@ namespace Game.Feature.UI.Composition.Editor
             RenderTexture.active = renderTexture;
             GL.Clear(true, true, options.BackgroundColor);
             camera.Render();
+            Canvas.ForceUpdateCanvases();
+            Graphics.SetRenderTarget(renderTexture);
+            RenderTexture.active = renderTexture;
+            GL.Clear(true, true, options.BackgroundColor);
+            camera.Render();
             Graphics.SetRenderTarget(renderTexture);
             RenderTexture.active = renderTexture;
 
