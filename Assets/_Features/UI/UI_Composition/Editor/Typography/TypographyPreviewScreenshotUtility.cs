@@ -419,15 +419,15 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
+                ApplySettingsInputPreviewState(prefabRoot, target);
+                localeInvariantTypographyScope.Restore();
+
                 var previewResult = TypographyPreviewUtility.ApplyPreview(prefabRoot, localeCode, captureTheme, recordUndo: false);
                 capture.AppliedBindingCount = previewResult.AppliedCount;
                 foreach (var error in previewResult.Errors)
                 {
                     capture.AddError(error);
                 }
-
-                ApplySettingsInputPreviewState(prefabRoot, target);
-                localeInvariantTypographyScope.Restore();
 
                 fontAssetRestoreScope?.Include(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
