@@ -932,6 +932,7 @@ namespace Game.Feature.UI.Composition.Editor
         {
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
             {
+                text.SetAllDirty();
                 text.ForceMeshUpdate(true, true);
             }
         }
