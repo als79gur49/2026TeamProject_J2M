@@ -399,8 +399,8 @@ namespace Game.Feature.UI.Composition.Editor
 
                 previewScene = EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,
-                    Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
-                shouldClosePreviewScene = !Application.isBatchMode;
+                    NewSceneMode.Additive);
+                shouldClosePreviewScene = true;
                 EditorSceneManager.SetActiveScene(previewScene);
                 prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
                 if (prefabRoot == null)
