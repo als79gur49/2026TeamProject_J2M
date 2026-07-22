@@ -424,15 +424,11 @@ namespace Game.Feature.UI.Composition.Editor
                 ForceLayoutUpdates(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
-                ValidateLocaleInvariantPreview(prefabRoot, capture);
-                if (capture.HasErrors)
-                {
-                    return capture;
-                }
 
                 var texture = RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
                 try
                 {
+                    ValidateLocaleInvariantPreview(prefabRoot, capture);
                     capture.OrientationValidationResult = "PASS_PIPELINE_CONTRACT";
                     if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
                     {
@@ -952,6 +948,7 @@ namespace Game.Feature.UI.Composition.Editor
             GameObject root,
             TypographyPreviewScreenshotCaptureResult capture)
         {
+            var activeTargetCount = 0;
             foreach (var binding in root.GetComponentsInChildren<TypographyBinding>(true))
             {
                 if (binding.LocaleParticipation != TypographyLocaleParticipation.LocaleInvariant)
@@ -963,10 +960,10 @@ namespace Game.Feature.UI.Composition.Editor
                 var targetName = target != null ? target.name : binding.name;
                 if (target == null || !target.isActiveAndEnabled)
                 {
-                    capture.AddError(
-                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' is not active for capture.");
                     continue;
                 }
+
+                activeTargetCount++;
 
                 if (string.IsNullOrWhiteSpace(target.text))
                 {
@@ -1000,6 +997,20 @@ namespace Game.Feature.UI.Composition.Editor
                     capture.AddError(
                         $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' produced no visible TMP characters.");
                 }
+
+                else if (target.canvasRenderer.cull)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' was culled from the rendered frame.");
+                }
+            }
+
+            if (root.GetComponentsInChildren<TypographyBinding>(true)
+                    .Any(binding => binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant) &&
+                activeTargetCount == 0)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: No active locale-invariant target was available for capture.");
             }
         }
 
