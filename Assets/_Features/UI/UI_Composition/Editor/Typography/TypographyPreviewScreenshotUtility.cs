@@ -424,6 +424,11 @@ namespace Game.Feature.UI.Composition.Editor
                 ForceLayoutUpdates(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
+                ValidateLocaleInvariantPreview(prefabRoot, capture);
+                if (capture.HasErrors)
+                {
+                    return capture;
+                }
 
                 var texture = RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
                 try
@@ -940,6 +945,61 @@ namespace Game.Feature.UI.Composition.Editor
             foreach (var canvasGroup in root.GetComponentsInChildren<CanvasGroup>(true))
             {
                 canvasGroup.alpha = 1f;
+            }
+        }
+
+        private static void ValidateLocaleInvariantPreview(
+            GameObject root,
+            TypographyPreviewScreenshotCaptureResult capture)
+        {
+            foreach (var binding in root.GetComponentsInChildren<TypographyBinding>(true))
+            {
+                if (binding.LocaleParticipation != TypographyLocaleParticipation.LocaleInvariant)
+                {
+                    continue;
+                }
+
+                var target = binding.Target;
+                var targetName = target != null ? target.name : binding.name;
+                if (target == null || !target.isActiveAndEnabled)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' is not active for capture.");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(target.text))
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' has no display text.");
+                    continue;
+                }
+
+                if (target.rectTransform.rect.width <= 0f || target.rectTransform.rect.height <= 0f)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' has invalid capture geometry.");
+                    continue;
+                }
+
+                var missingGlyphs = target.text
+                    .Where(character => !char.IsControl(character) && !char.IsWhiteSpace(character))
+                    .Where(character => !HasRenderableCharacter(target.font, character))
+                    .Distinct()
+                    .Select(character => $"'{character}' U+{(int)character:X4}")
+                    .ToArray();
+                if (missingGlyphs.Length > 0)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' is missing glyphs {string.Join(", ", missingGlyphs)}.");
+                    continue;
+                }
+
+                if (!target.textInfo.characterInfo.Any(character => character.isVisible))
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: Locale-invariant target '{targetName}' produced no visible TMP characters.");
+                }
             }
         }
 
