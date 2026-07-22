@@ -436,6 +436,7 @@ namespace Game.Feature.UI.Composition.Editor
                 SetupPreviewScene(prefabRoot, options, out cameraObject, out canvasObject, out var camera);
                 ForceCanvasGroupsVisible(prefabRoot);
                 ForceLayoutUpdates(prefabRoot);
+                ForceGraphicUpdates(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
 
@@ -948,6 +949,16 @@ namespace Game.Feature.UI.Composition.Editor
                 text.SetAllDirty();
                 text.ForceMeshUpdate(true, true);
             }
+        }
+
+        private static void ForceGraphicUpdates(GameObject root)
+        {
+            foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
+            {
+                graphic.SetAllDirty();
+            }
+
+            Canvas.ForceUpdateCanvases();
         }
 
         private static void ForceCanvasGroupsVisible(GameObject root)
