@@ -410,6 +410,8 @@ namespace Game.Feature.UI.Composition.Editor
                     capture.AddError(error);
                 }
 
+                ApplySettingsInputPreviewState(prefabRoot, target);
+
                 fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
                 if (capture.HasErrors)
@@ -603,24 +605,6 @@ namespace Game.Feature.UI.Composition.Editor
                     string.Empty,
                     SettingsSectionId.Input);
                 view.Bind(viewModel);
-                var inputViewModel = new SettingsInputViewModel();
-                inputViewModel.SetContent(
-                    string.Empty,
-                    string.Empty,
-                    false,
-                    "WASD",
-                    string.Empty,
-                    "E",
-                    string.Empty,
-                    string.Empty,
-                    "Q",
-                    string.Empty,
-                    string.Empty,
-                    string.Empty,
-                    false,
-                    null,
-                    true);
-                view.InputView.Bind(inputViewModel);
                 view.SetIsCurrent(true);
                 ValidateLocalizedText(
                     target,
@@ -696,6 +680,41 @@ namespace Game.Feature.UI.Composition.Editor
 
             capture.AddError($"{target.Name}: No localized preview applicator exists for screenshot target '{target.FileStem}'.");
             return scope;
+        }
+
+        private static void ApplySettingsInputPreviewState(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotTarget target)
+        {
+            if (!string.Equals(target.FileStem, "Settings", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
+            if (view == null || view.InputView == null)
+            {
+                return;
+            }
+
+            var inputViewModel = new SettingsInputViewModel();
+            inputViewModel.SetContent(
+                string.Empty,
+                string.Empty,
+                false,
+                "WASD",
+                string.Empty,
+                "E",
+                string.Empty,
+                string.Empty,
+                "Q",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                false,
+                null,
+                true);
+            view.InputView.Bind(inputViewModel);
         }
 
         private static void ValidateLocalizedText(
