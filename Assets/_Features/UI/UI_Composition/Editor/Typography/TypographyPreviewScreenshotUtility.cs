@@ -419,6 +419,7 @@ namespace Game.Feature.UI.Composition.Editor
 
                 SetupPreviewScene(prefabRoot, options, out cameraObject, out canvasObject, out var camera);
                 ForceCanvasGroupsVisible(prefabRoot);
+                ForceLayoutUpdates(prefabRoot);
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
 
@@ -894,6 +895,17 @@ namespace Game.Feature.UI.Composition.Editor
                     rectTransform.anchoredPosition = Vector2.zero;
                 }
             }
+        }
+
+        private static void ForceLayoutUpdates(GameObject root)
+        {
+            Canvas.ForceUpdateCanvases();
+            if (root != null && root.transform is RectTransform rootRect)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+            }
+
+            Canvas.ForceUpdateCanvases();
         }
 
         private static void ForceTextMeshUpdates(GameObject root)
