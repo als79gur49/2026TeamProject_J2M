@@ -19,19 +19,41 @@ namespace Game.Feature.UI.Composition.Editor
         {
             var args = Environment.GetCommandLineArgs();
             var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
-            var options = new TypographyPreviewScreenshotOptions();
-            if (int.TryParse(ReadArg(args, "-typographyScreenshotWidth"), out var width))
-            {
-                options.Width = width;
-            }
-
-            if (int.TryParse(ReadArg(args, "-typographyScreenshotHeight"), out var height))
-            {
-                options.Height = height;
-            }
+            var options = ReadOptions(args);
 
             ThrowIfUnityLogConflictsWithManifest(args, outputDirectory);
             var result = TypographyPreviewScreenshotUtility.CaptureRequiredScreenshots(outputDirectory, options);
+            LogResult(result);
+            result.ThrowIfFailed();
+        }
+
+        public static void CaptureRequiredPreviewScreenshotSliceFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
+            var targetName = ReadArg(args, "-typographyScreenshotTarget");
+            var localeCode = ReadArg(args, "-typographyScreenshotLocale");
+            var target = TypographyPreviewScreenshotUtility.RequiredTargets.SingleOrDefault(candidate =>
+                string.Equals(candidate.FileStem, targetName, StringComparison.Ordinal));
+            if (string.IsNullOrWhiteSpace(target.FileStem))
+            {
+                throw new InvalidOperationException(
+                    $"-typographyScreenshotTarget must be one of: " +
+                    $"{string.Join(", ", TypographyPreviewScreenshotUtility.RequiredTargets.Select(candidate => candidate.FileStem))}.");
+            }
+
+            if (!TypographyThemeValidator.RequiredLocaleCodes.Contains(localeCode, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"-typographyScreenshotLocale must be one of: " +
+                    $"{string.Join(", ", TypographyThemeValidator.RequiredLocaleCodes)}.");
+            }
+
+            var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                new[] { target },
+                new[] { localeCode },
+                outputDirectory,
+                ReadOptions(args));
             LogResult(result);
             result.ThrowIfFailed();
         }
@@ -65,6 +87,22 @@ namespace Game.Feature.UI.Composition.Editor
                     "Unity stdout -logFile must not use the canonical manifest path. " +
                     "Use a split/raw name such as capture-unity.log; capture.log is written by the screenshot utility.");
             }
+        }
+
+        private static TypographyPreviewScreenshotOptions ReadOptions(string[] args)
+        {
+            var options = new TypographyPreviewScreenshotOptions();
+            if (int.TryParse(ReadArg(args, "-typographyScreenshotWidth"), out var width))
+            {
+                options.Width = width;
+            }
+
+            if (int.TryParse(ReadArg(args, "-typographyScreenshotHeight"), out var height))
+            {
+                options.Height = height;
+            }
+
+            return options;
         }
 
         private static void LogResult(TypographyPreviewScreenshotBatchResult result)

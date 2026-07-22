@@ -402,15 +402,12 @@ namespace Game.Feature.UI.Composition.Editor
                     Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
                 shouldClosePreviewScene = !Application.isBatchMode;
                 EditorSceneManager.SetActiveScene(previewScene);
-                prefabRoot = UnityEngine.Object.Instantiate(prefabAsset);
+                prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
                 if (prefabRoot == null)
                 {
                     capture.AddError($"{target.PrefabPath}: Prefab instance could not be created for screenshot capture.");
                     return capture;
                 }
-
-                prefabRoot.name = prefabAsset.name;
-                EditorSceneManager.MoveGameObjectToScene(prefabRoot, previewScene);
 
                 var captureTheme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
                     TypographyThemeValidator.ThemeAssetPath);
@@ -912,13 +909,16 @@ namespace Game.Feature.UI.Composition.Editor
 
             prefabRoot.SetActive(true);
             prefabRoot.transform.SetParent(canvasObject.transform, false);
-            ConfigureCanvases(prefabRoot, options.Width, options.Height);
+            ConfigureCanvases(prefabRoot, camera, options.Width, options.Height);
         }
 
-        private static void ConfigureCanvases(GameObject root, int width, int height)
+        private static void ConfigureCanvases(GameObject root, Camera camera, int width, int height)
         {
             foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
             {
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 100f;
                 canvas.pixelPerfect = false;
 
                 if (canvas.transform is RectTransform rectTransform &&

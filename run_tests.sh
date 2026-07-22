@@ -18,11 +18,13 @@ TYPOGRAPHY_VISUAL_UNITY_LOG=""
 TYPOGRAPHY_VISUAL_MANIFEST=""
 TYPOGRAPHY_VISUAL_WIDTH=1920
 TYPOGRAPHY_VISUAL_HEIGHT=1080
-TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotsFromCommandLine"
+TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
+TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
 TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
 TYPOGRAPHY_VISUAL_P2_FILES=(
     "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyBindingValidator.cs"
     "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewUtility.cs"
+    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotMenu.cs"
     "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotUtility.cs"
     "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotManifest.cs"
     "Assets/_Features/UI/UI_Tests/EditMode/SettingsProductionTypographyCompositionTests.cs"
@@ -239,29 +241,20 @@ prepare_typography_visual_paths() {
 
     timestamp="$(date +%Y%m%d-%H%M%S)"
     TYPOGRAPHY_VISUAL_OUTPUT_DIR="$TYPOGRAPHY_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
-    TYPOGRAPHY_VISUAL_UNITY_LOG="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-unity.log"
+    TYPOGRAPHY_VISUAL_UNITY_LOG="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/manifest-unity.log"
     TYPOGRAPHY_VISUAL_MANIFEST="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture.log"
 }
 
 print_typography_visual_plan() {
     local output_dir_win
-    local unity_log_win
+    local target
+    local locale
+    local slice_log
+    local slice_log_win
+    local current_unity_log
     local -a unity_command
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
-    unity_log_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
-    unity_command=(
-        timeout --kill-after=10 600
-        "$UNITY_PATH"
-        -batchmode
-        -quit
-        -projectPath "$PROJECT_PATH_WIN"
-        -logFile "$unity_log_win"
-        -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
-        -typographyScreenshotOutput "$output_dir_win"
-        -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
-        -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
-    )
 
     echo "Typography visual evidence plan:"
     echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
@@ -270,10 +263,44 @@ print_typography_visual_plan() {
     echo "  execute method:   $TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  resolution:       ${TYPOGRAPHY_VISUAL_WIDTH}x${TYPOGRAPHY_VISUAL_HEIGHT}"
-    echo "  raw Unity log:    $TYPOGRAPHY_VISUAL_UNITY_LOG"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<target>-<locale>.log"
+    echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
     echo "  revision gate:    P2 files must match Git HEAD in index and worktree"
-    echo "Would run Unity typography visual evidence capture:"
+    echo "Would run isolated Unity typography visual evidence slices:"
+    for target in Settings Pause MainMenu; do
+        for locale in en-US ko-KR; do
+            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${target}-${locale}.log"
+            slice_log_win="$(wslpath -w "$slice_log")"
+            current_unity_log="$slice_log"
+            unity_command=(
+                timeout --kill-after=10 600
+                "$UNITY_PATH"
+                -batchmode
+                -quit
+                -projectPath "$PROJECT_PATH_WIN"
+                -logFile "$slice_log_win"
+                -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+                -typographyScreenshotOutput "$output_dir_win"
+                -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+                -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+                -typographyScreenshotTarget "$target"
+                -typographyScreenshotLocale "$locale"
+            )
+            print_shell_command "${unity_command[@]}"
+        done
+    done
+    echo "Would reconstruct the canonical manifest:"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -batchmode
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
+        -executeMethod "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD"
+        -typographyScreenshotOutput "$output_dir_win"
+    )
     print_shell_command "${unity_command[@]}"
 }
 
@@ -316,7 +343,7 @@ verify_typography_visual_manifest() {
         "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" \
         "$TYPOGRAPHY_VISUAL_MANIFEST" \
         "$expected_head" \
-        "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD" \
+        "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD" \
         "$TYPOGRAPHY_VISUAL_WIDTH" \
         "$TYPOGRAPHY_VISUAL_HEIGHT" \
         "$expected_output_directory" <<'PY'
@@ -365,7 +392,7 @@ required_root = {
     "schema_version": "1",
     "git_head": expected_head,
     "capture_command": expected_command,
-    "capture_mode": "AGGREGATE",
+    "capture_mode": "RECONSTRUCTED_FROM_SPLIT_LOGS",
     "output_directory": expected_output_directory,
     "width": expected_width,
     "height": expected_height,
@@ -1096,6 +1123,10 @@ run_unity_ui() {
 run_typography_visual() {
     local output_dir_win
     local unity_log_win
+    local slice_log
+    local slice_log_win
+    local target
+    local locale
     local expected_head
     local nanum_hash_before
     local nanum_hash_after
@@ -1128,37 +1159,68 @@ run_typography_visual() {
     nanum_hash_before="$(typography_visual_nanum_hash)"
     nanum_diff_before="$(typography_visual_nanum_diff_sha256)"
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
-    unity_log_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
-    unity_command=(
-        timeout --kill-after=10 600
-        "$UNITY_PATH"
-        -batchmode
-        -quit
-        -projectPath "$PROJECT_PATH_WIN"
-        -logFile "$unity_log_win"
-        -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
-        -typographyScreenshotOutput "$output_dir_win"
-        -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
-        -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
-    )
 
     cleanup_generated_test_scenes
     process_before="$(find_current_project_unity_processes)"
-    echo "Running Unity typography visual evidence capture..."
+    echo "Running isolated Unity typography visual evidence slices..."
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-    echo "  raw Unity log:    $TYPOGRAPHY_VISUAL_UNITY_LOG"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<target>-<locale>.log"
+    echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
-    if "${unity_command[@]}"; then
-        unity_exit=0
-    else
-        unity_exit=$?
+    for target in Settings Pause MainMenu; do
+        for locale in en-US ko-KR; do
+            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${target}-${locale}.log"
+            slice_log_win="$(wslpath -w "$slice_log")"
+            unity_command=(
+                timeout --kill-after=10 600
+                "$UNITY_PATH"
+                -batchmode
+                -quit
+                -projectPath "$PROJECT_PATH_WIN"
+                -logFile "$slice_log_win"
+                -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+                -typographyScreenshotOutput "$output_dir_win"
+                -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+                -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+                -typographyScreenshotTarget "$target"
+                -typographyScreenshotLocale "$locale"
+            )
+            echo "  capture: $target/$locale"
+            if "${unity_command[@]}"; then
+                unity_exit=0
+            else
+                unity_exit=$?
+                break 2
+            fi
+        done
+    done
+
+    if [ "$unity_exit" -eq 0 ]; then
+        unity_log_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
+        current_unity_log="$TYPOGRAPHY_VISUAL_UNITY_LOG"
+        unity_command=(
+            timeout --kill-after=10 600
+            "$UNITY_PATH"
+            -batchmode
+            -quit
+            -projectPath "$PROJECT_PATH_WIN"
+            -logFile "$unity_log_win"
+            -executeMethod "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD"
+            -typographyScreenshotOutput "$output_dir_win"
+        )
+        echo "Reconstructing canonical typography manifest..."
+        if "${unity_command[@]}"; then
+            unity_exit=0
+        else
+            unity_exit=$?
+        fi
     fi
 
     if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
         echo "Unity typography visual capture timed out (possible hang)."
         capture_unity_timeout_artifacts \
             "typography-visual" \
-            "$TYPOGRAPHY_VISUAL_UNITY_LOG" \
+            "$current_unity_log" \
             "$TYPOGRAPHY_VISUAL_MANIFEST" \
             "$unity_exit" \
             "$process_before"
