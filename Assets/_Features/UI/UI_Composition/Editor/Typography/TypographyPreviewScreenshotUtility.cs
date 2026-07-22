@@ -227,12 +227,26 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             Directory.CreateDirectory(outputDirectory);
-            foreach (var target in targetList)
+            var fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(null);
+            try
             {
-                foreach (var localeCode in localeList)
+                foreach (var target in targetList)
                 {
-                    result.AddCapture(CaptureSingle(target, localeCode, outputDirectory, options, theme));
+                    foreach (var localeCode in localeList)
+                    {
+                        result.AddCapture(CaptureSingle(
+                            target,
+                            localeCode,
+                            outputDirectory,
+                            options,
+                            theme,
+                            fontAssetRestoreScope));
+                    }
                 }
+            }
+            finally
+            {
+                fontAssetRestoreScope.Dispose();
             }
 
             var dirtyPaths = GetDirtyGuardAssetPaths();
@@ -359,7 +373,8 @@ namespace Game.Feature.UI.Composition.Editor
             string localeCode,
             string outputDirectory,
             TypographyPreviewScreenshotOptions options,
-            GameplayUiTypographyTheme theme)
+            GameplayUiTypographyTheme theme,
+            TmpFontAssetFileRestoreScope fontAssetRestoreScope)
         {
             var filePath = Path.Combine(outputDirectory, BuildFileName(target, localeCode));
             var capture = new TypographyPreviewScreenshotCaptureResult(target, localeCode, filePath);
@@ -372,7 +387,6 @@ namespace Game.Feature.UI.Composition.Editor
             RenderTexture renderTexture = null;
             RenderTexture previousRenderTexture = null;
             IDisposable localizedTextScope = null;
-            IDisposable fontAssetRestoreScope = null;
 
             try
             {
@@ -412,7 +426,7 @@ namespace Game.Feature.UI.Composition.Editor
 
                 ApplySettingsInputPreviewState(prefabRoot, target);
 
-                fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(prefabRoot);
+                fontAssetRestoreScope?.Include(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
                 if (capture.HasErrors)
                 {
@@ -469,7 +483,6 @@ namespace Game.Feature.UI.Composition.Editor
             }
             finally
             {
-                fontAssetRestoreScope?.Dispose();
                 localizedTextScope?.Dispose();
                 RenderTexture.active = previousRenderTexture;
                 if (renderTexture != null)
@@ -1237,9 +1250,16 @@ namespace Game.Feature.UI.Composition.Editor
             public static TmpFontAssetFileRestoreScope Capture(GameObject root)
             {
                 var snapshots = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                if (root == null)
+                var scope = new TmpFontAssetFileRestoreScope(snapshots);
+                scope.Include(root);
+                return scope;
+            }
+
+            public void Include(GameObject root)
+            {
+                if (root == null || isDisposed)
                 {
-                    return new TmpFontAssetFileRestoreScope(snapshots);
+                    return;
                 }
 
                 var fontAssets = new HashSet<TMP_FontAsset>();
@@ -1270,8 +1290,6 @@ namespace Game.Feature.UI.Composition.Editor
 
                     snapshots.Add(assetPath, File.ReadAllBytes(assetPath));
                 }
-
-                return new TmpFontAssetFileRestoreScope(snapshots);
             }
 
             public void Dispose()
