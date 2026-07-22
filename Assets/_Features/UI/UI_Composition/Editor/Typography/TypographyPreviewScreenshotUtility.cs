@@ -382,10 +382,12 @@ namespace Game.Feature.UI.Composition.Editor
             GameObject cameraObject = null;
             GameObject canvasObject = null;
             Scene previewScene = default;
+            var previousActiveScene = SceneManager.GetActiveScene();
             var shouldClosePreviewScene = false;
             RenderTexture renderTexture = null;
             RenderTexture previousRenderTexture = null;
             IDisposable localizedTextScope = null;
+            IDisposable textMaterialScope = null;
 
             try
             {
@@ -396,8 +398,11 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
-                previewScene = EditorSceneManager.NewPreviewScene();
-                shouldClosePreviewScene = true;
+                previewScene = EditorSceneManager.NewScene(
+                    NewSceneSetup.EmptyScene,
+                    Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
+                shouldClosePreviewScene = !Application.isBatchMode;
+                EditorSceneManager.SetActiveScene(previewScene);
                 prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
                 if (prefabRoot == null)
                 {
@@ -421,6 +426,7 @@ namespace Game.Feature.UI.Composition.Editor
                 }
 
                 ApplySettingsInputPreviewState(prefabRoot, target);
+                textMaterialScope = TmpTextMaterialIsolationScope.Capture(prefabRoot);
 
                 fontAssetRestoreScope?.Include(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
@@ -480,6 +486,7 @@ namespace Game.Feature.UI.Composition.Editor
             }
             finally
             {
+                textMaterialScope?.Dispose();
                 localizedTextScope?.Dispose();
                 RenderTexture.active = previousRenderTexture;
                 if (renderTexture != null)
@@ -511,7 +518,12 @@ namespace Game.Feature.UI.Composition.Editor
 
                 if (shouldClosePreviewScene)
                 {
-                    EditorSceneManager.ClosePreviewScene(previewScene);
+                    if (previousActiveScene.IsValid() && previousActiveScene.isLoaded)
+                    {
+                        EditorSceneManager.SetActiveScene(previousActiveScene);
+                    }
+
+                    EditorSceneManager.CloseScene(previewScene, true);
                 }
             }
 
@@ -1342,6 +1354,89 @@ namespace Game.Feature.UI.Composition.Editor
                     if (asset != null)
                     {
                         EditorUtility.ClearDirty(asset);
+                    }
+                }
+            }
+        }
+
+        private sealed class TmpTextMaterialIsolationScope : IDisposable
+        {
+            private readonly List<TextMaterialSnapshot> snapshots;
+            private bool isDisposed;
+
+            private TmpTextMaterialIsolationScope(List<TextMaterialSnapshot> snapshots)
+            {
+                this.snapshots = snapshots;
+            }
+
+            public static TmpTextMaterialIsolationScope Capture(GameObject root)
+            {
+                var snapshots = new List<TextMaterialSnapshot>();
+                if (root == null)
+                {
+                    return new TmpTextMaterialIsolationScope(snapshots);
+                }
+
+                foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    var originalMaterial = text != null ? text.fontSharedMaterial : null;
+                    if (originalMaterial == null)
+                    {
+                        continue;
+                    }
+
+                    var materialInstance = new Material(originalMaterial)
+                    {
+                        name = $"{originalMaterial.name} (Typography Capture Instance)",
+                        hideFlags = HideFlags.HideAndDontSave,
+                    };
+                    text.fontSharedMaterial = materialInstance;
+                    snapshots.Add(new TextMaterialSnapshot(text, originalMaterial, materialInstance));
+                }
+
+                return new TmpTextMaterialIsolationScope(snapshots);
+            }
+
+            public void Dispose()
+            {
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                foreach (var snapshot in snapshots)
+                {
+                    snapshot.Restore();
+                }
+            }
+
+            private readonly struct TextMaterialSnapshot
+            {
+                private readonly TMP_Text target;
+                private readonly Material originalMaterial;
+                private readonly Material materialInstance;
+
+                public TextMaterialSnapshot(
+                    TMP_Text target,
+                    Material originalMaterial,
+                    Material materialInstance)
+                {
+                    this.target = target;
+                    this.originalMaterial = originalMaterial;
+                    this.materialInstance = materialInstance;
+                }
+
+                public void Restore()
+                {
+                    if (target != null)
+                    {
+                        target.fontSharedMaterial = originalMaterial;
+                    }
+
+                    if (materialInstance != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(materialInstance);
                     }
                 }
             }
