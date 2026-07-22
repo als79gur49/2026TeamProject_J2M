@@ -387,6 +387,7 @@ namespace Game.Feature.UI.Composition.Editor
             RenderTexture renderTexture = null;
             RenderTexture previousRenderTexture = null;
             IDisposable localizedTextScope = null;
+            LocaleInvariantTypographyScope localeInvariantTypographyScope = null;
 
             try
             {
@@ -409,6 +410,7 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
+                localeInvariantTypographyScope = LocaleInvariantTypographyScope.Capture(prefabRoot);
                 var captureTheme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
                     TypographyThemeValidator.ThemeAssetPath);
                 localizedTextScope = ApplyLocalizedTextPreview(prefabRoot, target, localeCode, captureTheme, capture);
@@ -425,6 +427,7 @@ namespace Game.Feature.UI.Composition.Editor
                 }
 
                 ApplySettingsInputPreviewState(prefabRoot, target);
+                localeInvariantTypographyScope.Restore();
 
                 fontAssetRestoreScope?.Include(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
@@ -484,6 +487,7 @@ namespace Game.Feature.UI.Composition.Editor
             }
             finally
             {
+                localeInvariantTypographyScope?.Dispose();
                 localizedTextScope?.Dispose();
                 RenderTexture.active = previousRenderTexture;
                 if (renderTexture != null)
@@ -1245,6 +1249,109 @@ namespace Game.Feature.UI.Composition.Editor
 
                 isDisposed = true;
                 action?.Invoke();
+            }
+        }
+
+        private sealed class LocaleInvariantTypographyScope : IDisposable
+        {
+            private readonly List<LocaleInvariantTypographySnapshot> snapshots;
+            private bool isRestored;
+
+            private LocaleInvariantTypographyScope(List<LocaleInvariantTypographySnapshot> snapshots)
+            {
+                this.snapshots = snapshots;
+            }
+
+            public static LocaleInvariantTypographyScope Capture(GameObject root)
+            {
+                var snapshots = new List<LocaleInvariantTypographySnapshot>();
+                if (root == null)
+                {
+                    return new LocaleInvariantTypographyScope(snapshots);
+                }
+
+                foreach (var binding in root.GetComponentsInChildren<TypographyBinding>(true))
+                {
+                    if (binding.LocaleParticipation != TypographyLocaleParticipation.LocaleInvariant ||
+                        binding.Target == null)
+                    {
+                        continue;
+                    }
+
+                    snapshots.Add(LocaleInvariantTypographySnapshot.Capture(binding.Target));
+                }
+
+                return new LocaleInvariantTypographyScope(snapshots);
+            }
+
+            public void Restore()
+            {
+                if (isRestored)
+                {
+                    return;
+                }
+
+                isRestored = true;
+                foreach (var snapshot in snapshots)
+                {
+                    snapshot.Restore();
+                }
+            }
+
+            public void Dispose()
+            {
+                Restore();
+            }
+
+            private readonly struct LocaleInvariantTypographySnapshot
+            {
+                private readonly TMP_Text target;
+                private readonly TMP_FontAsset font;
+                private readonly Material material;
+                private readonly FontStyles fontStyle;
+                private readonly float fontSize;
+                private readonly bool enableAutoSizing;
+                private readonly float fontSizeMin;
+                private readonly float fontSizeMax;
+                private readonly float lineSpacing;
+                private readonly float characterSpacing;
+
+                private LocaleInvariantTypographySnapshot(TMP_Text target)
+                {
+                    this.target = target;
+                    font = target.font;
+                    material = target.fontSharedMaterial;
+                    fontStyle = target.fontStyle;
+                    fontSize = target.fontSize;
+                    enableAutoSizing = target.enableAutoSizing;
+                    fontSizeMin = target.fontSizeMin;
+                    fontSizeMax = target.fontSizeMax;
+                    lineSpacing = target.lineSpacing;
+                    characterSpacing = target.characterSpacing;
+                }
+
+                public static LocaleInvariantTypographySnapshot Capture(TMP_Text target)
+                {
+                    return new LocaleInvariantTypographySnapshot(target);
+                }
+
+                public void Restore()
+                {
+                    if (target == null)
+                    {
+                        return;
+                    }
+
+                    target.font = font;
+                    target.fontSharedMaterial = material;
+                    target.fontStyle = fontStyle;
+                    target.fontSize = fontSize;
+                    target.enableAutoSizing = enableAutoSizing;
+                    target.fontSizeMin = fontSizeMin;
+                    target.fontSizeMax = fontSizeMax;
+                    target.lineSpacing = lineSpacing;
+                    target.characterSpacing = characterSpacing;
+                }
             }
         }
 

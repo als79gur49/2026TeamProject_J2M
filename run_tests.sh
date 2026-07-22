@@ -248,9 +248,18 @@ prepare_typography_visual_paths() {
 print_typography_visual_plan() {
     local output_dir_win
     local locale
+    local target
+    local slice
+    local slice_name
     local slice_log
     local slice_log_win
     local -a unity_command
+    local -a capture_slices=(
+        "en-US|"
+        "ko-KR|Settings"
+        "ko-KR|Pause"
+        "ko-KR|MainMenu"
+    )
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
 
@@ -261,13 +270,19 @@ print_typography_visual_plan() {
     echo "  execute method:   $TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  resolution:       ${TYPOGRAPHY_VISUAL_WIDTH}x${TYPOGRAPHY_VISUAL_HEIGHT}"
-    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<locale>.log"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<slice>.log"
     echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
     echo "  revision gate:    P2 files must match Git HEAD in index and worktree"
     echo "Would run isolated Unity typography visual evidence slices:"
-    for locale in en-US ko-KR; do
-        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${locale}.log"
+    for slice in "${capture_slices[@]}"; do
+        locale="${slice%%|*}"
+        target="${slice#*|}"
+        slice_name="$locale"
+        if [ -n "$target" ]; then
+            slice_name="${locale}-${target}"
+        fi
+        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${slice_name}.log"
         slice_log_win="$(wslpath -w "$slice_log")"
         unity_command=(
             timeout --kill-after=10 600
@@ -282,6 +297,9 @@ print_typography_visual_plan() {
             -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
             -typographyScreenshotLocale "$locale"
         )
+        if [ -n "$target" ]; then
+            unity_command+=( -typographyScreenshotTarget "$target" )
+        fi
         print_shell_command "${unity_command[@]}"
     done
     echo "Would reconstruct the canonical manifest:"
@@ -1120,6 +1138,9 @@ run_typography_visual() {
     local slice_log
     local slice_log_win
     local locale
+    local target
+    local slice
+    local slice_name
     local current_unity_log
     local expected_head
     local nanum_hash_before
@@ -1131,6 +1152,12 @@ run_typography_visual() {
     local nanum_exit=0
     local process_before
     local -a unity_command
+    local -a capture_slices=(
+        "en-US|"
+        "ko-KR|Settings"
+        "ko-KR|Pause"
+        "ko-KR|MainMenu"
+    )
 
     prepare_typography_visual_paths
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -1158,11 +1185,17 @@ run_typography_visual() {
     process_before="$(find_current_project_unity_processes)"
     echo "Running isolated Unity typography visual evidence slices..."
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<locale>.log"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<slice>.log"
     echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
-    for locale in en-US ko-KR; do
-        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${locale}.log"
+    for slice in "${capture_slices[@]}"; do
+        locale="${slice%%|*}"
+        target="${slice#*|}"
+        slice_name="$locale"
+        if [ -n "$target" ]; then
+            slice_name="${locale}-${target}"
+        fi
+        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${slice_name}.log"
         slice_log_win="$(wslpath -w "$slice_log")"
         current_unity_log="$slice_log"
         unity_command=(
@@ -1178,7 +1211,10 @@ run_typography_visual() {
             -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
             -typographyScreenshotLocale "$locale"
         )
-        echo "  capture locale: $locale"
+        if [ -n "$target" ]; then
+            unity_command+=( -typographyScreenshotTarget "$target" )
+        fi
+        echo "  capture slice: $slice_name"
         if "${unity_command[@]}"; then
             unity_exit=0
         else
