@@ -20,9 +20,11 @@ namespace Game.Feature.UI.Tests
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
         private const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         private const string CanonicalEvidenceDirectory =
-            "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
+            "TestLogs/TypographyVisualQA/CommandLine-20260722-210829";
         private const string CanonicalEvidenceReconstructionHead =
-            "6e5cd13fda59778aaa48f8db3047bb5c2188ccdb";
+            "31b92cd2c9718e1a653da39a6db47c7a17ea7452";
+        private const string HistoricalEvidenceDirectory =
+            "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
 
         [Test]
         public void TypographyThemeValidator_DetectsMissingLocaleFontSet()
@@ -694,6 +696,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(manifest.SchemaVersion, Is.EqualTo(1));
             Assert.That(manifest.OverallResult, Is.EqualTo("PASS"));
             Assert.That(manifest.CaptureMode, Is.EqualTo("RECONSTRUCTED_FROM_SPLIT_LOGS"));
+            Assert.That(
+                manifest.CaptureCommand,
+                Is.EqualTo(
+                    "Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu." +
+                    "ReconstructCanonicalManifestFromCommandLine"));
             var currentGitHead = TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead();
             Assert.That(
                 string.Equals(manifest.GitHead, currentGitHead, System.StringComparison.Ordinal) ||
@@ -735,6 +742,7 @@ namespace Game.Feature.UI.Tests
                     }
                     Assert.That(entry.OrientationValidation, Does.StartWith("PASS"));
                     Assert.That(entry.NonBlankValidation, Is.EqualTo("PASS"));
+                    Assert.That(entry.GlyphTofuValidation, Is.EqualTo("NOT_RECORDED"));
 
                     var pngPath = Path.Combine(CanonicalEvidenceDirectory, entry.FileName);
                     Assert.That(File.Exists(pngPath), Is.True, pngPath);
@@ -765,6 +773,24 @@ namespace Game.Feature.UI.Tests
                 ignorePolicy,
                 Does.Contain("!TestLogs/TypographyVisualQA/**/capture.log"),
                 "The canonical manifest must remain trackable despite the repository-wide *.log rule.");
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotManifest_HistoricalEvidenceRetainsFiftyOneSettingsBindings()
+        {
+            var manifestPath = Path.Combine(
+                HistoricalEvidenceDirectory,
+                TypographyPreviewScreenshotManifestUtility.ManifestFileName);
+            Assert.That(File.Exists(manifestPath), Is.True, manifestPath);
+
+            var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
+            Assert.That(manifest.OutputDirectory, Is.EqualTo(HistoricalEvidenceDirectory));
+            foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
+            {
+                var settingsEntry = manifest.FindEntry("Settings", locale);
+                Assert.That(settingsEntry, Is.Not.Null, $"historical Settings/{locale}");
+                Assert.That(settingsEntry.TypographyBindingCount, Is.EqualTo(51));
+            }
         }
 
         [Test]
