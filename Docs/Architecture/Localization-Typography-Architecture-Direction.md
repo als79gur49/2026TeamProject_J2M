@@ -89,8 +89,8 @@ Current baseline captured for this cleanup pass:
 | Locale participation | Done | `LocaleThemed` is the serialized default. The 13 Settings physical-key TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
 | Pause / Main Menu typography migration | Done | Pause and Main Menu governed labels use the same typography-binding production path. |
-| Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. |
-| Screenshot capture tooling | Done | Typography preview screenshot capture tooling produced the latest 1920x1080 bilingual evidence and canonical `capture.log` manifest in `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/`. Future aggregate captures write the manifest directly and reject partial PASS evidence. |
+| Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
+| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates the current worktree/Unity path, revision gate, isolated capture slices, Nanum preservation, manifest closure, and PNG hashes. The latest canonical 1920x1080 set is `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/`; `CommandLine-20260720-194045` remains 51-count historical evidence. |
 | NanumGothic glyph coverage | Done | `NanumGothic SDF` coverage was expanded from Korean String Tables and is validated by UI tests. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
@@ -102,15 +102,15 @@ Current baseline captured for this cleanup pass:
 | Production SmartFormat integration | Restored; actual Localization Settings, formatter/source graph, and bilingual Smart Strings pass integration coverage. |
 | Settings static shell | Complete for the governed audio/display targets; raw action and physical key names remain intentional non-goals. |
 | Localization integration tests | 23/23 PASS. |
-| Settings production runtime tests | 21/21 PASS. |
-| Settings production typography composition tests | 3/3 PASS across production Main Menu and Gameplay scene paths, including exact 51-TMP inventory closure, 36 governed target parity, and the `en-US -> ko-KR -> en-US` round trip. |
-| Typography tests | 44/44 PASS. |
+| Settings production runtime tests | 25/25 PASS on the 2026-07-22 UI lane. |
+| Settings production typography composition tests | 3/3 PASS across production Main Menu and Gameplay scene paths, including exact 51-TMP inventory closure, 13 locale-invariant `Value` tags, 36 governed target parity, and the `en-US -> ko-KR -> en-US` round trip. |
+| Typography tests | 55/55 PASS on the 2026-07-22 UI lane across Pause/Main Menu binding, Settings binding, Editor validation, theme-model fixtures, current canonical evidence, and the preserved 51-count historical evidence contract. |
 | UI architecture tests | 58/58 PASS. |
-| Typography preview screenshot manifest | 2/2 PASS. |
-| Full UI lane | 855/855 PASS. |
-| Core lane | EditMode 197/197 PASS; PlayMode 92/92 PASS. |
-| Latest visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` at 1920x1080, with six SHA-256-addressed entries in `capture.log`. |
-| Remaining closeout work | Optional P2 Korean synthetic-bold/material polish only; broader Theme sizing and optional bake are not required. |
+| Typography preview screenshot manifest | PASS. Canonical schema-v1 evidence asserts six-entry closure, Settings 38 applied / 13 skipped, localized 22/22, 1920x1080 dimensions, nonblank/orientation results, PNG byte size/SHA-256, guarded assets, capture mode, and recorded revision. |
+| UI lane | 872/872 PASS on 2026-07-22 KST; Windows UI build passed with 0 errors and Unity UI EditMode failed 0. |
+| Core lane | Commit validation passed with EditMode 197/197 and PlayMode 92/92; this does not replace or imply a full-lane result. |
+| Latest compliant visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/`, revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`, mode `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PNG entries PASS. |
+| Remaining closeout work | Print Screen and Numpad Enter are not visible in the canonical Settings frame and remain covered by headless regression rather than completed manual visual verification; optional Korean synthetic-bold/material polish remains separate. |
 
 ### Smart Entry Contract
 

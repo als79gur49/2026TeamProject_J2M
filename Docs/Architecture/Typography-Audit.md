@@ -272,6 +272,20 @@ Word-shaped raw display names such as `Space`, `Left Shift`, `Enter`, `Numpad En
 
 World Guide movement key TMPs plus Push E and Flip Q remain outside the locale typography path and are unchanged. Updating World Guide E/Q after Settings rebinding is deferred as a separate synchronization feature. Waiting and duplicate action-label sentences also remain separate localization-policy work.
 
+### 2026-07-22 P2 contract hardening
+
+- `TypographyStyleTag` enum validity is now a structural validator contract for both `LocaleThemed` and `LocaleInvariant`; the generic validator does not force every invariant binding to `Value`.
+- The Settings production composition guard separately requires all 13 `LocaleInvariantKeyDisplay` bindings to use `TypographyStyleTag.Value`.
+- Null-theme Editor preview counts valid invariant targets as skipped before theme resolution, reports one missing-theme error only when a themed binding (or an empty diagnostic root) needs it, and creates no invariant snapshot or mutation.
+- Scene Selection preview and restore remove selected descendants when an ancestor is selected. Prefab assets are deduplicated by asset path only for the current call, so independent Scene roots/instances remain distinct and repeated calls still apply.
+- Settings live capture and schema-v1 manifest generation both require `typography_bindings=38`; schema and split-log columns are unchanged.
+
+Canonical evidence was generated from revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452` through `./run_tests.sh typography-visual` at `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/`. Its schema-v1 manifest records `RECONSTRUCTED_FROM_SPLIT_LOGS`, six 1920x1080 PASS entries, Settings `38` applied / `13` skipped, localized `22/22` for both locales, guarded assets PASS, and verified PNG byte sizes/SHA-256 hashes. The wrapper also preserved the Nanum content hash and pre-existing diff hash.
+
+Manual review confirmed the Settings en-US/ko-KR physical-key displays (`W/A/S/D`, arrows, `E`, `Q`), localized labels, keycap/current-value layout, and full-screen bounds. Pause and Main Menu match the prior bilingual capture behavior with no new Settings-policy regression. Print Screen and Numpad Enter do not appear in the canonical frame, so their visual verification is not claimed. `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` is preserved unchanged as 51-count historical evidence.
+
+Final validation: Settings production localization runtime `25/25` PASS, Settings production typography composition `3/3` PASS, typography fixtures `55/55` PASS, and `./run_tests.sh ui` `872/872` PASS on 2026-07-22 KST.
+
 ## 13. Historical Next Implementation Prompt Draft
 
 Implement the first Cascading Typography Theme slice without changing String Tables or localization keys.

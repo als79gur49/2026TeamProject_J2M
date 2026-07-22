@@ -16,11 +16,11 @@
 - Current PR-T3 transition content base contract rerun: green on 2026-06-12 KST
 - Current PR-T5 ChanceLost slot root explicit binding rerun: green on 2026-06-12 KST
 - Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
-- Current Settings shared runtime/production typography composition rerun: green on 2026-07-21 KST
+- Current Settings locale-independent typography contract rerun: green on 2026-07-22 KST with canonical `CommandLine-20260722-210829` Settings 38 applied / 13 skipped and preserved historical `CommandLine-20260720-194045` Settings 51 provenance
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `855 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `855 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
-- Current Settings composition interpretation: failed tests `none`, failure category `none`, touched-cluster regression `no`
+- Current Unity UI EditMode: `872 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `872 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Settings composition interpretation: `SettingsProductionLocalizationRuntimeTests` 25/25 PASS, `SettingsProductionTypographyCompositionTests` 3/3 PASS, and typography fixtures 55/55 PASS
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -29,6 +29,7 @@
 
 ## Structural Delta
 - Added tests:
+  - locale-independent typography P2 guards for invalid invariant style enums, null-theme invariant/themed preview parity, parent/child Selection normalization, independent roots, repeated preview calls, unique restore counts, live Settings 38-count capture, and schema-v1 manifest rejection of Settings count 51
   - production Settings typography composition tests that open Settings through the actual Main Menu scene installer/overlay path and the actual UIAudioScene installer/coordinator path, then verify the shared catalog/builder, exact closure across all 51 TMP targets / binding targets / manifest entries, 36 governed-target font/material/fontStyle parity, open dropdown live-item restyling, and prefab-authored `en-US -> ko-KR -> en-US` restoration
   - one-event external locale refresh coverage proving shell, Audio muted value, Display status/countdown/language, and Input status update without replacing active ViewModels
   - production scene serialization guards proving Main Menu and Gameplay reference the same Settings catalog/theme and that `_koreanSettingsFont` / `_settingsScreenPrefab` YAML residue is absent
@@ -57,9 +58,9 @@
   - PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary
   - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, `ResultContinueLabel`, StageResult text payload members, hidden title/detail prefab labels, and production YAML residue are absent
 - Test count delta:
-  - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `855 total / 0 failed`
-  - delta: `+633` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, PR-A Objective UI removal protection, PR-T3 transition content base contract cleanup, PR-T5 ChanceLost explicit slot root binding, and StageResult result text/continue label schema cleanup protection
+  - previous documented current UI EditMode result: `855 total / 0 failed`
+  - current rerun: `872 total / 0 failed`
+  - observed delta since that documented result: `+17` tests; this worktree adds focused locale-independent typography P2, canonical evidence, and historical-evidence preservation guards, while the remaining count growth was already present at current HEAD
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.

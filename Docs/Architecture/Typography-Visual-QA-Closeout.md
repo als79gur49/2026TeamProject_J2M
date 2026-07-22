@@ -7,14 +7,18 @@ This closeout records the visual QA result for the UI Localization + Typography 
 Evidence folder:
 
 ```text
-TestLogs/TypographyVisualQA/CommandLine-20260720-194045/
+TestLogs/TypographyVisualQA/CommandLine-20260722-210829/
 ```
 
-The evidence set contains 1920x1080 Settings, Pause, and Main Menu captures for `en-US` and `ko-KR`. Settings capture validation applied all 22 governed descriptors in each locale. Its canonical machine-readable manifest is `capture.log`.
+This is the current canonical 1920x1080 evidence generated through `./run_tests.sh typography-visual` from revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`. Its `capture.log` records schema 1, `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PASS entries, clean guarded assets, and Settings `typography_bindings=38`, `localized_expected=22`, `localized_applied=22` for both locales. The wrapper verified every PNG byte size/SHA-256 and preserved the Nanum content/diff hashes.
 
-The 2026-07-20 manifest was reconstructed without changing the PNGs. It cross-checks the successful split Unity logs against the six actual PNG files, records byte sizes, dimensions, localized descriptor counts, and SHA-256 hashes, and uses `6e5cd13fda59778aaa48f8db3047bb5c2188ccdb` as the reconstruction HEAD. The old split logs did not record per-output glyph/tofu results, so those manifest fields are explicitly `NOT_RECORDED`; the completed bilingual visual review remains the manual evidence for that historical capture.
+Manual review confirmed that Settings `W/A/S/D`, four directions, `E`, and `Q` keep the same physical-key presentation across en-US/ko-KR while Movement Keys, Use Arrow Keys, Push, Flip, Change, and Reset Input localize. No keycap/current-value clipping, wrapping, or 1920x1080 bounds issue was observed. Pause and Main Menu retain their historical bilingual capture behavior with no new Settings-policy regression. Print Screen and Numpad Enter are not visible in these frames, so their visual verification is not claimed.
 
-Future aggregate captures write `capture.log` directly from `TypographyPreviewScreenshotUtility` after all required target/locale results and guarded-asset checks are collected. Unity stdout must use a different raw log filename; a partial capture or failed validation writes `overall_result=FAIL` and cannot produce a PASS manifest.
+`TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` remains unchanged as historical evidence. Its Settings entries record 51, not the current exact 38 applied-binding contract; a dedicated test preserves that provenance without treating it as current canonical PASS.
+
+The repository wrapper refuses dirty P2 revisions and existing output directories, checks the current worktree/Unity path and active project process, writes raw Unity logs separately from `capture.log`, captures isolated slices, and retains failed output for diagnostics. A partial capture, Settings count mismatch, guarded-asset change, Nanum change, missing PNG, or hash mismatch fails the lane.
+
+The final 2026-07-22 UI lane produced `872/872` passed tests. Settings production localization runtime is 25/25 PASS, Settings production typography composition is 3/3 PASS, and typography fixtures are 55/55 PASS.
 
 ## P0 Closeout
 
