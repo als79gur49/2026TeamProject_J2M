@@ -387,7 +387,6 @@ namespace Game.Feature.UI.Composition.Editor
             RenderTexture renderTexture = null;
             RenderTexture previousRenderTexture = null;
             IDisposable localizedTextScope = null;
-            IDisposable textMaterialScope = null;
 
             try
             {
@@ -426,7 +425,6 @@ namespace Game.Feature.UI.Composition.Editor
                 }
 
                 ApplySettingsInputPreviewState(prefabRoot, target);
-                textMaterialScope = TmpTextMaterialIsolationScope.Capture(prefabRoot);
 
                 fontAssetRestoreScope?.Include(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
@@ -486,7 +484,6 @@ namespace Game.Feature.UI.Composition.Editor
             }
             finally
             {
-                textMaterialScope?.Dispose();
                 localizedTextScope?.Dispose();
                 RenderTexture.active = previousRenderTexture;
                 if (renderTexture != null)
@@ -912,16 +909,13 @@ namespace Game.Feature.UI.Composition.Editor
 
             prefabRoot.SetActive(true);
             prefabRoot.transform.SetParent(canvasObject.transform, false);
-            ConfigureCanvases(prefabRoot, camera, options.Width, options.Height);
+            ConfigureCanvases(prefabRoot, options.Width, options.Height);
         }
 
-        private static void ConfigureCanvases(GameObject root, Camera camera, int width, int height)
+        private static void ConfigureCanvases(GameObject root, int width, int height)
         {
             foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
             {
-                canvas.renderMode = RenderMode.ScreenSpaceCamera;
-                canvas.worldCamera = camera;
-                canvas.planeDistance = 100f;
                 canvas.pixelPerfect = false;
 
                 if (canvas.transform is RectTransform rectTransform &&
@@ -1359,87 +1353,5 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
-        private sealed class TmpTextMaterialIsolationScope : IDisposable
-        {
-            private readonly List<TextMaterialSnapshot> snapshots;
-            private bool isDisposed;
-
-            private TmpTextMaterialIsolationScope(List<TextMaterialSnapshot> snapshots)
-            {
-                this.snapshots = snapshots;
-            }
-
-            public static TmpTextMaterialIsolationScope Capture(GameObject root)
-            {
-                var snapshots = new List<TextMaterialSnapshot>();
-                if (root == null)
-                {
-                    return new TmpTextMaterialIsolationScope(snapshots);
-                }
-
-                foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
-                {
-                    var originalMaterial = text != null ? text.fontSharedMaterial : null;
-                    if (originalMaterial == null)
-                    {
-                        continue;
-                    }
-
-                    var materialInstance = new Material(originalMaterial)
-                    {
-                        name = $"{originalMaterial.name} (Typography Capture Instance)",
-                        hideFlags = HideFlags.HideAndDontSave,
-                    };
-                    text.fontSharedMaterial = materialInstance;
-                    snapshots.Add(new TextMaterialSnapshot(text, originalMaterial, materialInstance));
-                }
-
-                return new TmpTextMaterialIsolationScope(snapshots);
-            }
-
-            public void Dispose()
-            {
-                if (isDisposed)
-                {
-                    return;
-                }
-
-                isDisposed = true;
-                foreach (var snapshot in snapshots)
-                {
-                    snapshot.Restore();
-                }
-            }
-
-            private readonly struct TextMaterialSnapshot
-            {
-                private readonly TMP_Text target;
-                private readonly Material originalMaterial;
-                private readonly Material materialInstance;
-
-                public TextMaterialSnapshot(
-                    TMP_Text target,
-                    Material originalMaterial,
-                    Material materialInstance)
-                {
-                    this.target = target;
-                    this.originalMaterial = originalMaterial;
-                    this.materialInstance = materialInstance;
-                }
-
-                public void Restore()
-                {
-                    if (target != null)
-                    {
-                        target.fontSharedMaterial = originalMaterial;
-                    }
-
-                    if (materialInstance != null)
-                    {
-                        UnityEngine.Object.DestroyImmediate(materialInstance);
-                    }
-                }
-            }
-        }
     }
 }
