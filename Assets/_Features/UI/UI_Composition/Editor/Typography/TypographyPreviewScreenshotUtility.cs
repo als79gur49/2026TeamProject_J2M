@@ -402,12 +402,15 @@ namespace Game.Feature.UI.Composition.Editor
                     Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
                 shouldClosePreviewScene = !Application.isBatchMode;
                 EditorSceneManager.SetActiveScene(previewScene);
-                prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
+                prefabRoot = UnityEngine.Object.Instantiate(prefabAsset);
                 if (prefabRoot == null)
                 {
                     capture.AddError($"{target.PrefabPath}: Prefab instance could not be created for screenshot capture.");
                     return capture;
                 }
+
+                prefabRoot.name = prefabAsset.name;
+                EditorSceneManager.MoveGameObjectToScene(prefabRoot, previewScene);
 
                 var captureTheme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
                     TypographyThemeValidator.ThemeAssetPath);
