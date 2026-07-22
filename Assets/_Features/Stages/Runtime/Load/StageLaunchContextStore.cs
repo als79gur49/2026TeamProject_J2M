@@ -162,16 +162,16 @@ namespace Game.Feature.Stages
 
     public static class StageLaunchContextStore
     {
-        public delegate bool TryGetPendingStageId(out StageId stageId);
+        public delegate bool TryGetPendingStageLaunchContext(out StageLaunchContext context);
 
         private static readonly object Sync = new();
         private static StageLaunchContext current;
-        private static Action<StageId> primePendingEditorDirectPlay;
-        private static TryGetPendingStageId tryPeekPendingEditorDirectPlay;
-        private static TryGetPendingStageId tryConsumePendingEditorDirectPlay;
+        private static Action<StageLaunchContext> primePendingEditorDirectPlay;
+        private static TryGetPendingStageLaunchContext tryPeekPendingEditorDirectPlay;
+        private static TryGetPendingStageLaunchContext tryConsumePendingEditorDirectPlay;
+        private static Func<StageLaunchContext, bool> tryClearPendingEditorDirectPlay;
         private static Action clearPendingEditorDirectPlay;
-        private static StageId fallbackPendingEditorStageId = StageId.None;
-        private static bool hasFallbackPendingEditorStageId;
+        private static StageLaunchContext fallbackPendingEditorDirectPlay;
 
         public static StageId CurrentStageId =>
             TryPeek(out var context) ? context.StageId : StageId.None;
@@ -286,18 +286,19 @@ namespace Game.Feature.Stages
             }
 
             if (tryConsumePendingEditorDirectPlay != null &&
-                tryConsumePendingEditorDirectPlay(out stageId))
+                tryConsumePendingEditorDirectPlay(out var pendingContext))
             {
-                return TrySetCurrent(StageLaunchContext.CreateDirectPlay(stageId));
+                stageId = pendingContext.StageId;
+                return TrySetCurrent(pendingContext);
             }
 
             if (tryConsumePendingEditorDirectPlay == null &&
-                hasFallbackPendingEditorStageId)
+                fallbackPendingEditorDirectPlay != null)
             {
-                stageId = fallbackPendingEditorStageId;
-                fallbackPendingEditorStageId = StageId.None;
-                hasFallbackPendingEditorStageId = false;
-                return TrySetCurrent(StageLaunchContext.CreateDirectPlay(stageId));
+                var fallbackContext = fallbackPendingEditorDirectPlay;
+                fallbackPendingEditorDirectPlay = null;
+                stageId = fallbackContext.StageId;
+                return TrySetCurrent(fallbackContext);
             }
 
             stageId = StageId.None;
@@ -335,49 +336,87 @@ namespace Game.Feature.Stages
         }
 
         public static void ConfigurePendingEditorDirectPlayStore(
-            Action<StageId> primePending,
-            TryGetPendingStageId tryPeekPending,
-            TryGetPendingStageId tryConsumePending,
+            Action<StageLaunchContext> primePending,
+            TryGetPendingStageLaunchContext tryPeekPending,
+            TryGetPendingStageLaunchContext tryConsumePending,
+            Func<StageLaunchContext, bool> tryClearPending,
             Action clearPending)
         {
             primePendingEditorDirectPlay = primePending;
             tryPeekPendingEditorDirectPlay = tryPeekPending;
             tryConsumePendingEditorDirectPlay = tryConsumePending;
+            tryClearPendingEditorDirectPlay = tryClearPending;
             clearPendingEditorDirectPlay = clearPending;
         }
 
-        public static void PrimePendingEditorDirectPlay(StageId stageId)
+        public static StageLaunchContext PrimePendingEditorDirectPlay(StageId stageId)
         {
             if (!stageId.IsValid)
             {
                 throw new ArgumentException("StageId must be canonical.", nameof(stageId));
             }
 
+            var context = StageLaunchContext.CreateDirectPlay(stageId);
+            PrimePendingEditorDirectPlay(context);
+            return context;
+        }
+
+        internal static void PrimePendingEditorDirectPlay(StageLaunchContext context)
+        {
+            ThrowIfNotDirectPlayContext(context);
+
             if (primePendingEditorDirectPlay != null)
             {
-                primePendingEditorDirectPlay(stageId);
+                primePendingEditorDirectPlay(context);
                 return;
             }
 
-            fallbackPendingEditorStageId = stageId;
-            hasFallbackPendingEditorStageId = true;
+            fallbackPendingEditorDirectPlay = context;
         }
 
         public static bool TryPeekPendingEditorDirectPlay(out StageId stageId)
         {
-            if (tryPeekPendingEditorDirectPlay != null)
+            if (TryPeekPendingEditorDirectPlayContext(out var context))
             {
-                return tryPeekPendingEditorDirectPlay(out stageId);
-            }
-
-            if (hasFallbackPendingEditorStageId)
-            {
-                stageId = fallbackPendingEditorStageId;
+                stageId = context.StageId;
                 return true;
             }
 
             stageId = StageId.None;
             return false;
+        }
+
+        public static bool TryPeekPendingEditorDirectPlayContext(out StageLaunchContext context)
+        {
+            if (tryPeekPendingEditorDirectPlay != null)
+            {
+                return tryPeekPendingEditorDirectPlay(out context);
+            }
+
+            context = fallbackPendingEditorDirectPlay;
+            return context != null;
+        }
+
+        public static bool TryClearPendingEditorDirectPlay(StageLaunchContext expected)
+        {
+            if (expected == null)
+            {
+                return false;
+            }
+
+            if (tryClearPendingEditorDirectPlay != null)
+            {
+                return tryClearPendingEditorDirectPlay(expected);
+            }
+
+            if (fallbackPendingEditorDirectPlay == null ||
+                !fallbackPendingEditorDirectPlay.Equals(expected))
+            {
+                return false;
+            }
+
+            fallbackPendingEditorDirectPlay = null;
+            return true;
         }
 
         private static void ClearPendingEditorDirectPlayInternal()
@@ -388,8 +427,24 @@ namespace Game.Feature.Stages
                 return;
             }
 
-            fallbackPendingEditorStageId = StageId.None;
-            hasFallbackPendingEditorStageId = false;
+            fallbackPendingEditorDirectPlay = null;
+        }
+
+        private static void ThrowIfNotDirectPlayContext(StageLaunchContext context)
+        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (context.SlotNumber != 0 ||
+                context.NavigationKind != StageNavigationKind.Continue ||
+                !string.Equals(context.Source, "editor-direct-play", StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Pending Editor DirectPlay requires the canonical direct-play context identity.",
+                    nameof(context));
+            }
         }
 
         internal static void ResetForTests()

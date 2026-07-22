@@ -10,6 +10,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void SetUp()
         {
             StageLaunchContextStore.ResetForTests();
+            EditorDirectPlayLaunchOwnershipStore.ResetForTests();
             CampaignLaunchHandoffSessionStore.ResetForTests();
         }
 
@@ -18,6 +19,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             StageLaunchContextStore.ResetForTests();
             EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayLaunchOwnershipStore.ResetForTests();
             CampaignLaunchHandoffSessionStore.ResetForTests();
         }
 
@@ -75,6 +77,292 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(consumedStageId, Is.EqualTo(stageId));
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
             Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId));
+        }
+
+        [Test]
+        public void DirectPlayConsumeThenExit_ClearsOwnedRuntimeContext()
+        {
+            BeginDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.True);
+
+            StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                UnityEditor.PlayModeStateChange.ExitingPlayMode);
+
+            Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        public void DirectPlayConsumeThenExit_AllowsNextLaunch()
+        {
+            var first = BeginDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.True);
+
+            StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                UnityEditor.PlayModeStateChange.ExitingPlayMode);
+            StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                UnityEditor.PlayModeStateChange.EnteredEditMode);
+
+            Assert.DoesNotThrow(() => StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: false));
+            var second = BeginDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            var duplicate = Assert.Throws<InvalidOperationException>(() =>
+                StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
+                    isPlaying: false,
+                    isPlayingOrWillChangePlaymode: false));
+
+            Assert.That(second.Equals(first), Is.False);
+            Assert.That(duplicate?.Message, Does.Contain("rejected"));
+        }
+
+        [Test]
+        public void ProductionDirectPlay_Exit_AllowsRelaunch()
+        {
+            AssertModeAllowsRelaunch(EditorDirectPlayMode.CampaignProductionSlot);
+        }
+
+        [Test]
+        public void TempDirectPlay_Exit_AllowsRelaunch()
+        {
+            AssertModeAllowsRelaunch(EditorDirectPlayMode.CampaignTempSlot);
+        }
+
+        [Test]
+        public void NonCampaignDirectPlay_Exit_AllowsRelaunch()
+        {
+            AssertModeAllowsRelaunch(EditorDirectPlayMode.NonCampaign);
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearNewerRuntimeContext()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            var newer = CreateContext(
+                Guid.NewGuid(),
+                0,
+                "stage-1-1",
+                StageNavigationKind.Continue,
+                "editor-direct-play");
+            ReplaceRuntimeContext(ownership.ExpectedRuntimeContext, newer);
+            EditorDirectPlayContextStore.SetCurrent(
+                EditorDirectPlayContext.CreateNonCampaign(newer.StageId));
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(result.RuntimeContextResult, Is.EqualTo(
+                OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved));
+            Assert.That(StageLaunchContextStore.IsCurrent(newer), Is.True);
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearSameStageDifferentToken()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            var newer = CreateContext(
+                Guid.NewGuid(),
+                0,
+                "stage-0-1",
+                StageNavigationKind.Continue,
+                "editor-direct-play");
+            ReplaceRuntimeContext(ownership.ExpectedRuntimeContext, newer);
+
+            StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(StageLaunchContextStore.IsCurrent(newer), Is.True);
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearSameTokenDifferentSlot()
+        {
+            AssertRuntimeMismatchIsPreserved(ownership => CreateContext(
+                ownership.ExpectedRuntimeContext.Token,
+                1,
+                ownership.ExpectedRuntimeContext.StageId.Value,
+                ownership.ExpectedRuntimeContext.NavigationKind,
+                ownership.ExpectedRuntimeContext.Source));
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearSameTokenDifferentStage()
+        {
+            AssertRuntimeMismatchIsPreserved(ownership => CreateContext(
+                ownership.ExpectedRuntimeContext.Token,
+                ownership.ExpectedRuntimeContext.SlotNumber,
+                "stage-1-1",
+                ownership.ExpectedRuntimeContext.NavigationKind,
+                ownership.ExpectedRuntimeContext.Source));
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearSameTokenDifferentNavigation()
+        {
+            AssertRuntimeMismatchIsPreserved(ownership => CreateContext(
+                ownership.ExpectedRuntimeContext.Token,
+                ownership.ExpectedRuntimeContext.SlotNumber,
+                ownership.ExpectedRuntimeContext.StageId.Value,
+                StageNavigationKind.Retry,
+                ownership.ExpectedRuntimeContext.Source));
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearSameTokenDifferentSource()
+        {
+            AssertRuntimeMismatchIsPreserved(ownership => CreateContext(
+                ownership.ExpectedRuntimeContext.Token,
+                ownership.ExpectedRuntimeContext.SlotNumber,
+                ownership.ExpectedRuntimeContext.StageId.Value,
+                ownership.ExpectedRuntimeContext.NavigationKind,
+                "newer-editor-direct-play"));
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearDifferentModeRuntimeContext()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            EditorDirectPlayContextStore.SetCurrent(
+                CreateDirectPlayContext(EditorDirectPlayMode.CampaignTempSlot, ownership.StageId));
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(result.RuntimeContextResult, Is.EqualTo(
+                OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved));
+            Assert.That(StageLaunchContextStore.IsCurrent(ownership.ExpectedRuntimeContext), Is.True);
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearNormalCampaignPending()
+        {
+            var ownership = BeginDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            var campaignPending = BeginHandoff(
+                1,
+                "stage-1-1",
+                StageNavigationKind.Continue,
+                "main-menu");
+
+            StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(campaignPending));
+        }
+
+        [Test]
+        public void DirectPlayWithNormalPending_ExitPreservesCampaignPending()
+        {
+            DirectPlayExit_DoesNotClearNormalCampaignPending();
+        }
+
+        [Test]
+        public void DirectPlayExit_DoesNotClearNormalCampaignStageLaunchContext()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            var handoff = BeginHandoff(
+                1,
+                "stage-1-1",
+                StageNavigationKind.Continue,
+                "main-menu");
+            var campaignContext = StageLaunchContext.FromHandoff(handoff);
+            ReplaceRuntimeContext(ownership.ExpectedRuntimeContext, campaignContext);
+
+            StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(StageLaunchContextStore.IsCurrent(campaignContext), Is.True);
+            Assert.That(CampaignLaunchHandoffSessionStore.Instance.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.SameAs(handoff));
+        }
+
+        [Test]
+        public void DirectPlayCancelledBeforeConsume_ClearsOnlyMatchingPrime()
+        {
+            var ownership = BeginDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(result.MatchingPrimeCleared, Is.True);
+            Assert.That(result.RuntimeContextResult, Is.EqualTo(
+                OwnedDirectPlayRuntimeCleanupResult.NoCurrentContext));
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
+            Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+        }
+
+        [Test]
+        public void DirectPlayExit_MalformedOwnership_DoesNotClearRuntimeOrPrime()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            var runtimeContext = new StageLaunchContext(
+                Guid.NewGuid(),
+                0,
+                stageId,
+                StageNavigationKind.Continue,
+                "editor-direct-play");
+            Assert.That(StageLaunchContextStore.TrySetCurrent(runtimeContext), Is.True);
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(default);
+
+            Assert.That(result.RuntimeContextResult, Is.EqualTo(
+                OwnedDirectPlayRuntimeCleanupResult.MalformedExpectedOwnership));
+            Assert.That(StageLaunchContextStore.IsCurrent(runtimeContext), Is.True);
+        }
+
+        [Test]
+        public void DirectPlayExit_AfterPrimeAlreadyConsumed_DoesNotRecreatePrime()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+
+            StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
+        }
+
+        [Test]
+        public void DirectPlayExit_WithDifferentPrime_PreservesNewerPrime()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            Assert.That(
+                StageLaunchContextStore.TryClear(ownership.ExpectedRuntimeContext),
+                Is.True);
+            var newerPrime = new StageLaunchContext(
+                Guid.NewGuid(),
+                0,
+                StageId.CreateOrThrow("stage-1-1"),
+                StageNavigationKind.Continue,
+                "editor-direct-play");
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(newerPrime);
+            EditorDirectPlayContextStore.SetCurrent(
+                EditorDirectPlayContext.CreateNonCampaign(newerPrime.StageId));
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(result.DifferentPrimePreserved, Is.True);
+            Assert.That(
+                StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(out var currentPrime),
+                Is.True);
+            Assert.That(currentPrime, Is.EqualTo(newerPrime));
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId, Is.EqualTo(newerPrime.StageId));
         }
 
         [Test]
@@ -178,6 +466,24 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
             Assert.That(current, Is.SameAs(firstContext));
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId, Is.EqualTo(firstStage));
+        }
+
+        [Test]
+        public void DirectPlayDuplicateGuard_EditorOwnershipRecord_RejectsUntilExitCleanup()
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            Assert.That(StageLaunchContextStore.TryClear(ownership.ExpectedRuntimeContext), Is.True);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
+                    isPlaying: false,
+                    isPlayingOrWillChangePlaymode: false));
+
+            Assert.That(exception?.Message, Does.Contain("rejected"));
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out var current), Is.True);
+            Assert.That(current, Is.EqualTo(ownership));
         }
 
         [Test]
@@ -368,6 +674,68 @@ namespace Game.Feature.Stages.Editor.Tests
                 source);
 
             Assert.That(CampaignPendinglessLaunchPolicy.IsAllowed(request), Is.EqualTo(expected));
+        }
+
+        private static void AssertModeAllowsRelaunch(EditorDirectPlayMode mode)
+        {
+            var first = BeginConsumedDirectPlayOwnership(mode, "stage-0-1");
+
+            StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(first);
+
+            Assert.DoesNotThrow(() => StageEditorDirectPlayLauncher.ThrowIfLaunchIsAlreadyInProgress(
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: false));
+            var second = BeginDirectPlayOwnership(mode, "stage-0-1");
+            Assert.That(second.Equals(first), Is.False);
+        }
+
+        private static void AssertRuntimeMismatchIsPreserved(
+            Func<EditorDirectPlayLaunchOwnershipRecord, StageLaunchContext> createNewer)
+        {
+            var ownership = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.NonCampaign,
+                "stage-0-1");
+            var newer = createNewer(ownership);
+            ReplaceRuntimeContext(ownership.ExpectedRuntimeContext, newer);
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(ownership);
+
+            Assert.That(result.RuntimeContextResult, Is.EqualTo(
+                OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved));
+            Assert.That(StageLaunchContextStore.IsCurrent(newer), Is.True);
+        }
+
+        private static EditorDirectPlayLaunchOwnershipRecord BeginConsumedDirectPlayOwnership(
+            EditorDirectPlayMode mode,
+            string stage)
+        {
+            var ownership = BeginDirectPlayOwnership(mode, stage);
+            Assert.That(StageLaunchContextStore.TryGetCurrent(out var consumedStageId), Is.True);
+            Assert.That(consumedStageId, Is.EqualTo(ownership.StageId));
+            Assert.That(
+                StageLaunchContextStore.IsCurrent(ownership.ExpectedRuntimeContext),
+                Is.True);
+            return ownership;
+        }
+
+        private static EditorDirectPlayLaunchOwnershipRecord BeginDirectPlayOwnership(
+            EditorDirectPlayMode mode,
+            string stage)
+        {
+            var stageId = StageId.CreateOrThrow(stage);
+            EditorDirectPlayContextStore.SetCurrent(CreateDirectPlayContext(mode, stageId));
+            var expectedRuntimeContext = StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+            var ownership = new EditorDirectPlayLaunchOwnershipRecord(mode, expectedRuntimeContext);
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TrySetCurrent(ownership), Is.True);
+            return ownership;
+        }
+
+        private static void ReplaceRuntimeContext(
+            StageLaunchContext expectedCurrent,
+            StageLaunchContext replacement)
+        {
+            Assert.That(StageLaunchContextStore.TryClear(expectedCurrent), Is.True);
+            Assert.That(StageLaunchContextStore.TrySetCurrent(replacement), Is.True);
         }
 
         private static CampaignLaunchHandoff BeginHandoff(

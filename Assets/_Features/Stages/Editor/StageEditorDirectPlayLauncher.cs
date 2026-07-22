@@ -8,6 +8,41 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Stages.Editor
 {
+    internal enum OwnedDirectPlayRuntimeCleanupResult
+    {
+        MalformedExpectedOwnership = 0,
+        NoCurrentContext = 1,
+        ExactContextCleared = 2,
+        DifferentContextPreserved = 3,
+    }
+
+    internal readonly struct EditorDirectPlayExitCleanupResult
+    {
+        public EditorDirectPlayExitCleanupResult(
+            OwnedDirectPlayRuntimeCleanupResult runtimeContextResult,
+            bool matchingPrimeCleared,
+            bool differentPrimePreserved,
+            bool editorContextCleared,
+            bool ownershipReleased)
+        {
+            RuntimeContextResult = runtimeContextResult;
+            MatchingPrimeCleared = matchingPrimeCleared;
+            DifferentPrimePreserved = differentPrimePreserved;
+            EditorContextCleared = editorContextCleared;
+            OwnershipReleased = ownershipReleased;
+        }
+
+        public OwnedDirectPlayRuntimeCleanupResult RuntimeContextResult { get; }
+
+        public bool MatchingPrimeCleared { get; }
+
+        public bool DifferentPrimePreserved { get; }
+
+        public bool EditorContextCleared { get; }
+
+        public bool OwnershipReleased { get; }
+    }
+
     [InitializeOnLoad]
     public static class StageEditorDirectPlayLauncher
     {
@@ -103,35 +138,52 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
+            var ownership = default(EditorDirectPlayLaunchOwnershipRecord);
+            var ownsEditorContext = false;
             try
             {
                 switch (mode)
                 {
                     case EditorDirectPlayMode.NonCampaign:
                         EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+                        ownsEditorContext = true;
                         break;
 
                     case EditorDirectPlayMode.CampaignTempSlot:
                         PrimeCampaignTempSlot(stageId, sequenceResolver, remainingChances);
+                        ownsEditorContext = true;
                         break;
 
                     case EditorDirectPlayMode.CampaignProductionSlot:
                         PrimeCampaignProductionSlot(stageId, sequenceResolver, remainingChances, productionSlotNumber);
+                        ownsEditorContext = true;
                         break;
 
                     default:
                         throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported Direct Play mode.");
                 }
 
-                StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+                ownership = CaptureDirectPlayOwnership(mode, stageId);
                 EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
                 RememberLastStage(stageId);
                 EditorApplication.isPlaying = true;
             }
             catch
             {
-                StageLaunchContextStore.Clear();
-                EditorDirectPlayContextStore.Clear();
+                if (ownership.IsValid)
+                {
+                    CleanupOwnedDirectPlay(ownership);
+                }
+                else if (ownsEditorContext)
+                {
+                    if (mode == EditorDirectPlayMode.CampaignTempSlot)
+                    {
+                        EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                    }
+
+                    EditorDirectPlayContextStore.Clear();
+                }
+
                 throw;
             }
         }
@@ -143,7 +195,8 @@ namespace Game.Feature.Stages.Editor
             if (!isPlaying &&
                 !isPlayingOrWillChangePlaymode &&
                 !StageLaunchContextStore.TryPeek(out _) &&
-                !StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _))
+                !StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _) &&
+                !EditorDirectPlayLaunchOwnershipStore.TryPeek(out _))
             {
                 return;
             }
@@ -262,8 +315,13 @@ namespace Game.Feature.Stages.Editor
         {
             if (change == PlayModeStateChange.ExitingPlayMode)
             {
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-                EditorDirectPlayContextStore.Clear();
+                CleanupCurrentOwnedDirectPlay();
+                return;
+            }
+
+            if (change == PlayModeStateChange.EnteredEditMode)
+            {
+                CleanupCurrentOwnedDirectPlay();
                 return;
             }
 
@@ -291,6 +349,105 @@ namespace Game.Feature.Stages.Editor
 
             Debug.LogWarning(
                 $"Scene '{scenePath}' is the canonical stage-backed gameplay shell and requires a StageId launch context. Use Tools/Stages/Direct Play/Launch Stage... before entering Play mode.");
+        }
+
+        internal static EditorDirectPlayExitCleanupResult CleanupOwnedDirectPlayForTests(
+            EditorDirectPlayLaunchOwnershipRecord ownership)
+        {
+            return CleanupOwnedDirectPlay(ownership);
+        }
+
+        internal static void HandlePlayModeStateChangedForTests(PlayModeStateChange change)
+        {
+            HandlePlayModeStateChanged(change);
+        }
+
+        internal static OwnedDirectPlayRuntimeCleanupResult TryClearOwnedDirectPlayRuntimeContext(
+            EditorDirectPlayLaunchOwnershipRecord ownership)
+        {
+            if (!ownership.IsValid)
+            {
+                return OwnedDirectPlayRuntimeCleanupResult.MalformedExpectedOwnership;
+            }
+
+            if (!StageLaunchContextStore.TryPeek(out var current))
+            {
+                return OwnedDirectPlayRuntimeCleanupResult.NoCurrentContext;
+            }
+
+            if (!current.Equals(ownership.ExpectedRuntimeContext) ||
+                !EditorDirectPlayContextStore.TryGetCurrent(out var editorContext) ||
+                !ownership.Matches(editorContext))
+            {
+                return OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved;
+            }
+
+            return StageLaunchContextStore.TryClear(ownership.ExpectedRuntimeContext)
+                ? OwnedDirectPlayRuntimeCleanupResult.ExactContextCleared
+                : OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved;
+        }
+
+        private static EditorDirectPlayLaunchOwnershipRecord CaptureDirectPlayOwnership(
+            EditorDirectPlayMode mode,
+            StageId stageId)
+        {
+            var expectedRuntimeContext = StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+            var ownership = new EditorDirectPlayLaunchOwnershipRecord(mode, expectedRuntimeContext);
+            if (EditorDirectPlayLaunchOwnershipStore.TrySetCurrent(ownership))
+            {
+                return ownership;
+            }
+
+            StageLaunchContextStore.TryClearPendingEditorDirectPlay(expectedRuntimeContext);
+            throw new InvalidOperationException(
+                "Direct Play launch could not capture exact lifecycle ownership because another editor operation already owns cleanup.");
+        }
+
+        private static void CleanupCurrentOwnedDirectPlay()
+        {
+            if (EditorDirectPlayLaunchOwnershipStore.TryPeek(out var ownership))
+            {
+                CleanupOwnedDirectPlay(ownership);
+            }
+        }
+
+        private static EditorDirectPlayExitCleanupResult CleanupOwnedDirectPlay(
+            EditorDirectPlayLaunchOwnershipRecord ownership)
+        {
+            var runtimeContextResult = TryClearOwnedDirectPlayRuntimeContext(ownership);
+            var matchesEditorContext =
+                EditorDirectPlayContextStore.TryGetCurrent(out var editorContext) &&
+                ownership.Matches(editorContext);
+            var matchingPrimeCleared = matchesEditorContext &&
+                                       StageLaunchContextStore.TryClearPendingEditorDirectPlay(
+                                           ownership.ExpectedRuntimeContext);
+            var differentPrimePreserved =
+                StageLaunchContextStore.TryPeekPendingEditorDirectPlayContext(out var remainingPrime) &&
+                !remainingPrime.Equals(ownership.ExpectedRuntimeContext);
+            var differentRuntimeContextPreserved =
+                runtimeContextResult == OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved;
+            var editorContextCleared = false;
+
+            if (matchesEditorContext &&
+                !differentRuntimeContextPreserved &&
+                !differentPrimePreserved)
+            {
+                if (ownership.Mode == EditorDirectPlayMode.CampaignTempSlot)
+                {
+                    EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+                }
+
+                EditorDirectPlayContextStore.Clear();
+                editorContextCleared = true;
+            }
+
+            var ownershipReleased = EditorDirectPlayLaunchOwnershipStore.TryClear(ownership);
+            return new EditorDirectPlayExitCleanupResult(
+                runtimeContextResult,
+                matchingPrimeCleared,
+                differentPrimePreserved,
+                editorContextCleared,
+                ownershipReleased);
         }
 
         private static void RememberLastStage(StageId stageId)
