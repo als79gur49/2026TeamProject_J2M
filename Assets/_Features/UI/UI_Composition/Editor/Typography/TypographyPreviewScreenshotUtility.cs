@@ -397,9 +397,7 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
-                previewScene = EditorSceneManager.NewScene(
-                    NewSceneSetup.EmptyScene,
-                    NewSceneMode.Additive);
+                previewScene = EditorSceneManager.NewPreviewScene();
                 shouldClosePreviewScene = true;
                 EditorSceneManager.SetActiveScene(previewScene);
                 prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
@@ -520,7 +518,7 @@ namespace Game.Feature.UI.Composition.Editor
                         EditorSceneManager.SetActiveScene(previousActiveScene);
                     }
 
-                    EditorSceneManager.CloseScene(previewScene, true);
+                    EditorSceneManager.ClosePreviewScene(previewScene);
                 }
             }
 
