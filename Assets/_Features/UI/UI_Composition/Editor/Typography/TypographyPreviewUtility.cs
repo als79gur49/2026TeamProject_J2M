@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.UI.Screens;
 using TMPro;
 using UnityEditor;
@@ -44,24 +46,23 @@ namespace Game.Feature.UI.Composition.Editor
         {
             var result = new TypographyPreviewResult();
             theme ??= TypographyThemeValidator.FindThemeAsset();
+            var selectedGameObjects = Selection.objects.OfType<GameObject>().ToArray();
 
-            foreach (var selectedObject in Selection.objects)
+            var prefabAssetPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var selectedGameObject in selectedGameObjects)
             {
-                if (selectedObject is not GameObject selectedGameObject)
+                if (!TryGetPrefabAssetPath(selectedGameObject, out var assetPath) ||
+                    !prefabAssetPaths.Add(assetPath))
                 {
                     continue;
                 }
 
-                var assetPath = AssetDatabase.GetAssetPath(selectedGameObject);
-                if (!string.IsNullOrWhiteSpace(assetPath) &&
-                    PrefabUtility.IsPartOfPrefabAsset(selectedGameObject))
-                {
-                    Merge(result, ApplyPreviewToPrefabAsset(assetPath, localeCode, theme));
-                }
-                else
-                {
-                    Merge(result, ApplyPreview(selectedGameObject, localeCode, theme));
-                }
+                Merge(result, ApplyPreviewToPrefabAsset(assetPath, localeCode, theme));
+            }
+
+            foreach (var sceneRoot in GetNormalizedSceneRoots(selectedGameObjects))
+            {
+                Merge(result, ApplyPreview(sceneRoot, localeCode, theme));
             }
 
             return result;
@@ -101,14 +102,17 @@ namespace Game.Feature.UI.Composition.Editor
                 return result;
             }
 
-            if (theme == null)
+            var bindings = root.GetComponentsInChildren<TypographyBinding>(true);
+            var requiresTheme = bindings.Length == 0;
+            foreach (var binding in bindings)
             {
-                result.AddError("GameplayUiTypographyTheme asset was not found.");
-                return result;
-            }
+                var isLocaleInvariant =
+                    binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant;
+                if (!isLocaleInvariant)
+                {
+                    requiresTheme = true;
+                }
 
-            foreach (var binding in root.GetComponentsInChildren<TypographyBinding>(true))
-            {
                 var target = binding.Target;
                 if (target == null)
                 {
@@ -116,9 +120,14 @@ namespace Game.Feature.UI.Composition.Editor
                     continue;
                 }
 
-                if (binding.LocaleParticipation == TypographyLocaleParticipation.LocaleInvariant)
+                if (isLocaleInvariant)
                 {
                     result.AddLocaleInvariantSkipped();
+                    continue;
+                }
+
+                if (theme == null)
+                {
                     continue;
                 }
 
@@ -140,6 +149,11 @@ namespace Game.Feature.UI.Composition.Editor
 
                 LocalizedTmpTextApplicator.ApplyResolvedTypography(target, style, binding);
                 result.AddApplied();
+            }
+
+            if (theme == null && requiresTheme)
+            {
+                result.AddError("GameplayUiTypographyTheme asset was not found.");
             }
 
             return result;
@@ -176,17 +190,33 @@ namespace Game.Feature.UI.Composition.Editor
         public static int RestorePreviewOnSelection()
         {
             var restored = 0;
-            foreach (var selectedObject in Selection.gameObjects)
+            foreach (var selectedObject in GetNormalizedSceneRoots(Selection.gameObjects))
             {
-                if (PrefabUtility.IsPartOfPrefabAsset(selectedObject))
-                {
-                    continue;
-                }
-
                 restored += RestorePreview(selectedObject);
             }
 
             return restored;
+        }
+
+        private static IReadOnlyList<GameObject> GetNormalizedSceneRoots(
+            IReadOnlyList<GameObject> selectedGameObjects)
+        {
+            var sceneObjects = selectedGameObjects
+                .Where(selectedObject => selectedObject != null &&
+                                         !TryGetPrefabAssetPath(selectedObject, out _))
+                .Distinct()
+                .ToArray();
+            return sceneObjects
+                .Where(candidate => !sceneObjects.Any(other =>
+                    other != candidate && candidate.transform.IsChildOf(other.transform)))
+                .ToArray();
+        }
+
+        private static bool TryGetPrefabAssetPath(GameObject gameObject, out string assetPath)
+        {
+            assetPath = gameObject != null ? AssetDatabase.GetAssetPath(gameObject) : string.Empty;
+            return !string.IsNullOrWhiteSpace(assetPath) &&
+                   PrefabUtility.IsPartOfPrefabAsset(gameObject);
         }
 
         private static void Merge(TypographyPreviewResult target, TypographyPreviewResult source)

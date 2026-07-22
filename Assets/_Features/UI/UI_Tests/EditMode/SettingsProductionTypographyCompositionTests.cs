@@ -121,6 +121,17 @@ namespace Game.Feature.UI.Tests
                 .Select(target => GetHierarchyPath(target.transform))
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
+            var invariantBindingsWithUnexpectedStyleTag = inventory
+                .Where(item => item.Classification == TargetClassification.LocaleInvariantKeyDisplay)
+                .Select(item => new
+                {
+                    item.Name,
+                    Binding = TypographyBinding.FindFor(item.Target),
+                })
+                .Where(item => item.Binding == null || item.Binding.StyleTag != TypographyStyleTag.Value)
+                .Select(item =>
+                    $"{item.Name} ({(item.Binding == null ? "missing binding" : item.Binding.StyleTag.ToString())})")
+                .ToArray();
             Assert.That(
                 unclassifiedTmpTargets,
                 Is.Empty,
@@ -134,6 +145,11 @@ namespace Game.Feature.UI.Tests
                 Is.Empty,
                 $"TypographyBinding targets missing inventory classification: {string.Join(", ", unclassifiedBindings)}");
             Assert.That(missingBindings, Is.Empty, $"Manifest targets missing TypographyBinding: {string.Join(", ", missingBindings)}");
+            Assert.That(
+                invariantBindingsWithUnexpectedStyleTag,
+                Is.Empty,
+                "LocaleInvariant key displays must use TypographyStyleTag.Value: " +
+                string.Join(", ", invariantBindingsWithUnexpectedStyleTag));
 
             foreach (var item in inventory)
             {

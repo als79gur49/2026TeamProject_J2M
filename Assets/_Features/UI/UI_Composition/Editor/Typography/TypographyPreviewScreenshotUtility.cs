@@ -160,6 +160,7 @@ namespace Game.Feature.UI.Composition.Editor
     public static class TypographyPreviewScreenshotUtility
     {
         public const string DefaultOutputRoot = "TestLogs/TypographyVisualQA";
+        public const int SettingsExpectedAppliedBindingCount = 38;
         public const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         public const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
 

@@ -545,6 +545,15 @@ namespace Game.Feature.UI.Composition.Editor
                     $"recordedExpected={capture.ExpectedLocalizedTextCount}, applied={capture.LocalizedTextAppliedCount}.");
             }
 
+            if (string.Equals(target.FileStem, "Settings", StringComparison.Ordinal) &&
+                capture.AppliedBindingCount != TypographyPreviewScreenshotUtility.SettingsExpectedAppliedBindingCount)
+            {
+                errors.Add(
+                    $"Settings typography binding count must be " +
+                    $"{TypographyPreviewScreenshotUtility.SettingsExpectedAppliedBindingCount}, " +
+                    $"got {capture.AppliedBindingCount}.");
+            }
+
             if (string.Equals(capture.OrientationValidationResult, "FAIL", StringComparison.Ordinal) ||
                 string.Equals(capture.OrientationValidationResult, "NOT_RUN", StringComparison.Ordinal))
             {

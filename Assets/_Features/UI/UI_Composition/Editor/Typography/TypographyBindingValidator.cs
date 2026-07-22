@@ -146,6 +146,14 @@ namespace Game.Feature.UI.Composition.Editor
                 return;
             }
 
+            if (!Enum.IsDefined(typeof(TypographyStyleTag), binding.StyleTag))
+            {
+                report.AddError(
+                    objectTarget,
+                    $"StyleTag value '{(int)binding.StyleTag}' is invalid.");
+                return;
+            }
+
             if (binding.StyleTag == TypographyStyleTag.Default)
             {
                 report.AddWarning(objectTarget, "StyleTag is Default; confirm this is intentional.");

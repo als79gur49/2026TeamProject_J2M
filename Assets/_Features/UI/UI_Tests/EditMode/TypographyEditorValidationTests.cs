@@ -93,9 +93,17 @@ namespace Game.Feature.UI.Tests
             var root = new GameObject("TypographyLocaleInvariantValidation");
             var text = root.AddComponent<TextMeshProUGUI>();
             var binding = root.AddComponent<TypographyBinding>();
+            var theme = CreateTheme(
+                new[]
+                {
+                    CreateFontSet("en-US", LoadLiberationSans()),
+                    CreateFontSet("ko-KR", UiTestPrefabAssetUtility.LoadNanumGothicFont()),
+                });
+            theme.SetBaseRules(GameplayUiTypographyTheme.CreateDefaultBaseRules()
+                .Where(rule => rule.StyleTag != TypographyStyleTag.Value));
             var serializedBinding = new SerializedObject(binding);
             serializedBinding.FindProperty("target").objectReferenceValue = text;
-            serializedBinding.FindProperty("styleTag").intValue = int.MaxValue;
+            serializedBinding.FindProperty("styleTag").intValue = (int)TypographyStyleTag.Value;
             serializedBinding.FindProperty("localeParticipation").intValue =
                 (int)TypographyLocaleParticipation.LocaleInvariant;
             serializedBinding.ApplyModifiedPropertiesWithoutUndo();
@@ -105,9 +113,38 @@ namespace Game.Feature.UI.Tests
                 var report = TypographyBindingValidator.ValidateRoot(
                     root,
                     "TestRoot",
-                    TypographyThemeValidator.FindThemeAsset());
+                    theme);
 
                 Assert.That(report.HasErrors, Is.False, string.Join("; ", report.Issues));
+            }
+            finally
+            {
+                Object.DestroyImmediate(theme);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyBindingValidator_RejectsInvalidStyleTagForLocaleInvariantBinding()
+        {
+            var root = new GameObject("TypographyInvalidInvariantStyleTag");
+            var text = root.AddComponent<TextMeshProUGUI>();
+            var binding = root.AddComponent<TypographyBinding>();
+            ConfigureBinding(
+                binding,
+                text,
+                (TypographyStyleTag)int.MaxValue,
+                TypographyLocaleParticipation.LocaleInvariant);
+
+            try
+            {
+                var report = TypographyBindingValidator.ValidateRoot(
+                    root,
+                    "TestRoot",
+                    TypographyThemeValidator.FindThemeAsset());
+
+                Assert.That(report.HasErrors, Is.True);
+                Assert.That(report.Issues.Select(issue => issue.Message), Has.Some.Contains("StyleTag value"));
             }
             finally
             {
@@ -176,6 +213,100 @@ namespace Game.Feature.UI.Tests
             Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
             Assert.That(result.AppliedCount, Is.GreaterThan(0));
             Assert.That(EditorUtility.IsDirty(prefab), Is.False);
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_InvariantOnlyRootWithoutTheme_SkipsWithoutMutationOrSnapshot()
+        {
+            var root = new GameObject("InvariantOnlyPreviewRoot");
+            var binding = CreateBinding(
+                root,
+                "InvariantText",
+                TypographyStyleTag.Value,
+                TypographyLocaleParticipation.LocaleInvariant);
+            binding.Target.text = "Left Shift";
+            var before = new PreviewTypographyState(binding.Target);
+
+            try
+            {
+                var result = TypographyPreviewUtility.ApplyPreview(root, "ko-KR", null);
+
+                Assert.That(result.Errors, Is.Empty);
+                Assert.That(result.AppliedCount, Is.Zero);
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(1));
+                before.AssertSame(binding.Target, "invariant-only null-theme preview");
+                Assert.That(TypographyPreviewUtility.RestorePreview(root, recordUndo: false), Is.Zero);
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(root, recordUndo: false);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_MixedRootWithoutTheme_CountsInvariantAndPreservesAllTextState()
+        {
+            var root = new GameObject("MixedNullThemePreviewRoot");
+            var invariant = CreateBinding(
+                root,
+                "InvariantText",
+                TypographyStyleTag.Value,
+                TypographyLocaleParticipation.LocaleInvariant);
+            var themed = CreateBinding(
+                root,
+                "ThemedText",
+                TypographyStyleTag.Label,
+                TypographyLocaleParticipation.LocaleThemed);
+            invariant.Target.text = "Space";
+            themed.Target.text = "Movement Keys";
+            var states = root.GetComponentsInChildren<TMP_Text>(true)
+                .ToDictionary(target => target, target => new PreviewTypographyState(target));
+
+            try
+            {
+                var result = TypographyPreviewUtility.ApplyPreview(root, "ko-KR", null);
+
+                Assert.That(result.Errors, Has.Count.EqualTo(1));
+                Assert.That(result.Errors[0], Does.Contain("GameplayUiTypographyTheme"));
+                Assert.That(result.AppliedCount, Is.Zero);
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(1));
+                foreach (var pair in states)
+                {
+                    pair.Value.AssertSame(pair.Key, pair.Key.name + " mixed null-theme preview");
+                }
+
+                Assert.That(TypographyPreviewUtility.RestorePreview(root, recordUndo: false), Is.Zero);
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(root, recordUndo: false);
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_ThemedOnlyRootWithoutTheme_ReportsOneThemeErrorForAllBindings()
+        {
+            var root = new GameObject("ThemedOnlyNullThemePreviewRoot");
+            CreateBinding(root, "FirstThemedText", TypographyStyleTag.Label, TypographyLocaleParticipation.LocaleThemed);
+            CreateBinding(root, "SecondThemedText", TypographyStyleTag.Button, TypographyLocaleParticipation.LocaleThemed);
+
+            try
+            {
+                var result = TypographyPreviewUtility.ApplyPreview(root, "ko-KR", null);
+
+                Assert.That(result.Errors, Has.Count.EqualTo(1));
+                Assert.That(result.Errors[0], Does.Contain("GameplayUiTypographyTheme"));
+                Assert.That(result.AppliedCount, Is.Zero);
+                Assert.That(result.LocaleInvariantSkippedCount, Is.Zero);
+                Assert.That(TypographyPreviewUtility.RestorePreview(root, recordUndo: false), Is.Zero);
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(root, recordUndo: false);
+                Object.DestroyImmediate(root);
+            }
         }
 
         [Test]
@@ -268,6 +399,125 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void TypographyPreviewUtility_SettingsRootSelection_AppliesAndRestoresUniqueTargets()
+        {
+            var previousSelection = Selection.objects;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var root = Object.Instantiate(prefab);
+
+            try
+            {
+                Selection.objects = new Object[] { root };
+
+                var result = TypographyPreviewUtility.ApplyPreviewToSelection(
+                    "ko-KR",
+                    TypographyThemeValidator.FindThemeAsset());
+
+                Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
+                Assert.That(result.AppliedCount, Is.EqualTo(38));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
+                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(38));
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(root, recordUndo: false);
+                Selection.objects = previousSelection;
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_ParentAndMovementRowSelection_DeduplicatesTraversalAndRestore()
+        {
+            var previousSelection = Selection.objects;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var root = Object.Instantiate(prefab);
+            var movementInputRow = root.GetComponentsInChildren<Transform>(true)
+                .Single(transform => transform.name == "MovementInputRow");
+
+            try
+            {
+                Selection.objects = new Object[] { root, movementInputRow.gameObject };
+
+                var result = TypographyPreviewUtility.ApplyPreviewToSelection(
+                    "ko-KR",
+                    TypographyThemeValidator.FindThemeAsset());
+
+                Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
+                Assert.That(result.AppliedCount, Is.EqualTo(38));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
+                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(38));
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(root, recordUndo: false);
+                Selection.objects = previousSelection;
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_IndependentSelectedRoots_AppliesBoth()
+        {
+            var previousSelection = Selection.objects;
+            var firstRoot = new GameObject("FirstPreviewRoot");
+            var secondRoot = new GameObject("SecondPreviewRoot");
+            CreateBinding(firstRoot, "FirstText", TypographyStyleTag.Label, TypographyLocaleParticipation.LocaleThemed);
+            CreateBinding(secondRoot, "SecondText", TypographyStyleTag.Button, TypographyLocaleParticipation.LocaleThemed);
+
+            try
+            {
+                Selection.objects = new Object[] { firstRoot, secondRoot };
+
+                var result = TypographyPreviewUtility.ApplyPreviewToSelection(
+                    "ko-KR",
+                    TypographyThemeValidator.FindThemeAsset());
+
+                Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
+                Assert.That(result.AppliedCount, Is.EqualTo(2));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.Zero);
+                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(2));
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(firstRoot, recordUndo: false);
+                TypographyPreviewUtility.RestorePreview(secondRoot, recordUndo: false);
+                Selection.objects = previousSelection;
+                Object.DestroyImmediate(firstRoot);
+                Object.DestroyImmediate(secondRoot);
+            }
+        }
+
+        [Test]
+        public void TypographyPreviewUtility_RepeatedSelectionPreview_DoesNotRetainDedupeState()
+        {
+            var previousSelection = Selection.objects;
+            var root = new GameObject("RepeatedPreviewRoot");
+            CreateBinding(root, "RepeatedText", TypographyStyleTag.Label, TypographyLocaleParticipation.LocaleThemed);
+
+            try
+            {
+                Selection.objects = new Object[] { root };
+                var theme = TypographyThemeValidator.FindThemeAsset();
+
+                var first = TypographyPreviewUtility.ApplyPreviewToSelection("en-US", theme);
+                var second = TypographyPreviewUtility.ApplyPreviewToSelection("ko-KR", theme);
+
+                Assert.That(first.HasErrors, Is.False, string.Join("; ", first.Errors));
+                Assert.That(second.HasErrors, Is.False, string.Join("; ", second.Errors));
+                Assert.That(first.AppliedCount, Is.EqualTo(1));
+                Assert.That(second.AppliedCount, Is.EqualTo(1));
+                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(1));
+            }
+            finally
+            {
+                TypographyPreviewUtility.RestorePreview(root, recordUndo: false);
+                Selection.objects = previousSelection;
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void TypographyPreviewScreenshotUtility_ResolvesRequiredTargetsAndFileNames()
         {
             var targets = TypographyPreviewScreenshotUtility.RequiredTargets;
@@ -337,7 +587,17 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(File.Exists(capture.FilePath), Is.True, capture.FilePath);
                 Assert.That(new FileInfo(capture.FilePath).Length, Is.GreaterThan(0), capture.FilePath);
-                Assert.That(capture.AppliedBindingCount, Is.GreaterThan(0), capture.FilePath);
+                if (capture.Target.FileStem == "Settings")
+                {
+                    Assert.That(
+                        capture.AppliedBindingCount,
+                        Is.EqualTo(TypographyPreviewScreenshotUtility.SettingsExpectedAppliedBindingCount),
+                        capture.FilePath);
+                }
+                else
+                {
+                    Assert.That(capture.AppliedBindingCount, Is.GreaterThan(0), capture.FilePath);
+                }
                 Assert.That(capture.LocalizedTextAppliedCount, Is.EqualTo(ExpectedLocalizedTextCount(capture.Target.FileStem)), capture.FilePath);
 
                 var texture = new Texture2D(2, 2);
@@ -369,6 +629,24 @@ namespace Game.Feature.UI.Tests
             Assert.That(manifest.Width, Is.EqualTo(960));
             Assert.That(manifest.Height, Is.EqualTo(540));
             Assert.That(manifest.Entries, Has.Count.EqualTo(6));
+            Assert.That(
+                manifest.Entries.Where(entry => entry.Target == "Settings"),
+                Has.All.Property("TypographyBindingCount")
+                    .EqualTo(TypographyPreviewScreenshotUtility.SettingsExpectedAppliedBindingCount));
+
+            foreach (var settingsCapture in result.Captures.Where(capture => capture.Target.FileStem == "Settings"))
+            {
+                settingsCapture.AppliedBindingCount = 51;
+            }
+
+            TypographyPreviewScreenshotManifestUtility.WriteCanonicalManifest(
+                result,
+                new TypographyPreviewScreenshotOptions { Width = 960, Height = 540 });
+            var rejectedManifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
+            Assert.That(rejectedManifest.OverallResult, Is.EqualTo("FAIL"));
+            Assert.That(
+                rejectedManifest.Entries.Where(entry => entry.Target == "Settings"),
+                Has.All.Property("CaptureResult").EqualTo("FAIL"));
 
             AssertGuardedAssetsAreClean(guardedAssets);
 
@@ -449,6 +727,12 @@ namespace Game.Feature.UI.Tests
                     Assert.That(entry.Height, Is.EqualTo(1080));
                     Assert.That(entry.LocalizedExpectedCount, Is.EqualTo(expectedLocalizedCount));
                     Assert.That(entry.LocalizedAppliedCount, Is.EqualTo(expectedLocalizedCount));
+                    if (target.FileStem == "Settings")
+                    {
+                        Assert.That(
+                            entry.TypographyBindingCount,
+                            Is.EqualTo(TypographyPreviewScreenshotUtility.SettingsExpectedAppliedBindingCount));
+                    }
                     Assert.That(entry.OrientationValidation, Does.StartWith("PASS"));
                     Assert.That(entry.NonBlankValidation, Is.EqualTo("PASS"));
 
@@ -558,6 +842,33 @@ namespace Game.Feature.UI.Tests
                 TypographyThemeValidator.FindThemeAsset());
 
             Assert.That(report.HasErrors, Is.False, string.Join("; ", report.Issues.Select(issue => issue.ToString())));
+        }
+
+        private static TypographyBinding CreateBinding(
+            GameObject root,
+            string name,
+            TypographyStyleTag styleTag,
+            TypographyLocaleParticipation localeParticipation)
+        {
+            var targetObject = new GameObject(name);
+            targetObject.transform.SetParent(root.transform, false);
+            var target = targetObject.AddComponent<TextMeshProUGUI>();
+            var binding = targetObject.AddComponent<TypographyBinding>();
+            ConfigureBinding(binding, target, styleTag, localeParticipation);
+            return binding;
+        }
+
+        private static void ConfigureBinding(
+            TypographyBinding binding,
+            TMP_Text target,
+            TypographyStyleTag styleTag,
+            TypographyLocaleParticipation localeParticipation)
+        {
+            var serializedBinding = new SerializedObject(binding);
+            serializedBinding.FindProperty("target").objectReferenceValue = target;
+            serializedBinding.FindProperty("styleTag").intValue = (int)styleTag;
+            serializedBinding.FindProperty("localeParticipation").intValue = (int)localeParticipation;
+            serializedBinding.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void AssertGuardedAssetsAreClean(IEnumerable<string> assetPaths)
