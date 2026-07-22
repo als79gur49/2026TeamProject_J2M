@@ -382,7 +382,6 @@ namespace Game.Feature.UI.Composition.Editor
             GameObject cameraObject = null;
             GameObject canvasObject = null;
             Scene previewScene = default;
-            var previousActiveScene = SceneManager.GetActiveScene();
             var shouldClosePreviewScene = false;
             RenderTexture renderTexture = null;
             RenderTexture previousRenderTexture = null;
@@ -399,7 +398,6 @@ namespace Game.Feature.UI.Composition.Editor
 
                 previewScene = EditorSceneManager.NewPreviewScene();
                 shouldClosePreviewScene = true;
-                EditorSceneManager.SetActiveScene(previewScene);
                 prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
                 if (prefabRoot == null)
                 {
@@ -513,11 +511,6 @@ namespace Game.Feature.UI.Composition.Editor
 
                 if (shouldClosePreviewScene)
                 {
-                    if (previousActiveScene.IsValid() && previousActiveScene.isLoaded)
-                    {
-                        EditorSceneManager.SetActiveScene(previousActiveScene);
-                    }
-
                     EditorSceneManager.ClosePreviewScene(previewScene);
                 }
             }
