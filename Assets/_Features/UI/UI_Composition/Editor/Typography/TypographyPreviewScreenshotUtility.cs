@@ -593,6 +593,15 @@ namespace Game.Feature.UI.Composition.Editor
                     resolver,
                     DefaultLocalizedTypographyResolver.Instance,
                     typographyTheme: theme);
+                var viewModel = new SettingsScreenViewModel();
+                viewModel.SetContent(
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    SettingsSectionId.Input);
+                view.Bind(viewModel);
                 view.SetIsCurrent(true);
                 ValidateLocalizedText(
                     target,
@@ -602,6 +611,7 @@ namespace Game.Feature.UI.Composition.Editor
                     prefabRoot);
                 return new DisposableAction(() =>
                 {
+                    view.Bind(null);
                     view.UnbindStaticLocalization();
                     scope.Dispose();
                 });
