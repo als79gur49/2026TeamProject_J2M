@@ -1,5 +1,4 @@
 #if UNITY_EDITOR
-using System.IO;
 using Game.Feature.Stages;
 using UnityEditor;
 using UnityEngine;
@@ -13,23 +12,17 @@ namespace Game.Feature.UI.Composition
         private const string ContentsRoot = TransitionRoot + "/Contents";
         private const string ShellPrefabPath = TransitionRoot + "/SceneTransitionOverlayShell.prefab";
         private const string CatalogPath = TransitionRoot + "/SceneTransitionOverlayContentCatalog.asset";
-        private const string AllIn1UiStencilMaterialPath = "Assets/Plugins/AllIn1SpriteShader/Materials/UIStencil.mat";
-        private const string FilledIconName = "FilledIcon";
+        private const string GenericContentPrefabPath = ContentsRoot + "/GenericLoadingOverlayContent.prefab";
+        private const string ChanceLostContentPrefabPath = ContentsRoot + "/ChanceLostOverlayContent.prefab";
 
         [MenuItem("Game/UI/Rebuild Scene Transition Overlay Assets")]
         public static void CreateTransitionOverlayAssets()
         {
-            Directory.CreateDirectory(TransitionRoot);
-            Directory.CreateDirectory(ContentsRoot);
-
-            var generic = CreateContentPrefab<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
-            var chanceLost = CreateContentPrefab<ChanceLostOverlayContentView>("ChanceLostOverlayContent");
+            var generic = LoadCanonicalContentPrefab<GenericLoadingOverlayContentView>(GenericContentPrefabPath);
+            var chanceLost = LoadCanonicalContentPrefab<ChanceLostOverlayContentView>(ChanceLostContentPrefabPath);
 
             CreateShellPrefab();
             CreateCatalog(generic, chanceLost);
-
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
         }
 
         private static void CreateShellPrefab()
@@ -88,102 +81,18 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private static T CreateContentPrefab<T>(string name)
+        private static T LoadCanonicalContentPrefab<T>(string assetPath)
             where T : SceneTransitionOverlayContentView
         {
-            var root = new GameObject(name, typeof(RectTransform), typeof(CanvasGroup));
-            var view = root.AddComponent<T>();
-            try
+            var prefab = AssetDatabase.LoadAssetAtPath<T>(assetPath);
+            if (prefab == null)
             {
-                UiCanvasElementFactory.Stretch(root.GetComponent<RectTransform>());
-
-                var panel = UiCanvasElementFactory.CreatePanel(
-                    "Panel",
-                    root.transform,
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(0.5f, 0.5f),
-                    new Vector2(700f, 300f),
-                    Vector2.zero);
-                panel.GetComponent<Image>().color = new Color(0.08f, 0.10f, 0.13f, 0.96f);
-
-                var progressText = UiCanvasElementFactory.CreateLabel("ProgressText_TMP", panel, new Vector2(40f, -132f), new Vector2(620f, 24f), TextAnchor.MiddleCenter, 14);
-
-                var serialized = new SerializedObject(view);
-                serialized.FindProperty("_rootGroup").objectReferenceValue = root.GetComponent<CanvasGroup>();
-                serialized.FindProperty("_progressText").objectReferenceValue = progressText;
-
-                if (view is ChanceLostOverlayContentView)
-                {
-                    var chanceSlots = CreateChanceSlotRoots(panel);
-                    var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
-                    chanceSlotRoots.arraySize = chanceSlots.Length;
-                    for (var i = 0; i < chanceSlots.Length; i++)
-                    {
-                        chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];
-                    }
-
-                    serialized.FindProperty("_allIn1EffectMaterialTemplate").objectReferenceValue =
-                        AssetDatabase.LoadAssetAtPath<Material>(AllIn1UiStencilMaterialPath);
-                }
-
-                serialized.ApplyModifiedPropertiesWithoutUndo();
-
-                var prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{ContentsRoot}/{name}.prefab");
-                return prefab.GetComponent<T>();
-            }
-            finally
-            {
-                Object.DestroyImmediate(root);
-            }
-        }
-
-        private static RectTransform[] CreateChanceSlotRoots(Transform parent)
-        {
-            var row = new GameObject("ChanceSlotRow", typeof(RectTransform));
-            row.transform.SetParent(parent, false);
-            var rowRect = row.GetComponent<RectTransform>();
-            rowRect.anchorMin = new Vector2(0.5f, 0.5f);
-            rowRect.anchorMax = new Vector2(0.5f, 0.5f);
-            rowRect.pivot = new Vector2(0.5f, 0.5f);
-            rowRect.sizeDelta = new Vector2(180f, 44f);
-            rowRect.anchoredPosition = new Vector2(0f, -112f);
-
-            var slots = new RectTransform[3];
-            for (var i = 0; i < slots.Length; i++)
-            {
-                var slot = new GameObject($"ChanceSlotView {i}", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
-                slot.transform.SetParent(row.transform, false);
-                var rect = slot.GetComponent<RectTransform>();
-                rect.anchorMin = new Vector2(0.5f, 0.5f);
-                rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.sizeDelta = new Vector2(34f, 34f);
-                rect.anchoredPosition = new Vector2((i - 1) * 54f, 0f);
-
-                var image = slot.GetComponent<Image>();
-                image.color = new Color(0.25f, 0.29f, 0.36f, 0.75f);
-                image.raycastTarget = false;
-
-                var filledIcon = new GameObject(FilledIconName, typeof(RectTransform), typeof(Image));
-                filledIcon.transform.SetParent(slot.transform, false);
-                var filledIconRect = filledIcon.GetComponent<RectTransform>();
-                UiCanvasElementFactory.Stretch(filledIconRect);
-                filledIconRect.sizeDelta = new Vector2(-4f, -4f);
-                var filledIconImage = filledIcon.GetComponent<Image>();
-                filledIconImage.color = new Color(0.95f, 0.22f, 0.18f, 1f);
-                filledIconImage.raycastTarget = false;
-
-                var effect = new GameObject("Effect", typeof(RectTransform), typeof(Image));
-                effect.transform.SetParent(slot.transform, false);
-                UiCanvasElementFactory.Stretch(effect.GetComponent<RectTransform>());
-                var effectImage = effect.GetComponent<Image>();
-                effectImage.color = new Color(1f, 0.12f, 0.12f, 0.12f);
-                effectImage.raycastTarget = false;
-                slots[i] = rect;
+                throw new System.InvalidOperationException(
+                    $"Canonical transition content prefab is missing or has the wrong component type: {assetPath}. " +
+                    "Restore or author the canonical prefab explicitly before repairing the transition shell/catalog.");
             }
 
-            return slots;
+            return prefab;
         }
 
         private static void CreateCatalog(
@@ -210,6 +119,7 @@ namespace Game.Feature.UI.Composition
             SetEntry(entries.GetArrayElementAtIndex(6), StageTransitionKind.Unknown, TransitionOverlayKind.GenericLoading, generic);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(catalog);
+            AssetDatabase.SaveAssetIfDirty(catalog);
         }
 
         private static void SetEntry(

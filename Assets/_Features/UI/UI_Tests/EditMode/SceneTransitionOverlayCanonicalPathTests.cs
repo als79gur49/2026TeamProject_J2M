@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Security.Cryptography;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -166,18 +167,34 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ChanceLostOverlayContentAuthoring_BindsChanceSlotRootsOnRebuild()
+        public void SceneTransitionOverlayContentAuthoring_LoadsCanonicalPrefabsWithoutRegeneration()
         {
             var source = File.ReadAllText(SceneTransitionOverlayAssetAuthoringPath);
 
-            Assert.That(source, Does.Contain("var chanceSlots = CreateChanceSlotRoots(panel);"));
-            Assert.That(source, Does.Contain("var chanceSlotRoots = serialized.FindProperty(\"_chanceSlotRoots\");"));
-            Assert.That(source, Does.Contain("chanceSlotRoots.arraySize = chanceSlots.Length;"));
-            Assert.That(source, Does.Contain("chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];"));
+            Assert.That(source, Does.Contain("LoadCanonicalContentPrefab<GenericLoadingOverlayContentView>"));
+            Assert.That(source, Does.Contain("LoadCanonicalContentPrefab<ChanceLostOverlayContentView>"));
+            Assert.That(source, Does.Not.Contain("CreateContentPrefab<"));
+            Assert.That(source, Does.Not.Contain("SaveAsPrefabAsset(root, $\"{ContentsRoot}"));
             foreach (var retiredChildName in RetiredChanceTextChildNames)
             {
                 Assert.That(source, Does.Not.Contain(retiredChildName), retiredChildName);
             }
+        }
+
+        [Test]
+        public void SceneTransitionOverlayAssetAuthoring_RebuildPreservesCanonicalContentBytesAndCatalogReferences()
+        {
+            var prefabHashesBefore = TransitionContentPrefabPaths.ToDictionary(path => path, ComputeSha256);
+            var catalogReferencesBefore = CaptureCatalogContentReferences();
+
+            SceneTransitionOverlayAssetAuthoring.CreateTransitionOverlayAssets();
+
+            foreach (var path in TransitionContentPrefabPaths)
+            {
+                Assert.That(ComputeSha256(path), Is.EqualTo(prefabHashesBefore[path]), path);
+            }
+
+            Assert.That(CaptureCatalogContentReferences(), Is.EqualTo(catalogReferencesBefore));
         }
 
         [Test]
@@ -447,6 +464,26 @@ namespace Game.Feature.UI.Tests
             "TotalChanceText_TMP",
             "DeathCountText_TMP",
         };
+
+        private static string ComputeSha256(string path)
+        {
+            using var stream = File.OpenRead(path);
+            using var sha256 = SHA256.Create();
+            return BitConverter.ToString(sha256.ComputeHash(stream)).Replace("-", string.Empty);
+        }
+
+        private static string[] CaptureCatalogContentReferences()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(CatalogPath);
+            Assert.That(catalog, Is.Not.Null, CatalogPath);
+
+            var chanceLost = ResolveCatalogContent(catalog, StageTransitionKind.DeathRetryChanceLost);
+            return new[]
+            {
+                GlobalObjectId.GetGlobalObjectIdSlow(catalog.GenericFallbackPrefab).ToString(),
+                GlobalObjectId.GetGlobalObjectIdSlow(chanceLost).ToString(),
+            };
+        }
 
         private static SceneTransitionOverlayContentView ResolveCatalogContent(
             SceneTransitionOverlayContentCatalog catalog,
