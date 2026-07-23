@@ -43,6 +43,11 @@ find Assets -name "InitTestScene*" -print
 The focused PowerShell harness uses temporary files and synthetic process/Git
 snapshots. It does not invoke Unity or modify the repository.
 
+All wrapper-owned Git commands use the process-local
+`git -c core.longpaths=true` option. This permits the exact-SHA detached checkout
+to materialize long Unity asset paths without changing repository, global, or
+system Git configuration.
+
 ## Invocation
 
 After the implementation is committed and the invocation worktree is clean:
@@ -57,6 +62,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 The wrapper does not pass `-quit`; `WindowsReleaseBuildCli` owns the Unity exit.
 It creates and preserves a new detached worktree at the exact committed source
 SHA. The first acceptance run keeps that worktree for provenance inspection.
+
+Before Unity starts, every repository-family or unattributed `Unity.exe`, every
+`VectorQuake.exe`, and every orphan/unattributed CrashHandler is rejected. After
+the wrapper starts Unity, only that exact Unity PID and its directly parented
+`UnityCrashHandler64.exe` are added to the allow set. A CrashHandler owned by a
+different clearly identified product remains allowed. Rejections are written to
+the private external run evidence as `process-gate-rejection.json`, including PID,
+parent PID, command line, and the fail-closed reason; this file is never promoted
+into the shareable payload.
 
 ## Provenance and output
 

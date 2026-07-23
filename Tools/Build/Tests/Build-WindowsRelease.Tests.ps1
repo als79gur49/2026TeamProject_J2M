@@ -88,6 +88,29 @@ Invoke-Case "orphan CrashHandler rejected" {
         (New-Process 21 999 "UnityCrashHandler64.exe" "")
     ) @("C:\repo"))
 }
+Invoke-Case "allowed build Unity CrashHandler accepted" {
+    Assert-True (Test-ReleaseProcessGate @(
+        (New-Process 30 1 "Unity.exe" "-projectPath C:\detached"),
+        (New-Process 31 30 "UnityCrashHandler64.exe" "")
+    ) @("C:\repo") 30)
+}
+Invoke-Case "repository CrashHandler outside allowed build rejected" {
+    $result = Get-ReleaseProcessGateResult @(
+        (New-Process 40 1 "Unity.exe" "-projectPath C:\repo"),
+        (New-Process 41 40 "UnityCrashHandler64.exe" "")
+    ) @("C:\repo") 99
+    Assert-False $result.Allowed
+    Assert-True (@($result.RejectedProcesses |
+        Where-Object { $_.reason -eq "RepositoryFamilyCrashHandler" }).Count -eq 1)
+}
+Invoke-Case "git command uses process-local longpaths" {
+    $arguments = @(Get-GitCommandArguments "C:\repo" @("worktree", "list"))
+    Assert-Equal "-c" $arguments[0]
+    Assert-Equal "core.longpaths=true" $arguments[1]
+    Assert-Equal "-C" $arguments[2]
+    Assert-Equal "C:\repo" $arguments[3]
+    Assert-Equal "worktree" $arguments[4]
+}
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null
@@ -121,6 +144,17 @@ try {
     Invoke-Case "wrapper hash included" {
         $wrapper = Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1"
         Assert-True ((Get-Sha256 $wrapper) -match '^[0-9a-f]{64}$')
+    }
+    Invoke-Case "rejected process diagnostics are private and reasoned" {
+        $diagnostics = Join-Path $temp "private\process-gate-rejection.json"
+        $result = Get-ReleaseProcessGateResult @(
+            (New-Process 50 1 "VectorQuake.exe" "C:\game\VectorQuake.exe")
+        ) @("C:\repo")
+        Write-ProcessGateDiagnostics $diagnostics "preflight" $result
+        $record = Get-Content -LiteralPath $diagnostics -Raw | ConvertFrom-Json
+        Assert-False $record.allowed
+        Assert-Equal "preflight" $record.phase
+        Assert-Equal "VectorQuakePlayerRunning" $record.rejectedProcesses[0].reason
     }
 
     $payload = Join-Path $temp "payload"
