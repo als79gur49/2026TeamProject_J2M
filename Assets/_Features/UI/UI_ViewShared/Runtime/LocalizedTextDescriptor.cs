@@ -20,6 +20,239 @@ namespace Game.Feature.UI.ViewShared
         Bold,
     }
 
+    public enum SettingsLocalizationEntryId
+    {
+        Title,
+        AudioTab,
+        DisplayTab,
+        InputTab,
+        AudioMain,
+        AudioBgm,
+        AudioSfx,
+        AudioMute,
+        DisplayCurrent,
+        DisplayResolution,
+        DisplayResolutionHint,
+        DisplayFullscreenWindow,
+        DisplayFullscreenOn,
+        DisplayApply,
+        DisplayRevert,
+        InputMovementKeys,
+        InputUseArrowKeys,
+        InputPush,
+        InputFlip,
+        InputChange,
+        InputReset,
+        Language,
+        LanguageEnglish,
+        LanguageKorean,
+        Back,
+        AudioVolumeValue,
+        AudioVolumeValueMuted,
+        DisplayResolutionValue,
+        DisplayPreviewCountdown,
+        DisplayPreviewActiveStatus,
+        DisplayPreviewRevertedStatus,
+        DisplaySavedStatus,
+        DisplayExternalDriftStatus,
+        InputRebindCanceled,
+        InputResetComplete,
+        InputReservedKey,
+        InputMovementConflict,
+        InputAlreadyRebinding,
+    }
+
+    public enum SettingsLocalizationFormatKind
+    {
+        None,
+        PercentArgument,
+        PositionalArgument,
+    }
+
+    [Flags]
+    public enum SettingsLocalizationCoverage
+    {
+        None = 0,
+        StaticDescriptor = 1 << 0,
+        DynamicDescriptor = 1 << 1,
+        Bootstrap = 1 << 2,
+        PackageFreeFallback = 1 << 3,
+        InvariantFallback = 1 << 4,
+    }
+
+    public readonly struct SettingsLocalizationContractEntry
+    {
+        public SettingsLocalizationContractEntry(
+            SettingsLocalizationEntryId id,
+            string key,
+            bool isSmart,
+            SettingsLocalizationFormatKind formatKind,
+            SettingsLocalizationCoverage coverage)
+        {
+            Id = id;
+            Key = key ?? string.Empty;
+            IsSmart = isSmart;
+            FormatKind = formatKind;
+            Coverage = coverage;
+        }
+
+        public SettingsLocalizationEntryId Id { get; }
+
+        public string Table => SettingsLocalizationContract.Table;
+
+        public string Key { get; }
+
+        public bool IsSmart { get; }
+
+        public SettingsLocalizationFormatKind FormatKind { get; }
+
+        public SettingsLocalizationCoverage Coverage { get; }
+    }
+
+    public static class SettingsLocalizationContract
+    {
+        public const string Table = "UI";
+
+        private const SettingsLocalizationCoverage StaticCoverage =
+            SettingsLocalizationCoverage.StaticDescriptor |
+            SettingsLocalizationCoverage.Bootstrap |
+            SettingsLocalizationCoverage.PackageFreeFallback |
+            SettingsLocalizationCoverage.InvariantFallback;
+
+        private const SettingsLocalizationCoverage DynamicCoverage =
+            SettingsLocalizationCoverage.DynamicDescriptor |
+            SettingsLocalizationCoverage.Bootstrap |
+            SettingsLocalizationCoverage.PackageFreeFallback |
+            SettingsLocalizationCoverage.InvariantFallback;
+
+        public static class Keys
+        {
+            public const string Title = "ui.settings.title";
+            public const string AudioTab = "ui.settings.audio";
+            public const string DisplayTab = "ui.settings.display";
+            public const string InputTab = "ui.settings.input";
+            public const string AudioMain = "ui.settings.audio.main";
+            public const string AudioBgm = "ui.settings.audio.bgm";
+            public const string AudioSfx = "ui.settings.audio.sfx";
+            public const string AudioMute = "ui.settings.audio.mute";
+            public const string DisplayCurrent = "ui.settings.display.current";
+            public const string DisplayResolution = "ui.settings.display.resolution";
+            public const string DisplayResolutionHint = "ui.settings.display.resolution_hint";
+            public const string DisplayFullscreenWindow = "ui.settings.display.fullscreen_window";
+            public const string DisplayFullscreenOn = "ui.settings.display.fullscreen_on";
+            public const string DisplayApply = "ui.settings.display.apply";
+            public const string DisplayRevert = "ui.settings.display.revert";
+            public const string InputMovementKeys = "ui.settings.input.movement_keys";
+            public const string InputUseArrowKeys = "ui.settings.input.use_arrow_keys";
+            public const string InputPush = "ui.settings.input.push";
+            public const string InputFlip = "ui.settings.input.flip";
+            public const string InputChange = "ui.settings.input.change";
+            public const string InputReset = "ui.settings.input.reset_input";
+            public const string Language = "ui.settings.language";
+            public const string LanguageEnglish = "ui.settings.language.english";
+            public const string LanguageKorean = "ui.settings.language.korean";
+            public const string Back = "ui.common.back";
+            public const string AudioVolumeValue = "ui.settings.audio.volume_value";
+            public const string AudioVolumeValueMuted = "ui.settings.audio.volume_value_muted";
+            public const string DisplayResolutionValue = "ui.settings.display.resolution_value";
+            public const string DisplayPreviewCountdown = "ui.settings.display.preview_countdown";
+            public const string DisplayPreviewActiveStatus = "ui.settings.display.status.preview_active";
+            public const string DisplayPreviewRevertedStatus = "ui.settings.display.status.preview_reverted";
+            public const string DisplaySavedStatus = "ui.settings.display.status.saved";
+            public const string DisplayExternalDriftStatus = "ui.settings.display.status.external_drift";
+            public const string InputRebindCanceled = "ui.settings.input.rebind_canceled";
+            public const string InputResetComplete = "ui.settings.input.reset_complete";
+            public const string InputReservedKey = "ui.settings.input.reserved_key";
+            public const string InputMovementConflict = "ui.settings.input.movement_conflict";
+            public const string InputAlreadyRebinding = "ui.settings.input.already_rebinding";
+        }
+
+        private static readonly IReadOnlyList<SettingsLocalizationContractEntry> ContractEntries =
+            Array.AsReadOnly(new[]
+            {
+                Static(SettingsLocalizationEntryId.Title, Keys.Title),
+                Static(SettingsLocalizationEntryId.AudioTab, Keys.AudioTab),
+                Static(SettingsLocalizationEntryId.DisplayTab, Keys.DisplayTab),
+                Static(SettingsLocalizationEntryId.InputTab, Keys.InputTab),
+                Static(SettingsLocalizationEntryId.AudioMain, Keys.AudioMain),
+                Static(SettingsLocalizationEntryId.AudioBgm, Keys.AudioBgm),
+                Static(SettingsLocalizationEntryId.AudioSfx, Keys.AudioSfx),
+                Static(SettingsLocalizationEntryId.AudioMute, Keys.AudioMute),
+                Static(SettingsLocalizationEntryId.DisplayCurrent, Keys.DisplayCurrent),
+                Static(SettingsLocalizationEntryId.DisplayResolution, Keys.DisplayResolution),
+                Static(SettingsLocalizationEntryId.DisplayResolutionHint, Keys.DisplayResolutionHint),
+                Static(SettingsLocalizationEntryId.DisplayFullscreenWindow, Keys.DisplayFullscreenWindow),
+                Static(SettingsLocalizationEntryId.DisplayFullscreenOn, Keys.DisplayFullscreenOn),
+                Static(SettingsLocalizationEntryId.DisplayApply, Keys.DisplayApply),
+                Static(SettingsLocalizationEntryId.DisplayRevert, Keys.DisplayRevert),
+                Static(SettingsLocalizationEntryId.InputMovementKeys, Keys.InputMovementKeys),
+                Static(SettingsLocalizationEntryId.InputUseArrowKeys, Keys.InputUseArrowKeys),
+                Static(SettingsLocalizationEntryId.InputPush, Keys.InputPush),
+                Static(SettingsLocalizationEntryId.InputFlip, Keys.InputFlip),
+                Static(SettingsLocalizationEntryId.InputChange, Keys.InputChange),
+                Static(SettingsLocalizationEntryId.InputReset, Keys.InputReset),
+                Static(SettingsLocalizationEntryId.Language, Keys.Language),
+                Static(SettingsLocalizationEntryId.LanguageEnglish, Keys.LanguageEnglish),
+                Static(SettingsLocalizationEntryId.LanguageKorean, Keys.LanguageKorean),
+                Static(SettingsLocalizationEntryId.Back, Keys.Back),
+                Dynamic(
+                    SettingsLocalizationEntryId.AudioVolumeValue,
+                    Keys.AudioVolumeValue,
+                    SettingsLocalizationFormatKind.PercentArgument),
+                Dynamic(
+                    SettingsLocalizationEntryId.AudioVolumeValueMuted,
+                    Keys.AudioVolumeValueMuted,
+                    SettingsLocalizationFormatKind.PercentArgument),
+                Dynamic(
+                    SettingsLocalizationEntryId.DisplayResolutionValue,
+                    Keys.DisplayResolutionValue,
+                    SettingsLocalizationFormatKind.PositionalArgument),
+                Dynamic(
+                    SettingsLocalizationEntryId.DisplayPreviewCountdown,
+                    Keys.DisplayPreviewCountdown,
+                    SettingsLocalizationFormatKind.PositionalArgument),
+                Dynamic(
+                    SettingsLocalizationEntryId.DisplayPreviewActiveStatus,
+                    Keys.DisplayPreviewActiveStatus,
+                    SettingsLocalizationFormatKind.PositionalArgument),
+                Dynamic(SettingsLocalizationEntryId.DisplayPreviewRevertedStatus, Keys.DisplayPreviewRevertedStatus),
+                Dynamic(SettingsLocalizationEntryId.DisplaySavedStatus, Keys.DisplaySavedStatus),
+                Dynamic(SettingsLocalizationEntryId.DisplayExternalDriftStatus, Keys.DisplayExternalDriftStatus),
+                Dynamic(SettingsLocalizationEntryId.InputRebindCanceled, Keys.InputRebindCanceled),
+                Dynamic(SettingsLocalizationEntryId.InputResetComplete, Keys.InputResetComplete),
+                Dynamic(SettingsLocalizationEntryId.InputReservedKey, Keys.InputReservedKey),
+                Dynamic(SettingsLocalizationEntryId.InputMovementConflict, Keys.InputMovementConflict),
+                Dynamic(SettingsLocalizationEntryId.InputAlreadyRebinding, Keys.InputAlreadyRebinding),
+            });
+
+        public static IReadOnlyList<SettingsLocalizationContractEntry> Entries => ContractEntries;
+
+        private static SettingsLocalizationContractEntry Static(
+            SettingsLocalizationEntryId id,
+            string key)
+        {
+            return new SettingsLocalizationContractEntry(
+                id,
+                key,
+                false,
+                SettingsLocalizationFormatKind.None,
+                StaticCoverage);
+        }
+
+        private static SettingsLocalizationContractEntry Dynamic(
+            SettingsLocalizationEntryId id,
+            string key,
+            SettingsLocalizationFormatKind formatKind = SettingsLocalizationFormatKind.None)
+        {
+            return new SettingsLocalizationContractEntry(
+                id,
+                key,
+                formatKind != SettingsLocalizationFormatKind.None,
+                formatKind,
+                DynamicCoverage);
+        }
+    }
+
     public readonly struct LocalizedTextDescriptor : IEquatable<LocalizedTextDescriptor>
     {
         private readonly string _table;
@@ -242,15 +475,15 @@ namespace Game.Feature.UI.ViewShared
             out string value)
         {
             value = null;
-            return string.Equals(descriptor.Table, "UI", StringComparison.Ordinal) &&
+            return string.Equals(descriptor.Table, SettingsLocalizationContract.Table, StringComparison.Ordinal) &&
                    _catalog.TryGetValue(localeCode, out var localeValues) &&
                    localeValues.TryGetValue(descriptor.Key, out value);
         }
 
         private static string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
         {
-            if ((string.Equals(descriptor.Key, "ui.settings.audio.volume_value", StringComparison.Ordinal) ||
-                 string.Equals(descriptor.Key, "ui.settings.audio.volume_value_muted", StringComparison.Ordinal)) &&
+            if ((string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.AudioVolumeValue, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.AudioVolumeValueMuted, StringComparison.Ordinal)) &&
                 TryGetPercentArgument(descriptor, out var percent))
             {
                 return value
@@ -258,14 +491,14 @@ namespace Game.Feature.UI.ViewShared
                     .Replace("{0}", percent.ToString(CultureInfo.InvariantCulture));
             }
 
-            if (string.Equals(descriptor.Key, "ui.settings.display.resolution_value", StringComparison.Ordinal) &&
+            if (string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.DisplayResolutionValue, StringComparison.Ordinal) &&
                 descriptor.Arguments.Count > 0)
             {
                 return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
             }
 
-            if ((string.Equals(descriptor.Key, "ui.settings.display.preview_countdown", StringComparison.Ordinal) ||
-                 string.Equals(descriptor.Key, "ui.settings.display.status.preview_active", StringComparison.Ordinal)) &&
+            if ((string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.DisplayPreviewCountdown, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus, StringComparison.Ordinal)) &&
                 descriptor.Arguments.Count > 0)
             {
                 return value.Replace(
@@ -354,48 +587,48 @@ namespace Game.Feature.UI.ViewShared
 
         private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> CreateSettingsCatalog()
         {
-            return new Dictionary<string, IReadOnlyDictionary<string, string>>
+            var catalog = new Dictionary<string, IReadOnlyDictionary<string, string>>
             {
                 [DefaultLocaleCode] = new Dictionary<string, string>
                 {
-                    ["ui.settings.title"] = "Settings",
-                    ["ui.settings.audio"] = "Audio",
-                    ["ui.settings.display"] = "Display",
-                    ["ui.settings.input"] = "Input",
-                    ["ui.settings.audio.main"] = "Main",
-                    ["ui.settings.audio.bgm"] = "Background Music",
-                    ["ui.settings.audio.sfx"] = "Effects",
-                    ["ui.settings.audio.mute"] = "Mute",
-                    ["ui.settings.display.current"] = "Current Display",
-                    ["ui.settings.display.resolution"] = "Resolution",
-                    ["ui.settings.display.resolution_hint"] = "Only automatically detected resolutions are shown.",
-                    ["ui.settings.display.fullscreen_window"] = "Fullscreen Window",
-                    ["ui.settings.display.fullscreen_on"] = "On",
-                    ["ui.settings.display.apply"] = "Apply",
-                    ["ui.settings.display.revert"] = "Revert",
-                    ["ui.settings.input.movement_keys"] = "Movement Keys",
-                    ["ui.settings.input.use_arrow_keys"] = "Use Arrow Keys",
-                    ["ui.settings.input.push"] = "Push",
-                    ["ui.settings.input.flip"] = "Flip",
-                    ["ui.settings.input.change"] = "Change",
-                    ["ui.settings.input.reset_input"] = "Reset Input",
-                    ["ui.settings.language"] = "Language",
-                    ["ui.settings.language.english"] = "English",
-                    ["ui.settings.language.korean"] = "Korean",
-                    ["ui.settings.audio.volume_value"] = "{0}%",
-                    ["ui.settings.audio.volume_value_muted"] = "{0}% (Muted)",
-                    ["ui.settings.display.resolution_value"] = "{0}",
-                    ["ui.settings.display.preview_countdown"] = "Reverting in {0}s",
-                    ["ui.settings.display.status.preview_active"] = "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.",
-                    ["ui.settings.display.status.preview_reverted"] = "Preview reverted to the previous saved display settings.",
-                    ["ui.settings.display.status.saved"] = "Display settings saved.",
-                    ["ui.settings.display.status.external_drift"] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
-                    ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
-                    ["ui.settings.input.reset_complete"] = "Input settings reset.",
-                    ["ui.settings.input.reserved_key"] = "This key is reserved.",
-                    ["ui.settings.input.movement_conflict"] = "This key conflicts with movement keys.",
-                    ["ui.settings.input.already_rebinding"] = "Rebind already in progress.",
-                    ["ui.common.back"] = "Back",
+                    [SettingsLocalizationContract.Keys.Title] = "Settings",
+                    [SettingsLocalizationContract.Keys.AudioTab] = "Audio",
+                    [SettingsLocalizationContract.Keys.DisplayTab] = "Display",
+                    [SettingsLocalizationContract.Keys.InputTab] = "Input",
+                    [SettingsLocalizationContract.Keys.AudioMain] = "Main",
+                    [SettingsLocalizationContract.Keys.AudioBgm] = "Background Music",
+                    [SettingsLocalizationContract.Keys.AudioSfx] = "Effects",
+                    [SettingsLocalizationContract.Keys.AudioMute] = "Mute",
+                    [SettingsLocalizationContract.Keys.DisplayCurrent] = "Current Display",
+                    [SettingsLocalizationContract.Keys.DisplayResolution] = "Resolution",
+                    [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "Only automatically detected resolutions are shown.",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "Fullscreen Window",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "On",
+                    [SettingsLocalizationContract.Keys.DisplayApply] = "Apply",
+                    [SettingsLocalizationContract.Keys.DisplayRevert] = "Revert",
+                    [SettingsLocalizationContract.Keys.InputMovementKeys] = "Movement Keys",
+                    [SettingsLocalizationContract.Keys.InputUseArrowKeys] = "Use Arrow Keys",
+                    [SettingsLocalizationContract.Keys.InputPush] = "Push",
+                    [SettingsLocalizationContract.Keys.InputFlip] = "Flip",
+                    [SettingsLocalizationContract.Keys.InputChange] = "Change",
+                    [SettingsLocalizationContract.Keys.InputReset] = "Reset Input",
+                    [SettingsLocalizationContract.Keys.Language] = "Language",
+                    [SettingsLocalizationContract.Keys.LanguageEnglish] = "English",
+                    [SettingsLocalizationContract.Keys.LanguageKorean] = "Korean",
+                    [SettingsLocalizationContract.Keys.AudioVolumeValue] = "{0}%",
+                    [SettingsLocalizationContract.Keys.AudioVolumeValueMuted] = "{0}% (Muted)",
+                    [SettingsLocalizationContract.Keys.DisplayResolutionValue] = "{0}",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewCountdown] = "Reverting in {0}s",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus] = "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus] = "Preview reverted to the previous saved display settings.",
+                    [SettingsLocalizationContract.Keys.DisplaySavedStatus] = "Display settings saved.",
+                    [SettingsLocalizationContract.Keys.DisplayExternalDriftStatus] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
+                    [SettingsLocalizationContract.Keys.InputRebindCanceled] = "Rebind canceled.",
+                    [SettingsLocalizationContract.Keys.InputResetComplete] = "Input settings reset.",
+                    [SettingsLocalizationContract.Keys.InputReservedKey] = "This key is reserved.",
+                    [SettingsLocalizationContract.Keys.InputMovementConflict] = "This key conflicts with movement keys.",
+                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
+                    [SettingsLocalizationContract.Keys.Back] = "Back",
                     ["ui.common.settings"] = "Settings",
                     ["ui.main_menu.start"] = "Start",
                     ["ui.main_menu.quit"] = "Quit",
@@ -407,44 +640,44 @@ namespace Game.Feature.UI.ViewShared
                 },
                 [KoreanLocaleCode] = new Dictionary<string, string>
                 {
-                    ["ui.settings.title"] = "설정",
-                    ["ui.settings.audio"] = "오디오",
-                    ["ui.settings.display"] = "디스플레이",
-                    ["ui.settings.input"] = "입력",
-                    ["ui.settings.audio.main"] = "마스터",
-                    ["ui.settings.audio.bgm"] = "배경 음악",
-                    ["ui.settings.audio.sfx"] = "효과음",
-                    ["ui.settings.audio.mute"] = "음소거",
-                    ["ui.settings.display.current"] = "현재 디스플레이",
-                    ["ui.settings.display.resolution"] = "해상도",
-                    ["ui.settings.display.resolution_hint"] = "자동으로 감지된 해상도만 표시됩니다.",
-                    ["ui.settings.display.fullscreen_window"] = "전체 화면 창",
-                    ["ui.settings.display.fullscreen_on"] = "켜짐",
-                    ["ui.settings.display.apply"] = "적용",
-                    ["ui.settings.display.revert"] = "되돌리기",
-                    ["ui.settings.input.movement_keys"] = "이동 키",
-                    ["ui.settings.input.use_arrow_keys"] = "화살표 키 사용",
-                    ["ui.settings.input.push"] = "밀기",
-                    ["ui.settings.input.flip"] = "뒤집기",
-                    ["ui.settings.input.change"] = "변경",
-                    ["ui.settings.input.reset_input"] = "입력 초기화",
-                    ["ui.settings.language"] = "언어",
-                    ["ui.settings.language.english"] = "영어",
-                    ["ui.settings.language.korean"] = "한국어",
-                    ["ui.settings.audio.volume_value"] = "{0}%",
-                    ["ui.settings.audio.volume_value_muted"] = "{0}% (음소거)",
-                    ["ui.settings.display.resolution_value"] = "{0}",
-                    ["ui.settings.display.preview_countdown"] = "{0}초 후 되돌림",
-                    ["ui.settings.display.status.preview_active"] = "미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 {0}초 후 되돌아갑니다.",
-                    ["ui.settings.display.status.preview_reverted"] = "미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다.",
-                    ["ui.settings.display.status.saved"] = "화면 설정이 저장되었습니다.",
-                    ["ui.settings.display.status.external_drift"] = "현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다.",
-                    ["ui.settings.input.rebind_canceled"] = "키 변경 취소됨",
-                    ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
-                    ["ui.settings.input.reserved_key"] = "이 키는 예약되어 있습니다.",
-                    ["ui.settings.input.movement_conflict"] = "이 키는 이동 키와 충돌합니다.",
-                    ["ui.settings.input.already_rebinding"] = "키 변경이 이미 진행 중입니다.",
-                    ["ui.common.back"] = "뒤로",
+                    [SettingsLocalizationContract.Keys.Title] = "설정",
+                    [SettingsLocalizationContract.Keys.AudioTab] = "오디오",
+                    [SettingsLocalizationContract.Keys.DisplayTab] = "디스플레이",
+                    [SettingsLocalizationContract.Keys.InputTab] = "입력",
+                    [SettingsLocalizationContract.Keys.AudioMain] = "마스터",
+                    [SettingsLocalizationContract.Keys.AudioBgm] = "배경 음악",
+                    [SettingsLocalizationContract.Keys.AudioSfx] = "효과음",
+                    [SettingsLocalizationContract.Keys.AudioMute] = "음소거",
+                    [SettingsLocalizationContract.Keys.DisplayCurrent] = "현재 디스플레이",
+                    [SettingsLocalizationContract.Keys.DisplayResolution] = "해상도",
+                    [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "자동으로 감지된 해상도만 표시됩니다.",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "전체 화면 창",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "켜짐",
+                    [SettingsLocalizationContract.Keys.DisplayApply] = "적용",
+                    [SettingsLocalizationContract.Keys.DisplayRevert] = "되돌리기",
+                    [SettingsLocalizationContract.Keys.InputMovementKeys] = "이동 키",
+                    [SettingsLocalizationContract.Keys.InputUseArrowKeys] = "화살표 키 사용",
+                    [SettingsLocalizationContract.Keys.InputPush] = "밀기",
+                    [SettingsLocalizationContract.Keys.InputFlip] = "뒤집기",
+                    [SettingsLocalizationContract.Keys.InputChange] = "변경",
+                    [SettingsLocalizationContract.Keys.InputReset] = "입력 초기화",
+                    [SettingsLocalizationContract.Keys.Language] = "언어",
+                    [SettingsLocalizationContract.Keys.LanguageEnglish] = "영어",
+                    [SettingsLocalizationContract.Keys.LanguageKorean] = "한국어",
+                    [SettingsLocalizationContract.Keys.AudioVolumeValue] = "{0}%",
+                    [SettingsLocalizationContract.Keys.AudioVolumeValueMuted] = "{0}% (음소거)",
+                    [SettingsLocalizationContract.Keys.DisplayResolutionValue] = "{0}",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewCountdown] = "{0}초 후 되돌림",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus] = "미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 {0}초 후 되돌아갑니다.",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus] = "미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다.",
+                    [SettingsLocalizationContract.Keys.DisplaySavedStatus] = "화면 설정이 저장되었습니다.",
+                    [SettingsLocalizationContract.Keys.DisplayExternalDriftStatus] = "현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다.",
+                    [SettingsLocalizationContract.Keys.InputRebindCanceled] = "키 변경 취소됨",
+                    [SettingsLocalizationContract.Keys.InputResetComplete] = "입력 설정이 초기화되었습니다.",
+                    [SettingsLocalizationContract.Keys.InputReservedKey] = "이 키는 예약되어 있습니다.",
+                    [SettingsLocalizationContract.Keys.InputMovementConflict] = "이 키는 이동 키와 충돌합니다.",
+                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "키 변경이 이미 진행 중입니다.",
+                    [SettingsLocalizationContract.Keys.Back] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",
                     ["ui.main_menu.quit"] = "종료",
@@ -455,6 +688,75 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.pause.main_menu"] = "메인 메뉴",
                 },
             };
+
+            ValidateSettingsCatalog(catalog);
+            return catalog;
+        }
+
+        private static void ValidateSettingsCatalog(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var requiredKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in SettingsLocalizationContract.Entries)
+            {
+                if (entry.Coverage.HasFlag(SettingsLocalizationCoverage.PackageFreeFallback))
+                {
+                    requiredKeys.Add(entry.Key);
+                }
+            }
+
+            foreach (var localeCode in SupportedLocaleCodes)
+            {
+                if (!catalog.TryGetValue(localeCode, out var localeValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Package-free Settings catalog is missing locale '{localeCode}'.");
+                }
+
+                var missingKeys = new List<string>();
+                foreach (var requiredKey in requiredKeys)
+                {
+                    if (!localeValues.ContainsKey(requiredKey))
+                    {
+                        missingKeys.Add(requiredKey);
+                    }
+                }
+
+                var unexpectedKeys = new List<string>();
+                foreach (var key in localeValues.Keys)
+                {
+                    if (IsManagedSettingsKey(key) && !requiredKeys.Contains(key))
+                    {
+                        unexpectedKeys.Add(key);
+                    }
+                }
+
+                if (missingKeys.Count == 0 && unexpectedKeys.Count == 0)
+                {
+                    continue;
+                }
+
+                missingKeys.Sort(StringComparer.Ordinal);
+                unexpectedKeys.Sort(StringComparer.Ordinal);
+                throw new InvalidOperationException(
+                    $"Package-free Settings catalog locale '{localeCode}' contract mismatch. " +
+                    $"Missing: {FormatKeyList(missingKeys)}. " +
+                    $"Unexpected: {FormatKeyList(unexpectedKeys)}.");
+            }
+        }
+
+        private static bool IsManagedSettingsKey(string key)
+        {
+            return key != null &&
+                   (key.StartsWith("ui.settings.", StringComparison.Ordinal) ||
+                    string.Equals(key, SettingsLocalizationContract.Keys.Back, StringComparison.Ordinal));
+        }
+
+        private static string FormatKeyList(IReadOnlyList<string> keys)
+        {
+            return keys.Count == 0
+                ? "<none>"
+                : string.Join(", ", keys);
         }
     }
 }

@@ -138,174 +138,174 @@ namespace Game.Feature.UI.Screens
 
     public static class SettingsStaticTextDescriptors
     {
-        public const string Table = "UI";
+        public const string Table = SettingsLocalizationContract.Table;
 
         public static readonly LocalizedTextDescriptor Title = new(
             Table,
-            "ui.settings.title",
+            SettingsLocalizationContract.Keys.Title,
             LocalizedTextRole.Title,
             LocalizedTextWeight.Bold);
 
         public static readonly LocalizedTextDescriptor AudioTab = new(
             Table,
-            "ui.settings.audio",
+            SettingsLocalizationContract.Keys.AudioTab,
             LocalizedTextRole.Subtitle,
             LocalizedTextWeight.Bold);
 
         public static readonly LocalizedTextDescriptor DisplayTab = new(
             Table,
-            "ui.settings.display",
+            SettingsLocalizationContract.Keys.DisplayTab,
             LocalizedTextRole.Subtitle,
             LocalizedTextWeight.Bold);
 
         public static readonly LocalizedTextDescriptor InputTab = new(
             Table,
-            "ui.settings.input",
+            SettingsLocalizationContract.Keys.InputTab,
             LocalizedTextRole.Subtitle,
             LocalizedTextWeight.Bold);
 
         public static readonly LocalizedTextDescriptor AudioMain = new(
             Table,
-            "ui.settings.audio.main",
+            SettingsLocalizationContract.Keys.AudioMain,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor AudioBgm = new(
             Table,
-            "ui.settings.audio.bgm",
+            SettingsLocalizationContract.Keys.AudioBgm,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor AudioSfx = new(
             Table,
-            "ui.settings.audio.sfx",
+            SettingsLocalizationContract.Keys.AudioSfx,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor AudioMute = new(
             Table,
-            "ui.settings.audio.mute",
+            SettingsLocalizationContract.Keys.AudioMute,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayCurrent = new(
             Table,
-            "ui.settings.display.current",
+            SettingsLocalizationContract.Keys.DisplayCurrent,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayResolution = new(
             Table,
-            "ui.settings.display.resolution",
+            SettingsLocalizationContract.Keys.DisplayResolution,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayResolutionHint = new(
             Table,
-            "ui.settings.display.resolution_hint",
+            SettingsLocalizationContract.Keys.DisplayResolutionHint,
             LocalizedTextRole.Body,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayFullscreenWindow = new(
             Table,
-            "ui.settings.display.fullscreen_window",
+            SettingsLocalizationContract.Keys.DisplayFullscreenWindow,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayFullscreenOn = new(
             Table,
-            "ui.settings.display.fullscreen_on",
+            SettingsLocalizationContract.Keys.DisplayFullscreenOn,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayApply = new(
             Table,
-            "ui.settings.display.apply",
+            SettingsLocalizationContract.Keys.DisplayApply,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor DisplayRevert = new(
             Table,
-            "ui.settings.display.revert",
+            SettingsLocalizationContract.Keys.DisplayRevert,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor MovementKeys = new(
             Table,
-            "ui.settings.input.movement_keys",
+            SettingsLocalizationContract.Keys.InputMovementKeys,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor UseArrowKeys = new(
             Table,
-            "ui.settings.input.use_arrow_keys",
+            SettingsLocalizationContract.Keys.InputUseArrowKeys,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor Push = new(
             Table,
-            "ui.settings.input.push",
+            SettingsLocalizationContract.Keys.InputPush,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor Flip = new(
             Table,
-            "ui.settings.input.flip",
+            SettingsLocalizationContract.Keys.InputFlip,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor Change = new(
             Table,
-            "ui.settings.input.change",
+            SettingsLocalizationContract.Keys.InputChange,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor ResetInput = new(
             Table,
-            "ui.settings.input.reset_input",
+            SettingsLocalizationContract.Keys.InputReset,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor Language = new(
             Table,
-            "ui.settings.language",
+            SettingsLocalizationContract.Keys.Language,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor LanguageEnglish = new(
             Table,
-            "ui.settings.language.english",
+            SettingsLocalizationContract.Keys.LanguageEnglish,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor LanguageKorean = new(
             Table,
-            "ui.settings.language.korean",
+            SettingsLocalizationContract.Keys.LanguageKorean,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor Back = new(
             Table,
-            "ui.common.back",
+            SettingsLocalizationContract.Keys.Back,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
     }
 
     public static class SettingsDynamicTextDescriptors
     {
-        public const string AudioVolumeValueKey = "ui.settings.audio.volume_value";
-        public const string AudioVolumeValueMutedKey = "ui.settings.audio.volume_value_muted";
-        public const string DisplayResolutionValueKey = "ui.settings.display.resolution_value";
-        public const string DisplayPreviewCountdownKey = "ui.settings.display.preview_countdown";
-        public const string DisplayPreviewActiveStatusKey = "ui.settings.display.status.preview_active";
-        public const string DisplayPreviewRevertedStatusKey = "ui.settings.display.status.preview_reverted";
-        public const string DisplaySavedStatusKey = "ui.settings.display.status.saved";
-        public const string DisplayExternalDriftStatusKey = "ui.settings.display.status.external_drift";
-        public const string InputRebindCanceledKey = "ui.settings.input.rebind_canceled";
-        public const string InputResetCompleteKey = "ui.settings.input.reset_complete";
-        public const string InputReservedKeyKey = "ui.settings.input.reserved_key";
-        public const string InputMovementConflictKey = "ui.settings.input.movement_conflict";
-        public const string InputAlreadyRebindingKey = "ui.settings.input.already_rebinding";
+        public const string AudioVolumeValueKey = SettingsLocalizationContract.Keys.AudioVolumeValue;
+        public const string AudioVolumeValueMutedKey = SettingsLocalizationContract.Keys.AudioVolumeValueMuted;
+        public const string DisplayResolutionValueKey = SettingsLocalizationContract.Keys.DisplayResolutionValue;
+        public const string DisplayPreviewCountdownKey = SettingsLocalizationContract.Keys.DisplayPreviewCountdown;
+        public const string DisplayPreviewActiveStatusKey = SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus;
+        public const string DisplayPreviewRevertedStatusKey = SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus;
+        public const string DisplaySavedStatusKey = SettingsLocalizationContract.Keys.DisplaySavedStatus;
+        public const string DisplayExternalDriftStatusKey = SettingsLocalizationContract.Keys.DisplayExternalDriftStatus;
+        public const string InputRebindCanceledKey = SettingsLocalizationContract.Keys.InputRebindCanceled;
+        public const string InputResetCompleteKey = SettingsLocalizationContract.Keys.InputResetComplete;
+        public const string InputReservedKeyKey = SettingsLocalizationContract.Keys.InputReservedKey;
+        public const string InputMovementConflictKey = SettingsLocalizationContract.Keys.InputMovementConflict;
+        public const string InputAlreadyRebindingKey = SettingsLocalizationContract.Keys.InputAlreadyRebinding;
 
         public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
         {

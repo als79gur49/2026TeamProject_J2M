@@ -49,6 +49,216 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsLocalizationContract_IsCompleteUniqueAndWellFormed()
+        {
+            var entries = SettingsLocalizationContract.Entries;
+            var declaredIds = Enum.GetValues(typeof(SettingsLocalizationEntryId))
+                .Cast<SettingsLocalizationEntryId>()
+                .ToArray();
+
+            Assert.That(
+                entries.Select(entry => entry.Id).ToArray(),
+                Is.EquivalentTo(declaredIds),
+                "Every stable Settings localization ID must have exactly one contract entry.");
+            Assert.That(
+                entries.Select(entry => entry.Id).Distinct().Count(),
+                Is.EqualTo(entries.Count),
+                "Settings localization contract IDs must be unique.");
+            Assert.That(
+                entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(),
+                Is.EqualTo(entries.Count),
+                "Settings localization contract keys must be unique.");
+
+            var requiredProjectionCoverage =
+                SettingsLocalizationCoverage.Bootstrap |
+                SettingsLocalizationCoverage.PackageFreeFallback |
+                SettingsLocalizationCoverage.InvariantFallback;
+            foreach (var entry in entries)
+            {
+                Assert.That(entry.Table, Is.EqualTo("UI"), entry.Id.ToString());
+                Assert.That(entry.Key, Is.Not.Null.And.Not.Empty, entry.Id.ToString());
+                Assert.That(
+                    entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor) ^
+                    entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor),
+                    Is.True,
+                    $"{entry.Key} must belong to exactly one descriptor projection.");
+                Assert.That(
+                    entry.Coverage.HasFlag(requiredProjectionCoverage),
+                    Is.True,
+                    $"{entry.Key} must participate in every required fallback/bootstrap projection.");
+                Assert.That(
+                    entry.IsSmart,
+                    Is.EqualTo(entry.FormatKind != SettingsLocalizationFormatKind.None),
+                    $"{entry.Key} Smart metadata must match its runtime formatting contract.");
+            }
+
+            Assert.That(
+                entries
+                    .Where(entry => entry.FormatKind == SettingsLocalizationFormatKind.PercentArgument)
+                    .Select(entry => entry.Key)
+                    .ToArray(),
+                Is.EquivalentTo(new[]
+                {
+                    SettingsLocalizationContract.Keys.AudioVolumeValue,
+                    SettingsLocalizationContract.Keys.AudioVolumeValueMuted,
+                }),
+                "Only audio percentage entries use the percent argument contract.");
+            Assert.That(
+                entries
+                    .Where(entry => entry.FormatKind == SettingsLocalizationFormatKind.PositionalArgument)
+                    .Select(entry => entry.Key)
+                    .ToArray(),
+                Is.EquivalentTo(new[]
+                {
+                    SettingsLocalizationContract.Keys.DisplayResolutionValue,
+                    SettingsLocalizationContract.Keys.DisplayPreviewCountdown,
+                    SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus,
+                }),
+                "Only display value/countdown entries use the positional argument contract.");
+        }
+
+        [Test]
+        public void SettingsLocalizationContract_MatchesDescriptorAndBootstrapKeyProjections()
+        {
+            var staticDescriptorKeys = typeof(SettingsStaticTextDescriptors)
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field => field.FieldType == typeof(LocalizedTextDescriptor))
+                .Select(field => ((LocalizedTextDescriptor)field.GetValue(null)).Key);
+            var dynamicDescriptorKeys = typeof(SettingsDynamicTextDescriptors)
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field =>
+                    field.FieldType == typeof(string) &&
+                    field.IsLiteral &&
+                    field.Name.EndsWith("Key", StringComparison.Ordinal))
+                .Select(field => (string)field.GetRawConstantValue());
+            var descriptorKeys = staticDescriptorKeys.Concat(dynamicDescriptorKeys);
+            var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key);
+            var dynamicContractKeys = SettingsLocalizationContract.Entries
+                .Where(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor))
+                .Select(entry => entry.Key);
+            var dynamicFactoryKeys = CreateDynamicDescriptorFactoryInventory()
+                .Select(descriptor => descriptor.Key);
+            var bootstrapKeys = SettingsLocalizationAssetBootstrap.Entries
+                .Select(entry => entry.Key)
+                .Where(IsManagedSettingsKey);
+
+            AssertExactKeySet(contractKeys, descriptorKeys, "descriptor");
+            AssertExactKeySet(dynamicContractKeys, dynamicFactoryKeys, "dynamic descriptor factory");
+            AssertExactKeySet(contractKeys, bootstrapKeys, "bootstrap");
+
+            var contractByKey = SettingsLocalizationContract.Entries.ToDictionary(
+                entry => entry.Key,
+                StringComparer.Ordinal);
+            foreach (var bootstrapEntry in SettingsLocalizationAssetBootstrap.Entries.Where(
+                         entry => IsManagedSettingsKey(entry.Key)))
+            {
+                Assert.That(
+                    bootstrapEntry.IsSmart,
+                    Is.EqualTo(contractByKey[bootstrapEntry.Key].IsSmart),
+                    $"Bootstrap Smart metadata drift: {bootstrapEntry.Key}");
+            }
+        }
+
+        [Test]
+        public void PackageFreeSettingsCatalog_RejectsLocaleProjectionOmissionBeforeFallback()
+        {
+            var english = SettingsLocalizationContract.Entries.ToDictionary(
+                entry => entry.Key,
+                entry => entry.Key,
+                StringComparer.Ordinal);
+            var korean = SettingsLocalizationContract.Entries.ToDictionary(
+                entry => entry.Key,
+                entry => entry.Key,
+                StringComparer.Ordinal);
+            korean.Remove(SettingsLocalizationContract.Keys.InputAlreadyRebinding);
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> incompleteCatalog =
+                new Dictionary<string, IReadOnlyDictionary<string, string>>
+                {
+                    [PackageFreeLocalizedTextResolver.DefaultLocaleCode] = english,
+                    [PackageFreeLocalizedTextResolver.KoreanLocaleCode] = korean,
+                };
+            var validationMethod = typeof(PackageFreeLocalizedTextResolver).GetMethod(
+                "ValidateSettingsCatalog",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(validationMethod, Is.Not.Null);
+
+            var invocationException = Assert.Throws<TargetInvocationException>(
+                () => validationMethod.Invoke(null, new object[] { incompleteCatalog }));
+            Assert.That(invocationException.InnerException, Is.TypeOf<InvalidOperationException>());
+            Assert.That(
+                invocationException.InnerException.Message,
+                Does.Contain(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
+            Assert.That(
+                invocationException.InnerException.Message,
+                Does.Contain(SettingsLocalizationContract.Keys.InputAlreadyRebinding));
+        }
+
+        [Test]
+        public void SettingsLocalizationContract_FallbackAndBootstrapCopiesMatchCommittedTables()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection(SettingsLocalizationContract.Table);
+            Assert.That(collection, Is.Not.Null);
+            var englishTable = collection.GetTable(PackageFreeLocalizedTextResolver.DefaultLocaleCode) as StringTable;
+            var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
+            Assert.That(englishTable, Is.Not.Null);
+            Assert.That(koreanTable, Is.Not.Null);
+
+            var bootstrapByKey = SettingsLocalizationAssetBootstrap.Entries.ToDictionary(
+                entry => entry.Key,
+                StringComparer.Ordinal);
+            var packageFreeResolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var invariantResolverType = typeof(SettingsInputPresenter).Assembly.GetType(
+                "Game.Feature.UI.Application.InvariantSettingsLocalizedTextResolver");
+            Assert.That(invariantResolverType, Is.Not.Null);
+            var invariantResolver = invariantResolverType
+                .GetField("Instance", BindingFlags.Public | BindingFlags.Static)
+                ?.GetValue(null) as ILocalizedTextResolver;
+            Assert.That(invariantResolver, Is.Not.Null);
+
+            foreach (var contractEntry in SettingsLocalizationContract.Entries)
+            {
+                var englishEntry = englishTable.GetEntry(contractEntry.Key);
+                var koreanEntry = koreanTable.GetEntry(contractEntry.Key);
+                Assert.That(englishEntry, Is.Not.Null, $"en-US missing: {contractEntry.Key}");
+                Assert.That(koreanEntry, Is.Not.Null, $"ko-KR missing: {contractEntry.Key}");
+                Assert.That(englishEntry.IsSmart, Is.EqualTo(contractEntry.IsSmart), contractEntry.Key);
+                Assert.That(koreanEntry.IsSmart, Is.EqualTo(contractEntry.IsSmart), contractEntry.Key);
+
+                Assert.That(bootstrapByKey.ContainsKey(contractEntry.Key), Is.True, contractEntry.Key);
+                var bootstrapEntry = bootstrapByKey[contractEntry.Key];
+                Assert.That(
+                    bootstrapEntry.English,
+                    Is.EqualTo(englishEntry.LocalizedValue),
+                    $"Bootstrap en-US drift: {contractEntry.Key}");
+                Assert.That(
+                    bootstrapEntry.Korean,
+                    Is.EqualTo(koreanEntry.LocalizedValue),
+                    $"Bootstrap ko-KR drift: {contractEntry.Key}");
+
+                var descriptor = new LocalizedTextDescriptor(contractEntry.Table, contractEntry.Key);
+                Assert.That(
+                    packageFreeResolver.Resolve(descriptor),
+                    Is.EqualTo(englishEntry.LocalizedValue),
+                    $"Package-free en-US drift: {contractEntry.Key}");
+                var representativeDescriptor = CreateRepresentativeDescriptor(contractEntry);
+                Assert.That(
+                    invariantResolver.Resolve(representativeDescriptor),
+                    Is.EqualTo(FormatRepresentativeValue(contractEntry, englishEntry.LocalizedValue)),
+                    $"Invariant en-US drift: {contractEntry.Key}");
+            }
+
+            packageFreeResolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            foreach (var contractEntry in SettingsLocalizationContract.Entries)
+            {
+                var descriptor = new LocalizedTextDescriptor(contractEntry.Table, contractEntry.Key);
+                Assert.That(
+                    packageFreeResolver.Resolve(descriptor),
+                    Is.EqualTo(koreanTable.GetEntry(contractEntry.Key).LocalizedValue),
+                    $"Package-free ko-KR drift: {contractEntry.Key}");
+            }
+        }
+
+        [Test]
         public void UiStringTable_ContainsCompleteSettingsStaticEntries()
         {
             var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
@@ -593,6 +803,114 @@ namespace Game.Feature.UI.Tests
                 Is.True,
                 reason);
             return resolver;
+        }
+
+        private static bool IsManagedSettingsKey(string key)
+        {
+            return key != null &&
+                   (key.StartsWith("ui.settings.", StringComparison.Ordinal) ||
+                    string.Equals(key, SettingsLocalizationContract.Keys.Back, StringComparison.Ordinal));
+        }
+
+        private static IReadOnlyList<LocalizedTextDescriptor> CreateDynamicDescriptorFactoryInventory()
+        {
+            var descriptors = new List<LocalizedTextDescriptor>();
+            var factoryMethods = typeof(SettingsDynamicTextDescriptors)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.ReturnType == typeof(LocalizedTextDescriptor));
+
+            foreach (var factoryMethod in factoryMethods)
+            {
+                var argumentSets = new List<object[]> { new object[factoryMethod.GetParameters().Length] };
+                var parameters = factoryMethod.GetParameters();
+                for (var parameterIndex = 0; parameterIndex < parameters.Length; parameterIndex++)
+                {
+                    var parameter = parameters[parameterIndex];
+                    if (parameter.ParameterType == typeof(int))
+                    {
+                        foreach (var arguments in argumentSets)
+                        {
+                            arguments[parameterIndex] = 7;
+                        }
+                    }
+                    else if (parameter.ParameterType == typeof(string))
+                    {
+                        foreach (var arguments in argumentSets)
+                        {
+                            arguments[parameterIndex] = "1920 x 1080";
+                        }
+                    }
+                    else if (parameter.ParameterType == typeof(bool))
+                    {
+                        var falseArgumentSets = argumentSets
+                            .Select(arguments => (object[])arguments.Clone())
+                            .ToArray();
+                        foreach (var arguments in argumentSets)
+                        {
+                            arguments[parameterIndex] = true;
+                        }
+
+                        foreach (var arguments in falseArgumentSets)
+                        {
+                            arguments[parameterIndex] = false;
+                            argumentSets.Add(arguments);
+                        }
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            $"Settings dynamic descriptor factory '{factoryMethod.Name}' has unsupported " +
+                            $"representative parameter '{parameter.Name}' ({parameter.ParameterType.Name}).");
+                    }
+                }
+
+                foreach (var arguments in argumentSets)
+                {
+                    descriptors.Add((LocalizedTextDescriptor)factoryMethod.Invoke(null, arguments));
+                }
+            }
+
+            return descriptors;
+        }
+
+        private static LocalizedTextDescriptor CreateRepresentativeDescriptor(
+            SettingsLocalizationContractEntry entry)
+        {
+            return entry.FormatKind == SettingsLocalizationFormatKind.None
+                ? new LocalizedTextDescriptor(entry.Table, entry.Key)
+                : new LocalizedTextDescriptor(
+                    entry.Table,
+                    entry.Key,
+                    arguments: new object[] { 7 });
+        }
+
+        private static string FormatRepresentativeValue(
+            SettingsLocalizationContractEntry entry,
+            string value)
+        {
+            return entry.FormatKind == SettingsLocalizationFormatKind.None
+                ? value
+                : value.Replace("{0}", "7");
+        }
+
+        private static void AssertExactKeySet(
+            IEnumerable<string> expectedKeys,
+            IEnumerable<string> actualKeys,
+            string projectionName)
+        {
+            var expected = new HashSet<string>(expectedKeys, StringComparer.Ordinal);
+            var actual = new HashSet<string>(actualKeys, StringComparer.Ordinal);
+            var missing = expected.Except(actual).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+            var unexpected = actual.Except(expected).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+
+            Assert.That(
+                missing,
+                Is.Empty,
+                $"{projectionName} projection missing Settings localization keys: {string.Join(", ", missing)}");
+            Assert.That(
+                unexpected,
+                Is.Empty,
+                $"{projectionName} projection contains unmanaged Settings localization keys: {string.Join(", ", unexpected)}");
         }
 
         private static void AssertTable(StringTable table, bool useKorean)
