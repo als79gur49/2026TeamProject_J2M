@@ -176,6 +176,17 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void Settings_AlreadyRequired_AreNotAppliedOrRestored()
+        {
+            var settings = new FakeSettings { RequiredValid = true };
+            var result = WindowsReleaseSettingsTransaction.Run(
+                settings, () => WindowsReleaseExitCodes.Success);
+            Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.Success));
+            Assert.That(settings.ApplyCalled, Is.False);
+            Assert.That(settings.RestoreCalled, Is.False);
+        }
+
+        [Test]
         public void MetadataSchemaV1_ContainsAllRequiredFields()
         {
             var required = new[]
@@ -209,11 +220,17 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private sealed class FakeSettings : IWindowsReleaseSettings
         {
+            public bool ApplyCalled { get; private set; }
             public bool RestoreCalled { get; private set; }
             public bool RestoreValid { get; set; } = true;
+            public bool RequiredValid { get; set; }
             public ReleaseSettingsSnapshot Capture() => default;
-            public void ApplyRequired() { }
-            public bool IsRequired() => true;
+            public void ApplyRequired()
+            {
+                ApplyCalled = true;
+                RequiredValid = true;
+            }
+            public bool IsRequired() => RequiredValid;
             public void Restore(ReleaseSettingsSnapshot snapshot) => RestoreCalled = true;
             public bool IsRestored(ReleaseSettingsSnapshot snapshot) => RestoreValid;
         }

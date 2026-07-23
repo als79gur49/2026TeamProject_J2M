@@ -111,6 +111,16 @@ Invoke-Case "git command uses process-local longpaths" {
     Assert-Equal "C:\repo" $arguments[3]
     Assert-Equal "worktree" $arguments[4]
 }
+Invoke-Case "detached git command disables autocrlf process-locally" {
+    $arguments = @(Get-GitCommandArguments "C:\repo" @("status") -DisableAutoCrlf)
+    Assert-Equal "-c" $arguments[0]
+    Assert-Equal "core.longpaths=true" $arguments[1]
+    Assert-Equal "-c" $arguments[2]
+    Assert-Equal "core.autocrlf=false" $arguments[3]
+    Assert-Equal "-C" $arguments[4]
+    Assert-Equal "C:\repo" $arguments[5]
+    Assert-Equal "status" $arguments[6]
+}
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null

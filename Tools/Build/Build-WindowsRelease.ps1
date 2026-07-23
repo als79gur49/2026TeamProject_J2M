@@ -366,13 +366,18 @@ function Convert-UnityExitCode {
 }
 
 function Get-GitCommandArguments {
-    param([string]$Root, [string[]]$Arguments)
-    return @("-c", "core.longpaths=true", "-C", $Root) + @($Arguments)
+    param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
+    $configuration = @("-c", "core.longpaths=true")
+    if ($DisableAutoCrlf) {
+        $configuration += @("-c", "core.autocrlf=false")
+    }
+    return $configuration + @("-C", $Root) + @($Arguments)
 }
 
 function Invoke-GitText {
-    param([string]$Root, [string[]]$Arguments)
-    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments)
+    param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
+    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
+        -DisableAutoCrlf:$DisableAutoCrlf)
     $output = & git @gitArguments 2>&1
     if ($LASTEXITCODE -ne 0) { throw "git $($Arguments -join ' ') failed: $output" }
     return ($output -join "`n").Trim()
@@ -384,7 +389,8 @@ function Get-GitSnapshot {
         [string[]]$CanaryPaths = @(),
         [switch]$Detached
     )
-    $status = @(Invoke-GitText -Root $Root -Arguments @("status", "--porcelain=v1", "-uall") -split "`n" |
+    $status = @(Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached `
+        -Arguments @("status", "--porcelain=v1", "-uall") -split "`n" |
         Where-Object { $_ })
     $tracked = @($status | Where-Object {
         $_ -notmatch '^\?\?' -and $_.Substring(0, 1) -eq ' '
@@ -401,13 +407,16 @@ function Get-GitSnapshot {
             Get-Sha256 -Path $candidate
         } else { "<missing>" }
     }
-    $originMain = Invoke-GitText -Root $Root -Arguments @("rev-parse", "origin/main")
-    $counts = (Invoke-GitText -Root $Root -Arguments @(
+    $originMain = Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached `
+        -Arguments @("rev-parse", "origin/main")
+    $counts = (Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached -Arguments @(
         "rev-list", "--left-right", "--count", "origin/main...HEAD"
     )) -split '\s+'
     return [ordered]@{
-        head = Invoke-GitText -Root $Root -Arguments @("rev-parse", "HEAD")
-        tree = Invoke-GitText -Root $Root -Arguments @("rev-parse", "HEAD^{tree}")
+        head = Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached `
+            -Arguments @("rev-parse", "HEAD")
+        tree = Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached `
+            -Arguments @("rev-parse", "HEAD^{tree}")
         branch = if ($Detached) { "(detached)" } else {
             Invoke-GitText -Root $Root -Arguments @("rev-parse", "--abbrev-ref", "HEAD")
         }
@@ -523,7 +532,7 @@ function Invoke-WindowsReleasePipeline {
         try {
             Invoke-GitText -Root $RepositoryRoot -Arguments @(
                 "worktree", "add", "--detach", $detached, $sourceSha
-            ) | Out-Null
+            ) -DisableAutoCrlf | Out-Null
         } catch {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached worktree creation failed: $($_.Exception.Message)"

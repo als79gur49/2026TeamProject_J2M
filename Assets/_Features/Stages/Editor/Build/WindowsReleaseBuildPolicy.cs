@@ -179,11 +179,17 @@ public static class WindowsReleaseSettingsTransaction
     {
         var snapshot = settings.Capture();
         var result = WindowsReleaseExitCodes.InternalException;
+        var restoreRequired = true;
         try
         {
             try
             {
-                settings.ApplyRequired();
+                restoreRequired = !settings.IsRequired();
+                if (restoreRequired)
+                {
+                    settings.ApplyRequired();
+                }
+
                 if (!settings.IsRequired())
                 {
                     result = WindowsReleaseExitCodes.SettingsApplyFailure;
@@ -205,17 +211,20 @@ public static class WindowsReleaseSettingsTransaction
         }
         finally
         {
-            try
+            if (restoreRequired)
             {
-                settings.Restore(snapshot);
-                if (!settings.IsRestored(snapshot))
+                try
+                {
+                    settings.Restore(snapshot);
+                    if (!settings.IsRestored(snapshot))
+                    {
+                        result = WindowsReleaseExitCodes.SettingsRestoreFailure;
+                    }
+                }
+                catch
                 {
                     result = WindowsReleaseExitCodes.SettingsRestoreFailure;
                 }
-            }
-            catch
-            {
-                result = WindowsReleaseExitCodes.SettingsRestoreFailure;
             }
         }
 

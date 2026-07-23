@@ -23,6 +23,9 @@ It is not Store signoff, an IL2CPP migration, Steam packaging, or upload automat
 The entry snapshots the effective backend, stripping, Player.log, and warning
 stack-trace settings. It applies the RC values only for the build and verifies
 restoration in `finally`. Restoration failure takes precedence over build success.
+When all effective settings already match the RC contract, the transaction skips
+both setters and restoration so absent-default ProjectSettings keys are not
+materialized as configuration drift.
 
 ## Test-first gates
 
@@ -46,7 +49,10 @@ snapshots. It does not invoke Unity or modify the repository.
 All wrapper-owned Git commands use the process-local
 `git -c core.longpaths=true` option. This permits the exact-SHA detached checkout
 to materialize long Unity asset paths without changing repository, global, or
-system Git configuration.
+system Git configuration. Detached checkout and snapshot commands additionally
+use process-local `core.autocrlf=false`, keeping Unity's LF serialization from
+appearing as source drift on Windows without changing the invocation worktree's
+Git behavior.
 
 ## Invocation
 
