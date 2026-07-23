@@ -87,6 +87,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedDynamic), Is.EqualTo(11));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocaleInvariantKeyDisplay), Is.EqualTo(13));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.Decorative), Is.EqualTo(2));
+            Assert.That(
+                inventory.Count(item =>
+                    TypographyBinding.FindFor(item.Target).LocaleParticipation ==
+                    TypographyLocaleParticipation.LocaleThemed),
+                Is.EqualTo(38));
             Assert.That(inventory.Select(item => item.Target), Is.Unique);
             Assert.That(nullTargetBindings, Is.Empty, $"Null-target TypographyBindings: {string.Join(", ", nullTargetBindings)}");
             var duplicateBindingTargets = validBindingTargets
@@ -392,8 +397,7 @@ namespace Game.Feature.UI.Tests
         {
             foreach (var item in inventory)
             {
-                if (item.Classification == TargetClassification.LocaleInvariantKeyDisplay ||
-                    item.Classification == TargetClassification.Decorative)
+                if (item.Classification == TargetClassification.LocaleInvariantKeyDisplay)
                 {
                     continue;
                 }

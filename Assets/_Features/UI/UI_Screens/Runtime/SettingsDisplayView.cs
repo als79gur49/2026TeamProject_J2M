@@ -19,7 +19,9 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _currentDisplayValue;
         [SerializeField] private TMP_Text _resolutionLabel;
         [SerializeField] private TMP_Dropdown _resolutionDropdown;
+        [SerializeField] private TMP_Text _resolutionDropdownArrowLabel;
         [SerializeField] private RectTransform _resolutionInfoHotspot;
+        [SerializeField] private TMP_Text _resolutionInfoMarkerLabel;
         [SerializeField] private SettingsHoverRelay _resolutionHoverRelay;
         [SerializeField] private RectTransform _resolutionHoverHintRoot;
         [SerializeField] private TMP_Text _resolutionHoverHintLabel;
@@ -130,6 +132,7 @@ namespace Game.Feature.UI.Screens
             }
 
             RefreshLocalizedLanguageTextStyle();
+            RefreshTypography();
         }
 
         public void UnbindStaticLocalization()
@@ -171,7 +174,9 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_currentDisplayValue, nameof(_currentDisplayValue), issues);
             ValidateControl(_resolutionLabel, nameof(_resolutionLabel), issues);
             ValidateControl(_resolutionDropdown, nameof(_resolutionDropdown), issues);
+            ValidateControl(_resolutionDropdownArrowLabel, nameof(_resolutionDropdownArrowLabel), issues);
             ValidateControl(_resolutionInfoHotspot, nameof(_resolutionInfoHotspot), issues);
+            ValidateControl(_resolutionInfoMarkerLabel, nameof(_resolutionInfoMarkerLabel), issues);
             ValidateControl(_resolutionHoverRelay, nameof(_resolutionHoverRelay), issues);
             ValidateControl(_resolutionHoverHintRoot, nameof(_resolutionHoverHintRoot), issues);
             ValidateControl(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel), issues);
@@ -361,7 +366,9 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_currentDisplayValue, nameof(_currentDisplayValue));
             ValidateSerializedReference(_resolutionLabel, nameof(_resolutionLabel));
             ValidateSerializedReference(_resolutionDropdown, nameof(_resolutionDropdown));
+            ValidateSerializedReference(_resolutionDropdownArrowLabel, nameof(_resolutionDropdownArrowLabel));
             ValidateSerializedReference(_resolutionInfoHotspot, nameof(_resolutionInfoHotspot));
+            ValidateSerializedReference(_resolutionInfoMarkerLabel, nameof(_resolutionInfoMarkerLabel));
             ValidateSerializedReference(_resolutionHoverRelay, nameof(_resolutionHoverRelay));
             ValidateSerializedReference(_resolutionHoverHintRoot, nameof(_resolutionHoverHintRoot));
             ValidateSerializedReference(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel));
@@ -670,6 +677,8 @@ namespace Game.Feature.UI.Screens
             ApplySettingsTypography(_previewCountdownLabel, localeCode);
             ApplySettingsTypography(_applyButtonLabel, localeCode);
             ApplySettingsTypography(_revertButtonLabel, localeCode);
+            ApplySettingsTypography(_resolutionDropdownArrowLabel, localeCode);
+            ApplySettingsTypography(_resolutionInfoMarkerLabel, localeCode);
             RefreshResolutionDropdownTypography();
         }
 

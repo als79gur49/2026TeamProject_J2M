@@ -23495,7 +23495,9 @@ MonoBehaviour:
   _currentDisplayValue: {fileID: 7014501484815232922}
   _resolutionLabel: {fileID: 7935115406174812122}
   _resolutionDropdown: {fileID: 7260072859994242554}
+  _resolutionDropdownArrowLabel: {fileID: 412658852441104191}
   _resolutionInfoHotspot: {fileID: 7412902069501673605}
+  _resolutionInfoMarkerLabel: {fileID: 6570786655514376357}
   _resolutionHoverRelay: {fileID: 2324422011489775008}
   _resolutionHoverHintRoot: {fileID: 4724594433368433565}
   _resolutionHoverHintLabel: {fileID: 7964683249213566524}
