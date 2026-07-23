@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using UnityEngine;
@@ -24,6 +25,8 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private SceneTransitionOverlayContentCatalog _contentCatalog;
         private ISceneTransitionOverlayShellView _overlayShell;
         private IUiAudioPort _uiAudioPort;
+        private ISceneTransitionActiveClock _diagnosticClock;
+        private SceneTransitionDiagnosticsMonitor _currentDiagnostics;
         private Guid? _currentCampaignLaunchToken;
         private StageLaunchContext _currentLaunchContext;
 
@@ -142,8 +145,14 @@ namespace Game.Feature.UI.Composition
 
             _instance = this;
             _uiAudioPort = _pendingUiAudioPort;
+            _diagnosticClock = new SceneTransitionActiveClock();
             DontDestroyOnLoad(gameObject);
             EnsureOverlayShell();
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            _diagnosticClock?.SetPaused(pauseStatus);
         }
 
         private bool TryStartTransition(
@@ -210,7 +219,7 @@ namespace Game.Feature.UI.Composition
             StageLaunchContext launchContext)
         {
             var state = new TransitionExecutionState();
-            var routine = RunTransitionCore(request, targetSceneName, profile, state);
+            var routine = RunTransitionCore(transitionId, request, targetSceneName, profile, state);
             try
             {
                 while (true)
@@ -243,6 +252,7 @@ namespace Game.Feature.UI.Composition
             }
             finally
             {
+                EndDiagnostics(transitionId, state.Diagnostics);
                 (routine as IDisposable)?.Dispose();
                 if (state.Operation != null && !state.Operation.allowSceneActivation)
                 {
@@ -266,6 +276,7 @@ namespace Game.Feature.UI.Composition
         }
 
         private IEnumerator RunTransitionCore(
+            int transitionId,
             StageNavigationRequest request,
             string targetSceneName,
             StageTransitionProfile profile,
@@ -273,13 +284,20 @@ namespace Game.Feature.UI.Composition
         {
             if (profile.StartAsyncLoadBeforeOverlay)
             {
+                state.Diagnostics = BeginDiagnostics(transitionId, request, targetSceneName);
                 state.Operation = BeginLoad(targetSceneName);
+                ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.progress));
             }
 
             var preOverlayDelaySeconds = Math.Max(0f, profile.PreOverlayDelaySeconds);
             var preOverlayStartedAt = Time.unscaledTime;
             while (Time.unscaledTime - preOverlayStartedAt < preOverlayDelaySeconds)
             {
+                if (state.Operation != null)
+                {
+                    ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.progress));
+                }
+
                 yield return null;
             }
 
@@ -293,7 +311,9 @@ namespace Game.Feature.UI.Composition
 
             if (state.Operation == null)
             {
+                state.Diagnostics = BeginDiagnostics(transitionId, request, targetSceneName);
                 state.Operation = BeginLoad(targetSceneName);
+                ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.progress));
             }
 
             var minimumVisibleSeconds = Math.Max(0f, profile.MinimumVisibleSeconds);
@@ -302,6 +322,11 @@ namespace Game.Feature.UI.Composition
             while (!loadReady || !minimumElapsed)
             {
                 loadReady = state.Operation.progress >= 0.9f;
+                ObserveDiagnostics(
+                    state,
+                    loadReady
+                        ? SceneTransitionDiagnosticPhase.ActivationPending
+                        : SceneTransitionDiagnosticPhase.WaitingForReadiness);
                 overlay.SetProgress(loadReady ? 1f : NormalizeProgress(state.Operation.progress));
                 minimumElapsed = IsMinimumVisibleElapsedForActivation(
                     profile,
@@ -311,12 +336,16 @@ namespace Game.Feature.UI.Composition
             }
 
             overlay.SetProgress(1f);
+            ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.ActivationPending);
             state.Operation.allowSceneActivation = true;
+            ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
             while (!state.Operation.isDone)
             {
                 yield return null;
+                ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
             }
 
+            EndDiagnostics(transitionId, state.Diagnostics);
             while (!profile.HoldSceneActivationUntilMinimumElapsed &&
                    Time.unscaledTime - overlayShownAt < minimumVisibleSeconds)
             {
@@ -327,7 +356,72 @@ namespace Game.Feature.UI.Composition
         private sealed class TransitionExecutionState
         {
             public AsyncOperation Operation;
+            public SceneTransitionDiagnosticsMonitor Diagnostics;
             public bool TerminalClaimed;
+        }
+
+        private SceneTransitionDiagnosticsMonitor BeginDiagnostics(
+            int transitionId,
+            StageNavigationRequest request,
+            string targetSceneName)
+        {
+            var diagnostics = new SceneTransitionDiagnosticsMonitor(
+                new SceneTransitionDiagnosticIdentity(
+                    transitionId,
+                    targetSceneName,
+                    request.NavigationKind,
+                    request.Source),
+                SceneTransitionDiagnosticsSettings.ConservativeProductionDefault,
+                _diagnosticClock ??= new SceneTransitionActiveClock(),
+                new UnitySceneTransitionDiagnosticLogger(this));
+            _currentDiagnostics = diagnostics;
+            return diagnostics;
+        }
+
+        private static void ObserveDiagnostics(
+            TransitionExecutionState state,
+            SceneTransitionDiagnosticPhase phase)
+        {
+            if (state.Diagnostics == null || state.Operation == null)
+            {
+                return;
+            }
+
+            state.Diagnostics.Observe(
+                phase,
+                state.Operation.progress,
+                state.Operation.isDone,
+                state.Operation.allowSceneActivation);
+        }
+
+        private static SceneTransitionDiagnosticPhase ResolvePreActivationDiagnosticPhase(float progress)
+        {
+            return progress >= 0.9f
+                ? SceneTransitionDiagnosticPhase.ActivationPending
+                : SceneTransitionDiagnosticPhase.WaitingForReadiness;
+        }
+
+        private void EndDiagnostics(
+            int transitionId,
+            SceneTransitionDiagnosticsMonitor diagnostics)
+        {
+            if (diagnostics == null)
+            {
+                return;
+            }
+
+            diagnostics.End();
+            if (ReferenceEquals(_currentDiagnostics, diagnostics) &&
+                diagnostics.Identity.TransitionId == transitionId)
+            {
+                _currentDiagnostics = null;
+            }
+        }
+
+        private void EndCurrentDiagnostics()
+        {
+            _currentDiagnostics?.End();
+            _currentDiagnostics = null;
         }
 
         private static void ClearFailedCampaignLaunch(
@@ -358,6 +452,7 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            EndCurrentDiagnostics();
             ClearFailedCampaignLaunch(_currentLaunchContext, _currentCampaignLaunchToken);
             if (_guard.IsTransitionInProgress)
             {
@@ -622,5 +717,362 @@ namespace Game.Feature.UI.Composition
             return now - overlayShownAt >= Math.Max(0f, profile.MinimumVisibleSeconds);
         }
 
+    }
+
+    internal enum SceneTransitionDiagnosticPhase
+    {
+        LoadRequested = 0,
+        WaitingForReadiness = 1,
+        ActivationPending = 2,
+        WaitingForCompletion = 3,
+    }
+
+    internal interface ISceneTransitionActiveClock
+    {
+        double ActiveTimeSeconds { get; }
+
+        void SetPaused(bool paused);
+    }
+
+    internal sealed class SceneTransitionActiveClock : ISceneTransitionActiveClock
+    {
+        private readonly Func<double> _wallTimeSeconds;
+        private double _activeTimeSeconds;
+        private double _lastWallTimeSeconds;
+        private bool _paused;
+
+        public SceneTransitionActiveClock()
+            : this(() => Time.realtimeSinceStartupAsDouble)
+        {
+        }
+
+        internal SceneTransitionActiveClock(Func<double> wallTimeSeconds)
+        {
+            _wallTimeSeconds = wallTimeSeconds ?? throw new ArgumentNullException(nameof(wallTimeSeconds));
+            _lastWallTimeSeconds = _wallTimeSeconds();
+        }
+
+        public double ActiveTimeSeconds
+        {
+            get
+            {
+                AccumulateUntil(_wallTimeSeconds());
+                return _activeTimeSeconds;
+            }
+        }
+
+        public void SetPaused(bool paused)
+        {
+            if (_paused == paused)
+            {
+                return;
+            }
+
+            var now = _wallTimeSeconds();
+            AccumulateUntil(now);
+            _paused = paused;
+            _lastWallTimeSeconds = now;
+        }
+
+        private void AccumulateUntil(double now)
+        {
+            if (!_paused)
+            {
+                _activeTimeSeconds += Math.Max(0d, now - _lastWallTimeSeconds);
+            }
+
+            _lastWallTimeSeconds = now;
+        }
+    }
+
+    internal readonly struct SceneTransitionDiagnosticsSettings
+    {
+        public SceneTransitionDiagnosticsSettings(
+            double totalActiveWarningThresholdSeconds,
+            double progressStallWarningThresholdSeconds,
+            float progressEpsilon)
+        {
+            if (totalActiveWarningThresholdSeconds <= 0d)
+            {
+                throw new ArgumentOutOfRangeException(nameof(totalActiveWarningThresholdSeconds));
+            }
+
+            if (progressStallWarningThresholdSeconds <= 0d)
+            {
+                throw new ArgumentOutOfRangeException(nameof(progressStallWarningThresholdSeconds));
+            }
+
+            if (progressEpsilon <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(progressEpsilon));
+            }
+
+            TotalActiveWarningThresholdSeconds = totalActiveWarningThresholdSeconds;
+            ProgressStallWarningThresholdSeconds = progressStallWarningThresholdSeconds;
+            ProgressEpsilon = progressEpsilon;
+        }
+
+        public double TotalActiveWarningThresholdSeconds { get; }
+
+        public double ProgressStallWarningThresholdSeconds { get; }
+
+        public float ProgressEpsilon { get; }
+
+        public static SceneTransitionDiagnosticsSettings ConservativeProductionDefault { get; } =
+            new(
+                totalActiveWarningThresholdSeconds: 120d,
+                progressStallWarningThresholdSeconds: 30d,
+                progressEpsilon: 0.01f);
+    }
+
+    internal readonly struct SceneTransitionDiagnosticIdentity
+    {
+        public SceneTransitionDiagnosticIdentity(
+            int transitionId,
+            string targetSceneName,
+            StageNavigationKind navigationKind,
+            string source)
+        {
+            TransitionId = transitionId;
+            TargetSceneName = string.IsNullOrWhiteSpace(targetSceneName)
+                ? "<unavailable>"
+                : targetSceneName.Trim();
+            NavigationKind = navigationKind;
+            Source = string.IsNullOrWhiteSpace(source) ? "<unavailable>" : source.Trim();
+        }
+
+        public int TransitionId { get; }
+
+        public string TargetSceneName { get; }
+
+        public StageNavigationKind NavigationKind { get; }
+
+        public string Source { get; }
+
+        public string NavigationLabel =>
+            NavigationKind == StageNavigationKind.None
+                ? "<unavailable>"
+                : NavigationKind.ToString();
+    }
+
+    internal readonly struct SceneTransitionDiagnosticSnapshot
+    {
+        public SceneTransitionDiagnosticSnapshot(
+            bool isActive,
+            SceneTransitionDiagnosticPhase phase,
+            float progress,
+            bool isDone,
+            bool allowSceneActivation,
+            double activeElapsedSeconds,
+            double phaseElapsedSeconds,
+            double progressStallElapsedSeconds,
+            float lastMeaningfulProgress,
+            bool totalDurationWarningEmitted,
+            bool currentPhaseProgressStallWarningEmitted)
+        {
+            IsActive = isActive;
+            Phase = phase;
+            Progress = progress;
+            IsDone = isDone;
+            AllowSceneActivation = allowSceneActivation;
+            ActiveElapsedSeconds = activeElapsedSeconds;
+            PhaseElapsedSeconds = phaseElapsedSeconds;
+            ProgressStallElapsedSeconds = progressStallElapsedSeconds;
+            LastMeaningfulProgress = lastMeaningfulProgress;
+            TotalDurationWarningEmitted = totalDurationWarningEmitted;
+            CurrentPhaseProgressStallWarningEmitted = currentPhaseProgressStallWarningEmitted;
+        }
+
+        public bool IsActive { get; }
+
+        public SceneTransitionDiagnosticPhase Phase { get; }
+
+        public float Progress { get; }
+
+        public bool IsDone { get; }
+
+        public bool AllowSceneActivation { get; }
+
+        public double ActiveElapsedSeconds { get; }
+
+        public double PhaseElapsedSeconds { get; }
+
+        public double ProgressStallElapsedSeconds { get; }
+
+        public float LastMeaningfulProgress { get; }
+
+        public bool TotalDurationWarningEmitted { get; }
+
+        public bool CurrentPhaseProgressStallWarningEmitted { get; }
+
+        public bool AnyWarningEmitted =>
+            TotalDurationWarningEmitted || CurrentPhaseProgressStallWarningEmitted;
+    }
+
+    internal interface ISceneTransitionDiagnosticLogger
+    {
+        void LogWarning(string message);
+    }
+
+    internal sealed class UnitySceneTransitionDiagnosticLogger : ISceneTransitionDiagnosticLogger
+    {
+        private readonly UnityEngine.Object _context;
+
+        public UnitySceneTransitionDiagnosticLogger(UnityEngine.Object context)
+        {
+            _context = context;
+        }
+
+        public void LogWarning(string message)
+        {
+            Debug.LogWarning(message, _context);
+        }
+    }
+
+    internal sealed class SceneTransitionDiagnosticsMonitor
+    {
+        private readonly SceneTransitionDiagnosticIdentity _identity;
+        private readonly SceneTransitionDiagnosticsSettings _settings;
+        private readonly ISceneTransitionActiveClock _clock;
+        private readonly ISceneTransitionDiagnosticLogger _logger;
+        private readonly double _startedAtActiveTime;
+
+        private SceneTransitionDiagnosticPhase _phase;
+        private double _phaseEnteredAtActiveTime;
+        private double _lastMeaningfulProgressAtActiveTime;
+        private float _lastMeaningfulProgress;
+        private float _progress;
+        private bool _isDone;
+        private bool _observedAllowSceneActivation;
+        private bool _active = true;
+        private bool _totalDurationWarningEmitted;
+        private bool _currentPhaseProgressStallWarningEmitted;
+
+        public SceneTransitionDiagnosticsMonitor(
+            SceneTransitionDiagnosticIdentity identity,
+            SceneTransitionDiagnosticsSettings settings,
+            ISceneTransitionActiveClock clock,
+            ISceneTransitionDiagnosticLogger logger)
+        {
+            _identity = identity;
+            _settings = settings;
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _startedAtActiveTime = _clock.ActiveTimeSeconds;
+            _phase = SceneTransitionDiagnosticPhase.LoadRequested;
+            _phaseEnteredAtActiveTime = _startedAtActiveTime;
+            _lastMeaningfulProgressAtActiveTime = _startedAtActiveTime;
+        }
+
+        public SceneTransitionDiagnosticIdentity Identity => _identity;
+
+        public SceneTransitionDiagnosticSnapshot Snapshot => CaptureDiagnosticState(_clock.ActiveTimeSeconds);
+
+        public void Observe(
+            SceneTransitionDiagnosticPhase phase,
+            float progress,
+            bool isDone,
+            bool allowSceneActivation)
+        {
+            if (!_active)
+            {
+                return;
+            }
+
+            var now = _clock.ActiveTimeSeconds;
+            if (_phase != phase)
+            {
+                _phase = phase;
+                _phaseEnteredAtActiveTime = now;
+                _currentPhaseProgressStallWarningEmitted = false;
+            }
+
+            _progress = progress;
+            _isDone = isDone;
+            _observedAllowSceneActivation = allowSceneActivation;
+            if (progress >= _lastMeaningfulProgress + _settings.ProgressEpsilon)
+            {
+                _lastMeaningfulProgress = progress;
+                _lastMeaningfulProgressAtActiveTime = now;
+            }
+
+            if (isDone)
+            {
+                return;
+            }
+
+            var snapshot = CaptureDiagnosticState(now);
+            if (!_totalDurationWarningEmitted &&
+                snapshot.ActiveElapsedSeconds >= _settings.TotalActiveWarningThresholdSeconds)
+            {
+                _totalDurationWarningEmitted = true;
+                EmitWarning("TotalActiveDuration", CaptureDiagnosticState(now));
+            }
+
+            if (phase != SceneTransitionDiagnosticPhase.LoadRequested &&
+                !_currentPhaseProgressStallWarningEmitted &&
+                snapshot.ProgressStallElapsedSeconds >= _settings.ProgressStallWarningThresholdSeconds)
+            {
+                _currentPhaseProgressStallWarningEmitted = true;
+                EmitWarning("ProgressStall", CaptureDiagnosticState(now));
+            }
+        }
+
+        public void End()
+        {
+            _active = false;
+        }
+
+        private SceneTransitionDiagnosticSnapshot CaptureDiagnosticState(double now)
+        {
+            return new SceneTransitionDiagnosticSnapshot(
+                _active,
+                _phase,
+                _progress,
+                _isDone,
+                _observedAllowSceneActivation,
+                Math.Max(0d, now - _startedAtActiveTime),
+                Math.Max(0d, now - _phaseEnteredAtActiveTime),
+                Math.Max(0d, now - _lastMeaningfulProgressAtActiveTime),
+                _lastMeaningfulProgress,
+                _totalDurationWarningEmitted,
+                _currentPhaseProgressStallWarningEmitted);
+        }
+
+        private void EmitWarning(string warningType, SceneTransitionDiagnosticSnapshot snapshot)
+        {
+            var message = string.Format(
+                CultureInfo.InvariantCulture,
+                "Scene transition load diagnostics warning. " +
+                "WarningType={0} TransitionId={1} Scene={2} Navigation={3} Source={4} " +
+                "Phase={5} Progress={6:0.###} IsDone={7} AllowSceneActivation={8} " +
+                "ActiveElapsed={9:0.###}s PhaseElapsed={10:0.###}s " +
+                "ProgressStallElapsed={11:0.###}s LastMeaningfulProgress={12:0.###} " +
+                "TotalDurationWarningEmitted={13} PhaseProgressStallWarningEmitted={14}",
+                warningType,
+                _identity.TransitionId,
+                _identity.TargetSceneName,
+                _identity.NavigationLabel,
+                _identity.Source,
+                snapshot.Phase,
+                snapshot.Progress,
+                snapshot.IsDone,
+                snapshot.AllowSceneActivation,
+                snapshot.ActiveElapsedSeconds,
+                snapshot.PhaseElapsedSeconds,
+                snapshot.ProgressStallElapsedSeconds,
+                snapshot.LastMeaningfulProgress,
+                snapshot.TotalDurationWarningEmitted,
+                snapshot.CurrentPhaseProgressStallWarningEmitted);
+
+            try
+            {
+                _logger.LogWarning(message);
+            }
+            catch
+            {
+                // Diagnostics must never alter the scene transition terminal path.
+            }
+        }
     }
 }
