@@ -953,12 +953,16 @@ namespace Game.Feature.UI.Application
             ["ui.settings.audio.volume_value"] = "{percent}%",
             ["ui.settings.audio.volume_value_muted"] = "{percent}% (Muted)",
             ["ui.settings.display.resolution_value"] = "{0}",
+            ["ui.settings.display.preview_countdown"] = "Reverting in {0}s",
             ["ui.settings.display.status.preview_active"] = "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.",
             ["ui.settings.display.status.preview_reverted"] = "Preview reverted to the previous saved display settings.",
             ["ui.settings.display.status.saved"] = "Display settings saved.",
             ["ui.settings.display.status.external_drift"] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
             ["ui.settings.input.rebind_canceled"] = "Rebind canceled.",
             ["ui.settings.input.reset_complete"] = "Input settings reset.",
+            ["ui.settings.input.reserved_key"] = "This key is reserved.",
+            ["ui.settings.input.movement_conflict"] = "This key conflicts with movement keys.",
+            ["ui.settings.input.already_rebinding"] = "Rebind already in progress.",
             ["ui.common.back"] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",
@@ -1010,7 +1014,8 @@ namespace Game.Feature.UI.Application
                 return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
             }
 
-            if (string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey, StringComparison.Ordinal) &&
+            if ((string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey, StringComparison.Ordinal)) &&
                 descriptor.Arguments.Count > 0)
             {
                 return value.Replace(

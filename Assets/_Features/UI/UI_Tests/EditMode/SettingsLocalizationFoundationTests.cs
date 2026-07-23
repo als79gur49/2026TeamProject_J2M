@@ -206,6 +206,61 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void InvariantSettingsFallback_DefaultDisplayPresenter_FormatsPreviewCountdown()
+        {
+            var displayPort = new FakeDisplaySettingsPort();
+            displayPort.SetPreviewState(1, DisplayWindowMode.FullScreenWindow);
+            var presenter = new SettingsDisplayPresenter(displayPort);
+
+            presenter.Apply(previewTimeoutSeconds: 15d);
+            presenter.SetPreviewCountdown(new DisplayPreviewCountdownSnapshot(
+                isActive: true,
+                remainingSeconds: 7,
+                totalSeconds: 15));
+
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo("Reverting in 7s"));
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Does.Not.Contain("[UI:"));
+            Assert.That(presenter.ViewModel.IsPreviewCountdownVisible, Is.True);
+        }
+
+        [TestCase(
+            KeyboardBindingValidationResult.ReservedKey,
+            "This key is reserved.")]
+        [TestCase(
+            KeyboardBindingValidationResult.MovementConflict,
+            "This key conflicts with movement keys.")]
+        [TestCase(
+            KeyboardBindingValidationResult.AlreadyRebinding,
+            "Rebind already in progress.")]
+        public void InvariantSettingsFallback_DefaultInputPresenter_ResolvesValidationStatus(
+            KeyboardBindingValidationResult validationResult,
+            string expectedStatus)
+        {
+            var statusText = ResolveDefaultInputValidationStatus(validationResult);
+
+            Assert.That(statusText, Is.EqualTo(expectedStatus));
+            Assert.That(statusText, Does.Not.Contain("[UI:"));
+        }
+
+        [Test]
+        public void InvariantSettingsFallback_DefaultInputPresenter_PreservesUnknownDiagnosticFallback()
+        {
+            var presenter = new SettingsInputPresenter(
+                new RejectingKeyboardSettingsPort(KeyboardBindingValidationResult.Success));
+            presenter.Apply(new SettingsInputPresenterInput(
+                new LocalizedTextDescriptor("UI", "ui.settings.input.unknown"),
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+
+            Assert.That(
+                presenter.ViewModel.MovementLabel,
+                Is.EqualTo("[UI:ui.settings.input.unknown]"));
+        }
+
+        [Test]
         public void PackageFreeResolver_ResolvesSelectedDisplayDynamicFixtureKey()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
@@ -1078,6 +1133,16 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
             var runtimeBuilderSource = System.IO.File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
+            var rawStatusFormatterStart = presenterSource.IndexOf(
+                "private static string ToStatusText",
+                StringComparison.Ordinal);
+            var rawStatusFormatterEnd = presenterSource.IndexOf(
+                "public sealed class SettingsScreenPresenter",
+                rawStatusFormatterStart,
+                StringComparison.Ordinal);
+            var rawStatusFormatterSource = presenterSource.Substring(
+                rawStatusFormatterStart,
+                rawStatusFormatterEnd - rawStatusFormatterStart);
 
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputResetComplete()"));
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputReservedKey()"));
@@ -1088,7 +1153,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenterSource, Does.Contain("This key is already used by Flip."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Push."));
             Assert.That(presenterSource, Does.Contain("This key cannot be used."));
-            Assert.That(presenterSource, Does.Not.Contain("\"Rebind already in progress.\""));
+            Assert.That(rawStatusFormatterSource, Does.Not.Contain("\"Rebind already in progress.\""));
             Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.duplicate_action"));
             Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.waiting_for_key"));
             Assert.That(runtimeBuilderSource, Does.Contain("\"Reset Input Settings\""));
@@ -1397,6 +1462,38 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
             Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
             Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+        }
+
+        private static string ResolveDefaultInputValidationStatus(
+            KeyboardBindingValidationResult validationResult)
+        {
+            if (validationResult == KeyboardBindingValidationResult.AlreadyRebinding)
+            {
+                var rejectingPresenter = new SettingsInputPresenter(
+                    new RejectingKeyboardSettingsPort(validationResult));
+                rejectingPresenter.Apply(new SettingsInputPresenterInput(
+                    SettingsStaticTextDescriptors.MovementKeys,
+                    SettingsStaticTextDescriptors.UseArrowKeys,
+                    SettingsStaticTextDescriptors.Push,
+                    SettingsStaticTextDescriptors.Flip,
+                    SettingsStaticTextDescriptors.Change,
+                    SettingsStaticTextDescriptors.ResetInput));
+                rejectingPresenter.StartRebind(KeyboardBindableAction.Push);
+                return rejectingPresenter.ViewModel.StatusText;
+            }
+
+            var keyboardPort = new CompletingKeyboardSettingsPort(validationResult);
+            var presenter = new SettingsInputPresenter(keyboardPort);
+            presenter.Apply(new SettingsInputPresenterInput(
+                SettingsStaticTextDescriptors.MovementKeys,
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+            presenter.StartRebind(KeyboardBindableAction.Push);
+            keyboardPort.Complete();
+            return presenter.ViewModel.StatusText;
         }
 
         private sealed class FakeLocalizedTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort
