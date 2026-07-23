@@ -121,6 +121,18 @@ Invoke-Case "detached git command disables autocrlf process-locally" {
     Assert-Equal "C:\repo" $arguments[5]
     Assert-Equal "status" $arguments[6]
 }
+Invoke-Case "timestamp-only tracked status is not content drift" {
+    $changes = Get-GitChangeClassification @(" M ProjectSettings/ProjectSettings.asset") `
+        @() @()
+    Assert-Equal 0 (@($changes.Tracked).Count)
+    Assert-Equal 0 (@($changes.Staged).Count)
+}
+Invoke-Case "content diff remains fail-closed" {
+    $changes = Get-GitChangeClassification @(" M ProjectSettings/ProjectSettings.asset") `
+        @("ProjectSettings/ProjectSettings.asset") @("Tools/Build/a.ps1")
+    Assert-Equal "ProjectSettings/ProjectSettings.asset" $changes.Tracked[0]
+    Assert-Equal "Tools/Build/a.ps1" $changes.Staged[0]
+}
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null

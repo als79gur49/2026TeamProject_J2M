@@ -383,6 +383,32 @@ function Invoke-GitText {
     return ($output -join "`n").Trim()
 }
 
+function Invoke-GitPathList {
+    param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
+    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
+        -DisableAutoCrlf:$DisableAutoCrlf)
+    $output = & git @gitArguments 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
+    }
+    return @($output | Where-Object { $_ } |
+        ForEach-Object { ([string]$_).Replace('\', '/') })
+}
+
+function Get-GitChangeClassification {
+    param(
+        [string[]]$StatusLines,
+        [string[]]$TrackedContentPaths,
+        [string[]]$StagedContentPaths
+    )
+    return [pscustomobject]@{
+        Tracked = @($TrackedContentPaths)
+        Staged = @($StagedContentPaths)
+        Untracked = @($StatusLines | Where-Object { $_ -match '^\?\?' } |
+            ForEach-Object { $_.Substring(3).Replace('\', '/') })
+    }
+}
+
 function Get-GitSnapshot {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -392,14 +418,14 @@ function Get-GitSnapshot {
     $status = @(Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached `
         -Arguments @("status", "--porcelain=v1", "-uall") -split "`n" |
         Where-Object { $_ })
-    $tracked = @($status | Where-Object {
-        $_ -notmatch '^\?\?' -and $_.Substring(0, 1) -eq ' '
-    } | ForEach-Object { $_.Substring(3).Replace('\', '/') })
-    $staged = @($status | Where-Object {
-        $_ -notmatch '^\?\?' -and $_.Substring(0, 1) -ne ' '
-    } | ForEach-Object { $_.Substring(3).Replace('\', '/') })
-    $untracked = @($status | Where-Object { $_ -match '^\?\?' } |
-        ForEach-Object { $_.Substring(3).Replace('\', '/') })
+    # Unity can rewrite a file byte-for-byte and leave only its stat data changed.
+    # Status reports that as `.M`; content diffs are the authoritative dirty gate.
+    $trackedContent = @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
+        -Arguments @("diff", "--name-only", "--"))
+    $stagedContent = @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
+        -Arguments @("diff", "--cached", "--name-only", "--"))
+    $changes = Get-GitChangeClassification -StatusLines $status `
+        -TrackedContentPaths $trackedContent -StagedContentPaths $stagedContent
     $canaries = [ordered]@{}
     foreach ($relative in $CanaryPaths) {
         $candidate = Join-Path $Root $relative.Replace('/', '\')
@@ -424,9 +450,9 @@ function Get-GitSnapshot {
         originMain = $originMain
         behind = [int]$counts[0]
         ahead = [int]$counts[1]
-        tracked = @($tracked)
-        staged = @($staged)
-        untracked = @($untracked)
+        tracked = @($changes.Tracked)
+        staged = @($changes.Staged)
+        untracked = @($changes.Untracked)
         canaries = $canaries
     }
 }

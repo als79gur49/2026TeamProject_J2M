@@ -86,7 +86,10 @@ must have no tracked, staged, or untracked changes.
 
 It snapshots both worktrees before and after the build. Critical configuration,
 entry, policy, and wrapper files are SHA-256 canaries. Any drift prevents
-promotion.
+promotion. Tracked and staged cleanliness uses Git content diffs, while porcelain
+status is used for the exact untracked allowlist. This keeps byte-identical
+Unity rewrites from becoming timestamp-only false positives without permitting
+any content or canary drift.
 
 Output is written outside the repository:
 
