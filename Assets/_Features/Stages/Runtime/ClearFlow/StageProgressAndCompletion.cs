@@ -118,7 +118,9 @@ namespace Game.Feature.Stages
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey),
+                entry != null
+                    ? StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey)
+                    : StageDisplayNameKeys.ForStage(stageId),
                 result,
                 continueRequest,
                 retryRequest,
