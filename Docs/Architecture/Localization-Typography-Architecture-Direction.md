@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-Localization is implemented to a substantial production baseline. The current project has the Unity Localization package baseline, local/default Addressables settings, `en-US` and `ko-KR` Locale assets, `UI` and `Stage` String Tables, the `UnityStringTableTextResolver` production path, removal of the package-free production fallback, Settings / Pause / Main Menu / Stage display name localization, selected locale persistence, and Settings Smart String dynamic text. The production Localization Settings asset now loads with a valid SmartFormat source/formatter graph, and the Settings audio/display static shell is descriptor-backed in both locales.
+Localization is implemented to a substantial production baseline. The current project has the Unity Localization package baseline, local/default Addressables settings, `en-US` and `ko-KR` Locale assets, `UI` and `Stage` String Tables, the `UnityStringTableTextResolver` production path, removal of the package-free production fallback, Settings / Pause / Main Menu static localization, the Stage display-name key/table/descriptor/locale-rebind path, selected locale persistence, and Settings Smart String dynamic text. The production Localization Settings asset now loads with a valid SmartFormat source/formatter graph, and the Settings audio/display static shell is descriptor-backed in both locales.
 
 Typography foundation and production wiring are implemented for Settings, Pause, and Main Menu.
 
@@ -33,7 +33,7 @@ Current baseline captured for this cleanup pass:
 | Addressables local/default settings | Done | Addressables settings are local/default; tests guard against remote catalog/path introduction. |
 | `en-US` / `ko-KR` Locale | Done | Locale assets exist and are required by `UnityStringTableTextResolver`. |
 | `UI` String Table | Done | `UI` collection has `en-US` and `ko-KR` tables for Settings, Pause, and Main Menu shell entries. |
-| `Stage` String Table | Done | `Stage` collection has `en-US` and `ko-KR` tables for active stage display names. |
+| `Stage` String Table | Done | `Stage` collection has `en-US` and `ko-KR` entries for active stage display-name keys. Current values are code-form copy such as `Lab-01` and `Ward[A]-01`; product-authored Korean stage naming remains follow-up scope. |
 | Localization Settings active registration | Done | Active Localization Settings and its serialized SmartFormat source/formatter graph load successfully and are validated by production integration tests. |
 | TMP Settings fallback unchanged | Done | `TMP Settings.asset` does not include `NanumGothic SDF` as a global fallback. |
 
@@ -132,9 +132,11 @@ A String Table entry is marked Smart if and only if its localized value contains
 |---|---|---|
 | `StagePresentationDefinition.displayNameKey` canonical owner | Done | Presentation definition owns the stage display-name key. |
 | Legacy `displayName` fallback removal | Done | Runtime/read-model surfaces propagate display-name keys, not legacy resolved display strings. |
-| Stage String Table entries | Done | Active stage display-name keys are validated against the `Stage` String Table. |
-| Stage display name descriptor propagation | Done | UI flow converts display-name keys to `LocalizedTextDescriptor` for resolver-owned lookup. |
+| Stage String Table entries | Done | Active stage display-name keys are validated against `en-US` and `ko-KR` `Stage` String Tables; both locales currently retain code-form copy. |
+| Stage display name descriptor / locale rebind propagation | Done | UI flow converts display-name keys to `LocalizedTextDescriptor` for resolver-owned lookup and refreshes the resolved value on locale changes. |
 | `StageResult` title/detail/continue schema not revived | Explicit Non-goal | StageResult remains on the minimal navigation endpoint path; removed result-text schema is not reintroduced. |
+
+StageName key authoring, Stage String Table lookup, `LocalizedTextDescriptor` resolution, and the locale rebind path are complete. Actual `ko-KR` StageName copy, Stage HUD `TypographyBinding`, and StageName visual QA remain follow-up scope.
 
 ## 3. Current Limitations
 
@@ -165,6 +167,9 @@ Deferred localization scope:
 | Reset confirm payload | Deferred | Confirm popup still accepts raw string payloads. |
 | Confirm popup payload | Deferred | Popup payload schema has not moved to descriptors. |
 | HUD objective | Deferred | HUD runtime objective text is separate from the Settings/Pause/Main Menu localization baseline. |
+| Actual `ko-KR` StageName copy | Deferred | Both locale tables currently retain code-form stage names; product-authored Korean naming is not part of this foundation PR. |
+| Stage HUD `TypographyBinding` | Deferred | Stage HUD typography authoring was not added by the display-name key/descriptor path. |
+| StageName visual QA | Deferred | Current typography visual evidence covers Settings, Pause, and Main Menu only. |
 | StageResult text schema | Deferred | StageResult result-title/detail/continue text schema intentionally remains removed. |
 | Save slot runtime labels | Deferred | Save slot labels are runtime/data driven and need separate label policy. |
 | Inventory/runtime item data | Deferred | Content localization needs item identity and generated text rules. |
@@ -660,6 +665,9 @@ Editor validation:
 | Reset confirm payload | Confirm popup payload still uses raw strings and needs descriptor migration. |
 | Confirm popup payload | Popup-wide localization schema should be handled as a separate UI migration. |
 | HUD objective | Objective text is gameplay/runtime content and needs content localization policy. |
+| Actual `ko-KR` StageName copy | Current `en-US` and `ko-KR` entries use code-form copy; Korean product naming remains separate. |
+| Stage HUD `TypographyBinding` | The display-name key/descriptor/rebind path does not add Stage HUD typography authoring. |
+| StageName visual QA | Existing visual evidence does not include the Stage HUD or StageName. |
 | StageResult title/detail/continue label | Removed schema should not be revived without a new StageResult product requirement. |
 | Save slot runtime labels | Save metadata needs data-driven runtime label policy and date/number formatting. |
 | Inventory/runtime item data | Item identity, generated text, and plural/josa rules are not defined. |
