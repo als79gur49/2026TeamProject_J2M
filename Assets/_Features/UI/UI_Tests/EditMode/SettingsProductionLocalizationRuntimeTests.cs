@@ -628,16 +628,57 @@ namespace Game.Feature.UI.Tests
         public void PackageFreeLocalizedTextResolver_ProvidesSettingsCatalogAndFallbacks()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var staticLabels = new[]
+            {
+                (SettingsStaticTextDescriptors.AudioMain, "Main", "마스터"),
+                (SettingsStaticTextDescriptors.AudioBgm, "Background Music", "배경 음악"),
+                (SettingsStaticTextDescriptors.AudioSfx, "Effects", "효과음"),
+                (SettingsStaticTextDescriptors.AudioMute, "Mute", "음소거"),
+                (SettingsStaticTextDescriptors.DisplayCurrent, "Current Display", "현재 디스플레이"),
+                (SettingsStaticTextDescriptors.DisplayResolution, "Resolution", "해상도"),
+                (
+                    SettingsStaticTextDescriptors.DisplayResolutionHint,
+                    "Only automatically detected resolutions are shown.",
+                    "자동으로 감지된 해상도만 표시됩니다."),
+                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Fullscreen Window", "전체 화면 창"),
+                (SettingsStaticTextDescriptors.DisplayFullscreenOn, "On", "켜짐"),
+                (SettingsStaticTextDescriptors.DisplayApply, "Apply", "적용"),
+                (SettingsStaticTextDescriptors.DisplayRevert, "Revert", "되돌리기"),
+            };
 
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("Language"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("Korean"));
+            foreach (var (descriptor, english, _) in staticLabels)
+            {
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(english),
+                    $"Expected canonical en-US value for {descriptor.Key}.");
+            }
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("언어"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("한국어"));
+            foreach (var (descriptor, _, korean) in staticLabels)
+            {
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(korean),
+                    $"Expected canonical ko-KR value for {descriptor.Key}.");
+            }
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            foreach (var (descriptor, english, _) in staticLabels)
+            {
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(english),
+                    $"Expected canonical en-US value after locale round-trip for {descriptor.Key}.");
+            }
 
             resolver.SetLocale("fr-FR");
 
