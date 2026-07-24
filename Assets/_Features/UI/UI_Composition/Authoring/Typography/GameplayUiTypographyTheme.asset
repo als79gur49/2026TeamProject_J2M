@@ -208,6 +208,18 @@ MonoBehaviour:
     CharacterSpacing: 0
     FontStyle: 16
     ApplyMask: 7
+  - StyleTag: 16
+    FontCategory: 0
+    Weight: 2
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 1
+    ApplyMask: 7
   localeFontSets:
   - LocaleCode: en-US
     Entries:
@@ -339,4 +351,18 @@ MonoBehaviour:
       LineSpacing: 0
       CharacterSpacing: 0
       FontStyle: 0
+      ApplyMask: 7
+  - LocaleCode: ko-KR
+    Rule:
+      StyleTag: 16
+      FontCategory: 3
+      Weight: 2
+      SizingSource: 2
+      SizingMode: 0
+      FixedSize: 0
+      MinSize: 0
+      MaxSize: 0
+      LineSpacing: 0
+      CharacterSpacing: 0
+      FontStyle: 1
       ApplyMask: 7

@@ -22,6 +22,28 @@ namespace Game.Feature.UI.Tests
         private const string UiViewSharedRuntimePath = "Assets/_Features/UI/UI_ViewShared/Runtime";
         private const string LocalizedTmpTextBindingPath =
             "Assets/_Features/UI/UI_Screens/Runtime/LocalizedTmpTextBinding.cs";
+        private static readonly MainMenuAuthoredTypographyBaseline MainMenuEnglishBaseline =
+            new MainMenuAuthoredTypographyBaseline(
+                "819507a38fa816a489de88dad2de2ce9",
+                11400000,
+                "819507a38fa816a489de88dad2de2ce9",
+                -6419728470944652023,
+                FontStyles.Bold,
+                30f,
+                true,
+                18f,
+                30f);
+        private static readonly MainMenuAuthoredTypographyBaseline MainMenuKoreanBaseline =
+            new MainMenuAuthoredTypographyBaseline(
+                "4662feb1d501d1f479b757a82e304069",
+                11400000,
+                "4662feb1d501d1f479b757a82e304069",
+                2769584723452840789,
+                FontStyles.Bold,
+                30f,
+                true,
+                18f,
+                30f);
 
         [Test]
         public void PausePrefab_HasTypographyBindingsForRequiredLocalizedText()
@@ -74,6 +96,74 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void MainMenuCommandTheme_ResolvesMainIdentityWithoutSizingOverride()
+        {
+            var theme = LoadTheme();
+            var english = theme.ResolveOrThrow("en-US", TypographyStyleTag.MainMenuCommand);
+            var korean = theme.ResolveOrThrow("ko-KR", TypographyStyleTag.MainMenuCommand);
+            var expectedApplyMask =
+                TypographyApplyMask.Font |
+                TypographyApplyMask.Material |
+                TypographyApplyMask.FontStyle;
+
+            AssertAssetIdentity(
+                english.FontAsset,
+                MainMenuEnglishBaseline.FontGuid,
+                MainMenuEnglishBaseline.FontLocalId,
+                "MainMenuCommand en-US font");
+            AssertAssetIdentity(
+                english.MaterialPreset,
+                MainMenuEnglishBaseline.MaterialGuid,
+                MainMenuEnglishBaseline.MaterialLocalId,
+                "MainMenuCommand en-US material");
+            Assert.That(english.FontStyle, Is.EqualTo(FontStyles.Bold));
+            Assert.That(english.SizingSource, Is.EqualTo(TypographySizingSource.Hybrid));
+            Assert.That(english.SizingMode, Is.EqualTo(TypographySizingMode.PreserveAuthored));
+            Assert.That(english.ApplyMask, Is.EqualTo(expectedApplyMask));
+            Assert.That(english.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
+
+            AssertAssetIdentity(
+                korean.FontAsset,
+                MainMenuKoreanBaseline.FontGuid,
+                MainMenuKoreanBaseline.FontLocalId,
+                "MainMenuCommand ko-KR font");
+            AssertAssetIdentity(
+                korean.MaterialPreset,
+                MainMenuKoreanBaseline.MaterialGuid,
+                MainMenuKoreanBaseline.MaterialLocalId,
+                "MainMenuCommand ko-KR material");
+            Assert.That(korean.FontStyle, Is.EqualTo(FontStyles.Bold));
+            Assert.That(korean.SizingSource, Is.EqualTo(TypographySizingSource.Hybrid));
+            Assert.That(korean.SizingMode, Is.EqualTo(TypographySizingMode.PreserveAuthored));
+            Assert.That(korean.ApplyMask, Is.EqualTo(expectedApplyMask));
+            Assert.That(korean.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
+        }
+
+        [Test]
+        public void GenericButtonTheme_StillResolvesSciFiSoldierBold()
+        {
+            var style = LoadTheme().ResolveOrThrow("en-US", TypographyStyleTag.Button);
+
+            AssertAssetIdentity(
+                style.FontAsset,
+                "dec0b1c5d015b39438a16d1bffa2e9ca",
+                11400000,
+                "generic Button en-US font");
+            AssertAssetIdentity(
+                style.MaterialPreset,
+                "dec0b1c5d015b39438a16d1bffa2e9ca",
+                6254369423063020181,
+                "generic Button en-US material");
+            Assert.That(style.FontStyle, Is.EqualTo(FontStyles.Bold));
+            Assert.That(
+                style.ApplyMask,
+                Is.EqualTo(
+                    TypographyApplyMask.Font |
+                    TypographyApplyMask.Material |
+                    TypographyApplyMask.FontStyle));
+        }
+
+        [Test]
         public void PauseStaticLocalization_RefreshesTextAndThemeFontOnLocaleSwitch()
         {
             var theme = LoadTheme();
@@ -115,36 +205,43 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [Test]
-        public void MainMenuStaticLocalization_RefreshesTextAndThemeFontOnLocaleSwitch()
+        [TestCase("_startButtonLabel", "Start command", "Start", "시작")]
+        [TestCase("_settingsButtonLabel", "Settings command", "Settings", "설정")]
+        [TestCase("_quitButtonLabel", "Quit command", "Quit", "종료")]
+        public void MainMenuCommandTypography_RoundTripsMainAuthoredIdentity(
+            string fieldName,
+            string commandName,
+            string englishText,
+            string koreanText)
         {
             var theme = LoadTheme();
             var resolver = new FakeLocalizedTextResolver();
             var root = UnityEngine.Object.Instantiate(LoadMainMenuPrefab().gameObject);
             var view = root.GetComponent<MainMenuScreenView>();
-            var start = GetField<TMP_Text>(view, "_startButtonLabel");
-            var originalFontSize = start.fontSize;
-            var originalAutoSizing = start.enableAutoSizing;
+            var commands = new[]
+            {
+                (commandName, GetField<TMP_Text>(view, fieldName), englishText, koreanText),
+            };
 
             try
             {
+                AssertCommandTypography(commands, MainMenuEnglishBaseline, "authored");
+
                 view.BindStaticLocalization(
                     MainMenuStaticTextPayload.Default,
                     resolver,
                     DefaultLocalizedTypographyResolver.Instance,
                     typographyTheme: theme);
 
-                Assert.That(start.text, Is.EqualTo("Start"));
-                Assert.That(start.font, Is.SameAs(theme.ResolveOrThrow("en-US", TypographyStyleTag.Button).FontAsset));
-                Assert.That(start.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("en-US", TypographyStyleTag.Button).MaterialPreset));
+                AssertCommandTypography(commands, MainMenuEnglishBaseline, "initial en-US", useKoreanText: false);
 
                 resolver.SetLocale("ko-KR");
 
-                Assert.That(start.text, Is.EqualTo("시작"));
-                Assert.That(start.font, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.Button).FontAsset));
-                Assert.That(start.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.Button).MaterialPreset));
-                Assert.That(start.fontSize, Is.EqualTo(originalFontSize));
-                Assert.That(start.enableAutoSizing, Is.EqualTo(originalAutoSizing));
+                AssertCommandTypography(commands, MainMenuKoreanBaseline, "ko-KR", useKoreanText: true);
+
+                resolver.SetLocale("en-US");
+
+                AssertCommandTypography(commands, MainMenuEnglishBaseline, "round-trip en-US", useKoreanText: false);
             }
             finally
             {
@@ -233,10 +330,63 @@ namespace Game.Feature.UI.Tests
         {
             return new[]
             {
-                ("Start command", GetField<TMP_Text>(prefab, "_startButtonLabel"), TypographyStyleTag.Button),
-                ("Settings command", GetField<TMP_Text>(prefab, "_settingsButtonLabel"), TypographyStyleTag.Button),
-                ("Quit command", GetField<TMP_Text>(prefab, "_quitButtonLabel"), TypographyStyleTag.Button),
+                ("Start command", GetField<TMP_Text>(prefab, "_startButtonLabel"), TypographyStyleTag.MainMenuCommand),
+                ("Settings command", GetField<TMP_Text>(prefab, "_settingsButtonLabel"), TypographyStyleTag.MainMenuCommand),
+                ("Quit command", GetField<TMP_Text>(prefab, "_quitButtonLabel"), TypographyStyleTag.MainMenuCommand),
             };
+        }
+
+        private static void AssertCommandTypography(
+            IReadOnlyList<(string Name, TMP_Text Text, string EnglishText, string KoreanText)> commands,
+            MainMenuAuthoredTypographyBaseline expected,
+            string stage,
+            bool? useKoreanText = null)
+        {
+            foreach (var command in commands)
+            {
+                var context = $"{command.Name} {stage}";
+                if (useKoreanText.HasValue)
+                {
+                    Assert.That(
+                        command.Text.text,
+                        Is.EqualTo(useKoreanText.Value ? command.KoreanText : command.EnglishText),
+                        $"{context} text");
+                }
+
+                AssertAssetIdentity(
+                    command.Text.font,
+                    expected.FontGuid,
+                    expected.FontLocalId,
+                    $"{context} font");
+                AssertAssetIdentity(
+                    command.Text.fontSharedMaterial,
+                    expected.MaterialGuid,
+                    expected.MaterialLocalId,
+                    $"{context} material");
+                Assert.That(command.Text.fontStyle, Is.EqualTo(expected.FontStyle), $"{context} fontStyle");
+                Assert.That(command.Text.fontSize, Is.EqualTo(expected.FontSize), $"{context} fontSize");
+                Assert.That(
+                    command.Text.enableAutoSizing,
+                    Is.EqualTo(expected.EnableAutoSizing),
+                    $"{context} enableAutoSizing");
+                Assert.That(command.Text.fontSizeMin, Is.EqualTo(expected.FontSizeMin), $"{context} fontSizeMin");
+                Assert.That(command.Text.fontSizeMax, Is.EqualTo(expected.FontSizeMax), $"{context} fontSizeMax");
+            }
+        }
+
+        private static void AssertAssetIdentity(
+            UnityEngine.Object asset,
+            string expectedGuid,
+            long expectedLocalId,
+            string context)
+        {
+            Assert.That(asset, Is.Not.Null, context);
+            Assert.That(
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(asset, out var actualGuid, out long actualLocalId),
+                Is.True,
+                context);
+            Assert.That(actualGuid, Is.EqualTo(expectedGuid), $"{context} GUID");
+            Assert.That(actualLocalId, Is.EqualTo(expectedLocalId), $"{context} local ID");
         }
 
         private static void AssertRequiredBindings(
@@ -320,6 +470,41 @@ namespace Game.Feature.UI.Tests
                 .ToArray();
 
             Assert.That(hits, Is.Empty, $"{token} leaked into {rootPath}: {string.Join(", ", hits)}");
+        }
+
+        private readonly struct MainMenuAuthoredTypographyBaseline
+        {
+            public readonly string FontGuid;
+            public readonly long FontLocalId;
+            public readonly string MaterialGuid;
+            public readonly long MaterialLocalId;
+            public readonly FontStyles FontStyle;
+            public readonly float FontSize;
+            public readonly bool EnableAutoSizing;
+            public readonly float FontSizeMin;
+            public readonly float FontSizeMax;
+
+            public MainMenuAuthoredTypographyBaseline(
+                string fontGuid,
+                long fontLocalId,
+                string materialGuid,
+                long materialLocalId,
+                FontStyles fontStyle,
+                float fontSize,
+                bool enableAutoSizing,
+                float fontSizeMin,
+                float fontSizeMax)
+            {
+                FontGuid = fontGuid;
+                FontLocalId = fontLocalId;
+                MaterialGuid = materialGuid;
+                MaterialLocalId = materialLocalId;
+                FontStyle = fontStyle;
+                FontSize = fontSize;
+                EnableAutoSizing = enableAutoSizing;
+                FontSizeMin = fontSizeMin;
+                FontSizeMax = fontSizeMax;
+            }
         }
 
         private sealed class FakeLocalizedTextResolver : ILocalizedTextResolver

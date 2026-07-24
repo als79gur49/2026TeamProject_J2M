@@ -16141,7 +16141,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 2461240810325506205}
-  styleTag: 6
+  styleTag: 16
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -16158,7 +16158,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 4199779365756622544}
-  styleTag: 6
+  styleTag: 16
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
@@ -16175,7 +16175,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 741626671843260670}
-  styleTag: 6
+  styleTag: 16
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
