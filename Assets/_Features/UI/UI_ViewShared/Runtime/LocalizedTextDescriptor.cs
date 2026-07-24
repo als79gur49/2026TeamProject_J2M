@@ -60,6 +60,8 @@ namespace Game.Feature.UI.ViewShared
         InputReservedKey,
         InputMovementConflict,
         InputAlreadyRebinding,
+        InputRebindPushPrompt,
+        InputRebindFlipPrompt,
     }
 
     public enum SettingsLocalizationFormatKind
@@ -165,6 +167,8 @@ namespace Game.Feature.UI.ViewShared
             public const string InputReservedKey = "ui.settings.input.reserved_key";
             public const string InputMovementConflict = "ui.settings.input.movement_conflict";
             public const string InputAlreadyRebinding = "ui.settings.input.already_rebinding";
+            public const string InputRebindPushPrompt = "ui.settings.input.rebind_push_prompt";
+            public const string InputRebindFlipPrompt = "ui.settings.input.rebind_flip_prompt";
         }
 
         private static readonly IReadOnlyList<SettingsLocalizationContractEntry> ContractEntries =
@@ -223,6 +227,8 @@ namespace Game.Feature.UI.ViewShared
                 Dynamic(SettingsLocalizationEntryId.InputReservedKey, Keys.InputReservedKey),
                 Dynamic(SettingsLocalizationEntryId.InputMovementConflict, Keys.InputMovementConflict),
                 Dynamic(SettingsLocalizationEntryId.InputAlreadyRebinding, Keys.InputAlreadyRebinding),
+                Dynamic(SettingsLocalizationEntryId.InputRebindPushPrompt, Keys.InputRebindPushPrompt),
+                Dynamic(SettingsLocalizationEntryId.InputRebindFlipPrompt, Keys.InputRebindFlipPrompt),
             });
 
         public static IReadOnlyList<SettingsLocalizationContractEntry> Entries => ContractEntries;
@@ -628,6 +634,8 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.InputReservedKey] = "This key is reserved.",
                     [SettingsLocalizationContract.Keys.InputMovementConflict] = "This key conflicts with movement keys.",
                     [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
+                    [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
+                    [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
                     [SettingsLocalizationContract.Keys.Back] = "Back",
                     ["ui.common.settings"] = "Settings",
                     ["ui.main_menu.start"] = "Start",
@@ -677,6 +685,8 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.InputReservedKey] = "이 키는 예약되어 있습니다.",
                     [SettingsLocalizationContract.Keys.InputMovementConflict] = "이 키는 이동 키와 충돌합니다.",
                     [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "키 변경이 이미 진행 중입니다.",
+                    [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "밀기 동작에 사용할 키를 누르세요...",
+                    [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "뒤집기 동작에 사용할 키를 누르세요...",
                     [SettingsLocalizationContract.Keys.Back] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",

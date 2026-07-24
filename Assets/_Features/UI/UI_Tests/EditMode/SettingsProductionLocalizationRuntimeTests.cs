@@ -262,7 +262,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15초"));
             Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
             Assert.That(keyboardPort.IsRebinding, Is.True);
-            Assert.That(view.InputView.StatusText, Is.EqualTo("Press a key for Push..."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
             Assert.That(GetField<SettingsScreenViewModel>(view, "_viewModel"), Is.SameAs(screenModel));
             Assert.That(GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel"), Is.SameAs(audioModel));
             Assert.That(GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel"), Is.SameAs(displayModel));
@@ -278,6 +278,63 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(0));
             Assert.DoesNotThrow(() => resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode));
+        }
+
+        [TestCase(
+            KeyboardBindableAction.Push,
+            "밀기 동작에 사용할 키를 누르세요...")]
+        [TestCase(
+            KeyboardBindableAction.Flip,
+            "뒤집기 동작에 사용할 키를 누르세요...")]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindPromptStartedInKoreanUsesCurrentLocale(
+            KeyboardBindableAction action,
+            string expectedPrompt)
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickInputTab();
+            StartRebind(view.InputView, action);
+
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(view.InputView.StatusText, Is.EqualTo(expectedPrompt));
+        }
+
+        [TestCase(
+            KeyboardBindableAction.Push,
+            "Press a key for Push...",
+            "밀기 동작에 사용할 키를 누르세요...")]
+        [TestCase(
+            KeyboardBindableAction.Flip,
+            "Press a key for Flip...",
+            "뒤집기 동작에 사용할 키를 누르세요...")]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_ActiveRebindPromptFollowsLocaleRoundTrip(
+            KeyboardBindableAction action,
+            string englishPrompt,
+            string koreanPrompt)
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickInputTab();
+            StartRebind(view.InputView, action);
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo(englishPrompt));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo(koreanPrompt));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo(englishPrompt));
         }
 
         [Test]
@@ -741,6 +798,23 @@ namespace Game.Feature.UI.Tests
         {
             Assert.That(current.text, Is.EqualTo(expected));
             Assert.That(keycap.text, Is.EqualTo(expected));
+        }
+
+        private static void StartRebind(SettingsInputView inputView, KeyboardBindableAction action)
+        {
+            if (action == KeyboardBindableAction.Push)
+            {
+                inputView.ClickPushChange();
+                return;
+            }
+
+            if (action == KeyboardBindableAction.Flip)
+            {
+                inputView.ClickFlipChange();
+                return;
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(action), action, "Unsupported keyboard rebind action.");
         }
 
         private static void AssertInvariantTypography(

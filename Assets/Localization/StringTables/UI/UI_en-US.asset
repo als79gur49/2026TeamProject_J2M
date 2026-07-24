@@ -210,6 +210,14 @@ MonoBehaviour:
       unchanged until you apply again.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693636
+    m_Localized: Press a key for Push...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693637
+    m_Localized: Press a key for Flip...
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

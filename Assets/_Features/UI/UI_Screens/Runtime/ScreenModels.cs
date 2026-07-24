@@ -306,6 +306,8 @@ namespace Game.Feature.UI.Screens
         public const string InputReservedKeyKey = SettingsLocalizationContract.Keys.InputReservedKey;
         public const string InputMovementConflictKey = SettingsLocalizationContract.Keys.InputMovementConflict;
         public const string InputAlreadyRebindingKey = SettingsLocalizationContract.Keys.InputAlreadyRebinding;
+        public const string InputRebindPushPromptKey = SettingsLocalizationContract.Keys.InputRebindPushPrompt;
+        public const string InputRebindFlipPromptKey = SettingsLocalizationContract.Keys.InputRebindFlipPrompt;
 
         public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
         {
@@ -415,6 +417,31 @@ namespace Game.Feature.UI.Screens
             return new LocalizedTextDescriptor(
                 SettingsStaticTextDescriptors.Table,
                 InputAlreadyRebindingKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular);
+        }
+
+        public static LocalizedTextDescriptor InputRebindPrompt(KeyboardBindableAction action)
+        {
+            string key;
+            switch (action)
+            {
+                case KeyboardBindableAction.Push:
+                    key = InputRebindPushPromptKey;
+                    break;
+                case KeyboardBindableAction.Flip:
+                    key = InputRebindFlipPromptKey;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(action),
+                        action,
+                        "Unsupported keyboard rebind action.");
+            }
+
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                key,
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular);
         }

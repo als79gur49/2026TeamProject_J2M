@@ -625,9 +625,7 @@ namespace Game.Feature.UI.Application
             var startResult = _keyboardBindingSettingsPort.StartRebind(action, HandleRebindCompleted);
             if (startResult.Started)
             {
-                SetRawStatus(action == KeyboardBindableAction.Push
-                    ? "Press a key for Push..."
-                    : "Press a key for Flip...");
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputRebindPrompt(action));
                 RefreshViewModel(startResult.Snapshot);
                 return;
             }
@@ -963,6 +961,8 @@ namespace Game.Feature.UI.Application
             [SettingsLocalizationContract.Keys.InputReservedKey] = "This key is reserved.",
             [SettingsLocalizationContract.Keys.InputMovementConflict] = "This key conflicts with movement keys.",
             [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
+            [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
+            [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
             [SettingsLocalizationContract.Keys.Back] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",

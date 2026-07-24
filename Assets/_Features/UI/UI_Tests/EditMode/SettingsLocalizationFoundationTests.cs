@@ -205,6 +205,32 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptor.Arguments, Is.Empty);
         }
 
+        [TestCase(
+            KeyboardBindableAction.Push,
+            "ui.settings.input.rebind_push_prompt")]
+        [TestCase(
+            KeyboardBindableAction.Flip,
+            "ui.settings.input.rebind_flip_prompt")]
+        public void SettingsInputRebindPromptDynamicDescriptor_UsesActionSpecificUiKeyWithoutArguments(
+            KeyboardBindableAction action,
+            string expectedKey)
+        {
+            var descriptor = SettingsDynamicTextDescriptors.InputRebindPrompt(action);
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo(expectedKey));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.Empty);
+        }
+
+        [Test]
+        public void SettingsInputRebindPromptDynamicDescriptor_RejectsUnsupportedAction()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => SettingsDynamicTextDescriptors.InputRebindPrompt((KeyboardBindableAction)999));
+        }
+
         [Test]
         public void InvariantSettingsFallback_DefaultDisplayPresenter_FormatsPreviewCountdown()
         {
@@ -240,6 +266,32 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(statusText, Is.EqualTo(expectedStatus));
             Assert.That(statusText, Does.Not.Contain("[UI:"));
+        }
+
+        [TestCase(
+            KeyboardBindableAction.Push,
+            "Press a key for Push...")]
+        [TestCase(
+            KeyboardBindableAction.Flip,
+            "Press a key for Flip...")]
+        public void InvariantSettingsFallback_DefaultInputPresenter_ResolvesRebindPrompt(
+            KeyboardBindableAction action,
+            string expectedStatus)
+        {
+            var presenter = new SettingsInputPresenter(
+                new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success));
+            presenter.Apply(new SettingsInputPresenterInput(
+                SettingsStaticTextDescriptors.MovementKeys,
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+
+            presenter.StartRebind(action);
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo(expectedStatus));
+            Assert.That(presenter.ViewModel.StatusText, Does.Not.Contain("[UI:"));
         }
 
         [Test]
@@ -302,6 +354,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
                 Is.EqualTo("Rebind already in progress."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
+                Is.EqualTo("Press a key for Push..."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
+                Is.EqualTo("Press a key for Flip..."));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -320,6 +378,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
                 Is.EqualTo("키 변경이 이미 진행 중입니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
+                Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
+                Is.EqualTo("뒤집기 동작에 사용할 키를 누르세요..."));
         }
 
         [Test]
@@ -868,6 +932,61 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
         }
 
+        [TestCase(
+            KeyboardBindableAction.Push,
+            "ui.settings.input.rebind_push_prompt",
+            "Press a key for Push...",
+            "밀기 동작에 사용할 키를 누르세요...")]
+        [TestCase(
+            KeyboardBindableAction.Flip,
+            "ui.settings.input.rebind_flip_prompt",
+            "Press a key for Flip...",
+            "뒤집기 동작에 사용할 키를 누르세요...")]
+        public void SettingsInputPresenter_ActiveRebindRetainsDescriptorAndReResolvesCurrentLocale(
+            KeyboardBindableAction action,
+            string expectedKey,
+            string englishPrompt,
+            string koreanPrompt)
+        {
+            var resolver = new FakeLocalizedTextResolver();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success);
+            var presenter = new SettingsInputPresenter(keyboardPort, resolver);
+            presenter.Apply(new SettingsInputPresenterInput(
+                SettingsStaticTextDescriptors.MovementKeys,
+                SettingsStaticTextDescriptors.UseArrowKeys,
+                SettingsStaticTextDescriptors.Push,
+                SettingsStaticTextDescriptors.Flip,
+                SettingsStaticTextDescriptors.Change,
+                SettingsStaticTextDescriptors.ResetInput));
+
+            presenter.StartRebind(action);
+
+            var descriptorField = typeof(SettingsInputPresenter).GetField(
+                "_statusTextDescriptor",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var rawStatusField = typeof(SettingsInputPresenter).GetField(
+                "_statusText",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(descriptorField, Is.Not.Null);
+            Assert.That(rawStatusField, Is.Not.Null);
+            var descriptor = (LocalizedTextDescriptor)descriptorField.GetValue(presenter);
+
+            Assert.That(descriptor.Key, Is.EqualTo(expectedKey));
+            Assert.That(descriptor.Arguments, Is.Empty);
+            Assert.That(rawStatusField.GetValue(presenter), Is.EqualTo(string.Empty));
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo(englishPrompt));
+
+            resolver.SetLocale("ko-KR");
+            presenter.RefreshLocalization();
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo(koreanPrompt));
+
+            resolver.SetLocale("en-US");
+            presenter.RefreshLocalization();
+
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo(englishPrompt));
+        }
+
         [Test]
         public void SettingsInputPresenter_LocalizesSelectedResetCompleteStatusAndKeepsKeyDisplayNamesRaw()
         {
@@ -1133,6 +1252,18 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
             var runtimeBuilderSource = System.IO.File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
+            var startRebindStart = presenterSource.IndexOf(
+                "public void StartRebind(KeyboardBindableAction action)",
+                StringComparison.Ordinal);
+            var startRebindEnd = presenterSource.IndexOf(
+                "public void CancelRebind()",
+                startRebindStart,
+                StringComparison.Ordinal);
+            Assert.That(startRebindStart, Is.GreaterThanOrEqualTo(0));
+            Assert.That(startRebindEnd, Is.GreaterThan(startRebindStart));
+            var startRebindSource = presenterSource.Substring(
+                startRebindStart,
+                startRebindEnd - startRebindStart);
             var rawStatusFormatterStart = presenterSource.IndexOf(
                 "private static string ToStatusText",
                 StringComparison.Ordinal);
@@ -1148,8 +1279,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputReservedKey()"));
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputMovementConflict()"));
             Assert.That(presenterSource, Does.Contain("SettingsDynamicTextDescriptors.InputAlreadyRebinding()"));
-            Assert.That(presenterSource, Does.Contain("Press a key for Push..."));
-            Assert.That(presenterSource, Does.Contain("Press a key for Flip..."));
+            Assert.That(startRebindSource, Does.Contain("SettingsDynamicTextDescriptors.InputRebindPrompt(action)"));
+            Assert.That(startRebindSource, Does.Not.Contain("SetRawStatus"));
+            Assert.That(startRebindSource, Does.Not.Contain("Press a key for Push..."));
+            Assert.That(startRebindSource, Does.Not.Contain("Press a key for Flip..."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Flip."));
             Assert.That(presenterSource, Does.Contain("This key is already used by Push."));
             Assert.That(presenterSource, Does.Contain("This key cannot be used."));
@@ -1163,7 +1296,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsInputPresenter_NonTargetActionLabelStatusesRemainRawEnglish()
+        public void SettingsInputPresenter_DuplicateActionStatusRemainsRawEnglishAfterLocalizedPrompt()
         {
             var resolver = new FakeLocalizedTextResolver();
             resolver.SetLocale("ko-KR");
@@ -1180,7 +1313,7 @@ namespace Game.Feature.UI.Tests
 
             presenter.StartRebind(KeyboardBindableAction.Push);
 
-            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("Press a key for Push..."));
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
 
             keyboardPort.Complete();
 
@@ -1521,6 +1654,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.reserved_key"] = "This key is reserved.",
                         ["ui.settings.input.movement_conflict"] = "This key conflicts with movement keys.",
                         ["ui.settings.input.already_rebinding"] = "Rebind already in progress.",
+                        ["ui.settings.input.rebind_push_prompt"] = "Press a key for Push...",
+                        ["ui.settings.input.rebind_flip_prompt"] = "Press a key for Flip...",
                         ["ui.common.back"] = "Back",
                         ["ui.common.settings"] = "Settings",
                         ["ui.main_menu.start"] = "Start",
@@ -1551,6 +1686,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.reserved_key"] = "이 키는 예약되어 있습니다.",
                         ["ui.settings.input.movement_conflict"] = "이 키는 이동 키와 충돌합니다.",
                         ["ui.settings.input.already_rebinding"] = "키 변경이 이미 진행 중입니다.",
+                        ["ui.settings.input.rebind_push_prompt"] = "밀기 동작에 사용할 키를 누르세요...",
+                        ["ui.settings.input.rebind_flip_prompt"] = "뒤집기 동작에 사용할 키를 누르세요...",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",

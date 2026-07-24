@@ -59,6 +59,8 @@ namespace Game.Feature.UI.Composition.Editor
             (SettingsLocalizationContract.Keys.InputReservedKey, "This key is reserved.", "이 키는 예약되어 있습니다.", false),
             (SettingsLocalizationContract.Keys.InputMovementConflict, "This key conflicts with movement keys.", "이 키는 이동 키와 충돌합니다.", false),
             (SettingsLocalizationContract.Keys.InputAlreadyRebinding, "Rebind already in progress.", "키 변경이 이미 진행 중입니다.", false),
+            (SettingsLocalizationContract.Keys.InputRebindPushPrompt, "Press a key for Push...", "밀기 동작에 사용할 키를 누르세요...", false),
+            (SettingsLocalizationContract.Keys.InputRebindFlipPrompt, "Press a key for Flip...", "뒤집기 동작에 사용할 키를 누르세요...", false),
             ("ui.common.settings", "Settings", "설정", false),
             ("ui.main_menu.start", "Start", "시작", false),
             ("ui.main_menu.quit", "Quit", "종료", false),

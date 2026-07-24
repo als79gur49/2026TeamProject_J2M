@@ -56,6 +56,23 @@ namespace Game.Feature.UI.Tests
                 .Cast<SettingsLocalizationEntryId>()
                 .ToArray();
 
+            Assert.That(entries, Has.Count.EqualTo(40));
+            Assert.That(
+                entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor)),
+                Is.EqualTo(25));
+            Assert.That(
+                entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor)),
+                Is.EqualTo(15));
+            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(5));
+            Assert.That(
+                entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PercentArgument),
+                Is.EqualTo(2));
+            Assert.That(
+                entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PositionalArgument),
+                Is.EqualTo(3));
+            Assert.That(
+                entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.None),
+                Is.EqualTo(35));
             Assert.That(
                 entries.Select(entry => entry.Id).ToArray(),
                 Is.EquivalentTo(declaredIds),
@@ -170,7 +187,7 @@ namespace Game.Feature.UI.Tests
                 entry => entry.Key,
                 entry => entry.Key,
                 StringComparer.Ordinal);
-            korean.Remove(SettingsLocalizationContract.Keys.InputAlreadyRebinding);
+            korean.Remove(SettingsLocalizationContract.Keys.InputRebindPushPrompt);
             IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> incompleteCatalog =
                 new Dictionary<string, IReadOnlyDictionary<string, string>>
                 {
@@ -190,7 +207,7 @@ namespace Game.Feature.UI.Tests
                 Does.Contain(PackageFreeLocalizedTextResolver.KoreanLocaleCode));
             Assert.That(
                 invocationException.InnerException.Message,
-                Does.Contain(SettingsLocalizationContract.Keys.InputAlreadyRebinding));
+                Does.Contain(SettingsLocalizationContract.Keys.InputRebindPushPrompt));
         }
 
         [Test]
@@ -202,6 +219,13 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(48));
+
+            var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
+            var sharedManagedKeys = collection.SharedData.Entries
+                .Select(entry => entry.Key)
+                .Where(IsManagedSettingsKey);
+            AssertExactKeySet(contractKeys, sharedManagedKeys, "committed shared table");
 
             var bootstrapByKey = SettingsLocalizationAssetBootstrap.Entries.ToDictionary(
                 entry => entry.Key,
@@ -221,6 +245,10 @@ namespace Game.Feature.UI.Tests
                 var koreanEntry = koreanTable.GetEntry(contractEntry.Key);
                 Assert.That(englishEntry, Is.Not.Null, $"en-US missing: {contractEntry.Key}");
                 Assert.That(koreanEntry, Is.Not.Null, $"ko-KR missing: {contractEntry.Key}");
+                Assert.That(
+                    englishEntry.KeyId,
+                    Is.EqualTo(koreanEntry.KeyId),
+                    $"Locale table ID parity: {contractEntry.Key}");
                 Assert.That(englishEntry.IsSmart, Is.EqualTo(contractEntry.IsSmart), contractEntry.Key);
                 Assert.That(koreanEntry.IsSmart, Is.EqualTo(contractEntry.IsSmart), contractEntry.Key);
 
@@ -308,14 +336,18 @@ namespace Game.Feature.UI.Tests
                 "Input settings reset.",
                 "This key is reserved.",
                 "This key conflicts with movement keys.",
-                "Rebind already in progress.");
+                "Rebind already in progress.",
+                "Press a key for Push...",
+                "Press a key for Flip...");
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "키 변경 취소됨",
                 "입력 설정이 초기화되었습니다.",
                 "이 키는 예약되어 있습니다.",
                 "이 키는 이동 키와 충돌합니다.",
-                "키 변경이 이미 진행 중입니다.");
+                "키 변경이 이미 진행 중입니다.",
+                "밀기 동작에 사용할 키를 누르세요...",
+                "뒤집기 동작에 사용할 키를 누르세요...");
         }
 
         [Test]
@@ -488,6 +520,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
                 Is.EqualTo("Rebind already in progress."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
+                Is.EqualTo("Press a key for Push..."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
+                Is.EqualTo("Press a key for Flip..."));
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
@@ -506,6 +544,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
                 Is.EqualTo("키 변경이 이미 진행 중입니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
+                Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
+                Is.EqualTo("뒤집기 동작에 사용할 키를 누르세요..."));
         }
 
         [Test]
@@ -856,6 +900,22 @@ namespace Game.Feature.UI.Tests
                             argumentSets.Add(arguments);
                         }
                     }
+                    else if (parameter.ParameterType == typeof(KeyboardBindableAction))
+                    {
+                        var flipArgumentSets = argumentSets
+                            .Select(arguments => (object[])arguments.Clone())
+                            .ToArray();
+                        foreach (var arguments in argumentSets)
+                        {
+                            arguments[parameterIndex] = KeyboardBindableAction.Push;
+                        }
+
+                        foreach (var arguments in flipArgumentSets)
+                        {
+                            arguments[parameterIndex] = KeyboardBindableAction.Flip;
+                            argumentSets.Add(arguments);
+                        }
+                    }
                     else
                     {
                         throw new InvalidOperationException(
@@ -974,7 +1034,9 @@ namespace Game.Feature.UI.Tests
             string resetCompleteValue,
             string reservedKeyValue,
             string movementConflictValue,
-            string alreadyRebindingValue)
+            string alreadyRebindingValue,
+            string rebindPushPromptValue,
+            string rebindFlipPromptValue)
         {
             Assert.That(table, Is.Not.Null);
             var entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindCanceledKey);
@@ -1006,6 +1068,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(alreadyRebindingValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(rebindPushPromptValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindFlipPromptKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputRebindFlipPromptKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(rebindFlipPromptValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputRebindFlipPromptKey);
         }
 
         private static void AssertSmartFlagMatchesParsedArguments(
