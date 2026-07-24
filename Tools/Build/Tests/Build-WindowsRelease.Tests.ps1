@@ -1,3 +1,9 @@
+param(
+    [string]$EvidencePath = $env:VECTORQUAKE_RELEASE_TEST_EVIDENCE_PATH
+)
+
+$script:TestStartedUtc = [DateTime]::UtcNow.ToString("o")
+$script:TestCommandLine = [Environment]::CommandLine
 $ErrorActionPreference = "Stop"
 $env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE = "1"
 . (Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1")
@@ -44,12 +50,23 @@ function Write-JsonFixture {
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
 function New-ZeroErrorEvidenceFixture {
-    param([string]$Root)
+    param(
+        [string]$Root,
+        [string]$RunId = "run",
+        [string]$ArtifactId = "artifact",
+        [string]$SourceSha = "sha",
+        [string]$SourceTree = "tree",
+        [string]$Configuration = "Windows-x64-NonDevelopment-Mono-RC"
+    )
     $metadataPath = Join-Path $Root "payload\build-metadata.json"
     $summaryPath = Join-Path $Root "payload\build-report-summary.json"
     $detailsPath = Join-Path $Root "private\build-report-details.json"
     Write-JsonFixture $detailsPath ([ordered]@{
         schemaVersion = "1.0"
+        runId = $RunId
+        artifactId = $ArtifactId
+        sourceSha = $SourceSha
+        sourceTree = $SourceTree
         result = "Succeeded"
         totalErrors = 0
         totalWarnings = 0
@@ -59,6 +76,14 @@ function New-ZeroErrorEvidenceFixture {
     })
     Write-JsonFixture $metadataPath ([ordered]@{
         schemaVersion = "2.0"
+        runId = $RunId
+        artifactId = $ArtifactId
+        sourceSha = $SourceSha
+        sourceTree = $SourceTree
+        configuration = $Configuration
+        entrySourceSha256 = ("1" * 64)
+        policySourceSha256 = ("2" * 64)
+        wrapperSourceSha256 = ("3" * 64)
         buildResult = "Succeeded"
         errorCount = 0
         warningCount = 0
@@ -67,7 +92,12 @@ function New-ZeroErrorEvidenceFixture {
         structuredErrorCountMatched = $true
     })
     Write-JsonFixture $summaryPath ([ordered]@{
-        schemaVersion = "1.0"
+        schemaVersion = "2.0"
+        runId = $RunId
+        artifactId = $ArtifactId
+        sourceSha = $SourceSha
+        sourceTree = $SourceTree
+        configuration = $Configuration
         result = "Succeeded"
         totalErrors = 0
         totalWarnings = 0
@@ -213,6 +243,45 @@ Invoke-Case "legacy detached source root exceeds URP importer path budget" {
 Invoke-Case "default detached source root is short and deterministic" {
     Assert-Equal "C:\VQBuildSources" $BuildSourceRoot
 }
+Invoke-Case "critical path length 259 is accepted" {
+    $candidate = "C:\x"
+    while ((Get-BuildSourceCriticalPathLength $candidate) -lt 259) {
+        $candidate += "x"
+    }
+    Assert-Equal 259 (Get-BuildSourceCriticalPathLength $candidate)
+    Assert-True (Test-BuildSourcePathBudget $candidate)
+}
+Invoke-Case "critical path length 260 is rejected" {
+    $candidate = "C:\x"
+    while ((Get-BuildSourceCriticalPathLength $candidate) -lt 260) {
+        $candidate += "x"
+    }
+    Assert-Equal 260 (Get-BuildSourceCriticalPathLength $candidate)
+    Assert-False (Test-BuildSourcePathBudget $candidate)
+}
+Invoke-Case "Unicode and space detached path uses deterministic character budget" {
+    $unicodeSegment = -join @(
+        [char]0xB9B4,
+        [char]0xB9AC,
+        [char]0xC2A4
+    )
+    $candidate = "C:\VQ Build Sources\$unicodeSegment\$("a" * 40)\20260724T140105269Z"
+    Assert-True (Test-BuildSourcePathBudget $candidate)
+    Assert-Equal (Get-BuildSourceCriticalPathLength $candidate) `
+        (Get-BuildSourceCriticalPathLength $candidate)
+}
+Invoke-Case "SHA and RunId variations are evaluated from the complete path" {
+    $first = "C:\VQBuildSources\$("a" * 40)\20260724T140105269Z"
+    $second = "C:\VQBuildSources\$("f" * 40)\20301231T235959999Z"
+    Assert-Equal (Get-BuildSourceCriticalPathLength $first) `
+        (Get-BuildSourceCriticalPathLength $second)
+    Assert-True (Test-BuildSourcePathBudget $first)
+    Assert-True (Test-BuildSourcePathBudget $second)
+}
+Invoke-Case "oversized RunId is rejected from the complete path" {
+    $candidate = "C:\VQBuildSources\$("a" * 40)\$("r" * 180)"
+    Assert-False (Test-BuildSourcePathBudget $candidate)
+}
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null
@@ -247,6 +316,60 @@ try {
         $wrapper = Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1"
         Assert-True ((Get-Sha256 $wrapper) -match '^[0-9a-f]{64}$')
     }
+    Invoke-Case "PowerShell test evidence is revision-bound and immutable" {
+        $evidencePath = Join-Path $temp "test-evidence\powershell-tests.json"
+        $wrapper = Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1"
+        $written = Write-ImmutablePowerShellTestEvidence -Path $evidencePath `
+            -SourceSha ("a" * 40) -SourceTree ("b" * 40) -SourceClean $true `
+            -CommittedBytesMatched $true `
+            -WrapperPath $wrapper -TestScriptPath $PSCommandPath `
+            -CommandLine "powershell.exe -File test.ps1" `
+            -StartedUtc "2026-07-25T00:00:00.0000000Z" `
+            -CompletedUtc "2026-07-25T00:00:01.0000000Z" `
+            -PowerShellVersion $PSVersionTable.PSVersion.ToString() `
+            -Selected 2 -Passed 2 -Failed 0 -Results @("PASS one", "PASS two")
+        $record = Get-Content $written.Path -Raw | ConvertFrom-Json
+        Assert-Equal ("a" * 40) $record.sourceSha
+        Assert-Equal ("b" * 40) $record.sourceTree
+        Assert-Equal 2 ([int]$record.selected)
+        Assert-Equal "Passed" $record.resultStatus
+        Assert-Equal (Get-Sha256 $wrapper) $record.wrapperSha256
+        Assert-Equal (Get-Sha256 $PSCommandPath) $record.testScriptSha256
+        Assert-Equal "$(Get-Sha256 $written.Path)  powershell-tests.json" `
+            (Get-Content $written.Sha256Path -Raw).Trim()
+        $threw = $false
+        try {
+            Write-ImmutablePowerShellTestEvidence -Path $evidencePath `
+                -SourceSha ("a" * 40) -SourceTree ("b" * 40) -SourceClean $true `
+                -CommittedBytesMatched $true `
+                -WrapperPath $wrapper -TestScriptPath $PSCommandPath `
+                -CommandLine "powershell.exe -File test.ps1" `
+                -StartedUtc "2026-07-25T00:00:00.0000000Z" `
+                -CompletedUtc "2026-07-25T00:00:01.0000000Z" `
+                -PowerShellVersion $PSVersionTable.PSVersion.ToString() `
+                -Selected 2 -Passed 2 -Failed 0 | Out-Null
+        } catch {
+            $threw = $true
+        }
+        Assert-True $threw
+        $uncommittedPath = Join-Path $temp "test-evidence\uncommitted.json"
+        $threw = $false
+        try {
+            Write-ImmutablePowerShellTestEvidence -Path $uncommittedPath `
+                -SourceSha ("a" * 40) -SourceTree ("b" * 40) -SourceClean $false `
+                -CommittedBytesMatched $false `
+                -WrapperPath $wrapper -TestScriptPath $PSCommandPath `
+                -CommandLine "powershell.exe -File test.ps1" `
+                -StartedUtc "2026-07-25T00:00:00.0000000Z" `
+                -CompletedUtc "2026-07-25T00:00:01.0000000Z" `
+                -PowerShellVersion $PSVersionTable.PSVersion.ToString() `
+                -Selected 2 -Passed 2 -Failed 0 | Out-Null
+        } catch {
+            $threw = $true
+        }
+        Assert-True $threw
+        Assert-False (Test-Path $uncommittedPath)
+    }
     Invoke-Case "rejected process diagnostics are private and reasoned" {
         $diagnostics = Join-Path $temp "private\process-gate-rejection.json"
         $result = Get-ReleaseProcessGateResult @(
@@ -265,6 +388,24 @@ try {
             $evidence.DetailsPath
         Assert-True $result.Allowed
         Assert-Equal "Accepted" $result.Reason
+    }
+    Invoke-Case "build evidence identity mismatch is rejected" {
+        $expectedIdentity = [pscustomobject]@{
+            RunId = "run"
+            ArtifactId = "artifact"
+            SourceSha = "sha"
+            SourceTree = "tree"
+            Configuration = "Windows-x64-NonDevelopment-Mono-RC"
+        }
+        $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
+        $summary.runId = "wrong"
+        Write-JsonFixture $evidence.SummaryPath $summary
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath -ExpectedIdentity $expectedIdentity
+        Assert-False $result.Allowed
+        Assert-Equal "EvidenceIdentityMismatch" $result.Reason
+        $summary.runId = "run"
+        Write-JsonFixture $evidence.SummaryPath $summary
     }
     Invoke-Case "Succeeded plus one error is rejected" {
         $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
@@ -288,6 +429,16 @@ try {
     Invoke-Case "metadata report count mismatch is rejected" {
         $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
         $metadata.errorCount = 1
+        Write-JsonFixture $evidence.MetadataPath $metadata
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath
+        Assert-False $result.Allowed
+        Assert-Equal "MetadataReportCountMismatch" $result.Reason
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "warning-count-mismatch")
+    Invoke-Case "metadata report warning count mismatch is rejected" {
+        $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.warningCount = 1
         Write-JsonFixture $evidence.MetadataPath $metadata
         $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
             $evidence.DetailsPath
@@ -412,23 +563,108 @@ try {
         Assert-True (Test-PayloadManifest $payload)
         Assert-Equal $manifest.Sha256 (Get-Sha256 $manifest.Path)
     }
+    Invoke-Case "internal RC preserves Burst DoNotShip diagnostics" {
+        $internalRoot = Join-Path $temp "internal-rc"
+        $debugRoot = Join-Path $internalRoot `
+            "payload\VectorQuake_BurstDebugInformation_DoNotShip\Data"
+        New-Item -ItemType Directory -Path $debugRoot -Force | Out-Null
+        Set-Content (Join-Path $debugRoot "lib_burst_generated.txt") `
+            "C:\Users\operator\private\source.cs"
+        $policy = Prepare-PayloadForAudience $internalRoot "InternalRc"
+        Assert-True (Test-Path $debugRoot)
+        Assert-Equal 0 (@($policy.ExcludedRelativePaths).Count)
+        Assert-False $policy.PrivacyGatePassed
+    }
+    Invoke-Case "Store payload excludes Burst DoNotShip diagnostics" {
+        $storeRoot = Join-Path $temp "store-exclusion"
+        $debugRoot = Join-Path $storeRoot `
+            "payload\VectorQuake_BurstDebugInformation_DoNotShip\Data"
+        New-Item -ItemType Directory -Path $debugRoot -Force | Out-Null
+        Set-Content (Join-Path $debugRoot "lib_burst_generated.txt") `
+            "C:\Users\operator\private\source.cs"
+        Set-Content (Join-Path $storeRoot "payload\readme.txt") "shareable"
+        $policy = Prepare-PayloadForAudience $storeRoot "StoreDistributable"
+        Assert-False (Test-Path $debugRoot)
+        Assert-Equal 1 (@($policy.ExcludedRelativePaths).Count)
+        Assert-True (Test-StorePayloadPrivacy $storeRoot)
+        $storeManifest = New-PayloadManifest $storeRoot
+        $paths = @(Read-PayloadManifest $storeManifest.Path |
+            ForEach-Object { $_.RelativePath })
+        Assert-False (@($paths | Where-Object {
+            $_ -like "*_BurstDebugInformation_DoNotShip/*"
+        }).Count -ne 0)
+    }
+    Invoke-Case "Store payload rejects absolute private path outside exclusion" {
+        $storeRoot = Join-Path $temp "store-private-path"
+        New-Item -ItemType Directory -Path $storeRoot -Force | Out-Null
+        Set-Content (Join-Path $storeRoot "diagnostics.txt") `
+            "compiled from C:\Users\operator\Desktop\project\source.cs"
+        $threw = $false
+        try {
+            Prepare-PayloadForAudience $storeRoot "StoreDistributable" | Out-Null
+        } catch {
+            $threw = $true
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "Store payload rejects detached source absolute path" {
+        $storeRoot = Join-Path $temp "store-detached-path"
+        New-Item -ItemType Directory -Path $storeRoot -Force | Out-Null
+        Set-Content (Join-Path $storeRoot "diagnostics.txt") `
+            "compiled from C:\VQBuildSources\sha\run\source.cs"
+        $threw = $false
+        try {
+            Prepare-PayloadForAudience $storeRoot "StoreDistributable" | Out-Null
+        } catch {
+            $threw = $true
+        }
+        Assert-True $threw
+    }
     $provenanceEvidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "provenance-evidence")
+    $sourceFixture = Join-Path $temp "committed-source"
+    New-Item -ItemType Directory -Path $sourceFixture -Force | Out-Null
+    $entrySource = Join-Path $sourceFixture "entry.cs"
+    $policySource = Join-Path $sourceFixture "policy.cs"
+    $detachedWrapperSource = Join-Path $sourceFixture "detached-wrapper.ps1"
+    $executingWrapperSource = Join-Path $sourceFixture "executing-wrapper.ps1"
+    Set-Content $entrySource "entry" -NoNewline
+    Set-Content $policySource "policy" -NoNewline
+    Set-Content $detachedWrapperSource "wrapper" -NoNewline
+    Set-Content $executingWrapperSource "wrapper" -NoNewline
+    $expectation = New-ReleaseEvidenceExpectation -RunId "run" `
+        -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
+        -EntrySourcePath $entrySource -PolicySourcePath $policySource `
+        -DetachedWrapperSourcePath $detachedWrapperSource `
+        -ExecutingWrapperSourcePath $executingWrapperSource
+    $metadataFixture = Get-Content $provenanceEvidence.MetadataPath -Raw |
+        ConvertFrom-Json
+    $metadataFixture.entrySourceSha256 = $expectation.EntrySourceSha256
+    $metadataFixture.policySourceSha256 = $expectation.PolicySourceSha256
+    $metadataFixture.wrapperSourceSha256 = $expectation.WrapperSourceSha256
+    Write-JsonFixture $provenanceEvidence.MetadataPath $metadataFixture
     Copy-Item -LiteralPath $provenanceEvidence.MetadataPath `
         -Destination (Join-Path $payload "build-metadata.json")
     Copy-Item -LiteralPath $provenanceEvidence.SummaryPath `
         -Destination (Join-Path $payload "build-report-summary.json")
     $manifest = New-PayloadManifest $payload
+    $buildEvidence = Test-BuildEvidence `
+        (Join-Path $payload "build-metadata.json") `
+        (Join-Path $payload "build-report-summary.json") `
+        $provenanceEvidence.DetailsPath -ExpectedIdentity $expectation
+    $payloadPolicy = Prepare-PayloadForAudience $payload "InternalRc"
     $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
         -RunId "run" -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
         -BuildMetadataPath (Join-Path $payload "build-metadata.json") `
         -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
         -BuildReportDetailsPath $provenanceEvidence.DetailsPath -Manifest $manifest `
-        -EntrySourceSha256 ("1" * 64) -PolicySourceSha256 ("2" * 64) `
-        -WrapperSourceSha256 ("3" * 64)
+        -BuildEvidence $buildEvidence -PayloadPolicy $payloadPolicy `
+        -EntrySourceSha256 $expectation.EntrySourceSha256 `
+        -PolicySourceSha256 $expectation.PolicySourceSha256 `
+        -WrapperSourceSha256 $expectation.WrapperSourceSha256
     Invoke-Case "artifact provenance final binding" {
         Assert-True (Test-ArtifactProvenance -ArtifactRoot $payload `
             -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
-            -ExpectedSourceSha "sha" -ExpectedSourceTree "tree")
+            -Expectation $expectation)
         Assert-Equal $manifest.Sha256 $provenance.payloadManifestSha256
         Assert-Equal $manifest.FileCount ([int]$provenance.payloadFileCount)
     }
@@ -437,27 +673,62 @@ try {
         Add-Content -LiteralPath $metadataPath -Value " "
         Assert-False (Test-ArtifactProvenance -ArtifactRoot $payload `
             -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
-            -ExpectedSourceSha "sha" -ExpectedSourceTree "tree")
+            -Expectation $expectation)
         $metadata = Get-Content $metadataPath -Raw | ConvertFrom-Json
         Write-JsonFixture $metadataPath $metadata
+        $buildEvidence = Test-BuildEvidence $metadataPath `
+            (Join-Path $payload "build-report-summary.json") `
+            $provenanceEvidence.DetailsPath -ExpectedIdentity $expectation
         $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
             -RunId "run" -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
             -BuildMetadataPath $metadataPath `
             -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
             -BuildReportDetailsPath $provenanceEvidence.DetailsPath -Manifest $manifest `
-            -EntrySourceSha256 ("1" * 64) -PolicySourceSha256 ("2" * 64) `
-            -WrapperSourceSha256 ("3" * 64)
+            -BuildEvidence $buildEvidence -PayloadPolicy $payloadPolicy `
+            -EntrySourceSha256 $expectation.EntrySourceSha256 `
+            -PolicySourceSha256 $expectation.PolicySourceSha256 `
+            -WrapperSourceSha256 $expectation.WrapperSourceSha256
     }
     Invoke-Case "SUCCESS consistency" {
         New-SuccessControl $payload "run" "artifact" "sha" "tree" $manifest `
-            $provenance | Out-Null
-        Assert-True (Test-SuccessControl $payload "sha" "tree")
+            $provenance $buildEvidence $payloadPolicy | Out-Null
+        Assert-True (Test-SuccessControl $payload `
+            $provenanceEvidence.DetailsPath $expectation)
     }
     Invoke-Case "SUCCESS binds artifact provenance hash" {
         $success = Get-Content (Join-Path $payload "SUCCESS.json") -Raw | ConvertFrom-Json
         Assert-Equal "artifact-provenance.json" $success.artifactProvenanceFile
+        Assert-Equal "files.sha256" $success.payloadManifestFile
+        Assert-False (Test-JsonProperty $success "payloadManifest")
         Assert-Equal (Get-Sha256 (Join-Path $payload "artifact-provenance.json")) `
             $success.artifactProvenanceSha256
+    }
+    Invoke-Case "SUCCESS identity mismatch is rejected" {
+        $successPath = Join-Path $payload "SUCCESS.json"
+        $success = Get-Content $successPath -Raw | ConvertFrom-Json
+        $success.artifactId = "wrong"
+        Write-JsonFixture $successPath $success
+        Assert-False (Test-SuccessControl $payload `
+            $provenanceEvidence.DetailsPath $expectation)
+        $success.artifactId = "artifact"
+        Write-JsonFixture $successPath $success
+    }
+    Invoke-Case "SUCCESS count mismatch is rejected" {
+        $successPath = Join-Path $payload "SUCCESS.json"
+        $success = Get-Content $successPath -Raw | ConvertFrom-Json
+        $success.totalWarnings = 1
+        Write-JsonFixture $successPath $success
+        Assert-False (Test-SuccessControl $payload `
+            $provenanceEvidence.DetailsPath $expectation)
+        $success.totalWarnings = 0
+        Write-JsonFixture $successPath $success
+    }
+    Invoke-Case "detached wrapper source mismatch is rejected" {
+        Set-Content $executingWrapperSource "different" -NoNewline
+        Assert-False (Test-ArtifactProvenance -ArtifactRoot $payload `
+            -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
+            -Expectation $expectation)
+        Set-Content $executingWrapperSource "wrapper" -NoNewline
     }
     Invoke-Case "SUCCESS-only staging is not success" {
         $stagingOnly = Join-Path $temp ".staging-run"
@@ -489,8 +760,10 @@ try {
     }
     Invoke-Case "wrapper CSharp and report exits remain distinct" {
         Assert-Equal 105 (Convert-UnityExitCode 33)
+        Assert-Equal 105 (Convert-UnityExitCode 44)
         Assert-True ((Get-ReleaseExitCodes).BuildEvidenceFailure -ge 100)
         Assert-True (33 -lt 100)
+        Assert-True (44 -lt 100)
     }
     Invoke-Case "atomic promotion planning" {
         Assert-True (Assert-OutputPlan $stage $final $detached)
@@ -506,5 +779,39 @@ try {
 
 $script:Results | ForEach-Object { Write-Host $_ }
 Write-Host "Cases=$($script:Passed + $script:Failed) Passed=$script:Passed Failed=$script:Failed"
+if (-not [string]::IsNullOrWhiteSpace($EvidencePath)) {
+    try {
+        $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+        $sourceSha = Invoke-GitText -Root $repositoryRoot `
+            -Arguments @("rev-parse", "HEAD")
+        $sourceTree = Invoke-GitText -Root $repositoryRoot `
+            -Arguments @("rev-parse", "HEAD^{tree}")
+        $trackedOrStaged = @(Invoke-GitPathList -Root $repositoryRoot `
+            -Arguments @("status", "--porcelain=v1", "-z", "-uno"))
+        $committedSourceChanges = @(Invoke-GitPathList -Root $repositoryRoot `
+            -Arguments @(
+                "diff", "--name-only", "HEAD", "--",
+                "Tools/Build/Build-WindowsRelease.ps1",
+                "Tools/Build/Tests/Build-WindowsRelease.Tests.ps1"
+            ))
+        $wrapper = Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1"
+        $written = Write-ImmutablePowerShellTestEvidence -Path $EvidencePath `
+            -SourceSha $sourceSha -SourceTree $sourceTree `
+            -SourceClean (@($trackedOrStaged).Count -eq 0) `
+            -CommittedBytesMatched (@($committedSourceChanges).Count -eq 0) `
+            -WrapperPath $wrapper -TestScriptPath $PSCommandPath `
+            -CommandLine $script:TestCommandLine `
+            -StartedUtc $script:TestStartedUtc `
+            -CompletedUtc ([DateTime]::UtcNow.ToString("o")) `
+            -PowerShellVersion $PSVersionTable.PSVersion.ToString() `
+            -Selected ($script:Passed + $script:Failed) -Passed $script:Passed `
+            -Failed $script:Failed -Skipped 0 -Results $script:Results
+        Write-Host "Evidence=$($written.Path)"
+        Write-Host "EvidenceSha256=$($written.Sha256)"
+    } catch {
+        Write-Error "PowerShell test evidence write failed: $($_.Exception.Message)"
+        exit 2
+    }
+}
 if ($script:Failed -ne 0) { exit 1 }
 exit 0

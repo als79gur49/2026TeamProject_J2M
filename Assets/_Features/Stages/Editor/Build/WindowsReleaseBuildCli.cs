@@ -120,11 +120,13 @@ public static class WindowsReleaseBuildCli
         var metadataWritten = false;
         var reportErrorCount = -1;
         var structuredErrorCount = -1;
+        BuildReportDetailsV1 details = null;
+        BuildReportSummaryV2 summary = null;
         if (report != null)
         {
             PopulateReport(metadata, report, started);
             reportErrorCount = (int)report.summary.totalErrors;
-            var details = new BuildReportDetailsV1(
+            details = new BuildReportDetailsV1(
                 report,
                 arguments[RunIdArgument],
                 arguments[ArtifactIdArgument],
@@ -145,11 +147,12 @@ public static class WindowsReleaseBuildCli
 
             try
             {
-                WriteJson(arguments[BuildReportPathArgument], new BuildReportSummaryV1(
+                summary = new BuildReportSummaryV2(
                     report,
                     details,
                     Path.GetFileName(arguments[BuildReportDetailsPathArgument]),
-                    detailsHash));
+                    detailsHash);
+                WriteJson(arguments[BuildReportPathArgument], summary);
                 summaryWritten = true;
             }
             catch (Exception exception)
@@ -163,9 +166,14 @@ public static class WindowsReleaseBuildCli
             report.summary.result == BuildResult.Succeeded &&
             report.summary.totalErrors == 0;
         metadata.metadataReportCountMatched =
-            report != null && metadata.errorCount == reportErrorCount;
+            report != null &&
+            metadata.errorCount == reportErrorCount &&
+            metadata.warningCount == (int)report.summary.totalWarnings;
         metadata.structuredErrorCountMatched =
             report != null && structuredErrorCount == reportErrorCount;
+        var evidenceIdentityAndCounts =
+            WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
+                metadata, summary, details);
         var intendedResult = WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
             result,
             summaryWritten,
@@ -173,7 +181,8 @@ public static class WindowsReleaseBuildCli
             metadataWritten: true,
             metadata.errorCount,
             reportErrorCount,
-            structuredErrorCount);
+            structuredErrorCount,
+            evidenceIdentityAndCounts);
         metadata.cSharpExitCode = intendedResult;
         metadata.cSharpExitName = ExitCodeName(intendedResult);
         metadata.buildCompletedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
@@ -194,7 +203,8 @@ public static class WindowsReleaseBuildCli
             metadataWritten,
             metadata.errorCount,
             reportErrorCount,
-            structuredErrorCount);
+            structuredErrorCount,
+            evidenceIdentityAndCounts);
     }
 
     internal static Dictionary<string, string> ParseArguments(IReadOnlyList<string> args)
@@ -366,6 +376,8 @@ public static class WindowsReleaseBuildCli
                 return "BuildReportDetailsWriteFailure";
             case WindowsReleaseExitCodes.BuildReportCountMismatch:
                 return "BuildReportCountMismatch";
+            case WindowsReleaseExitCodes.BuildReportIdentityMismatch:
+                return "BuildReportIdentityMismatch";
             case WindowsReleaseExitCodes.SettingsRestoreFailure:
                 return "SettingsRestoreFailure";
             default:
@@ -433,9 +445,14 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
 }
 
 [Serializable]
-internal sealed class BuildReportSummaryV1
+internal sealed class BuildReportSummaryV2
 {
     public string schemaVersion = WindowsReleaseBuildPolicy.BuildReportSummarySchemaVersion;
+    public string runId;
+    public string artifactId;
+    public string sourceSha;
+    public string sourceTree;
+    public string configuration;
     public string result;
     public int totalErrors;
     public int totalWarnings;
@@ -448,12 +465,21 @@ internal sealed class BuildReportSummaryV1
     public int warningRecordCount;
     public string[] distinctErrorMessageHashes;
 
-    public BuildReportSummaryV1(
+    internal BuildReportSummaryV2()
+    {
+    }
+
+    public BuildReportSummaryV2(
         BuildReport report,
         BuildReportDetailsV1 details,
         string detailsFileName,
         string detailsHash)
     {
+        runId = details.runId;
+        artifactId = details.artifactId;
+        sourceSha = details.sourceSha;
+        sourceTree = details.sourceTree;
+        configuration = WindowsReleaseBuildPolicy.ConfigurationName;
         result = report.summary.result.ToString();
         totalErrors = report.summary.totalErrors;
         totalWarnings = report.summary.totalWarnings;
@@ -491,6 +517,10 @@ internal sealed class BuildReportDetailsV1
     public string captureLimitation;
     public BuildReportStepV1[] steps;
 
+    internal BuildReportDetailsV1()
+    {
+    }
+
     public BuildReportDetailsV1(
         BuildReport report,
         string releaseRunId,
@@ -516,7 +546,9 @@ internal sealed class BuildReportDetailsV1
             .SelectMany(step => step.messages)
             .Count(message => string.Equals(
                 message.type, LogType.Warning.ToString(), StringComparison.Ordinal));
-        captureLimitation = errorRecordCount == totalErrors
+        captureLimitation =
+            errorRecordCount == totalErrors &&
+            warningRecordCount == totalWarnings
             ? string.Empty
             : "STRUCTURED_BUILDREPORT_COUNT_LIMITATION";
     }

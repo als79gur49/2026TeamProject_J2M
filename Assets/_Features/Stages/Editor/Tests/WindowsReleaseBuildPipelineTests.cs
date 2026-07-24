@@ -331,20 +331,149 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void BuildReportSummarySchemaV1_ExposesOnlyShareableDetailRecord()
+        public void BuildReportSummarySchemaV2_BindsCanonicalIdentityAndCounts()
         {
-            Assert.That(typeof(BuildReportSummaryV1).GetFields().Select(field => field.Name),
-                Does.Contain("detailsFile"));
-            Assert.That(typeof(BuildReportSummaryV1).GetFields().Select(field => field.Name),
-                Does.Contain("detailsSha256"));
-            Assert.That(typeof(BuildReportSummaryV1).GetFields().Select(field => field.Name),
-                Does.Contain("errorRecordCount"));
-            Assert.That(typeof(BuildReportSummaryV1).GetFields().Select(field => field.Name),
-                Does.Contain("warningRecordCount"));
-            Assert.That(typeof(BuildReportSummaryV1).GetFields().Select(field => field.Name),
-                Does.Contain("distinctErrorMessageHashes"));
-            Assert.That(typeof(BuildReportSummaryV1).GetFields().Select(field => field.Name),
+            Assert.That(typeof(BuildReportSummaryV2).GetFields().Select(field => field.Name),
+                Is.EquivalentTo(new[]
+                {
+                    "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree",
+                    "configuration", "result", "totalErrors", "totalWarnings", "totalSize",
+                    "totalTimeSeconds", "outputPath", "detailsFile", "detailsSha256",
+                    "errorRecordCount", "warningRecordCount", "distinctErrorMessageHashes",
+                }));
+            Assert.That(typeof(BuildReportSummaryV2).GetFields().Select(field => field.Name),
                 Does.Not.Contain("steps"));
+            Assert.That(WindowsReleaseBuildPolicy.BuildReportSummarySchemaVersion,
+                Is.EqualTo("2.0"));
+            Assert.That(WindowsReleaseBuildPolicy.BuildReportDetailsSchemaVersion,
+                Is.EqualTo("1.0"));
+        }
+
+        [Test]
+        public void BuildReportIdentityAndCounts_ExactEvidence_IsAccepted()
+        {
+            var evidence = CreateMatchingEvidence();
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
+                    evidence.Metadata, evidence.Summary, evidence.Details),
+                Is.EqualTo(WindowsReleaseExitCodes.Success));
+        }
+
+        [TestCase("runId")]
+        [TestCase("artifactId")]
+        [TestCase("sourceSha")]
+        [TestCase("sourceTree")]
+        [TestCase("configuration")]
+        [TestCase("result")]
+        public void BuildReportIdentityAndCounts_IdentityMismatch_IsRejected(string field)
+        {
+            var evidence = CreateMatchingEvidence();
+            switch (field)
+            {
+                case "runId":
+                    evidence.Summary.runId = "other-run";
+                    break;
+                case "artifactId":
+                    evidence.Summary.artifactId = "other-artifact";
+                    break;
+                case "sourceSha":
+                    evidence.Summary.sourceSha = "other-sha";
+                    break;
+                case "sourceTree":
+                    evidence.Summary.sourceTree = "other-tree";
+                    break;
+                case "configuration":
+                    evidence.Summary.configuration = "other-configuration";
+                    break;
+                case "result":
+                    evidence.Summary.result = BuildResult.Failed.ToString();
+                    break;
+            }
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
+                    evidence.Metadata, evidence.Summary, evidence.Details),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
+        public void BuildReportIdentityAndCounts_EmptyCanonicalIdentity_IsRejected()
+        {
+            var evidence = CreateMatchingEvidence();
+            evidence.Metadata.runId = string.Empty;
+            evidence.Summary.runId = string.Empty;
+            evidence.Details.runId = string.Empty;
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
+                    evidence.Metadata, evidence.Summary, evidence.Details),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [TestCase("metadataErrors")]
+        [TestCase("summaryErrors")]
+        [TestCase("structuredErrors")]
+        [TestCase("metadataWarnings")]
+        [TestCase("summaryWarnings")]
+        [TestCase("structuredWarnings")]
+        public void BuildReportIdentityAndCounts_CountMismatch_IsRejected(string field)
+        {
+            var evidence = CreateMatchingEvidence();
+            switch (field)
+            {
+                case "metadataErrors":
+                    evidence.Metadata.errorCount++;
+                    break;
+                case "summaryErrors":
+                    evidence.Summary.totalErrors++;
+                    break;
+                case "structuredErrors":
+                    evidence.Details.errorRecordCount++;
+                    break;
+                case "metadataWarnings":
+                    evidence.Metadata.warningCount++;
+                    break;
+                case "summaryWarnings":
+                    evidence.Summary.totalWarnings++;
+                    break;
+                case "structuredWarnings":
+                    evidence.Details.warningRecordCount++;
+                    break;
+            }
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
+                    evidence.Metadata, evidence.Summary, evidence.Details),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportCountMismatch));
+        }
+
+        [Test]
+        public void BuildReportIdentityMismatch_IsReturnedAfterEvidenceWrites()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+                    WindowsReleaseExitCodes.Success,
+                    summaryWritten: true,
+                    detailsWritten: true,
+                    metadataWritten: true,
+                    metadataErrorCount: 0,
+                    reportErrorCount: 0,
+                    structuredErrorCount: 0,
+                    evidenceIdentityAndCounts:
+                        WindowsReleaseExitCodes.BuildReportIdentityMismatch),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
+        public void SettingsRestoreFailure_TakesPrecedenceOverIdentityMismatch()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+                    WindowsReleaseExitCodes.SettingsRestoreFailure,
+                    summaryWritten: true,
+                    detailsWritten: true,
+                    metadataWritten: true,
+                    metadataErrorCount: 0,
+                    reportErrorCount: 0,
+                    structuredErrorCount: 0,
+                    evidenceIdentityAndCounts:
+                        WindowsReleaseExitCodes.BuildReportIdentityMismatch),
+                Is.EqualTo(WindowsReleaseExitCodes.SettingsRestoreFailure));
         }
 
         [Test]
@@ -389,6 +518,65 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(WindowsReleaseExitCodes.All.Distinct().Count(),
                 Is.EqualTo(WindowsReleaseExitCodes.All.Length));
             Assert.That(WindowsReleaseExitCodes.All, Has.All.LessThan(100));
+        }
+
+        private static EvidenceSet CreateMatchingEvidence()
+        {
+            const string runId = "20260725T000000000Z";
+            const string artifactId = "sha-run";
+            const string sourceSha = "source-sha";
+            const string sourceTree = "source-tree";
+            const string result = "Succeeded";
+            const int errors = 0;
+            const int warnings = 7;
+
+            return new EvidenceSet
+            {
+                Metadata = new WindowsReleaseMetadataV2
+                {
+                    schemaVersion = WindowsReleaseBuildPolicy.MetadataSchemaVersion,
+                    runId = runId,
+                    artifactId = artifactId,
+                    sourceSha = sourceSha,
+                    sourceTree = sourceTree,
+                    configuration = WindowsReleaseBuildPolicy.ConfigurationName,
+                    buildResult = result,
+                    errorCount = errors,
+                    warningCount = warnings,
+                },
+                Summary = new BuildReportSummaryV2
+                {
+                    runId = runId,
+                    artifactId = artifactId,
+                    sourceSha = sourceSha,
+                    sourceTree = sourceTree,
+                    configuration = WindowsReleaseBuildPolicy.ConfigurationName,
+                    result = result,
+                    totalErrors = errors,
+                    totalWarnings = warnings,
+                    errorRecordCount = errors,
+                    warningRecordCount = warnings,
+                },
+                Details = new BuildReportDetailsV1
+                {
+                    runId = runId,
+                    artifactId = artifactId,
+                    sourceSha = sourceSha,
+                    sourceTree = sourceTree,
+                    result = result,
+                    totalErrors = errors,
+                    totalWarnings = warnings,
+                    errorRecordCount = errors,
+                    warningRecordCount = warnings,
+                },
+            };
+        }
+
+        private sealed class EvidenceSet
+        {
+            public WindowsReleaseMetadataV2 Metadata;
+            public BuildReportSummaryV2 Summary;
+            public BuildReportDetailsV1 Details;
         }
 
         private sealed class FakeSettings : IWindowsReleaseSettings

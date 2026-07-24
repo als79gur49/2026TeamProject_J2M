@@ -5,6 +5,8 @@ param(
     [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
     [string]$BuildSourceRoot = "C:\VQBuildSources",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
+    [ValidateSet("InternalRc", "StoreDistributable")]
+    [string]$PayloadAudience = "InternalRc",
     [string[]]$AllowUntrackedRoot = @(
         "TestLogs/CampaignLaunchOwnershipE2E",
         "TestLogs/MainReReview",
@@ -33,10 +35,12 @@ $script:ReleaseExitCodes = [ordered]@{
     BuildSourcePathBudgetFailure = 115
 }
 $script:ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC"
+$script:ExecutingWrapperSourcePath = $PSCommandPath
 $script:ConfigurationPathName = "Windows-x64-NonDevelopment-Mono"
 $script:MetadataSchemaVersion = "2.0"
-$script:ReportSchemaVersion = "1.0"
-$script:ProvenanceSchemaVersion = "1.0"
+$script:ReportSummarySchemaVersion = "2.0"
+$script:ReportDetailsSchemaVersion = "1.0"
+$script:ProvenanceSchemaVersion = "2.0"
 $script:MaxLegacyWindowsPathLength = 259
 $script:CriticalUrpImporterRelativePath = (
     "Library\PackageCache\com.unity.render-pipelines.core@000000000000\" +
@@ -54,9 +58,57 @@ function Get-ReleaseExitCodes { return $script:ReleaseExitCodes }
 
 function Test-BuildSourcePathBudget {
     param([Parameter(Mandatory)][string]$DetachedSourcePath)
-    $criticalPath = Join-Path $DetachedSourcePath $script:CriticalUrpImporterRelativePath
-    return [IO.Path]::GetFullPath($criticalPath).Length -le
+    return (Get-BuildSourceCriticalPathLength $DetachedSourcePath) -le
         $script:MaxLegacyWindowsPathLength
+}
+
+function Get-BuildSourceCriticalPathLength {
+    param([Parameter(Mandatory)][string]$DetachedSourcePath)
+    return [IO.Path]::GetFullPath(
+        (Join-Path $DetachedSourcePath $script:CriticalUrpImporterRelativePath)).Length
+}
+
+function New-ReleaseEvidenceExpectation {
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$ArtifactId,
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$SourceTree,
+        [Parameter(Mandatory)][string]$EntrySourcePath,
+        [Parameter(Mandatory)][string]$PolicySourcePath,
+        [Parameter(Mandatory)][string]$DetachedWrapperSourcePath,
+        [Parameter(Mandatory)][string]$ExecutingWrapperSourcePath,
+        [string]$Configuration = $script:ConfigurationName
+    )
+    foreach ($path in @(
+        $EntrySourcePath,
+        $PolicySourcePath,
+        $DetachedWrapperSourcePath,
+        $ExecutingWrapperSourcePath
+    )) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Expected committed source file is missing: $path"
+        }
+    }
+    $detachedWrapperHash = Get-Sha256 $DetachedWrapperSourcePath
+    $executingWrapperHash = Get-Sha256 $ExecutingWrapperSourcePath
+    if ($detachedWrapperHash -cne $executingWrapperHash) {
+        throw "Executing wrapper bytes do not match the detached committed source."
+    }
+    return [pscustomobject][ordered]@{
+        RunId = $RunId
+        ArtifactId = $ArtifactId
+        SourceSha = $SourceSha
+        SourceTree = $SourceTree
+        Configuration = $Configuration
+        EntrySourcePath = $EntrySourcePath
+        PolicySourcePath = $PolicySourcePath
+        DetachedWrapperSourcePath = $DetachedWrapperSourcePath
+        ExecutingWrapperSourcePath = $ExecutingWrapperSourcePath
+        EntrySourceSha256 = Get-Sha256 $EntrySourcePath
+        PolicySourceSha256 = Get-Sha256 $PolicySourcePath
+        WrapperSourceSha256 = $detachedWrapperHash
+    }
 }
 
 function Get-NormalizedRelativePath {
@@ -270,6 +322,93 @@ function Write-PrivateJson {
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
+function Write-ImmutablePowerShellTestEvidence {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$SourceTree,
+        [Parameter(Mandatory)][bool]$SourceClean,
+        [Parameter(Mandatory)][bool]$CommittedBytesMatched,
+        [Parameter(Mandatory)][string]$WrapperPath,
+        [Parameter(Mandatory)][string]$TestScriptPath,
+        [Parameter(Mandatory)][string]$CommandLine,
+        [Parameter(Mandatory)][string]$StartedUtc,
+        [Parameter(Mandatory)][string]$CompletedUtc,
+        [Parameter(Mandatory)][string]$PowerShellVersion,
+        [Parameter(Mandatory)][int]$Selected,
+        [Parameter(Mandatory)][int]$Passed,
+        [Parameter(Mandatory)][int]$Failed,
+        [int]$Skipped = 0,
+        [string[]]$Results = @()
+    )
+    $hashPath = "$Path.sha256"
+    if ((Test-Path -LiteralPath $Path) -or (Test-Path -LiteralPath $hashPath)) {
+        throw "Immutable PowerShell test evidence path already exists: $Path"
+    }
+    if (-not $SourceClean -or -not $CommittedBytesMatched) {
+        throw "PowerShell test evidence requires exact clean committed wrapper and test bytes."
+    }
+    $record = [ordered]@{
+        schemaVersion = "1.0"
+        evidenceType = "WindowsReleasePowerShellTests"
+        sourceSha = $SourceSha
+        sourceTree = $SourceTree
+        sourceClean = $SourceClean
+        committedBytesMatched = $CommittedBytesMatched
+        wrapperFile = "Tools/Build/Build-WindowsRelease.ps1"
+        wrapperSha256 = Get-Sha256 $WrapperPath
+        testScriptFile = "Tools/Build/Tests/Build-WindowsRelease.Tests.ps1"
+        testScriptSha256 = Get-Sha256 $TestScriptPath
+        commandLine = $CommandLine
+        powershellVersion = $PowerShellVersion
+        selected = $Selected
+        passed = $Passed
+        failed = $Failed
+        skipped = $Skipped
+        resultStatus = if ($Failed -eq 0) { "Passed" } else { "Failed" }
+        startedUtc = $StartedUtc
+        completedUtc = $CompletedUtc
+        results = @($Results)
+    }
+    New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(
+        ($record | ConvertTo-Json -Depth 8) + "`n")
+    $stream = [IO.FileStream]::new(
+        $Path,
+        [IO.FileMode]::CreateNew,
+        [IO.FileAccess]::Write,
+        [IO.FileShare]::None,
+        4096,
+        [IO.FileOptions]::WriteThrough)
+    try {
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush($true)
+    } finally {
+        $stream.Dispose()
+    }
+    $selfHash = Get-Sha256 $Path
+    $hashBytes = [Text.UTF8Encoding]::new($false).GetBytes(
+        "$selfHash  $([IO.Path]::GetFileName($Path))`n")
+    $hashStream = [IO.FileStream]::new(
+        $hashPath,
+        [IO.FileMode]::CreateNew,
+        [IO.FileAccess]::Write,
+        [IO.FileShare]::None,
+        4096,
+        [IO.FileOptions]::WriteThrough)
+    try {
+        $hashStream.Write($hashBytes, 0, $hashBytes.Length)
+        $hashStream.Flush($true)
+    } finally {
+        $hashStream.Dispose()
+    }
+    return [pscustomobject]@{
+        Path = $Path
+        Sha256Path = $hashPath
+        Sha256 = $selfHash
+    }
+}
+
 function Write-WrapperLog {
     param([string]$Path, [string]$Stage, [string]$Message)
     if ([string]::IsNullOrWhiteSpace($Path)) { return }
@@ -304,7 +443,8 @@ function Test-BuildEvidence {
     param(
         [Parameter(Mandatory)][string]$MetadataPath,
         [Parameter(Mandatory)][string]$SummaryPath,
-        [Parameter(Mandatory)][string]$DetailsPath
+        [Parameter(Mandatory)][string]$DetailsPath,
+        $ExpectedIdentity = $null
     )
     foreach ($item in @(
         @{ Path = $MetadataPath; Reason = "MetadataMissing" },
@@ -325,31 +465,78 @@ function Test-BuildEvidence {
     }
 
     if ($metadata.schemaVersion -cne $script:MetadataSchemaVersion -or
-        $summary.schemaVersion -cne $script:ReportSchemaVersion -or
-        $details.schemaVersion -cne $script:ReportSchemaVersion) {
+        $summary.schemaVersion -cne $script:ReportSummarySchemaVersion -or
+        $details.schemaVersion -cne $script:ReportDetailsSchemaVersion) {
         return New-BuildEvidenceResult $false "EvidenceSchemaMismatch" `
             $metadata $summary $details
     }
     foreach ($required in @(
+        @{ Value = $metadata; Name = "runId"; Reason = "MetadataIdentityMissing" },
+        @{ Value = $metadata; Name = "artifactId"; Reason = "MetadataIdentityMissing" },
+        @{ Value = $metadata; Name = "sourceSha"; Reason = "MetadataIdentityMissing" },
+        @{ Value = $metadata; Name = "sourceTree"; Reason = "MetadataIdentityMissing" },
+        @{ Value = $metadata; Name = "configuration"; Reason = "MetadataIdentityMissing" },
         @{ Value = $metadata; Name = "buildResult"; Reason = "MetadataResultMissing" },
         @{ Value = $metadata; Name = "errorCount"; Reason = "MetadataErrorCountMissing" },
+        @{ Value = $metadata; Name = "warningCount"; Reason = "MetadataWarningCountMissing" },
         @{ Value = $metadata; Name = "zeroErrorGatePassed"; Reason = "ZeroErrorGateMissing" },
         @{ Value = $metadata; Name = "metadataReportCountMatched";
             Reason = "MetadataCountGateMissing" },
         @{ Value = $metadata; Name = "structuredErrorCountMatched";
             Reason = "StructuredCountGateMissing" },
         @{ Value = $summary; Name = "result"; Reason = "ReportResultMissing" },
+        @{ Value = $summary; Name = "runId"; Reason = "ReportIdentityMissing" },
+        @{ Value = $summary; Name = "artifactId"; Reason = "ReportIdentityMissing" },
+        @{ Value = $summary; Name = "sourceSha"; Reason = "ReportIdentityMissing" },
+        @{ Value = $summary; Name = "sourceTree"; Reason = "ReportIdentityMissing" },
+        @{ Value = $summary; Name = "configuration"; Reason = "ReportIdentityMissing" },
         @{ Value = $summary; Name = "totalErrors"; Reason = "ReportErrorCountMissing" },
+        @{ Value = $summary; Name = "totalWarnings"; Reason = "ReportWarningCountMissing" },
         @{ Value = $summary; Name = "errorRecordCount"; Reason = "SummaryRecordCountMissing" },
+        @{ Value = $summary; Name = "warningRecordCount";
+            Reason = "SummaryWarningRecordCountMissing" },
         @{ Value = $summary; Name = "detailsFile"; Reason = "DetailsReferenceMissing" },
         @{ Value = $summary; Name = "detailsSha256"; Reason = "DetailsHashMissing" },
+        @{ Value = $details; Name = "runId"; Reason = "DetailsIdentityMissing" },
+        @{ Value = $details; Name = "artifactId"; Reason = "DetailsIdentityMissing" },
+        @{ Value = $details; Name = "sourceSha"; Reason = "DetailsIdentityMissing" },
+        @{ Value = $details; Name = "sourceTree"; Reason = "DetailsIdentityMissing" },
         @{ Value = $details; Name = "totalErrors"; Reason = "DetailsTotalErrorsMissing" },
+        @{ Value = $details; Name = "totalWarnings"; Reason = "DetailsTotalWarningsMissing" },
         @{ Value = $details; Name = "errorRecordCount"; Reason = "DetailsRecordCountMissing" },
+        @{ Value = $details; Name = "warningRecordCount";
+            Reason = "DetailsWarningRecordCountMissing" },
         @{ Value = $details; Name = "steps"; Reason = "DetailsStepsMissing" }
     )) {
         if (-not (Test-JsonProperty $required.Value $required.Name)) {
             return New-BuildEvidenceResult $false $required.Reason `
                 $metadata $summary $details
+        }
+    }
+    if ($null -ne $ExpectedIdentity) {
+        foreach ($binding in @(
+            @{ Value = $metadata; Name = "runId"; Expected = $ExpectedIdentity.RunId },
+            @{ Value = $metadata; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
+            @{ Value = $metadata; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
+            @{ Value = $metadata; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
+            @{ Value = $metadata; Name = "configuration";
+                Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $summary; Name = "runId"; Expected = $ExpectedIdentity.RunId },
+            @{ Value = $summary; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
+            @{ Value = $summary; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
+            @{ Value = $summary; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
+            @{ Value = $summary; Name = "configuration";
+                Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $details; Name = "runId"; Expected = $ExpectedIdentity.RunId },
+            @{ Value = $details; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
+            @{ Value = $details; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
+            @{ Value = $details; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree }
+        )) {
+            if (-not (Test-JsonProperty $binding.Value $binding.Name) -or
+                [string]$binding.Value.($binding.Name) -cne [string]$binding.Expected) {
+                return New-BuildEvidenceResult $false "EvidenceIdentityMismatch" `
+                    $metadata $summary $details
+            }
         }
     }
     if ([string]$summary.detailsFile -cne [IO.Path]::GetFileName($DetailsPath)) {
@@ -374,17 +561,26 @@ function Test-BuildEvidence {
     }
 
     $metadataErrors = [int]$metadata.errorCount
+    $metadataWarnings = [int]$metadata.warningCount
     $reportErrors = [int]$summary.totalErrors
+    $reportWarnings = [int]$summary.totalWarnings
     $detailsTotalErrors = [int]$details.totalErrors
+    $detailsTotalWarnings = [int]$details.totalWarnings
     $summaryRecords = [int]$summary.errorRecordCount
+    $summaryWarningRecords = [int]$summary.warningRecordCount
     $detailsRecords = [int]$details.errorRecordCount
-    if ($metadataErrors -ne $reportErrors) {
+    $detailsWarningRecords = [int]$details.warningRecordCount
+    if ($metadataErrors -ne $reportErrors -or
+        $metadataWarnings -ne $reportWarnings) {
         return New-BuildEvidenceResult $false "MetadataReportCountMismatch" `
             $metadata $summary $details
     }
     if ($detailsTotalErrors -ne $reportErrors -or
         $summaryRecords -ne $reportErrors -or
-        $detailsRecords -ne $reportErrors) {
+        $detailsRecords -ne $reportErrors -or
+        $detailsTotalWarnings -ne $reportWarnings -or
+        $summaryWarningRecords -ne $reportWarnings -or
+        $detailsWarningRecords -ne $reportWarnings) {
         return New-BuildEvidenceResult $false "StructuredErrorCountMismatch" `
             $metadata $summary $details
     }
@@ -420,6 +616,71 @@ function Get-PayloadFiles {
     $byPath = @{}
     foreach ($item in $items) { $byPath[$item.RelativePath] = $item }
     return @($paths | ForEach-Object { $byPath[$_] })
+}
+
+function Get-StoreExcludedPayloadDirectories {
+    param([Parameter(Mandatory)][string]$PayloadRoot)
+    return @(Get-ChildItem -LiteralPath $PayloadRoot -Directory -Recurse |
+        Where-Object { $_.Name -like "*_BurstDebugInformation_DoNotShip" } |
+        Sort-Object FullName)
+}
+
+function Test-StorePayloadPrivacy {
+    param([Parameter(Mandatory)][string]$PayloadRoot)
+    if (@(Get-StoreExcludedPayloadDirectories $PayloadRoot).Count -ne 0) {
+        return $false
+    }
+    $textExtensions = @(
+        ".cfg", ".config", ".ini", ".json", ".log", ".manifest",
+        ".sha256", ".txt", ".xml", ".yaml", ".yml"
+    )
+    $absolutePrivatePathPattern =
+        '(?im)(?:[a-z]:[\\/][^\s"''<>|]+|' +
+        '\\\\[^\\\s]+\\[^\\\s]+|/(?:home|users)/[^\s"''<>|]+|' +
+        '/mnt/[a-z]/users/[^\s"''<>|]+)'
+    foreach ($file in @(Get-ChildItem -LiteralPath $PayloadRoot -File -Recurse)) {
+        if ($textExtensions -notcontains $file.Extension.ToLowerInvariant()) { continue }
+        try {
+            $content = Get-Content -LiteralPath $file.FullName -Raw
+        } catch {
+            return $false
+        }
+        if ($content -match $absolutePrivatePathPattern) { return $false }
+    }
+    return $true
+}
+
+function Prepare-PayloadForAudience {
+    param(
+        [Parameter(Mandatory)][string]$PayloadRoot,
+        [ValidateSet("InternalRc", "StoreDistributable")]
+        [string]$Audience = "InternalRc"
+    )
+    if ($Audience -eq "InternalRc") {
+        return [pscustomobject]@{
+            Audience = $Audience
+            ExcludedRelativePaths = @()
+            PrivacyGatePassed = Test-StorePayloadPrivacy $PayloadRoot
+        }
+    }
+    $excluded = @(
+        Get-StoreExcludedPayloadDirectories $PayloadRoot |
+            ForEach-Object {
+                Get-NormalizedRelativePath -Root $PayloadRoot -Path $_.FullName
+            }
+    )
+    foreach ($relativePath in $excluded) {
+        $candidate = Join-Path $PayloadRoot $relativePath.Replace('/', '\')
+        Remove-Item -LiteralPath $candidate -Recurse -Force
+    }
+    if (-not (Test-StorePayloadPrivacy $PayloadRoot)) {
+        throw "Store payload privacy gate rejected DoNotShip content or an absolute private path."
+    }
+    return [pscustomobject]@{
+        Audience = $Audience
+        ExcludedRelativePaths = @($excluded)
+        PrivacyGatePassed = $true
+    }
 }
 
 function New-PayloadManifest {
@@ -492,6 +753,8 @@ function New-ArtifactProvenance {
         [Parameter(Mandatory)][string]$BuildReportSummaryPath,
         [Parameter(Mandatory)][string]$BuildReportDetailsPath,
         [Parameter(Mandatory)]$Manifest,
+        [Parameter(Mandatory)]$BuildEvidence,
+        [Parameter(Mandatory)]$PayloadPolicy,
         [Parameter(Mandatory)][string]$EntrySourceSha256,
         [Parameter(Mandatory)][string]$PolicySourceSha256,
         [Parameter(Mandatory)][string]$WrapperSourceSha256
@@ -502,6 +765,12 @@ function New-ArtifactProvenance {
         artifactId = $ArtifactId
         sourceSha = $SourceSha
         sourceTree = $SourceTree
+        configuration = $script:ConfigurationName
+        buildResult = [string]$BuildEvidence.Summary.result
+        totalErrors = [int]$BuildEvidence.Summary.totalErrors
+        totalWarnings = [int]$BuildEvidence.Summary.totalWarnings
+        errorRecordCount = [int]$BuildEvidence.Details.errorRecordCount
+        warningRecordCount = [int]$BuildEvidence.Details.warningRecordCount
         buildMetadataFile = Get-NormalizedRelativePath $ArtifactRoot $BuildMetadataPath
         buildMetadataSha256 = Get-Sha256 $BuildMetadataPath
         buildReportSummaryFile =
@@ -512,6 +781,9 @@ function New-ArtifactProvenance {
         payloadManifestFile = "files.sha256"
         payloadManifestSha256 = [string]$Manifest.Sha256
         payloadFileCount = [int]$Manifest.FileCount
+        payloadAudience = [string]$PayloadPolicy.Audience
+        excludedPayloadPaths = @($PayloadPolicy.ExcludedRelativePaths)
+        payloadPrivacyGatePassed = [bool]$PayloadPolicy.PrivacyGatePassed
         zeroErrorGatePassed = $true
         metadataReportCountMatched = $true
         structuredErrorCountMatched = $true
@@ -529,21 +801,37 @@ function New-ArtifactProvenance {
 function Test-ArtifactProvenance {
     param(
         [Parameter(Mandatory)][string]$ArtifactRoot,
-        [string]$BuildReportDetailsPath = "",
-        [Parameter(Mandatory)][string]$ExpectedSourceSha,
-        [Parameter(Mandatory)][string]$ExpectedSourceTree
+        [Parameter(Mandatory)][string]$BuildReportDetailsPath,
+        [Parameter(Mandatory)]$Expectation
     )
     $path = Join-Path $ArtifactRoot "artifact-provenance.json"
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
     try { $value = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json }
     catch { return $false }
+    foreach ($name in @(
+        "runId", "artifactId", "sourceSha", "sourceTree", "configuration",
+        "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
+        "warningRecordCount", "buildMetadataFile", "buildMetadataSha256",
+        "buildReportSummaryFile", "buildReportSummarySha256",
+        "buildReportDetailsFile", "buildReportDetailsSha256",
+        "payloadManifestFile", "payloadManifestSha256", "payloadFileCount",
+        "payloadAudience", "payloadPrivacyGatePassed", "entrySourceSha256",
+        "policySourceSha256", "wrapperSourceSha256"
+    )) {
+        if (-not (Test-JsonProperty $value $name)) { return $false }
+    }
     if ($value.schemaVersion -cne $script:ProvenanceSchemaVersion -or
-        $value.sourceSha -cne $ExpectedSourceSha -or
-        $value.sourceTree -cne $ExpectedSourceTree -or
+        $value.runId -cne $Expectation.RunId -or
+        $value.artifactId -cne $Expectation.ArtifactId -or
+        $value.sourceSha -cne $Expectation.SourceSha -or
+        $value.sourceTree -cne $Expectation.SourceTree -or
+        $value.configuration -cne $Expectation.Configuration -or
+        [string]$value.buildResult -cne "Succeeded" -or
         -not $value.zeroErrorGatePassed -or
         -not $value.metadataReportCountMatched -or
-        -not $value.structuredErrorCountMatched) { return $false }
-
+        -not $value.structuredErrorCountMatched -or
+        ([string]$value.payloadAudience -ceq "StoreDistributable" -and
+            -not $value.payloadPrivacyGatePassed)) { return $false }
     foreach ($binding in @(
         @{ File = [string]$value.buildMetadataFile
             Hash = [string]$value.buildMetadataSha256 },
@@ -556,18 +844,61 @@ function Test-ArtifactProvenance {
         if (-not (Test-Path -LiteralPath $candidate -PathType Leaf) -or
             (Get-Sha256 $candidate) -cne $binding.Hash) { return $false }
     }
-    if (-not [string]::IsNullOrWhiteSpace($BuildReportDetailsPath)) {
-        if (-not (Test-Path -LiteralPath $BuildReportDetailsPath -PathType Leaf) -or
-            [IO.Path]::GetFileName($BuildReportDetailsPath) -cne
-                [string]$value.buildReportDetailsFile -or
-            (Get-Sha256 $BuildReportDetailsPath) -cne
-                [string]$value.buildReportDetailsSha256) { return $false }
+    if (-not (Test-Path -LiteralPath $BuildReportDetailsPath -PathType Leaf) -or
+        [IO.Path]::GetFileName($BuildReportDetailsPath) -cne
+            [string]$value.buildReportDetailsFile -or
+        (Get-Sha256 $BuildReportDetailsPath) -cne
+            [string]$value.buildReportDetailsSha256) { return $false }
+
+    try {
+        $metadataPath = Join-Path $ArtifactRoot `
+            ([string]$value.buildMetadataFile).Replace('/', '\')
+        $summaryPath = Join-Path $ArtifactRoot `
+            ([string]$value.buildReportSummaryFile).Replace('/', '\')
+        $evidence = Test-BuildEvidence -MetadataPath $metadataPath `
+            -SummaryPath $summaryPath -DetailsPath $BuildReportDetailsPath `
+            -ExpectedIdentity $Expectation
+    } catch {
+        return $false
+    }
+    if (-not $evidence.Allowed) { return $false }
+    if ([int]$value.totalErrors -ne [int]$evidence.Metadata.errorCount -or
+        [int]$value.totalWarnings -ne [int]$evidence.Metadata.warningCount -or
+        [int]$value.errorRecordCount -ne [int]$evidence.Details.errorRecordCount -or
+        [int]$value.warningRecordCount -ne
+            [int]$evidence.Details.warningRecordCount) { return $false }
+
+    foreach ($sourceBinding in @(
+        @{ Path = $Expectation.EntrySourcePath
+            Expected = $Expectation.EntrySourceSha256
+            Metadata = [string]$evidence.Metadata.entrySourceSha256
+            Provenance = [string]$value.entrySourceSha256 },
+        @{ Path = $Expectation.PolicySourcePath
+            Expected = $Expectation.PolicySourceSha256
+            Metadata = [string]$evidence.Metadata.policySourceSha256
+            Provenance = [string]$value.policySourceSha256 },
+        @{ Path = $Expectation.DetachedWrapperSourcePath
+            Expected = $Expectation.WrapperSourceSha256
+            Metadata = [string]$evidence.Metadata.wrapperSourceSha256
+            Provenance = [string]$value.wrapperSourceSha256 },
+        @{ Path = $Expectation.ExecutingWrapperSourcePath
+            Expected = $Expectation.WrapperSourceSha256
+            Metadata = [string]$evidence.Metadata.wrapperSourceSha256
+            Provenance = [string]$value.wrapperSourceSha256 }
+    )) {
+        if (-not (Test-Path -LiteralPath $sourceBinding.Path -PathType Leaf) -or
+            (Get-Sha256 $sourceBinding.Path) -cne $sourceBinding.Expected -or
+            $sourceBinding.Metadata -cne $sourceBinding.Expected -or
+            $sourceBinding.Provenance -cne $sourceBinding.Expected) { return $false }
     }
     try {
         $manifestEntries = @(Read-PayloadManifest `
             (Join-Path $ArtifactRoot ([string]$value.payloadManifestFile)))
     } catch { return $false }
-    return [int]$value.payloadFileCount -eq $manifestEntries.Count -and
+    $privacyAllowed = [string]$value.payloadAudience -cne "StoreDistributable" -or
+        (Test-StorePayloadPrivacy $ArtifactRoot)
+    return $privacyAllowed -and
+        [int]$value.payloadFileCount -eq $manifestEntries.Count -and
         (Test-PayloadManifest $ArtifactRoot)
 }
 
@@ -579,7 +910,9 @@ function New-SuccessControl {
         [Parameter(Mandatory)][string]$SourceSha,
         [Parameter(Mandatory)][string]$SourceTree,
         [Parameter(Mandatory)]$Manifest,
-        [Parameter(Mandatory)]$Provenance
+        [Parameter(Mandatory)]$Provenance,
+        [Parameter(Mandatory)]$BuildEvidence,
+        [Parameter(Mandatory)]$PayloadPolicy
     )
     $control = [ordered]@{
         schemaVersion = $script:MetadataSchemaVersion
@@ -588,9 +921,16 @@ function New-SuccessControl {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $script:ConfigurationName
-        payloadManifest = "files.sha256"
+        buildResult = [string]$BuildEvidence.Summary.result
+        totalErrors = [int]$BuildEvidence.Summary.totalErrors
+        totalWarnings = [int]$BuildEvidence.Summary.totalWarnings
+        errorRecordCount = [int]$BuildEvidence.Details.errorRecordCount
+        warningRecordCount = [int]$BuildEvidence.Details.warningRecordCount
+        payloadManifestFile = "files.sha256"
         payloadManifestSha256 = $Manifest.Sha256
         payloadFileCount = [int]$Manifest.FileCount
+        payloadAudience = [string]$PayloadPolicy.Audience
+        payloadPrivacyGatePassed = [bool]$PayloadPolicy.PrivacyGatePassed
         artifactProvenanceFile = "artifact-provenance.json"
         artifactProvenanceSha256 =
             Get-Sha256 (Join-Path $PayloadRoot "artifact-provenance.json")
@@ -605,27 +945,62 @@ function New-SuccessControl {
 function Test-SuccessControl {
     param(
         [Parameter(Mandatory)][string]$PayloadRoot,
-        [Parameter(Mandatory)][string]$ExpectedSourceSha,
-        [Parameter(Mandatory)][string]$ExpectedSourceTree
+        [Parameter(Mandatory)][string]$BuildReportDetailsPath,
+        [Parameter(Mandatory)]$Expectation
     )
     $successPath = Join-Path $PayloadRoot "SUCCESS.json"
     if (-not (Test-Path -LiteralPath $successPath -PathType Leaf)) { return $false }
     try { $success = Get-Content -LiteralPath $successPath -Raw | ConvertFrom-Json }
     catch { return $false }
-    $manifestPath = Join-Path $PayloadRoot ([string]$success.payloadManifest)
+    foreach ($name in @(
+        "runId", "artifactId", "sourceSha", "sourceTree", "configuration",
+        "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
+        "warningRecordCount", "payloadManifestFile", "payloadManifestSha256",
+        "payloadFileCount", "payloadAudience", "payloadPrivacyGatePassed",
+        "artifactProvenanceFile", "artifactProvenanceSha256", "promotionReady"
+    )) {
+        if (-not (Test-JsonProperty $success $name)) { return $false }
+    }
+    if (-not (Test-JsonProperty $success "payloadManifestFile") -or
+        (Test-JsonProperty $success "payloadManifest")) { return $false }
+    $manifestPath = Join-Path $PayloadRoot ([string]$success.payloadManifestFile)
     $provenancePath = Join-Path $PayloadRoot ([string]$success.artifactProvenanceFile)
     if ($success.schemaVersion -cne $script:MetadataSchemaVersion -or
         -not $success.promotionReady -or
-        $success.sourceSha -cne $ExpectedSourceSha -or
-        $success.sourceTree -cne $ExpectedSourceTree -or
+        $success.runId -cne $Expectation.RunId -or
+        $success.artifactId -cne $Expectation.ArtifactId -or
+        $success.sourceSha -cne $Expectation.SourceSha -or
+        $success.sourceTree -cne $Expectation.SourceTree -or
+        $success.configuration -cne $Expectation.Configuration -or
+        [string]$success.buildResult -cne "Succeeded" -or
+        ([string]$success.payloadAudience -ceq "StoreDistributable" -and
+            -not $success.payloadPrivacyGatePassed) -or
         -not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) { return $false }
     try { $entries = @(Read-PayloadManifest -ManifestPath $manifestPath) }
     catch { return $false }
-    return $success.payloadManifestSha256 -ceq (Get-Sha256 -Path $manifestPath) -and
+    try { $provenance = Get-Content $provenancePath -Raw | ConvertFrom-Json }
+    catch { return $false }
+    $crossBindingsMatch =
+        $success.runId -ceq $provenance.runId -and
+        $success.artifactId -ceq $provenance.artifactId -and
+        $success.sourceSha -ceq $provenance.sourceSha -and
+        $success.sourceTree -ceq $provenance.sourceTree -and
+        $success.configuration -ceq $provenance.configuration -and
+        $success.buildResult -ceq $provenance.buildResult -and
+        [int]$success.totalErrors -eq [int]$provenance.totalErrors -and
+        [int]$success.totalWarnings -eq [int]$provenance.totalWarnings -and
+        [int]$success.errorRecordCount -eq [int]$provenance.errorRecordCount -and
+        [int]$success.warningRecordCount -eq
+            [int]$provenance.warningRecordCount -and
+        $success.payloadAudience -ceq $provenance.payloadAudience
+    return $crossBindingsMatch -and
+        $success.payloadManifestSha256 -ceq (Get-Sha256 -Path $manifestPath) -and
         [int]$success.payloadFileCount -eq $entries.Count -and
         $success.artifactProvenanceSha256 -ceq (Get-Sha256 $provenancePath) -and
-        (Test-PayloadManifest -PayloadRoot $PayloadRoot)
+        (Test-PayloadManifest -PayloadRoot $PayloadRoot) -and
+        (Test-ArtifactProvenance -ArtifactRoot $PayloadRoot `
+            -BuildReportDetailsPath $BuildReportDetailsPath -Expectation $Expectation)
 }
 
 function Test-SnapshotEquality {
@@ -786,6 +1161,8 @@ function Invoke-WindowsReleasePipeline {
         [string]$OutputRoot,
         [string]$BuildSourceRoot,
         [string]$RunId,
+        [ValidateSet("InternalRc", "StoreDistributable")]
+        [string]$PayloadAudience = "InternalRc",
         [string[]]$AllowUntrackedRoot
     )
     $stage = "preflight"
@@ -878,6 +1255,22 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source is not clean."
         }
+        if ([string]$buildPre.head -cne $sourceSha -or
+            [string]$buildPre.tree -cne $sourceTree) {
+            $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
+            throw "Detached source HEAD/tree identity does not match the invocation revision."
+        }
+        $entrySourcePath = Join-Path $detached `
+            "Assets\_Features\Stages\Editor\Build\WindowsReleaseBuildCli.cs"
+        $policySourcePath = Join-Path $detached `
+            "Assets\_Features\Stages\Editor\Build\WindowsReleaseBuildPolicy.cs"
+        $detachedWrapperSourcePath = Join-Path $detached `
+            "Tools\Build\Build-WindowsRelease.ps1"
+        $expectation = New-ReleaseEvidenceExpectation -RunId $RunId `
+            -ArtifactId $artifactId -SourceSha $sourceSha -SourceTree $sourceTree `
+            -EntrySourcePath $entrySourcePath -PolicySourcePath $policySourcePath `
+            -DetachedWrapperSourcePath $detachedWrapperSourcePath `
+            -ExecutingWrapperSourcePath $script:ExecutingWrapperSourcePath
 
         $payload = Join-Path $staging "payload"
         New-Item -ItemType Directory -Path $payload -Force | Out-Null
@@ -932,7 +1325,8 @@ function Invoke-WindowsReleasePipeline {
 
         $stage = "build-evidence"
         $buildEvidence = Test-BuildEvidence -MetadataPath $metadataPath `
-            -SummaryPath $reportPath -DetailsPath $reportDetailsPath
+            -SummaryPath $reportPath -DetailsPath $reportDetailsPath `
+            -ExpectedIdentity $expectation
         $buildEvidenceReason = [string]$buildEvidence.Reason
         $decision = Get-BuildEvidenceGateDecision $buildEvidence
         if (-not $decision.CreateSuccess -or -not $decision.Promote) {
@@ -965,12 +1359,9 @@ function Invoke-WindowsReleasePipeline {
         $metadata.ahead = [int]$invocationPre.ahead
         $metadata.behind = [int]$invocationPre.behind
         $metadata.sourceDirty = $false
-        $metadata.entrySourceSha256 = $buildPre.canaries[
-            "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildCli.cs"]
-        $metadata.policySourceSha256 = $buildPre.canaries[
-            "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildPolicy.cs"]
-        $metadata.wrapperSourceSha256 = $buildPre.canaries[
-            "Tools/Build/Build-WindowsRelease.ps1"]
+        $metadata.entrySourceSha256 = $expectation.EntrySourceSha256
+        $metadata.policySourceSha256 = $expectation.PolicySourceSha256
+        $metadata.wrapperSourceSha256 = $expectation.WrapperSourceSha256
         $metadata | ConvertTo-Json -Depth 10 |
             Set-Content -LiteralPath $metadataPath -Encoding UTF8
         [ordered]@{
@@ -980,6 +1371,7 @@ function Invoke-WindowsReleasePipeline {
             development = $false
             playerLogEnabled = $true
             stackTracePolicy = "ScriptOnly"
+            payloadAudience = $PayloadAudience
             scenes = @(
                 "Assets/Scenes/MainMenuScene.unity",
                 "Assets/Scenes/UIAudioScene.unity"
@@ -987,6 +1379,9 @@ function Invoke-WindowsReleasePipeline {
         } | ConvertTo-Json -Depth 5 |
             Set-Content -LiteralPath (Join-Path $payload "configuration-summary.json") -Encoding UTF8
 
+        $stage = "payload-policy"
+        $payloadPolicy = Prepare-PayloadForAudience -PayloadRoot $staging `
+            -Audience $PayloadAudience
         $stage = "manifest"
         $manifest = New-PayloadManifest -PayloadRoot $staging
         if (-not (Test-PayloadManifest -PayloadRoot $staging)) {
@@ -999,21 +1394,24 @@ function Invoke-WindowsReleasePipeline {
             -SourceTree $sourceTree -BuildMetadataPath $metadataPath `
             -BuildReportSummaryPath $reportPath `
             -BuildReportDetailsPath $reportDetailsPath -Manifest $manifest `
+            -BuildEvidence $buildEvidence -PayloadPolicy $payloadPolicy `
             -EntrySourceSha256 $metadata.entrySourceSha256 `
             -PolicySourceSha256 $metadata.policySourceSha256 `
             -WrapperSourceSha256 $metadata.wrapperSourceSha256
         if (-not (Test-ArtifactProvenance -ArtifactRoot $staging `
                 -BuildReportDetailsPath $reportDetailsPath `
-                -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree)) {
+                -Expectation $expectation)) {
             $exitCode = $script:ReleaseExitCodes.ArtifactProvenanceFailure
             throw "Artifact provenance binding failed."
         }
         $stage = "success-control"
         New-SuccessControl -PayloadRoot $staging -RunId $RunId -ArtifactId $artifactId `
             -SourceSha $sourceSha -SourceTree $sourceTree -Manifest $manifest `
-            -Provenance $provenance | Out-Null
+            -Provenance $provenance -BuildEvidence $buildEvidence `
+            -PayloadPolicy $payloadPolicy | Out-Null
         if (-not (Test-SuccessControl -PayloadRoot $staging `
-                -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree)) {
+                -BuildReportDetailsPath $reportDetailsPath `
+                -Expectation $expectation)) {
             $exitCode = $script:ReleaseExitCodes.ControlFileConsistencyFailure
             throw "SUCCESS control consistency failed."
         }
@@ -1025,10 +1423,11 @@ function Invoke-WindowsReleasePipeline {
         }
         Move-Item -LiteralPath $staging -Destination $final
         if (-not (Test-SuccessControl -PayloadRoot $final `
-                -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree) -or
+                -BuildReportDetailsPath $reportDetailsPath `
+                -Expectation $expectation) -or
             -not (Test-ArtifactProvenance -ArtifactRoot $final `
                 -BuildReportDetailsPath $reportDetailsPath `
-                -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree)) {
+                -Expectation $expectation)) {
             $exitCode = $script:ReleaseExitCodes.PromotionFailure
             throw "Final verification after promotion failed."
         }
@@ -1078,6 +1477,7 @@ if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -ne "1") {
         -OutputRoot $OutputRoot `
         -BuildSourceRoot $BuildSourceRoot `
         -RunId $RunId `
+        -PayloadAudience $PayloadAudience `
         -AllowUntrackedRoot $AllowUntrackedRoot
     exit $pipelineExit
 }

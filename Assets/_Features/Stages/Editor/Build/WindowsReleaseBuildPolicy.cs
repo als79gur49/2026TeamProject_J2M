@@ -8,7 +8,7 @@ using UnityEngine;
 public static class WindowsReleaseBuildPolicy
 {
     public const string MetadataSchemaVersion = "2.0";
-    public const string BuildReportSummarySchemaVersion = "1.0";
+    public const string BuildReportSummarySchemaVersion = "2.0";
     public const string BuildReportDetailsSchemaVersion = "1.0";
     public const string ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC";
     public const string Architecture = "x86_64";
@@ -125,6 +125,50 @@ public static class WindowsReleaseBuildPolicy
             : WindowsReleaseExitCodes.BuildReportCountMismatch;
     }
 
+    internal static int ValidateBuildReportIdentityAndCounts(
+        WindowsReleaseMetadataV2 metadata,
+        BuildReportSummaryV2 summary,
+        BuildReportDetailsV1 details)
+    {
+        if (metadata == null || summary == null || details == null ||
+            !string.Equals(metadata.schemaVersion, MetadataSchemaVersion,
+                StringComparison.Ordinal) ||
+            !string.Equals(summary.schemaVersion, BuildReportSummarySchemaVersion,
+                StringComparison.Ordinal) ||
+            !string.Equals(details.schemaVersion, BuildReportDetailsSchemaVersion,
+                StringComparison.Ordinal) ||
+            !Same(metadata.runId, summary.runId, details.runId) ||
+            !Same(metadata.artifactId, summary.artifactId, details.artifactId) ||
+            !Same(metadata.sourceSha, summary.sourceSha, details.sourceSha) ||
+            !Same(metadata.sourceTree, summary.sourceTree, details.sourceTree) ||
+            !string.Equals(metadata.configuration, summary.configuration,
+                StringComparison.Ordinal) ||
+            !string.Equals(summary.configuration, ConfigurationName,
+                StringComparison.Ordinal) ||
+            !Same(metadata.buildResult, summary.result, details.result))
+        {
+            return WindowsReleaseExitCodes.BuildReportIdentityMismatch;
+        }
+
+        return metadata.errorCount == summary.totalErrors &&
+               summary.totalErrors == details.totalErrors &&
+               summary.errorRecordCount == details.errorRecordCount &&
+               details.errorRecordCount == details.totalErrors &&
+               metadata.warningCount == summary.totalWarnings &&
+               summary.totalWarnings == details.totalWarnings &&
+               summary.warningRecordCount == details.warningRecordCount &&
+               details.warningRecordCount == details.totalWarnings
+            ? WindowsReleaseExitCodes.Success
+            : WindowsReleaseExitCodes.BuildReportCountMismatch;
+    }
+
+    private static bool Same(string first, string second, string third)
+    {
+        return !string.IsNullOrWhiteSpace(first) &&
+               string.Equals(first, second, StringComparison.Ordinal) &&
+               string.Equals(second, third, StringComparison.Ordinal);
+    }
+
     public static int ResolvePostBuildExitCode(
         int buildExitCode,
         bool summaryWritten,
@@ -132,7 +176,9 @@ public static class WindowsReleaseBuildPolicy
         bool metadataWritten,
         int metadataErrorCount,
         int reportErrorCount,
-        int structuredErrorCount)
+        int structuredErrorCount,
+        int evidenceIdentityAndCounts =
+            WindowsReleaseExitCodes.Success)
     {
         if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure)
         {
@@ -154,6 +200,11 @@ public static class WindowsReleaseBuildPolicy
         if (evidence != WindowsReleaseExitCodes.Success)
         {
             return evidence;
+        }
+
+        if (evidenceIdentityAndCounts != WindowsReleaseExitCodes.Success)
+        {
+            return evidenceIdentityAndCounts;
         }
 
         if (!metadataWritten)
@@ -198,6 +249,7 @@ public static class WindowsReleaseExitCodes
     public const int BuildReportWriteFailure = 41;
     public const int BuildReportDetailsWriteFailure = 42;
     public const int BuildReportCountMismatch = 43;
+    public const int BuildReportIdentityMismatch = 44;
     public const int InternalException = 50;
 
     public static int[] All =>
@@ -208,7 +260,7 @@ public static class WindowsReleaseExitCodes
             SettingsApplyFailure, SettingsRestoreFailure, BuildFailed, BuildCancelled,
             BuildUnknownResult, BuildErrorsRecorded, MetadataWriteFailure,
             BuildReportWriteFailure, BuildReportDetailsWriteFailure,
-            BuildReportCountMismatch, InternalException,
+            BuildReportCountMismatch, BuildReportIdentityMismatch, InternalException,
         };
 }
 
