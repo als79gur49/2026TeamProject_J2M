@@ -15,6 +15,7 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEditor.Localization;
+using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.SmartFormat;
 using UnityEngine.Localization.SmartFormat.Core.Parsing;
@@ -24,6 +25,23 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class UnityLocalizationStringTableIntegrationTests
     {
+        private Locale _selectedLocaleBeforeTest;
+
+        [SetUp]
+        public void PreserveSelectedLocale()
+        {
+            _selectedLocaleBeforeTest = LocalizationSettings.SelectedLocale;
+        }
+
+        [TearDown]
+        public void RestoreSelectedLocale()
+        {
+            if (LocalizationSettings.HasSettings)
+            {
+                LocalizationSettings.SelectedLocale = _selectedLocaleBeforeTest;
+            }
+        }
+
         [Test]
         public void LocalizationAssets_ContainRequiredLocalesAndUiStringTable()
         {
@@ -393,6 +411,155 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(activeStageEntries.Length));
             AssertStageTable(collection.GetTable("en-US") as StringTable, activeStageEntries);
             AssertStageTable(collection.GetTable("ko-KR") as StringTable, activeStageEntries);
+        }
+
+        [Test]
+        public void FirstLaunch_PreservesUnitySelectedKoreanLocale_WhenNoPreferenceExists()
+        {
+            var koreanLocale = RequireAvailableLocale("ko-KR");
+            var store = new FakeUiLocalePreferenceStore();
+            using var resolver = CreateUnityResolver(
+                store,
+                koreanLocale);
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(koreanLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CommandLineSelectedLocale_IsNotOverwritten_WhenNoPreferenceExists()
+        {
+            var koreanLocale = RequireAvailableLocale("ko-KR");
+            LocalizationSettings.SelectedLocale = koreanLocale;
+            var selectedLocaleEventCount = 0;
+            void HandleSelectedLocaleChanged(Locale _) => selectedLocaleEventCount++;
+            LocalizationSettings.SelectedLocaleChanged += HandleSelectedLocaleChanged;
+
+            var store = new FakeUiLocalePreferenceStore();
+            try
+            {
+                using var resolver = CreateUnityResolverFromCurrentSelection(store);
+                var resolverEventCount = 0;
+                resolver.LocaleChanged += () => resolverEventCount++;
+
+                Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(koreanLocale));
+                Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+                Assert.That(selectedLocaleEventCount, Is.EqualTo(0));
+                Assert.That(store.SaveCallCount, Is.EqualTo(0));
+
+                Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+                Assert.That(resolverEventCount, Is.EqualTo(0));
+                Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                LocalizationSettings.SelectedLocaleChanged -= HandleSelectedLocaleChanged;
+            }
+        }
+
+        [Test]
+        public void StartupLocale_NoPreference_PreservesUnitySelectedEnglishLocale()
+        {
+            var englishLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore();
+            using var resolver = CreateUnityResolver(
+                store,
+                englishLocale);
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StartupLocale_SavedEnglishPreference_OverridesUnitySelectedKoreanLocale()
+        {
+            var englishLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore("en-US");
+            using var resolver = CreateUnityResolver(
+                store,
+                RequireAvailableLocale("ko-KR"));
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StartupLocale_SavedKoreanPreference_OverridesUnitySelectedEnglishLocale()
+        {
+            var koreanLocale = RequireAvailableLocale("ko-KR");
+            var store = new FakeUiLocalePreferenceStore("ko-KR");
+            using var resolver = CreateUnityResolver(
+                store,
+                RequireAvailableLocale("en-US"));
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(koreanLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StartupLocale_InvalidSavedPreference_PreservesUnitySelectedKoreanLocale()
+        {
+            var koreanLocale = RequireAvailableLocale("ko-KR");
+            var store = new FakeUiLocalePreferenceStore("fr-FR");
+            using var resolver = CreateUnityResolver(
+                store,
+                koreanLocale);
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(koreanLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StartupLocale_MalformedSavedPreference_PreservesUnitySelectedKoreanLocale()
+        {
+            var koreanLocale = RequireAvailableLocale("ko-KR");
+            using var resolver = CreateUnityResolver(
+                new FakeUiLocalePreferenceStore("   "),
+                koreanLocale);
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(koreanLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
+        }
+
+        [Test]
+        public void StartupLocale_NoPreferenceAndNoUnitySelection_FallsBackToEnglish()
+        {
+            var englishLocale = RequireAvailableLocale("en-US");
+            var store = new FakeUiLocalePreferenceStore();
+            using var resolver = CreateUnityResolver(
+                store,
+                selectedLocale: null);
+
+            Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
+            Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+            Assert.That(store.SaveCallCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StartupLocale_UnsupportedUnitySelection_FallsBackToEnglish()
+        {
+            var unsupportedLocale = Locale.CreateLocale("fr-FR");
+            try
+            {
+                var englishLocale = RequireAvailableLocale("en-US");
+                var store = new FakeUiLocalePreferenceStore();
+                using var resolver = CreateUnityResolver(
+                    store,
+                    unsupportedLocale);
+
+                Assert.That(LocalizationSettings.SelectedLocale, Is.SameAs(englishLocale));
+                Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
+                Assert.That(store.SaveCallCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(unsupportedLocale);
+            }
         }
 
         [Test]
@@ -837,7 +1004,22 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static UnityStringTableTextResolver CreateUnityResolver(FakeUiLocalePreferenceStore store)
+        private static UnityStringTableTextResolver CreateUnityResolver(
+            FakeUiLocalePreferenceStore store)
+        {
+            return CreateUnityResolver(store, RequireAvailableLocale("en-US"));
+        }
+
+        private static UnityStringTableTextResolver CreateUnityResolver(
+            FakeUiLocalePreferenceStore store,
+            Locale selectedLocale)
+        {
+            LocalizationSettings.SelectedLocale = selectedLocale;
+            return CreateUnityResolverFromCurrentSelection(store);
+        }
+
+        private static UnityStringTableTextResolver CreateUnityResolverFromCurrentSelection(
+            FakeUiLocalePreferenceStore store)
         {
             Assert.That(
                 UnityStringTableTextResolver.TryCreateSettingsDefault(
@@ -847,6 +1029,13 @@ namespace Game.Feature.UI.Tests
                 Is.True,
                 reason);
             return resolver;
+        }
+
+        private static Locale RequireAvailableLocale(string localeCode)
+        {
+            var locale = LocalizationSettings.AvailableLocales?.GetLocale(localeCode);
+            Assert.That(locale, Is.Not.Null, $"Required test Locale is unavailable: {localeCode}");
+            return locale;
         }
 
         private static bool IsManagedSettingsKey(string key)
