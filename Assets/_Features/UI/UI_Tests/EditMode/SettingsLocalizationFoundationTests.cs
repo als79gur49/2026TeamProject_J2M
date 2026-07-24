@@ -380,10 +380,10 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("키 변경이 이미 진행 중입니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
-                Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
+                Is.EqualTo("밀기 키 입력하세요..."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
-                Is.EqualTo("뒤집기 동작에 사용할 키를 누르세요..."));
+                Is.EqualTo("뒤집기 키 입력하세요..."));
         }
 
         [Test]
@@ -936,12 +936,12 @@ namespace Game.Feature.UI.Tests
             KeyboardBindableAction.Push,
             "ui.settings.input.rebind_push_prompt",
             "Press a key for Push...",
-            "밀기 동작에 사용할 키를 누르세요...")]
+            "밀기 키 입력하세요...")]
         [TestCase(
             KeyboardBindableAction.Flip,
             "ui.settings.input.rebind_flip_prompt",
             "Press a key for Flip...",
-            "뒤집기 동작에 사용할 키를 누르세요...")]
+            "뒤집기 키 입력하세요...")]
         public void SettingsInputPresenter_ActiveRebindRetainsDescriptorAndReResolvesCurrentLocale(
             KeyboardBindableAction action,
             string expectedKey,
@@ -1313,7 +1313,7 @@ namespace Game.Feature.UI.Tests
 
             presenter.StartRebind(KeyboardBindableAction.Push);
 
-            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("밀기 키 입력하세요..."));
 
             keyboardPort.Complete();
 
@@ -1686,8 +1686,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.reserved_key"] = "이 키는 예약되어 있습니다.",
                         ["ui.settings.input.movement_conflict"] = "이 키는 이동 키와 충돌합니다.",
                         ["ui.settings.input.already_rebinding"] = "키 변경이 이미 진행 중입니다.",
-                        ["ui.settings.input.rebind_push_prompt"] = "밀기 동작에 사용할 키를 누르세요...",
-                        ["ui.settings.input.rebind_flip_prompt"] = "뒤집기 동작에 사용할 키를 누르세요...",
+                        ["ui.settings.input.rebind_push_prompt"] = "밀기 키 입력하세요...",
+                        ["ui.settings.input.rebind_flip_prompt"] = "뒤집기 키 입력하세요...",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",

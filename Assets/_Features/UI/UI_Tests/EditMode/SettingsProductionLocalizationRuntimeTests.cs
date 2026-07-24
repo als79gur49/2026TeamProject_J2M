@@ -262,7 +262,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15초"));
             Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
             Assert.That(keyboardPort.IsRebinding, Is.True);
-            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기 키 입력하세요..."));
             Assert.That(GetField<SettingsScreenViewModel>(view, "_viewModel"), Is.SameAs(screenModel));
             Assert.That(GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel"), Is.SameAs(audioModel));
             Assert.That(GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel"), Is.SameAs(displayModel));
@@ -282,10 +282,10 @@ namespace Game.Feature.UI.Tests
 
         [TestCase(
             KeyboardBindableAction.Push,
-            "밀기 동작에 사용할 키를 누르세요...")]
+            "밀기 키 입력하세요...")]
         [TestCase(
             KeyboardBindableAction.Flip,
-            "뒤집기 동작에 사용할 키를 누르세요...")]
+            "뒤집기 키 입력하세요...")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindPromptStartedInKoreanUsesCurrentLocale(
             KeyboardBindableAction action,
             string expectedPrompt)
@@ -307,11 +307,11 @@ namespace Game.Feature.UI.Tests
         [TestCase(
             KeyboardBindableAction.Push,
             "Press a key for Push...",
-            "밀기 동작에 사용할 키를 누르세요...")]
+            "밀기 키 입력하세요...")]
         [TestCase(
             KeyboardBindableAction.Flip,
             "Press a key for Flip...",
-            "뒤집기 동작에 사용할 키를 누르세요...")]
+            "뒤집기 키 입력하세요...")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ActiveRebindPromptFollowsLocaleRoundTrip(
             KeyboardBindableAction action,
             string englishPrompt,

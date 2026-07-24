@@ -346,8 +346,8 @@ namespace Game.Feature.UI.Tests
                 "이 키는 예약되어 있습니다.",
                 "이 키는 이동 키와 충돌합니다.",
                 "키 변경이 이미 진행 중입니다.",
-                "밀기 동작에 사용할 키를 누르세요...",
-                "뒤집기 동작에 사용할 키를 누르세요...");
+                "밀기 키 입력하세요...",
+                "뒤집기 키 입력하세요...");
         }
 
         [Test]
@@ -546,10 +546,10 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("키 변경이 이미 진행 중입니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
-                Is.EqualTo("밀기 동작에 사용할 키를 누르세요..."));
+                Is.EqualTo("밀기 키 입력하세요..."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
-                Is.EqualTo("뒤집기 동작에 사용할 키를 누르세요..."));
+                Is.EqualTo("뒤집기 키 입력하세요..."));
         }
 
         [Test]
