@@ -7,18 +7,22 @@ This closeout records the visual QA result for the UI Localization + Typography 
 Evidence folder:
 
 ```text
-TestLogs/TypographyVisualQA/CommandLine-20260722-210829/
+TestLogs/TypographyVisualQA/CommandLine-20260724-214429/
 ```
 
-This is the current canonical 1920x1080 evidence generated through `./run_tests.sh typography-visual` from revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`. Its `capture.log` records schema 1, `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PASS entries, clean guarded assets, and Settings `typography_bindings=38`, `localized_expected=22`, `localized_applied=22` for both locales. The wrapper verified every PNG byte size/SHA-256 and preserved the Nanum content/diff hashes.
+This is the current corrected canonical 1920x1080 evidence generated through `./run_tests.sh typography-visual` from revision `bb0f21e2e73f232aaf3fb02833b8e72f88dc526c`. Its `capture.log` records schema 1, `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PASS entries, clean guarded assets, and Settings `typography_bindings=38`, `localized_expected=22`, `localized_applied=22` for both locales. The wrapper verified every PNG byte size/SHA-256 and preserved the Nanum content/diff hashes.
 
-Manual review confirmed that Settings `W/A/S/D`, four directions, `E`, and `Q` keep the same physical-key presentation across en-US/ko-KR while Movement Keys, Use Arrow Keys, Push, Flip, Change, and Reset Input localize. No keycap/current-value clipping, wrapping, or 1920x1080 bounds issue was observed. Pause and Main Menu retain their historical bilingual capture behavior with no new Settings-policy regression. Print Screen and Numpad Enter are not visible in these frames, so their visual verification is not claimed.
+Manual review confirmed that Settings `W/A/S/D`, four directions, `E`, and `Q` keep the same physical-key presentation across en-US/ko-KR while Movement Keys, Use Arrow Keys, Push, Flip, Change, and Reset Input localize. No keycap/current-value clipping, wrapping, or 1920x1080 bounds issue was observed. Settings en-US/ko-KR, Pause en-US/ko-KR, and Main Menu ko-KR remain byte-identical to the previous evidence. Main Menu en-US intentionally changed from the incidental generic `Button` SciFiSoldier result to the authored Orbitron identity for Start, Settings, and Quit.
 
-`TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` remains unchanged as historical evidence. Its Settings entries record 51, not the current exact 38 applied-binding contract; a dedicated test preserves that provenance without treating it as current canonical PASS.
+`TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` remains unchanged as the historical defective evidence containing SciFiSoldier Main Menu commands; it did not establish origin/main font parity. `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` also remains unchanged as 51-binding historical evidence. Dedicated tests preserve both provenance contracts without treating either directory as current canonical PASS.
+
+The corrected runtime uses the `MainMenuCommand` semantic role: en-US resolves Display/Bold to Orbitron ExtraBold while ko-KR uses the existing NanumGothic UI/Bold locale override. The generic `Button -> UI/Bold -> Font_SciFiSoldier_Bold` mapping is unchanged. Production-composition tests independently pin the origin/main authored font/material identity, Bold style, and `30 / Auto / 18-30` sizing through `en-US -> ko-KR -> en-US`.
+
+An origin/main deterministic run of the current capture tooling is not available because that revision does not contain the same runner/capture implementation. Cross-revision pixel parity is therefore `NOT_AVAILABLE`; exact runtime font/material/sizing identity parity is `PASS`.
 
 The repository wrapper refuses dirty P2 revisions and existing output directories, checks the current worktree/Unity path and active project process, writes raw Unity logs separately from `capture.log`, captures isolated slices, and retains failed output for diagnostics. A partial capture, Settings count mismatch, guarded-asset change, Nanum change, missing PNG, or hash mismatch fails the lane.
 
-The final 2026-07-22 UI lane produced `872/872` passed tests. Settings production localization runtime is 25/25 PASS, Settings production typography composition is 3/3 PASS, and typography fixtures are 55/55 PASS.
+The 2026-07-24 correction-head UI lane produced `885/885` passed tests before the evidence guard was added. Final committed-head totals are recorded with the PR evidence.
 
 ## P0 Closeout
 

@@ -20,10 +20,12 @@ namespace Game.Feature.UI.Tests
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
         private const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         private const string CanonicalEvidenceDirectory =
-            "TestLogs/TypographyVisualQA/CommandLine-20260722-210829";
+            "TestLogs/TypographyVisualQA/CommandLine-20260724-214429";
         private const string CanonicalEvidenceReconstructionHead =
-            "31b92cd2c9718e1a653da39a6db47c7a17ea7452";
-        private const string HistoricalEvidenceDirectory =
+            "bb0f21e2e73f232aaf3fb02833b8e72f88dc526c";
+        private const string HistoricalDefectiveEvidenceDirectory =
+            "TestLogs/TypographyVisualQA/CommandLine-20260722-210829";
+        private const string HistoricalFiftyOneBindingEvidenceDirectory =
             "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
 
         [Test]
@@ -776,15 +778,50 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void TypographyPreviewScreenshotManifest_CorrectedCanonicalOnlyChangesMainMenuEnglish()
+        {
+            var unchangedFileNames = new[]
+            {
+                "Settings_en-US.png",
+                "Settings_ko-KR.png",
+                "Pause_en-US.png",
+                "Pause_ko-KR.png",
+                "MainMenu_ko-KR.png",
+            };
+
+            foreach (var fileName in unchangedFileNames)
+            {
+                var historicalPath = Path.Combine(HistoricalDefectiveEvidenceDirectory, fileName);
+                var correctedPath = Path.Combine(CanonicalEvidenceDirectory, fileName);
+                Assert.That(File.Exists(historicalPath), Is.True, historicalPath);
+                Assert.That(File.Exists(correctedPath), Is.True, correctedPath);
+                Assert.That(
+                    TypographyPreviewScreenshotManifestUtility.ComputeSha256(correctedPath),
+                    Is.EqualTo(TypographyPreviewScreenshotManifestUtility.ComputeSha256(historicalPath)),
+                    fileName);
+            }
+
+            var historicalMainMenuPath =
+                Path.Combine(HistoricalDefectiveEvidenceDirectory, "MainMenu_en-US.png");
+            var correctedMainMenuPath = Path.Combine(CanonicalEvidenceDirectory, "MainMenu_en-US.png");
+            Assert.That(
+                TypographyPreviewScreenshotManifestUtility.ComputeSha256(historicalMainMenuPath),
+                Is.EqualTo("979330bf5a4667304cd7751f22bf40cf52e8b3cc139c0d8d8be0fd7c8c029624"));
+            Assert.That(
+                TypographyPreviewScreenshotManifestUtility.ComputeSha256(correctedMainMenuPath),
+                Is.EqualTo("578912d8e11ddb560d9a6c1a2df2bcd785e5cb3f640641738502d03290f44843"));
+        }
+
+        [Test]
         public void TypographyPreviewScreenshotManifest_HistoricalEvidenceRetainsFiftyOneSettingsBindings()
         {
             var manifestPath = Path.Combine(
-                HistoricalEvidenceDirectory,
+                HistoricalFiftyOneBindingEvidenceDirectory,
                 TypographyPreviewScreenshotManifestUtility.ManifestFileName);
             Assert.That(File.Exists(manifestPath), Is.True, manifestPath);
 
             var manifest = TypographyPreviewScreenshotManifestParser.ParseFile(manifestPath);
-            Assert.That(manifest.OutputDirectory, Is.EqualTo(HistoricalEvidenceDirectory));
+            Assert.That(manifest.OutputDirectory, Is.EqualTo(HistoricalFiftyOneBindingEvidenceDirectory));
             foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
             {
                 var settingsEntry = manifest.FindEntry("Settings", locale);

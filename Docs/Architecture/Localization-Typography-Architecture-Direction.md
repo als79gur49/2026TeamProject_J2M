@@ -88,9 +88,9 @@ Current baseline captured for this cleanup pass:
 | `TypographyBinding` | Done | Prefabs/views carry style tag, sizing-source override, and optional apply-mask override without owning text keys. |
 | Locale participation | Done | `LocaleThemed` is the serialized default. The 13 Settings physical-key TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
-| Pause / Main Menu typography migration | Done | Pause and Main Menu governed labels use the same typography-binding production path. |
+| Pause / Main Menu typography migration | Done | Pause uses its existing semantic rules. Main Menu Start/Settings/Quit use the dedicated `MainMenuCommand` role so en-US preserves authored Orbitron while ko-KR retains Nanum; generic `Button` remains SciFiSoldier. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
-| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates the current worktree/Unity path, revision gate, isolated capture slices, Nanum preservation, manifest closure, and PNG hashes. The latest canonical 1920x1080 set is `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/`; `CommandLine-20260720-194045` remains 51-count historical evidence. |
+| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates the current worktree/Unity path, revision gate, isolated capture slices, Nanum preservation, manifest closure, and PNG hashes. The corrected canonical 1920x1080 set is `TestLogs/TypographyVisualQA/CommandLine-20260724-214429/`; `CommandLine-20260722-210829` is the historical defective SciFiSoldier Main Menu evidence and `CommandLine-20260720-194045` remains 51-count historical evidence. |
 | NanumGothic glyph coverage | Done | `NanumGothic SDF` coverage was expanded from Korean String Tables and is validated by UI tests. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
@@ -109,7 +109,7 @@ Current baseline captured for this cleanup pass:
 | Typography preview screenshot manifest | PASS. Canonical schema-v1 evidence asserts six-entry closure, Settings 38 applied / 13 skipped, localized 22/22, 1920x1080 dimensions, nonblank/orientation results, PNG byte size/SHA-256, guarded assets, capture mode, and recorded revision. |
 | UI lane | 872/872 PASS on 2026-07-22 KST; Windows UI build passed with 0 errors and Unity UI EditMode failed 0. |
 | Core lane | Commit validation passed with EditMode 197/197 and PlayMode 92/92; this does not replace or imply a full-lane result. |
-| Latest compliant visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/`, revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`, mode `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PNG entries PASS. |
+| Latest compliant visual evidence | `TestLogs/TypographyVisualQA/CommandLine-20260724-214429/`, revision `bb0f21e2e73f232aaf3fb02833b8e72f88dc526c`, mode `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PNG entries PASS. Five are byte-identical to the previous evidence; Main Menu en-US intentionally restores Orbitron. |
 | Remaining closeout work | Print Screen and Numpad Enter are not visible in the canonical Settings frame and remain covered by headless regression rather than completed manual visual verification; optional Korean synthetic-bold/material polish remains separate. |
 
 ### Smart Entry Contract
@@ -265,6 +265,7 @@ Stage 1 goals:
 | `SettingsBody` | Settings-authored Liberation normal helper/mute/countdown text. |
 | `SettingsAction` | Settings-authored SciFi action/status text with locale-specific weight handling. |
 | `SettingsStatus` | Settings-authored Exo Regular uppercase display status. |
+| `MainMenuCommand` | Main Menu Start/Settings/Quit command shell; en-US authored Orbitron Display/Bold, ko-KR Nanum locale override, authored sizing preserved. |
 
 ### FontCategory
 
