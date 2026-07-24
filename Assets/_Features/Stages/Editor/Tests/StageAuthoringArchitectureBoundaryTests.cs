@@ -1,15 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using NUnit.Framework;
+using UnityEditor.Compilation;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class StageAuthoringArchitectureBoundaryTests
     {
+        private const string UiSourceRoot = "Assets/_Features/UI/";
+        private const string UiTestSourceRoot = "Assets/_Features/UI/UI_Tests";
+        private const string StageCompletionMapperPath =
+            "Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs";
+        private const string ForbiddenStageRuntimeBuildResultToken = "StageRuntimeBuildResult";
+
         [Test]
         public void RuntimeAssembly_DoesNotReferenceUnityEditor()
         {
@@ -333,19 +341,62 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void StageResultUi_DoesNotDependOnStageRuntimeBuildResult()
         {
-            var uiSources = Directory.GetFiles("Assets/_Features/UI", "*.cs", SearchOption.AllDirectories);
-            var mapperSource =
-                File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs");
+            var uiSources = FindProductionUiSourceFiles();
+            var mapperSource = File.ReadAllText(StageCompletionMapperPath);
 
             Assert.That(mapperSource, Does.Contain("MinimalStageCompletionReadModel"));
             foreach (var sourcePath in uiSources)
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(
-                    source.Contains("StageRuntimeBuildResult", StringComparison.Ordinal),
+                    ContainsForbiddenStageRuntimeBuildResult(source),
                     Is.False,
                     $"UI must consume stage result read models, not StageRuntimeBuildResult: {sourcePath}");
             }
+
+            TestContext.WriteLine($"Production UI source files scanned: {uiSources.Count}");
+        }
+
+        [Test]
+        public void StageResultUi_ProductionScan_IncludesPlayerSourceAndExcludesTestAssemblies()
+        {
+            var productionUiSources = FindProductionUiSourceFiles();
+            var uiTestSources = Directory
+                .GetFiles(UiTestSourceRoot, "*.cs", SearchOption.AllDirectories)
+                .Select(NormalizeProjectRelativePath)
+                .ToArray();
+            var testSourcesContainingForbiddenToken = uiTestSources
+                .Where(path => ContainsForbiddenStageRuntimeBuildResult(File.ReadAllText(path)))
+                .ToArray();
+
+            Assert.That(productionUiSources, Does.Contain(StageCompletionMapperPath));
+            Assert.That(uiTestSources, Is.Not.Empty);
+            Assert.That(
+                productionUiSources.Intersect(uiTestSources, StringComparer.OrdinalIgnoreCase),
+                Is.Empty,
+                "Player UI production scan must exclude every UI test assembly source.");
+            Assert.That(
+                testSourcesContainingForbiddenToken,
+                Is.Not.Empty,
+                "The regression fixture must retain a test-only forbidden-token source.");
+
+            TestContext.WriteLine($"Production UI source files scanned: {productionUiSources.Count}");
+            TestContext.WriteLine($"UI test source files excluded: {uiTestSources.Length}");
+            TestContext.WriteLine(
+                $"Excluded UI test sources containing the forbidden token: {testSourcesContainingForbiddenToken.Length}");
+        }
+
+        [Test]
+        public void StageResultUi_ForbiddenDependencyDetection_RemainsStrict()
+        {
+            Assert.That(
+                ContainsForbiddenStageRuntimeBuildResult(
+                    $"internal sealed class InvalidUiDependency {{ private {ForbiddenStageRuntimeBuildResultToken} value; }}"),
+                Is.True);
+            Assert.That(
+                ContainsForbiddenStageRuntimeBuildResult(
+                    "internal sealed class ValidUiDependency { private MinimalStageCompletionReadModel value; }"),
+                Is.False);
         }
 
         [Test]
@@ -653,6 +704,43 @@ namespace Game.Feature.Stages.Editor.Tests
             return Directory
                 .GetFiles("Assets/_Features/Stages/Runtime", "*.cs", SearchOption.AllDirectories)
                 .Any(path => File.ReadAllText(path).Contains(text, StringComparison.Ordinal));
+        }
+
+        private static IReadOnlyList<string> FindProductionUiSourceFiles()
+        {
+            return CompilationPipeline
+                .GetAssemblies(AssembliesType.Player)
+                .SelectMany(assembly => assembly.sourceFiles ?? Array.Empty<string>())
+                .Select(NormalizeProjectRelativePath)
+                .Where(path =>
+                    path.StartsWith(UiSourceRoot, StringComparison.OrdinalIgnoreCase) &&
+                    path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static string NormalizeProjectRelativePath(string sourcePath)
+        {
+            var normalizedPath = sourcePath.Replace('\\', '/');
+            if (!Path.IsPathRooted(sourcePath))
+            {
+                return normalizedPath.TrimStart('/');
+            }
+
+            var normalizedProjectRoot = Path
+                .GetFullPath(".")
+                .Replace('\\', '/')
+                .TrimEnd('/');
+            var projectRootPrefix = normalizedProjectRoot + "/";
+            return normalizedPath.StartsWith(projectRootPrefix, StringComparison.OrdinalIgnoreCase)
+                ? normalizedPath.Substring(projectRootPrefix.Length)
+                : normalizedPath;
+        }
+
+        private static bool ContainsForbiddenStageRuntimeBuildResult(string source)
+        {
+            return source.Contains(ForbiddenStageRuntimeBuildResultToken, StringComparison.Ordinal);
         }
 
         private static void AssertPublicNameIsGameplayOnly(
