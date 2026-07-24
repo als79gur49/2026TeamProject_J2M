@@ -441,7 +441,13 @@ namespace Game.Feature.Stages.Editor.Tests
             var fixture = StageAuthoringTestFixture.CreateSynced();
             try
             {
-                SetString(fixture.Presentation, "displayName", "Edited Display");
+                var editedDisplayNameKey = StageDisplayNameKeys.ForStageIdValue("metadata-change");
+                fixture.SetDisplayNameKey(editedDisplayNameKey);
+                Assert.That(
+                    fixture.Presentation.DisplayNameKey,
+                    Is.EqualTo(editedDisplayNameKey),
+                    "The display-name metadata mutation must be applied before drift validation.");
+
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(issue => issue.Code.StartsWith("PresentationDrift.", StringComparison.Ordinal)), Is.False, FormatIssues(report));
             }
@@ -717,13 +723,6 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
-        private static void SetString(StagePresentationDefinition presentation, string fieldName, string value)
-        {
-            var serializedObject = new SerializedObject(presentation);
-            serializedObject.FindProperty(fieldName).stringValue = value;
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         private static string FormatIssues(StageValidationReport report)
         {
             return FormatIssues(report.Issues);
@@ -844,6 +843,17 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageCatalogValidationOptions { Timing = StageValidationTiming.TestOrCi });
         }
 
+        public void SetDisplayNameKey(string value)
+        {
+            var serializedObject = new SerializedObject(Presentation);
+            var property = RequireSerializedStringProperty(serializedObject, "displayNameKey");
+            property.stringValue = value;
+            Assert.That(
+                serializedObject.ApplyModifiedPropertiesWithoutUndo(),
+                Is.True,
+                "The displayNameKey mutation must be applied to StagePresentationDefinition.");
+        }
+
         public void Destroy()
         {
             for (var i = 0; i < ownedObjects.Length; i++)
@@ -852,6 +862,22 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             UnityEngine.Object.DestroyImmediate(enemyProfile);
+        }
+
+        private static SerializedProperty RequireSerializedStringProperty(
+            SerializedObject serializedObject,
+            string propertyName)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            Assert.That(
+                property,
+                Is.Not.Null,
+                $"StagePresentationDefinition serialized schema must expose {propertyName}.");
+            Assert.That(
+                property.propertyType,
+                Is.EqualTo(SerializedPropertyType.String),
+                $"StagePresentationDefinition.{propertyName} must remain a serialized string.");
+            return property;
         }
 
         private static StagePlacedEntityAuthoring Placement(

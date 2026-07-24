@@ -491,7 +491,12 @@ namespace Game.Feature.Stages.Editor.Tests
             var fixture = StageAuthoringTestFixture.CreateSynced();
             try
             {
-                SetString(fixture.Presentation, "displayName", "Edited Display");
+                var editedDisplayNameKey = StageDisplayNameKeys.ForStageIdValue("metadata-change");
+                fixture.SetDisplayNameKey(editedDisplayNameKey);
+                Assert.That(
+                    fixture.Presentation.DisplayNameKey,
+                    Is.EqualTo(editedDisplayNameKey),
+                    "The display-name metadata mutation must be applied before catalog validation.");
 
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
@@ -577,13 +582,6 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return issue.Code == "PresentationCatalog.EnemyPresentationIdMissing" ||
                    issue.Code == "PresentationCatalog.StaticPresentationIdMissing";
-        }
-
-        private static void SetString(StagePresentationDefinition presentation, string fieldName, string value)
-        {
-            var serializedObject = new SerializedObject(presentation);
-            serializedObject.FindProperty(fieldName).stringValue = value;
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static VfxProfileAsset CreateProfile(
