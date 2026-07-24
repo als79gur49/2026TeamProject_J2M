@@ -42,10 +42,22 @@ $script:ReportSummarySchemaVersion = "2.0"
 $script:ReportDetailsSchemaVersion = "1.0"
 $script:ProvenanceSchemaVersion = "2.0"
 $script:MaxLegacyWindowsPathLength = 259
-$script:CriticalUrpImporterRelativePath = (
-    "Library\PackageCache\com.unity.render-pipelines.core@000000000000\" +
-    "Editor\Lighting\ProbeVolume\RenderingLayerMask\" +
-    "TraceRenderingLayerMask.urtshader"
+$script:CriticalImporterRelativePaths = @(
+    (
+        "Library\PackageCache\com.unity.collections@000000000000\" +
+        "Unity.Collections.Tests\System.Runtime.CompilerServices.Unsafe\" +
+        "System.Runtime.CompilerServices.Unsafe.dll"
+    ),
+    (
+        "Library\PackageCache\com.unity.render-pipelines.universal@000000000000\" +
+        "Runtime\RendererFeatures\SurfaceCacheGI\SurfaceCacheCore\" +
+        "RestirCandidateTemporal.urtshader"
+    ),
+    (
+        "Library\PackageCache\com.unity.render-pipelines.core@000000000000\" +
+        "Editor\Lighting\ProbeVolume\RenderingLayerMask\" +
+        "TraceRenderingLayerMask.urtshader"
+    )
 )
 $script:ControlFileNames = @(
     "files.sha256",
@@ -64,8 +76,9 @@ function Test-BuildSourcePathBudget {
 
 function Get-BuildSourceCriticalPathLength {
     param([Parameter(Mandatory)][string]$DetachedSourcePath)
-    return [IO.Path]::GetFullPath(
-        (Join-Path $DetachedSourcePath $script:CriticalUrpImporterRelativePath)).Length
+    return @($script:CriticalImporterRelativePaths | ForEach-Object {
+        [IO.Path]::GetFullPath((Join-Path $DetachedSourcePath $_)).Length
+    } | Measure-Object -Maximum).Maximum
 }
 
 function New-ReleaseEvidenceExpectation {
@@ -635,7 +648,7 @@ function Test-StorePayloadPrivacy {
         ".sha256", ".txt", ".xml", ".yaml", ".yml"
     )
     $absolutePrivatePathPattern =
-        '(?im)(?:[a-z]:[\\/][^\s"''<>|]+|' +
+        '(?im)(?:(?<![a-z0-9+.-])[a-z]:[\\/][^\s"''<>|]+|' +
         '\\\\[^\\\s]+\\[^\\\s]+|/(?:home|users)/[^\s"''<>|]+|' +
         '/mnt/[a-z]/users/[^\s"''<>|]+)'
     foreach ($file in @(Get-ChildItem -LiteralPath $PayloadRoot -File -Recurse)) {

@@ -88,7 +88,8 @@ re-reporting an earlier console result is not execution evidence. No correction
 revision may claim its selected/pass count until its own result file exists,
 hashes correctly, names that exact committed revision, and records every selected
 case as passed with failed 0 and skipped 0. The correction expands the historical
-58-case baseline; its expected suite size is 73 cases.
+58-case baseline; the immutable record is authoritative for its actual selected
+count.
 
 All wrapper-owned Git commands use the process-local
 `git -c core.longpaths=true` option. This permits the exact-SHA detached checkout
@@ -114,7 +115,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 The wrapper does not pass `-quit`; `WindowsReleaseBuildCli` owns the Unity exit.
 It creates and preserves a new detached worktree at the exact committed source
 SHA under the short deterministic root `C:\VQBuildSources`. The wrapper rejects
-a detached path whose known longest URP/APV importer path would exceed the
+a detached path whose maximum predicted path across the known critical
+Collections, URP Surface Cache, and URP/APV importer suffixes would exceed the
 legacy 259-character Windows budget. This avoids relying on machine-wide long
 path registry policy while preserving clean-import determinism. The first
 acceptance run keeps that worktree for provenance inspection.
@@ -132,9 +134,10 @@ source-root string. The required matrix is:
 | Alternate valid RunId values | recompute the full path and enforce the same boundary |
 | Any root/SHA/RunId combination above budget | reject before worktree creation |
 
-Every case includes the configured critical package/importer suffix. Git
-`core.longpaths=true` remains a process-local checkout aid; it is not evidence
-that Unity's importer can consume a path above this budget.
+Every case includes all configured critical package/importer suffixes and uses
+their maximum predicted length. Git `core.longpaths=true` remains a
+process-local checkout aid; it is not evidence that Unity's importer can consume
+a path above this budget.
 
 The path budget is a source-preparation contract, not an error exception. With
 the former Documents-based default, the clean-import path for

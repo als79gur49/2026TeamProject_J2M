@@ -282,6 +282,15 @@ Invoke-Case "oversized RunId is rejected from the complete path" {
     $candidate = "C:\VQBuildSources\$("a" * 40)\$("r" * 180)"
     Assert-False (Test-BuildSourcePathBudget $candidate)
 }
+Invoke-Case "longest known critical importer suffix owns the path budget" {
+    $candidate = "C:\VQBuildSources\$("a" * 40)\20260724T140105269Z"
+    $lengths = @($script:CriticalImporterRelativePaths | ForEach-Object {
+        [IO.Path]::GetFullPath((Join-Path $candidate $_)).Length
+    })
+    Assert-Equal (($lengths | Measure-Object -Maximum).Maximum) `
+        (Get-BuildSourceCriticalPathLength $candidate)
+    Assert-True (($lengths | Sort-Object -Unique).Count -gt 1)
+}
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null
@@ -619,6 +628,14 @@ try {
             $threw = $true
         }
         Assert-True $threw
+    }
+    Invoke-Case "Store payload permits URI schemes in shipped runtime data" {
+        $storeRoot = Join-Path $temp "store-runtime-uri"
+        New-Item -ItemType Directory -Path $storeRoot -Force | Out-Null
+        Set-Content (Join-Path $storeRoot "browscap.ini") `
+            "crawler=http://www.example.com/bot"
+        $policy = Prepare-PayloadForAudience $storeRoot "StoreDistributable"
+        Assert-True $policy.PrivacyGatePassed
     }
     $provenanceEvidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "provenance-evidence")
     $sourceFixture = Join-Path $temp "committed-source"
