@@ -7,7 +7,9 @@ using UnityEngine;
 
 public static class WindowsReleaseBuildPolicy
 {
-    public const string SchemaVersion = "1.0";
+    public const string MetadataSchemaVersion = "2.0";
+    public const string BuildReportSummarySchemaVersion = "1.0";
+    public const string BuildReportDetailsSchemaVersion = "1.0";
     public const string ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC";
     public const string Architecture = "x86_64";
     public const string ExpectedUnityVersion = "6000.3.11f1";
@@ -97,12 +99,14 @@ public static class WindowsReleaseBuildPolicy
         return WindowsReleaseExitCodes.Success;
     }
 
-    public static int MapBuildResult(BuildResult result)
+    public static int MapBuildResult(BuildResult result, int totalErrors)
     {
         switch (result)
         {
             case BuildResult.Succeeded:
-                return WindowsReleaseExitCodes.Success;
+                return totalErrors == 0
+                    ? WindowsReleaseExitCodes.Success
+                    : WindowsReleaseExitCodes.BuildErrorsRecorded;
             case BuildResult.Failed:
                 return WindowsReleaseExitCodes.BuildFailed;
             case BuildResult.Cancelled:
@@ -110,6 +114,54 @@ public static class WindowsReleaseBuildPolicy
             default:
                 return WindowsReleaseExitCodes.BuildUnknownResult;
         }
+    }
+
+    public static int ValidateBuildReportEvidence(
+        int metadataErrorCount, int reportErrorCount, int structuredErrorCount)
+    {
+        return metadataErrorCount == reportErrorCount &&
+               structuredErrorCount == reportErrorCount
+            ? WindowsReleaseExitCodes.Success
+            : WindowsReleaseExitCodes.BuildReportCountMismatch;
+    }
+
+    public static int ResolvePostBuildExitCode(
+        int buildExitCode,
+        bool summaryWritten,
+        bool detailsWritten,
+        bool metadataWritten,
+        int metadataErrorCount,
+        int reportErrorCount,
+        int structuredErrorCount)
+    {
+        if (buildExitCode == WindowsReleaseExitCodes.SettingsRestoreFailure)
+        {
+            return buildExitCode;
+        }
+
+        if (!detailsWritten)
+        {
+            return WindowsReleaseExitCodes.BuildReportDetailsWriteFailure;
+        }
+
+        if (!summaryWritten)
+        {
+            return WindowsReleaseExitCodes.BuildReportWriteFailure;
+        }
+
+        var evidence = ValidateBuildReportEvidence(
+            metadataErrorCount, reportErrorCount, structuredErrorCount);
+        if (evidence != WindowsReleaseExitCodes.Success)
+        {
+            return evidence;
+        }
+
+        if (!metadataWritten)
+        {
+            return WindowsReleaseExitCodes.MetadataWriteFailure;
+        }
+
+        return buildExitCode;
     }
 }
 
@@ -141,8 +193,11 @@ public static class WindowsReleaseExitCodes
     public const int BuildFailed = 30;
     public const int BuildCancelled = 31;
     public const int BuildUnknownResult = 32;
+    public const int BuildErrorsRecorded = 33;
     public const int MetadataWriteFailure = 40;
     public const int BuildReportWriteFailure = 41;
+    public const int BuildReportDetailsWriteFailure = 42;
+    public const int BuildReportCountMismatch = 43;
     public const int InternalException = 50;
 
     public static int[] All =>
@@ -151,7 +206,9 @@ public static class WindowsReleaseExitCodes
             Success, InvalidArguments, UnsupportedConfiguration, ActiveBuildTargetMismatch,
             UnityVersionMismatch, SceneContractMismatch, PlayerSettingsContractMismatch,
             SettingsApplyFailure, SettingsRestoreFailure, BuildFailed, BuildCancelled,
-            BuildUnknownResult, MetadataWriteFailure, BuildReportWriteFailure, InternalException,
+            BuildUnknownResult, BuildErrorsRecorded, MetadataWriteFailure,
+            BuildReportWriteFailure, BuildReportDetailsWriteFailure,
+            BuildReportCountMismatch, InternalException,
         };
 }
 
@@ -175,9 +232,29 @@ public struct ReleaseSettingsSnapshot
 
 public static class WindowsReleaseSettingsTransaction
 {
-    public static int Run(IWindowsReleaseSettings settings, Func<int> build)
+    public static int Run(
+        IWindowsReleaseSettings settings,
+        Func<int> build,
+        ReleaseSettingsTransactionRecordV1 record = null)
     {
         var snapshot = settings.Capture();
+        if (record != null)
+        {
+            record.originalSettings = snapshot;
+            record.requiredSettings = new ReleaseSettingsSnapshot
+            {
+                backend = WindowsReleaseBuildPolicy.Backend,
+                stripping = WindowsReleaseBuildPolicy.Stripping,
+                playerLog = WindowsReleaseBuildPolicy.PlayerLogEnabled,
+                warningStackTrace = WindowsReleaseBuildPolicy.WarningStackTrace,
+            };
+            record.backendChanged = snapshot.backend != WindowsReleaseBuildPolicy.Backend;
+            record.strippingChanged = snapshot.stripping != WindowsReleaseBuildPolicy.Stripping;
+            record.playerLogChanged =
+                snapshot.playerLog != WindowsReleaseBuildPolicy.PlayerLogEnabled;
+            record.warningStackTraceChanged =
+                snapshot.warningStackTrace != WindowsReleaseBuildPolicy.WarningStackTrace;
+        }
         var result = WindowsReleaseExitCodes.InternalException;
         var restoreRequired = true;
         try
@@ -194,10 +271,18 @@ public static class WindowsReleaseSettingsTransaction
                 {
                     result = WindowsReleaseExitCodes.SettingsApplyFailure;
                 }
+                if (record != null)
+                {
+                    record.appliedVerification = settings.IsRequired();
+                }
             }
             catch
             {
                 result = WindowsReleaseExitCodes.SettingsApplyFailure;
+                if (record != null)
+                {
+                    record.appliedVerification = false;
+                }
             }
 
             if (result != WindowsReleaseExitCodes.SettingsApplyFailure)
@@ -213,18 +298,39 @@ public static class WindowsReleaseSettingsTransaction
         {
             if (restoreRequired)
             {
+                if (record != null)
+                {
+                    record.restoreAttempted = true;
+                }
                 try
                 {
                     settings.Restore(snapshot);
-                    if (!settings.IsRestored(snapshot))
+                    var restored = settings.IsRestored(snapshot);
+                    if (record != null)
+                    {
+                        record.restoredVerification = restored;
+                        record.restoreResult = restored ? "Restored" : "VerificationFailed";
+                    }
+                    if (!restored)
                     {
                         result = WindowsReleaseExitCodes.SettingsRestoreFailure;
                     }
                 }
                 catch
                 {
+                    if (record != null)
+                    {
+                        record.restoredVerification = false;
+                        record.restoreResult = "Exception";
+                    }
                     result = WindowsReleaseExitCodes.SettingsRestoreFailure;
                 }
+            }
+            else if (record != null)
+            {
+                record.restoreAttempted = false;
+                record.restoredVerification = true;
+                record.restoreResult = "NotRequired";
             }
         }
 
@@ -233,7 +339,23 @@ public static class WindowsReleaseSettingsTransaction
 }
 
 [Serializable]
-public sealed class WindowsReleaseMetadataV1
+public sealed class ReleaseSettingsTransactionRecordV1
+{
+    public string schemaVersion = "1.0";
+    public ReleaseSettingsSnapshot originalSettings;
+    public ReleaseSettingsSnapshot requiredSettings;
+    public bool backendChanged;
+    public bool strippingChanged;
+    public bool playerLogChanged;
+    public bool warningStackTraceChanged;
+    public bool appliedVerification;
+    public bool restoreAttempted;
+    public string restoreResult;
+    public bool restoredVerification;
+}
+
+[Serializable]
+public sealed class WindowsReleaseMetadataV2
 {
     public string schemaVersion;
     public string runId;
@@ -278,9 +400,13 @@ public sealed class WindowsReleaseMetadataV1
     public int errorCount;
     public ulong totalSizeBytes;
     public double durationSeconds;
-    public string payloadManifest;
-    public string payloadManifestSha256;
-    public int payloadFileCount;
+    public string buildReportSummaryFile;
+    public string buildReportDetailsFile;
+    public bool zeroErrorGatePassed;
+    public bool metadataReportCountMatched;
+    public bool structuredErrorCountMatched;
+    public int cSharpExitCode;
+    public string cSharpExitName;
     public string buildStartedUtc;
     public string buildCompletedUtc;
 }

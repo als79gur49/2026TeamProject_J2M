@@ -28,11 +28,20 @@ $script:ReleaseExitCodes = [ordered]@{
     PromotionFailure = 110
     ArtifactQuarantined = 111
     WrapperInternalError = 112
+    BuildEvidenceFailure = 113
+    ArtifactProvenanceFailure = 114
 }
 $script:ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC"
 $script:ConfigurationPathName = "Windows-x64-NonDevelopment-Mono"
-$script:MetadataSchemaVersion = "1.0"
-$script:ControlFileNames = @("files.sha256", "files.sha256.sha256", "SUCCESS.json")
+$script:MetadataSchemaVersion = "2.0"
+$script:ReportSchemaVersion = "1.0"
+$script:ProvenanceSchemaVersion = "1.0"
+$script:ControlFileNames = @(
+    "files.sha256",
+    "files.sha256.sha256",
+    "artifact-provenance.json",
+    "SUCCESS.json"
+)
 
 function Get-ReleaseExitCodes { return $script:ReleaseExitCodes }
 
@@ -98,6 +107,7 @@ function Get-ReleaseProcessGateResult {
     $byId = @{}
     foreach ($process in @($Processes)) { $byId[[int]$process.ProcessId] = $process }
     $rejected = @()
+    $accepted = @()
     foreach ($process in @($Processes)) {
         $name = [string]$process.Name
         if ($name -ieq "VectorQuake.exe") {
@@ -112,7 +122,16 @@ function Get-ReleaseProcessGateResult {
         }
         if ($name -ieq "Unity.exe") {
             if ($null -ne $AllowedUnityPid -and
-                [int]$process.ProcessId -eq [int]$AllowedUnityPid) { continue }
+                [int]$process.ProcessId -eq [int]$AllowedUnityPid) {
+                $accepted += [pscustomobject][ordered]@{
+                    processId = [int]$process.ProcessId
+                    parentProcessId = [int]$process.ParentProcessId
+                    name = $name
+                    commandLine = [string]$process.CommandLine
+                    attribution = "AllowedBuildUnity"
+                }
+                continue
+            }
             $command = [string]$process.CommandLine
             $attributed = $false
             foreach ($familyPath in @($RepositoryFamilyPaths)) {
@@ -156,6 +175,13 @@ function Get-ReleaseProcessGateResult {
                     $parentId -eq [int]$AllowedUnityPid) {
                     # Unity's own CrashHandler is an expected direct child of the
                     # one explicitly allowed build process.
+                    $accepted += [pscustomobject][ordered]@{
+                        processId = [int]$process.ProcessId
+                        parentProcessId = $parentId
+                        name = $name
+                        commandLine = [string]$process.CommandLine
+                        attribution = "AllowedBuildCrashHandler"
+                    }
                     continue
                 }
                 $parentCommand = [string]$parent.CommandLine
@@ -182,11 +208,21 @@ function Get-ReleaseProcessGateResult {
                     commandLine = [string]$process.CommandLine
                     reason = "CrashHandlerParentUnattributed"
                 }
+            } else {
+                $accepted += [pscustomobject][ordered]@{
+                    processId = [int]$process.ProcessId
+                    parentProcessId = $parentId
+                    name = $name
+                    commandLine = [string]$process.CommandLine
+                    parentName = [string]$parent.Name
+                    attribution = "ClearlyAttributedOtherProduct"
+                }
             }
         }
     }
     return [pscustomobject]@{
         Allowed = $rejected.Count -eq 0
+        AcceptedProcesses = @($accepted)
         RejectedProcesses = @($rejected)
     }
 }
@@ -207,14 +243,152 @@ function Write-ProcessGateDiagnostics {
             [int]$AllowedUnityPid
         } else { $null }
         allowed = [bool]$GateResult.Allowed
+        acceptedProcesses = @($GateResult.AcceptedProcesses)
         rejectedProcesses = @($GateResult.RejectedProcesses)
     } | ConvertTo-Json -Depth 8 |
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
+function Write-PrivateJson {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Value)
+    New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
+    $Value | ConvertTo-Json -Depth 12 |
+        Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
+function Write-WrapperLog {
+    param([string]$Path, [string]$Stage, [string]$Message)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
+    Add-Content -LiteralPath $Path -Encoding UTF8 -Value (
+        "{0} [{1}] {2}" -f [DateTime]::UtcNow.ToString("o"), $Stage, $Message)
+}
+
 function Get-Sha256 {
     param([Parameter(Mandatory)][string]$Path)
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Test-JsonProperty {
+    param([Parameter(Mandatory)]$Value, [Parameter(Mandatory)][string]$Name)
+    return $null -ne $Value.PSObject.Properties[$Name]
+}
+
+function New-BuildEvidenceResult {
+    param([bool]$Allowed, [string]$Reason, $Metadata = $null,
+        $Summary = $null, $Details = $null)
+    return [pscustomobject]@{
+        Allowed = $Allowed
+        Reason = $Reason
+        Metadata = $Metadata
+        Summary = $Summary
+        Details = $Details
+    }
+}
+
+function Test-BuildEvidence {
+    param(
+        [Parameter(Mandatory)][string]$MetadataPath,
+        [Parameter(Mandatory)][string]$SummaryPath,
+        [Parameter(Mandatory)][string]$DetailsPath
+    )
+    foreach ($item in @(
+        @{ Path = $MetadataPath; Reason = "MetadataMissing" },
+        @{ Path = $SummaryPath; Reason = "ReportSummaryMissing" },
+        @{ Path = $DetailsPath; Reason = "ReportDetailsMissing" }
+    )) {
+        if (-not (Test-Path -LiteralPath $item.Path -PathType Leaf)) {
+            return New-BuildEvidenceResult $false $item.Reason
+        }
+    }
+
+    try {
+        $metadata = Get-Content -LiteralPath $MetadataPath -Raw | ConvertFrom-Json
+        $summary = Get-Content -LiteralPath $SummaryPath -Raw | ConvertFrom-Json
+        $details = Get-Content -LiteralPath $DetailsPath -Raw | ConvertFrom-Json
+    } catch {
+        return New-BuildEvidenceResult $false "EvidenceJsonInvalid"
+    }
+
+    if ($metadata.schemaVersion -cne $script:MetadataSchemaVersion -or
+        $summary.schemaVersion -cne $script:ReportSchemaVersion -or
+        $details.schemaVersion -cne $script:ReportSchemaVersion) {
+        return New-BuildEvidenceResult $false "EvidenceSchemaMismatch" `
+            $metadata $summary $details
+    }
+    foreach ($required in @(
+        @{ Value = $metadata; Name = "buildResult"; Reason = "MetadataResultMissing" },
+        @{ Value = $metadata; Name = "errorCount"; Reason = "MetadataErrorCountMissing" },
+        @{ Value = $metadata; Name = "zeroErrorGatePassed"; Reason = "ZeroErrorGateMissing" },
+        @{ Value = $metadata; Name = "metadataReportCountMatched";
+            Reason = "MetadataCountGateMissing" },
+        @{ Value = $metadata; Name = "structuredErrorCountMatched";
+            Reason = "StructuredCountGateMissing" },
+        @{ Value = $summary; Name = "result"; Reason = "ReportResultMissing" },
+        @{ Value = $summary; Name = "totalErrors"; Reason = "ReportErrorCountMissing" },
+        @{ Value = $summary; Name = "errorRecordCount"; Reason = "SummaryRecordCountMissing" },
+        @{ Value = $summary; Name = "detailsFile"; Reason = "DetailsReferenceMissing" },
+        @{ Value = $summary; Name = "detailsSha256"; Reason = "DetailsHashMissing" },
+        @{ Value = $details; Name = "totalErrors"; Reason = "DetailsTotalErrorsMissing" },
+        @{ Value = $details; Name = "errorRecordCount"; Reason = "DetailsRecordCountMissing" },
+        @{ Value = $details; Name = "steps"; Reason = "DetailsStepsMissing" }
+    )) {
+        if (-not (Test-JsonProperty $required.Value $required.Name)) {
+            return New-BuildEvidenceResult $false $required.Reason `
+                $metadata $summary $details
+        }
+    }
+    if ([string]$summary.detailsFile -cne [IO.Path]::GetFileName($DetailsPath)) {
+        return New-BuildEvidenceResult $false "DetailsReferenceMismatch" `
+            $metadata $summary $details
+    }
+    if ([string]$summary.detailsSha256 -cne (Get-Sha256 $DetailsPath)) {
+        return New-BuildEvidenceResult $false "DetailsHashMismatch" `
+            $metadata $summary $details
+    }
+    if ([string]$metadata.buildResult -cne "Succeeded" -or
+        [string]$summary.result -cne "Succeeded" -or
+        [string]$details.result -cne "Succeeded") {
+        return New-BuildEvidenceResult $false "BuildResultNotSucceeded" `
+            $metadata $summary $details
+    }
+    if (-not $metadata.zeroErrorGatePassed -or
+        -not $metadata.metadataReportCountMatched -or
+        -not $metadata.structuredErrorCountMatched) {
+        return New-BuildEvidenceResult $false "MetadataGateNotPassed" `
+            $metadata $summary $details
+    }
+
+    $metadataErrors = [int]$metadata.errorCount
+    $reportErrors = [int]$summary.totalErrors
+    $detailsTotalErrors = [int]$details.totalErrors
+    $summaryRecords = [int]$summary.errorRecordCount
+    $detailsRecords = [int]$details.errorRecordCount
+    if ($metadataErrors -ne $reportErrors) {
+        return New-BuildEvidenceResult $false "MetadataReportCountMismatch" `
+            $metadata $summary $details
+    }
+    if ($detailsTotalErrors -ne $reportErrors -or
+        $summaryRecords -ne $reportErrors -or
+        $detailsRecords -ne $reportErrors) {
+        return New-BuildEvidenceResult $false "StructuredErrorCountMismatch" `
+            $metadata $summary $details
+    }
+    if ($reportErrors -ne 0) {
+        return New-BuildEvidenceResult $false "NonzeroBuildErrors" `
+            $metadata $summary $details
+    }
+    return New-BuildEvidenceResult $true "Accepted" $metadata $summary $details
+}
+
+function Get-BuildEvidenceGateDecision {
+    param([Parameter(Mandatory)]$EvidenceResult)
+    return [pscustomobject]@{
+        CreateSuccess = [bool]$EvidenceResult.Allowed
+        Promote = [bool]$EvidenceResult.Allowed
+        Quarantine = -not [bool]$EvidenceResult.Allowed
+        Reason = [string]$EvidenceResult.Reason
+    }
 }
 
 function Get-PayloadFiles {
@@ -293,6 +467,96 @@ function Test-PayloadManifest {
     return $selfLine -ceq "$(Get-Sha256 -Path $manifestPath)  files.sha256"
 }
 
+function New-ArtifactProvenance {
+    param(
+        [Parameter(Mandatory)][string]$ArtifactRoot,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$ArtifactId,
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$SourceTree,
+        [Parameter(Mandatory)][string]$BuildMetadataPath,
+        [Parameter(Mandatory)][string]$BuildReportSummaryPath,
+        [Parameter(Mandatory)][string]$BuildReportDetailsPath,
+        [Parameter(Mandatory)]$Manifest,
+        [Parameter(Mandatory)][string]$EntrySourceSha256,
+        [Parameter(Mandatory)][string]$PolicySourceSha256,
+        [Parameter(Mandatory)][string]$WrapperSourceSha256
+    )
+    $provenance = [ordered]@{
+        schemaVersion = $script:ProvenanceSchemaVersion
+        runId = $RunId
+        artifactId = $ArtifactId
+        sourceSha = $SourceSha
+        sourceTree = $SourceTree
+        buildMetadataFile = Get-NormalizedRelativePath $ArtifactRoot $BuildMetadataPath
+        buildMetadataSha256 = Get-Sha256 $BuildMetadataPath
+        buildReportSummaryFile =
+            Get-NormalizedRelativePath $ArtifactRoot $BuildReportSummaryPath
+        buildReportSummarySha256 = Get-Sha256 $BuildReportSummaryPath
+        buildReportDetailsFile = [IO.Path]::GetFileName($BuildReportDetailsPath)
+        buildReportDetailsSha256 = Get-Sha256 $BuildReportDetailsPath
+        payloadManifestFile = "files.sha256"
+        payloadManifestSha256 = [string]$Manifest.Sha256
+        payloadFileCount = [int]$Manifest.FileCount
+        zeroErrorGatePassed = $true
+        metadataReportCountMatched = $true
+        structuredErrorCountMatched = $true
+        entrySourceSha256 = $EntrySourceSha256
+        policySourceSha256 = $PolicySourceSha256
+        wrapperSourceSha256 = $WrapperSourceSha256
+        createdUtc = [DateTime]::UtcNow.ToString("o")
+    }
+    $path = Join-Path $ArtifactRoot "artifact-provenance.json"
+    $provenance | ConvertTo-Json -Depth 8 |
+        Set-Content -LiteralPath $path -Encoding UTF8
+    return [pscustomobject]$provenance
+}
+
+function Test-ArtifactProvenance {
+    param(
+        [Parameter(Mandatory)][string]$ArtifactRoot,
+        [string]$BuildReportDetailsPath = "",
+        [Parameter(Mandatory)][string]$ExpectedSourceSha,
+        [Parameter(Mandatory)][string]$ExpectedSourceTree
+    )
+    $path = Join-Path $ArtifactRoot "artifact-provenance.json"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
+    try { $value = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json }
+    catch { return $false }
+    if ($value.schemaVersion -cne $script:ProvenanceSchemaVersion -or
+        $value.sourceSha -cne $ExpectedSourceSha -or
+        $value.sourceTree -cne $ExpectedSourceTree -or
+        -not $value.zeroErrorGatePassed -or
+        -not $value.metadataReportCountMatched -or
+        -not $value.structuredErrorCountMatched) { return $false }
+
+    foreach ($binding in @(
+        @{ File = [string]$value.buildMetadataFile
+            Hash = [string]$value.buildMetadataSha256 },
+        @{ File = [string]$value.buildReportSummaryFile
+            Hash = [string]$value.buildReportSummarySha256 },
+        @{ File = [string]$value.payloadManifestFile
+            Hash = [string]$value.payloadManifestSha256 }
+    )) {
+        $candidate = Join-Path $ArtifactRoot $binding.File.Replace('/', '\')
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf) -or
+            (Get-Sha256 $candidate) -cne $binding.Hash) { return $false }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($BuildReportDetailsPath)) {
+        if (-not (Test-Path -LiteralPath $BuildReportDetailsPath -PathType Leaf) -or
+            [IO.Path]::GetFileName($BuildReportDetailsPath) -cne
+                [string]$value.buildReportDetailsFile -or
+            (Get-Sha256 $BuildReportDetailsPath) -cne
+                [string]$value.buildReportDetailsSha256) { return $false }
+    }
+    try {
+        $manifestEntries = @(Read-PayloadManifest `
+            (Join-Path $ArtifactRoot ([string]$value.payloadManifestFile)))
+    } catch { return $false }
+    return [int]$value.payloadFileCount -eq $manifestEntries.Count -and
+        (Test-PayloadManifest $ArtifactRoot)
+}
+
 function New-SuccessControl {
     param(
         [Parameter(Mandatory)][string]$PayloadRoot,
@@ -300,7 +564,8 @@ function New-SuccessControl {
         [Parameter(Mandatory)][string]$ArtifactId,
         [Parameter(Mandatory)][string]$SourceSha,
         [Parameter(Mandatory)][string]$SourceTree,
-        [Parameter(Mandatory)]$Manifest
+        [Parameter(Mandatory)]$Manifest,
+        [Parameter(Mandatory)]$Provenance
     )
     $control = [ordered]@{
         schemaVersion = $script:MetadataSchemaVersion
@@ -312,6 +577,9 @@ function New-SuccessControl {
         payloadManifest = "files.sha256"
         payloadManifestSha256 = $Manifest.Sha256
         payloadFileCount = [int]$Manifest.FileCount
+        artifactProvenanceFile = "artifact-provenance.json"
+        artifactProvenanceSha256 =
+            Get-Sha256 (Join-Path $PayloadRoot "artifact-provenance.json")
         promotionReady = $true
         createdUtc = [DateTime]::UtcNow.ToString("o")
     }
@@ -331,15 +599,18 @@ function Test-SuccessControl {
     try { $success = Get-Content -LiteralPath $successPath -Raw | ConvertFrom-Json }
     catch { return $false }
     $manifestPath = Join-Path $PayloadRoot ([string]$success.payloadManifest)
+    $provenancePath = Join-Path $PayloadRoot ([string]$success.artifactProvenanceFile)
     if ($success.schemaVersion -cne $script:MetadataSchemaVersion -or
         -not $success.promotionReady -or
         $success.sourceSha -cne $ExpectedSourceSha -or
         $success.sourceTree -cne $ExpectedSourceTree -or
-        -not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { return $false }
+        -not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) { return $false }
     try { $entries = @(Read-PayloadManifest -ManifestPath $manifestPath) }
     catch { return $false }
     return $success.payloadManifestSha256 -ceq (Get-Sha256 -Path $manifestPath) -and
         [int]$success.payloadFileCount -eq $entries.Count -and
+        $success.artifactProvenanceSha256 -ceq (Get-Sha256 $provenancePath) -and
         (Test-PayloadManifest -PayloadRoot $PayloadRoot)
 }
 
@@ -476,7 +747,8 @@ function Get-RepositoryFamilyPaths {
 
 function Write-FailureEvidence {
     param([string]$Path, [string]$Stage, [int]$ExitCode, [string]$SourceSha,
-        [string]$RunId, [string]$PrivateLogPath, [string]$PrivateDiagnosticsPath = "")
+        [string]$RunId, [string]$PrivateLogPath, [string]$PrivateDiagnosticsPath = "",
+        [Nullable[int]]$UnityExitCode = $null, [string]$BuildEvidenceReason = "")
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
     [ordered]@{
         failureStage = $Stage
@@ -485,6 +757,8 @@ function Write-FailureEvidence {
         runId = $RunId
         privateLogPath = $PrivateLogPath
         privateDiagnosticsPath = $PrivateDiagnosticsPath
+        unityExitCode = if ($null -ne $UnityExitCode) { [int]$UnityExitCode } else { $null }
+        buildEvidenceReason = $BuildEvidenceReason
         timestampUtc = [DateTime]::UtcNow.ToString("o")
         deployable = $false
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Path "FAILURE.json") -Encoding UTF8
@@ -506,6 +780,9 @@ function Invoke-WindowsReleasePipeline {
     $final = ""
     $privateLog = ""
     $processDiagnosticsPath = ""
+    $wrapperLog = ""
+    $unityExitCode = $null
+    $buildEvidenceReason = ""
     $exitCode = $script:ReleaseExitCodes.WrapperInternalError
     try {
         if (-not (Test-Path -LiteralPath $UnityExe -PathType Leaf)) {
@@ -517,7 +794,10 @@ function Invoke-WindowsReleasePipeline {
         $parent = Join-Path (Join-Path $OutputRoot $sourceSha) $script:ConfigurationPathName
         $privateRoot = Join-Path $parent ".private\$RunId"
         $privateLog = Join-Path $privateRoot "UnityEditor.log"
-        $processDiagnosticsPath = Join-Path $privateRoot "process-gate-rejection.json"
+        $wrapperLog = Join-Path $privateRoot "wrapper.log"
+        $processDiagnosticsPath = Join-Path $privateRoot "process-preflight.json"
+        New-Item -ItemType Directory -Path $privateRoot -Force | Out-Null
+        Write-WrapperLog $wrapperLog $stage "Pipeline started for $sourceSha."
         $canaries = @(
             "ProjectSettings/ProjectVersion.txt",
             "ProjectSettings/ProjectSettings.asset",
@@ -530,6 +810,8 @@ function Invoke-WindowsReleasePipeline {
             "Tools/Build/Build-WindowsRelease.ps1"
         )
         $invocationPre = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
+        Write-PrivateJson (Join-Path $privateRoot "invocation-source-pre.json") `
+            $invocationPre
         if (-not (Test-GitState -Snapshot $invocationPre -AllowedRoots $AllowUntrackedRoot)) {
             $exitCode = if (@($invocationPre.Tracked).Count -or @($invocationPre.Staged).Count) {
                 $script:ReleaseExitCodes.GitPreflightFailure
@@ -541,9 +823,9 @@ function Invoke-WindowsReleasePipeline {
         $processes = @(Get-CimInstance Win32_Process)
         $preflightProcessGate = Get-ReleaseProcessGateResult `
             -Processes $processes -RepositoryFamilyPaths $family
+        Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "preflight" `
+            -GateResult $preflightProcessGate
         if (-not $preflightProcessGate.Allowed) {
-            Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "preflight" `
-                -GateResult $preflightProcessGate
             $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
             throw "Repository process gate failed."
         }
@@ -573,6 +855,7 @@ function Invoke-WindowsReleasePipeline {
             throw "Detached worktree creation failed: $($_.Exception.Message)"
         }
         $buildPre = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
+        Write-PrivateJson (Join-Path $privateRoot "build-source-pre.json") $buildPre
         if (-not (Test-GitState -Snapshot $buildPre -RequireNoUntracked)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source is not clean."
@@ -583,6 +866,8 @@ function Invoke-WindowsReleasePipeline {
         New-Item -ItemType Directory -Path $privateRoot -Force | Out-Null
         $metadataPath = Join-Path $payload "build-metadata.json"
         $reportPath = Join-Path $payload "build-report-summary.json"
+        $reportDetailsPath = Join-Path $privateRoot "build-report-details.json"
+        $settingsTransactionPath = Join-Path $privateRoot "settings-transaction.json"
         $exePath = Join-Path $payload "VectorQuake.exe"
 
         $stage = "unity"
@@ -593,8 +878,12 @@ function Invoke-WindowsReleasePipeline {
             "-releaseOutputPath", $exePath,
             "-releaseRunId", $RunId,
             "-releaseArtifactId", $artifactId,
+            "-releaseSourceSha", $sourceSha,
+            "-releaseSourceTree", $sourceTree,
             "-releaseIntermediateMetadataPath", $metadataPath,
             "-releaseBuildReportPath", $reportPath,
+            "-releaseBuildReportDetailsPath", $reportDetailsPath,
+            "-releaseSettingsTransactionPath", $settingsTransactionPath,
             "-logFile", $privateLog
         )
         $unityProcess = Start-Process -FilePath $UnityExe -ArgumentList $unityArguments -PassThru
@@ -602,22 +891,47 @@ function Invoke-WindowsReleasePipeline {
         $postStartProcessGate = Get-ReleaseProcessGateResult `
             -Processes $processesAfterStart -RepositoryFamilyPaths $family `
             -AllowedUnityPid $unityProcess.Id
+        $processDiagnosticsPath = Join-Path $privateRoot "process-poststart.json"
+        Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "post-unity-start" `
+            -GateResult $postStartProcessGate -AllowedUnityPid $unityProcess.Id
         if (-not $postStartProcessGate.Allowed) {
-            Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "post-unity-start" `
-                -GateResult $postStartProcessGate -AllowedUnityPid $unityProcess.Id
             try { Stop-Process -Id $unityProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
             $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
             throw "Process gate changed after Unity start."
         }
         $unityProcess.WaitForExit()
-        if ($unityProcess.ExitCode -ne 0) {
+        $unityExitCode = [int]$unityProcess.ExitCode
+        Write-WrapperLog $wrapperLog "unity" "Unity exited with code $unityExitCode."
+        $postBuildProcessGate = Get-ReleaseProcessGateResult `
+            -Processes @(Get-CimInstance Win32_Process) -RepositoryFamilyPaths $family
+        $processDiagnosticsPath = Join-Path $privateRoot "process-postbuild.json"
+        Write-ProcessGateDiagnostics -Path $processDiagnosticsPath -Phase "post-build" `
+            -GateResult $postBuildProcessGate
+        if (-not $postBuildProcessGate.Allowed) {
+            $exitCode = $script:ReleaseExitCodes.ProcessGateFailure
+            throw "Process gate changed after Unity exit."
+        }
+
+        $stage = "build-evidence"
+        $buildEvidence = Test-BuildEvidence -MetadataPath $metadataPath `
+            -SummaryPath $reportPath -DetailsPath $reportDetailsPath
+        $buildEvidenceReason = [string]$buildEvidence.Reason
+        $decision = Get-BuildEvidenceGateDecision $buildEvidence
+        if (-not $decision.CreateSuccess -or -not $decision.Promote) {
+            $exitCode = $script:ReleaseExitCodes.BuildEvidenceFailure
+            throw "Build evidence rejected: $buildEvidenceReason."
+        }
+        if ($unityExitCode -ne 0) {
             $exitCode = $script:ReleaseExitCodes.UnityInvocationFailure
-            throw "Unity returned exit code $($unityProcess.ExitCode)."
+            throw "Unity returned exit code $unityExitCode."
         }
 
         $stage = "drift"
         $invocationPost = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
         $buildPost = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
+        Write-PrivateJson (Join-Path $privateRoot "invocation-source-post.json") `
+            $invocationPost
+        Write-PrivateJson (Join-Path $privateRoot "build-source-post.json") $buildPost
         if (-not (Test-SnapshotEquality $invocationPre $invocationPost) -or
             -not (Test-SnapshotEquality $buildPre $buildPost)) {
             $exitCode = $script:ReleaseExitCodes.SourceDriftDetected
@@ -661,9 +975,25 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.ManifestVerificationFailure
             throw "Payload manifest verification failed."
         }
+        $stage = "artifact-provenance"
+        $provenance = New-ArtifactProvenance -ArtifactRoot $staging `
+            -RunId $RunId -ArtifactId $artifactId -SourceSha $sourceSha `
+            -SourceTree $sourceTree -BuildMetadataPath $metadataPath `
+            -BuildReportSummaryPath $reportPath `
+            -BuildReportDetailsPath $reportDetailsPath -Manifest $manifest `
+            -EntrySourceSha256 $metadata.entrySourceSha256 `
+            -PolicySourceSha256 $metadata.policySourceSha256 `
+            -WrapperSourceSha256 $metadata.wrapperSourceSha256
+        if (-not (Test-ArtifactProvenance -ArtifactRoot $staging `
+                -BuildReportDetailsPath $reportDetailsPath `
+                -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree)) {
+            $exitCode = $script:ReleaseExitCodes.ArtifactProvenanceFailure
+            throw "Artifact provenance binding failed."
+        }
         $stage = "success-control"
         New-SuccessControl -PayloadRoot $staging -RunId $RunId -ArtifactId $artifactId `
-            -SourceSha $sourceSha -SourceTree $sourceTree -Manifest $manifest | Out-Null
+            -SourceSha $sourceSha -SourceTree $sourceTree -Manifest $manifest `
+            -Provenance $provenance | Out-Null
         if (-not (Test-SuccessControl -PayloadRoot $staging `
                 -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree)) {
             $exitCode = $script:ReleaseExitCodes.ControlFileConsistencyFailure
@@ -677,12 +1007,16 @@ function Invoke-WindowsReleasePipeline {
         }
         Move-Item -LiteralPath $staging -Destination $final
         if (-not (Test-SuccessControl -PayloadRoot $final `
+                -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree) -or
+            -not (Test-ArtifactProvenance -ArtifactRoot $final `
+                -BuildReportDetailsPath $reportDetailsPath `
                 -ExpectedSourceSha $sourceSha -ExpectedSourceTree $sourceTree)) {
             $exitCode = $script:ReleaseExitCodes.PromotionFailure
             throw "Final verification after promotion failed."
         }
         Write-Host "WINDOWS_X64_NONDEVELOPMENT_MONO_RC_BUILD_PASS"
         Write-Host "FinalArtifact=$final"
+        Write-WrapperLog $wrapperLog "complete" "Artifact promoted and reverified."
         return 0
     }
     catch {
@@ -691,6 +1025,8 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.GitPreflightFailure
         }
         Write-Error "[$stage][$exitCode] $($_.Exception.Message)"
+        Write-WrapperLog $wrapperLog $stage `
+            "Pipeline failed with wrapper code ${exitCode}: $($_.Exception.Message)"
         $quarantineCandidate = if (-not [string]::IsNullOrWhiteSpace($staging) -and
             (Test-Path -LiteralPath $staging)) { $staging } elseif (
             $stage -eq "promotion" -and
@@ -702,7 +1038,9 @@ function Invoke-WindowsReleasePipeline {
                 if (-not (Test-Path -LiteralPath $failedPath)) {
                     Write-FailureEvidence -Path $quarantineCandidate -Stage $stage -ExitCode $exitCode `
                         -SourceSha $sourceSha -RunId $RunId -PrivateLogPath $privateLog `
-                        -PrivateDiagnosticsPath $processDiagnosticsPath
+                        -PrivateDiagnosticsPath $processDiagnosticsPath `
+                        -UnityExitCode $unityExitCode `
+                        -BuildEvidenceReason $buildEvidenceReason
                     New-Item -ItemType Directory -Path (Split-Path $failedPath -Parent) `
                         -Force | Out-Null
                     Move-Item -LiteralPath $quarantineCandidate -Destination $failedPath

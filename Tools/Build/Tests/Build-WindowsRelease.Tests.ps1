@@ -37,6 +37,52 @@ function New-Process {
         ProcessId = $Id; ParentProcessId = $Parent; Name = $Name; CommandLine = $Command
     }
 }
+function Write-JsonFixture {
+    param([string]$Path, $Value)
+    New-Item -ItemType Directory -Path (Split-Path $Path -Parent) -Force | Out-Null
+    $Value | ConvertTo-Json -Depth 20 |
+        Set-Content -LiteralPath $Path -Encoding UTF8
+}
+function New-ZeroErrorEvidenceFixture {
+    param([string]$Root)
+    $metadataPath = Join-Path $Root "payload\build-metadata.json"
+    $summaryPath = Join-Path $Root "payload\build-report-summary.json"
+    $detailsPath = Join-Path $Root "private\build-report-details.json"
+    Write-JsonFixture $detailsPath ([ordered]@{
+        schemaVersion = "1.0"
+        result = "Succeeded"
+        totalErrors = 0
+        totalWarnings = 0
+        errorRecordCount = 0
+        warningRecordCount = 0
+        steps = @()
+    })
+    Write-JsonFixture $metadataPath ([ordered]@{
+        schemaVersion = "2.0"
+        buildResult = "Succeeded"
+        errorCount = 0
+        warningCount = 0
+        zeroErrorGatePassed = $true
+        metadataReportCountMatched = $true
+        structuredErrorCountMatched = $true
+    })
+    Write-JsonFixture $summaryPath ([ordered]@{
+        schemaVersion = "1.0"
+        result = "Succeeded"
+        totalErrors = 0
+        totalWarnings = 0
+        detailsFile = "build-report-details.json"
+        detailsSha256 = Get-Sha256 $detailsPath
+        errorRecordCount = 0
+        warningRecordCount = 0
+        distinctErrorMessageHashes = @()
+    })
+    return [pscustomobject]@{
+        MetadataPath = $metadataPath
+        SummaryPath = $summaryPath
+        DetailsPath = $detailsPath
+    }
+}
 
 $approved = @(
     "TestLogs/CampaignLaunchOwnershipE2E",
@@ -201,6 +247,120 @@ try {
         Assert-Equal "VectorQuakePlayerRunning" $record.rejectedProcesses[0].reason
     }
 
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "evidence")
+    Invoke-Case "Succeeded plus zero errors is accepted" {
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath
+        Assert-True $result.Allowed
+        Assert-Equal "Accepted" $result.Reason
+    }
+    Invoke-Case "Succeeded plus one error is rejected" {
+        $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
+        $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
+        $details = Get-Content $evidence.DetailsPath -Raw | ConvertFrom-Json
+        $metadata.errorCount = 1
+        $summary.totalErrors = 1
+        $summary.errorRecordCount = 1
+        $details.totalErrors = 1
+        $details.errorRecordCount = 1
+        Write-JsonFixture $evidence.MetadataPath $metadata
+        Write-JsonFixture $evidence.DetailsPath $details
+        $summary.detailsSha256 = Get-Sha256 $evidence.DetailsPath
+        Write-JsonFixture $evidence.SummaryPath $summary
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath
+        Assert-False $result.Allowed
+        Assert-Equal "NonzeroBuildErrors" $result.Reason
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "evidence-count-mismatch")
+    Invoke-Case "metadata report count mismatch is rejected" {
+        $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.errorCount = 1
+        Write-JsonFixture $evidence.MetadataPath $metadata
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath
+        Assert-False $result.Allowed
+        Assert-Equal "MetadataReportCountMismatch" $result.Reason
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "missing-metadata-count")
+    Invoke-Case "metadata missing errorCount is rejected" {
+        $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.PSObject.Properties.Remove("errorCount")
+        Write-JsonFixture $evidence.MetadataPath $metadata
+        Assert-False (Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath).Allowed
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "missing-report-count")
+    Invoke-Case "report missing totalErrors is rejected" {
+        $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
+        $summary.PSObject.Properties.Remove("totalErrors")
+        Write-JsonFixture $evidence.SummaryPath $summary
+        Assert-False (Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath).Allowed
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "missing-details")
+    Invoke-Case "details file missing is rejected" {
+        Remove-Item -LiteralPath $evidence.DetailsPath
+        Assert-False (Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath).Allowed
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "details-hash")
+    Invoke-Case "details hash mismatch is rejected" {
+        Add-Content -LiteralPath $evidence.DetailsPath -Value " "
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath
+        Assert-False $result.Allowed
+        Assert-Equal "DetailsHashMismatch" $result.Reason
+    }
+    $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "structured-count")
+    Invoke-Case "structured record count mismatch is rejected" {
+        $details = Get-Content $evidence.DetailsPath -Raw | ConvertFrom-Json
+        $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
+        $details.errorRecordCount = 1
+        Write-JsonFixture $evidence.DetailsPath $details
+        $summary.detailsSha256 = Get-Sha256 $evidence.DetailsPath
+        Write-JsonFixture $evidence.SummaryPath $summary
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath
+        Assert-False $result.Allowed
+        Assert-Equal "StructuredErrorCountMismatch" $result.Reason
+    }
+    Invoke-Case "zero-error gate decision blocks success and promotion" {
+        $decision = Get-BuildEvidenceGateDecision ([pscustomobject]@{
+            Allowed = $false
+            Reason = "NonzeroBuildErrors"
+        })
+        Assert-False $decision.CreateSuccess
+        Assert-False $decision.Promote
+        Assert-True $decision.Quarantine
+    }
+    Invoke-Case "zero-error gate failure leaves SUCCESS absent" {
+        $rejectedStage = Join-Path $temp "rejected-stage"
+        New-Item -ItemType Directory -Path $rejectedStage | Out-Null
+        $decision = Get-BuildEvidenceGateDecision ([pscustomobject]@{
+            Allowed = $false; Reason = "NonzeroBuildErrors"
+        })
+        if ($decision.CreateSuccess) {
+            Set-Content -LiteralPath (Join-Path $rejectedStage "SUCCESS.json") -Value "{}"
+        }
+        Assert-False (Test-Path -LiteralPath (Join-Path $rejectedStage "SUCCESS.json"))
+    }
+    Invoke-Case "zero-error gate failure leaves final promotion absent" {
+        $rejectedFinal = Join-Path $temp "rejected-final"
+        $decision = Get-BuildEvidenceGateDecision ([pscustomobject]@{
+            Allowed = $false; Reason = "NonzeroBuildErrors"
+        })
+        Assert-False $decision.Promote
+        Assert-False (Test-Path -LiteralPath $rejectedFinal)
+    }
+    Invoke-Case "zero-error gate failure selects quarantine" {
+        $decision = Get-BuildEvidenceGateDecision ([pscustomobject]@{
+            Allowed = $false; Reason = "NonzeroBuildErrors"
+        })
+        Assert-True $decision.Quarantine
+        Assert-Equal "NonzeroBuildErrors" $decision.Reason
+    }
+
     $payload = Join-Path $temp "payload"
     New-Item -ItemType Directory -Path (Join-Path $payload "Data") -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $payload "z.txt") -Value "z" -NoNewline
@@ -240,9 +400,52 @@ try {
         Assert-True (Test-PayloadManifest $payload)
         Assert-Equal $manifest.Sha256 (Get-Sha256 $manifest.Path)
     }
+    $provenanceEvidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "provenance-evidence")
+    Copy-Item -LiteralPath $provenanceEvidence.MetadataPath `
+        -Destination (Join-Path $payload "build-metadata.json")
+    Copy-Item -LiteralPath $provenanceEvidence.SummaryPath `
+        -Destination (Join-Path $payload "build-report-summary.json")
+    $manifest = New-PayloadManifest $payload
+    $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
+        -RunId "run" -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
+        -BuildMetadataPath (Join-Path $payload "build-metadata.json") `
+        -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
+        -BuildReportDetailsPath $provenanceEvidence.DetailsPath -Manifest $manifest `
+        -EntrySourceSha256 ("1" * 64) -PolicySourceSha256 ("2" * 64) `
+        -WrapperSourceSha256 ("3" * 64)
+    Invoke-Case "artifact provenance final binding" {
+        Assert-True (Test-ArtifactProvenance -ArtifactRoot $payload `
+            -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
+            -ExpectedSourceSha "sha" -ExpectedSourceTree "tree")
+        Assert-Equal $manifest.Sha256 $provenance.payloadManifestSha256
+        Assert-Equal $manifest.FileCount ([int]$provenance.payloadFileCount)
+    }
+    Invoke-Case "provenance hash mismatch rejection" {
+        $metadataPath = Join-Path $payload "build-metadata.json"
+        Add-Content -LiteralPath $metadataPath -Value " "
+        Assert-False (Test-ArtifactProvenance -ArtifactRoot $payload `
+            -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
+            -ExpectedSourceSha "sha" -ExpectedSourceTree "tree")
+        $metadata = Get-Content $metadataPath -Raw | ConvertFrom-Json
+        Write-JsonFixture $metadataPath $metadata
+        $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
+            -RunId "run" -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
+            -BuildMetadataPath $metadataPath `
+            -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
+            -BuildReportDetailsPath $provenanceEvidence.DetailsPath -Manifest $manifest `
+            -EntrySourceSha256 ("1" * 64) -PolicySourceSha256 ("2" * 64) `
+            -WrapperSourceSha256 ("3" * 64)
+    }
     Invoke-Case "SUCCESS consistency" {
-        New-SuccessControl $payload "run" "artifact" "sha" "tree" $manifest | Out-Null
+        New-SuccessControl $payload "run" "artifact" "sha" "tree" $manifest `
+            $provenance | Out-Null
         Assert-True (Test-SuccessControl $payload "sha" "tree")
+    }
+    Invoke-Case "SUCCESS binds artifact provenance hash" {
+        $success = Get-Content (Join-Path $payload "SUCCESS.json") -Raw | ConvertFrom-Json
+        Assert-Equal "artifact-provenance.json" $success.artifactProvenanceFile
+        Assert-Equal (Get-Sha256 (Join-Path $payload "artifact-provenance.json")) `
+            $success.artifactProvenanceSha256
     }
     Invoke-Case "SUCCESS-only staging is not success" {
         $stagingOnly = Join-Path $temp ".staging-run"
@@ -268,6 +471,14 @@ try {
         $failure = Get-Content (Join-Path $quarantine "FAILURE.json") -Raw | ConvertFrom-Json
         Assert-False $failure.deployable
         Assert-Equal 108 ([int]$failure.exitCode)
+        Assert-Equal "manifest" $failure.failureStage
+        Assert-Equal "sha" $failure.sourceSha
+        Assert-Equal "run" $failure.runId
+    }
+    Invoke-Case "wrapper CSharp and report exits remain distinct" {
+        Assert-Equal 105 (Convert-UnityExitCode 33)
+        Assert-True ((Get-ReleaseExitCodes).BuildEvidenceFailure -ge 100)
+        Assert-True (33 -lt 100)
     }
     Invoke-Case "atomic promotion planning" {
         Assert-True (Assert-OutputPlan $stage $final $detached)

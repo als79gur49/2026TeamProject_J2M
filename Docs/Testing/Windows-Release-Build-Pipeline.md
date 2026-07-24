@@ -27,6 +27,23 @@ When all effective settings already match the RC contract, the transaction skips
 both setters and restoration so absent-default ProjectSettings keys are not
 materialized as configuration drift.
 
+Build acceptance is strict:
+
+```text
+BuildResult == Succeeded
+AND BuildReport.summary.totalErrors == 0
+AND structured errorRecordCount == totalErrors
+AND C# entry exit == 0
+AND Unity process exit == 0
+AND wrapper evidence validation succeeds
+```
+
+`BuildResult.Succeeded` with one or more recorded errors exits through
+`BuildErrorsRecorded`. Settings restoration failure remains higher priority than
+that build outcome. The wrapper independently re-reads metadata, the shareable
+report summary, and private structured details before it can create
+`SUCCESS.json` or promote an artifact.
+
 ## Test-first gates
 
 Run these before any Player build:
@@ -75,10 +92,11 @@ Before Unity starts, every repository-family or unattributed `Unity.exe`, every
 `VectorQuake.exe`, and every orphan/unattributed CrashHandler is rejected. After
 the wrapper starts Unity, only that exact Unity PID and its directly parented
 `UnityCrashHandler64.exe` are added to the allow set. A CrashHandler owned by a
-different clearly identified product remains allowed. Rejections are written to
-the private external run evidence as `process-gate-rejection.json`, including PID,
-parent PID, command line, and the fail-closed reason; this file is never promoted
-into the shareable payload.
+different clearly identified product remains allowed. Accepted and rejected
+processes are written to private `process-preflight.json`,
+`process-poststart.json`, and `process-postbuild.json`, including PID, parent PID,
+classification, command line, and any fail-closed reason. These files are never
+promoted into the shareable payload.
 
 ## Provenance and output
 
@@ -103,23 +121,35 @@ Output is written outside the repository:
 ```
 
 The staging directory contains `payload/`, `files.sha256`,
-`files.sha256.sha256`, and `SUCCESS.json`. Manifest entries use relative,
-forward-slash paths and ordinal ordering. The three control files are excluded
-from the payload manifest. `SUCCESS.json` is written only after drift and
-manifest verification.
+`files.sha256.sha256`, `artifact-provenance.json`, and `SUCCESS.json`. Manifest
+entries use relative, forward-slash paths and ordinal ordering. These four
+control files are excluded from the payload manifest so the final binding is
+non-circular.
 
-`build-metadata.json` carries the versioned manifest fields as part of schema
-v1, but it does not embed the final manifest hash/count because that file itself
-is a hashed payload member. The non-circular authoritative final values are in
-`SUCCESS.json`. A staging `SUCCESS.json` is not success: only same-volume rename
-to the final run directory followed by control verification is accepted.
+`payload/build-metadata.json` schema v2 contains Unity build-time facts and no
+manifest placeholders. `payload/build-report-summary.json` schema v1 contains
+the BuildReport summary plus only the shareable structured-detail reference:
+filename, SHA-256, error/warning record counts, and distinct error message
+hashes. Full steps, original messages, normalized messages, message hashes, and
+stack text are stored in private `build-report-details.json` schema v1.
 
-Raw Unity and Player logs, absolute paths, command lines, user/machine identity,
+After manifest generation, `artifact-provenance.json` immutably binds source
+SHA/tree, metadata, report summary, private report details, payload manifest,
+zero-error/count gates, and entry/policy/wrapper source hashes. `SUCCESS.json`
+binds that provenance file and its SHA-256. A staging `SUCCESS.json` is not
+success: only same-volume rename to the final run directory followed by
+manifest, provenance, and control verification is accepted.
+
+Raw Unity and Player logs, structured BuildReport details, invocation/build
+source snapshots, absolute paths, command lines, user/machine identity,
 screenshots, and save/PlayerPrefs snapshots remain in private external evidence.
+The private run root also keeps `wrapper.log` and `settings-transaction.json`;
+the latter records original/required settings, changed fields, applied
+verification, restore attempt/result, and restored verification.
 
 ## Exit ownership
 
-C# codes occupy `0..50`; wrapper codes occupy `100..112`. Both schemas are
+C# codes occupy `0..50`; wrapper codes occupy `100..114`. Both schemas are
 constants and uniqueness-tested. Failed staging content is moved, when possible,
 under `failed/<runId>` with a non-deployable `FAILURE.json`.
 

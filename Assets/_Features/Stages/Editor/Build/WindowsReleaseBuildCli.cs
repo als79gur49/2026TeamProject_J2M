@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -14,13 +16,19 @@ public static class WindowsReleaseBuildCli
     public const string OutputPathArgument = "-releaseOutputPath";
     public const string RunIdArgument = "-releaseRunId";
     public const string ArtifactIdArgument = "-releaseArtifactId";
+    public const string SourceShaArgument = "-releaseSourceSha";
+    public const string SourceTreeArgument = "-releaseSourceTree";
     public const string MetadataPathArgument = "-releaseIntermediateMetadataPath";
     public const string BuildReportPathArgument = "-releaseBuildReportPath";
+    public const string BuildReportDetailsPathArgument = "-releaseBuildReportDetailsPath";
+    public const string SettingsTransactionPathArgument = "-releaseSettingsTransactionPath";
 
     public static readonly string[] RequiredArgumentNames =
     {
         OutputPathArgument, RunIdArgument, ArtifactIdArgument,
-        MetadataPathArgument, BuildReportPathArgument,
+        SourceShaArgument, SourceTreeArgument, MetadataPathArgument,
+        BuildReportPathArgument, BuildReportDetailsPathArgument,
+        SettingsTransactionPathArgument,
     };
 
     public static void BuildWindowsX64NonDevelopment()
@@ -86,6 +94,7 @@ public static class WindowsReleaseBuildCli
 
         var metadata = CreateMetadata(arguments);
         var settings = new UnityWindowsReleaseSettings();
+        var settingsTransaction = new ReleaseSettingsTransactionRecordV1();
         var started = DateTime.UtcNow;
         BuildReport report = null;
         var result = WindowsReleaseSettingsTransaction.Run(settings, () =>
@@ -94,42 +103,98 @@ public static class WindowsReleaseBuildCli
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
             report = BuildPipeline.BuildPlayer(
                 WindowsReleaseBuildPolicy.CreateBuildOptions(outputPath));
-            return WindowsReleaseBuildPolicy.MapBuildResult(report.summary.result);
-        });
-
-        if (report != null)
-        {
-            PopulateReport(metadata, report, started);
-            try
-            {
-                WriteJson(arguments[BuildReportPathArgument], new BuildReportSummaryV1(report));
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-                if (result == WindowsReleaseExitCodes.Success)
-                {
-                    result = WindowsReleaseExitCodes.BuildReportWriteFailure;
-                }
-            }
-        }
-
-        metadata.buildResult = ExitCodeName(result);
-        metadata.buildCompletedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+            return WindowsReleaseBuildPolicy.MapBuildResult(
+                report.summary.result, (int)report.summary.totalErrors);
+        }, settingsTransaction);
         try
         {
-            WriteJson(arguments[MetadataPathArgument], metadata);
+            WriteJson(arguments[SettingsTransactionPathArgument], settingsTransaction);
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
-            if (result == WindowsReleaseExitCodes.Success)
+        }
+
+        var summaryWritten = false;
+        var detailsWritten = false;
+        var metadataWritten = false;
+        var reportErrorCount = -1;
+        var structuredErrorCount = -1;
+        if (report != null)
+        {
+            PopulateReport(metadata, report, started);
+            reportErrorCount = (int)report.summary.totalErrors;
+            var details = new BuildReportDetailsV1(
+                report,
+                arguments[RunIdArgument],
+                arguments[ArtifactIdArgument],
+                arguments[SourceShaArgument],
+                arguments[SourceTreeArgument]);
+            structuredErrorCount = details.errorRecordCount;
+            var detailsHash = string.Empty;
+            try
             {
-                result = WindowsReleaseExitCodes.MetadataWriteFailure;
+                WriteJson(arguments[BuildReportDetailsPathArgument], details);
+                detailsHash = ComputeSha256(arguments[BuildReportDetailsPathArgument]);
+                detailsWritten = true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+
+            try
+            {
+                WriteJson(arguments[BuildReportPathArgument], new BuildReportSummaryV1(
+                    report,
+                    details,
+                    Path.GetFileName(arguments[BuildReportDetailsPathArgument]),
+                    detailsHash));
+                summaryWritten = true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
             }
         }
 
-        return result;
+        metadata.zeroErrorGatePassed =
+            report != null &&
+            report.summary.result == BuildResult.Succeeded &&
+            report.summary.totalErrors == 0;
+        metadata.metadataReportCountMatched =
+            report != null && metadata.errorCount == reportErrorCount;
+        metadata.structuredErrorCountMatched =
+            report != null && structuredErrorCount == reportErrorCount;
+        var intendedResult = WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+            result,
+            summaryWritten,
+            detailsWritten,
+            metadataWritten: true,
+            metadata.errorCount,
+            reportErrorCount,
+            structuredErrorCount);
+        metadata.cSharpExitCode = intendedResult;
+        metadata.cSharpExitName = ExitCodeName(intendedResult);
+        metadata.buildCompletedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+        try
+        {
+            WriteJson(arguments[MetadataPathArgument], metadata);
+            metadataWritten = true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+
+        return WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
+            result,
+            summaryWritten,
+            detailsWritten,
+            metadataWritten,
+            metadata.errorCount,
+            reportErrorCount,
+            structuredErrorCount);
     }
 
     internal static Dictionary<string, string> ParseArguments(IReadOnlyList<string> args)
@@ -168,14 +233,16 @@ public static class WindowsReleaseBuildCli
         return line == null ? string.Empty : line.Substring(line.IndexOf(':') + 1).Trim();
     }
 
-    private static WindowsReleaseMetadataV1 CreateMetadata(
+    private static WindowsReleaseMetadataV2 CreateMetadata(
         IReadOnlyDictionary<string, string> arguments)
     {
-        return new WindowsReleaseMetadataV1
+        return new WindowsReleaseMetadataV2
         {
-            schemaVersion = WindowsReleaseBuildPolicy.SchemaVersion,
+            schemaVersion = WindowsReleaseBuildPolicy.MetadataSchemaVersion,
             runId = arguments[RunIdArgument],
             artifactId = arguments[ArtifactIdArgument],
+            sourceSha = arguments[SourceShaArgument],
+            sourceTree = arguments[SourceTreeArgument],
             unityVersion = Application.unityVersion,
             unityRevision = ReadUnityRevision(),
             buildTarget = BuildTarget.StandaloneWindows64.ToString(),
@@ -202,7 +269,12 @@ public static class WindowsReleaseBuildCli
                 PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Standalone),
             buildEntry = nameof(WindowsReleaseBuildCli) + "." +
                          nameof(BuildWindowsX64NonDevelopment),
-            payloadManifest = "files.sha256",
+            buildResult = "NotProduced",
+            warningCount = -1,
+            errorCount = -1,
+            buildReportSummaryFile = Path.GetFileName(arguments[BuildReportPathArgument]),
+            buildReportDetailsFile =
+                Path.GetFileName(arguments[BuildReportDetailsPathArgument]),
             buildStartedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
         };
     }
@@ -223,7 +295,7 @@ public static class WindowsReleaseBuildCli
     }
 
     private static void PopulateReport(
-        WindowsReleaseMetadataV1 metadata, BuildReport report, DateTime started)
+        WindowsReleaseMetadataV2 metadata, BuildReport report, DateTime started)
     {
         metadata.buildResult = report.summary.result.ToString();
         metadata.warningCount = (int)report.summary.totalWarnings;
@@ -244,9 +316,61 @@ public static class WindowsReleaseBuildCli
         File.WriteAllText(path, JsonUtility.ToJson(value, true));
     }
 
+    private static string ComputeSha256(string path)
+    {
+        using (var stream = File.OpenRead(path))
+        using (var sha256 = SHA256.Create())
+        {
+            return ToHex(sha256.ComputeHash(stream));
+        }
+    }
+
+    internal static string ComputeMessageSha256(string value)
+    {
+        using (var sha256 = SHA256.Create())
+        {
+            return ToHex(sha256.ComputeHash(Encoding.UTF8.GetBytes(value ?? string.Empty)));
+        }
+    }
+
+    private static string ToHex(byte[] bytes)
+    {
+        var builder = new StringBuilder(bytes.Length * 2);
+        foreach (var value in bytes)
+        {
+            builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+        }
+
+        return builder.ToString();
+    }
+
     private static string ExitCodeName(int code)
     {
-        return code == 0 ? "Succeeded" : "ExitCode-" + code.ToString(CultureInfo.InvariantCulture);
+        switch (code)
+        {
+            case WindowsReleaseExitCodes.Success:
+                return "Success";
+            case WindowsReleaseExitCodes.BuildFailed:
+                return "BuildFailed";
+            case WindowsReleaseExitCodes.BuildCancelled:
+                return "BuildCancelled";
+            case WindowsReleaseExitCodes.BuildUnknownResult:
+                return "BuildUnknownResult";
+            case WindowsReleaseExitCodes.BuildErrorsRecorded:
+                return "BuildErrorsRecorded";
+            case WindowsReleaseExitCodes.MetadataWriteFailure:
+                return "MetadataWriteFailure";
+            case WindowsReleaseExitCodes.BuildReportWriteFailure:
+                return "BuildReportWriteFailure";
+            case WindowsReleaseExitCodes.BuildReportDetailsWriteFailure:
+                return "BuildReportDetailsWriteFailure";
+            case WindowsReleaseExitCodes.BuildReportCountMismatch:
+                return "BuildReportCountMismatch";
+            case WindowsReleaseExitCodes.SettingsRestoreFailure:
+                return "SettingsRestoreFailure";
+            default:
+                return "ExitCode-" + code.ToString(CultureInfo.InvariantCulture);
+        }
     }
 }
 
@@ -311,15 +435,24 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
 [Serializable]
 internal sealed class BuildReportSummaryV1
 {
-    public string schemaVersion = WindowsReleaseBuildPolicy.SchemaVersion;
+    public string schemaVersion = WindowsReleaseBuildPolicy.BuildReportSummarySchemaVersion;
     public string result;
     public int totalErrors;
     public int totalWarnings;
     public ulong totalSize;
     public double totalTimeSeconds;
     public string outputPath;
+    public string detailsFile;
+    public string detailsSha256;
+    public int errorRecordCount;
+    public int warningRecordCount;
+    public string[] distinctErrorMessageHashes;
 
-    public BuildReportSummaryV1(BuildReport report)
+    public BuildReportSummaryV1(
+        BuildReport report,
+        BuildReportDetailsV1 details,
+        string detailsFileName,
+        string detailsHash)
     {
         result = report.summary.result.ToString();
         totalErrors = report.summary.totalErrors;
@@ -327,5 +460,136 @@ internal sealed class BuildReportSummaryV1
         totalSize = report.summary.totalSize;
         totalTimeSeconds = report.summary.totalTime.TotalSeconds;
         outputPath = Path.GetFileName(report.summary.outputPath);
+        detailsFile = detailsFileName;
+        detailsSha256 = detailsHash;
+        errorRecordCount = details.errorRecordCount;
+        warningRecordCount = details.warningRecordCount;
+        distinctErrorMessageHashes = details.steps
+            .SelectMany(step => step.messages)
+            .Where(message => BuildReportMessageV1.IsErrorType(message.type))
+            .Select(message => message.messageSha256)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(hash => hash, StringComparer.Ordinal)
+            .ToArray();
+    }
+}
+
+[Serializable]
+internal sealed class BuildReportDetailsV1
+{
+    public string schemaVersion = WindowsReleaseBuildPolicy.BuildReportDetailsSchemaVersion;
+    public string runId;
+    public string artifactId;
+    public string sourceSha;
+    public string sourceTree;
+    public string unityVersion;
+    public string result;
+    public int totalErrors;
+    public int totalWarnings;
+    public int errorRecordCount;
+    public int warningRecordCount;
+    public string captureLimitation;
+    public BuildReportStepV1[] steps;
+
+    public BuildReportDetailsV1(
+        BuildReport report,
+        string releaseRunId,
+        string releaseArtifactId,
+        string releaseSourceSha,
+        string releaseSourceTree)
+    {
+        runId = releaseRunId;
+        artifactId = releaseArtifactId;
+        sourceSha = releaseSourceSha;
+        sourceTree = releaseSourceTree;
+        unityVersion = Application.unityVersion;
+        result = report.summary.result.ToString();
+        totalErrors = (int)report.summary.totalErrors;
+        totalWarnings = (int)report.summary.totalWarnings;
+        steps = report.steps
+            .Select((step, index) => new BuildReportStepV1(step, index))
+            .ToArray();
+        errorRecordCount = steps
+            .SelectMany(step => step.messages)
+            .Count(message => BuildReportMessageV1.IsErrorType(message.type));
+        warningRecordCount = steps
+            .SelectMany(step => step.messages)
+            .Count(message => string.Equals(
+                message.type, LogType.Warning.ToString(), StringComparison.Ordinal));
+        captureLimitation = errorRecordCount == totalErrors
+            ? string.Empty
+            : "STRUCTURED_BUILDREPORT_COUNT_LIMITATION";
+    }
+}
+
+[Serializable]
+internal sealed class BuildReportStepV1
+{
+    public int index;
+    public string name;
+    public int depth;
+    public double durationSeconds;
+    public BuildReportMessageV1[] messages;
+
+    public BuildReportStepV1(BuildStep step, int stepIndex)
+    {
+        index = stepIndex;
+        name = step.name;
+        depth = step.depth;
+        durationSeconds = step.duration.TotalSeconds;
+        messages = step.messages
+            .Select((message, messageIndex) =>
+                new BuildReportMessageV1(message, messageIndex))
+            .ToArray();
+    }
+}
+
+[Serializable]
+internal sealed class BuildReportMessageV1
+{
+    public int index;
+    public string type;
+    public string content;
+    public string normalizedMessage;
+    public string messageSha256;
+    public string stackTrace;
+
+    public BuildReportMessageV1(BuildStepMessage message, int messageIndex)
+    {
+        index = messageIndex;
+        type = message.type.ToString();
+        content = message.content ?? string.Empty;
+        normalizedMessage = NormalizeMessage(content);
+        messageSha256 = WindowsReleaseBuildCli.ComputeMessageSha256(normalizedMessage);
+        stackTrace = ExtractStackTrace(content);
+    }
+
+    internal static bool IsErrorType(string value)
+    {
+        return string.Equals(value, LogType.Error.ToString(), StringComparison.Ordinal) ||
+               string.Equals(value, LogType.Assert.ToString(), StringComparison.Ordinal) ||
+               string.Equals(value, LogType.Exception.ToString(), StringComparison.Ordinal);
+    }
+
+    private static string NormalizeMessage(string value)
+    {
+        return (value ?? string.Empty)
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Trim();
+    }
+
+    private static string ExtractStackTrace(string value)
+    {
+        var normalized = (value ?? string.Empty)
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        var firstStackLine = Array.FindIndex(lines, line =>
+            line.StartsWith("at ", StringComparison.Ordinal) ||
+            line.StartsWith("  at ", StringComparison.Ordinal));
+        return firstStackLine < 0
+            ? string.Empty
+            : string.Join("\n", lines.Skip(firstStackLine));
     }
 }
