@@ -369,7 +369,10 @@ function Get-GitCommandArguments {
     param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
     $configuration = @("-c", "core.longpaths=true")
     if ($DisableAutoCrlf) {
-        $configuration += @("-c", "core.autocrlf=false")
+        $configuration += @(
+            "-c", "core.autocrlf=false",
+            "-c", "core.eol=lf"
+        )
     }
     return $configuration + @("-C", $Root) + @($Arguments)
 }
@@ -415,9 +418,8 @@ function Get-GitSnapshot {
         [string[]]$CanaryPaths = @(),
         [switch]$Detached
     )
-    $status = @(Invoke-GitText -Root $Root -DisableAutoCrlf:$Detached `
-        -Arguments @("status", "--porcelain=v1", "-uall") -split "`n" |
-        Where-Object { $_ })
+    $status = @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
+        -Arguments @("status", "--porcelain=v1", "-uall"))
     # Unity can rewrite a file byte-for-byte and leave only its stat data changed.
     # Status reports that as `.M`; content diffs are the authoritative dirty gate.
     $trackedContent = @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
@@ -459,8 +461,8 @@ function Get-GitSnapshot {
 
 function Get-RepositoryFamilyPaths {
     param([string]$Root)
-    $lines = @(Invoke-GitText -Root $Root -Arguments @("worktree", "list", "--porcelain") `
-        -split "`n")
+    $lines = @(Invoke-GitPathList -Root $Root `
+        -Arguments @("worktree", "list", "--porcelain"))
     return @($lines | Where-Object { $_ -like "worktree *" } |
         ForEach-Object { $_.Substring(9).Replace('/', '\') })
 }

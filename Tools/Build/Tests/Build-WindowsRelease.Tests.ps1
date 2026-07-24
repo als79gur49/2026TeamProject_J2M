@@ -111,15 +111,27 @@ Invoke-Case "git command uses process-local longpaths" {
     Assert-Equal "C:\repo" $arguments[3]
     Assert-Equal "worktree" $arguments[4]
 }
-Invoke-Case "detached git command disables autocrlf process-locally" {
+Invoke-Case "detached git command fixes LF checkout process-locally" {
     $arguments = @(Get-GitCommandArguments "C:\repo" @("status") -DisableAutoCrlf)
     Assert-Equal "-c" $arguments[0]
     Assert-Equal "core.longpaths=true" $arguments[1]
     Assert-Equal "-c" $arguments[2]
     Assert-Equal "core.autocrlf=false" $arguments[3]
-    Assert-Equal "-C" $arguments[4]
-    Assert-Equal "C:\repo" $arguments[5]
-    Assert-Equal "status" $arguments[6]
+    Assert-Equal "-c" $arguments[4]
+    Assert-Equal "core.eol=lf" $arguments[5]
+    Assert-Equal "-C" $arguments[6]
+    Assert-Equal "C:\repo" $arguments[7]
+    Assert-Equal "status" $arguments[8]
+}
+Invoke-Case "multiple porcelain lines remain independently fail-closed" {
+    $changes = Get-GitChangeClassification @(
+        "?? TestLogs/MainReReview/approved.txt",
+        "?? Assets/rogue.cs"
+    ) @() @()
+    Assert-Equal 2 (@($changes.Untracked).Count)
+    Assert-Equal "TestLogs/MainReReview/approved.txt" $changes.Untracked[0]
+    Assert-Equal "Assets/rogue.cs" $changes.Untracked[1]
+    Assert-False (Test-GitState $changes $approved)
 }
 Invoke-Case "timestamp-only tracked status is not content drift" {
     $changes = Get-GitChangeClassification @(" M ProjectSettings/ProjectSettings.asset") `

@@ -50,9 +50,10 @@ All wrapper-owned Git commands use the process-local
 `git -c core.longpaths=true` option. This permits the exact-SHA detached checkout
 to materialize long Unity asset paths without changing repository, global, or
 system Git configuration. Detached checkout and snapshot commands additionally
-use process-local `core.autocrlf=false`, keeping Unity's LF serialization from
-appearing as source drift on Windows without changing the invocation worktree's
-Git behavior.
+use process-local `core.autocrlf=false` and `core.eol=lf`, keeping the checkout
+and Unity's serialization byte-stable without changing the invocation
+worktree's Git behavior. Porcelain output remains split into independent paths
+so every untracked file is checked against the exact allowlist.
 
 ## Invocation
 
