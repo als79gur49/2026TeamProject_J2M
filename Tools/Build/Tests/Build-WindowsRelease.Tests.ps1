@@ -133,6 +133,16 @@ Invoke-Case "multiple porcelain lines remain independently fail-closed" {
     Assert-Equal "Assets/rogue.cs" $changes.Untracked[1]
     Assert-False (Test-GitState $changes $approved)
 }
+Invoke-Case "nul porcelain preserves approved path with spaces" {
+    $records = @(ConvertFrom-GitPathOutput @(
+        "?? TestLogs/MainReReview/unity default resources`0?? Assets/rogue.cs`0"
+    ))
+    $changes = Get-GitChangeClassification $records @() @()
+    Assert-Equal 2 (@($changes.Untracked).Count)
+    Assert-Equal "TestLogs/MainReReview/unity default resources" $changes.Untracked[0]
+    Assert-Equal "Assets/rogue.cs" $changes.Untracked[1]
+    Assert-False (Test-GitState $changes $approved)
+}
 Invoke-Case "timestamp-only tracked status is not content drift" {
     $changes = Get-GitChangeClassification @(" M ProjectSettings/ProjectSettings.asset") `
         @() @()

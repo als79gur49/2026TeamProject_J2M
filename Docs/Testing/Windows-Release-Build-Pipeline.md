@@ -52,8 +52,9 @@ to materialize long Unity asset paths without changing repository, global, or
 system Git configuration. Detached checkout and snapshot commands additionally
 use process-local `core.autocrlf=false` and `core.eol=lf`, keeping the checkout
 and Unity's serialization byte-stable without changing the invocation
-worktree's Git behavior. Porcelain output remains split into independent paths
-so every untracked file is checked against the exact allowlist.
+worktree's Git behavior. Status porcelain uses NUL-delimited records, preserving
+spaces and other quoted-path characters while every untracked file is checked
+against the exact allowlist.
 
 ## Invocation
 

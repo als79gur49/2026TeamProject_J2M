@@ -386,6 +386,14 @@ function Invoke-GitText {
     return ($output -join "`n").Trim()
 }
 
+function ConvertFrom-GitPathOutput {
+    param([object[]]$Output)
+    return @($Output | ForEach-Object {
+        ([string]$_).Split([char]0)
+    } | Where-Object { $_ } |
+        ForEach-Object { ([string]$_).Replace('\', '/') })
+}
+
 function Invoke-GitPathList {
     param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
     $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
@@ -394,8 +402,7 @@ function Invoke-GitPathList {
     if ($LASTEXITCODE -ne 0) {
         throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
     }
-    return @($output | Where-Object { $_ } |
-        ForEach-Object { ([string]$_).Replace('\', '/') })
+    return @(ConvertFrom-GitPathOutput -Output @($output))
 }
 
 function Get-GitChangeClassification {
@@ -419,7 +426,7 @@ function Get-GitSnapshot {
         [switch]$Detached
     )
     $status = @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
-        -Arguments @("status", "--porcelain=v1", "-uall"))
+        -Arguments @("status", "--porcelain=v1", "-z", "-uall"))
     # Unity can rewrite a file byte-for-byte and leave only its stat data changed.
     # Status reports that as `.M`; content diffs are the authoritative dirty gate.
     $trackedContent = @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
