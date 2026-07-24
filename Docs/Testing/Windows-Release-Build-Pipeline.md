@@ -86,7 +86,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 The wrapper does not pass `-quit`; `WindowsReleaseBuildCli` owns the Unity exit.
 It creates and preserves a new detached worktree at the exact committed source
-SHA. The first acceptance run keeps that worktree for provenance inspection.
+SHA under the short deterministic root `C:\VQBuildSources`. The wrapper rejects
+a detached path whose known longest URP/APV importer path would exceed the
+legacy 259-character Windows budget. This avoids relying on machine-wide long
+path registry policy while preserving clean-import determinism. The first
+acceptance run keeps that worktree for provenance inspection.
+
+The path budget is a source-preparation contract, not an error exception. With
+the former Documents-based default, the clean-import path for
+`TraceRenderingLayerMask.urtshader` was 264 characters while Windows long paths
+were disabled. Its scripted importer failed before creating the ComputeShader
+and RayTracingShader subassets; later URP validation then reported the host-type
+mismatch. The short root keeps the same package, importer, and Global Settings
+references intact and prevents that import failure without suppressing errors.
 
 Before Unity starts, every repository-family or unattributed `Unity.exe`, every
 `VectorQuake.exe`, and every orphan/unattributed CrashHandler is rejected. After
@@ -149,7 +161,7 @@ verification, restore attempt/result, and restored verification.
 
 ## Exit ownership
 
-C# codes occupy `0..50`; wrapper codes occupy `100..114`. Both schemas are
+C# codes occupy `0..50`; wrapper codes occupy `100..115`. Both schemas are
 constants and uniqueness-tested. Failed staging content is moved, when possible,
 under `failed/<runId>` with a non-deployable `FAILURE.json`.
 

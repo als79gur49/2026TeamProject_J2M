@@ -3,7 +3,7 @@ param(
     [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
     [string]$UnityExe = "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe",
     [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
-    [string]$BuildSourceRoot = "C:\Users\user\Documents\VectorQuake-Release-BuildSources",
+    [string]$BuildSourceRoot = "C:\VQBuildSources",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
     [string[]]$AllowUntrackedRoot = @(
         "TestLogs/CampaignLaunchOwnershipE2E",
@@ -30,12 +30,19 @@ $script:ReleaseExitCodes = [ordered]@{
     WrapperInternalError = 112
     BuildEvidenceFailure = 113
     ArtifactProvenanceFailure = 114
+    BuildSourcePathBudgetFailure = 115
 }
 $script:ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC"
 $script:ConfigurationPathName = "Windows-x64-NonDevelopment-Mono"
 $script:MetadataSchemaVersion = "2.0"
 $script:ReportSchemaVersion = "1.0"
 $script:ProvenanceSchemaVersion = "1.0"
+$script:MaxLegacyWindowsPathLength = 259
+$script:CriticalUrpImporterRelativePath = (
+    "Library\PackageCache\com.unity.render-pipelines.core@000000000000\" +
+    "Editor\Lighting\ProbeVolume\RenderingLayerMask\" +
+    "TraceRenderingLayerMask.urtshader"
+)
 $script:ControlFileNames = @(
     "files.sha256",
     "files.sha256.sha256",
@@ -44,6 +51,13 @@ $script:ControlFileNames = @(
 )
 
 function Get-ReleaseExitCodes { return $script:ReleaseExitCodes }
+
+function Test-BuildSourcePathBudget {
+    param([Parameter(Mandatory)][string]$DetachedSourcePath)
+    $criticalPath = Join-Path $DetachedSourcePath $script:CriticalUrpImporterRelativePath
+    return [IO.Path]::GetFullPath($criticalPath).Length -le
+        $script:MaxLegacyWindowsPathLength
+}
 
 function Get-NormalizedRelativePath {
     param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Path)
@@ -834,6 +848,10 @@ function Invoke-WindowsReleasePipeline {
         $final = Join-Path $parent $RunId
         $failed = Join-Path (Join-Path $parent "failed") $RunId
         $detached = Join-Path (Join-Path $BuildSourceRoot $sourceSha) $RunId
+        if (-not (Test-BuildSourcePathBudget $detached)) {
+            $exitCode = $script:ReleaseExitCodes.BuildSourcePathBudgetFailure
+            throw "Detached source path exceeds the URP importer path budget."
+        }
         if ((Test-Path -LiteralPath $staging) -or (Test-Path -LiteralPath $final) -or
             [IO.Path]::GetPathRoot($staging) -ne [IO.Path]::GetPathRoot($final)) {
             $exitCode = $script:ReleaseExitCodes.OutputCollision

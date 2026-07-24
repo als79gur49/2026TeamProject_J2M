@@ -201,6 +201,18 @@ Invoke-Case "content diff remains fail-closed" {
     Assert-Equal "ProjectSettings/ProjectSettings.asset" $changes.Tracked[0]
     Assert-Equal "Tools/Build/a.ps1" $changes.Staged[0]
 }
+Invoke-Case "short detached source root satisfies URP importer path budget" {
+    Assert-True (Test-BuildSourcePathBudget `
+        "C:\VQBuildSources\$("a" * 40)\20260724T132225125Z")
+}
+Invoke-Case "legacy detached source root exceeds URP importer path budget" {
+    $legacyRoot = "C:\Users\user\Documents\VectorQuake-Release-BuildSources"
+    Assert-False (Test-BuildSourcePathBudget `
+        "$legacyRoot\$("a" * 40)\20260724T132225125Z")
+}
+Invoke-Case "default detached source root is short and deterministic" {
+    Assert-Equal "C:\VQBuildSources" $BuildSourceRoot
+}
 
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("vq-release-tests-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temp | Out-Null

@@ -359,6 +359,31 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void UrpApvRenderingLayerShader_ImportsBothExpectedHostTypes()
+        {
+            const string path =
+                "Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/" +
+                "RenderingLayerMask/TraceRenderingLayerMask.urtshader";
+            var assets = AssetDatabase.LoadAllAssetsAtPath(path);
+            Assert.That(assets.OfType<ComputeShader>().Count(), Is.EqualTo(1));
+            Assert.That(assets.Count(asset => asset.GetType().Name == "RayTracingShader"),
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void UrpGlobalSettings_RenderingLayerReferencesUseExpectedSubassetTypes()
+        {
+            var yaml = System.IO.File.ReadAllText(
+                "Assets/Settings/UniversalRenderPipelineGlobalSettings.asset");
+            Assert.That(yaml, Does.Contain(
+                "renderingLayerCS: {fileID: -6772857160820960102, " +
+                "guid: 94a070d33e408384bafc1dea4a565df9, type: 3}"));
+            Assert.That(yaml, Does.Contain(
+                "renderingLayerRT: {fileID: -5126288278712620388, " +
+                "guid: 94a070d33e408384bafc1dea4a565df9, type: 3}"));
+        }
+
+        [Test]
         public void ExitCodes_AreUniqueAndCSharpScoped()
         {
             Assert.That(WindowsReleaseExitCodes.All.Distinct().Count(),
