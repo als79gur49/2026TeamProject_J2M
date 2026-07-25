@@ -36,11 +36,11 @@ namespace Game.Feature.UI.Tests
                 30f);
         private static readonly MainMenuAuthoredTypographyBaseline MainMenuKoreanBaseline =
             new MainMenuAuthoredTypographyBaseline(
-                "4662feb1d501d1f479b757a82e304069",
+                "40d61154fd6576b4d85c2d78460b16ad",
                 11400000,
-                "4662feb1d501d1f479b757a82e304069",
-                2769584723452840789,
-                FontStyles.Bold,
+                "40d61154fd6576b4d85c2d78460b16ad",
+                1352911973252649374,
+                FontStyles.Normal,
                 30f,
                 true,
                 18f,
@@ -180,7 +180,7 @@ namespace Game.Feature.UI.Tests
                 MainMenuKoreanBaseline.MaterialGuid,
                 MainMenuKoreanBaseline.MaterialLocalId,
                 "MainMenuCommand ko-KR material");
-            Assert.That(korean.FontStyle, Is.EqualTo(FontStyles.Bold));
+            Assert.That(korean.FontStyle, Is.EqualTo(FontStyles.Normal));
             Assert.That(korean.SizingSource, Is.EqualTo(TypographySizingSource.Hybrid));
             Assert.That(korean.SizingMode, Is.EqualTo(TypographySizingMode.PreserveAuthored));
             Assert.That(korean.ApplyMask, Is.EqualTo(expectedApplyMask));
@@ -565,9 +565,9 @@ namespace Game.Feature.UI.Tests
                 {
                     AssertAssetIdentity(
                         target.Text.font,
-                        "4662feb1d501d1f479b757a82e304069",
+                        "40d61154fd6576b4d85c2d78460b16ad",
                         11400000,
-                        $"{context} Nanum font");
+                        $"{context} Climate font");
                 }
             }
         }

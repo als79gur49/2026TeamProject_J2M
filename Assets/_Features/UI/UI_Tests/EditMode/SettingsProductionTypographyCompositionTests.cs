@@ -208,7 +208,7 @@ namespace Game.Feature.UI.Tests
         {
             var catalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
             var theme = catalog.SettingsTypographyTheme;
-            var nanumGothic = UiTestPrefabAssetUtility.LoadNanumGothicFont();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var inventory = BuildInventory(view);
             var authoredInventory = BuildInventory(catalog.SettingsPrefab);
             var authoredByName = authoredInventory.ToDictionary(item => item.Name, StringComparer.Ordinal);
@@ -223,6 +223,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("Q"));
             Assert.That(GetField<TMP_Text>(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
             AssertTypography(inventory, theme, "en-US");
+            AssertSettingsStatusPreservesAuthoredSizing(view.DisplayView, theme, "en-US");
             AssertEnglishAuthoredPreservation(inventory, authoredInventory, theme);
             AssertLocaleInvariantKeyDisplays(inventory, authoredStyles, "initial en-US");
 
@@ -237,12 +238,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
             Assert.That(GetAudioRowText(view.AudioView, "_mainRow", "Value").text, Is.Not.Empty);
             AssertTypography(inventory, theme, "ko-KR");
+            AssertSettingsStatusPreservesAuthoredSizing(view.DisplayView, theme, "ko-KR");
             AssertLocaleInvariantKeyDisplays(inventory, authoredStyles, "ko-KR");
             foreach (var item in inventory.Where(item =>
                          item.Classification == TargetClassification.LocalizedStatic ||
                          item.Classification == TargetClassification.LocalizedDynamic))
             {
-                Assert.That(item.Target.font, Is.SameAs(nanumGothic), item.Name);
+                Assert.That(item.Target.font, Is.SameAs(climateCrisisKr), item.Name);
             }
 
             Assert.That(view.DisplayView.IsResolutionKeyboardListOpen, Is.True);
@@ -254,6 +256,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("Language"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("English"));
             AssertTypography(inventory, theme, "en-US");
+            AssertSettingsStatusPreservesAuthoredSizing(view.DisplayView, theme, "restored en-US");
             AssertLocaleInvariantKeyDisplays(inventory, authoredStyles, "restored en-US");
             foreach (var item in inventory.Where(item =>
                          item.Classification == TargetClassification.LocalizedStatic ||
@@ -421,6 +424,28 @@ namespace Game.Feature.UI.Tests
             {
                 authoredStyles[item.Target].AssertSame(item.Target, $"{item.Name} at {stage}");
             }
+        }
+
+        private static void AssertSettingsStatusPreservesAuthoredSizing(
+            SettingsDisplayView displayView,
+            GameplayUiTypographyTheme theme,
+            string stage)
+        {
+            var target = GetField<TMP_Text>(displayView, "_displayStatusLabel");
+            var binding = TypographyBinding.FindFor(target);
+            Assert.That(binding, Is.Not.Null, stage);
+            Assert.That(binding.StyleTag, Is.EqualTo(TypographyStyleTag.SettingsStatus), stage);
+            Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid), stage);
+            Assert.That(binding.UseApplyMaskOverride, Is.False, stage);
+
+            var localeCode = string.Equals(stage, "ko-KR", StringComparison.Ordinal) ? "ko-KR" : "en-US";
+            var style = theme.ResolveOrThrow(localeCode, TypographyStyleTag.SettingsStatus);
+            Assert.That(style.SizingMode, Is.EqualTo(TypographySizingMode.PreserveAuthored), stage);
+            Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None), stage);
+            Assert.That(target.fontSize, Is.EqualTo(14f), stage);
+            Assert.That(target.enableAutoSizing, Is.True, stage);
+            Assert.That(target.fontSizeMin, Is.EqualTo(10f), stage);
+            Assert.That(target.fontSizeMax, Is.EqualTo(14f), stage);
         }
 
         private static void AssertLiveDropdownTypography(

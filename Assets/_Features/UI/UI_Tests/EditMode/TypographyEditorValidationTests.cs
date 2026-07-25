@@ -389,7 +389,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
                 Assert.That(result.AppliedCount, Is.EqualTo(38));
                 Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
-                Assert.That(governedBinding.Target.font, Is.SameAs(UiTestPrefabAssetUtility.LoadNanumGothicFont()));
+                Assert.That(
+                    governedBinding.Target.font,
+                    Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
                 Assert.That(
                     governedBinding.Target.fontSharedMaterial,
                     Is.SameAs(theme.ResolveOrThrow("ko-KR", governedBinding.StyleTag).MaterialPreset));
@@ -566,7 +568,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
                 UiTestPrefabAssetUtility.PausePopupPrefabPath,
                 UiTestPrefabAssetUtility.MainMenuScreenPrefabPath,
-                UiTestPrefabAssetUtility.NanumGothicFontAssetPath,
+                UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
                 TmpSettingsAssetPath,
             };
 

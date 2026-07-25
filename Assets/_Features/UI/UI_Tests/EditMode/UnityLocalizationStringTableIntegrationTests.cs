@@ -743,7 +743,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void RuntimeSettings_LanguageRowSwitchesThroughUnityAdapterAndKeepsKoreanFont()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
             using var harness = SettingsProductionLocalizationRuntimeTests.GameplaySettingsHarness.Create(resolver);
 
@@ -759,7 +759,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
             Assert.That(harness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(harness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
         }
@@ -1373,13 +1373,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray(),
                 Does.Not.Contain(referenceName));
-        }
-
-        private static TMP_FontAsset LoadNanumGothic()
-        {
-            var asset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/_Shared/UI/Fonts/NanumGothic SDF.asset");
-            Assert.That(asset, Is.Not.Null);
-            return asset;
         }
 
         private static readonly (string Key, string Value)[] StageDisplayNameEntries =

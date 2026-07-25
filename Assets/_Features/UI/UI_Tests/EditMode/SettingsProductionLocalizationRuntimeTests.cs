@@ -287,7 +287,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -296,13 +296,13 @@ namespace Game.Feature.UI.Tests
 
             var titleLabel = GetText(harness.SettingsView, "_titleLabel");
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
         }
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleSwitchesLocaleRefreshesLabelsAndFont()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             using var harness = GameplaySettingsHarness.Create(resolver);
 
@@ -323,10 +323,10 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
-            Assert.That(languageButtonLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(languageButtonLabel.font, Is.SameAs(climateCrisisKr));
             Assert.That(harness.UiAudioPort.PlayedCueIds, Does.Contain(UiAudioCueId.Toggle));
 
             view.DisplayView.ClickLanguageCycle();
@@ -702,7 +702,7 @@ namespace Game.Feature.UI.Tests
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
         {
             var store = new FakeUiLocalePreferenceStore();
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
 
             using (var firstHarness = GameplaySettingsHarness.Create(
                        PackageFreeLocalizedTextResolver.CreateSettingsDefault(store)))
@@ -721,7 +721,7 @@ namespace Game.Feature.UI.Tests
 
                 var titleLabel = GetText(secondHarness.SettingsView, "_titleLabel");
                 Assert.That(titleLabel.text, Is.EqualTo("설정"));
-                Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+                Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
                 Assert.That(secondHarness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
                 Assert.That(secondHarness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
             }
@@ -730,7 +730,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_DoesNotRequireLegacyKoreanFontResolver()
         {
-            var expectedFont = LoadNanumGothic();
+            var expectedFont = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -764,7 +764,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuSettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = MainMenuSettingsHarness.Create(resolver);
@@ -773,7 +773,7 @@ namespace Game.Feature.UI.Tests
 
             var titleLabel = GetText(harness.Runtime.View, "_titleLabel");
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
         }
 
         [Test]
@@ -990,7 +990,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.HeaderLarge,
-                FontStyles.Bold,
                 30f,
                 16f,
                 30f);
@@ -999,7 +998,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.PopupBody,
-                FontStyles.Normal,
                 20f,
                 12f,
                 20f);
@@ -1008,7 +1006,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.PopupAction,
-                FontStyles.Bold,
                 18f,
                 14f,
                 18f);
@@ -1017,7 +1014,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.PopupAction,
-                FontStyles.Bold,
                 18f,
                 14f,
                 18f);
@@ -1028,7 +1024,6 @@ namespace Game.Feature.UI.Tests
             GameplayUiTypographyTheme theme,
             string localeCode,
             TypographyStyleTag expectedTag,
-            FontStyles expectedFontStyle,
             float expectedFontSize,
             float expectedMinSize,
             float expectedMaxSize)
@@ -1045,7 +1040,7 @@ namespace Game.Feature.UI.Tests
                 target.fontSharedMaterial,
                 Is.SameAs(style.MaterialPreset),
                 $"{target.name} material {localeCode}");
-            Assert.That(target.fontStyle, Is.EqualTo(expectedFontStyle), $"{target.name} style {localeCode}");
+            Assert.That(target.fontStyle, Is.EqualTo(style.FontStyle), $"{target.name} style {localeCode}");
             Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
             Assert.That(target.fontSize, Is.EqualTo(expectedFontSize), $"{target.name} size {localeCode}");
             Assert.That(target.enableAutoSizing, Is.True, $"{target.name} auto sizing {localeCode}");
@@ -1054,7 +1049,10 @@ namespace Game.Feature.UI.Tests
 
             if (string.Equals(localeCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal))
             {
-                Assert.That(target.font, Is.SameAs(LoadNanumGothic()), $"{target.name} ko-KR Nanum identity");
+                Assert.That(
+                    target.font,
+                    Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
+                    $"{target.name} ko-KR Climate identity");
             }
         }
 
@@ -1118,13 +1116,6 @@ namespace Game.Feature.UI.Tests
             var value = valueProperty.GetValue(row) as TMP_Text;
             Assert.That(value, Is.Not.Null);
             return value;
-        }
-
-        private static TMP_FontAsset LoadNanumGothic()
-        {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
-            Assert.That(fontAsset, Is.Not.Null, $"{NanumGothicFontValidationUtility.FontAssetPath} must be present.");
-            return fontAsset;
         }
 
         private static ScreenLayerView CreateScreenLayer(GameObject rootObject)
