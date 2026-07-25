@@ -11,6 +11,101 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
+    public static class PausePopupProductionLocalizationComposer
+    {
+        public static IDisposable Bind(
+            PausePopupView view,
+            PausePopupPayload payload,
+            ILocalizedTextResolver localizedTextResolver,
+            ILocalizedTypographyResolver localizedTypographyResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            if (view == null)
+            {
+                throw new ArgumentNullException(nameof(view));
+            }
+
+            if (payload == null)
+            {
+                throw new ArgumentNullException(nameof(payload));
+            }
+
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
+            }
+
+            if (localizedTypographyResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTypographyResolver));
+            }
+
+            if (typographyTheme == null)
+            {
+                throw new ArgumentNullException(nameof(typographyTheme));
+            }
+
+            view.BindExternalStaticLocalization();
+            var targets = view.CreateStaticLocalizationTargets(payload);
+            var bindings = new List<LocalizedTmpTextBinding>(targets.Count);
+            try
+            {
+                for (var i = 0; i < targets.Count; i++)
+                {
+                    bindings.Add(new LocalizedTmpTextBinding(
+                        targets[i].Target,
+                        targets[i].Descriptor,
+                        localizedTextResolver,
+                        localizedTypographyResolver,
+                        typographyTheme: typographyTheme));
+                }
+            }
+            catch
+            {
+                DisposeBindings(bindings);
+                view.UnbindStaticLocalization();
+                throw;
+            }
+
+            return new BindingScope(view, bindings);
+        }
+
+        private static void DisposeBindings(List<LocalizedTmpTextBinding> bindings)
+        {
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                bindings[i]?.Dispose();
+            }
+
+            bindings.Clear();
+        }
+
+        private sealed class BindingScope : IDisposable
+        {
+            private readonly PausePopupView _view;
+            private readonly List<LocalizedTmpTextBinding> _bindings;
+            private bool _isDisposed;
+
+            public BindingScope(PausePopupView view, List<LocalizedTmpTextBinding> bindings)
+            {
+                _view = view;
+                _bindings = bindings;
+            }
+
+            public void Dispose()
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                DisposeBindings(_bindings);
+                _view.UnbindStaticLocalization();
+                _isDisposed = true;
+            }
+        }
+    }
+
     public sealed class GameplayPopupRuntimeFactory : IPopupRuntimeFactory
     {
         private readonly PopupPrefabCatalog _popupPrefabCatalog;
@@ -66,7 +161,12 @@ namespace Game.Feature.UI.Composition
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.PausePrefab, PopupId.Pause);
             view.Bind(presenter.ViewModel);
-            var localizedBindings = BindPauseStaticLocalization(view, payload);
+            var localizedBindings = PausePopupProductionLocalizationComposer.Bind(
+                view,
+                payload,
+                _localizedTextResolver,
+                _localizedTypographyResolver,
+                _typographyTheme);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -79,46 +179,10 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<PausePopupView>(view, () =>
                 {
-                    DisposeBindings(localizedBindings);
-                    view.UnbindStaticLocalization();
+                    localizedBindings.Dispose();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));
-        }
-
-        private List<LocalizedTmpTextBinding> BindPauseStaticLocalization(
-            PausePopupView view,
-            PausePopupPayload payload)
-        {
-            view.BindExternalStaticLocalization();
-            var targets = view.CreateStaticLocalizationTargets(payload);
-            var bindings = new List<LocalizedTmpTextBinding>(targets.Count);
-            for (var i = 0; i < targets.Count; i++)
-            {
-                bindings.Add(new LocalizedTmpTextBinding(
-                    targets[i].Target,
-                    targets[i].Descriptor,
-                    _localizedTextResolver,
-                    _localizedTypographyResolver,
-                    typographyTheme: _typographyTheme));
-            }
-
-            return bindings;
-        }
-
-        private static void DisposeBindings(List<LocalizedTmpTextBinding> bindings)
-        {
-            if (bindings == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < bindings.Count; i++)
-            {
-                bindings[i]?.Dispose();
-            }
-
-            bindings.Clear();
         }
 
         private PopupRuntimeFactoryResult CreateConfirmPopup(ConfirmPopupPayload payload)

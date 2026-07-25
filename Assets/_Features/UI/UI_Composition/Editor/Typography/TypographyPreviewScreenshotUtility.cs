@@ -649,10 +649,12 @@ namespace Game.Feature.UI.Composition.Editor
                     return scope;
                 }
 
-                view.BindStaticLocalization(
+                var productionLocalizationScope = PausePopupProductionLocalizationComposer.Bind(
+                    view,
                     PausePopupPayload.Default,
                     resolver,
-                    DefaultLocalizedTypographyResolver.Instance);
+                    DefaultLocalizedTypographyResolver.Instance,
+                    theme);
                 view.IsVisible = true;
                 view.SetIsTopmost(true);
                 ValidateLocalizedText(
@@ -663,7 +665,7 @@ namespace Game.Feature.UI.Composition.Editor
                     prefabRoot);
                 return new DisposableAction(() =>
                 {
-                    view.UnbindStaticLocalization();
+                    productionLocalizationScope.Dispose();
                     scope.Dispose();
                 });
             }

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.UI.Composition;
+using Game.Feature.UI.Composition.Editor;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
@@ -174,14 +175,15 @@ namespace Game.Feature.UI.Tests
             var originalFontSize = title.fontSize;
             var originalAutoSizing = title.enableAutoSizing;
             var originalMaterial = title.fontSharedMaterial;
-            List<LocalizedTmpTextBinding> bindings = null;
+            IDisposable localizationScope = null;
 
             try
             {
-                bindings = BindPauseExternalStaticLocalization(
+                localizationScope = PausePopupProductionLocalizationComposer.Bind(
                     view,
                     PausePopupPayload.Default,
                     resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
                     theme);
 
                 Assert.That(title.text, Is.EqualTo("Pause"));
@@ -199,9 +201,68 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
-                DisposeBindings(bindings);
-                view.UnbindStaticLocalization();
+                localizationScope?.Dispose();
                 UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase("en-US")]
+        [TestCase("ko-KR")]
+        public void PauseScreenshotCapture_ResolvesProductionTypographyIdentity(string localeCode)
+        {
+            var theme = LoadTheme();
+            var productionResolver = new FakeLocalizedTextResolver();
+            productionResolver.SetLocale(localeCode);
+            var productionRoot = UnityEngine.Object.Instantiate(LoadPausePrefab().gameObject);
+            var captureRoot = UnityEngine.Object.Instantiate(LoadPausePrefab().gameObject);
+            var productionView = productionRoot.GetComponent<PausePopupView>();
+            var captureView = captureRoot.GetComponent<PausePopupView>();
+            IDisposable productionScope = null;
+            IDisposable captureScope = null;
+
+            try
+            {
+                productionScope = PausePopupProductionLocalizationComposer.Bind(
+                    productionView,
+                    PausePopupPayload.Default,
+                    productionResolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    theme);
+
+                var target = TypographyPreviewScreenshotUtility.RequiredTargets.Single(candidate =>
+                    string.Equals(candidate.FileStem, "Pause", StringComparison.Ordinal));
+                var capture = new TypographyPreviewScreenshotCaptureResult(target, localeCode, "unused.png");
+                var applyPreview = typeof(TypographyPreviewScreenshotUtility).GetMethod(
+                    "ApplyLocalizedTextPreview",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(applyPreview, Is.Not.Null);
+                captureScope = (IDisposable)applyPreview.Invoke(
+                    null,
+                    new object[] { captureRoot, target, localeCode, theme, capture });
+
+                Assert.That(capture.Errors, Is.Empty);
+                Assert.That(productionResolver.CurrentLocaleCode, Is.EqualTo(localeCode));
+                Assert.That(capture.LocaleCode, Is.EqualTo(localeCode));
+                AssertPauseTypographyIdentity(
+                    GetPauseRequiredBindings(productionView),
+                    GetPauseRequiredBindings(captureView),
+                    localeCode);
+
+                var productionSource = File.ReadAllText(
+                    "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+                var captureSource = File.ReadAllText(
+                    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotUtility.cs");
+                Assert.That(productionSource, Does.Contain("PausePopupProductionLocalizationComposer.Bind("));
+                Assert.That(captureSource, Does.Contain("PausePopupProductionLocalizationComposer.Bind("));
+                Assert.That(captureSource, Does.Not.Contain(
+                    "view.BindStaticLocalization(\n                    PausePopupPayload.Default"));
+            }
+            finally
+            {
+                captureScope?.Dispose();
+                productionScope?.Dispose();
+                UnityEngine.Object.DestroyImmediate(captureRoot);
+                UnityEngine.Object.DestroyImmediate(productionRoot);
             }
         }
 
@@ -403,6 +464,83 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void AssertPauseTypographyIdentity(
+            IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> production,
+            IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> capture,
+            string localeCode)
+        {
+            Assert.That(capture.Count, Is.EqualTo(production.Count));
+            for (var i = 0; i < production.Count; i++)
+            {
+                var productionTarget = production[i];
+                var captureTarget = capture[i];
+                var context = $"{productionTarget.Name} {localeCode}";
+                var productionBinding = TypographyBinding.FindFor(productionTarget.Text);
+                var captureBinding = TypographyBinding.FindFor(captureTarget.Text);
+
+                Assert.That(captureTarget.Name, Is.EqualTo(productionTarget.Name), $"{context} target");
+                Assert.That(productionBinding, Is.Not.Null, $"{context} production binding");
+                Assert.That(captureBinding, Is.Not.Null, $"{context} capture binding");
+                Assert.That(captureBinding.StyleTag, Is.EqualTo(productionBinding.StyleTag), $"{context} style tag");
+                Assert.That(
+                    captureBinding.SizingSourceOverride,
+                    Is.EqualTo(productionBinding.SizingSourceOverride),
+                    $"{context} sizing source");
+                Assert.That(
+                    captureBinding.UseApplyMaskOverride,
+                    Is.EqualTo(productionBinding.UseApplyMaskOverride),
+                    $"{context} apply-mask override usage");
+                Assert.That(
+                    captureBinding.ApplyMaskOverride,
+                    Is.EqualTo(productionBinding.ApplyMaskOverride),
+                    $"{context} apply-mask override");
+                AssertSameAssetIdentity(productionTarget.Text.font, captureTarget.Text.font, $"{context} font");
+                AssertSameAssetIdentity(
+                    productionTarget.Text.fontSharedMaterial,
+                    captureTarget.Text.fontSharedMaterial,
+                    $"{context} material");
+                Assert.That(captureTarget.Text.fontStyle, Is.EqualTo(productionTarget.Text.fontStyle), $"{context} fontStyle");
+                Assert.That(captureTarget.Text.fontSize, Is.EqualTo(productionTarget.Text.fontSize), $"{context} fontSize");
+                Assert.That(
+                    captureTarget.Text.enableAutoSizing,
+                    Is.EqualTo(productionTarget.Text.enableAutoSizing),
+                    $"{context} enableAutoSizing");
+                Assert.That(
+                    captureTarget.Text.fontSizeMin,
+                    Is.EqualTo(productionTarget.Text.fontSizeMin),
+                    $"{context} fontSizeMin");
+                Assert.That(
+                    captureTarget.Text.fontSizeMax,
+                    Is.EqualTo(productionTarget.Text.fontSizeMax),
+                    $"{context} fontSizeMax");
+            }
+        }
+
+        private static void AssertSameAssetIdentity(
+            UnityEngine.Object production,
+            UnityEngine.Object capture,
+            string context)
+        {
+            Assert.That(production, Is.Not.Null, $"{context} production asset");
+            Assert.That(capture, Is.Not.Null, $"{context} capture asset");
+            Assert.That(
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
+                    production,
+                    out var productionGuid,
+                    out long productionLocalId),
+                Is.True,
+                $"{context} production identity");
+            Assert.That(
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
+                    capture,
+                    out var captureGuid,
+                    out long captureLocalId),
+                Is.True,
+                $"{context} capture identity");
+            Assert.That(captureGuid, Is.EqualTo(productionGuid), $"{context} GUID");
+            Assert.That(captureLocalId, Is.EqualTo(productionLocalId), $"{context} local ID");
+        }
+
         private static TextMeshProUGUI CreateTextWithBinding(TypographyStyleTag styleTag)
         {
             var text = new GameObject("TypographyBindingTestText").AddComponent<TextMeshProUGUI>();
@@ -411,41 +549,6 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(binding, "styleTag", styleTag);
             SetPrivateField(binding, "sizingSourceOverride", TypographySizingSource.Hybrid);
             return text;
-        }
-
-        private static List<LocalizedTmpTextBinding> BindPauseExternalStaticLocalization(
-            PausePopupView view,
-            PausePopupPayload payload,
-            ILocalizedTextResolver resolver,
-            GameplayUiTypographyTheme theme)
-        {
-            view.BindExternalStaticLocalization();
-            var targets = view.CreateStaticLocalizationTargets(payload);
-            var bindings = new List<LocalizedTmpTextBinding>(targets.Count);
-            for (var i = 0; i < targets.Count; i++)
-            {
-                bindings.Add(new LocalizedTmpTextBinding(
-                    targets[i].Target,
-                    targets[i].Descriptor,
-                    resolver,
-                    DefaultLocalizedTypographyResolver.Instance,
-                    typographyTheme: theme));
-            }
-
-            return bindings;
-        }
-
-        private static void DisposeBindings(List<LocalizedTmpTextBinding> bindings)
-        {
-            if (bindings == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < bindings.Count; i++)
-            {
-                bindings[i]?.Dispose();
-            }
         }
 
         private static T GetField<T>(object target, string fieldName)
