@@ -7,10 +7,15 @@ using UnityEngine;
 
 public static class WindowsReleaseBuildPolicy
 {
-    public const string MetadataSchemaVersion = "2.0";
-    public const string BuildReportSummarySchemaVersion = "2.0";
-    public const string BuildReportDetailsSchemaVersion = "1.0";
-    public const string ConfigurationName = "Windows-x64-NonDevelopment-Mono";
+    public const string MetadataSchemaVersion = "3.0";
+    public const string BuildReportSummarySchemaVersion = "3.0";
+    public const string BuildReportDetailsSchemaVersion = "2.0";
+    public const string StoreConfigurationSchema = "1.0";
+    public const string StoreConfigurationId =
+        "windows-x64-store-mono-logon-v1";
+    public const string LogPolicyId = "local-player-log-no-auto-upload-v1";
+    public const string PayloadAudience = "StoreDistributable";
+    public const string ConfigurationName = "Windows-x64-Store-Mono-LogOn";
     public const string Architecture = "x86_64";
     public const string ExpectedUnityVersion = "6000.3.11f1";
     public const string ProductName = "VectorQuake";
@@ -18,6 +23,7 @@ public static class WindowsReleaseBuildPolicy
     public const string MainMenuScene = "Assets/Scenes/MainMenuScene.unity";
     public const string UiAudioScene = "Assets/Scenes/UIAudioScene.unity";
     public const bool PlayerLogEnabled = true;
+    public const bool AutomaticLogUpload = false;
     public const bool IncrementalGcRequired = true;
     public const ScriptingImplementation Backend = ScriptingImplementation.Mono2x;
     public const ManagedStrippingLevel Stripping = ManagedStrippingLevel.Disabled;
@@ -28,7 +34,42 @@ public static class WindowsReleaseBuildPolicy
     public static readonly string[] Scenes = { MainMenuScene, UiAudioScene };
 
     public static WindowsReleaseBackendConfiguration DefaultConfiguration =>
-        WindowsReleaseBackendConfiguration.Mono;
+        WindowsReleaseBackendConfiguration.CanonicalStoreMono;
+
+    public static bool TryResolveConfiguration(
+        string intentValue,
+        string backendValue,
+        out WindowsReleaseBackendConfiguration configuration)
+    {
+        var intent = WindowsReleaseBuildIntent.CanonicalStore;
+        if (!string.IsNullOrEmpty(intentValue) &&
+            !Enum.TryParse(intentValue, false, out intent))
+        {
+            configuration = null;
+            return false;
+        }
+
+        var backend = StoreBackendCandidate.Mono;
+        if (!string.IsNullOrEmpty(backendValue) &&
+            !Enum.TryParse(backendValue, false, out backend))
+        {
+            configuration = null;
+            return false;
+        }
+
+        if (intent == WindowsReleaseBuildIntent.CanonicalStore)
+        {
+            configuration = backend == StoreBackendCandidate.Mono
+                ? WindowsReleaseBackendConfiguration.CanonicalStoreMono
+                : null;
+            return configuration != null;
+        }
+
+        configuration = backend == StoreBackendCandidate.Mono
+            ? WindowsReleaseBackendConfiguration.ComparisonMono
+            : WindowsReleaseBackendConfiguration.IL2CPP;
+        return true;
+    }
 
     public static bool TryResolveBackend(
         string value,
@@ -38,14 +79,7 @@ public static class WindowsReleaseBuildPolicy
             string.Equals(value, StoreBackendCandidate.Mono.ToString(),
                 StringComparison.Ordinal))
         {
-            configuration = WindowsReleaseBackendConfiguration.Mono;
-            return true;
-        }
-
-        if (string.Equals(value, StoreBackendCandidate.IL2CPP.ToString(),
-                StringComparison.Ordinal))
-        {
-            configuration = WindowsReleaseBackendConfiguration.IL2CPP;
+            configuration = WindowsReleaseBackendConfiguration.CanonicalStoreMono;
             return true;
         }
 
@@ -162,6 +196,44 @@ public static class WindowsReleaseBuildPolicy
             : WindowsReleaseExitCodes.BuildReportCountMismatch;
     }
 
+    public static int ValidateCanonicalArtifactIdentity(
+        params ReleaseStoreIdentityV1[] identities)
+    {
+        if (identities == null || identities.Length == 0)
+        {
+            return WindowsReleaseExitCodes.BuildReportIdentityMismatch;
+        }
+
+        foreach (var identity in identities)
+        {
+            if (identity == null ||
+                !string.Equals(identity.storeConfigurationSchema,
+                    StoreConfigurationSchema, StringComparison.Ordinal) ||
+                !string.Equals(identity.storeConfigurationId,
+                    StoreConfigurationId, StringComparison.Ordinal) ||
+                !string.Equals(identity.buildIntent,
+                    WindowsReleaseBuildIntent.CanonicalStore.ToString(),
+                    StringComparison.Ordinal) ||
+                !string.Equals(identity.backend, StoreBackendCandidate.Mono.ToString(),
+                    StringComparison.Ordinal) ||
+                !string.Equals(identity.scriptingBackend, Backend.ToString(),
+                    StringComparison.Ordinal) ||
+                !string.Equals(identity.managedStrippingLevel, Stripping.ToString(),
+                    StringComparison.Ordinal) ||
+                !identity.playerLogEnabled ||
+                !string.Equals(identity.logPolicyId, LogPolicyId,
+                    StringComparison.Ordinal) ||
+                identity.automaticLogUpload ||
+                !string.Equals(identity.payloadAudience, PayloadAudience,
+                    StringComparison.Ordinal))
+            {
+                return WindowsReleaseExitCodes.BuildReportIdentityMismatch;
+            }
+        }
+
+        return WindowsReleaseExitCodes.Success;
+    }
+
     internal static int ValidateBuildReportIdentityAndCounts(
         WindowsReleaseMetadataV2 metadata,
         BuildReportSummaryV2 summary,
@@ -192,8 +264,40 @@ public static class WindowsReleaseBuildPolicy
             !Same(metadata.configuration, summary.configuration, details.configuration) ||
             !string.Equals(summary.configuration, configuration.ConfigurationName,
                 StringComparison.Ordinal) ||
+            !Same(metadata.buildIntent, summary.buildIntent, details.buildIntent) ||
+            !string.Equals(summary.buildIntent, configuration.Intent.ToString(),
+                StringComparison.Ordinal) ||
+            !Same(metadata.storeConfigurationSchema, summary.storeConfigurationSchema,
+                details.storeConfigurationSchema) ||
+            !string.Equals(summary.storeConfigurationSchema,
+                configuration.StoreConfigurationSchema, StringComparison.Ordinal) ||
+            !Same(metadata.storeConfigurationId, summary.storeConfigurationId,
+                details.storeConfigurationId) ||
+            !string.Equals(summary.storeConfigurationId,
+                configuration.StoreConfigurationId, StringComparison.Ordinal) ||
             !Same(metadata.backend, summary.backend, details.backend) ||
-            !string.Equals(summary.backend, configuration.Backend.ToString(),
+            !string.Equals(summary.backend, configuration.Candidate.ToString(),
+                StringComparison.Ordinal) ||
+            !Same(metadata.scriptingBackend, summary.scriptingBackend,
+                details.scriptingBackend) ||
+            !string.Equals(summary.scriptingBackend, configuration.Backend.ToString(),
+                StringComparison.Ordinal) ||
+            !Same(metadata.managedStrippingLevel, summary.managedStrippingLevel,
+                details.managedStrippingLevel) ||
+            !string.Equals(summary.managedStrippingLevel,
+                configuration.Stripping.ToString(), StringComparison.Ordinal) ||
+            metadata.playerLogEnabled != summary.playerLogEnabled ||
+            summary.playerLogEnabled != details.playerLogEnabled ||
+            metadata.playerLogEnabled != PlayerLogEnabled ||
+            !Same(metadata.logPolicyId, summary.logPolicyId, details.logPolicyId) ||
+            !string.Equals(summary.logPolicyId, configuration.LogPolicyId,
+                StringComparison.Ordinal) ||
+            metadata.automaticLogUpload != summary.automaticLogUpload ||
+            summary.automaticLogUpload != details.automaticLogUpload ||
+            metadata.automaticLogUpload != AutomaticLogUpload ||
+            !Same(metadata.payloadAudience, summary.payloadAudience,
+                details.payloadAudience) ||
+            !string.Equals(summary.payloadAudience, configuration.PayloadAudience,
                 StringComparison.Ordinal) ||
             !Same(metadata.backendComparisonId, summary.backendComparisonId,
                 details.backendComparisonId) ||
@@ -271,6 +375,12 @@ public static class WindowsReleaseBuildPolicy
     }
 }
 
+public enum WindowsReleaseBuildIntent
+{
+    CanonicalStore = 0,
+    BackendComparison = 1,
+}
+
 public enum StoreBackendCandidate
 {
     Mono = 0,
@@ -279,47 +389,86 @@ public enum StoreBackendCandidate
 
 public enum StoreBackendComparisonRole
 {
-    MonoControl = 0,
-    IL2CPPCandidate = 1,
+    CanonicalStore = 0,
+    MonoControl = 1,
+    IL2CPPCandidate = 2,
 }
 
 public sealed class WindowsReleaseBackendConfiguration
 {
-    public static readonly WindowsReleaseBackendConfiguration Mono =
+    public static readonly WindowsReleaseBackendConfiguration CanonicalStoreMono =
         new WindowsReleaseBackendConfiguration(
+            WindowsReleaseBuildIntent.CanonicalStore,
+            StoreBackendCandidate.Mono,
+            ScriptingImplementation.Mono2x,
+            ManagedStrippingLevel.Disabled,
+            StoreBackendComparisonRole.CanonicalStore,
+            WindowsReleaseBuildPolicy.ConfigurationName,
+            WindowsReleaseBuildPolicy.StoreConfigurationSchema,
+            WindowsReleaseBuildPolicy.StoreConfigurationId,
+            WindowsReleaseBuildPolicy.LogPolicyId,
+            WindowsReleaseBuildPolicy.PayloadAudience);
+
+    public static readonly WindowsReleaseBackendConfiguration ComparisonMono =
+        new WindowsReleaseBackendConfiguration(
+            WindowsReleaseBuildIntent.BackendComparison,
             StoreBackendCandidate.Mono,
             ScriptingImplementation.Mono2x,
             ManagedStrippingLevel.Disabled,
             StoreBackendComparisonRole.MonoControl,
-            "Windows-x64-NonDevelopment-Mono");
+            "Windows-x64-NonDevelopment-Mono",
+            "comparison-1.0",
+            "not-canonical-backend-comparison",
+            WindowsReleaseBuildPolicy.LogPolicyId,
+            "InternalRc");
 
     public static readonly WindowsReleaseBackendConfiguration IL2CPP =
         new WindowsReleaseBackendConfiguration(
+            WindowsReleaseBuildIntent.BackendComparison,
             StoreBackendCandidate.IL2CPP,
             ScriptingImplementation.IL2CPP,
             ManagedStrippingLevel.Minimal,
             StoreBackendComparisonRole.IL2CPPCandidate,
-            "Windows-x64-NonDevelopment-IL2CPP");
+            "Windows-x64-NonDevelopment-IL2CPP",
+            "comparison-1.0",
+            "not-canonical-backend-comparison",
+            WindowsReleaseBuildPolicy.LogPolicyId,
+            "InternalRc");
 
     private WindowsReleaseBackendConfiguration(
+        WindowsReleaseBuildIntent intent,
         StoreBackendCandidate candidate,
         ScriptingImplementation backend,
         ManagedStrippingLevel stripping,
         StoreBackendComparisonRole comparisonRole,
-        string configurationName)
+        string configurationName,
+        string storeConfigurationSchema,
+        string storeConfigurationId,
+        string logPolicyId,
+        string payloadAudience)
     {
+        Intent = intent;
         Candidate = candidate;
         Backend = backend;
         Stripping = stripping;
         ComparisonRole = comparisonRole;
         ConfigurationName = configurationName;
+        StoreConfigurationSchema = storeConfigurationSchema;
+        StoreConfigurationId = storeConfigurationId;
+        LogPolicyId = logPolicyId;
+        PayloadAudience = payloadAudience;
     }
 
+    public WindowsReleaseBuildIntent Intent { get; }
     public StoreBackendCandidate Candidate { get; }
     public ScriptingImplementation Backend { get; }
     public ManagedStrippingLevel Stripping { get; }
     public StoreBackendComparisonRole ComparisonRole { get; }
     public string ConfigurationName { get; }
+    public string StoreConfigurationSchema { get; }
+    public string StoreConfigurationId { get; }
+    public string LogPolicyId { get; }
+    public string PayloadAudience { get; }
     public Il2CppCompilerConfiguration Il2CppCompilerConfiguration =>
         WindowsReleaseBuildPolicy.Il2CppCompiler;
 }
@@ -336,6 +485,21 @@ public readonly struct ReleaseSceneDescriptor
     public string Path { get; }
     public bool Enabled { get; }
     public bool Exists { get; }
+}
+
+[Serializable]
+public sealed class ReleaseStoreIdentityV1
+{
+    public string storeConfigurationSchema;
+    public string storeConfigurationId;
+    public string buildIntent;
+    public string backend;
+    public string scriptingBackend;
+    public string managedStrippingLevel;
+    public bool playerLogEnabled;
+    public string logPolicyId;
+    public bool automaticLogUpload;
+    public string payloadAudience;
 }
 
 public static class WindowsReleaseExitCodes
@@ -554,7 +718,11 @@ public sealed class WindowsReleaseMetadataV2
     public string buildTarget;
     public string architecture;
     public string configuration;
+    public string buildIntent;
+    public string storeConfigurationSchema;
+    public string storeConfigurationId;
     public string backend;
+    public string scriptingBackend;
     public string managedStrippingLevel;
     public string il2cppCompilerConfiguration;
     public string nativeCompilerIdentity;
@@ -566,10 +734,14 @@ public sealed class WindowsReleaseMetadataV2
     public bool deepProfiling;
     public bool allowDebugging;
     public bool scriptDebugging;
+    public bool waitForPlayerConnection;
     public bool waitForDebugger;
     public bool forceAssertions;
     public string[] effectiveScenes;
     public bool playerLogEnabled;
+    public string logPolicyId;
+    public bool automaticLogUpload;
+    public string payloadAudience;
     public string stackTracePolicy;
     public bool incrementalGC;
     public string productName;

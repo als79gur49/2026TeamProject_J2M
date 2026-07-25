@@ -1,9 +1,13 @@
-# Windows x64 Non-Development Mono RC Pipeline
+# Windows x64 Canonical Mono Store Pipeline
 
 ## Scope
 
-This pipeline creates a disposable Windows x64 non-development Mono RC artifact.
-It is not Store signoff, an IL2CPP migration, Steam packaging, or upload automation.
+This pipeline creates the versioned Windows x64 canonical Mono Store artifact.
+`StoreDistributable` means the build passed repository payload/privacy readiness;
+it is not Steam shipping signoff, depot upload completion, or overall Store signoff.
+The backend-comparison seam remains available only through the explicit
+`BackendComparison` intent and creates separately named internal artifacts.
+It is not an IL2CPP migration, Steam packaging, or upload automation.
 `PlayerProfilerCaptureCli` remains the separate Development Player workflow.
 
 The zero-error artifact from source
@@ -13,13 +17,21 @@ correction that follows it. The correction must create a new committed revision
 and new run; it must not rewrite that artifact or any of its private evidence.
 Reference status does not mean Store acceptance.
 
-## Fixed contract
+## Fixed canonical Store contract
 
-- Configuration: `Windows-x64-NonDevelopment-Mono-RC`
+- Store configuration schema: `1.0`
+- Store configuration ID: `windows-x64-store-mono-logon-v1`
+- Configuration path: `Windows-x64-Store-Mono-LogOn`
+- Build intent: `CanonicalStore`
 - Target and architecture: `StandaloneWindows64`, `x86_64`
 - Build options: `BuildOptions.None`
-- Backend and stripping: Mono, `ManagedStrippingLevel.Disabled`
-- Player log and warning stack trace: enabled, `ScriptOnly`
+- Backend and stripping: `Mono2x`, `ManagedStrippingLevel.Disabled`
+- Player log: enabled
+- Log policy ID: `local-player-log-no-auto-upload-v1`
+- Automatic full-log upload and custom telemetry: disabled
+- Payload audience: `StoreDistributable`
+- Development, profiler connection, deep profiling, debugging, debugger wait,
+  and forced assertions: disabled
 - Incremental GC: required to remain enabled
 - Scenes, in exact order:
   1. `Assets/Scenes/MainMenuScene.unity`
@@ -50,6 +62,26 @@ AND wrapper evidence validation succeeds
 that build outcome. The wrapper independently re-reads metadata, the shareable
 report summary, and private structured details before it can create
 `SUCCESS.json` or promote an artifact.
+
+The shared Store identity is bound through `build-metadata.json`,
+`configuration-summary.json`, `artifact-provenance.json`, and `SUCCESS.json`.
+Every file must agree on configuration schema/ID, intent, backend,
+`scriptingBackend`, stripping, Player.log, log-policy ID, automatic-upload flag,
+and payload audience. A matching Store ID with different effective values is
+rejected.
+
+## Backend intent boundary
+
+| Intent | Backend | Result | Configuration identity |
+|---|---|---|---|
+| `CanonicalStore` | `Mono` | allowed | `windows-x64-store-mono-logon-v1` |
+| `CanonicalStore` | `IL2CPP` | rejected | none |
+| `BackendComparison` | `Mono` | `MonoControl` | non-canonical comparison |
+| `BackendComparison` | `IL2CPP` | `IL2CPPCandidate` | non-canonical comparison |
+
+Omitting both intent and backend selects canonical Mono. Comparison artifacts
+use `InternalRc` and retain the historical backend-specific configuration
+directories. An IL2CPP candidate is never labeled with the canonical Store ID.
 
 ## Test-first gates
 
@@ -109,7 +141,10 @@ After the implementation is committed and the invocation worktree is clean:
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File "Tools\Build\Build-WindowsRelease.ps1" `
   -RepositoryRoot "C:\Users\user\2026TeamProject_J2M" `
-  -UnityExe "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe"
+  -UnityExe "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe" `
+  -BuildIntent "CanonicalStore" `
+  -Backend "Mono" `
+  -PayloadAudience "StoreDistributable"
 ```
 
 The wrapper does not pass `-quit`; `WindowsReleaseBuildCli` owns the Unity exit.
@@ -173,7 +208,7 @@ any content or canary drift.
 Output is written outside the repository:
 
 ```text
-<OutputRoot>/<sourceSha>/Windows-x64-NonDevelopment-Mono/
+<OutputRoot>/<sourceSha>/Windows-x64-Store-Mono-LogOn/
   .staging-<runId>/
   failed/<runId>/
   <runId>/
@@ -196,12 +231,12 @@ the exact candidate bytes. A payload that has not passed this policy may remain
 private reference evidence, but it cannot be described as distributable,
 Store-ready, or Store accepted.
 
-`payload/build-metadata.json` schema v2 contains Unity build-time facts and no
-manifest placeholders. `payload/build-report-summary.json` schema v2 contains
+`payload/build-metadata.json` schema v3 contains Unity build-time facts and no
+manifest placeholders. `payload/build-report-summary.json` schema v3 contains
 the BuildReport summary plus only the shareable structured-detail reference:
 filename, SHA-256, error/warning record counts, and distinct error message
 hashes. Full steps, original messages, normalized messages, message hashes, and
-stack text remain in private `build-report-details.json` schema v1. The summary
+stack text remain in private `build-report-details.json` schema v2. The summary
 schema bump adds the correction's cross-binding fields without promoting raw
 details or changing the private-details schema.
 
@@ -212,9 +247,9 @@ binds that provenance file and its SHA-256. A staging `SUCCESS.json` is not
 success: only same-volume rename to the final run directory followed by
 manifest, provenance, and control verification is accepted.
 
-In `SUCCESS.json` schema v2, the canonical payload-manifest filename property is
+In `SUCCESS.json` schema v3, the canonical payload-manifest filename property is
 `payloadManifestFile`. The legacy alias `payloadManifest` is not emitted or
-accepted for a new schema-v2 artifact. Existing immutable artifacts retain the
+accepted for a new schema-v3 artifact. Existing immutable artifacts retain the
 bytes and schema they were created with; they are not migrated in place.
 
 Before `SUCCESS.json` creation and again from the final promoted directory, the
@@ -256,6 +291,36 @@ promoted distributable payload. Shareable JSON may carry relative filenames,
 counts, verdicts, and SHA-256 bindings, but not raw stack text, command lines,
 absolute private paths, operator identity, machine identity, save data, or
 PlayerPrefs values.
+
+`Player.log` and `Player-prev.log` are rejected by name anywhere in a
+`StoreDistributable` payload. Actual smoke logs belong only below the artifact's
+`.private/<runId>/smoke/` evidence root and the private
+`VectorQuake-QA-Telemetry` archive. See
+[`Docs/Support/Windows-Player-Log-Policy.md`](../Support/Windows-Player-Log-Policy.md)
+for user-facing location, submission, privacy, retention, and redaction policy.
+
+## Automatic-upload and production-log audit
+
+The initial Store contract combines package inventory, service configuration,
+project-owned runtime initialization-source inspection, production assembly
+tests, and actual-smoke log inspection. The current audited state is:
+
+- Unity Cloud Diagnostics reporting: disabled in
+  `ProjectSettings/UnityConnectSettings.asset`
+- Unity Analytics: disabled; no project-owned initialization
+- Performance Reporting: disabled
+- third-party crash reporter: no package or runtime initialization
+- custom Player.log uploader/background telemetry sender: none
+- user-submitted support logs: allowed only through a private support channel
+
+Built-in Unity analytics/webrequest modules are not treated as active services
+without an enabled service configuration and runtime initialization path.
+Project-owned runtime logging contains no credential, PII, account ID, or save
+document body. The standalone campaign seed-import success message currently
+includes its local seed path; this is a path-minimization backlog, not sensitive
+data or an automatic-upload path. Unity/package engine lines may also contain
+system information and local paths and are classified separately from
+project-owned privacy defects.
 
 ## Actual Player smoke
 
@@ -301,6 +366,13 @@ Existing artifacts and their control files are immutable evidence:
   `20260724T140105269Z`, is the zero-error reference artifact for the correction
   slice. It remains unchanged and is not evidence that the later correction
   revision, distributable-payload gate, or Store signoff has passed.
+- Source `40b1a1aef2d36170015c19215488a4d7fdbeb91d`, run
+  `20260724T171700000Z`, remains the immutable first StoreDistributable Mono
+  reference.
+- Source `9b38241f606c3c71d64577411c1100fe7c5a4700`, Mono run
+  `20260725T061500000Z`, remains the immutable backend-comparison control.
+  The same source's IL2CPP failed candidates and their failure evidence remain
+  immutable comparison evidence; they are not canonical Store artifacts.
 
 New evidence is written under a new source revision and RunId. Existing payload,
 manifest, provenance, `SUCCESS.json`, failure quarantine, build logs, and smoke
@@ -313,9 +385,9 @@ C# codes occupy `0..50`; wrapper codes occupy `100..115`. Both schemas are
 constants and uniqueness-tested. Failed staging content is moved, when possible,
 under `failed/<runId>` with a non-deployable `FAILURE.json`.
 
-Store backend, Store Player.log policy, application identifier signoff, build
-number policy, remote/tag policy, Steam packaging, depot/upload automation,
-runtime buffer-disposal and JobTempAlloc diagnostics, and formal historical
-audio-instability closeout remain pending. Completion of the evidence-contract
-correction permits a later Store-signoff audit; it does not complete Store
+Application identifier signoff, build number policy, remote/tag policy, Steam
+packaging, depot/upload automation, runtime buffer-disposal and JobTempAlloc
+diagnostics, and formal historical audio-instability closeout remain pending.
+Mobile/IL2CPP expansion is reconsidered only after Windows launch stabilization.
+Completion of this configuration/logging freeze does not complete overall Store
 signoff.

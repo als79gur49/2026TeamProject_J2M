@@ -5,10 +5,12 @@ param(
     [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
     [string]$BuildSourceRoot = "C:\VQBuildSources",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
+    [ValidateSet("CanonicalStore", "BackendComparison")]
+    [string]$BuildIntent = "CanonicalStore",
     [string]$Backend = "Mono",
     [string]$BackendComparisonId = "",
     [ValidateSet("InternalRc", "StoreDistributable")]
-    [string]$PayloadAudience = "InternalRc",
+    [string]$PayloadAudience = "StoreDistributable",
     [string[]]$AllowUntrackedRoot = @(
         "TestLogs/CampaignLaunchOwnershipE2E",
         "TestLogs/MainReReview",
@@ -19,26 +21,71 @@ param(
 )
 
 function Resolve-StoreBackendPolicy {
-    param([string]$Value = "Mono")
+    param(
+        [string]$Value = "Mono",
+        [ValidateSet("CanonicalStore", "BackendComparison")]
+        [string]$Intent = "CanonicalStore",
+        [ValidateSet("InternalRc", "StoreDistributable")]
+        [string]$Audience = $(if ($Intent -ceq "CanonicalStore") {
+            "StoreDistributable"
+        } else {
+            "InternalRc"
+        })
+    )
+    if ($Intent -ceq "CanonicalStore" -and
+        ($Value -cne "Mono" -or $Audience -cne "StoreDistributable")) {
+        throw "CanonicalStore requires Mono and StoreDistributable."
+    }
+    if ($Intent -ceq "BackendComparison" -and $Audience -cne "InternalRc") {
+        throw "BackendComparison artifacts require InternalRc."
+    }
     switch -CaseSensitive ($Value) {
         "Mono" {
+            $canonical = $Intent -ceq "CanonicalStore"
             return [pscustomobject][ordered]@{
+                BuildIntent = $Intent
                 Backend = "Mono"
                 ScriptingBackend = "Mono2x"
                 ManagedStrippingLevel = "Disabled"
                 Il2CppCompilerConfiguration = "Release"
-                ComparisonRole = "MonoControl"
-                Configuration = "Windows-x64-NonDevelopment-Mono"
+                ComparisonRole = if ($canonical) { "CanonicalStore" } else { "MonoControl" }
+                Configuration = if ($canonical) {
+                    "Windows-x64-Store-Mono-LogOn"
+                } else {
+                    "Windows-x64-NonDevelopment-Mono"
+                }
+                StoreConfigurationSchema = if ($canonical) { "1.0" } else {
+                    "comparison-1.0"
+                }
+                StoreConfigurationId = if ($canonical) {
+                    "windows-x64-store-mono-logon-v1"
+                } else {
+                    "not-canonical-backend-comparison"
+                }
+                PlayerLogEnabled = $true
+                LogPolicyId = "local-player-log-no-auto-upload-v1"
+                AutomaticLogUpload = $false
+                PayloadAudience = $Audience
             }
         }
         "IL2CPP" {
+            if ($Intent -cne "BackendComparison") {
+                throw "IL2CPP is not a canonical Store configuration."
+            }
             return [pscustomobject][ordered]@{
+                BuildIntent = $Intent
                 Backend = "IL2CPP"
                 ScriptingBackend = "IL2CPP"
                 ManagedStrippingLevel = "Minimal"
                 Il2CppCompilerConfiguration = "Release"
                 ComparisonRole = "IL2CPPCandidate"
                 Configuration = "Windows-x64-NonDevelopment-IL2CPP"
+                StoreConfigurationSchema = "comparison-1.0"
+                StoreConfigurationId = "not-canonical-backend-comparison"
+                PlayerLogEnabled = $true
+                LogPolicyId = "local-player-log-no-auto-upload-v1"
+                AutomaticLogUpload = $false
+                PayloadAudience = $Audience
             }
         }
         default { throw "Unsupported Store backend: $Value" }
@@ -65,7 +112,7 @@ $script:ReleaseExitCodes = [ordered]@{
     UnsupportedConfiguration = 116
 }
 try {
-    $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend
+    $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
 } catch {
     if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -eq "1") { throw }
     Write-Error "[configuration][$($script:ReleaseExitCodes.UnsupportedConfiguration)] $($_.Exception.Message)"
@@ -74,10 +121,10 @@ try {
 $script:ConfigurationName = [string]$script:BackendPolicy.Configuration
 $script:ExecutingWrapperSourcePath = $PSCommandPath
 $script:ConfigurationPathName = [string]$script:BackendPolicy.Configuration
-$script:MetadataSchemaVersion = "2.0"
-$script:ReportSummarySchemaVersion = "2.0"
-$script:ReportDetailsSchemaVersion = "1.0"
-$script:ProvenanceSchemaVersion = "2.0"
+$script:MetadataSchemaVersion = "3.0"
+$script:ReportSummarySchemaVersion = "3.0"
+$script:ReportDetailsSchemaVersion = "2.0"
+$script:ProvenanceSchemaVersion = "3.0"
 $script:MaxLegacyWindowsPathLength = 259
 $script:CriticalImporterRelativePaths = @(
     (
@@ -130,11 +177,20 @@ function New-ReleaseEvidenceExpectation {
         [Parameter(Mandatory)][string]$ExecutingWrapperSourcePath,
         [string]$Configuration = $script:ConfigurationName,
         [string]$Backend = $script:BackendPolicy.ScriptingBackend,
+        [string]$BackendIdentity = $script:BackendPolicy.Backend,
         [string]$ManagedStrippingLevel = $script:BackendPolicy.ManagedStrippingLevel,
         [string]$Il2CppCompilerConfiguration =
             $script:BackendPolicy.Il2CppCompilerConfiguration,
         [string]$BackendComparisonId = "comparison",
-        [string]$ComparisonRole = $script:BackendPolicy.ComparisonRole
+        [string]$ComparisonRole = $script:BackendPolicy.ComparisonRole,
+        [string]$BuildIntent = $script:BackendPolicy.BuildIntent,
+        [string]$StoreConfigurationSchema =
+            $script:BackendPolicy.StoreConfigurationSchema,
+        [string]$StoreConfigurationId = $script:BackendPolicy.StoreConfigurationId,
+        [bool]$PlayerLogEnabled = $script:BackendPolicy.PlayerLogEnabled,
+        [string]$LogPolicyId = $script:BackendPolicy.LogPolicyId,
+        [bool]$AutomaticLogUpload = $script:BackendPolicy.AutomaticLogUpload,
+        [string]$PayloadAudience = $script:BackendPolicy.PayloadAudience
     )
     foreach ($path in @(
         $EntrySourcePath,
@@ -157,11 +213,19 @@ function New-ReleaseEvidenceExpectation {
         SourceSha = $SourceSha
         SourceTree = $SourceTree
         Configuration = $Configuration
-        Backend = $Backend
+        Backend = $BackendIdentity
+        ScriptingBackend = $Backend
         ManagedStrippingLevel = $ManagedStrippingLevel
         Il2CppCompilerConfiguration = $Il2CppCompilerConfiguration
         BackendComparisonId = $BackendComparisonId
         ComparisonRole = $ComparisonRole
+        BuildIntent = $BuildIntent
+        StoreConfigurationSchema = $StoreConfigurationSchema
+        StoreConfigurationId = $StoreConfigurationId
+        PlayerLogEnabled = $PlayerLogEnabled
+        LogPolicyId = $LogPolicyId
+        AutomaticLogUpload = $AutomaticLogUpload
+        PayloadAudience = $PayloadAudience
         EntrySourcePath = $EntrySourcePath
         PolicySourcePath = $PolicySourcePath
         DetachedWrapperSourcePath = $DetachedWrapperSourcePath
@@ -400,6 +464,14 @@ function Write-ImmutablePowerShellTestEvidence {
         [Parameter(Mandatory)][int]$Passed,
         [Parameter(Mandatory)][int]$Failed,
         [int]$Skipped = 0,
+        [string]$StoreConfigurationSchema = "1.0",
+        [string]$StoreConfigurationId = "windows-x64-store-mono-logon-v1",
+        [string]$BuildIntent = "CanonicalStore",
+        [string]$Backend = "Mono",
+        [string]$LogPolicyId = "local-player-log-no-auto-upload-v1",
+        [bool]$PlayerLogEnabled = $true,
+        [bool]$AutomaticLogUpload = $false,
+        [string]$PayloadAudience = "StoreDistributable",
         [string[]]$Results = @()
     )
     $hashPath = "$Path.sha256"
@@ -426,6 +498,14 @@ function Write-ImmutablePowerShellTestEvidence {
         passed = $Passed
         failed = $Failed
         skipped = $Skipped
+        storeConfigurationSchema = $StoreConfigurationSchema
+        storeConfigurationId = $StoreConfigurationId
+        buildIntent = $BuildIntent
+        backend = $Backend
+        playerLogEnabled = $PlayerLogEnabled
+        logPolicyId = $LogPolicyId
+        automaticLogUpload = $AutomaticLogUpload
+        payloadAudience = $PayloadAudience
         resultStatus = if ($Failed -eq 0) { "Passed" } else { "Failed" }
         startedUtc = $StartedUtc
         completedUtc = $CompletedUtc
@@ -537,7 +617,17 @@ function Test-BuildEvidence {
         @{ Value = $metadata; Name = "sourceSha"; Reason = "MetadataIdentityMissing" },
         @{ Value = $metadata; Name = "sourceTree"; Reason = "MetadataIdentityMissing" },
         @{ Value = $metadata; Name = "configuration"; Reason = "MetadataIdentityMissing" },
+        @{ Value = $metadata; Name = "buildTarget"; Reason = "MetadataTargetMissing" },
+        @{ Value = $metadata; Name = "architecture";
+            Reason = "MetadataArchitectureMissing" },
+        @{ Value = $metadata; Name = "buildIntent"; Reason = "MetadataIntentMissing" },
+        @{ Value = $metadata; Name = "storeConfigurationSchema";
+            Reason = "MetadataStoreSchemaMissing" },
+        @{ Value = $metadata; Name = "storeConfigurationId";
+            Reason = "MetadataStoreConfigurationIdMissing" },
         @{ Value = $metadata; Name = "backend"; Reason = "MetadataBackendMissing" },
+        @{ Value = $metadata; Name = "scriptingBackend";
+            Reason = "MetadataScriptingBackendMissing" },
         @{ Value = $metadata; Name = "managedStrippingLevel";
             Reason = "MetadataStrippingMissing" },
         @{ Value = $metadata; Name = "il2cppCompilerConfiguration";
@@ -546,6 +636,32 @@ function Test-BuildEvidence {
             Reason = "MetadataComparisonIdMissing" },
         @{ Value = $metadata; Name = "comparisonRole";
             Reason = "MetadataComparisonRoleMissing" },
+        @{ Value = $metadata; Name = "playerLogEnabled";
+            Reason = "MetadataPlayerLogMissing" },
+        @{ Value = $metadata; Name = "logPolicyId";
+            Reason = "MetadataLogPolicyMissing" },
+        @{ Value = $metadata; Name = "automaticLogUpload";
+            Reason = "MetadataAutomaticLogUploadMissing" },
+        @{ Value = $metadata; Name = "payloadAudience";
+            Reason = "MetadataPayloadAudienceMissing" },
+        @{ Value = $metadata; Name = "development";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "connectWithProfiler";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "deepProfiling";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "allowDebugging";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "scriptDebugging";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "waitForPlayerConnection";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "waitForDebugger";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "forceAssertions";
+            Reason = "MetadataBuildFlagMissing" },
+        @{ Value = $metadata; Name = "effectiveScenes";
+            Reason = "MetadataScenesMissing" },
         @{ Value = $metadata; Name = "buildResult"; Reason = "MetadataResultMissing" },
         @{ Value = $metadata; Name = "errorCount"; Reason = "MetadataErrorCountMissing" },
         @{ Value = $metadata; Name = "warningCount"; Reason = "MetadataWarningCountMissing" },
@@ -560,7 +676,24 @@ function Test-BuildEvidence {
         @{ Value = $summary; Name = "sourceSha"; Reason = "ReportIdentityMissing" },
         @{ Value = $summary; Name = "sourceTree"; Reason = "ReportIdentityMissing" },
         @{ Value = $summary; Name = "configuration"; Reason = "ReportIdentityMissing" },
+        @{ Value = $summary; Name = "buildIntent"; Reason = "ReportIntentMissing" },
+        @{ Value = $summary; Name = "storeConfigurationSchema";
+            Reason = "ReportStoreSchemaMissing" },
+        @{ Value = $summary; Name = "storeConfigurationId";
+            Reason = "ReportStoreConfigurationIdMissing" },
         @{ Value = $summary; Name = "backend"; Reason = "ReportBackendMissing" },
+        @{ Value = $summary; Name = "scriptingBackend";
+            Reason = "ReportScriptingBackendMissing" },
+        @{ Value = $summary; Name = "managedStrippingLevel";
+            Reason = "ReportStrippingMissing" },
+        @{ Value = $summary; Name = "playerLogEnabled";
+            Reason = "ReportPlayerLogMissing" },
+        @{ Value = $summary; Name = "logPolicyId";
+            Reason = "ReportLogPolicyMissing" },
+        @{ Value = $summary; Name = "automaticLogUpload";
+            Reason = "ReportAutomaticLogUploadMissing" },
+        @{ Value = $summary; Name = "payloadAudience";
+            Reason = "ReportPayloadAudienceMissing" },
         @{ Value = $summary; Name = "backendComparisonId";
             Reason = "ReportComparisonIdMissing" },
         @{ Value = $summary; Name = "comparisonRole";
@@ -577,7 +710,24 @@ function Test-BuildEvidence {
         @{ Value = $details; Name = "sourceSha"; Reason = "DetailsIdentityMissing" },
         @{ Value = $details; Name = "sourceTree"; Reason = "DetailsIdentityMissing" },
         @{ Value = $details; Name = "configuration"; Reason = "DetailsIdentityMissing" },
+        @{ Value = $details; Name = "buildIntent"; Reason = "DetailsIntentMissing" },
+        @{ Value = $details; Name = "storeConfigurationSchema";
+            Reason = "DetailsStoreSchemaMissing" },
+        @{ Value = $details; Name = "storeConfigurationId";
+            Reason = "DetailsStoreConfigurationIdMissing" },
         @{ Value = $details; Name = "backend"; Reason = "DetailsBackendMissing" },
+        @{ Value = $details; Name = "scriptingBackend";
+            Reason = "DetailsScriptingBackendMissing" },
+        @{ Value = $details; Name = "managedStrippingLevel";
+            Reason = "DetailsStrippingMissing" },
+        @{ Value = $details; Name = "playerLogEnabled";
+            Reason = "DetailsPlayerLogMissing" },
+        @{ Value = $details; Name = "logPolicyId";
+            Reason = "DetailsLogPolicyMissing" },
+        @{ Value = $details; Name = "automaticLogUpload";
+            Reason = "DetailsAutomaticLogUploadMissing" },
+        @{ Value = $details; Name = "payloadAudience";
+            Reason = "DetailsPayloadAudienceMissing" },
         @{ Value = $details; Name = "backendComparisonId";
             Reason = "DetailsComparisonIdMissing" },
         @{ Value = $details; Name = "comparisonRole";
@@ -594,6 +744,24 @@ function Test-BuildEvidence {
                 $metadata $summary $details
         }
     }
+    if ([string]$metadata.buildTarget -cne "StandaloneWindows64" -or
+        [string]$metadata.architecture -cne "x86_64" -or
+        [bool]$metadata.development -or
+        [bool]$metadata.connectWithProfiler -or
+        [bool]$metadata.deepProfiling -or
+        [bool]$metadata.allowDebugging -or
+        [bool]$metadata.scriptDebugging -or
+        [bool]$metadata.waitForPlayerConnection -or
+        [bool]$metadata.waitForDebugger -or
+        [bool]$metadata.forceAssertions -or
+        @($metadata.effectiveScenes).Count -ne 2 -or
+        [string]$metadata.effectiveScenes[0] -cne
+            "Assets/Scenes/MainMenuScene.unity" -or
+        [string]$metadata.effectiveScenes[1] -cne
+            "Assets/Scenes/UIAudioScene.unity") {
+        return New-BuildEvidenceResult $false "StoreBuildFlagsOrScenesMismatch" `
+            $metadata $summary $details
+    }
     if ($null -ne $ExpectedIdentity) {
         foreach ($binding in @(
             @{ Value = $metadata; Name = "runId"; Expected = $ExpectedIdentity.RunId },
@@ -602,7 +770,15 @@ function Test-BuildEvidence {
             @{ Value = $metadata; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
             @{ Value = $metadata; Name = "configuration";
                 Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $metadata; Name = "buildIntent";
+                Expected = $ExpectedIdentity.BuildIntent },
+            @{ Value = $metadata; Name = "storeConfigurationSchema";
+                Expected = $ExpectedIdentity.StoreConfigurationSchema },
+            @{ Value = $metadata; Name = "storeConfigurationId";
+                Expected = $ExpectedIdentity.StoreConfigurationId },
             @{ Value = $metadata; Name = "backend"; Expected = $ExpectedIdentity.Backend },
+            @{ Value = $metadata; Name = "scriptingBackend";
+                Expected = $ExpectedIdentity.ScriptingBackend },
             @{ Value = $metadata; Name = "managedStrippingLevel";
                 Expected = $ExpectedIdentity.ManagedStrippingLevel },
             @{ Value = $metadata; Name = "il2cppCompilerConfiguration";
@@ -611,13 +787,39 @@ function Test-BuildEvidence {
                 Expected = $ExpectedIdentity.BackendComparisonId },
             @{ Value = $metadata; Name = "comparisonRole";
                 Expected = $ExpectedIdentity.ComparisonRole },
+            @{ Value = $metadata; Name = "playerLogEnabled";
+                Expected = $ExpectedIdentity.PlayerLogEnabled },
+            @{ Value = $metadata; Name = "logPolicyId";
+                Expected = $ExpectedIdentity.LogPolicyId },
+            @{ Value = $metadata; Name = "automaticLogUpload";
+                Expected = $ExpectedIdentity.AutomaticLogUpload },
+            @{ Value = $metadata; Name = "payloadAudience";
+                Expected = $ExpectedIdentity.PayloadAudience },
             @{ Value = $summary; Name = "runId"; Expected = $ExpectedIdentity.RunId },
             @{ Value = $summary; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
             @{ Value = $summary; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
             @{ Value = $summary; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
             @{ Value = $summary; Name = "configuration";
                 Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $summary; Name = "buildIntent";
+                Expected = $ExpectedIdentity.BuildIntent },
+            @{ Value = $summary; Name = "storeConfigurationSchema";
+                Expected = $ExpectedIdentity.StoreConfigurationSchema },
+            @{ Value = $summary; Name = "storeConfigurationId";
+                Expected = $ExpectedIdentity.StoreConfigurationId },
             @{ Value = $summary; Name = "backend"; Expected = $ExpectedIdentity.Backend },
+            @{ Value = $summary; Name = "scriptingBackend";
+                Expected = $ExpectedIdentity.ScriptingBackend },
+            @{ Value = $summary; Name = "managedStrippingLevel";
+                Expected = $ExpectedIdentity.ManagedStrippingLevel },
+            @{ Value = $summary; Name = "playerLogEnabled";
+                Expected = $ExpectedIdentity.PlayerLogEnabled },
+            @{ Value = $summary; Name = "logPolicyId";
+                Expected = $ExpectedIdentity.LogPolicyId },
+            @{ Value = $summary; Name = "automaticLogUpload";
+                Expected = $ExpectedIdentity.AutomaticLogUpload },
+            @{ Value = $summary; Name = "payloadAudience";
+                Expected = $ExpectedIdentity.PayloadAudience },
             @{ Value = $summary; Name = "backendComparisonId";
                 Expected = $ExpectedIdentity.BackendComparisonId },
             @{ Value = $summary; Name = "comparisonRole";
@@ -628,7 +830,25 @@ function Test-BuildEvidence {
             @{ Value = $details; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
             @{ Value = $details; Name = "configuration";
                 Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $details; Name = "buildIntent";
+                Expected = $ExpectedIdentity.BuildIntent },
+            @{ Value = $details; Name = "storeConfigurationSchema";
+                Expected = $ExpectedIdentity.StoreConfigurationSchema },
+            @{ Value = $details; Name = "storeConfigurationId";
+                Expected = $ExpectedIdentity.StoreConfigurationId },
             @{ Value = $details; Name = "backend"; Expected = $ExpectedIdentity.Backend },
+            @{ Value = $details; Name = "scriptingBackend";
+                Expected = $ExpectedIdentity.ScriptingBackend },
+            @{ Value = $details; Name = "managedStrippingLevel";
+                Expected = $ExpectedIdentity.ManagedStrippingLevel },
+            @{ Value = $details; Name = "playerLogEnabled";
+                Expected = $ExpectedIdentity.PlayerLogEnabled },
+            @{ Value = $details; Name = "logPolicyId";
+                Expected = $ExpectedIdentity.LogPolicyId },
+            @{ Value = $details; Name = "automaticLogUpload";
+                Expected = $ExpectedIdentity.AutomaticLogUpload },
+            @{ Value = $details; Name = "payloadAudience";
+                Expected = $ExpectedIdentity.PayloadAudience },
             @{ Value = $details; Name = "backendComparisonId";
                 Expected = $ExpectedIdentity.BackendComparisonId },
             @{ Value = $details; Name = "comparisonRole";
@@ -703,6 +923,46 @@ function Get-BuildEvidenceGateDecision {
     }
 }
 
+function Test-ConfigurationSummary {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)]$Expectation
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    try { $value = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json }
+    catch { return $false }
+    foreach ($name in @(
+        "storeConfigurationSchema", "storeConfigurationId", "buildIntent",
+        "configuration", "backend", "scriptingBackend", "managedStrippingLevel",
+        "playerLogEnabled", "logPolicyId", "automaticLogUpload", "payloadAudience",
+        "development", "connectWithProfiler", "deepProfiling", "allowDebugging",
+        "waitForPlayerConnection", "forceEnableAssertions", "scenes"
+    )) {
+        if (-not (Test-JsonProperty $value $name)) { return $false }
+    }
+    return $value.storeConfigurationSchema -ceq
+            $Expectation.StoreConfigurationSchema -and
+        $value.storeConfigurationId -ceq $Expectation.StoreConfigurationId -and
+        $value.buildIntent -ceq $Expectation.BuildIntent -and
+        $value.configuration -ceq $Expectation.Configuration -and
+        $value.backend -ceq $Expectation.Backend -and
+        $value.scriptingBackend -ceq $Expectation.ScriptingBackend -and
+        $value.managedStrippingLevel -ceq $Expectation.ManagedStrippingLevel -and
+        [bool]$value.playerLogEnabled -eq $Expectation.PlayerLogEnabled -and
+        $value.logPolicyId -ceq $Expectation.LogPolicyId -and
+        [bool]$value.automaticLogUpload -eq $Expectation.AutomaticLogUpload -and
+        $value.payloadAudience -ceq $Expectation.PayloadAudience -and
+        -not [bool]$value.development -and
+        -not [bool]$value.connectWithProfiler -and
+        -not [bool]$value.deepProfiling -and
+        -not [bool]$value.allowDebugging -and
+        -not [bool]$value.waitForPlayerConnection -and
+        -not [bool]$value.forceEnableAssertions -and
+        @($value.scenes).Count -eq 2 -and
+        [string]$value.scenes[0] -ceq "Assets/Scenes/MainMenuScene.unity" -and
+        [string]$value.scenes[1] -ceq "Assets/Scenes/UIAudioScene.unity"
+}
+
 function Get-PayloadFiles {
     param([Parameter(Mandatory)][string]$PayloadRoot)
     $items = @(Get-ChildItem -LiteralPath $PayloadRoot -File -Recurse |
@@ -730,10 +990,22 @@ function Get-StoreExcludedPayloadDirectories {
         Sort-Object FullName)
 }
 
+function Test-PrivateSupportEvidencePath {
+    param([Parameter(Mandatory)][string]$Path)
+    $normalized = $Path.Replace('/', '\')
+    return $normalized -match '(?i)(?:^|\\)\.private(?:\\|$)' -or
+        $normalized -match '(?i)(?:^|\\)VectorQuake-QA-Telemetry(?:\\|$)'
+}
+
 function Test-StorePayloadPrivacy {
     param([Parameter(Mandatory)][string]$PayloadRoot)
     if (@(Get-StoreExcludedPayloadDirectories $PayloadRoot).Count -ne 0) {
         return $false
+    }
+    foreach ($file in @(Get-ChildItem -LiteralPath $PayloadRoot -File -Recurse)) {
+        if ($file.Name -ieq "Player.log" -or $file.Name -ieq "Player-prev.log") {
+            return $false
+        }
     }
     $textExtensions = @(
         ".cfg", ".config", ".ini", ".json", ".log", ".manifest",
@@ -855,6 +1127,7 @@ function New-ArtifactProvenance {
         [Parameter(Mandatory)][string]$SourceSha,
         [Parameter(Mandatory)][string]$SourceTree,
         [Parameter(Mandatory)][string]$BuildMetadataPath,
+        [Parameter(Mandatory)][string]$ConfigurationSummaryPath,
         [Parameter(Mandatory)][string]$BuildReportSummaryPath,
         [Parameter(Mandatory)][string]$BuildReportDetailsPath,
         [Parameter(Mandatory)]$Manifest,
@@ -871,7 +1144,12 @@ function New-ArtifactProvenance {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $script:ConfigurationName
+        buildIntent = [string]$BuildEvidence.Metadata.buildIntent
+        storeConfigurationSchema =
+            [string]$BuildEvidence.Metadata.storeConfigurationSchema
+        storeConfigurationId = [string]$BuildEvidence.Metadata.storeConfigurationId
         backend = [string]$BuildEvidence.Metadata.backend
+        scriptingBackend = [string]$BuildEvidence.Metadata.scriptingBackend
         managedStrippingLevel =
             [string]$BuildEvidence.Metadata.managedStrippingLevel
         il2cppCompilerConfiguration =
@@ -881,6 +1159,9 @@ function New-ArtifactProvenance {
         windowsSdkIdentity = [string]$BuildEvidence.Metadata.windowsSdkIdentity
         backendComparisonId = [string]$BuildEvidence.Metadata.backendComparisonId
         comparisonRole = [string]$BuildEvidence.Metadata.comparisonRole
+        playerLogEnabled = [bool]$BuildEvidence.Metadata.playerLogEnabled
+        logPolicyId = [string]$BuildEvidence.Metadata.logPolicyId
+        automaticLogUpload = [bool]$BuildEvidence.Metadata.automaticLogUpload
         buildResult = [string]$BuildEvidence.Summary.result
         totalErrors = [int]$BuildEvidence.Summary.totalErrors
         totalWarnings = [int]$BuildEvidence.Summary.totalWarnings
@@ -888,6 +1169,9 @@ function New-ArtifactProvenance {
         warningRecordCount = [int]$BuildEvidence.Details.warningRecordCount
         buildMetadataFile = Get-NormalizedRelativePath $ArtifactRoot $BuildMetadataPath
         buildMetadataSha256 = Get-Sha256 $BuildMetadataPath
+        configurationSummaryFile =
+            Get-NormalizedRelativePath $ArtifactRoot $ConfigurationSummaryPath
+        configurationSummarySha256 = Get-Sha256 $ConfigurationSummaryPath
         buildReportSummaryFile =
             Get-NormalizedRelativePath $ArtifactRoot $BuildReportSummaryPath
         buildReportSummarySha256 = Get-Sha256 $BuildReportSummaryPath
@@ -925,11 +1209,15 @@ function Test-ArtifactProvenance {
     catch { return $false }
     foreach ($name in @(
         "runId", "artifactId", "sourceSha", "sourceTree", "configuration",
-        "backend", "managedStrippingLevel", "il2cppCompilerConfiguration",
+        "buildIntent", "storeConfigurationSchema", "storeConfigurationId",
+        "backend", "scriptingBackend", "managedStrippingLevel",
+        "il2cppCompilerConfiguration", "playerLogEnabled", "logPolicyId",
+        "automaticLogUpload",
         "nativeCompilerIdentity", "windowsSdkIdentity", "backendComparisonId",
         "comparisonRole",
         "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
         "warningRecordCount", "buildMetadataFile", "buildMetadataSha256",
+        "configurationSummaryFile", "configurationSummarySha256",
         "buildReportSummaryFile", "buildReportSummarySha256",
         "buildReportDetailsFile", "buildReportDetailsSha256",
         "payloadManifestFile", "payloadManifestSha256", "payloadFileCount",
@@ -944,12 +1232,21 @@ function Test-ArtifactProvenance {
         $value.sourceSha -cne $Expectation.SourceSha -or
         $value.sourceTree -cne $Expectation.SourceTree -or
         $value.configuration -cne $Expectation.Configuration -or
+        $value.buildIntent -cne $Expectation.BuildIntent -or
+        $value.storeConfigurationSchema -cne
+            $Expectation.StoreConfigurationSchema -or
+        $value.storeConfigurationId -cne $Expectation.StoreConfigurationId -or
         $value.backend -cne $Expectation.Backend -or
+        $value.scriptingBackend -cne $Expectation.ScriptingBackend -or
         $value.managedStrippingLevel -cne $Expectation.ManagedStrippingLevel -or
         $value.il2cppCompilerConfiguration -cne
             $Expectation.Il2CppCompilerConfiguration -or
         $value.backendComparisonId -cne $Expectation.BackendComparisonId -or
         $value.comparisonRole -cne $Expectation.ComparisonRole -or
+        [bool]$value.playerLogEnabled -ne $Expectation.PlayerLogEnabled -or
+        $value.logPolicyId -cne $Expectation.LogPolicyId -or
+        [bool]$value.automaticLogUpload -ne $Expectation.AutomaticLogUpload -or
+        $value.payloadAudience -cne $Expectation.PayloadAudience -or
         [string]$value.buildResult -cne "Succeeded" -or
         -not $value.zeroErrorGatePassed -or
         -not $value.metadataReportCountMatched -or
@@ -959,6 +1256,8 @@ function Test-ArtifactProvenance {
     foreach ($binding in @(
         @{ File = [string]$value.buildMetadataFile
             Hash = [string]$value.buildMetadataSha256 },
+        @{ File = [string]$value.configurationSummaryFile
+            Hash = [string]$value.configurationSummarySha256 },
         @{ File = [string]$value.buildReportSummaryFile
             Hash = [string]$value.buildReportSummarySha256 },
         @{ File = [string]$value.payloadManifestFile
@@ -986,6 +1285,10 @@ function Test-ArtifactProvenance {
         return $false
     }
     if (-not $evidence.Allowed) { return $false }
+    $configurationSummaryPath = Join-Path $ArtifactRoot `
+        ([string]$value.configurationSummaryFile).Replace('/', '\')
+    if (-not (Test-ConfigurationSummary -Path $configurationSummaryPath `
+            -Expectation $Expectation)) { return $false }
     if ([int]$value.totalErrors -ne [int]$evidence.Metadata.errorCount -or
         [int]$value.totalWarnings -ne [int]$evidence.Metadata.warningCount -or
         [int]$value.errorRecordCount -ne [int]$evidence.Details.errorRecordCount -or
@@ -1045,13 +1348,21 @@ function New-SuccessControl {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $script:ConfigurationName
+        buildIntent = [string]$BuildEvidence.Metadata.buildIntent
+        storeConfigurationSchema =
+            [string]$BuildEvidence.Metadata.storeConfigurationSchema
+        storeConfigurationId = [string]$BuildEvidence.Metadata.storeConfigurationId
         backend = [string]$BuildEvidence.Metadata.backend
+        scriptingBackend = [string]$BuildEvidence.Metadata.scriptingBackend
         managedStrippingLevel =
             [string]$BuildEvidence.Metadata.managedStrippingLevel
         il2cppCompilerConfiguration =
             [string]$BuildEvidence.Metadata.il2cppCompilerConfiguration
         backendComparisonId = [string]$BuildEvidence.Metadata.backendComparisonId
         comparisonRole = [string]$BuildEvidence.Metadata.comparisonRole
+        playerLogEnabled = [bool]$BuildEvidence.Metadata.playerLogEnabled
+        logPolicyId = [string]$BuildEvidence.Metadata.logPolicyId
+        automaticLogUpload = [bool]$BuildEvidence.Metadata.automaticLogUpload
         buildResult = [string]$BuildEvidence.Summary.result
         totalErrors = [int]$BuildEvidence.Summary.totalErrors
         totalWarnings = [int]$BuildEvidence.Summary.totalWarnings
@@ -1085,7 +1396,10 @@ function Test-SuccessControl {
     catch { return $false }
     foreach ($name in @(
         "runId", "artifactId", "sourceSha", "sourceTree", "configuration",
-        "backend", "managedStrippingLevel", "il2cppCompilerConfiguration",
+        "buildIntent", "storeConfigurationSchema", "storeConfigurationId",
+        "backend", "scriptingBackend", "managedStrippingLevel",
+        "il2cppCompilerConfiguration", "playerLogEnabled", "logPolicyId",
+        "automaticLogUpload",
         "backendComparisonId", "comparisonRole",
         "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
         "warningRecordCount", "payloadManifestFile", "payloadManifestSha256",
@@ -1105,12 +1419,21 @@ function Test-SuccessControl {
         $success.sourceSha -cne $Expectation.SourceSha -or
         $success.sourceTree -cne $Expectation.SourceTree -or
         $success.configuration -cne $Expectation.Configuration -or
+        $success.buildIntent -cne $Expectation.BuildIntent -or
+        $success.storeConfigurationSchema -cne
+            $Expectation.StoreConfigurationSchema -or
+        $success.storeConfigurationId -cne $Expectation.StoreConfigurationId -or
         $success.backend -cne $Expectation.Backend -or
+        $success.scriptingBackend -cne $Expectation.ScriptingBackend -or
         $success.managedStrippingLevel -cne $Expectation.ManagedStrippingLevel -or
         $success.il2cppCompilerConfiguration -cne
             $Expectation.Il2CppCompilerConfiguration -or
         $success.backendComparisonId -cne $Expectation.BackendComparisonId -or
         $success.comparisonRole -cne $Expectation.ComparisonRole -or
+        [bool]$success.playerLogEnabled -ne $Expectation.PlayerLogEnabled -or
+        $success.logPolicyId -cne $Expectation.LogPolicyId -or
+        [bool]$success.automaticLogUpload -ne $Expectation.AutomaticLogUpload -or
+        $success.payloadAudience -cne $Expectation.PayloadAudience -or
         [string]$success.buildResult -cne "Succeeded" -or
         ([string]$success.payloadAudience -ceq "StoreDistributable" -and
             -not $success.payloadPrivacyGatePassed) -or
@@ -1126,12 +1449,21 @@ function Test-SuccessControl {
         $success.sourceSha -ceq $provenance.sourceSha -and
         $success.sourceTree -ceq $provenance.sourceTree -and
         $success.configuration -ceq $provenance.configuration -and
+        $success.buildIntent -ceq $provenance.buildIntent -and
+        $success.storeConfigurationSchema -ceq
+            $provenance.storeConfigurationSchema -and
+        $success.storeConfigurationId -ceq $provenance.storeConfigurationId -and
         $success.backend -ceq $provenance.backend -and
+        $success.scriptingBackend -ceq $provenance.scriptingBackend -and
         $success.managedStrippingLevel -ceq $provenance.managedStrippingLevel -and
         $success.il2cppCompilerConfiguration -ceq
             $provenance.il2cppCompilerConfiguration -and
         $success.backendComparisonId -ceq $provenance.backendComparisonId -and
         $success.comparisonRole -ceq $provenance.comparisonRole -and
+        [bool]$success.playerLogEnabled -eq [bool]$provenance.playerLogEnabled -and
+        $success.logPolicyId -ceq $provenance.logPolicyId -and
+        [bool]$success.automaticLogUpload -eq
+            [bool]$provenance.automaticLogUpload -and
         $success.buildResult -ceq $provenance.buildResult -and
         [int]$success.totalErrors -eq [int]$provenance.totalErrors -and
         [int]$success.totalWarnings -eq [int]$provenance.totalWarnings -and
@@ -1353,10 +1685,12 @@ function Invoke-WindowsReleasePipeline {
         [string]$OutputRoot,
         [string]$BuildSourceRoot,
         [string]$RunId,
+        [ValidateSet("CanonicalStore", "BackendComparison")]
+        [string]$BuildIntent = $script:BackendPolicy.BuildIntent,
         [string]$Backend = $script:BackendPolicy.Backend,
         [string]$BackendComparisonId = "",
         [ValidateSet("InternalRc", "StoreDistributable")]
-        [string]$PayloadAudience = "InternalRc",
+        [string]$PayloadAudience = $script:BackendPolicy.PayloadAudience,
         [string[]]$AllowUntrackedRoot
     )
     $stage = "preflight"
@@ -1370,7 +1704,7 @@ function Invoke-WindowsReleasePipeline {
     $buildEvidenceReason = ""
     $exitCode = $script:ReleaseExitCodes.WrapperInternalError
     try {
-        $backendPolicy = Resolve-StoreBackendPolicy $Backend
+        $backendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
         if ($backendPolicy.Configuration -cne $script:ConfigurationName) {
             $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
             throw "Invocation backend does not match the loaded wrapper policy."
@@ -1480,10 +1814,18 @@ function Invoke-WindowsReleasePipeline {
             -DetachedWrapperSourcePath $detachedWrapperSourcePath `
             -ExecutingWrapperSourcePath $script:ExecutingWrapperSourcePath `
             -Backend $backendPolicy.ScriptingBackend `
+            -BackendIdentity $backendPolicy.Backend `
             -ManagedStrippingLevel $backendPolicy.ManagedStrippingLevel `
             -Il2CppCompilerConfiguration $backendPolicy.Il2CppCompilerConfiguration `
             -BackendComparisonId $comparisonId `
-            -ComparisonRole $backendPolicy.ComparisonRole
+            -ComparisonRole $backendPolicy.ComparisonRole `
+            -BuildIntent $backendPolicy.BuildIntent `
+            -StoreConfigurationSchema $backendPolicy.StoreConfigurationSchema `
+            -StoreConfigurationId $backendPolicy.StoreConfigurationId `
+            -PlayerLogEnabled $backendPolicy.PlayerLogEnabled `
+            -LogPolicyId $backendPolicy.LogPolicyId `
+            -AutomaticLogUpload $backendPolicy.AutomaticLogUpload `
+            -PayloadAudience $backendPolicy.PayloadAudience
 
         $payload = Join-Path $staging "payload"
         New-Item -ItemType Directory -Path $payload -Force | Out-Null
@@ -1504,8 +1846,10 @@ function Invoke-WindowsReleasePipeline {
             "-releaseArtifactId", $artifactId,
             "-releaseSourceSha", $sourceSha,
             "-releaseSourceTree", $sourceTree,
+            "-releaseBuildIntent", $BuildIntent,
             "-releaseBackend", $Backend,
             "-releaseBackendComparisonId", $comparisonId,
+            "-releasePayloadAudience", $PayloadAudience,
             "-releaseIntermediateMetadataPath", $metadataPath,
             "-releaseBuildReportPath", $reportPath,
             "-releaseBuildReportDetailsPath", $reportDetailsPath,
@@ -1590,24 +1934,41 @@ function Invoke-WindowsReleasePipeline {
             $buildEvidenceReason = [string]$buildEvidence.Reason
             throw "Enriched build evidence rejected: $buildEvidenceReason."
         }
+        $configurationSummaryPath = Join-Path $payload "configuration-summary.json"
         [ordered]@{
+            storeConfigurationSchema = $backendPolicy.StoreConfigurationSchema
+            storeConfigurationId = $backendPolicy.StoreConfigurationId
+            buildIntent = $backendPolicy.BuildIntent
             configuration = $script:ConfigurationName
-            backend = $backendPolicy.ScriptingBackend
+            backend = $backendPolicy.Backend
+            scriptingBackend = $backendPolicy.ScriptingBackend
             managedStrippingLevel = $backendPolicy.ManagedStrippingLevel
             il2cppCompilerConfiguration =
                 $backendPolicy.Il2CppCompilerConfiguration
             backendComparisonId = $comparisonId
             comparisonRole = $backendPolicy.ComparisonRole
             development = $false
-            playerLogEnabled = $true
+            connectWithProfiler = $false
+            deepProfiling = $false
+            allowDebugging = $false
+            waitForPlayerConnection = $false
+            forceEnableAssertions = $false
+            playerLogEnabled = $backendPolicy.PlayerLogEnabled
+            logPolicyId = $backendPolicy.LogPolicyId
+            automaticLogUpload = $backendPolicy.AutomaticLogUpload
             stackTracePolicy = "ScriptOnly"
-            payloadAudience = $PayloadAudience
+            payloadAudience = $backendPolicy.PayloadAudience
             scenes = @(
                 "Assets/Scenes/MainMenuScene.unity",
                 "Assets/Scenes/UIAudioScene.unity"
             )
         } | ConvertTo-Json -Depth 5 |
-            Set-Content -LiteralPath (Join-Path $payload "configuration-summary.json") -Encoding UTF8
+            Set-Content -LiteralPath $configurationSummaryPath -Encoding UTF8
+        if (-not (Test-ConfigurationSummary -Path $configurationSummaryPath `
+                -Expectation $expectation)) {
+            $exitCode = $script:ReleaseExitCodes.ControlFileConsistencyFailure
+            throw "Configuration summary consistency failed."
+        }
 
         $stage = "payload-policy"
         $payloadPolicy = Prepare-PayloadForAudience -PayloadRoot $staging `
@@ -1622,6 +1983,7 @@ function Invoke-WindowsReleasePipeline {
         $provenance = New-ArtifactProvenance -ArtifactRoot $staging `
             -RunId $RunId -ArtifactId $artifactId -SourceSha $sourceSha `
             -SourceTree $sourceTree -BuildMetadataPath $metadataPath `
+            -ConfigurationSummaryPath $configurationSummaryPath `
             -BuildReportSummaryPath $reportPath `
             -BuildReportDetailsPath $reportDetailsPath -Manifest $manifest `
             -BuildEvidence $buildEvidence -PayloadPolicy $payloadPolicy `
@@ -1707,6 +2069,7 @@ if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -ne "1") {
         -OutputRoot $OutputRoot `
         -BuildSourceRoot $BuildSourceRoot `
         -RunId $RunId `
+        -BuildIntent $BuildIntent `
         -Backend $Backend `
         -BackendComparisonId $BackendComparisonId `
         -PayloadAudience $PayloadAudience `

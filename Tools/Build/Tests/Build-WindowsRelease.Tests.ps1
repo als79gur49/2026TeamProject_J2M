@@ -56,24 +56,43 @@ function New-ZeroErrorEvidenceFixture {
         [string]$ArtifactId = "artifact",
         [string]$SourceSha = "sha",
         [string]$SourceTree = "tree",
-        [string]$Configuration = "Windows-x64-NonDevelopment-Mono",
-        [string]$Backend = "Mono2x",
+        [string]$Configuration = "Windows-x64-Store-Mono-LogOn",
+        [string]$BuildIntent = "CanonicalStore",
+        [string]$StoreConfigurationSchema = "1.0",
+        [string]$StoreConfigurationId = "windows-x64-store-mono-logon-v1",
+        [string]$Backend = "Mono",
+        [string]$ScriptingBackend = "Mono2x",
         [string]$ManagedStrippingLevel = "Disabled",
         [string]$Il2CppCompilerConfiguration = "Release",
         [string]$BackendComparisonId = "comparison",
-        [string]$ComparisonRole = "MonoControl"
+        [string]$ComparisonRole = "CanonicalStore",
+        [bool]$PlayerLogEnabled = $true,
+        [string]$LogPolicyId = "local-player-log-no-auto-upload-v1",
+        [bool]$AutomaticLogUpload = $false,
+        [string]$PayloadAudience = "StoreDistributable"
     )
     $metadataPath = Join-Path $Root "payload\build-metadata.json"
     $summaryPath = Join-Path $Root "payload\build-report-summary.json"
     $detailsPath = Join-Path $Root "private\build-report-details.json"
     Write-JsonFixture $detailsPath ([ordered]@{
-        schemaVersion = "1.0"
+        schemaVersion = "2.0"
         runId = $RunId
         artifactId = $ArtifactId
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $Configuration
+        buildTarget = "StandaloneWindows64"
+        architecture = "x86_64"
+        buildIntent = $BuildIntent
+        storeConfigurationSchema = $StoreConfigurationSchema
+        storeConfigurationId = $StoreConfigurationId
         backend = $Backend
+        scriptingBackend = $ScriptingBackend
+        managedStrippingLevel = $ManagedStrippingLevel
+        playerLogEnabled = $PlayerLogEnabled
+        logPolicyId = $LogPolicyId
+        automaticLogUpload = $AutomaticLogUpload
+        payloadAudience = $PayloadAudience
         backendComparisonId = $BackendComparisonId
         comparisonRole = $ComparisonRole
         result = "Succeeded"
@@ -84,19 +103,41 @@ function New-ZeroErrorEvidenceFixture {
         steps = @()
     })
     Write-JsonFixture $metadataPath ([ordered]@{
-        schemaVersion = "2.0"
+        schemaVersion = "3.0"
         runId = $RunId
         artifactId = $ArtifactId
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $Configuration
+        buildTarget = "StandaloneWindows64"
+        architecture = "x86_64"
+        buildIntent = $BuildIntent
+        storeConfigurationSchema = $StoreConfigurationSchema
+        storeConfigurationId = $StoreConfigurationId
         backend = $Backend
+        scriptingBackend = $ScriptingBackend
         managedStrippingLevel = $ManagedStrippingLevel
         il2cppCompilerConfiguration = $Il2CppCompilerConfiguration
         nativeCompilerIdentity = "NotApplicable-Mono"
         windowsSdkIdentity = "NotApplicable-Mono"
         backendComparisonId = $BackendComparisonId
         comparisonRole = $ComparisonRole
+        playerLogEnabled = $PlayerLogEnabled
+        logPolicyId = $LogPolicyId
+        automaticLogUpload = $AutomaticLogUpload
+        payloadAudience = $PayloadAudience
+        development = $false
+        connectWithProfiler = $false
+        deepProfiling = $false
+        allowDebugging = $false
+        scriptDebugging = $false
+        waitForPlayerConnection = $false
+        waitForDebugger = $false
+        forceAssertions = $false
+        effectiveScenes = @(
+            "Assets/Scenes/MainMenuScene.unity",
+            "Assets/Scenes/UIAudioScene.unity"
+        )
         entrySourceSha256 = ("1" * 64)
         policySourceSha256 = ("2" * 64)
         wrapperSourceSha256 = ("3" * 64)
@@ -108,13 +149,22 @@ function New-ZeroErrorEvidenceFixture {
         structuredErrorCountMatched = $true
     })
     Write-JsonFixture $summaryPath ([ordered]@{
-        schemaVersion = "2.0"
+        schemaVersion = "3.0"
         runId = $RunId
         artifactId = $ArtifactId
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $Configuration
+        buildIntent = $BuildIntent
+        storeConfigurationSchema = $StoreConfigurationSchema
+        storeConfigurationId = $StoreConfigurationId
         backend = $Backend
+        scriptingBackend = $ScriptingBackend
+        managedStrippingLevel = $ManagedStrippingLevel
+        playerLogEnabled = $PlayerLogEnabled
+        logPolicyId = $LogPolicyId
+        automaticLogUpload = $AutomaticLogUpload
+        payloadAudience = $PayloadAudience
         backendComparisonId = $BackendComparisonId
         comparisonRole = $ComparisonRole
         result = "Succeeded"
@@ -130,6 +180,29 @@ function New-ZeroErrorEvidenceFixture {
         MetadataPath = $metadataPath
         SummaryPath = $summaryPath
         DetailsPath = $detailsPath
+    }
+}
+
+function New-CanonicalEvidenceExpectation {
+    return [pscustomobject]@{
+        RunId = "run"
+        ArtifactId = "artifact"
+        SourceSha = "sha"
+        SourceTree = "tree"
+        Configuration = "Windows-x64-Store-Mono-LogOn"
+        BuildIntent = "CanonicalStore"
+        StoreConfigurationSchema = "1.0"
+        StoreConfigurationId = "windows-x64-store-mono-logon-v1"
+        Backend = "Mono"
+        ScriptingBackend = "Mono2x"
+        ManagedStrippingLevel = "Disabled"
+        Il2CppCompilerConfiguration = "Release"
+        BackendComparisonId = "comparison"
+        ComparisonRole = "CanonicalStore"
+        PlayerLogEnabled = $true
+        LogPolicyId = "local-player-log-no-auto-upload-v1"
+        AutomaticLogUpload = $false
+        PayloadAudience = "StoreDistributable"
     }
 }
 
@@ -166,17 +239,29 @@ Invoke-Case "omitted backend defaults to Mono" {
     Assert-Equal "Mono" (Resolve-StoreBackendPolicy).Backend
     Assert-Equal "Mono2x" (Resolve-StoreBackendPolicy).ScriptingBackend
 }
-Invoke-Case "explicit Mono backend is accepted" {
+Invoke-Case "canonical Store configuration path and policy are frozen" {
     $policy = Resolve-StoreBackendPolicy "Mono"
-    Assert-Equal "Windows-x64-NonDevelopment-Mono" $policy.Configuration
+    Assert-Equal "Windows-x64-Store-Mono-LogOn" $policy.Configuration
     Assert-Equal "Disabled" $policy.ManagedStrippingLevel
-    Assert-Equal "MonoControl" $policy.ComparisonRole
+    Assert-Equal "CanonicalStore" $policy.ComparisonRole
+    Assert-Equal "windows-x64-store-mono-logon-v1" $policy.StoreConfigurationId
+    Assert-True $policy.PlayerLogEnabled
+    Assert-False $policy.AutomaticLogUpload
+    Assert-Equal "local-player-log-no-auto-upload-v1" $policy.LogPolicyId
+    Assert-Equal "StoreDistributable" $policy.PayloadAudience
 }
-Invoke-Case "explicit IL2CPP backend is accepted" {
-    $policy = Resolve-StoreBackendPolicy "IL2CPP"
+Invoke-Case "canonical Store IL2CPP is rejected" {
+    $threw = $false
+    try { Resolve-StoreBackendPolicy "IL2CPP" | Out-Null } catch { $threw = $true }
+    Assert-True $threw
+}
+Invoke-Case "BackendComparison IL2CPP candidate is accepted and separated" {
+    $policy = Resolve-StoreBackendPolicy "IL2CPP" "BackendComparison" "InternalRc"
     Assert-Equal "Windows-x64-NonDevelopment-IL2CPP" $policy.Configuration
     Assert-Equal "Minimal" $policy.ManagedStrippingLevel
     Assert-Equal "IL2CPPCandidate" $policy.ComparisonRole
+    Assert-Equal "not-canonical-backend-comparison" $policy.StoreConfigurationId
+    Assert-Equal "InternalRc" $policy.PayloadAudience
 }
 Invoke-Case "unknown backend is rejected" {
     $threw = $false
@@ -185,8 +270,10 @@ Invoke-Case "unknown backend is rejected" {
 }
 Invoke-Case "backend output paths are separated" {
     $root = "C:\release"
-    $mono = Join-Path $root (Resolve-StoreBackendPolicy "Mono").Configuration
-    $il2cpp = Join-Path $root (Resolve-StoreBackendPolicy "IL2CPP").Configuration
+    $mono = Join-Path $root (
+        Resolve-StoreBackendPolicy "Mono" "BackendComparison" "InternalRc").Configuration
+    $il2cpp = Join-Path $root (
+        Resolve-StoreBackendPolicy "IL2CPP" "BackendComparison" "InternalRc").Configuration
     Assert-False ($mono -ceq $il2cpp)
 }
 Invoke-Case "worktree-family Unity rejected" {
@@ -388,6 +475,11 @@ try {
         Assert-Equal ("b" * 40) $record.sourceTree
         Assert-Equal 2 ([int]$record.selected)
         Assert-Equal "Passed" $record.resultStatus
+        Assert-Equal "windows-x64-store-mono-logon-v1" `
+            $record.storeConfigurationId
+        Assert-Equal "local-player-log-no-auto-upload-v1" $record.logPolicyId
+        Assert-True $record.playerLogEnabled
+        Assert-False $record.automaticLogUpload
         Assert-Equal (Get-Sha256 $wrapper) $record.wrapperSha256
         Assert-Equal (Get-Sha256 $PSCommandPath) $record.testScriptSha256
         Assert-Equal "$(Get-Sha256 $written.Path)  powershell-tests.json" `
@@ -440,9 +532,47 @@ try {
     $evidence = New-ZeroErrorEvidenceFixture (Join-Path $temp "evidence")
     Invoke-Case "Succeeded plus zero errors is accepted" {
         $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
-            $evidence.DetailsPath
+            $evidence.DetailsPath -ExpectedIdentity (New-CanonicalEvidenceExpectation)
         Assert-True $result.Allowed
         Assert-Equal "Accepted" $result.Reason
+    }
+    Invoke-Case "Player.log false metadata is rejected" {
+        $fixture = New-ZeroErrorEvidenceFixture (Join-Path $temp "player-log-false")
+        $metadata = Get-Content $fixture.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.playerLogEnabled = $false
+        Write-JsonFixture $fixture.MetadataPath $metadata
+        $result = Test-BuildEvidence $fixture.MetadataPath $fixture.SummaryPath `
+            $fixture.DetailsPath -ExpectedIdentity (New-CanonicalEvidenceExpectation)
+        Assert-False $result.Allowed
+        Assert-Equal "EvidenceIdentityMismatch" $result.Reason
+    }
+    Invoke-Case "automatic log upload true is rejected" {
+        $fixture = New-ZeroErrorEvidenceFixture (Join-Path $temp "auto-upload-true")
+        $metadata = Get-Content $fixture.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.automaticLogUpload = $true
+        Write-JsonFixture $fixture.MetadataPath $metadata
+        Assert-False (Test-BuildEvidence $fixture.MetadataPath $fixture.SummaryPath `
+            $fixture.DetailsPath -ExpectedIdentity (
+                New-CanonicalEvidenceExpectation)).Allowed
+    }
+    Invoke-Case "missing log policy id is rejected" {
+        $fixture = New-ZeroErrorEvidenceFixture (Join-Path $temp "missing-log-policy")
+        $metadata = Get-Content $fixture.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.PSObject.Properties.Remove("logPolicyId")
+        Write-JsonFixture $fixture.MetadataPath $metadata
+        $result = Test-BuildEvidence $fixture.MetadataPath $fixture.SummaryPath `
+            $fixture.DetailsPath -ExpectedIdentity (New-CanonicalEvidenceExpectation)
+        Assert-False $result.Allowed
+        Assert-Equal "MetadataLogPolicyMissing" $result.Reason
+    }
+    Invoke-Case "Store configuration id mismatch is rejected" {
+        $fixture = New-ZeroErrorEvidenceFixture (Join-Path $temp "store-id-mismatch")
+        $summary = Get-Content $fixture.SummaryPath -Raw | ConvertFrom-Json
+        $summary.storeConfigurationId = "other"
+        Write-JsonFixture $fixture.SummaryPath $summary
+        Assert-False (Test-BuildEvidence $fixture.MetadataPath $fixture.SummaryPath `
+            $fixture.DetailsPath -ExpectedIdentity (
+                New-CanonicalEvidenceExpectation)).Allowed
     }
     Invoke-Case "build evidence identity mismatch is rejected" {
         $expectedIdentity = [pscustomobject]@{
@@ -450,12 +580,20 @@ try {
             ArtifactId = "artifact"
             SourceSha = "sha"
             SourceTree = "tree"
-            Configuration = "Windows-x64-NonDevelopment-Mono"
-            Backend = "Mono2x"
+            Configuration = "Windows-x64-Store-Mono-LogOn"
+            BuildIntent = "CanonicalStore"
+            StoreConfigurationSchema = "1.0"
+            StoreConfigurationId = "windows-x64-store-mono-logon-v1"
+            Backend = "Mono"
+            ScriptingBackend = "Mono2x"
             ManagedStrippingLevel = "Disabled"
             Il2CppCompilerConfiguration = "Release"
             BackendComparisonId = "comparison"
-            ComparisonRole = "MonoControl"
+            ComparisonRole = "CanonicalStore"
+            PlayerLogEnabled = $true
+            LogPolicyId = "local-player-log-no-auto-upload-v1"
+            AutomaticLogUpload = $false
+            PayloadAudience = "StoreDistributable"
         }
         $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
         $summary.runId = "wrong"
@@ -476,18 +614,26 @@ try {
             ArtifactId = "artifact"
             SourceSha = "sha"
             SourceTree = "tree"
-            Configuration = "Windows-x64-NonDevelopment-Mono"
-            Backend = "Mono2x"
+            Configuration = "Windows-x64-Store-Mono-LogOn"
+            BuildIntent = "CanonicalStore"
+            StoreConfigurationSchema = "1.0"
+            StoreConfigurationId = "windows-x64-store-mono-logon-v1"
+            Backend = "Mono"
+            ScriptingBackend = "Mono2x"
             ManagedStrippingLevel = "Disabled"
             Il2CppCompilerConfiguration = "Release"
             BackendComparisonId = "comparison"
-            ComparisonRole = "MonoControl"
+            ComparisonRole = "CanonicalStore"
+            PlayerLogEnabled = $true
+            LogPolicyId = "local-player-log-no-auto-upload-v1"
+            AutomaticLogUpload = $false
+            PayloadAudience = "StoreDistributable"
         }
         $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
             $evidence.DetailsPath -ExpectedIdentity $expectation
         Assert-False $result.Allowed
         Assert-Equal "EvidenceIdentityMismatch" $result.Reason
-        $metadata.backend = "Mono2x"
+        $metadata.backend = "Mono"
         Write-JsonFixture $evidence.MetadataPath $metadata
     }
     Invoke-Case "comparison role mismatch is rejected" {
@@ -499,18 +645,26 @@ try {
             ArtifactId = "artifact"
             SourceSha = "sha"
             SourceTree = "tree"
-            Configuration = "Windows-x64-NonDevelopment-Mono"
-            Backend = "Mono2x"
+            Configuration = "Windows-x64-Store-Mono-LogOn"
+            BuildIntent = "CanonicalStore"
+            StoreConfigurationSchema = "1.0"
+            StoreConfigurationId = "windows-x64-store-mono-logon-v1"
+            Backend = "Mono"
+            ScriptingBackend = "Mono2x"
             ManagedStrippingLevel = "Disabled"
             Il2CppCompilerConfiguration = "Release"
             BackendComparisonId = "comparison"
-            ComparisonRole = "MonoControl"
+            ComparisonRole = "CanonicalStore"
+            PlayerLogEnabled = $true
+            LogPolicyId = "local-player-log-no-auto-upload-v1"
+            AutomaticLogUpload = $false
+            PayloadAudience = "StoreDistributable"
         }
         $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
             $evidence.DetailsPath -ExpectedIdentity $expectation
         Assert-False $result.Allowed
         Assert-Equal "EvidenceIdentityMismatch" $result.Reason
-        $summary.comparisonRole = "MonoControl"
+        $summary.comparisonRole = "CanonicalStore"
         Write-JsonFixture $evidence.SummaryPath $summary
     }
     Invoke-Case "Succeeded plus one error is rejected" {
@@ -746,6 +900,35 @@ try {
         }
         Assert-True $threw
     }
+    Invoke-Case "Player.log support evidence path is private" {
+        Assert-True (Test-PrivateSupportEvidencePath `
+            "C:\release\sha\Windows-x64-Store-Mono-LogOn\.private\run\smoke\Player.log")
+        Assert-True (Test-PrivateSupportEvidencePath `
+            "C:\Users\user\Documents\VectorQuake-QA-Telemetry\sha\Player.log")
+        Assert-False (Test-PrivateSupportEvidencePath `
+            "C:\release\sha\Windows-x64-Store-Mono-LogOn\run\payload\Player.log")
+    }
+    Invoke-Case "private raw Player.log in Store payload is rejected" {
+        $storeRoot = Join-Path $temp "store-player-log"
+        New-Item -ItemType Directory -Path $storeRoot -Force | Out-Null
+        Set-Content (Join-Path $storeRoot "Player.log") "private runtime log"
+        $threw = $false
+        try {
+            Prepare-PayloadForAudience $storeRoot "StoreDistributable" | Out-Null
+        } catch {
+            $threw = $true
+        }
+        Assert-True $threw
+    }
+    Invoke-Case "Windows Player.log support policy document canary exists" {
+        $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+        $supportPolicy = Join-Path $repositoryRoot `
+            "Docs\Support\Windows-Player-Log-Policy.md"
+        Assert-True (Test-Path -LiteralPath $supportPolicy -PathType Leaf)
+        $content = Get-Content -LiteralPath $supportPolicy -Raw
+        Assert-True ($content.Contains("windows-x64-store-mono-logon-v1"))
+        Assert-True ($content.Contains("private support channel"))
+    }
     Invoke-Case "Store payload permits URI schemes in shipped runtime data" {
         $storeRoot = Join-Path $temp "store-runtime-uri"
         New-Item -ItemType Directory -Path $storeRoot -Force | Out-Null
@@ -780,15 +963,52 @@ try {
         -Destination (Join-Path $payload "build-metadata.json")
     Copy-Item -LiteralPath $provenanceEvidence.SummaryPath `
         -Destination (Join-Path $payload "build-report-summary.json")
+    $configurationSummaryPath = Join-Path $payload "configuration-summary.json"
+    Write-JsonFixture $configurationSummaryPath ([ordered]@{
+        storeConfigurationSchema = "1.0"
+        storeConfigurationId = "windows-x64-store-mono-logon-v1"
+        buildIntent = "CanonicalStore"
+        configuration = "Windows-x64-Store-Mono-LogOn"
+        backend = "Mono"
+        scriptingBackend = "Mono2x"
+        managedStrippingLevel = "Disabled"
+        playerLogEnabled = $true
+        logPolicyId = "local-player-log-no-auto-upload-v1"
+        automaticLogUpload = $false
+        payloadAudience = "StoreDistributable"
+        development = $false
+        connectWithProfiler = $false
+        deepProfiling = $false
+        allowDebugging = $false
+        waitForPlayerConnection = $false
+        forceEnableAssertions = $false
+        scenes = @(
+            "Assets/Scenes/MainMenuScene.unity",
+            "Assets/Scenes/UIAudioScene.unity"
+        )
+    })
+    Invoke-Case "configuration summary canonical identity is accepted" {
+        Assert-True (Test-ConfigurationSummary $configurationSummaryPath $expectation)
+    }
+    Invoke-Case "configuration summary logging identity mismatch is rejected" {
+        $configurationSummary = Get-Content $configurationSummaryPath -Raw |
+            ConvertFrom-Json
+        $configurationSummary.playerLogEnabled = $false
+        Write-JsonFixture $configurationSummaryPath $configurationSummary
+        Assert-False (Test-ConfigurationSummary $configurationSummaryPath $expectation)
+        $configurationSummary.playerLogEnabled = $true
+        Write-JsonFixture $configurationSummaryPath $configurationSummary
+    }
     $manifest = New-PayloadManifest $payload
     $buildEvidence = Test-BuildEvidence `
         (Join-Path $payload "build-metadata.json") `
         (Join-Path $payload "build-report-summary.json") `
         $provenanceEvidence.DetailsPath -ExpectedIdentity $expectation
-    $payloadPolicy = Prepare-PayloadForAudience $payload "InternalRc"
+    $payloadPolicy = Prepare-PayloadForAudience $payload "StoreDistributable"
     $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
         -RunId "run" -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
         -BuildMetadataPath (Join-Path $payload "build-metadata.json") `
+        -ConfigurationSummaryPath $configurationSummaryPath `
         -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
         -BuildReportDetailsPath $provenanceEvidence.DetailsPath -Manifest $manifest `
         -BuildEvidence $buildEvidence -PayloadPolicy $payloadPolicy `
@@ -801,6 +1021,27 @@ try {
             -Expectation $expectation)
         Assert-Equal $manifest.Sha256 $provenance.payloadManifestSha256
         Assert-Equal $manifest.FileCount ([int]$provenance.payloadFileCount)
+    }
+    Invoke-Case "provenance logging identity mismatch is rejected" {
+        $provenancePath = Join-Path $payload "artifact-provenance.json"
+        $changed = Get-Content $provenancePath -Raw | ConvertFrom-Json
+        $changed.logPolicyId = "other-log-policy"
+        Write-JsonFixture $provenancePath $changed
+        Assert-False (Test-ArtifactProvenance -ArtifactRoot $payload `
+            -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
+            -Expectation $expectation)
+        $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
+            -RunId "run" -ArtifactId "artifact" -SourceSha "sha" `
+            -SourceTree "tree" `
+            -BuildMetadataPath (Join-Path $payload "build-metadata.json") `
+            -ConfigurationSummaryPath $configurationSummaryPath `
+            -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
+            -BuildReportDetailsPath $provenanceEvidence.DetailsPath `
+            -Manifest $manifest -BuildEvidence $buildEvidence `
+            -PayloadPolicy $payloadPolicy `
+            -EntrySourceSha256 $expectation.EntrySourceSha256 `
+            -PolicySourceSha256 $expectation.PolicySourceSha256 `
+            -WrapperSourceSha256 $expectation.WrapperSourceSha256
     }
     Invoke-Case "provenance hash mismatch rejection" {
         $metadataPath = Join-Path $payload "build-metadata.json"
@@ -816,6 +1057,7 @@ try {
         $provenance = New-ArtifactProvenance -ArtifactRoot $payload `
             -RunId "run" -ArtifactId "artifact" -SourceSha "sha" -SourceTree "tree" `
             -BuildMetadataPath $metadataPath `
+            -ConfigurationSummaryPath $configurationSummaryPath `
             -BuildReportSummaryPath (Join-Path $payload "build-report-summary.json") `
             -BuildReportDetailsPath $provenanceEvidence.DetailsPath -Manifest $manifest `
             -BuildEvidence $buildEvidence -PayloadPolicy $payloadPolicy `
@@ -855,6 +1097,16 @@ try {
         Assert-False (Test-SuccessControl $payload `
             $provenanceEvidence.DetailsPath $expectation)
         $success.totalWarnings = 0
+        Write-JsonFixture $successPath $success
+    }
+    Invoke-Case "SUCCESS logging identity mismatch is rejected" {
+        $successPath = Join-Path $payload "SUCCESS.json"
+        $success = Get-Content $successPath -Raw | ConvertFrom-Json
+        $success.automaticLogUpload = $true
+        Write-JsonFixture $successPath $success
+        Assert-False (Test-SuccessControl $payload `
+            $provenanceEvidence.DetailsPath $expectation)
+        $success.automaticLogUpload = $false
         Write-JsonFixture $successPath $success
     }
     Invoke-Case "detached wrapper source mismatch is rejected" {

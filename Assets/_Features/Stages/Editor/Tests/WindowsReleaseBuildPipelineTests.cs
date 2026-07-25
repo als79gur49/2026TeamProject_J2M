@@ -55,42 +55,57 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void BackendPolicy_OmittedValueDefaultsToMono()
+        public void CanonicalStore_OmittedIntentAndBackendDefaultsToMono()
         {
-            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
-                string.Empty, out var configuration), Is.True);
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveConfiguration(
+                string.Empty, string.Empty, out var configuration), Is.True);
+            Assert.That(configuration.Intent,
+                Is.EqualTo(WindowsReleaseBuildIntent.CanonicalStore));
             Assert.That(configuration.Candidate, Is.EqualTo(StoreBackendCandidate.Mono));
             Assert.That(configuration.Backend, Is.EqualTo(ScriptingImplementation.Mono2x));
             Assert.That(configuration.ComparisonRole,
-                Is.EqualTo(StoreBackendComparisonRole.MonoControl));
+                Is.EqualTo(StoreBackendComparisonRole.CanonicalStore));
         }
 
         [TestCase("Mono", StoreBackendCandidate.Mono, ScriptingImplementation.Mono2x)]
         [TestCase("IL2CPP", StoreBackendCandidate.IL2CPP, ScriptingImplementation.IL2CPP)]
-        public void BackendPolicy_ExplicitValueCreatesExactPolicy(
+        public void BackendComparison_ExplicitValueCreatesExactCandidate(
             string value,
             StoreBackendCandidate candidate,
             ScriptingImplementation backend)
         {
-            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveConfiguration(
+                WindowsReleaseBuildIntent.BackendComparison.ToString(),
                 value, out var configuration), Is.True);
             Assert.That(configuration.Candidate, Is.EqualTo(candidate));
             Assert.That(configuration.Backend, Is.EqualTo(backend));
+            Assert.That(configuration.StoreConfigurationId,
+                Is.Not.EqualTo(WindowsReleaseBuildPolicy.StoreConfigurationId));
         }
 
         [Test]
-        public void BackendPolicy_UnknownValueIsRejected()
+        public void CanonicalStore_Il2CppIsRejected()
         {
-            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
-                "il2cpp", out _), Is.False);
-            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
-                "Unknown", out _), Is.False);
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveConfiguration(
+                WindowsReleaseBuildIntent.CanonicalStore.ToString(),
+                StoreBackendCandidate.IL2CPP.ToString(), out _), Is.False);
         }
 
         [Test]
-        public void BackendPolicy_UsesBackendSpecificConfigurationNames()
+        public void BackendPolicy_UnknownValueOrIntentIsRejected()
         {
-            Assert.That(WindowsReleaseBackendConfiguration.Mono.ConfigurationName,
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveConfiguration(
+                "CanonicalStore", "il2cpp", out _), Is.False);
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveConfiguration(
+                "Unknown", "Mono", out _), Is.False);
+        }
+
+        [Test]
+        public void BackendIntent_UsesSeparatedConfigurationNames()
+        {
+            Assert.That(WindowsReleaseBackendConfiguration.CanonicalStoreMono.ConfigurationName,
+                Is.EqualTo("Windows-x64-Store-Mono-LogOn"));
+            Assert.That(WindowsReleaseBackendConfiguration.ComparisonMono.ConfigurationName,
                 Is.EqualTo("Windows-x64-NonDevelopment-Mono"));
             Assert.That(WindowsReleaseBackendConfiguration.IL2CPP.ConfigurationName,
                 Is.EqualTo("Windows-x64-NonDevelopment-IL2CPP"));
@@ -99,7 +114,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void BackendPolicy_UsesBackendSpecificStripping()
         {
-            Assert.That(WindowsReleaseBackendConfiguration.Mono.Stripping,
+            Assert.That(WindowsReleaseBackendConfiguration.CanonicalStoreMono.Stripping,
                 Is.EqualTo(ManagedStrippingLevel.Disabled));
             Assert.That(WindowsReleaseBackendConfiguration.IL2CPP.Stripping,
                 Is.EqualTo(ManagedStrippingLevel.Minimal));
@@ -131,6 +146,25 @@ namespace Game.Feature.Stages.Editor.Tests
         public void Policy_PlayerLogIsEnabled()
         {
             Assert.That(WindowsReleaseBuildPolicy.PlayerLogEnabled, Is.True);
+        }
+
+        [Test]
+        public void CanonicalStore_IdentityAndLoggingPolicyAreFrozen()
+        {
+            var configuration = WindowsReleaseBuildPolicy.DefaultConfiguration;
+            Assert.That(WindowsReleaseBuildPolicy.StoreConfigurationSchema,
+                Is.EqualTo("1.0"));
+            Assert.That(WindowsReleaseBuildPolicy.StoreConfigurationId,
+                Is.EqualTo("windows-x64-store-mono-logon-v1"));
+            Assert.That(configuration.Intent,
+                Is.EqualTo(WindowsReleaseBuildIntent.CanonicalStore));
+            Assert.That(configuration.Backend, Is.EqualTo(ScriptingImplementation.Mono2x));
+            Assert.That(configuration.Stripping, Is.EqualTo(ManagedStrippingLevel.Disabled));
+            Assert.That(WindowsReleaseBuildPolicy.PlayerLogEnabled, Is.True);
+            Assert.That(WindowsReleaseBuildPolicy.AutomaticLogUpload, Is.False);
+            Assert.That(configuration.LogPolicyId,
+                Is.EqualTo("local-player-log-no-auto-upload-v1"));
+            Assert.That(configuration.PayloadAudience, Is.EqualTo("StoreDistributable"));
         }
 
         [Test]
@@ -326,6 +360,23 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(record.restoredVerification, Is.True);
         }
 
+        [Test]
+        public void SettingsTransaction_PlayerLogFalseIsCorrectedAndRestored()
+        {
+            var settings = new FakeSettings();
+            var record = new ReleaseSettingsTransactionRecordV1();
+            var result = WindowsReleaseSettingsTransaction.Run(
+                settings, () => WindowsReleaseExitCodes.Success, record);
+
+            Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.Success));
+            Assert.That(record.originalSettings.playerLog, Is.False);
+            Assert.That(record.requiredSettings.playerLog, Is.True);
+            Assert.That(record.playerLogChanged, Is.True);
+            Assert.That(record.appliedVerification, Is.True);
+            Assert.That(record.restoreAttempted, Is.True);
+            Assert.That(record.restoredVerification, Is.True);
+        }
+
         [TestCase(WindowsReleaseExitCodes.BuildErrorsRecorded)]
         [TestCase(WindowsReleaseExitCodes.BuildFailed)]
         public void SettingsRestoreFailure_TakesPrecedenceOverBuildOutcome(int buildOutcome)
@@ -354,11 +405,15 @@ namespace Game.Feature.Stages.Editor.Tests
                 "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree", "branch",
                 "headDetached", "originMainSha", "ahead", "behind", "sourceDirty",
                 "unityVersion", "unityRevision", "buildTarget", "architecture", "configuration",
-                "backend", "managedStrippingLevel", "il2cppCompilerConfiguration",
+                "buildIntent", "storeConfigurationSchema", "storeConfigurationId",
+                "backend", "scriptingBackend", "managedStrippingLevel",
+                "il2cppCompilerConfiguration",
                 "nativeCompilerIdentity", "windowsSdkIdentity", "backendComparisonId",
                 "comparisonRole", "development", "connectWithProfiler",
-                "deepProfiling", "allowDebugging", "scriptDebugging", "waitForDebugger",
-                "forceAssertions", "effectiveScenes", "playerLogEnabled", "stackTracePolicy",
+                "deepProfiling", "allowDebugging", "scriptDebugging",
+                "waitForPlayerConnection", "waitForDebugger", "forceAssertions",
+                "effectiveScenes", "playerLogEnabled", "logPolicyId",
+                "automaticLogUpload", "payloadAudience", "stackTracePolicy",
                 "incrementalGC", "productName", "companyName", "productVersion", "buildNumber",
                 "applicationIdentifier", "buildEntry", "entrySourceSha256", "policySourceSha256",
                 "wrapperSourceSha256", "buildResult", "warningCount", "errorCount",
@@ -370,7 +425,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var fields = typeof(WindowsReleaseMetadataV2).GetFields()
                 .Select(field => field.Name).ToArray();
             Assert.That(fields, Is.EquivalentTo(required));
-            Assert.That(WindowsReleaseBuildPolicy.MetadataSchemaVersion, Is.EqualTo("2.0"));
+            Assert.That(WindowsReleaseBuildPolicy.MetadataSchemaVersion, Is.EqualTo("3.0"));
         }
 
         [Test]
@@ -380,7 +435,11 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EquivalentTo(new[]
                 {
                     "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree",
-                    "unityVersion", "configuration", "backend", "backendComparisonId",
+                    "unityVersion", "configuration", "buildIntent",
+                    "storeConfigurationSchema", "storeConfigurationId", "backend",
+                    "scriptingBackend", "managedStrippingLevel", "playerLogEnabled",
+                    "logPolicyId", "automaticLogUpload", "payloadAudience",
+                    "backendComparisonId",
                     "comparisonRole", "result", "totalErrors", "totalWarnings",
                     "errorRecordCount", "warningRecordCount", "captureLimitation", "steps",
                 }));
@@ -396,7 +455,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     "stackTrace",
                 }));
             Assert.That(WindowsReleaseBuildPolicy.BuildReportDetailsSchemaVersion,
-                Is.EqualTo("1.0"));
+                Is.EqualTo("2.0"));
         }
 
         [Test]
@@ -406,7 +465,11 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EquivalentTo(new[]
                 {
                     "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree",
-                    "configuration", "backend", "backendComparisonId", "comparisonRole",
+                    "configuration", "buildIntent", "storeConfigurationSchema",
+                    "storeConfigurationId", "backend", "scriptingBackend",
+                    "managedStrippingLevel", "playerLogEnabled", "logPolicyId",
+                    "automaticLogUpload", "payloadAudience", "backendComparisonId",
+                    "comparisonRole",
                     "result", "totalErrors", "totalWarnings", "totalSize",
                     "totalTimeSeconds", "outputPath", "detailsFile", "detailsSha256",
                     "errorRecordCount", "warningRecordCount", "distinctErrorMessageHashes",
@@ -414,9 +477,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(typeof(BuildReportSummaryV2).GetFields().Select(field => field.Name),
                 Does.Not.Contain("steps"));
             Assert.That(WindowsReleaseBuildPolicy.BuildReportSummarySchemaVersion,
-                Is.EqualTo("2.0"));
+                Is.EqualTo("3.0"));
             Assert.That(WindowsReleaseBuildPolicy.BuildReportDetailsSchemaVersion,
-                Is.EqualTo("1.0"));
+                Is.EqualTo("2.0"));
         }
 
         [Test]
@@ -466,16 +529,41 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase("backend")]
+        [TestCase("storeConfigurationId")]
+        [TestCase("managedStrippingLevel")]
+        [TestCase("playerLogEnabled")]
+        [TestCase("logPolicyId")]
+        [TestCase("automaticLogUpload")]
+        [TestCase("payloadAudience")]
         [TestCase("backendComparisonId")]
         [TestCase("comparisonRole")]
-        public void BuildReportIdentityAndCounts_BackendIdentityMismatch_IsRejected(
+        public void BuildReportIdentityAndCounts_ConfigurationIdentityMismatch_IsRejected(
             string field)
         {
             var evidence = CreateMatchingEvidence();
             switch (field)
             {
                 case "backend":
-                    evidence.Summary.backend = ScriptingImplementation.IL2CPP.ToString();
+                    evidence.Summary.backend = StoreBackendCandidate.IL2CPP.ToString();
+                    break;
+                case "storeConfigurationId":
+                    evidence.Summary.storeConfigurationId = "other-store-configuration";
+                    break;
+                case "managedStrippingLevel":
+                    evidence.Summary.managedStrippingLevel =
+                        ManagedStrippingLevel.Minimal.ToString();
+                    break;
+                case "playerLogEnabled":
+                    evidence.Summary.playerLogEnabled = false;
+                    break;
+                case "logPolicyId":
+                    evidence.Summary.logPolicyId = "other-log-policy";
+                    break;
+                case "automaticLogUpload":
+                    evidence.Summary.automaticLogUpload = true;
+                    break;
+                case "payloadAudience":
+                    evidence.Summary.payloadAudience = "InternalRc";
                     break;
                 case "backendComparisonId":
                     evidence.Summary.backendComparisonId = "other-comparison";
@@ -579,6 +667,34 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ArtifactIdentity_MetadataProvenanceAndSuccessAgree()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
+                    CreateCanonicalStoreIdentity(),
+                    CreateCanonicalStoreIdentity(),
+                    CreateCanonicalStoreIdentity()),
+                Is.EqualTo(WindowsReleaseExitCodes.Success));
+        }
+
+        [TestCase("metadata")]
+        [TestCase("provenance")]
+        [TestCase("SUCCESS")]
+        public void ArtifactIdentity_LoggingMismatchIsRejected(string carrier)
+        {
+            var metadata = CreateCanonicalStoreIdentity();
+            var provenance = CreateCanonicalStoreIdentity();
+            var success = CreateCanonicalStoreIdentity();
+            var target = carrier == "metadata"
+                ? metadata
+                : carrier == "provenance" ? provenance : success;
+            target.automaticLogUpload = true;
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
+                    metadata, provenance, success),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
         public void SettingsRestoreFailure_TakesPrecedenceOverIdentityMismatch()
         {
             Assert.That(WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
@@ -631,6 +747,59 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void InitialStoreConfiguration_HasNoAutomaticDiagnosticsInitialization()
+        {
+            var manifest = System.IO.File.ReadAllText("Packages/manifest.json");
+            Assert.That(manifest, Does.Not.Contain("\"com.unity.services.analytics\""));
+            Assert.That(manifest, Does.Not.Contain("\"com.unity.services.core\""));
+            Assert.That(manifest, Does.Not.Contain("sentry"));
+            Assert.That(manifest, Does.Not.Contain("backtrace"));
+            Assert.That(manifest, Does.Not.Contain("bugsnag"));
+
+            var connect = System.IO.File.ReadAllText(
+                "ProjectSettings/UnityConnectSettings.asset");
+            Assert.That(connect, Does.Contain("m_EnableCloudDiagnosticsReporting: 0"));
+            Assert.That(connect, Does.Contain("UnityAnalyticsSettings:"));
+            Assert.That(connect, Does.Match(
+                @"(?s)UnityAnalyticsSettings:\s+.*?m_Enabled: 0"));
+            Assert.That(connect, Does.Match(
+                @"(?s)PerformanceReportingSettings:\s+.*?m_Enabled: 0"));
+
+            var productionSources = System.IO.Directory.GetFiles(
+                    "Assets", "*.cs", System.IO.SearchOption.AllDirectories)
+                .Where(path =>
+                    (path.Replace('\\', '/').StartsWith("Assets/_Features/",
+                         StringComparison.Ordinal) ||
+                     path.Replace('\\', '/').StartsWith("Assets/_Shared/",
+                         StringComparison.Ordinal)) &&
+                    path.Replace('\\', '/').IndexOf("/Editor/",
+                        StringComparison.Ordinal) < 0 &&
+                    path.Replace('\\', '/').IndexOf("/Tests/",
+                        StringComparison.Ordinal) < 0)
+                .Select(System.IO.File.ReadAllText);
+            var runtimeSource = string.Join("\n", productionSources);
+            Assert.That(runtimeSource, Does.Not.Contain("CrashReportHandler"));
+            Assert.That(runtimeSource, Does.Not.Contain("AnalyticsService"));
+            Assert.That(runtimeSource, Does.Not.Contain("RecordEvent("));
+            Assert.That(runtimeSource, Does.Not.Match(
+                @"(?i)(Upload.*Player\.log|Player\.log.*Upload)"));
+        }
+
+        [Test]
+        public void WindowsPlayerLogSupportPolicy_DocumentsPrivateLocalSubmission()
+        {
+            const string path = "Docs/Support/Windows-Player-Log-Policy.md";
+            Assert.That(System.IO.File.Exists(path), Is.True);
+            var document = System.IO.File.ReadAllText(path);
+            Assert.That(document, Does.Contain(
+                "windows-x64-store-mono-logon-v1"));
+            Assert.That(document, Does.Contain(
+                @"%USERPROFILE%\AppData\LocalLow\J2M\VectorQuake\Player.log"));
+            Assert.That(document, Does.Contain("private support channel"));
+            Assert.That(document, Does.Contain("자동 업로드: 없음"));
+        }
+
+        [Test]
         public void ExitCodes_AreUniqueAndCSharpScoped()
         {
             Assert.That(WindowsReleaseExitCodes.All.Distinct().Count(),
@@ -648,7 +817,7 @@ namespace Game.Feature.Stages.Editor.Tests
             const int errors = 0;
             const int warnings = 7;
             const string comparisonId = "comparison";
-            var configuration = WindowsReleaseBackendConfiguration.Mono;
+            var configuration = WindowsReleaseBackendConfiguration.CanonicalStoreMono;
 
             return new EvidenceSet
             {
@@ -660,7 +829,16 @@ namespace Game.Feature.Stages.Editor.Tests
                     sourceSha = sourceSha,
                     sourceTree = sourceTree,
                     configuration = configuration.ConfigurationName,
-                    backend = configuration.Backend.ToString(),
+                    buildIntent = configuration.Intent.ToString(),
+                    storeConfigurationSchema = configuration.StoreConfigurationSchema,
+                    storeConfigurationId = configuration.StoreConfigurationId,
+                    backend = configuration.Candidate.ToString(),
+                    scriptingBackend = configuration.Backend.ToString(),
+                    managedStrippingLevel = configuration.Stripping.ToString(),
+                    playerLogEnabled = true,
+                    logPolicyId = configuration.LogPolicyId,
+                    automaticLogUpload = false,
+                    payloadAudience = configuration.PayloadAudience,
                     backendComparisonId = comparisonId,
                     comparisonRole = configuration.ComparisonRole.ToString(),
                     buildResult = result,
@@ -674,7 +852,16 @@ namespace Game.Feature.Stages.Editor.Tests
                     sourceSha = sourceSha,
                     sourceTree = sourceTree,
                     configuration = configuration.ConfigurationName,
-                    backend = configuration.Backend.ToString(),
+                    buildIntent = configuration.Intent.ToString(),
+                    storeConfigurationSchema = configuration.StoreConfigurationSchema,
+                    storeConfigurationId = configuration.StoreConfigurationId,
+                    backend = configuration.Candidate.ToString(),
+                    scriptingBackend = configuration.Backend.ToString(),
+                    managedStrippingLevel = configuration.Stripping.ToString(),
+                    playerLogEnabled = true,
+                    logPolicyId = configuration.LogPolicyId,
+                    automaticLogUpload = false,
+                    payloadAudience = configuration.PayloadAudience,
                     backendComparisonId = comparisonId,
                     comparisonRole = configuration.ComparisonRole.ToString(),
                     result = result,
@@ -690,7 +877,16 @@ namespace Game.Feature.Stages.Editor.Tests
                     sourceSha = sourceSha,
                     sourceTree = sourceTree,
                     configuration = configuration.ConfigurationName,
-                    backend = configuration.Backend.ToString(),
+                    buildIntent = configuration.Intent.ToString(),
+                    storeConfigurationSchema = configuration.StoreConfigurationSchema,
+                    storeConfigurationId = configuration.StoreConfigurationId,
+                    backend = configuration.Candidate.ToString(),
+                    scriptingBackend = configuration.Backend.ToString(),
+                    managedStrippingLevel = configuration.Stripping.ToString(),
+                    playerLogEnabled = true,
+                    logPolicyId = configuration.LogPolicyId,
+                    automaticLogUpload = false,
+                    payloadAudience = configuration.PayloadAudience,
                     backendComparisonId = comparisonId,
                     comparisonRole = configuration.ComparisonRole.ToString(),
                     result = result,
@@ -699,6 +895,24 @@ namespace Game.Feature.Stages.Editor.Tests
                     errorRecordCount = errors,
                     warningRecordCount = warnings,
                 },
+            };
+        }
+
+        private static ReleaseStoreIdentityV1 CreateCanonicalStoreIdentity()
+        {
+            return new ReleaseStoreIdentityV1
+            {
+                storeConfigurationSchema =
+                    WindowsReleaseBuildPolicy.StoreConfigurationSchema,
+                storeConfigurationId = WindowsReleaseBuildPolicy.StoreConfigurationId,
+                buildIntent = WindowsReleaseBuildIntent.CanonicalStore.ToString(),
+                backend = StoreBackendCandidate.Mono.ToString(),
+                scriptingBackend = ScriptingImplementation.Mono2x.ToString(),
+                managedStrippingLevel = ManagedStrippingLevel.Disabled.ToString(),
+                playerLogEnabled = true,
+                logPolicyId = WindowsReleaseBuildPolicy.LogPolicyId,
+                automaticLogUpload = false,
+                payloadAudience = WindowsReleaseBuildPolicy.PayloadAudience,
             };
         }
 

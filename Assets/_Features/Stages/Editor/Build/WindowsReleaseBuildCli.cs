@@ -22,8 +22,10 @@ public static class WindowsReleaseBuildCli
     public const string BuildReportPathArgument = "-releaseBuildReportPath";
     public const string BuildReportDetailsPathArgument = "-releaseBuildReportDetailsPath";
     public const string SettingsTransactionPathArgument = "-releaseSettingsTransactionPath";
+    public const string BuildIntentArgument = "-releaseBuildIntent";
     public const string BackendArgument = "-releaseBackend";
     public const string BackendComparisonIdArgument = "-releaseBackendComparisonId";
+    public const string PayloadAudienceArgument = "-releasePayloadAudience";
 
     public static readonly string[] RequiredArgumentNames =
     {
@@ -35,7 +37,11 @@ public static class WindowsReleaseBuildCli
 
     public static readonly string[] KnownArgumentNames =
         RequiredArgumentNames
-            .Concat(new[] { BackendArgument, BackendComparisonIdArgument })
+            .Concat(new[]
+            {
+                BuildIntentArgument, BackendArgument, BackendComparisonIdArgument,
+                PayloadAudienceArgument,
+            })
             .ToArray();
 
     public static void BuildWindowsX64NonDevelopment()
@@ -66,13 +72,27 @@ public static class WindowsReleaseBuildCli
             return validation;
         }
 
-        if (!WindowsReleaseBuildPolicy.TryResolveBackend(
+        if (!WindowsReleaseBuildPolicy.TryResolveConfiguration(
+                arguments.TryGetValue(BuildIntentArgument, out var intentValue)
+                    ? intentValue
+                    : string.Empty,
                 arguments.TryGetValue(BackendArgument, out var backendValue)
                     ? backendValue
                     : string.Empty,
                 out var configuration))
         {
-            Debug.LogError("UNSUPPORTED_STORE_BACKEND");
+            Debug.LogError("UNSUPPORTED_WINDOWS_RELEASE_CONFIGURATION");
+            return WindowsReleaseExitCodes.UnsupportedConfiguration;
+        }
+
+        var payloadAudience =
+            arguments.TryGetValue(PayloadAudienceArgument, out var suppliedAudience)
+                ? suppliedAudience
+                : WindowsReleaseBuildPolicy.PayloadAudience;
+        if (!string.Equals(payloadAudience, configuration.PayloadAudience,
+                StringComparison.Ordinal))
+        {
+            Debug.LogError("WINDOWS_RELEASE_PAYLOAD_AUDIENCE_MISMATCH");
             return WindowsReleaseExitCodes.UnsupportedConfiguration;
         }
 
@@ -291,8 +311,12 @@ public static class WindowsReleaseBuildCli
             buildTarget = BuildTarget.StandaloneWindows64.ToString(),
             architecture = WindowsReleaseBuildPolicy.Architecture,
             configuration = configuration.ConfigurationName,
-            backend = configuration.Backend.ToString(),
             managedStrippingLevel = configuration.Stripping.ToString(),
+            buildIntent = configuration.Intent.ToString(),
+            storeConfigurationSchema = configuration.StoreConfigurationSchema,
+            storeConfigurationId = configuration.StoreConfigurationId,
+            scriptingBackend = configuration.Backend.ToString(),
+            backend = configuration.Candidate.ToString(),
             il2cppCompilerConfiguration =
                 configuration.Il2CppCompilerConfiguration.ToString(),
             nativeCompilerIdentity = string.Empty,
@@ -304,10 +328,14 @@ public static class WindowsReleaseBuildCli
             deepProfiling = false,
             allowDebugging = false,
             scriptDebugging = false,
+            waitForPlayerConnection = false,
             waitForDebugger = false,
             forceAssertions = false,
             effectiveScenes = (string[])WindowsReleaseBuildPolicy.Scenes.Clone(),
-            playerLogEnabled = true,
+            playerLogEnabled = WindowsReleaseBuildPolicy.PlayerLogEnabled,
+            logPolicyId = configuration.LogPolicyId,
+            automaticLogUpload = WindowsReleaseBuildPolicy.AutomaticLogUpload,
+            payloadAudience = configuration.PayloadAudience,
             stackTracePolicy = WindowsReleaseBuildPolicy.WarningStackTrace.ToString(),
             incrementalGC = PlayerSettings.gcIncremental,
             productName = PlayerSettings.productName,
@@ -522,7 +550,16 @@ internal sealed class BuildReportSummaryV2
     public string sourceSha;
     public string sourceTree;
     public string configuration;
+    public string buildIntent;
+    public string storeConfigurationSchema;
+    public string storeConfigurationId;
     public string backend;
+    public string scriptingBackend;
+    public string managedStrippingLevel;
+    public bool playerLogEnabled;
+    public string logPolicyId;
+    public bool automaticLogUpload;
+    public string payloadAudience;
     public string backendComparisonId;
     public string comparisonRole;
     public string result;
@@ -554,7 +591,16 @@ internal sealed class BuildReportSummaryV2
         sourceSha = details.sourceSha;
         sourceTree = details.sourceTree;
         this.configuration = configuration.ConfigurationName;
-        backend = configuration.Backend.ToString();
+        buildIntent = configuration.Intent.ToString();
+        storeConfigurationSchema = configuration.StoreConfigurationSchema;
+        storeConfigurationId = configuration.StoreConfigurationId;
+        backend = configuration.Candidate.ToString();
+        scriptingBackend = configuration.Backend.ToString();
+        managedStrippingLevel = configuration.Stripping.ToString();
+        playerLogEnabled = WindowsReleaseBuildPolicy.PlayerLogEnabled;
+        logPolicyId = configuration.LogPolicyId;
+        automaticLogUpload = WindowsReleaseBuildPolicy.AutomaticLogUpload;
+        payloadAudience = configuration.PayloadAudience;
         backendComparisonId = comparisonId;
         comparisonRole = configuration.ComparisonRole.ToString();
         result = report.summary.result.ToString();
@@ -586,7 +632,16 @@ internal sealed class BuildReportDetailsV1
     public string sourceSha;
     public string sourceTree;
     public string configuration;
+    public string buildIntent;
+    public string storeConfigurationSchema;
+    public string storeConfigurationId;
     public string backend;
+    public string scriptingBackend;
+    public string managedStrippingLevel;
+    public bool playerLogEnabled;
+    public string logPolicyId;
+    public bool automaticLogUpload;
+    public string payloadAudience;
     public string backendComparisonId;
     public string comparisonRole;
     public string unityVersion;
@@ -616,7 +671,16 @@ internal sealed class BuildReportDetailsV1
         sourceSha = releaseSourceSha;
         sourceTree = releaseSourceTree;
         this.configuration = configuration.ConfigurationName;
-        backend = configuration.Backend.ToString();
+        buildIntent = configuration.Intent.ToString();
+        storeConfigurationSchema = configuration.StoreConfigurationSchema;
+        storeConfigurationId = configuration.StoreConfigurationId;
+        backend = configuration.Candidate.ToString();
+        scriptingBackend = configuration.Backend.ToString();
+        managedStrippingLevel = configuration.Stripping.ToString();
+        playerLogEnabled = WindowsReleaseBuildPolicy.PlayerLogEnabled;
+        logPolicyId = configuration.LogPolicyId;
+        automaticLogUpload = WindowsReleaseBuildPolicy.AutomaticLogUpload;
+        payloadAudience = configuration.PayloadAudience;
         backendComparisonId = comparisonId;
         comparisonRole = configuration.ComparisonRole.ToString();
         unityVersion = Application.unityVersion;
