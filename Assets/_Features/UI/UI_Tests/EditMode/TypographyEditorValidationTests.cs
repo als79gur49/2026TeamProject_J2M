@@ -20,9 +20,11 @@ namespace Game.Feature.UI.Tests
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
         private const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         private const string CanonicalEvidenceDirectory =
-            "TestLogs/TypographyVisualQA/CommandLine-20260724-214429";
+            "TestLogs/TypographyVisualQA/CommandLine-20260725-154732";
         private const string CanonicalEvidenceReconstructionHead =
-            "bb0f21e2e73f232aaf3fb02833b8e72f88dc526c";
+            "bd9870b6e2e1b7e0b91b677a931416d714edb51b";
+        private const string MainMenuCorrectedEvidenceDirectory =
+            "TestLogs/TypographyVisualQA/CommandLine-20260724-214429";
         private const string HistoricalDefectiveEvidenceDirectory =
             "TestLogs/TypographyVisualQA/CommandLine-20260722-210829";
         private const string HistoricalFiftyOneBindingEvidenceDirectory =
@@ -778,7 +780,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TypographyPreviewScreenshotManifest_CorrectedCanonicalOnlyChangesMainMenuEnglish()
+        public void TypographyPreviewScreenshotManifest_MainMenuCorrectedCanonicalOnlyChangesMainMenuEnglish()
         {
             var unchangedFileNames = new[]
             {
@@ -792,7 +794,7 @@ namespace Game.Feature.UI.Tests
             foreach (var fileName in unchangedFileNames)
             {
                 var historicalPath = Path.Combine(HistoricalDefectiveEvidenceDirectory, fileName);
-                var correctedPath = Path.Combine(CanonicalEvidenceDirectory, fileName);
+                var correctedPath = Path.Combine(MainMenuCorrectedEvidenceDirectory, fileName);
                 Assert.That(File.Exists(historicalPath), Is.True, historicalPath);
                 Assert.That(File.Exists(correctedPath), Is.True, correctedPath);
                 Assert.That(
@@ -803,13 +805,34 @@ namespace Game.Feature.UI.Tests
 
             var historicalMainMenuPath =
                 Path.Combine(HistoricalDefectiveEvidenceDirectory, "MainMenu_en-US.png");
-            var correctedMainMenuPath = Path.Combine(CanonicalEvidenceDirectory, "MainMenu_en-US.png");
+            var correctedMainMenuPath =
+                Path.Combine(MainMenuCorrectedEvidenceDirectory, "MainMenu_en-US.png");
             Assert.That(
                 TypographyPreviewScreenshotManifestUtility.ComputeSha256(historicalMainMenuPath),
                 Is.EqualTo("979330bf5a4667304cd7751f22bf40cf52e8b3cc139c0d8d8be0fd7c8c029624"));
             Assert.That(
                 TypographyPreviewScreenshotManifestUtility.ComputeSha256(correctedMainMenuPath),
                 Is.EqualTo("578912d8e11ddb560d9a6c1a2df2bcd785e5cb3f640641738502d03290f44843"));
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotManifest_ProductionCompositionCanonicalIsByteIdenticalToMainMenuCorrectedCanonical()
+        {
+            foreach (var target in TypographyPreviewScreenshotUtility.RequiredTargets)
+            {
+                foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
+                {
+                    var fileName = TypographyPreviewScreenshotUtility.BuildFileName(target, locale);
+                    var previousPath = Path.Combine(MainMenuCorrectedEvidenceDirectory, fileName);
+                    var productionCompositionPath = Path.Combine(CanonicalEvidenceDirectory, fileName);
+                    Assert.That(File.Exists(previousPath), Is.True, previousPath);
+                    Assert.That(File.Exists(productionCompositionPath), Is.True, productionCompositionPath);
+                    Assert.That(
+                        TypographyPreviewScreenshotManifestUtility.ComputeSha256(productionCompositionPath),
+                        Is.EqualTo(TypographyPreviewScreenshotManifestUtility.ComputeSha256(previousPath)),
+                        $"{fileName} must remain BYTE_IDENTICAL after the capture setup adopts production composition.");
+                }
+            }
         }
 
         [Test]

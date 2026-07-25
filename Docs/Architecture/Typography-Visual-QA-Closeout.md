@@ -7,14 +7,22 @@ This closeout records the visual QA result for the UI Localization + Typography 
 Evidence folder:
 
 ```text
-TestLogs/TypographyVisualQA/CommandLine-20260724-214429/
+TestLogs/TypographyVisualQA/CommandLine-20260725-154732/
 ```
 
-This is the current corrected canonical 1920x1080 evidence generated through `./run_tests.sh typography-visual` from revision `bb0f21e2e73f232aaf3fb02833b8e72f88dc526c`. Its `capture.log` records schema 1, `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PASS entries, clean guarded assets, and Settings `typography_bindings=38`, `localized_expected=22`, `localized_applied=22` for both locales. The wrapper verified every PNG byte size/SHA-256 and preserved the Nanum content/diff hashes.
+This is the current production-composition corrected canonical 1920x1080 evidence generated through `./run_tests.sh typography-visual` from revision `bd9870b6e2e1b7e0b91b677a931416d714edb51b`. Its `capture.log` records schema 1, `RECONSTRUCTED_FROM_SPLIT_LOGS`, six PASS entries, clean guarded assets, and Settings `typography_bindings=38`, `localized_expected=22`, `localized_applied=22` for both locales. The wrapper verified every PNG byte size/SHA-256 and preserved the Nanum content/diff hashes.
 
-Manual review confirmed that Settings `W/A/S/D`, four directions, `E`, and `Q` keep the same physical-key presentation across en-US/ko-KR while Movement Keys, Use Arrow Keys, Push, Flip, Change, and Reset Input localize. No keycap/current-value clipping, wrapping, or 1920x1080 bounds issue was observed. Settings en-US/ko-KR, Pause en-US/ko-KR, and Main Menu ko-KR remain byte-identical to the previous evidence. Main Menu en-US intentionally changed from the incidental generic `Button` SciFiSoldier result to the authored Orbitron identity for Start, Settings, and Quit.
+The production Pause factory and screenshot utility now share `PausePopupProductionLocalizationComposer`, so both paths use the same static localization targets, locale resolver, `GameplayUiTypographyTheme`, `TypographyBinding` authored state, and binding lifetime. Runtime identity tests compare the Pause title, description, Resume, Retry, Settings, and Main Menu targets in en-US and ko-KR, including font/material GUID and file ID, font style, size, auto-sizing range, style tag, sizing source, and apply mask.
 
-`TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` remains unchanged as the historical defective evidence containing SciFiSoldier Main Menu commands; it did not establish origin/main font parity. `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` also remains unchanged as 51-binding historical evidence. Dedicated tests preserve both provenance contracts without treating either directory as current canonical PASS.
+The canonical hierarchy is:
+
+1. `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` — historical defective evidence containing SciFiSoldier Main Menu commands.
+2. `TestLogs/TypographyVisualQA/CommandLine-20260724-214429/` — MainMenu-corrected canonical restoring the authored Orbitron identity.
+3. `TestLogs/TypographyVisualQA/CommandLine-20260725-154732/` — current production-composition corrected canonical using the production Pause setup.
+
+The current canonical is byte-identical to the MainMenu-corrected predecessor for all six PNGs. This is classified `BYTE_IDENTICAL`, not an expected-image update: the old capture setup bypassed production composition, while its later broad preview application happened to converge on the same rendered font/theme result. The false-green risk is closed by shared composition and runtime identity parity rather than by changing hashes. No unexpected visual delta was found. `TestLogs/TypographyVisualQA/CommandLine-20260720-194045/` remains unchanged as 51-binding historical evidence.
+
+Manual review of the predecessor confirmed that Settings `W/A/S/D`, four directions, `E`, and `Q` keep the same physical-key presentation across en-US/ko-KR while Movement Keys, Use Arrow Keys, Push, Flip, Change, and Reset Input localize. No keycap/current-value clipping, wrapping, or 1920x1080 bounds issue was observed. Main Menu en-US remains intentionally changed from the historical incidental generic `Button` SciFiSoldier result to the authored Orbitron identity for Start, Settings, and Quit.
 
 The corrected runtime uses the `MainMenuCommand` semantic role: en-US resolves Display/Bold to Orbitron ExtraBold while ko-KR uses the existing NanumGothic UI/Bold locale override. The generic `Button -> UI/Bold -> Font_SciFiSoldier_Bold` mapping is unchanged. Production-composition tests independently pin the origin/main authored font/material identity, Bold style, and `30 / Auto / 18-30` sizing through `en-US -> ko-KR -> en-US`.
 
@@ -60,6 +68,8 @@ The 2026-07-24 correction-head UI lane produced `885/885` passed tests before th
 ## Smart Metadata Closeout
 
 The final Smart metadata correction did not change localized copy, layout, runtime display output, or screenshot assets. Existing visual evidence remains valid.
+
+Settings reset and display-preview confirmation popups are dynamic surfaces outside the six-image canonical. Their en-US, ko-KR, direct ko-KR open, and locale round-trip behavior is covered by production runtime tests and a raw-literal source guard.
 
 | Check | Final state |
 |---|---|
