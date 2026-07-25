@@ -21,16 +21,6 @@ TYPOGRAPHY_VISUAL_HEIGHT=1080
 TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
 TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
-TYPOGRAPHY_VISUAL_P2_FILES=(
-    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyBindingValidator.cs"
-    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewUtility.cs"
-    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotMenu.cs"
-    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotUtility.cs"
-    "Assets/_Features/UI/UI_Composition/Editor/Typography/TypographyPreviewScreenshotManifest.cs"
-    "Assets/_Features/UI/UI_Tests/EditMode/SettingsProductionTypographyCompositionTests.cs"
-    "Assets/_Features/UI/UI_Tests/EditMode/TypographyEditorValidationTests.cs"
-)
-
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
 
@@ -273,7 +263,7 @@ print_typography_visual_plan() {
     echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<slice>.log"
     echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
-    echo "  revision gate:    P2 files must match Git HEAD in index and worktree"
+    echo "  revision gate:    tracked repository files and Unity inputs must match Git HEAD"
     echo "Would run isolated Unity typography visual evidence slices:"
     for slice in "${capture_slices[@]}"; do
         locale="${slice%%|*}"
@@ -318,21 +308,31 @@ print_typography_visual_plan() {
 
 verify_typography_visual_revision_gate() {
     local failed=0
+    local -a untracked_unity_inputs
 
-    if ! git diff --quiet -- "${TYPOGRAPHY_VISUAL_P2_FILES[@]}"; then
-        echo "ERROR: Canonical typography evidence is blocked by unstaged P2 changes:"
-        git status --short -- "${TYPOGRAPHY_VISUAL_P2_FILES[@]}"
+    if ! git diff --quiet; then
+        echo "ERROR: Canonical typography evidence is blocked by unstaged tracked changes:"
+        git status --short --untracked-files=no
         failed=1
     fi
 
-    if ! git diff --cached --quiet -- "${TYPOGRAPHY_VISUAL_P2_FILES[@]}"; then
-        echo "ERROR: Canonical typography evidence is blocked by staged P2 changes:"
-        git diff --cached --name-only -- "${TYPOGRAPHY_VISUAL_P2_FILES[@]}" | sed 's/^/  /'
+    if ! git diff --cached --quiet; then
+        echo "ERROR: Canonical typography evidence is blocked by staged tracked changes:"
+        git diff --cached --name-only | sed 's/^/  /'
+        failed=1
+    fi
+
+    mapfile -t untracked_unity_inputs < <(
+        git ls-files --others --exclude-standard -- Assets Packages ProjectSettings
+    )
+    if [ "${#untracked_unity_inputs[@]}" -ne 0 ]; then
+        echo "ERROR: Canonical typography evidence is blocked by untracked Unity inputs:"
+        printf '  %s\n' "${untracked_unity_inputs[@]}"
         failed=1
     fi
 
     if [ "$failed" -ne 0 ]; then
-        echo "The manifest records Git HEAD only, so dirty P2 code cannot produce canonical evidence."
+        echo "The manifest records Git HEAD only, so dirty rendered inputs cannot produce canonical evidence."
         return 1
     fi
 
