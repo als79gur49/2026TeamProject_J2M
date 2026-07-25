@@ -445,6 +445,7 @@ namespace Game.Feature.UI.Composition.Editor
                 var texture = RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
                 try
                 {
+                    ValidatePauseRenderedTargets(prefabRoot, capture);
                     ValidateLocaleInvariantPreview(prefabRoot, capture);
                     capture.OrientationValidationResult = "PASS_PIPELINE_CONTRACT";
                     if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
@@ -657,6 +658,11 @@ namespace Game.Feature.UI.Composition.Editor
                     theme);
                 view.IsVisible = true;
                 view.SetIsTopmost(true);
+                // The command-line en-US slice captures Settings before Pause, so DOTween is already
+                // initialized and applies the modal enter start pose synchronously. Disable the view
+                // after localization to execute its normal OnDisable cleanup and restore the authored
+                // alpha/scale before the deterministic evidence frame is rendered.
+                view.enabled = false;
                 ValidateLocalizedText(
                     target,
                     resolver,
@@ -701,6 +707,47 @@ namespace Game.Feature.UI.Composition.Editor
 
             capture.AddError($"{target.Name}: No localized preview applicator exists for screenshot target '{target.FileStem}'.");
             return scope;
+        }
+
+        private static void ValidatePauseRenderedTargets(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotCaptureResult capture)
+        {
+            if (!string.Equals(capture.Target.FileStem, "Pause", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var targets = prefabRoot
+                .GetComponentsInChildren<TypographyBinding>(true)
+                .Select(binding => binding.Target)
+                .Where(target => target != null)
+                .ToArray();
+            if (targets.Length != GetExpectedLocalizedTextCount("Pause"))
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: expected 6 rendered TMP targets, found {targets.Length}.");
+                return;
+            }
+
+            foreach (var target in targets)
+            {
+                if (!target.isActiveAndEnabled)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: localized target '{target.name}' is inactive.");
+                }
+                else if (target.canvasRenderer.cull)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: localized target '{target.name}' was culled from the rendered frame.");
+                }
+                else if (target.color.a <= 0f)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: localized target '{target.name}' is transparent.");
+                }
+            }
         }
 
         private static void ApplySettingsInputPreviewState(
