@@ -5,6 +5,8 @@ param(
     [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
     [string]$BuildSourceRoot = "C:\VQBuildSources",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
+    [string]$Backend = "Mono",
+    [string]$BackendComparisonId = "",
     [ValidateSet("InternalRc", "StoreDistributable")]
     [string]$PayloadAudience = "InternalRc",
     [string[]]$AllowUntrackedRoot = @(
@@ -15,6 +17,33 @@ param(
         "TestLogs/UndoPreflight-MainVfxDuplication"
     )
 )
+
+function Resolve-StoreBackendPolicy {
+    param([string]$Value = "Mono")
+    switch -CaseSensitive ($Value) {
+        "Mono" {
+            return [pscustomobject][ordered]@{
+                Backend = "Mono"
+                ScriptingBackend = "Mono2x"
+                ManagedStrippingLevel = "Disabled"
+                Il2CppCompilerConfiguration = "Release"
+                ComparisonRole = "MonoControl"
+                Configuration = "Windows-x64-NonDevelopment-Mono"
+            }
+        }
+        "IL2CPP" {
+            return [pscustomobject][ordered]@{
+                Backend = "IL2CPP"
+                ScriptingBackend = "IL2CPP"
+                ManagedStrippingLevel = "Minimal"
+                Il2CppCompilerConfiguration = "Release"
+                ComparisonRole = "IL2CPPCandidate"
+                Configuration = "Windows-x64-NonDevelopment-IL2CPP"
+            }
+        }
+        default { throw "Unsupported Store backend: $Value" }
+    }
+}
 
 $script:ReleaseExitCodes = [ordered]@{
     GitPreflightFailure = 100
@@ -33,10 +62,18 @@ $script:ReleaseExitCodes = [ordered]@{
     BuildEvidenceFailure = 113
     ArtifactProvenanceFailure = 114
     BuildSourcePathBudgetFailure = 115
+    UnsupportedConfiguration = 116
 }
-$script:ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC"
+try {
+    $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend
+} catch {
+    if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -eq "1") { throw }
+    Write-Error "[configuration][$($script:ReleaseExitCodes.UnsupportedConfiguration)] $($_.Exception.Message)"
+    exit $script:ReleaseExitCodes.UnsupportedConfiguration
+}
+$script:ConfigurationName = [string]$script:BackendPolicy.Configuration
 $script:ExecutingWrapperSourcePath = $PSCommandPath
-$script:ConfigurationPathName = "Windows-x64-NonDevelopment-Mono"
+$script:ConfigurationPathName = [string]$script:BackendPolicy.Configuration
 $script:MetadataSchemaVersion = "2.0"
 $script:ReportSummarySchemaVersion = "2.0"
 $script:ReportDetailsSchemaVersion = "1.0"
@@ -91,7 +128,13 @@ function New-ReleaseEvidenceExpectation {
         [Parameter(Mandatory)][string]$PolicySourcePath,
         [Parameter(Mandatory)][string]$DetachedWrapperSourcePath,
         [Parameter(Mandatory)][string]$ExecutingWrapperSourcePath,
-        [string]$Configuration = $script:ConfigurationName
+        [string]$Configuration = $script:ConfigurationName,
+        [string]$Backend = $script:BackendPolicy.ScriptingBackend,
+        [string]$ManagedStrippingLevel = $script:BackendPolicy.ManagedStrippingLevel,
+        [string]$Il2CppCompilerConfiguration =
+            $script:BackendPolicy.Il2CppCompilerConfiguration,
+        [string]$BackendComparisonId = "comparison",
+        [string]$ComparisonRole = $script:BackendPolicy.ComparisonRole
     )
     foreach ($path in @(
         $EntrySourcePath,
@@ -114,6 +157,11 @@ function New-ReleaseEvidenceExpectation {
         SourceSha = $SourceSha
         SourceTree = $SourceTree
         Configuration = $Configuration
+        Backend = $Backend
+        ManagedStrippingLevel = $ManagedStrippingLevel
+        Il2CppCompilerConfiguration = $Il2CppCompilerConfiguration
+        BackendComparisonId = $BackendComparisonId
+        ComparisonRole = $ComparisonRole
         EntrySourcePath = $EntrySourcePath
         PolicySourcePath = $PolicySourcePath
         DetachedWrapperSourcePath = $DetachedWrapperSourcePath
@@ -489,6 +537,15 @@ function Test-BuildEvidence {
         @{ Value = $metadata; Name = "sourceSha"; Reason = "MetadataIdentityMissing" },
         @{ Value = $metadata; Name = "sourceTree"; Reason = "MetadataIdentityMissing" },
         @{ Value = $metadata; Name = "configuration"; Reason = "MetadataIdentityMissing" },
+        @{ Value = $metadata; Name = "backend"; Reason = "MetadataBackendMissing" },
+        @{ Value = $metadata; Name = "managedStrippingLevel";
+            Reason = "MetadataStrippingMissing" },
+        @{ Value = $metadata; Name = "il2cppCompilerConfiguration";
+            Reason = "MetadataIl2CppCompilerMissing" },
+        @{ Value = $metadata; Name = "backendComparisonId";
+            Reason = "MetadataComparisonIdMissing" },
+        @{ Value = $metadata; Name = "comparisonRole";
+            Reason = "MetadataComparisonRoleMissing" },
         @{ Value = $metadata; Name = "buildResult"; Reason = "MetadataResultMissing" },
         @{ Value = $metadata; Name = "errorCount"; Reason = "MetadataErrorCountMissing" },
         @{ Value = $metadata; Name = "warningCount"; Reason = "MetadataWarningCountMissing" },
@@ -503,6 +560,11 @@ function Test-BuildEvidence {
         @{ Value = $summary; Name = "sourceSha"; Reason = "ReportIdentityMissing" },
         @{ Value = $summary; Name = "sourceTree"; Reason = "ReportIdentityMissing" },
         @{ Value = $summary; Name = "configuration"; Reason = "ReportIdentityMissing" },
+        @{ Value = $summary; Name = "backend"; Reason = "ReportBackendMissing" },
+        @{ Value = $summary; Name = "backendComparisonId";
+            Reason = "ReportComparisonIdMissing" },
+        @{ Value = $summary; Name = "comparisonRole";
+            Reason = "ReportComparisonRoleMissing" },
         @{ Value = $summary; Name = "totalErrors"; Reason = "ReportErrorCountMissing" },
         @{ Value = $summary; Name = "totalWarnings"; Reason = "ReportWarningCountMissing" },
         @{ Value = $summary; Name = "errorRecordCount"; Reason = "SummaryRecordCountMissing" },
@@ -514,6 +576,12 @@ function Test-BuildEvidence {
         @{ Value = $details; Name = "artifactId"; Reason = "DetailsIdentityMissing" },
         @{ Value = $details; Name = "sourceSha"; Reason = "DetailsIdentityMissing" },
         @{ Value = $details; Name = "sourceTree"; Reason = "DetailsIdentityMissing" },
+        @{ Value = $details; Name = "configuration"; Reason = "DetailsIdentityMissing" },
+        @{ Value = $details; Name = "backend"; Reason = "DetailsBackendMissing" },
+        @{ Value = $details; Name = "backendComparisonId";
+            Reason = "DetailsComparisonIdMissing" },
+        @{ Value = $details; Name = "comparisonRole";
+            Reason = "DetailsComparisonRoleMissing" },
         @{ Value = $details; Name = "totalErrors"; Reason = "DetailsTotalErrorsMissing" },
         @{ Value = $details; Name = "totalWarnings"; Reason = "DetailsTotalWarningsMissing" },
         @{ Value = $details; Name = "errorRecordCount"; Reason = "DetailsRecordCountMissing" },
@@ -534,16 +602,37 @@ function Test-BuildEvidence {
             @{ Value = $metadata; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
             @{ Value = $metadata; Name = "configuration";
                 Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $metadata; Name = "backend"; Expected = $ExpectedIdentity.Backend },
+            @{ Value = $metadata; Name = "managedStrippingLevel";
+                Expected = $ExpectedIdentity.ManagedStrippingLevel },
+            @{ Value = $metadata; Name = "il2cppCompilerConfiguration";
+                Expected = $ExpectedIdentity.Il2CppCompilerConfiguration },
+            @{ Value = $metadata; Name = "backendComparisonId";
+                Expected = $ExpectedIdentity.BackendComparisonId },
+            @{ Value = $metadata; Name = "comparisonRole";
+                Expected = $ExpectedIdentity.ComparisonRole },
             @{ Value = $summary; Name = "runId"; Expected = $ExpectedIdentity.RunId },
             @{ Value = $summary; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
             @{ Value = $summary; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
             @{ Value = $summary; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
             @{ Value = $summary; Name = "configuration";
                 Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $summary; Name = "backend"; Expected = $ExpectedIdentity.Backend },
+            @{ Value = $summary; Name = "backendComparisonId";
+                Expected = $ExpectedIdentity.BackendComparisonId },
+            @{ Value = $summary; Name = "comparisonRole";
+                Expected = $ExpectedIdentity.ComparisonRole },
             @{ Value = $details; Name = "runId"; Expected = $ExpectedIdentity.RunId },
             @{ Value = $details; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
             @{ Value = $details; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
-            @{ Value = $details; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree }
+            @{ Value = $details; Name = "sourceTree"; Expected = $ExpectedIdentity.SourceTree },
+            @{ Value = $details; Name = "configuration";
+                Expected = $ExpectedIdentity.Configuration },
+            @{ Value = $details; Name = "backend"; Expected = $ExpectedIdentity.Backend },
+            @{ Value = $details; Name = "backendComparisonId";
+                Expected = $ExpectedIdentity.BackendComparisonId },
+            @{ Value = $details; Name = "comparisonRole";
+                Expected = $ExpectedIdentity.ComparisonRole }
         )) {
             if (-not (Test-JsonProperty $binding.Value $binding.Name) -or
                 [string]$binding.Value.($binding.Name) -cne [string]$binding.Expected) {
@@ -634,7 +723,10 @@ function Get-PayloadFiles {
 function Get-StoreExcludedPayloadDirectories {
     param([Parameter(Mandatory)][string]$PayloadRoot)
     return @(Get-ChildItem -LiteralPath $PayloadRoot -Directory -Recurse |
-        Where-Object { $_.Name -like "*_BurstDebugInformation_DoNotShip" } |
+        Where-Object {
+            $_.Name -like "*_BurstDebugInformation_DoNotShip" -or
+            $_.Name -like "*_BackUpThisFolder_ButDontShipItWithYourGame"
+        } |
         Sort-Object FullName)
 }
 
@@ -779,6 +871,16 @@ function New-ArtifactProvenance {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $script:ConfigurationName
+        backend = [string]$BuildEvidence.Metadata.backend
+        managedStrippingLevel =
+            [string]$BuildEvidence.Metadata.managedStrippingLevel
+        il2cppCompilerConfiguration =
+            [string]$BuildEvidence.Metadata.il2cppCompilerConfiguration
+        nativeCompilerIdentity =
+            [string]$BuildEvidence.Metadata.nativeCompilerIdentity
+        windowsSdkIdentity = [string]$BuildEvidence.Metadata.windowsSdkIdentity
+        backendComparisonId = [string]$BuildEvidence.Metadata.backendComparisonId
+        comparisonRole = [string]$BuildEvidence.Metadata.comparisonRole
         buildResult = [string]$BuildEvidence.Summary.result
         totalErrors = [int]$BuildEvidence.Summary.totalErrors
         totalWarnings = [int]$BuildEvidence.Summary.totalWarnings
@@ -823,6 +925,9 @@ function Test-ArtifactProvenance {
     catch { return $false }
     foreach ($name in @(
         "runId", "artifactId", "sourceSha", "sourceTree", "configuration",
+        "backend", "managedStrippingLevel", "il2cppCompilerConfiguration",
+        "nativeCompilerIdentity", "windowsSdkIdentity", "backendComparisonId",
+        "comparisonRole",
         "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
         "warningRecordCount", "buildMetadataFile", "buildMetadataSha256",
         "buildReportSummaryFile", "buildReportSummarySha256",
@@ -839,6 +944,12 @@ function Test-ArtifactProvenance {
         $value.sourceSha -cne $Expectation.SourceSha -or
         $value.sourceTree -cne $Expectation.SourceTree -or
         $value.configuration -cne $Expectation.Configuration -or
+        $value.backend -cne $Expectation.Backend -or
+        $value.managedStrippingLevel -cne $Expectation.ManagedStrippingLevel -or
+        $value.il2cppCompilerConfiguration -cne
+            $Expectation.Il2CppCompilerConfiguration -or
+        $value.backendComparisonId -cne $Expectation.BackendComparisonId -or
+        $value.comparisonRole -cne $Expectation.ComparisonRole -or
         [string]$value.buildResult -cne "Succeeded" -or
         -not $value.zeroErrorGatePassed -or
         -not $value.metadataReportCountMatched -or
@@ -934,6 +1045,13 @@ function New-SuccessControl {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $script:ConfigurationName
+        backend = [string]$BuildEvidence.Metadata.backend
+        managedStrippingLevel =
+            [string]$BuildEvidence.Metadata.managedStrippingLevel
+        il2cppCompilerConfiguration =
+            [string]$BuildEvidence.Metadata.il2cppCompilerConfiguration
+        backendComparisonId = [string]$BuildEvidence.Metadata.backendComparisonId
+        comparisonRole = [string]$BuildEvidence.Metadata.comparisonRole
         buildResult = [string]$BuildEvidence.Summary.result
         totalErrors = [int]$BuildEvidence.Summary.totalErrors
         totalWarnings = [int]$BuildEvidence.Summary.totalWarnings
@@ -967,6 +1085,8 @@ function Test-SuccessControl {
     catch { return $false }
     foreach ($name in @(
         "runId", "artifactId", "sourceSha", "sourceTree", "configuration",
+        "backend", "managedStrippingLevel", "il2cppCompilerConfiguration",
+        "backendComparisonId", "comparisonRole",
         "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
         "warningRecordCount", "payloadManifestFile", "payloadManifestSha256",
         "payloadFileCount", "payloadAudience", "payloadPrivacyGatePassed",
@@ -985,6 +1105,12 @@ function Test-SuccessControl {
         $success.sourceSha -cne $Expectation.SourceSha -or
         $success.sourceTree -cne $Expectation.SourceTree -or
         $success.configuration -cne $Expectation.Configuration -or
+        $success.backend -cne $Expectation.Backend -or
+        $success.managedStrippingLevel -cne $Expectation.ManagedStrippingLevel -or
+        $success.il2cppCompilerConfiguration -cne
+            $Expectation.Il2CppCompilerConfiguration -or
+        $success.backendComparisonId -cne $Expectation.BackendComparisonId -or
+        $success.comparisonRole -cne $Expectation.ComparisonRole -or
         [string]$success.buildResult -cne "Succeeded" -or
         ([string]$success.payloadAudience -ceq "StoreDistributable" -and
             -not $success.payloadPrivacyGatePassed) -or
@@ -1000,6 +1126,12 @@ function Test-SuccessControl {
         $success.sourceSha -ceq $provenance.sourceSha -and
         $success.sourceTree -ceq $provenance.sourceTree -and
         $success.configuration -ceq $provenance.configuration -and
+        $success.backend -ceq $provenance.backend -and
+        $success.managedStrippingLevel -ceq $provenance.managedStrippingLevel -and
+        $success.il2cppCompilerConfiguration -ceq
+            $provenance.il2cppCompilerConfiguration -and
+        $success.backendComparisonId -ceq $provenance.backendComparisonId -and
+        $success.comparisonRole -ceq $provenance.comparisonRole -and
         $success.buildResult -ceq $provenance.buildResult -and
         [int]$success.totalErrors -eq [int]$provenance.totalErrors -and
         [int]$success.totalWarnings -eq [int]$provenance.totalWarnings -and
@@ -1166,6 +1298,53 @@ function Write-FailureEvidence {
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Path "FAILURE.json") -Encoding UTF8
 }
 
+function Get-WindowsNativeToolchainIdentity {
+    param([string]$Backend = $script:BackendPolicy.Backend)
+    if ($Backend -cne "IL2CPP") {
+        return [pscustomobject]@{
+            NativeCompilerIdentity = "NotApplicable-Mono"
+            WindowsSdkIdentity = "NotApplicable-Mono"
+        }
+    }
+
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path -LiteralPath $vswhere -PathType Leaf)) {
+        throw "Visual Studio locator is missing: $vswhere"
+    }
+    $installation = (& $vswhere -latest -products * `
+        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+        -property installationPath | Select-Object -First 1)
+    if ([string]::IsNullOrWhiteSpace($installation)) {
+        throw "MSVC x64 C++ toolchain is not installed."
+    }
+    $vcRoot = Join-Path $installation "VC\Tools\MSVC"
+    $vc = Get-ChildItem -LiteralPath $vcRoot -Directory |
+        Sort-Object Name -Descending | Select-Object -First 1
+    $cl = Join-Path $vc.FullName "bin\Hostx64\x64\cl.exe"
+    $link = Join-Path $vc.FullName "bin\Hostx64\x64\link.exe"
+    if (-not (Test-Path -LiteralPath $cl -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $link -PathType Leaf)) {
+        throw "MSVC x64 compiler/linker executable is missing."
+    }
+
+    $sdkRoot = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+    $sdk = Get-ChildItem -LiteralPath $sdkRoot -Directory |
+        Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+        Sort-Object { [version]$_.Name } -Descending |
+        Where-Object {
+            Test-Path -LiteralPath (Join-Path $_.FullName "x64\rc.exe") -PathType Leaf
+        } |
+        Select-Object -First 1
+    if ($null -eq $sdk) {
+        throw "Windows SDK x64 tools are not installed."
+    }
+
+    return [pscustomobject]@{
+        NativeCompilerIdentity = "MSVC-$($vc.Name)-x64"
+        WindowsSdkIdentity = "WindowsSDK-$($sdk.Name)-x64"
+    }
+}
+
 function Invoke-WindowsReleasePipeline {
     [CmdletBinding()]
     param(
@@ -1174,6 +1353,8 @@ function Invoke-WindowsReleasePipeline {
         [string]$OutputRoot,
         [string]$BuildSourceRoot,
         [string]$RunId,
+        [string]$Backend = $script:BackendPolicy.Backend,
+        [string]$BackendComparisonId = "",
         [ValidateSet("InternalRc", "StoreDistributable")]
         [string]$PayloadAudience = "InternalRc",
         [string[]]$AllowUntrackedRoot
@@ -1189,11 +1370,25 @@ function Invoke-WindowsReleasePipeline {
     $buildEvidenceReason = ""
     $exitCode = $script:ReleaseExitCodes.WrapperInternalError
     try {
+        $backendPolicy = Resolve-StoreBackendPolicy $Backend
+        if ($backendPolicy.Configuration -cne $script:ConfigurationName) {
+            $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
+            throw "Invocation backend does not match the loaded wrapper policy."
+        }
         if (-not (Test-Path -LiteralPath $UnityExe -PathType Leaf)) {
             throw "Unity executable not found: $UnityExe"
         }
         $sourceSha = Invoke-GitText -Root $RepositoryRoot -Arguments @("rev-parse", "HEAD")
         $sourceTree = Invoke-GitText -Root $RepositoryRoot -Arguments @("rev-parse", "HEAD^{tree}")
+        $comparisonId = if ([string]::IsNullOrWhiteSpace($BackendComparisonId)) {
+            $sourceSha
+        } else {
+            $BackendComparisonId
+        }
+        if ($comparisonId -notmatch '^[A-Za-z0-9._-]+$') {
+            $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
+            throw "Backend comparison id contains unsupported characters."
+        }
         $artifactId = "$sourceSha-$RunId"
         $parent = Join-Path (Join-Path $OutputRoot $sourceSha) $script:ConfigurationPathName
         $privateRoot = Join-Path $parent ".private\$RunId"
@@ -1283,7 +1478,12 @@ function Invoke-WindowsReleasePipeline {
             -ArtifactId $artifactId -SourceSha $sourceSha -SourceTree $sourceTree `
             -EntrySourcePath $entrySourcePath -PolicySourcePath $policySourcePath `
             -DetachedWrapperSourcePath $detachedWrapperSourcePath `
-            -ExecutingWrapperSourcePath $script:ExecutingWrapperSourcePath
+            -ExecutingWrapperSourcePath $script:ExecutingWrapperSourcePath `
+            -Backend $backendPolicy.ScriptingBackend `
+            -ManagedStrippingLevel $backendPolicy.ManagedStrippingLevel `
+            -Il2CppCompilerConfiguration $backendPolicy.Il2CppCompilerConfiguration `
+            -BackendComparisonId $comparisonId `
+            -ComparisonRole $backendPolicy.ComparisonRole
 
         $payload = Join-Path $staging "payload"
         New-Item -ItemType Directory -Path $payload -Force | Out-Null
@@ -1304,6 +1504,8 @@ function Invoke-WindowsReleasePipeline {
             "-releaseArtifactId", $artifactId,
             "-releaseSourceSha", $sourceSha,
             "-releaseSourceTree", $sourceTree,
+            "-releaseBackend", $Backend,
+            "-releaseBackendComparisonId", $comparisonId,
             "-releaseIntermediateMetadataPath", $metadataPath,
             "-releaseBuildReportPath", $reportPath,
             "-releaseBuildReportDetailsPath", $reportDetailsPath,
@@ -1375,12 +1577,27 @@ function Invoke-WindowsReleasePipeline {
         $metadata.entrySourceSha256 = $expectation.EntrySourceSha256
         $metadata.policySourceSha256 = $expectation.PolicySourceSha256
         $metadata.wrapperSourceSha256 = $expectation.WrapperSourceSha256
+        $toolchain = Get-WindowsNativeToolchainIdentity $Backend
+        $metadata.nativeCompilerIdentity = $toolchain.NativeCompilerIdentity
+        $metadata.windowsSdkIdentity = $toolchain.WindowsSdkIdentity
         $metadata | ConvertTo-Json -Depth 10 |
             Set-Content -LiteralPath $metadataPath -Encoding UTF8
+        $buildEvidence = Test-BuildEvidence -MetadataPath $metadataPath `
+            -SummaryPath $reportPath -DetailsPath $reportDetailsPath `
+            -ExpectedIdentity $expectation
+        if (-not $buildEvidence.Allowed) {
+            $exitCode = $script:ReleaseExitCodes.BuildEvidenceFailure
+            $buildEvidenceReason = [string]$buildEvidence.Reason
+            throw "Enriched build evidence rejected: $buildEvidenceReason."
+        }
         [ordered]@{
             configuration = $script:ConfigurationName
-            backend = "Mono"
-            managedStrippingLevel = "Disabled"
+            backend = $backendPolicy.ScriptingBackend
+            managedStrippingLevel = $backendPolicy.ManagedStrippingLevel
+            il2cppCompilerConfiguration =
+                $backendPolicy.Il2CppCompilerConfiguration
+            backendComparisonId = $comparisonId
+            comparisonRole = $backendPolicy.ComparisonRole
             development = $false
             playerLogEnabled = $true
             stackTracePolicy = "ScriptOnly"
@@ -1444,7 +1661,7 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.PromotionFailure
             throw "Final verification after promotion failed."
         }
-        Write-Host "WINDOWS_X64_NONDEVELOPMENT_MONO_RC_BUILD_PASS"
+        Write-Host "WINDOWS_X64_NONDEVELOPMENT_$($Backend.ToUpperInvariant())_BUILD_PASS"
         Write-Host "FinalArtifact=$final"
         Write-WrapperLog $wrapperLog "complete" "Artifact promoted and reverified."
         return 0
@@ -1490,6 +1707,8 @@ if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -ne "1") {
         -OutputRoot $OutputRoot `
         -BuildSourceRoot $BuildSourceRoot `
         -RunId $RunId `
+        -Backend $Backend `
+        -BackendComparisonId $BackendComparisonId `
         -PayloadAudience $PayloadAudience `
         -AllowUntrackedRoot $AllowUntrackedRoot
     exit $pipelineExit

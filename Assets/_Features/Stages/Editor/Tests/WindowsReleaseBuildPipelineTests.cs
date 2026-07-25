@@ -55,6 +55,72 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void BackendPolicy_OmittedValueDefaultsToMono()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
+                string.Empty, out var configuration), Is.True);
+            Assert.That(configuration.Candidate, Is.EqualTo(StoreBackendCandidate.Mono));
+            Assert.That(configuration.Backend, Is.EqualTo(ScriptingImplementation.Mono2x));
+            Assert.That(configuration.ComparisonRole,
+                Is.EqualTo(StoreBackendComparisonRole.MonoControl));
+        }
+
+        [TestCase("Mono", StoreBackendCandidate.Mono, ScriptingImplementation.Mono2x)]
+        [TestCase("IL2CPP", StoreBackendCandidate.IL2CPP, ScriptingImplementation.IL2CPP)]
+        public void BackendPolicy_ExplicitValueCreatesExactPolicy(
+            string value,
+            StoreBackendCandidate candidate,
+            ScriptingImplementation backend)
+        {
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
+                value, out var configuration), Is.True);
+            Assert.That(configuration.Candidate, Is.EqualTo(candidate));
+            Assert.That(configuration.Backend, Is.EqualTo(backend));
+        }
+
+        [Test]
+        public void BackendPolicy_UnknownValueIsRejected()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
+                "il2cpp", out _), Is.False);
+            Assert.That(WindowsReleaseBuildPolicy.TryResolveBackend(
+                "Unknown", out _), Is.False);
+        }
+
+        [Test]
+        public void BackendPolicy_UsesBackendSpecificConfigurationNames()
+        {
+            Assert.That(WindowsReleaseBackendConfiguration.Mono.ConfigurationName,
+                Is.EqualTo("Windows-x64-NonDevelopment-Mono"));
+            Assert.That(WindowsReleaseBackendConfiguration.IL2CPP.ConfigurationName,
+                Is.EqualTo("Windows-x64-NonDevelopment-IL2CPP"));
+        }
+
+        [Test]
+        public void BackendPolicy_UsesBackendSpecificStripping()
+        {
+            Assert.That(WindowsReleaseBackendConfiguration.Mono.Stripping,
+                Is.EqualTo(ManagedStrippingLevel.Disabled));
+            Assert.That(WindowsReleaseBackendConfiguration.IL2CPP.Stripping,
+                Is.EqualTo(ManagedStrippingLevel.Minimal));
+            Assert.That(WindowsReleaseBackendConfiguration.IL2CPP.Il2CppCompilerConfiguration,
+                Is.EqualTo(Il2CppCompilerConfiguration.Release));
+        }
+
+        [Test]
+        public void BackendPolicy_RejectsUnsupportedIl2CppStripping()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ValidateStripping(
+                    WindowsReleaseBackendConfiguration.IL2CPP,
+                    ManagedStrippingLevel.Disabled),
+                Is.EqualTo(WindowsReleaseExitCodes.UnsupportedConfiguration));
+            Assert.That(WindowsReleaseBuildPolicy.ValidateStripping(
+                    WindowsReleaseBackendConfiguration.IL2CPP,
+                    ManagedStrippingLevel.Minimal),
+                Is.EqualTo(WindowsReleaseExitCodes.Success));
+        }
+
+        [Test]
         public void Policy_ManagedStrippingIsDisabled()
         {
             Assert.That(WindowsReleaseBuildPolicy.Stripping,
@@ -288,7 +354,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree", "branch",
                 "headDetached", "originMainSha", "ahead", "behind", "sourceDirty",
                 "unityVersion", "unityRevision", "buildTarget", "architecture", "configuration",
-                "backend", "managedStrippingLevel", "development", "connectWithProfiler",
+                "backend", "managedStrippingLevel", "il2cppCompilerConfiguration",
+                "nativeCompilerIdentity", "windowsSdkIdentity", "backendComparisonId",
+                "comparisonRole", "development", "connectWithProfiler",
                 "deepProfiling", "allowDebugging", "scriptDebugging", "waitForDebugger",
                 "forceAssertions", "effectiveScenes", "playerLogEnabled", "stackTracePolicy",
                 "incrementalGC", "productName", "companyName", "productVersion", "buildNumber",
@@ -312,7 +380,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EquivalentTo(new[]
                 {
                     "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree",
-                    "unityVersion", "result", "totalErrors", "totalWarnings",
+                    "unityVersion", "configuration", "backend", "backendComparisonId",
+                    "comparisonRole", "result", "totalErrors", "totalWarnings",
                     "errorRecordCount", "warningRecordCount", "captureLimitation", "steps",
                 }));
             Assert.That(typeof(BuildReportStepV1).GetFields().Select(field => field.Name),
@@ -337,7 +406,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EquivalentTo(new[]
                 {
                     "schemaVersion", "runId", "artifactId", "sourceSha", "sourceTree",
-                    "configuration", "result", "totalErrors", "totalWarnings", "totalSize",
+                    "configuration", "backend", "backendComparisonId", "comparisonRole",
+                    "result", "totalErrors", "totalWarnings", "totalSize",
                     "totalTimeSeconds", "outputPath", "detailsFile", "detailsSha256",
                     "errorRecordCount", "warningRecordCount", "distinctErrorMessageHashes",
                 }));
@@ -393,6 +463,54 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
                     evidence.Metadata, evidence.Summary, evidence.Details),
                 Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [TestCase("backend")]
+        [TestCase("backendComparisonId")]
+        [TestCase("comparisonRole")]
+        public void BuildReportIdentityAndCounts_BackendIdentityMismatch_IsRejected(
+            string field)
+        {
+            var evidence = CreateMatchingEvidence();
+            switch (field)
+            {
+                case "backend":
+                    evidence.Summary.backend = ScriptingImplementation.IL2CPP.ToString();
+                    break;
+                case "backendComparisonId":
+                    evidence.Summary.backendComparisonId = "other-comparison";
+                    break;
+                case "comparisonRole":
+                    evidence.Summary.comparisonRole =
+                        StoreBackendComparisonRole.IL2CPPCandidate.ToString();
+                    break;
+            }
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
+                    evidence.Metadata, evidence.Summary, evidence.Details),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
+        public void SettingsTransaction_RecordsIl2CppApplyAndRestoreContract()
+        {
+            var settings = new FakeSettings();
+            var record = new ReleaseSettingsTransactionRecordV1();
+            var result = WindowsReleaseSettingsTransaction.Run(
+                settings,
+                WindowsReleaseBackendConfiguration.IL2CPP,
+                () => WindowsReleaseExitCodes.Success,
+                record);
+
+            Assert.That(result, Is.EqualTo(WindowsReleaseExitCodes.Success));
+            Assert.That(record.requiredSettings.backend,
+                Is.EqualTo(ScriptingImplementation.IL2CPP));
+            Assert.That(record.requiredSettings.stripping,
+                Is.EqualTo(ManagedStrippingLevel.Minimal));
+            Assert.That(record.requiredSettings.il2cppCompilerConfiguration,
+                Is.EqualTo(Il2CppCompilerConfiguration.Release));
+            Assert.That(record.restoreAttempted, Is.True);
+            Assert.That(record.restoredVerification, Is.True);
         }
 
         [Test]
@@ -529,6 +647,8 @@ namespace Game.Feature.Stages.Editor.Tests
             const string result = "Succeeded";
             const int errors = 0;
             const int warnings = 7;
+            const string comparisonId = "comparison";
+            var configuration = WindowsReleaseBackendConfiguration.Mono;
 
             return new EvidenceSet
             {
@@ -539,7 +659,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     artifactId = artifactId,
                     sourceSha = sourceSha,
                     sourceTree = sourceTree,
-                    configuration = WindowsReleaseBuildPolicy.ConfigurationName,
+                    configuration = configuration.ConfigurationName,
+                    backend = configuration.Backend.ToString(),
+                    backendComparisonId = comparisonId,
+                    comparisonRole = configuration.ComparisonRole.ToString(),
                     buildResult = result,
                     errorCount = errors,
                     warningCount = warnings,
@@ -550,7 +673,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     artifactId = artifactId,
                     sourceSha = sourceSha,
                     sourceTree = sourceTree,
-                    configuration = WindowsReleaseBuildPolicy.ConfigurationName,
+                    configuration = configuration.ConfigurationName,
+                    backend = configuration.Backend.ToString(),
+                    backendComparisonId = comparisonId,
+                    comparisonRole = configuration.ComparisonRole.ToString(),
                     result = result,
                     totalErrors = errors,
                     totalWarnings = warnings,
@@ -563,6 +689,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     artifactId = artifactId,
                     sourceSha = sourceSha,
                     sourceTree = sourceTree,
+                    configuration = configuration.ConfigurationName,
+                    backend = configuration.Backend.ToString(),
+                    backendComparisonId = comparisonId,
+                    comparisonRole = configuration.ComparisonRole.ToString(),
                     result = result,
                     totalErrors = errors,
                     totalWarnings = warnings,

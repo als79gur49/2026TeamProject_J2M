@@ -22,6 +22,8 @@ public static class WindowsReleaseBuildCli
     public const string BuildReportPathArgument = "-releaseBuildReportPath";
     public const string BuildReportDetailsPathArgument = "-releaseBuildReportDetailsPath";
     public const string SettingsTransactionPathArgument = "-releaseSettingsTransactionPath";
+    public const string BackendArgument = "-releaseBackend";
+    public const string BackendComparisonIdArgument = "-releaseBackendComparisonId";
 
     public static readonly string[] RequiredArgumentNames =
     {
@@ -30,6 +32,11 @@ public static class WindowsReleaseBuildCli
         BuildReportPathArgument, BuildReportDetailsPathArgument,
         SettingsTransactionPathArgument,
     };
+
+    public static readonly string[] KnownArgumentNames =
+        RequiredArgumentNames
+            .Concat(new[] { BackendArgument, BackendComparisonIdArgument })
+            .ToArray();
 
     public static void BuildWindowsX64NonDevelopment()
     {
@@ -58,6 +65,22 @@ public static class WindowsReleaseBuildCli
         {
             return validation;
         }
+
+        if (!WindowsReleaseBuildPolicy.TryResolveBackend(
+                arguments.TryGetValue(BackendArgument, out var backendValue)
+                    ? backendValue
+                    : string.Empty,
+                out var configuration))
+        {
+            Debug.LogError("UNSUPPORTED_STORE_BACKEND");
+            return WindowsReleaseExitCodes.UnsupportedConfiguration;
+        }
+
+        var comparisonId =
+            arguments.TryGetValue(BackendComparisonIdArgument, out var suppliedComparisonId) &&
+            !string.IsNullOrWhiteSpace(suppliedComparisonId)
+                ? suppliedComparisonId
+                : arguments[SourceShaArgument];
 
         validation = WindowsReleaseBuildPolicy.ValidateActiveTarget(
             EditorUserBuildSettings.activeBuildTarget);
@@ -92,20 +115,24 @@ public static class WindowsReleaseBuildCli
         Debug.Log("UNITY_VERSION_CONTRACT_CONFIRMED");
         Debug.Log("EXACT_RELEASE_SCENE_LIST_CONFIRMED");
 
-        var metadata = CreateMetadata(arguments);
-        var settings = new UnityWindowsReleaseSettings();
+        var metadata = CreateMetadata(arguments, configuration, comparisonId);
+        var settings = new UnityWindowsReleaseSettings(configuration);
         var settingsTransaction = new ReleaseSettingsTransactionRecordV1();
         var started = DateTime.UtcNow;
         BuildReport report = null;
-        var result = WindowsReleaseSettingsTransaction.Run(settings, () =>
-        {
-            var outputPath = arguments[OutputPathArgument];
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
-            report = BuildPipeline.BuildPlayer(
-                WindowsReleaseBuildPolicy.CreateBuildOptions(outputPath));
-            return WindowsReleaseBuildPolicy.MapBuildResult(
-                report.summary.result, (int)report.summary.totalErrors);
-        }, settingsTransaction);
+        var result = WindowsReleaseSettingsTransaction.Run(
+            settings,
+            configuration,
+            () =>
+            {
+                var outputPath = arguments[OutputPathArgument];
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? ".");
+                report = BuildPipeline.BuildPlayer(
+                    WindowsReleaseBuildPolicy.CreateBuildOptions(outputPath));
+                return WindowsReleaseBuildPolicy.MapBuildResult(
+                    report.summary.result, (int)report.summary.totalErrors);
+            },
+            settingsTransaction);
         try
         {
             WriteJson(arguments[SettingsTransactionPathArgument], settingsTransaction);
@@ -131,7 +158,9 @@ public static class WindowsReleaseBuildCli
                 arguments[RunIdArgument],
                 arguments[ArtifactIdArgument],
                 arguments[SourceShaArgument],
-                arguments[SourceTreeArgument]);
+                arguments[SourceTreeArgument],
+                configuration,
+                comparisonId);
             structuredErrorCount = details.errorRecordCount;
             var detailsHash = string.Empty;
             try
@@ -151,7 +180,9 @@ public static class WindowsReleaseBuildCli
                     report,
                     details,
                     Path.GetFileName(arguments[BuildReportDetailsPathArgument]),
-                    detailsHash);
+                    detailsHash,
+                    configuration,
+                    comparisonId);
                 WriteJson(arguments[BuildReportPathArgument], summary);
                 summaryWritten = true;
             }
@@ -173,7 +204,7 @@ public static class WindowsReleaseBuildCli
             report != null && structuredErrorCount == reportErrorCount;
         var evidenceIdentityAndCounts =
             WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                metadata, summary, details);
+                metadata, summary, details, configuration);
         var intendedResult = WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
             result,
             summaryWritten,
@@ -218,7 +249,7 @@ public static class WindowsReleaseBuildCli
         for (var index = 0; index < args.Count; index++)
         {
             var current = args[index] ?? string.Empty;
-            foreach (var name in RequiredArgumentNames)
+            foreach (var name in KnownArgumentNames)
             {
                 if (current.StartsWith(name + "=", StringComparison.Ordinal))
                 {
@@ -244,7 +275,9 @@ public static class WindowsReleaseBuildCli
     }
 
     private static WindowsReleaseMetadataV2 CreateMetadata(
-        IReadOnlyDictionary<string, string> arguments)
+        IReadOnlyDictionary<string, string> arguments,
+        WindowsReleaseBackendConfiguration configuration,
+        string comparisonId)
     {
         return new WindowsReleaseMetadataV2
         {
@@ -257,9 +290,15 @@ public static class WindowsReleaseBuildCli
             unityRevision = ReadUnityRevision(),
             buildTarget = BuildTarget.StandaloneWindows64.ToString(),
             architecture = WindowsReleaseBuildPolicy.Architecture,
-            configuration = WindowsReleaseBuildPolicy.ConfigurationName,
-            backend = WindowsReleaseBuildPolicy.Backend.ToString(),
-            managedStrippingLevel = WindowsReleaseBuildPolicy.Stripping.ToString(),
+            configuration = configuration.ConfigurationName,
+            backend = configuration.Backend.ToString(),
+            managedStrippingLevel = configuration.Stripping.ToString(),
+            il2cppCompilerConfiguration =
+                configuration.Il2CppCompilerConfiguration.ToString(),
+            nativeCompilerIdentity = string.Empty,
+            windowsSdkIdentity = string.Empty,
+            backendComparisonId = comparisonId,
+            comparisonRole = configuration.ComparisonRole.ToString(),
             development = false,
             connectWithProfiler = false,
             deepProfiling = false,
@@ -388,12 +427,28 @@ public static class WindowsReleaseBuildCli
 
 internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
 {
+    private readonly WindowsReleaseBackendConfiguration configuration;
+
+    public UnityWindowsReleaseSettings()
+        : this(WindowsReleaseBuildPolicy.DefaultConfiguration)
+    {
+    }
+
+    public UnityWindowsReleaseSettings(
+        WindowsReleaseBackendConfiguration configuration)
+    {
+        this.configuration = configuration ??
+                             WindowsReleaseBuildPolicy.DefaultConfiguration;
+    }
+
     public ReleaseSettingsSnapshot Capture()
     {
         return new ReleaseSettingsSnapshot
         {
             backend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.Standalone),
             stripping = PlayerSettings.GetManagedStrippingLevel(NamedBuildTarget.Standalone),
+            il2cppCompilerConfiguration =
+                PlayerSettings.GetIl2CppCompilerConfiguration(NamedBuildTarget.Standalone),
             playerLog = PlayerSettings.usePlayerLog,
             warningStackTrace = PlayerSettings.GetStackTraceLogType(LogType.Warning),
         };
@@ -402,9 +457,15 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
     public void ApplyRequired()
     {
         PlayerSettings.SetScriptingBackend(
-            NamedBuildTarget.Standalone, WindowsReleaseBuildPolicy.Backend);
+            NamedBuildTarget.Standalone, configuration.Backend);
         PlayerSettings.SetManagedStrippingLevel(
-            NamedBuildTarget.Standalone, WindowsReleaseBuildPolicy.Stripping);
+            NamedBuildTarget.Standalone, configuration.Stripping);
+        if (configuration.Candidate == StoreBackendCandidate.IL2CPP)
+        {
+            PlayerSettings.SetIl2CppCompilerConfiguration(
+                NamedBuildTarget.Standalone,
+                configuration.Il2CppCompilerConfiguration);
+        }
         PlayerSettings.usePlayerLog = true;
         PlayerSettings.SetStackTraceLogType(
             LogType.Warning, WindowsReleaseBuildPolicy.WarningStackTrace);
@@ -413,9 +474,13 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
     public bool IsRequired()
     {
         return PlayerSettings.GetScriptingBackend(NamedBuildTarget.Standalone) ==
-                   WindowsReleaseBuildPolicy.Backend &&
+                   configuration.Backend &&
                PlayerSettings.GetManagedStrippingLevel(NamedBuildTarget.Standalone) ==
-                   WindowsReleaseBuildPolicy.Stripping &&
+                   configuration.Stripping &&
+               (configuration.Candidate != StoreBackendCandidate.IL2CPP ||
+                PlayerSettings.GetIl2CppCompilerConfiguration(
+                    NamedBuildTarget.Standalone) ==
+                configuration.Il2CppCompilerConfiguration) &&
                PlayerSettings.usePlayerLog &&
                PlayerSettings.GetStackTraceLogType(LogType.Warning) ==
                    WindowsReleaseBuildPolicy.WarningStackTrace &&
@@ -430,6 +495,8 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
     {
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, snapshot.backend);
         PlayerSettings.SetManagedStrippingLevel(NamedBuildTarget.Standalone, snapshot.stripping);
+        PlayerSettings.SetIl2CppCompilerConfiguration(
+            NamedBuildTarget.Standalone, snapshot.il2cppCompilerConfiguration);
         PlayerSettings.usePlayerLog = snapshot.playerLog;
         PlayerSettings.SetStackTraceLogType(LogType.Warning, snapshot.warningStackTrace);
     }
@@ -439,6 +506,8 @@ internal sealed class UnityWindowsReleaseSettings : IWindowsReleaseSettings
         var current = Capture();
         return current.backend == snapshot.backend &&
                current.stripping == snapshot.stripping &&
+               current.il2cppCompilerConfiguration ==
+                   snapshot.il2cppCompilerConfiguration &&
                current.playerLog == snapshot.playerLog &&
                current.warningStackTrace == snapshot.warningStackTrace;
     }
@@ -453,6 +522,9 @@ internal sealed class BuildReportSummaryV2
     public string sourceSha;
     public string sourceTree;
     public string configuration;
+    public string backend;
+    public string backendComparisonId;
+    public string comparisonRole;
     public string result;
     public int totalErrors;
     public int totalWarnings;
@@ -473,13 +545,18 @@ internal sealed class BuildReportSummaryV2
         BuildReport report,
         BuildReportDetailsV1 details,
         string detailsFileName,
-        string detailsHash)
+        string detailsHash,
+        WindowsReleaseBackendConfiguration configuration,
+        string comparisonId)
     {
         runId = details.runId;
         artifactId = details.artifactId;
         sourceSha = details.sourceSha;
         sourceTree = details.sourceTree;
-        configuration = WindowsReleaseBuildPolicy.ConfigurationName;
+        this.configuration = configuration.ConfigurationName;
+        backend = configuration.Backend.ToString();
+        backendComparisonId = comparisonId;
+        comparisonRole = configuration.ComparisonRole.ToString();
         result = report.summary.result.ToString();
         totalErrors = report.summary.totalErrors;
         totalWarnings = report.summary.totalWarnings;
@@ -508,6 +585,10 @@ internal sealed class BuildReportDetailsV1
     public string artifactId;
     public string sourceSha;
     public string sourceTree;
+    public string configuration;
+    public string backend;
+    public string backendComparisonId;
+    public string comparisonRole;
     public string unityVersion;
     public string result;
     public int totalErrors;
@@ -526,12 +607,18 @@ internal sealed class BuildReportDetailsV1
         string releaseRunId,
         string releaseArtifactId,
         string releaseSourceSha,
-        string releaseSourceTree)
+        string releaseSourceTree,
+        WindowsReleaseBackendConfiguration configuration,
+        string comparisonId)
     {
         runId = releaseRunId;
         artifactId = releaseArtifactId;
         sourceSha = releaseSourceSha;
         sourceTree = releaseSourceTree;
+        this.configuration = configuration.ConfigurationName;
+        backend = configuration.Backend.ToString();
+        backendComparisonId = comparisonId;
+        comparisonRole = configuration.ComparisonRole.ToString();
         unityVersion = Application.unityVersion;
         result = report.summary.result.ToString();
         totalErrors = (int)report.summary.totalErrors;

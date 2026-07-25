@@ -10,7 +10,7 @@ public static class WindowsReleaseBuildPolicy
     public const string MetadataSchemaVersion = "2.0";
     public const string BuildReportSummarySchemaVersion = "2.0";
     public const string BuildReportDetailsSchemaVersion = "1.0";
-    public const string ConfigurationName = "Windows-x64-NonDevelopment-Mono-RC";
+    public const string ConfigurationName = "Windows-x64-NonDevelopment-Mono";
     public const string Architecture = "x86_64";
     public const string ExpectedUnityVersion = "6000.3.11f1";
     public const string ProductName = "VectorQuake";
@@ -21,9 +21,46 @@ public static class WindowsReleaseBuildPolicy
     public const bool IncrementalGcRequired = true;
     public const ScriptingImplementation Backend = ScriptingImplementation.Mono2x;
     public const ManagedStrippingLevel Stripping = ManagedStrippingLevel.Disabled;
+    public const Il2CppCompilerConfiguration Il2CppCompiler =
+        Il2CppCompilerConfiguration.Release;
     public const StackTraceLogType WarningStackTrace = StackTraceLogType.ScriptOnly;
 
     public static readonly string[] Scenes = { MainMenuScene, UiAudioScene };
+
+    public static WindowsReleaseBackendConfiguration DefaultConfiguration =>
+        WindowsReleaseBackendConfiguration.Mono;
+
+    public static bool TryResolveBackend(
+        string value,
+        out WindowsReleaseBackendConfiguration configuration)
+    {
+        if (string.IsNullOrEmpty(value) ||
+            string.Equals(value, StoreBackendCandidate.Mono.ToString(),
+                StringComparison.Ordinal))
+        {
+            configuration = WindowsReleaseBackendConfiguration.Mono;
+            return true;
+        }
+
+        if (string.Equals(value, StoreBackendCandidate.IL2CPP.ToString(),
+                StringComparison.Ordinal))
+        {
+            configuration = WindowsReleaseBackendConfiguration.IL2CPP;
+            return true;
+        }
+
+        configuration = null;
+        return false;
+    }
+
+    public static int ValidateStripping(
+        WindowsReleaseBackendConfiguration configuration,
+        ManagedStrippingLevel stripping)
+    {
+        return configuration != null && stripping == configuration.Stripping
+            ? WindowsReleaseExitCodes.Success
+            : WindowsReleaseExitCodes.UnsupportedConfiguration;
+    }
 
     public static BuildPlayerOptions CreateBuildOptions(string outputPath)
     {
@@ -130,7 +167,18 @@ public static class WindowsReleaseBuildPolicy
         BuildReportSummaryV2 summary,
         BuildReportDetailsV1 details)
     {
-        if (metadata == null || summary == null || details == null ||
+        return ValidateBuildReportIdentityAndCounts(
+            metadata, summary, details, DefaultConfiguration);
+    }
+
+    internal static int ValidateBuildReportIdentityAndCounts(
+        WindowsReleaseMetadataV2 metadata,
+        BuildReportSummaryV2 summary,
+        BuildReportDetailsV1 details,
+        WindowsReleaseBackendConfiguration configuration)
+    {
+        if (configuration == null ||
+            metadata == null || summary == null || details == null ||
             !string.Equals(metadata.schemaVersion, MetadataSchemaVersion,
                 StringComparison.Ordinal) ||
             !string.Equals(summary.schemaVersion, BuildReportSummarySchemaVersion,
@@ -141,9 +189,16 @@ public static class WindowsReleaseBuildPolicy
             !Same(metadata.artifactId, summary.artifactId, details.artifactId) ||
             !Same(metadata.sourceSha, summary.sourceSha, details.sourceSha) ||
             !Same(metadata.sourceTree, summary.sourceTree, details.sourceTree) ||
-            !string.Equals(metadata.configuration, summary.configuration,
+            !Same(metadata.configuration, summary.configuration, details.configuration) ||
+            !string.Equals(summary.configuration, configuration.ConfigurationName,
                 StringComparison.Ordinal) ||
-            !string.Equals(summary.configuration, ConfigurationName,
+            !Same(metadata.backend, summary.backend, details.backend) ||
+            !string.Equals(summary.backend, configuration.Backend.ToString(),
+                StringComparison.Ordinal) ||
+            !Same(metadata.backendComparisonId, summary.backendComparisonId,
+                details.backendComparisonId) ||
+            !Same(metadata.comparisonRole, summary.comparisonRole, details.comparisonRole) ||
+            !string.Equals(summary.comparisonRole, configuration.ComparisonRole.ToString(),
                 StringComparison.Ordinal) ||
             !Same(metadata.buildResult, summary.result, details.result))
         {
@@ -216,6 +271,59 @@ public static class WindowsReleaseBuildPolicy
     }
 }
 
+public enum StoreBackendCandidate
+{
+    Mono = 0,
+    IL2CPP = 1,
+}
+
+public enum StoreBackendComparisonRole
+{
+    MonoControl = 0,
+    IL2CPPCandidate = 1,
+}
+
+public sealed class WindowsReleaseBackendConfiguration
+{
+    public static readonly WindowsReleaseBackendConfiguration Mono =
+        new WindowsReleaseBackendConfiguration(
+            StoreBackendCandidate.Mono,
+            ScriptingImplementation.Mono2x,
+            ManagedStrippingLevel.Disabled,
+            StoreBackendComparisonRole.MonoControl,
+            "Windows-x64-NonDevelopment-Mono");
+
+    public static readonly WindowsReleaseBackendConfiguration IL2CPP =
+        new WindowsReleaseBackendConfiguration(
+            StoreBackendCandidate.IL2CPP,
+            ScriptingImplementation.IL2CPP,
+            ManagedStrippingLevel.Minimal,
+            StoreBackendComparisonRole.IL2CPPCandidate,
+            "Windows-x64-NonDevelopment-IL2CPP");
+
+    private WindowsReleaseBackendConfiguration(
+        StoreBackendCandidate candidate,
+        ScriptingImplementation backend,
+        ManagedStrippingLevel stripping,
+        StoreBackendComparisonRole comparisonRole,
+        string configurationName)
+    {
+        Candidate = candidate;
+        Backend = backend;
+        Stripping = stripping;
+        ComparisonRole = comparisonRole;
+        ConfigurationName = configurationName;
+    }
+
+    public StoreBackendCandidate Candidate { get; }
+    public ScriptingImplementation Backend { get; }
+    public ManagedStrippingLevel Stripping { get; }
+    public StoreBackendComparisonRole ComparisonRole { get; }
+    public string ConfigurationName { get; }
+    public Il2CppCompilerConfiguration Il2CppCompilerConfiguration =>
+        WindowsReleaseBuildPolicy.Il2CppCompiler;
+}
+
 public readonly struct ReleaseSceneDescriptor
 {
     public ReleaseSceneDescriptor(string path, bool enabled, bool exists)
@@ -278,6 +386,7 @@ public struct ReleaseSettingsSnapshot
 {
     public ScriptingImplementation backend;
     public ManagedStrippingLevel stripping;
+    public Il2CppCompilerConfiguration il2cppCompilerConfiguration;
     public bool playerLog;
     public StackTraceLogType warningStackTrace;
 }
@@ -289,19 +398,38 @@ public static class WindowsReleaseSettingsTransaction
         Func<int> build,
         ReleaseSettingsTransactionRecordV1 record = null)
     {
+        return Run(
+            settings,
+            WindowsReleaseBuildPolicy.DefaultConfiguration,
+            build,
+            record);
+    }
+
+    public static int Run(
+        IWindowsReleaseSettings settings,
+        WindowsReleaseBackendConfiguration configuration,
+        Func<int> build,
+        ReleaseSettingsTransactionRecordV1 record = null)
+    {
         var snapshot = settings.Capture();
         if (record != null)
         {
             record.originalSettings = snapshot;
             record.requiredSettings = new ReleaseSettingsSnapshot
             {
-                backend = WindowsReleaseBuildPolicy.Backend,
-                stripping = WindowsReleaseBuildPolicy.Stripping,
+                backend = configuration.Backend,
+                stripping = configuration.Stripping,
+                il2cppCompilerConfiguration =
+                    configuration.Il2CppCompilerConfiguration,
                 playerLog = WindowsReleaseBuildPolicy.PlayerLogEnabled,
                 warningStackTrace = WindowsReleaseBuildPolicy.WarningStackTrace,
             };
-            record.backendChanged = snapshot.backend != WindowsReleaseBuildPolicy.Backend;
-            record.strippingChanged = snapshot.stripping != WindowsReleaseBuildPolicy.Stripping;
+            record.backendChanged = snapshot.backend != configuration.Backend;
+            record.strippingChanged = snapshot.stripping != configuration.Stripping;
+            record.il2cppCompilerConfigurationChanged =
+                configuration.Candidate == StoreBackendCandidate.IL2CPP &&
+                snapshot.il2cppCompilerConfiguration !=
+                    configuration.Il2CppCompilerConfiguration;
             record.playerLogChanged =
                 snapshot.playerLog != WindowsReleaseBuildPolicy.PlayerLogEnabled;
             record.warningStackTraceChanged =
@@ -398,6 +526,7 @@ public sealed class ReleaseSettingsTransactionRecordV1
     public ReleaseSettingsSnapshot requiredSettings;
     public bool backendChanged;
     public bool strippingChanged;
+    public bool il2cppCompilerConfigurationChanged;
     public bool playerLogChanged;
     public bool warningStackTraceChanged;
     public bool appliedVerification;
@@ -427,6 +556,11 @@ public sealed class WindowsReleaseMetadataV2
     public string configuration;
     public string backend;
     public string managedStrippingLevel;
+    public string il2cppCompilerConfiguration;
+    public string nativeCompilerIdentity;
+    public string windowsSdkIdentity;
+    public string backendComparisonId;
+    public string comparisonRole;
     public bool development;
     public bool connectWithProfiler;
     public bool deepProfiling;

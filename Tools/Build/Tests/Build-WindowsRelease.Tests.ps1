@@ -56,7 +56,12 @@ function New-ZeroErrorEvidenceFixture {
         [string]$ArtifactId = "artifact",
         [string]$SourceSha = "sha",
         [string]$SourceTree = "tree",
-        [string]$Configuration = "Windows-x64-NonDevelopment-Mono-RC"
+        [string]$Configuration = "Windows-x64-NonDevelopment-Mono",
+        [string]$Backend = "Mono2x",
+        [string]$ManagedStrippingLevel = "Disabled",
+        [string]$Il2CppCompilerConfiguration = "Release",
+        [string]$BackendComparisonId = "comparison",
+        [string]$ComparisonRole = "MonoControl"
     )
     $metadataPath = Join-Path $Root "payload\build-metadata.json"
     $summaryPath = Join-Path $Root "payload\build-report-summary.json"
@@ -67,6 +72,10 @@ function New-ZeroErrorEvidenceFixture {
         artifactId = $ArtifactId
         sourceSha = $SourceSha
         sourceTree = $SourceTree
+        configuration = $Configuration
+        backend = $Backend
+        backendComparisonId = $BackendComparisonId
+        comparisonRole = $ComparisonRole
         result = "Succeeded"
         totalErrors = 0
         totalWarnings = 0
@@ -81,6 +90,13 @@ function New-ZeroErrorEvidenceFixture {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $Configuration
+        backend = $Backend
+        managedStrippingLevel = $ManagedStrippingLevel
+        il2cppCompilerConfiguration = $Il2CppCompilerConfiguration
+        nativeCompilerIdentity = "NotApplicable-Mono"
+        windowsSdkIdentity = "NotApplicable-Mono"
+        backendComparisonId = $BackendComparisonId
+        comparisonRole = $ComparisonRole
         entrySourceSha256 = ("1" * 64)
         policySourceSha256 = ("2" * 64)
         wrapperSourceSha256 = ("3" * 64)
@@ -98,6 +114,9 @@ function New-ZeroErrorEvidenceFixture {
         sourceSha = $SourceSha
         sourceTree = $SourceTree
         configuration = $Configuration
+        backend = $Backend
+        backendComparisonId = $BackendComparisonId
+        comparisonRole = $ComparisonRole
         result = "Succeeded"
         totalErrors = 0
         totalWarnings = 0
@@ -142,6 +161,33 @@ Invoke-Case "unknown untracked rejected" {
 }
 Invoke-Case "Assets untracked rejected" {
     Assert-False (Test-GitState (New-State -Untracked @("Assets/rogue.cs")) $approved)
+}
+Invoke-Case "omitted backend defaults to Mono" {
+    Assert-Equal "Mono" (Resolve-StoreBackendPolicy).Backend
+    Assert-Equal "Mono2x" (Resolve-StoreBackendPolicy).ScriptingBackend
+}
+Invoke-Case "explicit Mono backend is accepted" {
+    $policy = Resolve-StoreBackendPolicy "Mono"
+    Assert-Equal "Windows-x64-NonDevelopment-Mono" $policy.Configuration
+    Assert-Equal "Disabled" $policy.ManagedStrippingLevel
+    Assert-Equal "MonoControl" $policy.ComparisonRole
+}
+Invoke-Case "explicit IL2CPP backend is accepted" {
+    $policy = Resolve-StoreBackendPolicy "IL2CPP"
+    Assert-Equal "Windows-x64-NonDevelopment-IL2CPP" $policy.Configuration
+    Assert-Equal "Minimal" $policy.ManagedStrippingLevel
+    Assert-Equal "IL2CPPCandidate" $policy.ComparisonRole
+}
+Invoke-Case "unknown backend is rejected" {
+    $threw = $false
+    try { Resolve-StoreBackendPolicy "il2cpp" | Out-Null } catch { $threw = $true }
+    Assert-True $threw
+}
+Invoke-Case "backend output paths are separated" {
+    $root = "C:\release"
+    $mono = Join-Path $root (Resolve-StoreBackendPolicy "Mono").Configuration
+    $il2cpp = Join-Path $root (Resolve-StoreBackendPolicy "IL2CPP").Configuration
+    Assert-False ($mono -ceq $il2cpp)
 }
 Invoke-Case "worktree-family Unity rejected" {
     Assert-False (Test-ReleaseProcessGate @(
@@ -404,7 +450,12 @@ try {
             ArtifactId = "artifact"
             SourceSha = "sha"
             SourceTree = "tree"
-            Configuration = "Windows-x64-NonDevelopment-Mono-RC"
+            Configuration = "Windows-x64-NonDevelopment-Mono"
+            Backend = "Mono2x"
+            ManagedStrippingLevel = "Disabled"
+            Il2CppCompilerConfiguration = "Release"
+            BackendComparisonId = "comparison"
+            ComparisonRole = "MonoControl"
         }
         $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
         $summary.runId = "wrong"
@@ -414,6 +465,52 @@ try {
         Assert-False $result.Allowed
         Assert-Equal "EvidenceIdentityMismatch" $result.Reason
         $summary.runId = "run"
+        Write-JsonFixture $evidence.SummaryPath $summary
+    }
+    Invoke-Case "backend mismatch in metadata is rejected" {
+        $metadata = Get-Content $evidence.MetadataPath -Raw | ConvertFrom-Json
+        $metadata.backend = "IL2CPP"
+        Write-JsonFixture $evidence.MetadataPath $metadata
+        $expectation = [pscustomobject]@{
+            RunId = "run"
+            ArtifactId = "artifact"
+            SourceSha = "sha"
+            SourceTree = "tree"
+            Configuration = "Windows-x64-NonDevelopment-Mono"
+            Backend = "Mono2x"
+            ManagedStrippingLevel = "Disabled"
+            Il2CppCompilerConfiguration = "Release"
+            BackendComparisonId = "comparison"
+            ComparisonRole = "MonoControl"
+        }
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath -ExpectedIdentity $expectation
+        Assert-False $result.Allowed
+        Assert-Equal "EvidenceIdentityMismatch" $result.Reason
+        $metadata.backend = "Mono2x"
+        Write-JsonFixture $evidence.MetadataPath $metadata
+    }
+    Invoke-Case "comparison role mismatch is rejected" {
+        $summary = Get-Content $evidence.SummaryPath -Raw | ConvertFrom-Json
+        $summary.comparisonRole = "IL2CPPCandidate"
+        Write-JsonFixture $evidence.SummaryPath $summary
+        $expectation = [pscustomobject]@{
+            RunId = "run"
+            ArtifactId = "artifact"
+            SourceSha = "sha"
+            SourceTree = "tree"
+            Configuration = "Windows-x64-NonDevelopment-Mono"
+            Backend = "Mono2x"
+            ManagedStrippingLevel = "Disabled"
+            Il2CppCompilerConfiguration = "Release"
+            BackendComparisonId = "comparison"
+            ComparisonRole = "MonoControl"
+        }
+        $result = Test-BuildEvidence $evidence.MetadataPath $evidence.SummaryPath `
+            $evidence.DetailsPath -ExpectedIdentity $expectation
+        Assert-False $result.Allowed
+        Assert-Equal "EvidenceIdentityMismatch" $result.Reason
+        $summary.comparisonRole = "MonoControl"
         Write-JsonFixture $evidence.SummaryPath $summary
     }
     Invoke-Case "Succeeded plus one error is rejected" {
@@ -601,6 +698,26 @@ try {
             ForEach-Object { $_.RelativePath })
         Assert-False (@($paths | Where-Object {
             $_ -like "*_BurstDebugInformation_DoNotShip/*"
+        }).Count -ne 0)
+    }
+    Invoke-Case "Store payload excludes IL2CPP backup diagnostics" {
+        $storeRoot = Join-Path $temp "store-il2cpp-exclusion"
+        $backupRoot = Join-Path $storeRoot `
+            "payload\VectorQuake_BackUpThisFolder_ButDontShipItWithYourGame"
+        New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+        Set-Content (Join-Path $backupRoot "GameAssembly.pdb") `
+            "C:\Users\operator\private\source.cpp"
+        Set-Content (Join-Path $storeRoot "payload\GameAssembly.dll") "native"
+        $policy = Prepare-PayloadForAudience $storeRoot "StoreDistributable"
+        Assert-False (Test-Path $backupRoot)
+        Assert-Equal 1 (@($policy.ExcludedRelativePaths).Count)
+        Assert-True (Test-StorePayloadPrivacy $storeRoot)
+        $storeManifest = New-PayloadManifest $storeRoot
+        $paths = @(Read-PayloadManifest $storeManifest.Path |
+            ForEach-Object { $_.RelativePath })
+        Assert-True ($paths -contains "payload/GameAssembly.dll")
+        Assert-False (@($paths | Where-Object {
+            $_ -like "*_BackUpThisFolder_ButDontShipItWithYourGame/*"
         }).Count -ne 0)
     }
     Invoke-Case "Store payload rejects absolute private path outside exclusion" {
