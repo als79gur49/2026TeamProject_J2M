@@ -109,7 +109,7 @@ namespace Game.Feature.UI.Composition.Editor
             var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
                 targets,
                 new[] { localeCode },
-                outputDirectory,
+                System.IO.Path.Combine(outputDirectory, "Diagnostics"),
                 options);
             LogResult(result);
             result.ThrowIfFailed();
