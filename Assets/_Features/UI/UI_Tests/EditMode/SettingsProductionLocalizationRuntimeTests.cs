@@ -60,7 +60,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "입력 설정 초기화",
-                "입력 설정을 기본값으로 초기화할까요?",
+                "입력 설정 초기화 확인",
                 "초기화",
                 "취소");
 
@@ -80,7 +80,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "입력 설정 초기화",
-                "입력 설정을 기본값으로 초기화할까요?",
+                "입력 설정 초기화 확인",
                 "초기화",
                 "취소");
         }
@@ -101,7 +101,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "화면 설정 미리 보기 확인",
-                "1280 x 720 전체 화면 창 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
+                "1280 x 720 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
                 "유지",
                 "되돌리기");
 
@@ -119,7 +119,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "화면 설정 미리 보기 확인",
-                "1280 x 720 전체 화면 창 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
+                "1280 x 720 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
                 "유지",
                 "되돌리기");
         }

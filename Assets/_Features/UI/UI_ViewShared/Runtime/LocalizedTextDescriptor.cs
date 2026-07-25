@@ -752,14 +752,14 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "밀기 키 입력하세요...",
                     [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "뒤집기 키 입력하세요...",
                     [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "입력 설정 초기화",
-                    [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "입력 설정을 기본값으로 초기화할까요?",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "입력 설정 초기화 확인",
                     [SettingsLocalizationContract.Keys.InputResetConfirmLabel] = "초기화",
                     [SettingsLocalizationContract.Keys.Cancel] = "취소",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "화면 설정 미리 보기 확인",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody] =
-                        "{0} x {1} 전체 화면 창 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+                        "{0} x {1} 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
-                        "{0} x {1} 창 모드 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+                        "{0} x {1} 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "유지",
                     [SettingsLocalizationContract.Keys.Back] = "뒤로",
                     ["ui.common.settings"] = "설정",

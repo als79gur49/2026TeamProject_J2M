@@ -599,6 +599,10 @@ namespace Game.Feature.UI.Screens
 
         public bool IsFullscreenEnabled { get; private set; }
 
+        public int SelectedResolutionWidth { get; private set; }
+
+        public int SelectedResolutionHeight { get; private set; }
+
         public string DisplayStatusText { get; private set; } = string.Empty;
 
         public bool IsDisplayStatusVisible { get; private set; }
@@ -633,7 +637,9 @@ namespace Game.Feature.UI.Screens
             bool isDisplayStatusTransient = false,
             string languageLabelText = "",
             string currentLanguageText = "",
-            bool isLanguageSelectionAvailable = false)
+            bool isLanguageSelectionAvailable = false,
+            int selectedResolutionWidth = 0,
+            int selectedResolutionHeight = 0)
         {
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
@@ -651,6 +657,8 @@ namespace Game.Feature.UI.Screens
             LanguageLabelText = languageLabelText ?? string.Empty;
             CurrentLanguageText = currentLanguageText ?? string.Empty;
             IsLanguageSelectionAvailable = isLanguageSelectionAvailable;
+            SelectedResolutionWidth = selectedResolutionWidth;
+            SelectedResolutionHeight = selectedResolutionHeight;
             Changed?.Invoke();
         }
 

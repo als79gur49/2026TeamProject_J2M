@@ -508,10 +508,15 @@ namespace Game.Feature.UI.Composition
                 var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
                     _displayPreviewSessionHost.PreviewTimeoutSeconds,
                     _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                var displayViewModel = _presenter.DisplayPresenter.ViewModel;
 
                 return new ConfirmPopupPayload(
                     SettingsStaticTextDescriptors.DisplayPreviewConfirmTitle,
-                    _presenter.DisplayPresenter.BuildPreviewConfirmationBodyDescriptor(visibleTimeoutSeconds),
+                    SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody(
+                        displayViewModel.SelectedResolutionWidth,
+                        displayViewModel.SelectedResolutionHeight,
+                        displayViewModel.IsFullscreenEnabled,
+                        visibleTimeoutSeconds),
                     SettingsStaticTextDescriptors.DisplayPreviewConfirmKeep,
                     SettingsStaticTextDescriptors.DisplayRevert,
                     false);

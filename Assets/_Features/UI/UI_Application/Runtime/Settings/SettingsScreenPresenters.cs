@@ -345,23 +345,6 @@ namespace Game.Feature.UI.Application
             RefreshViewModel();
         }
 
-        public LocalizedTextDescriptor BuildPreviewConfirmationBodyDescriptor(int visibleTimeoutSeconds)
-        {
-            if (_displaySnapshot.AvailableModes.Count == 0)
-            {
-                throw new InvalidOperationException(
-                    "Display preview confirmation requires at least one available display mode.");
-            }
-
-            var selectedMode = _displaySnapshot.AvailableModes[
-                ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count)];
-            return SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody(
-                selectedMode.Width,
-                selectedMode.Height,
-                _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
-                visibleTimeoutSeconds);
-        }
-
         private void ResyncState(
             bool resetStagedToCommitted,
             double previewTimeoutSeconds,
@@ -463,6 +446,11 @@ namespace Game.Feature.UI.Application
             var displayStatusText = HasDescriptor(_displayStatusDescriptor)
                 ? Resolve(_displayStatusDescriptor)
                 : string.Empty;
+            var hasSelectedMode = _displaySnapshot.AvailableModes.Count > 0;
+            var selectedMode = hasSelectedMode
+                ? _displaySnapshot.AvailableModes[
+                    ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count)]
+                : default;
 
             ViewModel.SetContent(
                 Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue(
@@ -481,7 +469,9 @@ namespace Game.Feature.UI.Application
                 _isDisplayStatusTransient,
                 Resolve(_languageLabelDescriptor),
                 Resolve(CurrentLanguageDescriptor),
-                _localeSelectionPort.AvailableLocaleCodes.Count > 1);
+                _localeSelectionPort.AvailableLocaleCodes.Count > 1,
+                hasSelectedMode ? selectedMode.Width : 0,
+                hasSelectedMode ? selectedMode.Height : 0);
         }
 
         private bool IsDirty()

@@ -63,7 +63,9 @@ namespace Game.Feature.UI.Tests
             }
 
             Assert.That(builderSource, Does.Contain("SettingsStaticTextDescriptors.InputResetConfirmTitle"));
-            Assert.That(builderSource, Does.Contain("BuildPreviewConfirmationBodyDescriptor"));
+            Assert.That(builderSource, Does.Contain("SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody("));
+            Assert.That(builderSource, Does.Contain("displayViewModel.SelectedResolutionWidth"));
+            Assert.That(builderSource, Does.Contain("displayViewModel.SelectedResolutionHeight"));
         }
 
         [Test]
