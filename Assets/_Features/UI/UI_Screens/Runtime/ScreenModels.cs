@@ -289,6 +289,42 @@ namespace Game.Feature.UI.Screens
             SettingsLocalizationContract.Keys.Back,
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor InputResetConfirmTitle = new(
+            Table,
+            SettingsLocalizationContract.Keys.InputResetConfirmTitle,
+            LocalizedTextRole.Title,
+            LocalizedTextWeight.Bold);
+
+        public static readonly LocalizedTextDescriptor InputResetConfirmBody = new(
+            Table,
+            SettingsLocalizationContract.Keys.InputResetConfirmBody,
+            LocalizedTextRole.Body,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor InputResetConfirmLabel = new(
+            Table,
+            SettingsLocalizationContract.Keys.InputResetConfirmLabel,
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor Cancel = new(
+            Table,
+            SettingsLocalizationContract.Keys.Cancel,
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
+
+        public static readonly LocalizedTextDescriptor DisplayPreviewConfirmTitle = new(
+            Table,
+            SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle,
+            LocalizedTextRole.Title,
+            LocalizedTextWeight.Bold);
+
+        public static readonly LocalizedTextDescriptor DisplayPreviewConfirmKeep = new(
+            Table,
+            SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep,
+            LocalizedTextRole.Button,
+            LocalizedTextWeight.Regular);
     }
 
     public static class SettingsDynamicTextDescriptors
@@ -308,6 +344,10 @@ namespace Game.Feature.UI.Screens
         public const string InputAlreadyRebindingKey = SettingsLocalizationContract.Keys.InputAlreadyRebinding;
         public const string InputRebindPushPromptKey = SettingsLocalizationContract.Keys.InputRebindPushPrompt;
         public const string InputRebindFlipPromptKey = SettingsLocalizationContract.Keys.InputRebindFlipPrompt;
+        public const string DisplayPreviewConfirmFullscreenBodyKey =
+            SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody;
+        public const string DisplayPreviewConfirmWindowedBodyKey =
+            SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody;
 
         public static LocalizedTextDescriptor AudioVolumeValue(int percent, bool isMuted)
         {
@@ -347,6 +387,27 @@ namespace Game.Feature.UI.Screens
                 LocalizedTextRole.Body,
                 LocalizedTextWeight.Regular,
                 new object[] { seconds });
+        }
+
+        public static LocalizedTextDescriptor DisplayPreviewConfirmBody(
+            int width,
+            int height,
+            bool isFullscreen,
+            int seconds)
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                isFullscreen
+                    ? DisplayPreviewConfirmFullscreenBodyKey
+                    : DisplayPreviewConfirmWindowedBodyKey,
+                LocalizedTextRole.Body,
+                LocalizedTextWeight.Regular,
+                new object[]
+                {
+                    Math.Max(1, width),
+                    Math.Max(1, height),
+                    Math.Max(0, seconds),
+                });
         }
 
         public static LocalizedTextDescriptor DisplayPreviewRevertedStatus()

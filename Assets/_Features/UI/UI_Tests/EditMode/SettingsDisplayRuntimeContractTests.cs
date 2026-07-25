@@ -39,6 +39,34 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsScreenRuntimeBuilder_ConfirmationPayloadsContainNoUserFacingRawEnglish()
+        {
+            var builderSource = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
+            var forbiddenRawCopy = new[]
+            {
+                "\"Reset Input Settings\"",
+                "\"Reset input settings to defaults?\"",
+                "\"Reset\"",
+                "\"Cancel\"",
+                "\"Confirm Display Preview\"",
+                "\"Fullscreen Window\"",
+                "\"Windowed\"",
+                "\"Keep\"",
+                "\"Revert\"",
+                "\"Preview ",
+            };
+
+            foreach (var literal in forbiddenRawCopy)
+            {
+                Assert.That(builderSource, Does.Not.Contain(literal), literal);
+            }
+
+            Assert.That(builderSource, Does.Contain("SettingsStaticTextDescriptors.InputResetConfirmTitle"));
+            Assert.That(builderSource, Does.Contain("BuildPreviewConfirmationBodyDescriptor"));
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_StartsPreviewAndCommitsThroughConfirmPopup()
         {
             var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_Commit");
@@ -163,7 +191,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(runtimeContext.PopupController.TopPopup.HasValue, Is.True);
                 var confirmPayload = runtimeContext.PopupController.TopPopup.Value.Payload as ConfirmPopupPayload;
                 Assert.That(confirmPayload, Is.Not.Null);
-                Assert.That(confirmPayload.BodyText, Does.Contain("revert in 21 seconds unless you confirm."));
+                var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+                Assert.That(
+                    resolver.Resolve(confirmPayload.BodyTextDescriptor),
+                    Is.EqualTo(
+                        "Preview 1280 x 720 in Fullscreen Window. These changes are temporary and will revert in 21 seconds unless you confirm."));
             }
             finally
             {

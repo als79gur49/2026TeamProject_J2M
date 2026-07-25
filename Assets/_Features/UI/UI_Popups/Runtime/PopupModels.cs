@@ -134,6 +134,24 @@ namespace Game.Feature.UI.Popups
             IsConfirmDestructive = isConfirmDestructive;
         }
 
+        public ConfirmPopupPayload(
+            LocalizedTextDescriptor titleTextDescriptor,
+            LocalizedTextDescriptor bodyTextDescriptor,
+            LocalizedTextDescriptor confirmLabelDescriptor,
+            LocalizedTextDescriptor cancelLabelDescriptor,
+            bool isConfirmDestructive)
+        {
+            TitleTextDescriptor = titleTextDescriptor;
+            BodyTextDescriptor = bodyTextDescriptor;
+            ConfirmLabelDescriptor = confirmLabelDescriptor;
+            CancelLabelDescriptor = cancelLabelDescriptor;
+            TitleText = string.Empty;
+            BodyText = string.Empty;
+            ConfirmLabel = string.Empty;
+            CancelLabel = string.Empty;
+            IsConfirmDestructive = isConfirmDestructive;
+        }
+
         public string TitleText { get; }
 
         public string BodyText { get; }
@@ -141,6 +159,14 @@ namespace Game.Feature.UI.Popups
         public string ConfirmLabel { get; }
 
         public string CancelLabel { get; }
+
+        public LocalizedTextDescriptor TitleTextDescriptor { get; }
+
+        public LocalizedTextDescriptor BodyTextDescriptor { get; }
+
+        public LocalizedTextDescriptor ConfirmLabelDescriptor { get; }
+
+        public LocalizedTextDescriptor CancelLabelDescriptor { get; }
 
         public bool IsConfirmDestructive { get; }
     }

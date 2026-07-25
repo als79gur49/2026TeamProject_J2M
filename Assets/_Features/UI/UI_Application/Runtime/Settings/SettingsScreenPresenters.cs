@@ -345,6 +345,23 @@ namespace Game.Feature.UI.Application
             RefreshViewModel();
         }
 
+        public LocalizedTextDescriptor BuildPreviewConfirmationBodyDescriptor(int visibleTimeoutSeconds)
+        {
+            if (_displaySnapshot.AvailableModes.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Display preview confirmation requires at least one available display mode.");
+            }
+
+            var selectedMode = _displaySnapshot.AvailableModes[
+                ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count)];
+            return SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody(
+                selectedMode.Width,
+                selectedMode.Height,
+                _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
+                visibleTimeoutSeconds);
+        }
+
         private void ResyncState(
             bool resetStagedToCommitted,
             double previewTimeoutSeconds,
@@ -963,6 +980,16 @@ namespace Game.Feature.UI.Application
             [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
             [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
             [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
+            [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "Reset Input Settings",
+            [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "Reset input settings to defaults?",
+            [SettingsLocalizationContract.Keys.InputResetConfirmLabel] = "Reset",
+            [SettingsLocalizationContract.Keys.Cancel] = "Cancel",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "Confirm Display Preview",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody] =
+                "Preview {0} x {1} in Fullscreen Window. These changes are temporary and will revert in {2} seconds unless you confirm.",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
+                "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "Keep",
             [SettingsLocalizationContract.Keys.Back] = "Back",
             ["ui.common.settings"] = "Settings",
             ["ui.main_menu.start"] = "Start",
@@ -1023,6 +1050,34 @@ namespace Game.Feature.UI.Application
                     Convert.ToString(
                         descriptor.Arguments[0],
                         System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            if ((string.Equals(
+                     descriptor.Key,
+                     SettingsDynamicTextDescriptors.DisplayPreviewConfirmFullscreenBodyKey,
+                     StringComparison.Ordinal) ||
+                 string.Equals(
+                     descriptor.Key,
+                     SettingsDynamicTextDescriptors.DisplayPreviewConfirmWindowedBodyKey,
+                     StringComparison.Ordinal)) &&
+                descriptor.Arguments.Count >= 3)
+            {
+                return value
+                    .Replace(
+                        "{0}",
+                        Convert.ToString(
+                            descriptor.Arguments[0],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+                    .Replace(
+                        "{1}",
+                        Convert.ToString(
+                            descriptor.Arguments[1],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+                    .Replace(
+                        "{2}",
+                        Convert.ToString(
+                            descriptor.Arguments[2],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
             }
 
             return value;

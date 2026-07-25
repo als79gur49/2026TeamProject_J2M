@@ -207,6 +207,38 @@ MonoBehaviour:
     m_Key: ui.settings.input.rebind_flip_prompt
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693638
+    m_Key: ui.settings.input.reset_confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693639
+    m_Key: ui.settings.input.reset_confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693640
+    m_Key: ui.settings.input.reset_confirm.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693641
+    m_Key: ui.common.cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693642
+    m_Key: ui.settings.display.preview_confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693643
+    m_Key: ui.settings.display.preview_confirm.fullscreen_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693644
+    m_Key: ui.settings.display.preview_confirm.windowed_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693645
+    m_Key: ui.settings.display.preview_confirm.keep
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

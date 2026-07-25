@@ -123,7 +123,7 @@ namespace Game.Feature.UI.Composition
 
         private PopupRuntimeFactoryResult CreateConfirmPopup(ConfirmPopupPayload payload)
         {
-            var presenter = new ConfirmPopupPresenter();
+            var presenter = new ConfirmPopupPresenter(_localizedTextResolver);
             presenter.Apply(payload);
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.ConfirmPrefab, PopupId.Confirm);
@@ -140,6 +140,7 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<ConfirmPopupView>(view, () =>
                 {
+                    presenter.Dispose();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));

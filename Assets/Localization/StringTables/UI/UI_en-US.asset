@@ -218,6 +218,42 @@ MonoBehaviour:
     m_Localized: Press a key for Flip...
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693638
+    m_Localized: Reset Input Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693639
+    m_Localized: Reset input settings to defaults?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693640
+    m_Localized: Reset
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693641
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693642
+    m_Localized: Confirm Display Preview
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693643
+    m_Localized: Preview {0} x {1} in Fullscreen Window. These changes are temporary
+      and will revert in {2} seconds unless you confirm.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693644
+    m_Localized: Preview {0} x {1} in Windowed mode. These changes are temporary and
+      will revert in {2} seconds unless you confirm.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693645
+    m_Localized: Keep
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -231,3 +267,5 @@ MonoBehaviour:
         - id: 283195138859008
         - id: 283195180802048
         - id: 4971587610693632
+        - id: 4971587610693643
+        - id: 4971587610693644

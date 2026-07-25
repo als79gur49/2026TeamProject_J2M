@@ -74,23 +74,23 @@ namespace Game.Feature.UI.Tests
                 .Cast<SettingsLocalizationEntryId>()
                 .ToArray();
 
-            Assert.That(entries, Has.Count.EqualTo(40));
+            Assert.That(entries, Has.Count.EqualTo(48));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor)),
-                Is.EqualTo(25));
+                Is.EqualTo(31));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor)),
-                Is.EqualTo(15));
-            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(5));
+                Is.EqualTo(17));
+            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(7));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PercentArgument),
                 Is.EqualTo(2));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PositionalArgument),
-                Is.EqualTo(3));
+                Is.EqualTo(5));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.None),
-                Is.EqualTo(35));
+                Is.EqualTo(41));
             Assert.That(
                 entries.Select(entry => entry.Id).ToArray(),
                 Is.EquivalentTo(declaredIds),
@@ -148,8 +148,10 @@ namespace Game.Feature.UI.Tests
                     SettingsLocalizationContract.Keys.DisplayResolutionValue,
                     SettingsLocalizationContract.Keys.DisplayPreviewCountdown,
                     SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus,
+                    SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
+                    SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody,
                 }),
-                "Only display value/countdown entries use the positional argument contract.");
+                "Only display value/countdown/confirmation entries use the positional argument contract.");
         }
 
         [Test]
@@ -237,7 +239,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(48));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(56));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -1042,7 +1044,8 @@ namespace Game.Feature.UI.Tests
         {
             return key != null &&
                    (key.StartsWith("ui.settings.", StringComparison.Ordinal) ||
-                    string.Equals(key, SettingsLocalizationContract.Keys.Back, StringComparison.Ordinal));
+                    string.Equals(key, SettingsLocalizationContract.Keys.Back, StringComparison.Ordinal) ||
+                    string.Equals(key, SettingsLocalizationContract.Keys.Cancel, StringComparison.Ordinal));
         }
 
         private static IReadOnlyList<LocalizedTextDescriptor> CreateDynamicDescriptorFactoryInventory()
@@ -1125,6 +1128,21 @@ namespace Game.Feature.UI.Tests
         private static LocalizedTextDescriptor CreateRepresentativeDescriptor(
             SettingsLocalizationContractEntry entry)
         {
+            if (string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
+                    StringComparison.Ordinal) ||
+                string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody,
+                    StringComparison.Ordinal))
+            {
+                return new LocalizedTextDescriptor(
+                    entry.Table,
+                    entry.Key,
+                    arguments: new object[] { 7, 8, 9 });
+            }
+
             return entry.FormatKind == SettingsLocalizationFormatKind.None
                 ? new LocalizedTextDescriptor(entry.Table, entry.Key)
                 : new LocalizedTextDescriptor(
@@ -1137,6 +1155,21 @@ namespace Game.Feature.UI.Tests
             SettingsLocalizationContractEntry entry,
             string value)
         {
+            if (string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
+                    StringComparison.Ordinal) ||
+                string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody,
+                    StringComparison.Ordinal))
+            {
+                return value
+                    .Replace("{0}", "7")
+                    .Replace("{1}", "8")
+                    .Replace("{2}", "9");
+            }
+
             return entry.FormatKind == SettingsLocalizationFormatKind.None
                 ? value
                 : value.Replace("{0}", "7");

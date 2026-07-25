@@ -62,6 +62,14 @@ namespace Game.Feature.UI.ViewShared
         InputAlreadyRebinding,
         InputRebindPushPrompt,
         InputRebindFlipPrompt,
+        InputResetConfirmTitle,
+        InputResetConfirmBody,
+        InputResetConfirmLabel,
+        Cancel,
+        DisplayPreviewConfirmTitle,
+        DisplayPreviewConfirmFullscreenBody,
+        DisplayPreviewConfirmWindowedBody,
+        DisplayPreviewConfirmKeep,
     }
 
     public enum SettingsLocalizationFormatKind
@@ -169,6 +177,16 @@ namespace Game.Feature.UI.ViewShared
             public const string InputAlreadyRebinding = "ui.settings.input.already_rebinding";
             public const string InputRebindPushPrompt = "ui.settings.input.rebind_push_prompt";
             public const string InputRebindFlipPrompt = "ui.settings.input.rebind_flip_prompt";
+            public const string InputResetConfirmTitle = "ui.settings.input.reset_confirm.title";
+            public const string InputResetConfirmBody = "ui.settings.input.reset_confirm.body";
+            public const string InputResetConfirmLabel = "ui.settings.input.reset_confirm.confirm";
+            public const string Cancel = "ui.common.cancel";
+            public const string DisplayPreviewConfirmTitle = "ui.settings.display.preview_confirm.title";
+            public const string DisplayPreviewConfirmFullscreenBody =
+                "ui.settings.display.preview_confirm.fullscreen_body";
+            public const string DisplayPreviewConfirmWindowedBody =
+                "ui.settings.display.preview_confirm.windowed_body";
+            public const string DisplayPreviewConfirmKeep = "ui.settings.display.preview_confirm.keep";
         }
 
         private static readonly IReadOnlyList<SettingsLocalizationContractEntry> ContractEntries =
@@ -199,6 +217,12 @@ namespace Game.Feature.UI.ViewShared
                 Static(SettingsLocalizationEntryId.LanguageEnglish, Keys.LanguageEnglish),
                 Static(SettingsLocalizationEntryId.LanguageKorean, Keys.LanguageKorean),
                 Static(SettingsLocalizationEntryId.Back, Keys.Back),
+                Static(SettingsLocalizationEntryId.InputResetConfirmTitle, Keys.InputResetConfirmTitle),
+                Static(SettingsLocalizationEntryId.InputResetConfirmBody, Keys.InputResetConfirmBody),
+                Static(SettingsLocalizationEntryId.InputResetConfirmLabel, Keys.InputResetConfirmLabel),
+                Static(SettingsLocalizationEntryId.Cancel, Keys.Cancel),
+                Static(SettingsLocalizationEntryId.DisplayPreviewConfirmTitle, Keys.DisplayPreviewConfirmTitle),
+                Static(SettingsLocalizationEntryId.DisplayPreviewConfirmKeep, Keys.DisplayPreviewConfirmKeep),
                 Dynamic(
                     SettingsLocalizationEntryId.AudioVolumeValue,
                     Keys.AudioVolumeValue,
@@ -229,6 +253,14 @@ namespace Game.Feature.UI.ViewShared
                 Dynamic(SettingsLocalizationEntryId.InputAlreadyRebinding, Keys.InputAlreadyRebinding),
                 Dynamic(SettingsLocalizationEntryId.InputRebindPushPrompt, Keys.InputRebindPushPrompt),
                 Dynamic(SettingsLocalizationEntryId.InputRebindFlipPrompt, Keys.InputRebindFlipPrompt),
+                Dynamic(
+                    SettingsLocalizationEntryId.DisplayPreviewConfirmFullscreenBody,
+                    Keys.DisplayPreviewConfirmFullscreenBody,
+                    SettingsLocalizationFormatKind.PositionalArgument),
+                Dynamic(
+                    SettingsLocalizationEntryId.DisplayPreviewConfirmWindowedBody,
+                    Keys.DisplayPreviewConfirmWindowedBody,
+                    SettingsLocalizationFormatKind.PositionalArgument),
             });
 
         public static IReadOnlyList<SettingsLocalizationContractEntry> Entries => ContractEntries;
@@ -512,6 +544,28 @@ namespace Game.Feature.UI.ViewShared
                     Convert.ToString(descriptor.Arguments[0], CultureInfo.InvariantCulture) ?? string.Empty);
             }
 
+            if ((string.Equals(
+                     descriptor.Key,
+                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
+                     StringComparison.Ordinal) ||
+                 string.Equals(
+                     descriptor.Key,
+                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody,
+                     StringComparison.Ordinal)) &&
+                descriptor.Arguments.Count >= 3)
+            {
+                return value
+                    .Replace(
+                        "{0}",
+                        Convert.ToString(descriptor.Arguments[0], CultureInfo.InvariantCulture) ?? string.Empty)
+                    .Replace(
+                        "{1}",
+                        Convert.ToString(descriptor.Arguments[1], CultureInfo.InvariantCulture) ?? string.Empty)
+                    .Replace(
+                        "{2}",
+                        Convert.ToString(descriptor.Arguments[2], CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
             return value;
         }
 
@@ -636,6 +690,16 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
                     [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
                     [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "Reset Input Settings",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "Reset input settings to defaults?",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmLabel] = "Reset",
+                    [SettingsLocalizationContract.Keys.Cancel] = "Cancel",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "Confirm Display Preview",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody] =
+                        "Preview {0} x {1} in Fullscreen Window. These changes are temporary and will revert in {2} seconds unless you confirm.",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
+                        "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "Keep",
                     [SettingsLocalizationContract.Keys.Back] = "Back",
                     ["ui.common.settings"] = "Settings",
                     ["ui.main_menu.start"] = "Start",
@@ -687,6 +751,16 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "키 변경이 이미 진행 중입니다.",
                     [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "밀기 키 입력하세요...",
                     [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "뒤집기 키 입력하세요...",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "입력 설정 초기화",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "입력 설정을 기본값으로 초기화할까요?",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmLabel] = "초기화",
+                    [SettingsLocalizationContract.Keys.Cancel] = "취소",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "화면 설정 미리 보기 확인",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody] =
+                        "{0} x {1} 전체 화면 창 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
+                        "{0} x {1} 창 모드 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "유지",
                     [SettingsLocalizationContract.Keys.Back] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",

@@ -145,6 +145,64 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { 10 }));
         }
 
+        [TestCase(
+            true,
+            "ui.settings.display.preview_confirm.fullscreen_body")]
+        [TestCase(
+            false,
+            "ui.settings.display.preview_confirm.windowed_body")]
+        public void SettingsDisplayPreviewConfirmationDynamicDescriptor_UsesTypedDisplayArguments(
+            bool isFullscreen,
+            string expectedKey)
+        {
+            var descriptor = SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody(
+                1920,
+                1080,
+                isFullscreen,
+                15);
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo(expectedKey));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Body));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { 1920, 1080, 15 }));
+        }
+
+        [Test]
+        public void ConfirmPopupPresenter_LocalizedPayloadRefreshesOnLocaleChangeAndStopsAfterDispose()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var presenter = new ConfirmPopupPresenter(resolver);
+            var payload = new ConfirmPopupPayload(
+                SettingsStaticTextDescriptors.InputResetConfirmTitle,
+                SettingsStaticTextDescriptors.InputResetConfirmBody,
+                SettingsStaticTextDescriptors.InputResetConfirmLabel,
+                SettingsStaticTextDescriptors.Cancel,
+                false);
+
+            presenter.Apply(payload);
+
+            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("Reset Input Settings"));
+            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("Reset input settings to defaults?"));
+            Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo("Reset"));
+            Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("Cancel"));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("입력 설정 초기화"));
+            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("입력 설정을 기본값으로 초기화할까요?"));
+            Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo("초기화"));
+            Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("취소"));
+
+            presenter.Dispose();
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            Assert.That(
+                presenter.ViewModel.TitleText,
+                Is.EqualTo("입력 설정 초기화"),
+                "Disposed confirmation presenters must stop receiving locale refreshes.");
+        }
+
         [Test]
         public void SettingsInputRebindCanceledDynamicDescriptor_UsesUiSmartStringKeyWithoutRuntimeKeyName()
         {
@@ -1246,7 +1304,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsInputPolicy_DefersActionLabelStatusesKeyNamesAndResetConfirmPayload()
+        public void SettingsInputPolicy_DefersActionLabelStatusesAndKeyNames_ButLocalizesResetConfirmPayload()
         {
             var presenterSource = System.IO.File.ReadAllText(
                 "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
@@ -1289,10 +1347,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(rawStatusFormatterSource, Does.Not.Contain("\"Rebind already in progress.\""));
             Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.duplicate_action"));
             Assert.That(presenterSource, Does.Not.Contain("ui.settings.input.waiting_for_key"));
-            Assert.That(runtimeBuilderSource, Does.Contain("\"Reset Input Settings\""));
-            Assert.That(runtimeBuilderSource, Does.Contain("\"Reset input settings to defaults?\""));
-            Assert.That(runtimeBuilderSource, Does.Contain("\"Reset\""));
-            Assert.That(runtimeBuilderSource, Does.Contain("\"Cancel\""));
+            Assert.That(runtimeBuilderSource, Does.Contain("SettingsStaticTextDescriptors.InputResetConfirmTitle"));
+            Assert.That(runtimeBuilderSource, Does.Contain("SettingsStaticTextDescriptors.InputResetConfirmBody"));
+            Assert.That(runtimeBuilderSource, Does.Contain("SettingsStaticTextDescriptors.InputResetConfirmLabel"));
+            Assert.That(runtimeBuilderSource, Does.Contain("SettingsStaticTextDescriptors.Cancel"));
+            Assert.That(runtimeBuilderSource, Does.Not.Contain("\"Reset Input Settings\""));
+            Assert.That(runtimeBuilderSource, Does.Not.Contain("\"Reset input settings to defaults?\""));
         }
 
         [Test]

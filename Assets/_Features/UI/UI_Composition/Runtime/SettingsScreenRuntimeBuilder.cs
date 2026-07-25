@@ -352,10 +352,10 @@ namespace Game.Feature.UI.Composition
                 RaiseAction(ScreenAction.Popup(new PopupRequest(
                     PopupId.Confirm,
                     new ConfirmPopupPayload(
-                        "Reset Input Settings",
-                        "Reset input settings to defaults?",
-                        "Reset",
-                        "Cancel",
+                        SettingsStaticTextDescriptors.InputResetConfirmTitle,
+                        SettingsStaticTextDescriptors.InputResetConfirmBody,
+                        SettingsStaticTextDescriptors.InputResetConfirmLabel,
+                        SettingsStaticTextDescriptors.Cancel,
                         false),
                     completion =>
                     {
@@ -505,26 +505,15 @@ namespace Game.Feature.UI.Composition
 
             private ConfirmPopupPayload BuildDisplayPreviewConfirmPayload()
             {
-                var displayViewModel = _presenter.DisplayPresenter.ViewModel;
-                var selectedIndex = Mathf.Clamp(
-                    displayViewModel.SelectedResolutionIndex,
-                    0,
-                    Mathf.Max(0, displayViewModel.ResolutionOptionTexts.Count - 1));
-                var resolutionLabel = displayViewModel.ResolutionOptionTexts.Count == 0
-                    ? displayViewModel.CurrentDisplayValueText
-                    : displayViewModel.ResolutionOptionTexts[selectedIndex];
-                var windowModeText = displayViewModel.IsFullscreenEnabled
-                    ? "Fullscreen Window"
-                    : "Windowed";
                 var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
                     _displayPreviewSessionHost.PreviewTimeoutSeconds,
                     _displayPreviewSessionHost.PreviewTimeoutSeconds);
 
                 return new ConfirmPopupPayload(
-                    "Confirm Display Preview",
-                    $"Preview {resolutionLabel} in {windowModeText}. These changes are temporary and will revert in {visibleTimeoutSeconds} seconds unless you confirm.",
-                    "Keep",
-                    "Revert",
+                    SettingsStaticTextDescriptors.DisplayPreviewConfirmTitle,
+                    _presenter.DisplayPresenter.BuildPreviewConfirmationBodyDescriptor(visibleTimeoutSeconds),
+                    SettingsStaticTextDescriptors.DisplayPreviewConfirmKeep,
+                    SettingsStaticTextDescriptors.DisplayRevert,
                     false);
             }
 

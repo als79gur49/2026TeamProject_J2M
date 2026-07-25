@@ -39,6 +39,92 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsResetConfirmation_FollowsLocaleRoundTripAndDirectKoreanOpen()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            harness.SettingsView.ClickInputTab();
+            harness.SettingsView.InputView.ClickReset();
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "Reset Input Settings",
+                "Reset input settings to defaults?",
+                "Reset",
+                "Cancel");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "입력 설정 초기화",
+                "입력 설정을 기본값으로 초기화할까요?",
+                "초기화",
+                "취소");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "Reset Input Settings",
+                "Reset input settings to defaults?",
+                "Reset",
+                "Cancel");
+
+            harness.CloseConfirm();
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            harness.SettingsView.InputView.ClickReset();
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "입력 설정 초기화",
+                "입력 설정을 기본값으로 초기화할까요?",
+                "초기화",
+                "취소");
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_DisplayPreviewConfirmation_FollowsLocaleRoundTripAndDirectKoreanOpen()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
+                PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            harness.SettingsView.ClickDisplayTab();
+            harness.SettingsView.DisplayView.SelectResolution(2);
+            harness.SettingsView.DisplayView.SetFullscreen(true);
+            harness.SettingsView.DisplayView.ClickApply();
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "화면 설정 미리 보기 확인",
+                "1280 x 720 전체 화면 창 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
+                "유지",
+                "되돌리기");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "Confirm Display Preview",
+                "Preview 1280 x 720 in Fullscreen Window. These changes are temporary and will revert in 15 seconds unless you confirm.",
+                "Keep",
+                "Revert");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "화면 설정 미리 보기 확인",
+                "1280 x 720 전체 화면 창 설정을 미리 봅니다. 이 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
+                "유지",
+                "되돌리기");
+        }
+
+        [Test]
         public void SettingsScreenPrefab_DisplayLanguageRow_IsAuthoredAndInvokesCyclePath()
         {
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
@@ -789,6 +875,20 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view, "_resetButtonLabel").text, Is.EqualTo(reset));
         }
 
+        private static void AssertConfirmCopy(
+            ConfirmPopupView view,
+            string title,
+            string body,
+            string confirm,
+            string cancel)
+        {
+            Assert.That(view, Is.Not.Null);
+            Assert.That(view.TitleText, Is.EqualTo(title));
+            Assert.That(view.BodyText, Is.EqualTo(body));
+            Assert.That(GetText(view, "_confirmButtonLabel").text, Is.EqualTo(confirm));
+            Assert.That(GetText(view, "_cancelButtonLabel").text, Is.EqualTo(cancel));
+        }
+
         private static TMP_Text GetText(object target, string fieldName)
         {
             return GetField<TMP_Text>(target, fieldName);
@@ -869,7 +969,10 @@ namespace Game.Feature.UI.Tests
             return screenLayerView;
         }
 
-        private static PopupController CreatePopupController(GameObject rootObject, out DisplayPreviewTimeoutRelay timeoutRelay)
+        private static PopupController CreatePopupController(
+            GameObject rootObject,
+            ILocalizedTextResolver resolver,
+            out DisplayPreviewTimeoutRelay timeoutRelay)
         {
             var popupLayerRoot = new GameObject("PopupLayerRoot", typeof(RectTransform));
             popupLayerRoot.transform.SetParent(rootObject.transform, false);
@@ -890,7 +993,7 @@ namespace Game.Feature.UI.Tests
             return new PopupController(new GameplayPopupRuntimeFactory(
                 popupLayerView,
                 UiTestPrefabAssetUtility.LoadPopupCatalog(),
-                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault()));
+                localizedTextResolver: resolver));
         }
 
         private static FakeGameplayQueryFacade CreateQueryFacade()
@@ -920,6 +1023,7 @@ namespace Game.Feature.UI.Tests
                 _popupController = popupController;
                 AudioPort = audioPort;
                 UiAudioPort = uiAudioPort;
+                ScreenController.ActionRequested += HandleScreenActionRequested;
             }
 
             public ScreenLayerView ScreenLayerView { get; }
@@ -932,13 +1036,16 @@ namespace Game.Feature.UI.Tests
 
             public SettingsScreenView SettingsView => ScreenLayerView.FindScreenView<SettingsScreenView>();
 
+            public ConfirmPopupView ConfirmPopupView =>
+                _rootObject.GetComponentInChildren<ConfirmPopupView>(true);
+
             public static GameplaySettingsHarness Create(
                 ILocalizedTextResolver resolver,
                 IKeyboardBindingSettingsPort keyboardPort = null)
             {
                 var rootObject = new GameObject("SettingsProductionLocalizationRuntimeTests_GameplayHarness");
                 var screenLayerView = CreateScreenLayer(rootObject);
-                var popupController = CreatePopupController(rootObject, out var timeoutRelay);
+                var popupController = CreatePopupController(rootObject, resolver, out var timeoutRelay);
                 var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
                 var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
                 var audioPort = new FakeAudioSettingsPort();
@@ -976,8 +1083,18 @@ namespace Game.Feature.UI.Tests
 
             public void DisposeController()
             {
+                if (ScreenController != null)
+                {
+                    ScreenController.ActionRequested -= HandleScreenActionRequested;
+                }
+
                 ScreenController?.Dispose();
                 ScreenController = null;
+            }
+
+            public void CloseConfirm()
+            {
+                _popupController.CloseTop(PopupCloseReason.UserAction, PopupCompletionKind.Cancelled);
             }
 
             public void Dispose()
@@ -985,6 +1102,14 @@ namespace Game.Feature.UI.Tests
                 DisposeController();
                 _popupController.Dispose();
                 UnityEngine.Object.DestroyImmediate(_rootObject);
+            }
+
+            private void HandleScreenActionRequested(ScreenAction action)
+            {
+                if (action.ActionKind == ScreenActionKind.RequestPopup)
+                {
+                    _popupController.Push(action.PopupRequest, out _);
+                }
             }
         }
 
@@ -1010,7 +1135,7 @@ namespace Game.Feature.UI.Tests
                 var rootObject = new GameObject("SettingsProductionLocalizationRuntimeTests_MainMenuHarness");
                 var contentRootObject = new GameObject("SettingsContentRoot", typeof(RectTransform));
                 contentRootObject.transform.SetParent(rootObject.transform, false);
-                var popupController = CreatePopupController(rootObject, out var timeoutRelay);
+                var popupController = CreatePopupController(rootObject, resolver, out var timeoutRelay);
                 var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
                 var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
                 var catalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
