@@ -6,6 +6,8 @@
   - tick simulation의 canonical architecture spec
 - [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
   - gameplay authoritative boundary를 UI layer까지 확장한 canonical UI architecture spec
+- [Climate-Crisis-KR-Typography-Migration-Closeout.md](./Climate-Crisis-KR-Typography-Migration-Closeout.md)
+  - current Climate Crisis KR asset, 19-role, authored-sizing, layout, glyph, visual-evidence closeout
 - [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
   - Push/Flip 등 gameplay rule appendix
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
