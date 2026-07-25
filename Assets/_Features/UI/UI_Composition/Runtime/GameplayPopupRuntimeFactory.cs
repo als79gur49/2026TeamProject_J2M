@@ -328,6 +328,7 @@ namespace Game.Feature.UI.Composition
                     _demoStageControlCommandPort,
                     _demoGameplayOverrideCommandPort,
                     payload,
+                    _localizedTextResolver,
                     () => DestroyObject(view.gameObject)));
         }
 

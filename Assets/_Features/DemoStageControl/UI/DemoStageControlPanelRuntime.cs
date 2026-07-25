@@ -12,6 +12,7 @@ namespace Game.Feature.DemoStageControl.UI
         private readonly IDemoStageControlCommandPort _commandPort;
         private readonly IDemoGameplayOverrideCommandPort _overrideCommandPort;
         private readonly Action _dispose;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
         private readonly DemoStageControlPanelView _view;
         private readonly DemoStageControlPanelViewModel _viewModel;
         private StageId _selectedStageId = StageId.None;
@@ -21,18 +22,22 @@ namespace Game.Feature.DemoStageControl.UI
             IDemoStageControlCommandPort commandPort,
             IDemoGameplayOverrideCommandPort overrideCommandPort,
             DemoStageControlPanelPayload initialPayload,
+            ILocalizedTextResolver localizedTextResolver,
             Action dispose)
         {
             _view = view ?? throw new ArgumentNullException(nameof(view));
             _commandPort = commandPort ?? throw new ArgumentNullException(nameof(commandPort));
             _overrideCommandPort = overrideCommandPort;
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new ArgumentNullException(nameof(localizedTextResolver));
             _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
-            _viewModel = new DemoStageControlPanelViewModel();
+            _viewModel = new DemoStageControlPanelViewModel(_localizedTextResolver);
             _view.Bind(_viewModel);
             _view.SelectedStageChanged += HandleSelectedStageChanged;
             _view.StartStageClicked += HandleStartStageClicked;
             _view.ForceClearClicked += HandleForceClearClicked;
             _view.PlayerInvincibleToggled += HandlePlayerInvincibleToggled;
+            _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
             ApplyPayload(initialPayload);
         }
 
@@ -48,6 +53,7 @@ namespace Game.Feature.DemoStageControl.UI
             _view.StartStageClicked -= HandleStartStageClicked;
             _view.ForceClearClicked -= HandleForceClearClicked;
             _view.PlayerInvincibleToggled -= HandlePlayerInvincibleToggled;
+            _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
             _view.Bind(null);
             _view.IsVisible = false;
             _dispose();
@@ -68,6 +74,11 @@ namespace Game.Feature.DemoStageControl.UI
         private void HandleSelectedStageChanged(StageId stageId)
         {
             _selectedStageId = stageId;
+        }
+
+        private void HandleLocaleChanged()
+        {
+            _viewModel.RefreshLocale();
         }
 
         private void HandleStartStageClicked(StageId stageId)
