@@ -18,6 +18,8 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SettingsProductionLocalizationRuntimeTests
     {
+        private const string TypographyThemeAssetPath =
+            "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
         private const int SettingsStaticBindingCount = 29;
         private const int SettingsTypographyBindingCount = 29;
         [Test]
@@ -54,6 +56,7 @@ namespace Game.Feature.UI.Tests
                 "Reset input settings to defaults?",
                 "Reset",
                 "Cancel");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -63,6 +66,7 @@ namespace Game.Feature.UI.Tests
                 "입력 설정 초기화 확인",
                 "초기화",
                 "취소");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
@@ -72,6 +76,7 @@ namespace Game.Feature.UI.Tests
                 "Reset input settings to defaults?",
                 "Reset",
                 "Cancel");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
             harness.CloseConfirm();
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -83,6 +88,7 @@ namespace Game.Feature.UI.Tests
                 "입력 설정 초기화 확인",
                 "초기화",
                 "취소");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
         }
 
         [Test]
@@ -104,6 +110,7 @@ namespace Game.Feature.UI.Tests
                 "1280 x 720 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
                 "유지",
                 "되돌리기");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
@@ -113,6 +120,7 @@ namespace Game.Feature.UI.Tests
                 "Preview 1280 x 720 in Fullscreen Window. These changes are temporary and will revert in 15 seconds unless you confirm.",
                 "Keep",
                 "Revert");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -122,6 +130,89 @@ namespace Game.Feature.UI.Tests
                 "1280 x 720 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
                 "유지",
                 "되돌리기");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+        }
+
+        [Test]
+        public void GameplayPopupRuntimeFactory_RawConfirmPayload_PreservesCopyAndAppliesLocaleTypography()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.OpenConfirm(new ConfirmPopupPayload(
+                "Raw English Title",
+                "Raw English body 123.",
+                "Accept",
+                "Decline",
+                false));
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "Raw English Title",
+                "Raw English body 123.",
+                "Accept",
+                "Decline");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "Raw English Title",
+                "Raw English body 123.",
+                "Accept",
+                "Decline");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            AssertConfirmCopy(
+                harness.ConfirmPopupView,
+                "Raw English Title",
+                "Raw English body 123.",
+                "Accept",
+                "Decline");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            harness.CloseConfirm();
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            harness.OpenConfirm(new ConfirmPopupPayload(
+                "입력 설정",
+                "화면 설정 123.",
+                "확인",
+                "취소",
+                false));
+
+            AssertConfirmCopy(harness.ConfirmPopupView, "입력 설정", "화면 설정 123.", "확인", "취소");
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+        }
+
+        [Test]
+        public void GameplayPopupRuntimeFactory_ConfirmClose_DisposesLocaleAndTypographySubscriptions()
+        {
+            var resolver = new CountingLocalizedTextResolver();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+            harness.ShowSettings();
+            var baselineSubscriberCount = resolver.LocaleChangedSubscriberCount;
+
+            harness.OpenConfirm(new ConfirmPopupPayload("Title", "Body", "Yes", "No", false));
+
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 5));
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            harness.CloseConfirm();
+
+            Assert.That(harness.ConfirmPopupView, Is.Null);
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
+            Assert.DoesNotThrow(() => resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
+
+            harness.OpenConfirm(new ConfirmPopupPayload("Second", "Independent", "Yes", "No", false));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 5));
+            AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+            harness.CloseConfirm();
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
         }
 
         [Test]
@@ -889,6 +980,84 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetText(view, "_cancelButtonLabel").text, Is.EqualTo(cancel));
         }
 
+        private static void AssertConfirmTypography(ConfirmPopupView view, string localeCode)
+        {
+            Assert.That(view, Is.Not.Null);
+            var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(TypographyThemeAssetPath);
+            Assert.That(theme, Is.Not.Null, TypographyThemeAssetPath);
+            AssertConfirmTypographyTarget(
+                GetText(view, "_titleLabel"),
+                theme,
+                localeCode,
+                TypographyStyleTag.HeaderLarge,
+                FontStyles.Bold,
+                30f,
+                16f,
+                30f);
+            AssertConfirmTypographyTarget(
+                GetText(view, "_bodyLabel"),
+                theme,
+                localeCode,
+                TypographyStyleTag.PopupBody,
+                FontStyles.Normal,
+                20f,
+                12f,
+                20f);
+            AssertConfirmTypographyTarget(
+                GetText(view, "_confirmButtonLabel"),
+                theme,
+                localeCode,
+                TypographyStyleTag.PopupAction,
+                FontStyles.Bold,
+                18f,
+                14f,
+                18f);
+            AssertConfirmTypographyTarget(
+                GetText(view, "_cancelButtonLabel"),
+                theme,
+                localeCode,
+                TypographyStyleTag.PopupAction,
+                FontStyles.Bold,
+                18f,
+                14f,
+                18f);
+        }
+
+        private static void AssertConfirmTypographyTarget(
+            TMP_Text target,
+            GameplayUiTypographyTheme theme,
+            string localeCode,
+            TypographyStyleTag expectedTag,
+            FontStyles expectedFontStyle,
+            float expectedFontSize,
+            float expectedMinSize,
+            float expectedMaxSize)
+        {
+            var binding = TypographyBinding.FindFor(target);
+            Assert.That(binding, Is.Not.Null, target.name);
+            Assert.That(binding.StyleTag, Is.EqualTo(expectedTag), target.name);
+            Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid), target.name);
+            Assert.That(binding.UseApplyMaskOverride, Is.False, target.name);
+
+            var style = theme.ResolveOrThrow(localeCode, expectedTag);
+            Assert.That(target.font, Is.SameAs(style.FontAsset), $"{target.name} font {localeCode}");
+            Assert.That(
+                target.fontSharedMaterial,
+                Is.SameAs(style.MaterialPreset),
+                $"{target.name} material {localeCode}");
+            Assert.That(target.fontStyle, Is.EqualTo(expectedFontStyle), $"{target.name} style {localeCode}");
+            Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
+            Assert.That(target.fontSize, Is.EqualTo(expectedFontSize), $"{target.name} size {localeCode}");
+            Assert.That(target.enableAutoSizing, Is.True, $"{target.name} auto sizing {localeCode}");
+            Assert.That(target.fontSizeMin, Is.EqualTo(expectedMinSize), $"{target.name} min size {localeCode}");
+            Assert.That(target.fontSizeMax, Is.EqualTo(expectedMaxSize), $"{target.name} max size {localeCode}");
+
+            if (string.Equals(localeCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal))
+            {
+                Assert.That(target.font, Is.SameAs(LoadNanumGothic()), $"{target.name} ko-KR Nanum identity");
+            }
+        }
+
         private static TMP_Text GetText(object target, string fieldName)
         {
             return GetField<TMP_Text>(target, fieldName);
@@ -1095,6 +1264,11 @@ namespace Game.Feature.UI.Tests
             public void CloseConfirm()
             {
                 _popupController.CloseTop(PopupCloseReason.UserAction, PopupCompletionKind.Cancelled);
+            }
+
+            public void OpenConfirm(ConfirmPopupPayload payload)
+            {
+                _popupController.Push(new PopupRequest(PopupId.Confirm, payload), out _);
             }
 
             public void Dispose()

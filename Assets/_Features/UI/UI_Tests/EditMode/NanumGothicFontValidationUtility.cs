@@ -55,6 +55,19 @@ namespace Game.Feature.UI.Tests
             "종료",
         };
 
+        public static readonly string[] ConfirmPopupKoreanLabels =
+        {
+            "입력 설정 초기화",
+            "입력 설정 초기화 확인",
+            "초기화",
+            "취소",
+            "화면 설정 미리 보기 확인",
+            "{0} x {1} 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+            "{0} x {1} 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+            "유지",
+            "되돌리기",
+        };
+
         public static readonly string[] RequiredKoreanStringTablePaths =
         {
             UiKoreanStringTablePath,

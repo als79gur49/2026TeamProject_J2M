@@ -150,6 +150,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfirmPopupProductionTypography_IsCompositionOwnedAndLifetimeDisposed()
+        {
+            var popupFactorySource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+            var presenterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Application/Runtime/PopupPresenters.cs");
+
+            Assert.That(popupFactorySource, Does.Contain("ConfirmPopupProductionLocalizationComposer.Bind("));
+            Assert.That(popupFactorySource, Does.Contain("typographyBindings.Dispose();"));
+            Assert.That(popupFactorySource, Does.Contain("_typographyTheme"));
+            Assert.That(popupFactorySource, Does.Not.Contain("TypographyPreview"));
+            Assert.That(presenterSource, Does.Not.Contain("GameplayUiTypographyTheme"));
+            Assert.That(presenterSource, Does.Not.Contain("TypographyBinding"));
+        }
+
+        [Test]
         public void PresenterOrchestrationTypes_RemainOwnedByApplicationAssembly()
         {
             var applicationAssembly = typeof(HUDRootPresenter).Assembly;

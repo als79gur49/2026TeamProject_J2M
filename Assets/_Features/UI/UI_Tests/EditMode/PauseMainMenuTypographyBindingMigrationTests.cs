@@ -56,6 +56,53 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfirmPopupPrefab_HasFourSemanticTypographyBindingsWithAuthoredLayout()
+        {
+            var prefab = LoadConfirmPrefab();
+            var required = GetConfirmRequiredBindings(prefab);
+
+            Assert.That(prefab.GetComponentsInChildren<TypographyBinding>(true), Has.Length.EqualTo(4));
+            AssertRequiredBindings(required);
+            AssertConfirmTarget(required[0].Text, "Title", 1859700045196034169, Vector2.zero);
+            AssertConfirmTarget(required[1].Text, "Body", 786007152345686790, Vector2.zero);
+            AssertConfirmTarget(required[2].Text, "Buttons/ConfirmButton/Label", 5809623355355838332, Vector2.zero);
+            AssertConfirmTarget(required[3].Text, "Buttons/CancelButton/Label", 5096854244621539299, Vector2.zero);
+        }
+
+        [Test]
+        public void ConfirmPopupProductionTypography_RoundTripsIdentityAndDisposesLocaleBinding()
+        {
+            var theme = LoadTheme();
+            var resolver = new FakeLocalizedTextResolver();
+            var root = UnityEngine.Object.Instantiate(LoadConfirmPrefab().gameObject);
+            var view = root.GetComponent<ConfirmPopupView>();
+            var targets = GetConfirmRequiredBindings(view);
+            var authoredStates = targets.ToDictionary(target => target.Text, target => new ConfirmTypographyState(target.Text));
+            IDisposable typographyScope = null;
+
+            try
+            {
+                typographyScope = ConfirmPopupProductionLocalizationComposer.Bind(view, resolver, theme);
+
+                AssertConfirmTypography(targets, authoredStates, theme, "en-US");
+                resolver.SetLocale("ko-KR");
+                AssertConfirmTypography(targets, authoredStates, theme, "ko-KR");
+                resolver.SetLocale("en-US");
+                AssertConfirmTypography(targets, authoredStates, theme, "en-US");
+
+                typographyScope.Dispose();
+                typographyScope = null;
+                resolver.SetLocale("ko-KR");
+                AssertConfirmTypography(targets, authoredStates, theme, "en-US");
+            }
+            finally
+            {
+                typographyScope?.Dispose();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void PausePrefab_DescriptionTextIsVisibleSurface()
         {
             var prefab = LoadPausePrefab();
@@ -359,6 +406,12 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.PausePopupPrefabPath);
         }
 
+        private static ConfirmPopupView LoadConfirmPrefab()
+        {
+            return UiTestPrefabAssetUtility.LoadPopupPrefab<ConfirmPopupView>(
+                UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
+        }
+
         private static MainMenuScreenView LoadMainMenuPrefab()
         {
             return UiTestPrefabAssetUtility.LoadScreenPrefab<MainMenuScreenView>(
@@ -383,6 +436,18 @@ namespace Game.Feature.UI.Tests
                 ("Settings button", GetField<TMP_Text>(prefab, "_settingsButtonLabel"), TypographyStyleTag.Button),
                 ("Retry button", GetField<TMP_Text>(prefab, "_retryButtonLabel"), TypographyStyleTag.Button),
                 ("Main Menu button", GetField<TMP_Text>(prefab, "_mainMenuButtonLabel"), TypographyStyleTag.Button),
+            };
+        }
+
+        private static IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> GetConfirmRequiredBindings(
+            ConfirmPopupView prefab)
+        {
+            return new[]
+            {
+                ("Confirm title", GetField<TMP_Text>(prefab, "_titleLabel"), TypographyStyleTag.HeaderLarge),
+                ("Confirm body", GetField<TMP_Text>(prefab, "_bodyLabel"), TypographyStyleTag.PopupBody),
+                ("Confirm action", GetField<TMP_Text>(prefab, "_confirmButtonLabel"), TypographyStyleTag.PopupAction),
+                ("Cancel action", GetField<TMP_Text>(prefab, "_cancelButtonLabel"), TypographyStyleTag.PopupAction),
             };
         }
 
@@ -462,6 +527,60 @@ namespace Game.Feature.UI.Tests
                 Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid), name);
                 Assert.That(binding.UseApplyMaskOverride, Is.False, name);
             }
+        }
+
+        private static void AssertConfirmTarget(
+            TMP_Text target,
+            string expectedPath,
+            long expectedLocalId,
+            Vector2 expectedSizeDelta)
+        {
+            Assert.That(GetRelativePath(target.transform), Is.EqualTo(expectedPath));
+            Assert.That(
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(target, out _, out long actualLocalId),
+                Is.True,
+                expectedPath);
+            Assert.That(actualLocalId, Is.EqualTo(expectedLocalId), $"{expectedPath} TMP component fileID");
+            Assert.That(target.rectTransform.sizeDelta, Is.EqualTo(expectedSizeDelta), $"{expectedPath} Rect");
+        }
+
+        private static void AssertConfirmTypography(
+            IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> targets,
+            IReadOnlyDictionary<TMP_Text, ConfirmTypographyState> authoredStates,
+            GameplayUiTypographyTheme theme,
+            string localeCode)
+        {
+            foreach (var target in targets)
+            {
+                var style = theme.ResolveOrThrow(localeCode, target.ExpectedTag);
+                var context = $"{target.Name} {localeCode}";
+
+                AssertSameAssetIdentity(style.FontAsset, target.Text.font, $"{context} font");
+                AssertSameAssetIdentity(style.MaterialPreset, target.Text.fontSharedMaterial, $"{context} material");
+                Assert.That(target.Text.fontStyle, Is.EqualTo(style.FontStyle), $"{context} style");
+                Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
+                authoredStates[target.Text].AssertSizing(target.Text, context);
+
+                if (string.Equals(localeCode, "ko-KR", StringComparison.Ordinal))
+                {
+                    AssertAssetIdentity(
+                        target.Text.font,
+                        "4662feb1d501d1f479b757a82e304069",
+                        11400000,
+                        $"{context} Nanum font");
+                }
+            }
+        }
+
+        private static string GetRelativePath(Transform target)
+        {
+            var segments = new Stack<string>();
+            for (var current = target; current != null && current.parent != null; current = current.parent)
+            {
+                segments.Push(current.name);
+            }
+
+            return string.Join("/", segments);
         }
 
         private static void AssertPauseTypographyIdentity(
@@ -607,6 +726,33 @@ namespace Game.Feature.UI.Tests
                 EnableAutoSizing = enableAutoSizing;
                 FontSizeMin = fontSizeMin;
                 FontSizeMax = fontSizeMax;
+            }
+        }
+
+        private readonly struct ConfirmTypographyState
+        {
+            private readonly float fontSize;
+            private readonly bool enableAutoSizing;
+            private readonly float fontSizeMin;
+            private readonly float fontSizeMax;
+            private readonly Vector2 sizeDelta;
+
+            public ConfirmTypographyState(TMP_Text target)
+            {
+                fontSize = target.fontSize;
+                enableAutoSizing = target.enableAutoSizing;
+                fontSizeMin = target.fontSizeMin;
+                fontSizeMax = target.fontSizeMax;
+                sizeDelta = target.rectTransform.sizeDelta;
+            }
+
+            public void AssertSizing(TMP_Text target, string context)
+            {
+                Assert.That(target.fontSize, Is.EqualTo(fontSize), $"{context} fontSize");
+                Assert.That(target.enableAutoSizing, Is.EqualTo(enableAutoSizing), $"{context} auto sizing");
+                Assert.That(target.fontSizeMin, Is.EqualTo(fontSizeMin), $"{context} fontSizeMin");
+                Assert.That(target.fontSizeMax, Is.EqualTo(fontSizeMax), $"{context} fontSizeMax");
+                Assert.That(target.rectTransform.sizeDelta, Is.EqualTo(sizeDelta), $"{context} Rect");
             }
         }
 

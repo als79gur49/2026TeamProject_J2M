@@ -198,6 +198,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void TypographyBindingValidator_ValidatesConfirmPopupPrefab()
+        {
+            AssertPrefabHasNoValidationErrors(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
+        }
+
+        [Test]
         public void TypographyBindingValidator_ValidatesMainMenuPrefab()
         {
             AssertPrefabHasNoValidationErrors(UiTestPrefabAssetUtility.MainMenuScreenPrefabPath);

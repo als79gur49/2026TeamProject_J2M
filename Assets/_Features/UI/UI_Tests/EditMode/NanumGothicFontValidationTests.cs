@@ -145,12 +145,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void NanumGothicSdfAsset_CoversConfirmPopupKoreanCopiesWithoutFallback()
+        {
+            var fontAsset = LoadFontAsset();
+            var missing = NanumGothicFontValidationUtility.GetMissingCharacters(
+                fontAsset,
+                NanumGothicFontValidationUtility.ConfirmPopupKoreanLabels);
+
+            Assert.That(
+                missing,
+                Is.Empty,
+                NanumGothicFontValidationUtility.FormatCharacters(missing));
+            Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
+        }
+
+        [Test]
         public void NanumGothicGenerationCharacterSet_ComesFromProductionKoreanStringTables()
         {
             var requiredCharacters = NanumGothicFontValidationUtility.BuildValidationCharacterSet();
 
             foreach (var label in NanumGothicFontValidationUtility.PauseKoreanLabels
-                         .Concat(NanumGothicFontValidationUtility.MainMenuKoreanLabels))
+                         .Concat(NanumGothicFontValidationUtility.MainMenuKoreanLabels)
+                         .Concat(NanumGothicFontValidationUtility.ConfirmPopupKoreanLabels))
             {
                 foreach (var character in label.Where(character => !char.IsControl(character)))
                 {
