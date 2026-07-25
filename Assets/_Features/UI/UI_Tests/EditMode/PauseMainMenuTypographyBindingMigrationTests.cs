@@ -239,12 +239,104 @@ namespace Game.Feature.UI.Tests
 
                 resolver.SetLocale("ko-KR");
 
-                Assert.That(title.text, Is.EqualTo("일시정지"));
+                Assert.That(title.text, Is.EqualTo("일시 정지"));
                 Assert.That(title.font, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.HeaderMedium).FontAsset));
                 Assert.That(title.fontSharedMaterial, Is.SameAs(theme.ResolveOrThrow("ko-KR", TypographyStyleTag.HeaderMedium).MaterialPreset));
                 Assert.That(title.fontSize, Is.EqualTo(originalFontSize));
                 Assert.That(title.enableAutoSizing, Is.EqualTo(originalAutoSizing));
                 Assert.That(title.fontSharedMaterial, Is.Not.SameAs(originalMaterial));
+            }
+            finally
+            {
+                localizationScope?.Dispose();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PauseTitleLayout_PreservesVisualCenterAndKeepsLocalizedTitlesOnOneLine()
+        {
+            var theme = LoadTheme();
+            var resolver = new FakeLocalizedTextResolver();
+            var root = UnityEngine.Object.Instantiate(LoadPausePrefab().gameObject);
+            var view = root.GetComponent<PausePopupView>();
+            var title = GetField<TMP_Text>(view, "_titleLabel");
+            var description = GetField<TMP_Text>(view, "_descriptionLabel");
+            var binding = TypographyBinding.FindFor(title);
+            var authoredFontSize = title.fontSize;
+            var authoredAutoSizing = title.enableAutoSizing;
+            var authoredFontSizeMin = title.fontSizeMin;
+            var authoredFontSizeMax = title.fontSizeMax;
+            TMP_FontAsset englishFont = null;
+            Material englishMaterial = null;
+            var englishStyle = FontStyles.Normal;
+            IDisposable localizationScope = null;
+
+            try
+            {
+                Assert.That(binding, Is.Not.Null);
+                Assert.That(binding.StyleTag, Is.EqualTo(TypographyStyleTag.HeaderMedium));
+                Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid));
+                Assert.That(title.rectTransform.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(title.rectTransform.anchorMax, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(title.rectTransform.pivot, Is.EqualTo(new Vector2(0f, 1f)));
+                Assert.That(title.rectTransform.sizeDelta, Is.EqualTo(new Vector2(160f, 40f)));
+                Assert.That(title.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(120f, -20f)));
+                Assert.That(
+                    title.rectTransform.anchoredPosition.x +
+                    title.rectTransform.sizeDelta.x * (0.5f - title.rectTransform.pivot.x),
+                    Is.EqualTo(200f).Within(0.01f),
+                    "Pause title visual center");
+
+                localizationScope = PausePopupProductionLocalizationComposer.Bind(
+                    view,
+                    PausePopupPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    theme);
+                view.IsVisible = true;
+                englishFont = title.font;
+                englishMaterial = title.fontSharedMaterial;
+                englishStyle = title.fontStyle;
+
+                AssertPauseTitleLayout(
+                    title,
+                    description,
+                    "Pause",
+                    authoredFontSize,
+                    authoredAutoSizing,
+                    authoredFontSizeMin,
+                    authoredFontSizeMax,
+                    "en-US");
+
+                resolver.SetLocale("ko-KR");
+
+                AssertPauseTitleLayout(
+                    title,
+                    description,
+                    "일시 정지",
+                    authoredFontSize,
+                    authoredAutoSizing,
+                    authoredFontSizeMin,
+                    authoredFontSizeMax,
+                    "ko-KR");
+                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
+                Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
+
+                resolver.SetLocale("en-US");
+
+                AssertPauseTitleLayout(
+                    title,
+                    description,
+                    "Pause",
+                    authoredFontSize,
+                    authoredAutoSizing,
+                    authoredFontSizeMin,
+                    authoredFontSizeMax,
+                    "restored en-US");
+                Assert.That(title.font, Is.SameAs(englishFont));
+                Assert.That(title.fontSharedMaterial, Is.SameAs(englishMaterial));
+                Assert.That(title.fontStyle, Is.EqualTo(englishStyle));
             }
             finally
             {
@@ -635,6 +727,48 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static void AssertPauseTitleLayout(
+            TMP_Text title,
+            TMP_Text description,
+            string expectedText,
+            float expectedFontSize,
+            bool expectedAutoSizing,
+            float expectedFontSizeMin,
+            float expectedFontSizeMax,
+            string stage)
+        {
+            Canvas.ForceUpdateCanvases();
+            title.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            var singleLinePreferred = title.GetPreferredValues(title.text, Mathf.Infinity, Mathf.Infinity);
+            var constrainedPreferred =
+                title.GetPreferredValues(title.text, title.rectTransform.rect.width, Mathf.Infinity);
+
+            Assert.That(title.text, Is.EqualTo(expectedText), stage);
+            Assert.That(
+                singleLinePreferred.x,
+                Is.LessThanOrEqualTo(title.rectTransform.rect.width + 0.01f),
+                $"{stage} single-line width");
+            Assert.That(
+                constrainedPreferred.y,
+                Is.LessThanOrEqualTo(singleLinePreferred.y + 0.01f),
+                $"{stage} line count");
+            Assert.That(
+                constrainedPreferred.y,
+                Is.LessThanOrEqualTo(title.rectTransform.rect.height + 0.01f),
+                $"{stage} vertical fit");
+            Assert.That(title.isTextOverflowing, Is.False, $"{stage} overflow");
+            Assert.That(title.fontSize, Is.EqualTo(expectedFontSize), $"{stage} fontSize");
+            Assert.That(title.enableAutoSizing, Is.EqualTo(expectedAutoSizing), $"{stage} Auto Size");
+            Assert.That(title.fontSizeMin, Is.EqualTo(expectedFontSizeMin), $"{stage} min");
+            Assert.That(title.fontSizeMax, Is.EqualTo(expectedFontSizeMax), $"{stage} max");
+
+            var root = (RectTransform)title.transform.parent;
+            var titleBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(root, title.rectTransform);
+            var descriptionBounds =
+                RectTransformUtility.CalculateRelativeRectTransformBounds(root, description.rectTransform);
+            Assert.That(titleBounds.Intersects(descriptionBounds), Is.False, $"{stage} title/description overlap");
+        }
+
         private static void AssertSameAssetIdentity(
             UnityEngine.Object production,
             UnityEngine.Object capture,
@@ -774,7 +908,7 @@ namespace Game.Feature.UI.Tests
                     },
                     ["ko-KR"] = new Dictionary<string, string>
                     {
-                        ["ui.pause.title"] = "일시정지",
+                        ["ui.pause.title"] = "일시 정지",
                         ["ui.pause.description"] = "게임 일시정지",
                         ["ui.pause.resume"] = "계속",
                         ["ui.common.settings"] = "설정",
