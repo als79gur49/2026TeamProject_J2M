@@ -1,0 +1,274 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: UI_ko-KR
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: ko-KR
+  m_SharedData: {fileID: 11400000, guid: 1139bb803b655c2488dd6dca46c97cf5, type: 2}
+  m_Metadata:
+    m_Items:
+    - rid: 5336917459874873345
+  m_TableData:
+  - m_Id: 1818714112
+    m_Localized: "\uC124\uC815"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434368
+    m_Localized: "\uC624\uB514\uC624"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434369
+    m_Localized: "\uB514\uC2A4\uD50C\uB808\uC774"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434370
+    m_Localized: "\uC785\uB825"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628672
+    m_Localized: "\uC774\uB3D9 \uD0A4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628673
+    m_Localized: "\uD654\uC0B4\uD45C \uD0A4 \uC0AC\uC6A9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628674
+    m_Localized: "\uBC00\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628675
+    m_Localized: "\uB4A4\uC9D1\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628676
+    m_Localized: "\uBCC0\uACBD"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628677
+    m_Localized: "\uC785\uB825 \uCD08\uAE30\uD654"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628678
+    m_Localized: "\uB4A4\uB85C"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628679
+    m_Localized: "\uC5B8\uC5B4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628680
+    m_Localized: "\uC601\uC5B4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628681
+    m_Localized: "\uD55C\uAD6D\uC5B4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628682
+    m_Localized: "\uC124\uC815"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628688
+    m_Localized: "\uC2DC\uC791"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628689
+    m_Localized: "\uC885\uB8CC"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628683
+    m_Localized: "\uC77C\uC2DC \uC815\uC9C0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628684
+    m_Localized: "\uC77C\uC2DC \uC815\uC9C0 \uD31D\uC5C5"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628685
+    m_Localized: "\uACC4\uC18D\uD558\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628686
+    m_Localized: "\uB2E4\uC2DC \uC2DC\uB3C4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628687
+    m_Localized: "\uBA54\uC778 \uBA54\uB274"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195054972928
+    m_Localized: '{0}%'
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 283195096915968
+    m_Localized: "{0}% (\uC74C\uC18C\uAC70)"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 283195138859008
+    m_Localized: '{0}'
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 283195180802048
+    m_Localized: "{0}\uCD08 \uD6C4 \uB418\uB3CC\uB9BC"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 283195222745088
+    m_Localized: "\uD0A4 \uBCC0\uACBD \uCDE8\uC18C\uB428"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195264688128
+    m_Localized: "\uC785\uB825 \uC124\uC815\uC774 \uCD08\uAE30\uD654\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195306631168
+    m_Localized: "\uC774 \uD0A4\uB294 \uC608\uC57D\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195348574208
+    m_Localized: "\uC774 \uD0A4\uB294 \uC774\uB3D9 \uD0A4\uC640 \uCDA9\uB3CC\uD569\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195390517248
+    m_Localized: "\uD0A4 \uBCC0\uACBD\uC774 \uC774\uBBF8 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587484864512
+    m_Localized: "\uB9C8\uC2A4\uD130"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499328
+    m_Localized: "\uBC30\uACBD \uC74C\uC545"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499329
+    m_Localized: "\uD6A8\uACFC\uC74C"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499330
+    m_Localized: "\uC74C\uC18C\uAC70"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499331
+    m_Localized: "\uD604\uC7AC \uB514\uC2A4\uD50C\uB808\uC774"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499332
+    m_Localized: "\uD574\uC0C1\uB3C4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499333
+    m_Localized: "\uC790\uB3D9\uC73C\uB85C \uAC10\uC9C0\uB41C \uD574\uC0C1\uB3C4\uB9CC
+      \uD45C\uC2DC\uB429\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499334
+    m_Localized: "\uC804\uCCB4 \uD654\uBA74 \uCC3D"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499335
+    m_Localized: "\uCF1C\uC9D0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499336
+    m_Localized: "\uC801\uC6A9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499337
+    m_Localized: "\uB418\uB3CC\uB9AC\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693632
+    m_Localized: "\uBBF8\uB9AC \uBCF4\uAE30 \uC911\uC785\uB2C8\uB2E4. \uD604\uC7AC
+      \uD654\uBA74 \uC124\uC815\uC740 \uC784\uC2DC \uC0C1\uD0DC\uC774\uBA70 \uC800\uC7A5\uB418\uC9C0
+      \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uC720\uC9C0\uD558\uB824\uBA74 \uD655\uC778\uD558\uC138\uC694.
+      \uADF8\uB807\uC9C0 \uC54A\uC73C\uBA74 {0}\uCD08 \uD6C4 \uB418\uB3CC\uC544\uAC11\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693633
+    m_Localized: "\uBBF8\uB9AC \uBCF4\uAE30\uAC00 \uC774\uC804\uC5D0 \uC800\uC7A5\uB41C
+      \uD654\uBA74 \uC124\uC815\uC73C\uB85C \uB418\uB3CC\uC544\uAC14\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693634
+    m_Localized: "\uD654\uBA74 \uC124\uC815\uC774 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693635
+    m_Localized: "\uD604\uC7AC \uD654\uBA74\uC774 \uC800\uC7A5\uB41C \uC124\uC815\uACFC
+      \uB2E4\uB985\uB2C8\uB2E4. \uB2E4\uC2DC \uC801\uC6A9\uD558\uAE30 \uC804\uAE4C\uC9C0
+      \uC800\uC7A5\uB41C \uC124\uC815\uC740 \uBCC0\uACBD\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693636
+    m_Localized: "\uBC00\uAE30 \uD0A4 \uC785\uB825\uD558\uC138\uC694..."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693637
+    m_Localized: "\uB4A4\uC9D1\uAE30 \uD0A4 \uC785\uB825\uD558\uC138\uC694..."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693638
+    m_Localized: "입력 설정 초기화"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693639
+    m_Localized: "입력 설정 초기화 확인"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693640
+    m_Localized: "초기화"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693641
+    m_Localized: "취소"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693642
+    m_Localized: "화면 설정 미리 보기 확인"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693643
+    m_Localized: "{0} x {1} 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다."
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693644
+    m_Localized: "{0} x {1} 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다."
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693645
+    m_Localized: "유지"
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds:
+    - rid: 5336917459874873345
+      type: {class: SmartFormatTag, ns: UnityEngine.Localization.Metadata, asm: Unity.Localization}
+      data:
+        m_Entries:
+        m_SharedEntries:
+        - id: 283195054972928
+        - id: 283195096915968
+        - id: 283195138859008
+        - id: 283195180802048
+        - id: 4971587610693632
+        - id: 4971587610693643
+        - id: 4971587610693644

@@ -1,0 +1,19 @@
+{
+  "name": "Game.Feature.UI.Composition.Editor",
+  "rootNamespace": "Game.Feature.UI.Composition.Editor",
+  "references": [
+    "Game.Feature.UI.Composition",
+    "Game.Feature.UI.Screens",
+    "Game.Feature.UI.Popups",
+    "Game.Feature.UI.ViewShared",
+    "Unity.TextMeshPro",
+    "Unity.Localization",
+    "Unity.Localization.Editor",
+    "Unity.ResourceManager",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

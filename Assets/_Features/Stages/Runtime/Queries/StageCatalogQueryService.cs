@@ -7,14 +7,14 @@ namespace Game.Feature.Stages
     {
         public StageLaunchCatalogItem(
             StageId stageId,
-            string displayName,
+            string displayNameKey,
             string worldId,
             string chapterId,
             int sortOrder,
             bool isInitiallyAvailable)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
             WorldId = worldId ?? string.Empty;
             ChapterId = chapterId ?? string.Empty;
             SortOrder = sortOrder;
@@ -23,7 +23,7 @@ namespace Game.Feature.Stages
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
         public string WorldId { get; }
 
@@ -85,13 +85,20 @@ namespace Game.Feature.Stages
 
             return new StageLaunchCatalogItem(
                 entry != null ? entry.StageId : StageId.None,
-                presentation != null && !string.IsNullOrWhiteSpace(presentation.DisplayName)
-                    ? presentation.DisplayName
-                    : entry != null ? entry.StageId.Value : string.Empty,
+                ResolveDisplayNameKey(entry, presentation),
                 entry != null ? entry.CatalogWorldId : string.Empty,
                 entry != null ? entry.CatalogChapterId : string.Empty,
                 entry != null ? entry.CatalogSortOrder : 0,
                 entry == null || entry.IsInitiallyAvailable);
+        }
+
+        private static string ResolveDisplayNameKey(
+            StageContentEntry entry,
+            StagePresentationDefinition presentation)
+        {
+            return entry != null
+                ? StageDisplayNameKeys.RequireForStage(entry.StageId, presentation != null ? presentation.DisplayNameKey : string.Empty)
+                : string.Empty;
         }
 
         private static int CompareItems(StageLaunchCatalogItem left, StageLaunchCatalogItem right)

@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: Stage Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: Stage
+  m_TableCollectionNameGuidString: c2c1ad1f8d6b4c289fe7d9ce7ec0e5ba
+  m_Entries:
+  - m_Id: 2881628672
+    m_Key: stage.stage-0-1.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628673
+    m_Key: stage.stage-0-2.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628674
+    m_Key: stage.stage-1-1.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628675
+    m_Key: stage.stage-2-1.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628676
+    m_Key: stage.stage-2-2.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628677
+    m_Key: stage.stage-3-1.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628678
+    m_Key: stage.stage-3-2.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628679
+    m_Key: stage.stage-4-1.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628680
+    m_Key: stage.stage-4-2.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628681
+    m_Key: stage.legacy-stage-5-1.display_name
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 5336917442174910488
+  references:
+    version: 2
+    RefIds:
+    - rid: 5336917442174910488
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1783354140089

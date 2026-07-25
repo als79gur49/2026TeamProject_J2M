@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -465,22 +466,28 @@ namespace Game.Feature.UI.Application
 
         public UIStageSlice(
             StageId stageId,
-            string displayName)
+            string displayNameKey)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
+            DisplayNameDescriptor = !string.IsNullOrWhiteSpace(DisplayNameKey)
+                ? StageDisplayNameTextDescriptors.Create(DisplayNameKey)
+                : default;
         }
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
-        public bool HasDisplayName => !string.IsNullOrWhiteSpace(DisplayName);
+        public LocalizedTextDescriptor DisplayNameDescriptor { get; }
+
+        public bool HasDisplayName => !string.IsNullOrWhiteSpace(DisplayNameKey);
 
         public bool Equals(UIStageSlice other)
         {
             return StageId.Equals(other.StageId) &&
-                   string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal);
+                   string.Equals(DisplayNameKey, other.DisplayNameKey, StringComparison.Ordinal) &&
+                   DisplayNameDescriptor.Equals(other.DisplayNameDescriptor);
         }
 
         public override bool Equals(object obj)
@@ -490,7 +497,7 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(StageId, DisplayName);
+            return HashCode.Combine(StageId, DisplayNameKey, DisplayNameDescriptor);
         }
     }
 

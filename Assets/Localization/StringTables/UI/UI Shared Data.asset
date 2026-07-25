@@ -1,0 +1,252 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: UI Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: UI
+  m_TableCollectionNameGuidString: 1139bb803b655c2488dd6dca46c97cf5
+  m_Entries:
+  - m_Id: 1818714112
+    m_Key: ui.settings.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434368
+    m_Key: ui.settings.audio
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434369
+    m_Key: ui.settings.display
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1877434370
+    m_Key: ui.settings.input
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628672
+    m_Key: ui.settings.input.movement_keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628673
+    m_Key: ui.settings.input.use_arrow_keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628674
+    m_Key: ui.settings.input.push
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628675
+    m_Key: ui.settings.input.flip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628676
+    m_Key: ui.settings.input.change
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628677
+    m_Key: ui.settings.input.reset_input
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628678
+    m_Key: ui.common.back
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628679
+    m_Key: ui.settings.language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628680
+    m_Key: ui.settings.language.english
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628681
+    m_Key: ui.settings.language.korean
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628682
+    m_Key: ui.common.settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628688
+    m_Key: ui.main_menu.start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628689
+    m_Key: ui.main_menu.quit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628683
+    m_Key: ui.pause.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628684
+    m_Key: ui.pause.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628685
+    m_Key: ui.pause.resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628686
+    m_Key: ui.pause.retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1881628687
+    m_Key: ui.pause.main_menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195054972928
+    m_Key: ui.settings.audio.volume_value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195096915968
+    m_Key: ui.settings.audio.volume_value_muted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195138859008
+    m_Key: ui.settings.display.resolution_value
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195180802048
+    m_Key: ui.settings.display.preview_countdown
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195222745088
+    m_Key: ui.settings.input.rebind_canceled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195264688128
+    m_Key: ui.settings.input.reset_complete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195306631168
+    m_Key: ui.settings.input.reserved_key
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195348574208
+    m_Key: ui.settings.input.movement_conflict
+    m_Metadata:
+      m_Items: []
+  - m_Id: 283195390517248
+    m_Key: ui.settings.input.already_rebinding
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587484864512
+    m_Key: ui.settings.audio.main
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499328
+    m_Key: ui.settings.audio.bgm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499329
+    m_Key: ui.settings.audio.sfx
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499330
+    m_Key: ui.settings.audio.mute
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499331
+    m_Key: ui.settings.display.current
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499332
+    m_Key: ui.settings.display.resolution
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499333
+    m_Key: ui.settings.display.resolution_hint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499334
+    m_Key: ui.settings.display.fullscreen_window
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499335
+    m_Key: ui.settings.display.fullscreen_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499336
+    m_Key: ui.settings.display.apply
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587606499337
+    m_Key: ui.settings.display.revert
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693632
+    m_Key: ui.settings.display.status.preview_active
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693633
+    m_Key: ui.settings.display.status.preview_reverted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693634
+    m_Key: ui.settings.display.status.saved
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693635
+    m_Key: ui.settings.display.status.external_drift
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693636
+    m_Key: ui.settings.input.rebind_push_prompt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693637
+    m_Key: ui.settings.input.rebind_flip_prompt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693638
+    m_Key: ui.settings.input.reset_confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693639
+    m_Key: ui.settings.input.reset_confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693640
+    m_Key: ui.settings.input.reset_confirm.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693641
+    m_Key: ui.common.cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693642
+    m_Key: ui.settings.display.preview_confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693643
+    m_Key: ui.settings.display.preview_confirm.fullscreen_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693644
+    m_Key: ui.settings.display.preview_confirm.windowed_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693645
+    m_Key: ui.settings.display.preview_confirm.keep
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 5336917442174910488
+  references:
+    version: 2
+    RefIds:
+    - rid: 5336917442174910488
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1783354140089

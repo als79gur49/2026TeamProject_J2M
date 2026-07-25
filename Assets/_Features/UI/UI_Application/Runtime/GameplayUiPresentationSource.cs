@@ -206,7 +206,7 @@ namespace Game.Feature.UI.Application
                 playerHud.RemainingChances,
                 playerHud.MaxChances,
                 stage.StageId,
-                stage.DisplayName,
+                stage.DisplayNameKey,
                 objective,
                 frame.HasValue ? frame.Value.Topology : null,
                 playerHud.ChanceAudioPolicy,

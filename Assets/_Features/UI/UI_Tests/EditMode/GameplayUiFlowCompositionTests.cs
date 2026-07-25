@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Stages;
@@ -6,6 +7,8 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
@@ -420,7 +423,9 @@ namespace Game.Feature.UI.Tests
                 new GameplaySessionReadModel(1, false, true, false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 new GameplayObjectiveReadModel(false, false, false, false),
-                new GameplayStageReadModel(StageId.CreateOrThrow("ui-audio-pause-test"), "UI Audio Pause Test"));
+                new GameplayStageReadModel(
+                    StageId.CreateOrThrow("ui-audio-pause-test"),
+                    "stage.ui-audio-pause-test.display_name"));
             return UiTestPortFactory.CreatePorts(queryFacade: queryFacade, pauseService: pauseService);
         }
 

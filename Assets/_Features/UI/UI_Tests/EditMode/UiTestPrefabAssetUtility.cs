@@ -5,6 +5,7 @@ using Game.Feature.UI.Popups;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,12 +16,14 @@ namespace Game.Feature.UI.Tests
     {
         internal const string HudPrefabPath = "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         internal const string ScreenCatalogPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreenPrefabCatalog.asset";
+        internal const string MainMenuScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab";
         internal const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         internal const string StageResultScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab";
         internal const string LevelFailedScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/LevelFailedScreen.prefab";
         internal const string GameClearScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         internal const string UiAudioCueMapAssetPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
+        internal const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         internal const string PausePopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         internal const string ConfirmPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab";
 
@@ -124,6 +127,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(cueMapProperty, Is.Not.Null);
             cueMapProperty.objectReferenceValue = LoadUiAudioCueMap();
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        internal static TMP_FontAsset LoadNanumGothicFont()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontAssetPath);
+            Assert.That(font, Is.Not.Null, NanumGothicFontAssetPath);
+            return font;
         }
 
         internal static void AssignCanonicalUiPrefabs(GameplayUiFlowInstaller installer)

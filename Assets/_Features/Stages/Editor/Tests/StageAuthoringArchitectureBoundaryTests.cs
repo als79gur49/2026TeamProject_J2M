@@ -1,15 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using NUnit.Framework;
+using UnityEditor.Compilation;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class StageAuthoringArchitectureBoundaryTests
     {
+        private const string UiSourceRoot = "Assets/_Features/UI/";
+        private const string UiTestSourceRoot = "Assets/_Features/UI/UI_Tests";
+        private const string StageCompletionMapperPath =
+            "Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs";
+        private const string ForbiddenStageRuntimeBuildResultToken = "StageRuntimeBuildResult";
+        private const string ForbiddenStageEditorNamespace = "Game.Feature.Stages.Editor";
+        private static readonly Regex ForbiddenStageEditorNamespacePattern = new Regex(
+            @"(?<![A-Za-z0-9_])Game\s*\.\s*Feature\s*\.\s*Stages\s*\.\s*Editor(?![A-Za-z0-9_])",
+            RegexOptions.CultureInvariant);
+
         [Test]
         public void RuntimeAssembly_DoesNotReferenceUnityEditor()
         {
@@ -47,8 +60,75 @@ namespace Game.Feature.Stages.Editor.Tests
         public void RuntimeAssembly_DoesNotReferenceStageEditorAuthoringNamespace()
         {
             var referenced = typeof(StageDefinition).Assembly.GetReferencedAssemblies();
-            Assert.That(referenced.Any(assembly => assembly.Name == "Game.Feature.Stages.Editor"), Is.False);
-            Assert.That(RuntimeSourceContains("Game.Feature.Stages.Editor"), Is.False);
+            Assert.That(
+                referenced.Any(assembly => assembly.Name == ForbiddenStageEditorNamespace),
+                Is.False,
+                "The runtime Player assembly must not reference the Stage editor assembly.");
+
+            var sourceViolation = FindRuntimeStageEditorDependency();
+            Assert.That(
+                sourceViolation,
+                Is.Null,
+                $"Runtime source must not reference the editor namespace '{ForbiddenStageEditorNamespace}'. " +
+                $"Violation: {sourceViolation}");
+        }
+
+        [Test]
+        public void StageEditorDependencyScan_IgnoresFriendAssemblyDeclaration()
+        {
+            const string source =
+                "[assembly: InternalsVisibleTo(\n" +
+                "    \"Game.Feature.Stages.Editor.Tests\")]";
+
+            Assert.That(ContainsStageEditorDependency(source), Is.False);
+        }
+
+        [Test]
+        public void StageEditorDependencyScan_IgnoresStringAndCharacterLiterals()
+        {
+            const string source =
+                "const string Normal = \"Game.Feature.Stages.Editor\";\n" +
+                "const string Verbatim = @\"Game.Feature.Stages.Editor.Authoring\";\n" +
+                "const string Interpolated = $\"Game.Feature.Stages.Editor.{suffix}\";\n" +
+                "const char Quote = '\\'';";
+
+            Assert.That(ContainsStageEditorDependency(source), Is.False);
+        }
+
+        [Test]
+        public void StageEditorDependencyScan_IgnoresLineAndBlockComments()
+        {
+            const string source =
+                "// Game.Feature.Stages.Editor.Authoring must stay isolated.\n" +
+                "/* Game.Feature.Stages.Editor.StageAuthor also stays isolated. */";
+
+            Assert.That(ContainsStageEditorDependency(source), Is.False);
+        }
+
+        [Test]
+        public void StageEditorDependencyScan_DetectsUsingDirective()
+        {
+            const string source = "using Game.Feature.Stages.Editor.Authoring;";
+
+            Assert.That(ContainsStageEditorDependency(source), Is.True);
+        }
+
+        [Test]
+        public void StageEditorDependencyScan_DetectsFullyQualifiedTypeReference()
+        {
+            const string source =
+                "Game.Feature.Stages.Editor.Authoring.StageAuthor value;";
+
+            Assert.That(ContainsStageEditorDependency(source), Is.True);
+        }
+
+        [Test]
+        public void StageEditorDependencyScan_DetectsReferenceInsideInterpolatedExpression()
+        {
+            const string source =
+                "var message = $\"{Game.Feature.Stages.Editor.Authoring.StageAuthor.Name}\";";
+
+            Assert.That(ContainsStageEditorDependency(source), Is.True);
         }
 
         [Test]
@@ -333,19 +413,62 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void StageResultUi_DoesNotDependOnStageRuntimeBuildResult()
         {
-            var uiSources = Directory.GetFiles("Assets/_Features/UI", "*.cs", SearchOption.AllDirectories);
-            var mapperSource =
-                File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs");
+            var uiSources = FindProductionUiSourceFiles();
+            var mapperSource = File.ReadAllText(StageCompletionMapperPath);
 
             Assert.That(mapperSource, Does.Contain("MinimalStageCompletionReadModel"));
             foreach (var sourcePath in uiSources)
             {
                 var source = File.ReadAllText(sourcePath);
                 Assert.That(
-                    source.Contains("StageRuntimeBuildResult", StringComparison.Ordinal),
+                    ContainsForbiddenStageRuntimeBuildResult(source),
                     Is.False,
                     $"UI must consume stage result read models, not StageRuntimeBuildResult: {sourcePath}");
             }
+
+            TestContext.WriteLine($"Production UI source files scanned: {uiSources.Count}");
+        }
+
+        [Test]
+        public void StageResultUi_ProductionScan_IncludesPlayerSourceAndExcludesTestAssemblies()
+        {
+            var productionUiSources = FindProductionUiSourceFiles();
+            var uiTestSources = Directory
+                .GetFiles(UiTestSourceRoot, "*.cs", SearchOption.AllDirectories)
+                .Select(NormalizeProjectRelativePath)
+                .ToArray();
+            var testSourcesContainingForbiddenToken = uiTestSources
+                .Where(path => ContainsForbiddenStageRuntimeBuildResult(File.ReadAllText(path)))
+                .ToArray();
+
+            Assert.That(productionUiSources, Does.Contain(StageCompletionMapperPath));
+            Assert.That(uiTestSources, Is.Not.Empty);
+            Assert.That(
+                productionUiSources.Intersect(uiTestSources, StringComparer.OrdinalIgnoreCase),
+                Is.Empty,
+                "Player UI production scan must exclude every UI test assembly source.");
+            Assert.That(
+                testSourcesContainingForbiddenToken,
+                Is.Not.Empty,
+                "The regression fixture must retain a test-only forbidden-token source.");
+
+            TestContext.WriteLine($"Production UI source files scanned: {productionUiSources.Count}");
+            TestContext.WriteLine($"UI test source files excluded: {uiTestSources.Length}");
+            TestContext.WriteLine(
+                $"Excluded UI test sources containing the forbidden token: {testSourcesContainingForbiddenToken.Length}");
+        }
+
+        [Test]
+        public void StageResultUi_ForbiddenDependencyDetection_RemainsStrict()
+        {
+            Assert.That(
+                ContainsForbiddenStageRuntimeBuildResult(
+                    $"internal sealed class InvalidUiDependency {{ private {ForbiddenStageRuntimeBuildResultToken} value; }}"),
+                Is.True);
+            Assert.That(
+                ContainsForbiddenStageRuntimeBuildResult(
+                    "internal sealed class ValidUiDependency { private MinimalStageCompletionReadModel value; }"),
+                Is.False);
         }
 
         [Test]
@@ -648,11 +771,292 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(commandSource, Does.Not.Contain("3x3"));
         }
 
-        private static bool RuntimeSourceContains(string text)
+        private static string FindRuntimeStageEditorDependency()
         {
-            return Directory
-                .GetFiles("Assets/_Features/Stages/Runtime", "*.cs", SearchOption.AllDirectories)
-                .Any(path => File.ReadAllText(path).Contains(text, StringComparison.Ordinal));
+            foreach (var sourcePath in Directory
+                         .GetFiles("Assets/_Features/Stages/Runtime", "*.cs", SearchOption.AllDirectories)
+                         .OrderBy(path => path, StringComparer.Ordinal))
+            {
+                var source = File.ReadAllText(sourcePath);
+                var normalizedSource = NormalizeCSharpForDependencyScan(source);
+                var match = ForbiddenStageEditorNamespacePattern.Match(normalizedSource);
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                var lineNumber = 1;
+                for (var index = 0; index < match.Index; index++)
+                {
+                    if (normalizedSource[index] == '\n')
+                    {
+                        lineNumber++;
+                    }
+                }
+
+                return $"{NormalizeProjectRelativePath(sourcePath)}:{lineNumber}";
+            }
+
+            return null;
+        }
+
+        private static bool ContainsStageEditorDependency(string source)
+        {
+            return ForbiddenStageEditorNamespacePattern.IsMatch(
+                NormalizeCSharpForDependencyScan(source ?? string.Empty));
+        }
+
+        private static string NormalizeCSharpForDependencyScan(string source)
+        {
+            var normalized = new char[source.Length];
+            for (var index = 0; index < source.Length; index++)
+            {
+                normalized[index] = source[index] == '\r' || source[index] == '\n'
+                    ? source[index]
+                    : ' ';
+            }
+
+            var sourceIndex = 0;
+            CopyCodeForDependencyScan(source, normalized, ref sourceIndex, false);
+            return new string(normalized);
+        }
+
+        private static void CopyCodeForDependencyScan(
+            string source,
+            char[] normalized,
+            ref int index,
+            bool stopAtInterpolationEnd)
+        {
+            var nestedBraceDepth = 0;
+            while (index < source.Length)
+            {
+                if (stopAtInterpolationEnd && source[index] == '}' && nestedBraceDepth == 0)
+                {
+                    return;
+                }
+
+                if (StartsWith(source, index, "//"))
+                {
+                    SkipLineComment(source, ref index);
+                    continue;
+                }
+
+                if (StartsWith(source, index, "/*"))
+                {
+                    SkipBlockComment(source, ref index);
+                    continue;
+                }
+
+                if (TrySkipInterpolatedString(source, normalized, ref index))
+                {
+                    continue;
+                }
+
+                if (StartsWith(source, index, "@\""))
+                {
+                    SkipVerbatimString(source, ref index);
+                    continue;
+                }
+
+                if (source[index] == '"')
+                {
+                    SkipQuotedLiteral(source, ref index, '"');
+                    continue;
+                }
+
+                if (source[index] == '\'')
+                {
+                    SkipQuotedLiteral(source, ref index, '\'');
+                    continue;
+                }
+
+                if (stopAtInterpolationEnd)
+                {
+                    if (source[index] == '{')
+                    {
+                        nestedBraceDepth++;
+                    }
+                    else if (source[index] == '}')
+                    {
+                        nestedBraceDepth--;
+                    }
+                }
+
+                normalized[index] = source[index];
+                index++;
+            }
+        }
+
+        private static bool TrySkipInterpolatedString(
+            string source,
+            char[] normalized,
+            ref int index)
+        {
+            var prefixLength = 0;
+            var verbatim = false;
+            if (StartsWith(source, index, "$@\"") || StartsWith(source, index, "@$\""))
+            {
+                prefixLength = 3;
+                verbatim = true;
+            }
+            else if (StartsWith(source, index, "$\""))
+            {
+                prefixLength = 2;
+            }
+
+            if (prefixLength == 0)
+            {
+                return false;
+            }
+
+            index += prefixLength;
+            while (index < source.Length)
+            {
+                if (verbatim && StartsWith(source, index, "\"\""))
+                {
+                    index += 2;
+                    continue;
+                }
+
+                if (!verbatim && source[index] == '\\')
+                {
+                    index = Math.Min(index + 2, source.Length);
+                    continue;
+                }
+
+                if (source[index] == '"')
+                {
+                    index++;
+                    return true;
+                }
+
+                if (StartsWith(source, index, "{{") || StartsWith(source, index, "}}"))
+                {
+                    index += 2;
+                    continue;
+                }
+
+                if (source[index] == '{')
+                {
+                    index++;
+                    CopyCodeForDependencyScan(source, normalized, ref index, true);
+                    if (index < source.Length && source[index] == '}')
+                    {
+                        index++;
+                    }
+
+                    continue;
+                }
+
+                index++;
+            }
+
+            return true;
+        }
+
+        private static void SkipLineComment(string source, ref int index)
+        {
+            index += 2;
+            while (index < source.Length && source[index] != '\r' && source[index] != '\n')
+            {
+                index++;
+            }
+        }
+
+        private static void SkipBlockComment(string source, ref int index)
+        {
+            index += 2;
+            while (index < source.Length && !StartsWith(source, index, "*/"))
+            {
+                index++;
+            }
+
+            index = Math.Min(index + 2, source.Length);
+        }
+
+        private static void SkipVerbatimString(string source, ref int index)
+        {
+            index += 2;
+            while (index < source.Length)
+            {
+                if (StartsWith(source, index, "\"\""))
+                {
+                    index += 2;
+                    continue;
+                }
+
+                if (source[index] == '"')
+                {
+                    index++;
+                    return;
+                }
+
+                index++;
+            }
+        }
+
+        private static void SkipQuotedLiteral(string source, ref int index, char quote)
+        {
+            index++;
+            while (index < source.Length)
+            {
+                if (source[index] == '\\')
+                {
+                    index = Math.Min(index + 2, source.Length);
+                    continue;
+                }
+
+                if (source[index] == quote)
+                {
+                    index++;
+                    return;
+                }
+
+                index++;
+            }
+        }
+
+        private static bool StartsWith(string source, int index, string value)
+        {
+            return index + value.Length <= source.Length &&
+                   string.CompareOrdinal(source, index, value, 0, value.Length) == 0;
+        }
+
+        private static IReadOnlyList<string> FindProductionUiSourceFiles()
+        {
+            return CompilationPipeline
+                .GetAssemblies(AssembliesType.Player)
+                .SelectMany(assembly => assembly.sourceFiles ?? Array.Empty<string>())
+                .Select(NormalizeProjectRelativePath)
+                .Where(path =>
+                    path.StartsWith(UiSourceRoot, StringComparison.OrdinalIgnoreCase) &&
+                    path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static string NormalizeProjectRelativePath(string sourcePath)
+        {
+            var normalizedPath = sourcePath.Replace('\\', '/');
+            if (!Path.IsPathRooted(sourcePath))
+            {
+                return normalizedPath.TrimStart('/');
+            }
+
+            var normalizedProjectRoot = Path
+                .GetFullPath(".")
+                .Replace('\\', '/')
+                .TrimEnd('/');
+            var projectRootPrefix = normalizedProjectRoot + "/";
+            return normalizedPath.StartsWith(projectRootPrefix, StringComparison.OrdinalIgnoreCase)
+                ? normalizedPath.Substring(projectRootPrefix.Length)
+                : normalizedPath;
+        }
+
+        private static bool ContainsForbiddenStageRuntimeBuildResult(string source)
+        {
+            return source.Contains(ForbiddenStageRuntimeBuildResultToken, StringComparison.Ordinal);
         }
 
         private static void AssertPublicNameIsGameplayOnly(

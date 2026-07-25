@@ -19,7 +19,10 @@ namespace Game.Feature.UI.Composition
             IUiAudioPort uiAudioPort,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
-            DisplayStatusTransientRelay displayStatusTransientRelay = null)
+            GameplayUiTypographyTheme typographyTheme,
+            DisplayStatusTransientRelay displayStatusTransientRelay = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null)
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
             Prefab = prefab ?? throw new ArgumentNullException(nameof(prefab));
@@ -30,6 +33,16 @@ namespace Game.Feature.UI.Composition
             DisplayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             DisplaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             DisplayStatusTransientRelay = displayStatusTransientRelay;
+            LocalizedTextResolver = localizedTextResolver
+                ?? throw new InvalidOperationException(
+                    "SettingsScreenRuntimeBuildContext requires an explicit production localized text resolver.");
+            LocalizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            TypographyTheme = typographyTheme
+                ?? throw new InvalidOperationException(
+                    "SettingsScreenRuntimeBuildContext requires the production Settings typography theme.");
+            LocaleSelectionPort = LocalizedTextResolver as IUiLocaleSelectionPort
+                ?? throw new InvalidOperationException(
+                    "Settings production localization resolver must also implement IUiLocaleSelectionPort.");
         }
 
         public Transform Parent { get; }
@@ -49,11 +62,26 @@ namespace Game.Feature.UI.Composition
         public DisplaySettingsLifecycleRelay DisplaySettingsLifecycleRelay { get; }
 
         public DisplayStatusTransientRelay DisplayStatusTransientRelay { get; }
+
+        public ILocalizedTextResolver LocalizedTextResolver { get; }
+
+        public ILocalizedTypographyResolver LocalizedTypographyResolver { get; }
+
+        public GameplayUiTypographyTheme TypographyTheme { get; }
+
+        public IUiLocaleSelectionPort LocaleSelectionPort { get; }
+    }
+
+    internal interface ISettingsScreenRuntime : IScreenRuntime, IUiNavigationTargetProvider
+    {
+        SettingsScreenView View { get; }
+
+        bool TryHandleBackRequested();
     }
 
     internal sealed class SettingsScreenRuntimeBuilder
     {
-        public IScreenRuntime Build(SettingsScreenRuntimeBuildContext context)
+        public ISettingsScreenRuntime Build(SettingsScreenRuntimeBuildContext context)
         {
             if (context == null)
             {
@@ -69,7 +97,9 @@ namespace Game.Feature.UI.Composition
             var presenter = new SettingsScreenPresenter(
                 context.AudioSettingsPort,
                 context.DisplaySettingsPort,
-                context.KeyboardBindingSettingsPort);
+                context.KeyboardBindingSettingsPort,
+                context.LocalizedTextResolver,
+                context.LocaleSelectionPort);
             view.Bind(presenter.ViewModel);
             view.AudioView.Bind(presenter.AudioPresenter.ViewModel);
             view.DisplayView.Bind(presenter.DisplayPresenter.ViewModel);
@@ -83,6 +113,9 @@ namespace Game.Feature.UI.Composition
                 context.DisplayPreviewSessionHost,
                 context.DisplaySettingsLifecycleRelay,
                 context.DisplayStatusTransientRelay ?? view.gameObject.AddComponent<DisplayStatusTransientRelay>(),
+                context.LocalizedTextResolver,
+                context.LocalizedTypographyResolver,
+                context.TypographyTheme,
                 () => DestroyObject(view.gameObject));
         }
 
@@ -127,7 +160,7 @@ namespace Game.Feature.UI.Composition
             UnityEngine.Object.DestroyImmediate(unityObject);
         }
 
-        private sealed class SettingsRuntime : IScreenRuntime, IUiNavigationTargetProvider
+        private sealed class SettingsRuntime : ISettingsScreenRuntime
         {
             private const double DisplayStatusTransientSeconds = 2d;
             private readonly Action _dispose;
@@ -137,6 +170,9 @@ namespace Game.Feature.UI.Composition
             private readonly SettingsInputView _inputView;
             private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
             private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
+            private readonly ILocalizedTextResolver _localizedTextResolver;
+            private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
+            private readonly GameplayUiTypographyTheme _typographyTheme;
             private readonly SettingsScreenPresenter _presenter;
             private readonly IUiAudioPort _uiAudioPort;
             private readonly SettingsScreenView _view;
@@ -149,6 +185,9 @@ namespace Game.Feature.UI.Composition
                 DisplayPreviewSessionHost displayPreviewSessionHost,
                 DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
                 DisplayStatusTransientRelay displayStatusTransientRelay,
+                ILocalizedTextResolver localizedTextResolver,
+                ILocalizedTypographyResolver localizedTypographyResolver,
+                GameplayUiTypographyTheme typographyTheme,
                 Action dispose)
             {
                 _view = view ?? throw new ArgumentNullException(nameof(view));
@@ -160,6 +199,9 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
                 _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
                 _displayStatusTransientRelay = displayStatusTransientRelay ?? throw new ArgumentNullException(nameof(displayStatusTransientRelay));
+                _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+                _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+                _typographyTheme = typographyTheme ?? throw new ArgumentNullException(nameof(typographyTheme));
                 _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
 
                 _audioView.VolumeChanged += HandleAudioVolumeChanged;
@@ -169,6 +211,7 @@ namespace Game.Feature.UI.Composition
                 _displayView.FullscreenToggled += HandleDisplayFullscreenToggled;
                 _displayView.ApplyRequested += HandleDisplayApplyRequested;
                 _displayView.RevertRequested += HandleDisplayRevertRequested;
+                _displayView.LanguageCycleRequested += HandleLanguageCycleRequested;
                 _inputView.MovementSchemeToggleRequested += HandleInputMovementSchemeToggleRequested;
                 _inputView.PushRebindRequested += HandleInputPushRebindRequested;
                 _inputView.FlipRebindRequested += HandleInputFlipRebindRequested;
@@ -182,10 +225,18 @@ namespace Game.Feature.UI.Composition
 
             public event Action<ScreenAction> ActionRequested;
 
+            public SettingsScreenView View => _view;
+
             public void ApplyPayload(IScreenPayload payload)
             {
                 ExpectPayload<SettingsScreenPayload>(payload);
-                _presenter.Apply((SettingsScreenPayload)payload, _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                var settingsPayload = (SettingsScreenPayload)payload;
+                _presenter.Apply(settingsPayload, _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                _view.BindStaticLocalization(
+                    settingsPayload,
+                    _localizedTextResolver,
+                    _localizedTypographyResolver,
+                    _typographyTheme);
             }
 
             public void Dispose()
@@ -202,6 +253,7 @@ namespace Game.Feature.UI.Composition
                 _displayView.FullscreenToggled -= HandleDisplayFullscreenToggled;
                 _displayView.ApplyRequested -= HandleDisplayApplyRequested;
                 _displayView.RevertRequested -= HandleDisplayRevertRequested;
+                _displayView.LanguageCycleRequested -= HandleLanguageCycleRequested;
                 _inputView.MovementSchemeToggleRequested -= HandleInputMovementSchemeToggleRequested;
                 _inputView.PushRebindRequested -= HandleInputPushRebindRequested;
                 _inputView.FlipRebindRequested -= HandleInputFlipRebindRequested;
@@ -211,11 +263,13 @@ namespace Game.Feature.UI.Composition
                 _view.BackRequested -= HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
                 _displayPreviewSessionHost.CountdownChanged -= HandleDisplayPreviewCountdownChanged;
+                _view.UnbindStaticLocalization();
                 _displayView.Bind(null);
                 _inputView.Bind(null);
                 _audioView.Bind(null);
                 _view.Bind(null);
                 _view.SetIsCurrent(false);
+                _presenter.Dispose();
                 _dispose();
             }
 
@@ -244,6 +298,17 @@ namespace Game.Feature.UI.Composition
             {
                 target = _view;
                 return target != null;
+            }
+
+            public bool TryHandleBackRequested()
+            {
+                if (!_isCurrent)
+                {
+                    return false;
+                }
+
+                HandleBackRequested();
+                return true;
             }
 
             private void HandleSectionSelected(SettingsSectionId sectionId)
@@ -287,10 +352,10 @@ namespace Game.Feature.UI.Composition
                 RaiseAction(ScreenAction.Popup(new PopupRequest(
                     PopupId.Confirm,
                     new ConfirmPopupPayload(
-                        "Reset Input Settings",
-                        "Reset input settings to defaults?",
-                        "Reset",
-                        "Cancel",
+                        SettingsStaticTextDescriptors.InputResetConfirmTitle,
+                        SettingsStaticTextDescriptors.InputResetConfirmBody,
+                        SettingsStaticTextDescriptors.InputResetConfirmLabel,
+                        SettingsStaticTextDescriptors.Cancel,
                         false),
                     completion =>
                     {
@@ -358,6 +423,16 @@ namespace Game.Feature.UI.Composition
                 CancelDisplayStatusAutoHide();
                 _presenter.DisplayPresenter.ResetStagedToCurrent();
                 PlayLocalCue(UiAudioCueId.Cancel);
+            }
+
+            private void HandleLanguageCycleRequested()
+            {
+                if (!_presenter.SelectNextLocale())
+                {
+                    return;
+                }
+
+                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleDisplayPreviewConfirmed()
@@ -430,26 +505,20 @@ namespace Game.Feature.UI.Composition
 
             private ConfirmPopupPayload BuildDisplayPreviewConfirmPayload()
             {
-                var displayViewModel = _presenter.DisplayPresenter.ViewModel;
-                var selectedIndex = Mathf.Clamp(
-                    displayViewModel.SelectedResolutionIndex,
-                    0,
-                    Mathf.Max(0, displayViewModel.ResolutionOptionTexts.Count - 1));
-                var resolutionLabel = displayViewModel.ResolutionOptionTexts.Count == 0
-                    ? displayViewModel.CurrentDisplayValueText
-                    : displayViewModel.ResolutionOptionTexts[selectedIndex];
-                var windowModeText = displayViewModel.IsFullscreenEnabled
-                    ? "Fullscreen Window"
-                    : "Windowed";
                 var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
                     _displayPreviewSessionHost.PreviewTimeoutSeconds,
                     _displayPreviewSessionHost.PreviewTimeoutSeconds);
+                var displayViewModel = _presenter.DisplayPresenter.ViewModel;
 
                 return new ConfirmPopupPayload(
-                    "Confirm Display Preview",
-                    $"Preview {resolutionLabel} in {windowModeText}. These changes are temporary and will revert in {visibleTimeoutSeconds} seconds unless you confirm.",
-                    "Keep",
-                    "Revert",
+                    SettingsStaticTextDescriptors.DisplayPreviewConfirmTitle,
+                    SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody(
+                        displayViewModel.SelectedResolutionWidth,
+                        displayViewModel.SelectedResolutionHeight,
+                        displayViewModel.IsFullscreenEnabled,
+                        visibleTimeoutSeconds),
+                    SettingsStaticTextDescriptors.DisplayPreviewConfirmKeep,
+                    SettingsStaticTextDescriptors.DisplayRevert,
                     false);
             }
 

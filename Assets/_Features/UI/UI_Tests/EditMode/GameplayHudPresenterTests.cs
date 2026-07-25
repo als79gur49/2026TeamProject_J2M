@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
@@ -6,6 +7,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 
 namespace Game.Feature.UI.Tests
@@ -17,7 +19,7 @@ namespace Game.Feature.UI.Tests
         {
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter();
+            var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
 
             using var rootPresenter = new HUDRootPresenter(
@@ -40,7 +42,7 @@ namespace Game.Feature.UI.Tests
         {
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter();
+            var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var rootPresenter = new HUDRootPresenter(
                 source,
@@ -62,7 +64,7 @@ namespace Game.Feature.UI.Tests
         {
             var source = new ManualGameplayUiPresentationSource();
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter();
+            var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
@@ -82,7 +84,7 @@ namespace Game.Feature.UI.Tests
                 activeActionKind: GameplayUiActionKind.Flip,
                 isRecoveryPhase: true,
                 lastOutcome: GameplayUiActionResolutionKind.Blocked,
-                stageDisplayName: "Stage 1-1"));
+                stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
@@ -535,7 +537,7 @@ namespace Game.Feature.UI.Tests
             GameplayUiActionKind notificationActionKind = GameplayUiActionKind.Flip,
             GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success,
             UIRecoveryCooldownSlice? recoveryCooldown = null,
-            string stageDisplayName = "",
+            string stageDisplayNameKey = "",
             UIObjectiveSlice? objective = null)
         {
             var acceptsGameplayCommands = canAcceptGameplayCommands ?? (!isPaused && !hasBlockingPresentation);
@@ -552,10 +554,10 @@ namespace Game.Feature.UI.Tests
                     hasBlockingGameplayPresentation: hasBlockingPresentation,
                     isUiGameplayInputBlocked: isUiBlocked),
                 new UIStageSlice(
-                    string.IsNullOrWhiteSpace(stageDisplayName)
+                    string.IsNullOrWhiteSpace(stageDisplayNameKey)
                         ? StageId.None
                         : StageId.CreateOrThrow("stage-1-1"),
-                    stageDisplayName),
+                    stageDisplayNameKey),
                 objective ?? UIObjectiveSlice.Empty,
                 new UIPlayerActionSlice(
                     playerEntityId: 10,
@@ -639,6 +641,25 @@ namespace Game.Feature.UI.Tests
                 required: true,
                 role,
                 sortOrder);
+        }
+
+        private sealed class StaticLocalizedTextResolver : ILocalizedTextResolver
+        {
+            private readonly string _resolvedText;
+
+            public StaticLocalizedTextResolver(string resolvedText)
+            {
+                _resolvedText = resolvedText ?? string.Empty;
+            }
+
+            public string CurrentLocaleCode => "en-US";
+
+            public event Action LocaleChanged;
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                return _resolvedText;
+            }
         }
     }
 }

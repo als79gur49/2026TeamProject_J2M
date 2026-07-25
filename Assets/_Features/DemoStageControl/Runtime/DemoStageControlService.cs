@@ -52,7 +52,7 @@ namespace Game.Feature.DemoStageControl
 
                 result.Add(new DemoStageControlStageItem(
                     sequenceEntry.StageId,
-                    ResolveDisplayName(entry, sequenceEntry),
+                    ResolveDisplayNameKey(entry, sequenceEntry),
                     sequenceEntry.StageId.Equals(currentStageId),
                     _campaignBridge.IsUnlocked(entry)));
             }
@@ -143,25 +143,20 @@ namespace Game.Feature.DemoStageControl
                 : _campaignBridge.CurrentStageId;
         }
 
-        private static string ResolveDisplayName(
+        private static string ResolveDisplayNameKey(
             StageContentEntry entry,
             CampaignStageSequenceEntry sequenceEntry)
         {
-            var presentationDisplayName = entry != null && entry.PresentationDefinition != null
-                ? entry.PresentationDefinition.DisplayName
+            var presentationDisplayNameKey = entry != null && entry.PresentationDefinition != null
+                ? entry.PresentationDefinition.DisplayNameKey
                 : string.Empty;
-            if (!string.IsNullOrWhiteSpace(presentationDisplayName))
+            if (!string.IsNullOrWhiteSpace(presentationDisplayNameKey))
             {
-                return presentationDisplayName;
-            }
-
-            if (sequenceEntry != null && !string.IsNullOrWhiteSpace(sequenceEntry.DisplayName))
-            {
-                return sequenceEntry.DisplayName;
+                return presentationDisplayNameKey;
             }
 
             return sequenceEntry != null && sequenceEntry.StageId.IsValid
-                ? sequenceEntry.StageId.Value
+                ? StageDisplayNameKeys.ForStage(sequenceEntry.StageId)
                 : string.Empty;
         }
 

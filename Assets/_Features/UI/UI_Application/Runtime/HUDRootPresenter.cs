@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -53,6 +54,7 @@ namespace Game.Feature.UI.Application
         public void Dispose()
         {
             _presentationSource.SnapshotChanged -= HandleSnapshotChanged;
+            _stageInfoPresenter.Dispose();
         }
 
         private void HandleSnapshotChanged(UIPresentationSnapshot snapshot)
@@ -82,13 +84,49 @@ namespace Game.Feature.UI.Application
         }
     }
 
-    public sealed class StageInfoPresenter
+    public sealed class StageInfoPresenter : IDisposable
     {
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private UIStageSlice _lastStage = UIStageSlice.Empty;
+
+        public StageInfoPresenter(ILocalizedTextResolver localizedTextResolver = null)
+        {
+            _localizedTextResolver = localizedTextResolver;
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
+            }
+        }
+
         public StageInfoViewModel ViewModel { get; } = new();
 
         public void Apply(UIStageSlice stage)
         {
-            ViewModel.SetStageName(stage.DisplayName);
+            _lastStage = stage;
+            ViewModel.SetStageName(ResolveStageName(stage));
+        }
+
+        public void Dispose()
+        {
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            }
+        }
+
+        private void HandleLocaleChanged()
+        {
+            ViewModel.SetStageName(ResolveStageName(_lastStage));
+        }
+
+        private string ResolveStageName(UIStageSlice stage)
+        {
+            if (_localizedTextResolver != null && !string.IsNullOrWhiteSpace(stage.DisplayNameKey))
+            {
+                return _localizedTextResolver.Resolve(stage.DisplayNameDescriptor);
+            }
+
+            return string.Empty;
         }
     }
 }

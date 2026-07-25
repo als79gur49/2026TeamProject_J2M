@@ -264,7 +264,7 @@ namespace Game.Feature.UI.Tests
             entry.AssignStageId(stageId);
 
             presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            SetPrivateField(presentationDefinition, "displayName", "UI Flow Clear");
+            SetPrivateField(presentationDefinition, "displayNameKey", StageDisplayNameKeys.ForStage(stageId));
 
             entry.AssignPresentationDefinition(presentationDefinition);
             return entry;

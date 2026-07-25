@@ -4,6 +4,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using System;
 using System.Linq;
@@ -30,7 +31,7 @@ namespace Game.Feature.UI.Tests
 
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
-                var stageInfoPresenter = new StageInfoPresenter();
+                var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
@@ -174,7 +175,7 @@ namespace Game.Feature.UI.Tests
                     hasRemainingChances: true,
                     remainingChances: 2,
                     maxChances: 3,
-                    stageDisplayName: "Stage 1-1"));
+                    stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
                 var topLeftStack = FindRequiredRect(hudView.transform, "HudTopLeftStack");
                 var topCenterStack = FindRequiredRect(hudView.transform, "HudTopCenterStack");
@@ -246,7 +247,7 @@ namespace Game.Feature.UI.Tests
                     hasRemainingChances: true,
                     remainingChances: 2,
                     maxChances: 3,
-                    stageDisplayName: "Stage 1-1"));
+                    stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
                 var hudRect = (RectTransform)hudView.transform;
                 hudRect.anchorMin = Vector2.zero;
@@ -311,7 +312,7 @@ namespace Game.Feature.UI.Tests
                     hasRemainingChances: true,
                     remainingChances: 3,
                     maxChances: 3,
-                    stageDisplayName: "Stage 1-1"));
+                    stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
                 var hudRect = (RectTransform)hudView.transform;
                 hudRect.anchorMin = Vector2.zero;
@@ -503,7 +504,7 @@ namespace Game.Feature.UI.Tests
 
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
-                var stageInfoPresenter = new StageInfoPresenter();
+                var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 var chancePanelPresenter = new ChancePanelPresenter();
                 var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
@@ -1886,7 +1887,7 @@ namespace Game.Feature.UI.Tests
 
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
-                var stageInfoPresenter = new StageInfoPresenter();
+                var stageInfoPresenter = new StageInfoPresenter(new StaticLocalizedTextResolver("Stage 1-1"));
                 var objectiveHudPresenter = new ObjectiveHudPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
@@ -1900,7 +1901,7 @@ namespace Game.Feature.UI.Tests
                     playerStatusPresenter.ViewModel);
 
                 controller.AttachView(hudView);
-                source.PublishSnapshot(CreateSnapshot(stageDisplayName: "Stage 1-1"));
+                source.PublishSnapshot(CreateSnapshot(stageDisplayNameKey: "stage.stage-1-1.display_name"));
 
                 var stageLabel = GetSerializedReference<TMP_Text>(hudView, "_stageNameLabel");
                 Assert.That(stageLabel, Is.Not.Null);
@@ -2198,7 +2199,7 @@ namespace Game.Feature.UI.Tests
             bool hasRemainingChances = false,
             int remainingChances = 0,
             int maxChances = 0,
-            string stageDisplayName = "")
+            string stageDisplayNameKey = "")
         {
             return new UIPresentationSnapshot(
                 new UITickSlice(
@@ -2212,10 +2213,10 @@ namespace Game.Feature.UI.Tests
                     hasBlockingGameplayPresentation: hasBlockingPresentation,
                     isUiGameplayInputBlocked: isUiBlocked),
                 new UIStageSlice(
-                    string.IsNullOrWhiteSpace(stageDisplayName)
+                    string.IsNullOrWhiteSpace(stageDisplayNameKey)
                         ? StageId.None
                         : StageId.CreateOrThrow("stage-1-1"),
-                    stageDisplayName),
+                    stageDisplayNameKey),
                 new UIPlayerActionSlice(
                     playerEntityId: 10,
                     currentHp: 3,
@@ -2452,6 +2453,25 @@ namespace Game.Feature.UI.Tests
             if (rootObject != null)
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        private sealed class StaticLocalizedTextResolver : ILocalizedTextResolver
+        {
+            private readonly string _resolvedText;
+
+            public StaticLocalizedTextResolver(string resolvedText)
+            {
+                _resolvedText = resolvedText ?? string.Empty;
+            }
+
+            public string CurrentLocaleCode => "en-US";
+
+            public event Action LocaleChanged;
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                return _resolvedText;
             }
         }
     }

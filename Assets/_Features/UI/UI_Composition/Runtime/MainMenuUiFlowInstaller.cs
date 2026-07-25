@@ -4,6 +4,7 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -23,8 +24,12 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a MainMenuScreenView prefab reference.";
         private const string MissingPopupPrefabCatalogMessage =
             "MainMenuUiFlowInstaller requires a PopupPrefabCatalog reference.";
+        private const string MissingScreenPrefabCatalogMessage =
+            "MainMenuUiFlowInstaller requires the production ScreenPrefabCatalog reference.";
         private const string MissingSettingsScreenPrefabMessage =
-            "MainMenuUiFlowInstaller requires a SettingsScreenView prefab reference.";
+            "MainMenuUiFlowInstaller ScreenPrefabCatalog requires a SettingsScreenView prefab reference.";
+        private const string MissingSettingsTypographyThemeMessage =
+            "MainMenuUiFlowInstaller ScreenPrefabCatalog requires the production Settings typography theme.";
         private const string MissingAudioInstallerMessage =
             "MainMenuUiFlowInstaller requires a same-root AudioRuntimeInstaller with audio runtime services.";
         private const string MissingDisplayInstallerMessage =
@@ -33,7 +38,7 @@ namespace Game.Feature.UI.Composition
             "MainMenuUiFlowInstaller requires a serialized UiAudioCueMap for MainMenu UI SFX.";
         [SerializeField] private MainMenuScreenView _mainMenuScreenView;
         [SerializeField] private MainMenuScreenView _mainMenuScreenPrefab;
-        [SerializeField] private SettingsScreenView _settingsScreenPrefab;
+        [SerializeField] private ScreenPrefabCatalog _screenPrefabCatalog;
         [SerializeField] private InputActionAsset _inputActions;
         [SerializeField] private PopupLayerView _popupLayerView;
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
@@ -53,6 +58,7 @@ namespace Game.Feature.UI.Composition
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private ILocalizedTextResolver _localizedTextResolver;
         private UiNavigationInputRouter _navigationInputRouter;
         private bool _wasKeyboardBindingRebinding;
         private MainMenuSettingsOverlayController _settingsOverlayController;
@@ -112,8 +118,15 @@ namespace Game.Feature.UI.Composition
             EnsureEventSystem();
             EnsureMainMenuScreenView();
             EnsurePopupLayerView();
+            _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             _mainMenuScreenView.ValidateAuthoredStructureOrThrow();
+            _mainMenuScreenView.BindStaticLocalization(
+                MainMenuStaticTextPayload.Default,
+                _localizedTextResolver,
+                DefaultLocalizedTypographyResolver.Instance,
+                null,
+                _popupPrefabCatalog.TypographyTheme);
             BuildPopupModule();
             BuildSettingsModule();
             BuildAudioFeedbackModule();
@@ -164,7 +177,10 @@ namespace Game.Feature.UI.Composition
 
         private void BuildPopupModule()
         {
-            PopupController = new PopupController(new GameplayPopupRuntimeFactory(_popupLayerView, _popupPrefabCatalog));
+            PopupController = new PopupController(new GameplayPopupRuntimeFactory(
+                _popupLayerView,
+                _popupPrefabCatalog,
+                localizedTextResolver: _localizedTextResolver));
             PopupController.StateChanged += SyncPopupLayer;
             _popupLayerView.BackdropClicked += HandlePopupBackdropClicked;
             _confirmPopupPort = new ConfirmPopupPortAdapter(PopupController);
@@ -172,9 +188,19 @@ namespace Game.Feature.UI.Composition
 
         private void BuildSettingsModule()
         {
-            if (_settingsScreenPrefab == null)
+            if (_screenPrefabCatalog == null)
+            {
+                throw new InvalidOperationException(MissingScreenPrefabCatalogMessage);
+            }
+
+            if (_screenPrefabCatalog.SettingsPrefab == null)
             {
                 throw new InvalidOperationException(MissingSettingsScreenPrefabMessage);
+            }
+
+            if (_screenPrefabCatalog.SettingsTypographyTheme == null)
+            {
+                throw new InvalidOperationException(MissingSettingsTypographyThemeMessage);
             }
 
             var audioSettingsPort = UiSettingsBridgeAssembly.CreateAudioSettingsPort(gameObject, MissingAudioInstallerMessage);
@@ -194,17 +220,19 @@ namespace Game.Feature.UI.Composition
                 transform,
                 _popupLayerView != null ? _popupLayerView.transform : null,
                 contentRoot => new MainMenuSettingsRuntime(
-                    _settingsScreenPrefab,
-                    contentRoot,
-                    audioSettingsPort,
-                    displaySettingsPort,
-                    _keyboardBindingSettingsPort,
-                    PopupController,
-                    displayPreviewSessionHost,
-                    _displaySettingsLifecycleRelay,
+                    new SettingsScreenRuntimeBuildContext(
+                        parent: contentRoot,
+                        prefab: _screenPrefabCatalog.SettingsPrefab,
+                        audioSettingsPort: audioSettingsPort,
+                        displaySettingsPort: displaySettingsPort,
+                        keyboardBindingSettingsPort: _keyboardBindingSettingsPort,
+                        uiAudioPort: uiAudioPort,
+                        displayPreviewSessionHost: displayPreviewSessionHost,
+                        displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
+                        typographyTheme: _screenPrefabCatalog.SettingsTypographyTheme,
+                        localizedTextResolver: _localizedTextResolver),
                     SettingsScreenPayload.Default,
-                    _settingsPreviewTimeoutSeconds,
-                    uiAudioPort: uiAudioPort));
+                    PopupController));
             _settingsPort = new MainMenuSettingsPortAdapter(_settingsOverlayController);
         }
 
@@ -368,6 +396,7 @@ namespace Game.Feature.UI.Composition
             _settingsOverlayController?.Dispose();
             _audioSettingsLifecycleRelay?.FlushNow();
             PopupController?.Dispose();
+            (_localizedTextResolver as IDisposable)?.Dispose();
         }
 
         private void HandleControllerViewModelChanged(SaveSlotPanelViewModel viewModel)

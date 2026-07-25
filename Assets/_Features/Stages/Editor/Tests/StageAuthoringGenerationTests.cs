@@ -516,11 +516,11 @@ namespace Game.Feature.Stages.Editor.Tests
 
             try
             {
-                SetPresentationString(fixture.Presentation, "displayName", "Original Display");
+                SetPresentationString(fixture.Presentation, "displayNameKey", "stage.original.display_name");
 
                 var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
                 Assert.That(report.HasErrors, Is.False, FormatIssues(report));
-                Assert.That(fixture.Presentation.DisplayName, Is.EqualTo("Original Display"));
+                Assert.That(fixture.Presentation.DisplayNameKey, Is.EqualTo("stage.original.display_name"));
                 Assert.That(fixture.Presentation.EnemyPresentationBindings.Length, Is.EqualTo(1));
             }
             finally

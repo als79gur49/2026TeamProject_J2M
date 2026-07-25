@@ -29,16 +29,18 @@ namespace Game.Feature.Gameplay.UIAccess.Models
     {
         public GameplayStageReadModel(
             StageId stageId,
-            string displayName)
+            string displayNameKey)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
         }
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
-        public bool IsAvailable => StageId.IsValid || !string.IsNullOrWhiteSpace(DisplayName);
+        public bool IsAvailable =>
+            StageId.IsValid ||
+            !string.IsNullOrWhiteSpace(DisplayNameKey);
     }
 }

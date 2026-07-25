@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Display;
 using UnityEngine;
@@ -8,6 +9,11 @@ namespace Game.Feature.UI.Composition
 {
     internal static class UiSettingsBridgeAssembly
     {
+        internal delegate bool TryCreateLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            out ILocalizedTextResolver resolver,
+            out string failureReason);
+
         internal static IAudioSettingsPort CreateAudioSettingsPort(
             GameObject owner,
             string missingAudioInstallerMessage)
@@ -67,6 +73,53 @@ namespace Game.Feature.UI.Composition
             return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
         }
 
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver()
+        {
+            return CreatePersistentSettingsLocalizedTextResolver(new PlayerPrefsUiLocalePreferenceStore());
+        }
+
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore)
+        {
+            return CreatePersistentSettingsLocalizedTextResolver(
+                localePreferenceStore,
+                TryCreateUnityStringTableTextResolver);
+        }
+
+        internal static ILocalizedTextResolver CreatePersistentSettingsLocalizedTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            TryCreateLocalizedTextResolver tryCreateResolver)
+        {
+            localePreferenceStore ??= new PlayerPrefsUiLocalePreferenceStore();
+            if (tryCreateResolver == null)
+            {
+                throw new ArgumentNullException(nameof(tryCreateResolver));
+            }
+
+            return tryCreateResolver(
+                    localePreferenceStore,
+                    out var resolver,
+                    out var failureReason)
+                ? resolver ?? throw new InvalidOperationException(
+                    "Unity Localization production setup returned a null UI text resolver.")
+                : throw new InvalidOperationException(
+                    "Unity Localization production setup is required for UI text resolution. " +
+                    $"Fix Localization Settings, required Locales, and UI/Stage String Tables. Detail: {failureReason}");
+        }
+
+        private static bool TryCreateUnityStringTableTextResolver(
+            IUiLocalePreferenceStore localePreferenceStore,
+            out ILocalizedTextResolver resolver,
+            out string failureReason)
+        {
+            var created = UnityStringTableTextResolver.TryCreateSettingsDefault(
+                localePreferenceStore,
+                out var unityResolver,
+                out failureReason);
+            resolver = unityResolver;
+            return created;
+        }
+
         internal static AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller(
             GameObject owner,
             string missingAudioInstallerMessage)
@@ -102,6 +155,38 @@ namespace Game.Feature.UI.Composition
 
             relay.Initialize(audioSettingsPort);
             return relay;
+        }
+    }
+
+    internal sealed class PlayerPrefsUiLocalePreferenceStore : IUiLocalePreferenceStore
+    {
+        internal const string DefaultKey = "ui.selected_locale";
+
+        private readonly string _key;
+
+        public PlayerPrefsUiLocalePreferenceStore(string key = DefaultKey)
+        {
+            _key = string.IsNullOrWhiteSpace(key)
+                ? throw new ArgumentException("Preference key must be non-empty.", nameof(key))
+                : key;
+        }
+
+        public bool TryLoad(out string localeCode)
+        {
+            localeCode = string.Empty;
+            if (!PlayerPrefs.HasKey(_key))
+            {
+                return false;
+            }
+
+            localeCode = PlayerPrefs.GetString(_key, string.Empty);
+            return !string.IsNullOrWhiteSpace(localeCode);
+        }
+
+        public void Save(string localeCode)
+        {
+            PlayerPrefs.SetString(_key, localeCode ?? string.Empty);
+            PlayerPrefs.Save();
         }
     }
 }

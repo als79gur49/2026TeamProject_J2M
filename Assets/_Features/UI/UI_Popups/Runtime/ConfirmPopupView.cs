@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DG.Tweening;
 using Game.Feature.UI.ViewShared;
 using TMPro;
@@ -67,6 +68,17 @@ namespace Game.Feature.UI.Popups
 
             ResetDefaultSelection();
             RefreshView();
+        }
+
+        public IReadOnlyList<TMP_Text> CreateTypographyTargets()
+        {
+            return new[]
+            {
+                _titleLabel,
+                _bodyLabel,
+                _confirmButtonLabel,
+                _cancelButtonLabel,
+            };
         }
 
         private void OnEnable()

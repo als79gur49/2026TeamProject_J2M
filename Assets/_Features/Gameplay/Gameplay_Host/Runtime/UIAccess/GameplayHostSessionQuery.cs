@@ -49,10 +49,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             var stageId = _stageContentEntry.StageId;
             var presentation = StagePresentationAssembler.Resolve(_stageContentEntry.PresentationDefinition);
-            var displayName = !string.IsNullOrWhiteSpace(presentation.DisplayName)
-                ? presentation.DisplayName
-                : (stageId.IsValid ? stageId.Value : string.Empty);
-            return new GameplayStageReadModel(stageId, displayName);
+            var displayNameKey = StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey);
+            return new GameplayStageReadModel(stageId, displayNameKey);
         }
     }
 }

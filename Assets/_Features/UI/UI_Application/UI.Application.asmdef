@@ -6,6 +6,7 @@
     "Game.Feature.Stages",
     "Game.Feature.UI.HUD",
     "Game.Feature.UI.Screens",
-    "Game.Feature.UI.Popups"
+    "Game.Feature.UI.Popups",
+    "Game.Feature.UI.ViewShared"
   ]
 }

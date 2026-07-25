@@ -150,6 +150,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfirmPopupProductionTypography_IsCompositionOwnedAndLifetimeDisposed()
+        {
+            var popupFactorySource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
+            var presenterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Application/Runtime/PopupPresenters.cs");
+
+            Assert.That(popupFactorySource, Does.Contain("ConfirmPopupProductionLocalizationComposer.Bind("));
+            Assert.That(popupFactorySource, Does.Contain("typographyBindings.Dispose();"));
+            Assert.That(popupFactorySource, Does.Contain("_typographyTheme"));
+            Assert.That(popupFactorySource, Does.Not.Contain("TypographyPreview"));
+            Assert.That(presenterSource, Does.Not.Contain("GameplayUiTypographyTheme"));
+            Assert.That(presenterSource, Does.Not.Contain("TypographyBinding"));
+        }
+
+        [Test]
         public void PresenterOrchestrationTypes_RemainOwnedByApplicationAssembly()
         {
             var applicationAssembly = typeof(HUDRootPresenter).Assembly;
@@ -936,6 +952,9 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload, Double)",
+                    "Dispose()",
+                    "RefreshLocalization()",
+                    "SelectNextLocale()",
                     "SelectSection(SettingsSectionId)",
                 }));
             Assert.That(
@@ -944,6 +963,8 @@ namespace Game.Feature.UI.Tests
                 {
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort)",
                     "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort, ILocalizedTextResolver)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort, ILocalizedTextResolver, IUiLocaleSelectionPort)",
                 }));
         }
 
@@ -1037,6 +1058,7 @@ namespace Game.Feature.UI.Tests
                 {
                     "Apply()",
                     "Flush()",
+                    "RefreshLocalization()",
                     "SetMuted(AudioSettingsChannel, Boolean)",
                     "SetVolume(AudioSettingsChannel, Single)",
                 }));
@@ -1050,13 +1072,16 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(Double)",
+                    "Apply(LocalizedTextDescriptor, LocalizedTextDescriptor, LocalizedTextDescriptor, Double)",
                     "ApplyStagedSettings(Double)",
                     "CancelPreview()",
                     "ClearPreviewCountdown()",
                     "ClearTransientDisplayStatus(Double)",
                     "ConfirmPreview()",
+                    "RefreshLocalization()",
                     "ResetStagedToCurrent()",
                     "ResyncState(Double)",
+                    "SelectNextLocale()",
                     "SetPreviewCountdown(DisplayPreviewCountdownSnapshot)",
                     "StageResolution(Int32)",
                     "StageWindowMode(DisplayWindowMode)",

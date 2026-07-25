@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.DemoStageControl.UI
 {
@@ -26,6 +27,14 @@ namespace Game.Feature.DemoStageControl.UI
 
     public sealed class DemoStageControlPanelViewModel
     {
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+
+        public DemoStageControlPanelViewModel(ILocalizedTextResolver localizedTextResolver)
+        {
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+        }
+
         public event Action Changed;
 
         public IReadOnlyList<DemoStageControlStageItem> Stages { get; private set; } =
@@ -93,6 +102,12 @@ namespace Game.Feature.DemoStageControl.UI
             Changed?.Invoke();
         }
 
+        public void RefreshLocale()
+        {
+            SelectedStageText = FormatSelectedStage(Stages, SelectedStageIndex);
+            Changed?.Invoke();
+        }
+
         private static int ResolveSelectedIndex(
             IReadOnlyList<DemoStageControlStageItem> stages,
             StageId preferredSelection,
@@ -123,7 +138,7 @@ namespace Game.Feature.DemoStageControl.UI
             return stageId.IsValid ? $"{label}: {stageId.Value}" : $"{label}: none";
         }
 
-        private static string FormatSelectedStage(IReadOnlyList<DemoStageControlStageItem> stages, int index)
+        private string FormatSelectedStage(IReadOnlyList<DemoStageControlStageItem> stages, int index)
         {
             if (stages == null || stages.Count == 0)
             {
@@ -132,8 +147,21 @@ namespace Game.Feature.DemoStageControl.UI
 
             var item = stages[Math.Max(0, Math.Min(index, stages.Count - 1))];
             var state = item.IsCurrent ? "current" : item.IsUnlocked ? "unlocked" : "locked";
-            var displayName = string.IsNullOrWhiteSpace(item.DisplayName) ? item.StageId.Value : item.DisplayName;
+            var displayName = ResolveDisplayName(item);
             return $"{index + 1}/{stages.Count}  {displayName} ({item.StageId.Value}, {state})";
+        }
+
+        private string ResolveDisplayName(DemoStageControlStageItem item)
+        {
+            if (!string.IsNullOrWhiteSpace(item.DisplayNameKey))
+            {
+                return _localizedTextResolver.Resolve(new LocalizedTextDescriptor(
+                    StageDisplayNameKeys.Table,
+                    item.DisplayNameKey,
+                    LocalizedTextRole.Label));
+            }
+
+            return item.StageId.IsValid ? item.StageId.Value : string.Empty;
         }
     }
 }

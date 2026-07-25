@@ -46,14 +46,14 @@ namespace Game.Feature.Stages
     {
         public MinimalStageCompletionReadModel(
             StageId stageId,
-            string displayName,
+            string displayNameKey,
             MinimalStageCompletionResult result,
             StageNavigationRequest continueRequest,
             StageNavigationRequest retryRequest,
             StageNavigationRequest nextStageRequest)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
             Result = result ?? throw new ArgumentNullException(nameof(result));
             ContinueRequest = continueRequest;
             RetryRequest = retryRequest;
@@ -62,7 +62,7 @@ namespace Game.Feature.Stages
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
         public MinimalStageCompletionResult Result { get; }
 
@@ -118,7 +118,9 @@ namespace Game.Feature.Stages
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                presentation.DisplayName,
+                entry != null
+                    ? StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey)
+                    : StageDisplayNameKeys.ForStage(stageId),
                 result,
                 continueRequest,
                 retryRequest,

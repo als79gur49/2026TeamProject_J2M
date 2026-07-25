@@ -3,6 +3,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using System;
 using System.Reflection;
@@ -35,6 +36,36 @@ namespace Game.Feature.UI.Tests
             Assert.That(builderSource, Does.Not.Contain("Game.Shared.Audio"));
             Assert.That(builderSource, Does.Not.Contain("AudioRuntimeInstaller"));
             Assert.That(builderSource, Does.Not.Contain("AudioManager"));
+        }
+
+        [Test]
+        public void SettingsScreenRuntimeBuilder_ConfirmationPayloadsContainNoUserFacingRawEnglish()
+        {
+            var builderSource = System.IO.File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
+            var forbiddenRawCopy = new[]
+            {
+                "\"Reset Input Settings\"",
+                "\"Reset input settings to defaults?\"",
+                "\"Reset\"",
+                "\"Cancel\"",
+                "\"Confirm Display Preview\"",
+                "\"Fullscreen Window\"",
+                "\"Windowed\"",
+                "\"Keep\"",
+                "\"Revert\"",
+                "\"Preview ",
+            };
+
+            foreach (var literal in forbiddenRawCopy)
+            {
+                Assert.That(builderSource, Does.Not.Contain(literal), literal);
+            }
+
+            Assert.That(builderSource, Does.Contain("SettingsStaticTextDescriptors.InputResetConfirmTitle"));
+            Assert.That(builderSource, Does.Contain("SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody("));
+            Assert.That(builderSource, Does.Contain("displayViewModel.SelectedResolutionWidth"));
+            Assert.That(builderSource, Does.Contain("displayViewModel.SelectedResolutionHeight"));
         }
 
         [Test]
@@ -162,7 +193,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(runtimeContext.PopupController.TopPopup.HasValue, Is.True);
                 var confirmPayload = runtimeContext.PopupController.TopPopup.Value.Payload as ConfirmPopupPayload;
                 Assert.That(confirmPayload, Is.Not.Null);
-                Assert.That(confirmPayload.BodyText, Does.Contain("revert in 21 seconds unless you confirm."));
+                var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+                Assert.That(
+                    resolver.Resolve(confirmPayload.BodyTextDescriptor),
+                    Is.EqualTo(
+                        "Preview 1280 x 720 in Fullscreen Window. These changes are temporary and will revert in 21 seconds unless you confirm."));
             }
             finally
             {
@@ -476,6 +511,36 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_FailsFast_WhenTypographyThemeIsMissing()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_MissingTypographyTheme");
+            var catalog = ScriptableObject.CreateInstance<ScreenPrefabCatalog>();
+            SetPrivateField(
+                catalog,
+                "_settingsPrefab",
+                UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(
+                    UiTestPrefabAssetUtility.SettingsScreenPrefabPath));
+
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                var factory = CreateFactory(runtimeContext, new FakeDisplaySettingsPort(), catalog);
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings")));
+
+                Assert.That(
+                    exception.Message,
+                    Does.Contain("requires the production Settings typography theme"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(catalog);
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static GameplayScreenRuntimeFactory CreateFactory(
             RuntimeContext runtimeContext,
             FakeDisplaySettingsPort displayPort,
@@ -494,7 +559,8 @@ namespace Game.Feature.UI.Tests
                 runtimeContext.PreviewSessionHost,
                 runtimeContext.LifecycleRelay,
                 screenCatalog ?? UiTestPrefabAssetUtility.LoadScreenCatalog(),
-                runtimeContext.TransientStatusRelay);
+                runtimeContext.TransientStatusRelay,
+                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault());
         }
 
         private static RuntimeContext CreateRuntimeContext(
@@ -528,7 +594,8 @@ namespace Game.Feature.UI.Tests
 
             var popupController = new PopupController(popupRuntimeFactory ?? new GameplayPopupRuntimeFactory(
                 popupLayerView,
-                UiTestPrefabAssetUtility.LoadPopupCatalog()));
+                UiTestPrefabAssetUtility.LoadPopupCatalog(),
+                localizedTextResolver: PackageFreeLocalizedTextResolver.CreateSettingsDefault()));
             var timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
             var transientStatusRelay = rootObject.AddComponent<DisplayStatusTransientRelay>();
             var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
@@ -541,6 +608,10 @@ namespace Game.Feature.UI.Tests
         {
             var catalog = ScriptableObject.CreateInstance<ScreenPrefabCatalog>();
             SetPrivateField(catalog, "_settingsPrefab", settingsPrefab);
+            SetPrivateField(
+                catalog,
+                "_settingsTypographyTheme",
+                UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme);
             return catalog;
         }
 

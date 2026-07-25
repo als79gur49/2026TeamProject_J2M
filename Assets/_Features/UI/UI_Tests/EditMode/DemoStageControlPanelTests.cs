@@ -4,6 +4,7 @@ using System.IO;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
 using Game.Feature.Stages;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
@@ -33,6 +34,7 @@ namespace Game.Feature.UI.Tests
                 commandPort,
                 commandPort,
                 CreatePayload(commandPort),
+                new StageNameResolver(),
                 () => { });
 
             FindButton(view.transform, "Start Selected Stage").onClick.Invoke();
@@ -51,6 +53,7 @@ namespace Game.Feature.UI.Tests
                 commandPort,
                 commandPort,
                 CreatePayload(commandPort),
+                new StageNameResolver(),
                 () => { });
 
             FindButton(view.transform, "Force Clear Current Stage").onClick.Invoke();
@@ -83,6 +86,7 @@ namespace Game.Feature.UI.Tests
                 commandPort,
                 commandPort,
                 CreatePayload(commandPort),
+                new StageNameResolver(),
                 () => { });
 
             Assert.That(CollectText(view.transform), Does.Contain("Player Invincible"));
@@ -100,6 +104,7 @@ namespace Game.Feature.UI.Tests
                 commandPort,
                 commandPort,
                 CreatePayload(commandPort),
+                new StageNameResolver(),
                 () => { });
 
             FindButton(view.transform, "Player Invincible").onClick.Invoke();
@@ -119,6 +124,7 @@ namespace Game.Feature.UI.Tests
                 commandPort,
                 null,
                 CreatePayload(commandPort),
+                new StageNameResolver(),
                 () => { });
             var observed = false;
             view.PlayerInvincibleToggled += enabled => observed = enabled;
@@ -140,10 +146,49 @@ namespace Game.Feature.UI.Tests
                 commandPort,
                 commandPort,
                 CreatePayload(commandPort),
+                new StageNameResolver(),
                 () => { });
 
             Assert.That(CollectText(view.transform), Does.Contain("Player Invincible: ON"));
             Assert.That(FindButton(view.transform, "Player Invincible").interactable, Is.True);
+        }
+
+        [Test]
+        public void DemoStageControlPanel_ResolvesStageDisplayNameAndRefreshesLocaleUntilDisposed()
+        {
+            var commandPort = new RecordingCommandPort();
+            var resolver = new StageNameResolver();
+            var view = CreateView();
+            var runtime = new DemoStageControlPanelRuntime(
+                view,
+                commandPort,
+                commandPort,
+                CreatePayload(commandPort),
+                resolver,
+                () => { });
+
+            try
+            {
+                Assert.That(
+                    CollectText(view.transform),
+                    Does.Contain("Stage Zero One (stage-0-1, current)"));
+                Assert.That(
+                    CollectText(view.transform),
+                    Does.Not.Contain("stage-0-1 (stage-0-1, current)"));
+                Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(1));
+
+                resolver.SetLocale("ko-KR");
+
+                Assert.That(
+                    CollectText(view.transform),
+                    Does.Contain("스테이지 영 일 (stage-0-1, current)"));
+            }
+            finally
+            {
+                runtime.Dispose();
+            }
+
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -207,6 +252,45 @@ namespace Game.Feature.UI.Tests
             return string.Join("\n", lines);
         }
 
+        private sealed class StageNameResolver : ILocalizedTextResolver
+        {
+            private Action _localeChanged;
+            private string _localeCode = "en-US";
+
+            public string CurrentLocaleCode => _localeCode;
+
+            public int LocaleChangedSubscriberCount { get; private set; }
+
+            public event Action LocaleChanged
+            {
+                add
+                {
+                    _localeChanged += value;
+                    LocaleChangedSubscriberCount++;
+                }
+                remove
+                {
+                    _localeChanged -= value;
+                    LocaleChangedSubscriberCount--;
+                }
+            }
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                Assert.That(descriptor.Table, Is.EqualTo(StageDisplayNameKeys.Table));
+                Assert.That(descriptor.Key, Is.EqualTo("stage.stage-0-1.display_name"));
+                return string.Equals(_localeCode, "ko-KR", StringComparison.Ordinal)
+                    ? "스테이지 영 일"
+                    : "Stage Zero One";
+            }
+
+            public void SetLocale(string localeCode)
+            {
+                _localeCode = localeCode;
+                _localeChanged?.Invoke();
+            }
+        }
+
         private sealed class RecordingCommandPort : IDemoStageControlCommandPort, IDemoGameplayOverrideCommandPort
         {
             public readonly StageId StageId = StageId.CreateOrThrow("stage-0-1");
@@ -227,7 +311,7 @@ namespace Game.Feature.UI.Tests
             {
                 return new[]
                 {
-                    new DemoStageControlStageItem(StageId, "Stage 0-1", true, true),
+                    new DemoStageControlStageItem(StageId, "stage.stage-0-1.display_name", true, true),
                 };
             }
 

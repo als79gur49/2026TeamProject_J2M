@@ -17,7 +17,7 @@ namespace Game.Feature.Stages
     public sealed class StagePresentationDefinition : StageCompanionDefinitionBase
     {
         [Header("Stage Identity / Scene")]
-        [SerializeField] private string displayName = string.Empty;
+        [SerializeField] private string displayNameKey = string.Empty;
         [SerializeField] private GameObject backgroundPrefab;
 
         [Header("Entity Presentation")]
@@ -42,7 +42,7 @@ namespace Game.Feature.Stages
         [SerializeField] private StageWorldGuideInstruction[] worldGuideInstructions =
             Array.Empty<StageWorldGuideInstruction>();
 
-        public string DisplayName => displayName ?? string.Empty;
+        public string DisplayNameKey => StageDisplayNameKeys.Normalize(displayNameKey);
 
         public GameObject BackgroundPrefab => backgroundPrefab;
 
@@ -80,7 +80,7 @@ namespace Game.Feature.Stages
         public void ApplyResolvedData(StagePresentationResolvedData value)
         {
             var resolvedData = value ?? StagePresentationAssembler.EmptyResolvedData;
-            displayName = resolvedData.DisplayName;
+            displayNameKey = resolvedData.DisplayNameKey;
             backgroundPrefab = resolvedData.BackgroundPrefab;
             enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
             enemyPresentationArchetypeCatalog = resolvedData.EnemyPresentationArchetypeCatalog;

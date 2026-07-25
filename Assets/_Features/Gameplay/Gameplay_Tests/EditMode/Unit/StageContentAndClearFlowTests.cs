@@ -162,11 +162,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var first = CreateEntry("stage-b");
             first.AssignCatalogMetadata("world-b", "chapter-b", 20, initiallyAvailable: false);
-            SetPrivateField(first.PresentationDefinition, "displayName", "Stage B");
+            SetPrivateField(
+                first.PresentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(first.StageId));
 
             var second = CreateEntry("stage-a");
             second.AssignCatalogMetadata("world-a", "chapter-a", 10, initiallyAvailable: true);
-            SetPrivateField(second.PresentationDefinition, "displayName", "Stage A");
+            SetPrivateField(
+                second.PresentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(second.StageId));
 
             var provider = CreateCatalogProvider(new[] { first, second }, aliasTable: null);
             var query = new StageCatalogQueryService(provider);
@@ -398,6 +404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
             var readModel = MinimalStageCompletionReadModelBuilder.Build(entry: null, clearResult);
             Assert.That(readModel.StageId, Is.EqualTo(stageId));
+            Assert.That(readModel.DisplayNameKey, Is.EqualTo(StageDisplayNameKeys.ForStage(stageId)));
             Assert.That(readModel.Result.WasCleared, Is.True);
             Assert.That(readModel.Result.FinalTickIndex, Is.EqualTo(7));
             Assert.That(readModel.Result.StageRunId.IsValid, Is.True);
@@ -405,6 +412,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readModel.ContinueRequest.IsValid, Is.True);
             Assert.That(readModel.RetryRequest.IsValid, Is.True);
             Assert.That(tracker.TryCreateClearResult(out _), Is.False);
+        }
+
+        [Test]
+        public void StageClear_CatalogEntryWithEmptyDisplayNameKey_Throws()
+        {
+            var entry = CreateEntry("strict-completion-stage");
+            var tracker = new StageSessionTracker();
+            tracker.Start(entry.StageId, startTickIndex: 0);
+            var tickResult = new TickResult(1, new[] { TickPhase.Plan, TickPhase.Resolve }, Array.Empty<string>());
+            tracker.Advance(tickResult, forcedTerminalReason: StageTerminalReason.Cleared);
+            Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
+
+            Assert.Throws<InvalidOperationException>(
+                () => MinimalStageCompletionReadModelBuilder.Build(entry, clearResult));
         }
 
         [Test]

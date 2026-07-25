@@ -1,5 +1,6 @@
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -167,6 +168,25 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void SettingsAudioView_MuteLabels_FitAuthoredToggleLabelWidth()
+        {
+            var settingsView = InstantiateSettingsScreenView();
+            try
+            {
+                settingsView.AudioView.gameObject.SetActive(true);
+                Canvas.ForceUpdateCanvases();
+
+                AssertMuteLabelFits(settingsView.AudioView, "MainAudioRow");
+                AssertMuteLabelFits(settingsView.AudioView, "BgmAudioRow");
+                AssertMuteLabelFits(settingsView.AudioView, "SfxAudioRow");
+            }
+            finally
+            {
+                Object.DestroyImmediate(settingsView.gameObject);
+            }
+        }
+
         private static SettingsScreenView InstantiateSettingsScreenView()
         {
             return Object.Instantiate(
@@ -217,6 +237,27 @@ namespace Game.Feature.UI.Tests
             var toggle = row.GetComponentInChildren<Toggle>(includeInactive: true);
             Assert.That(toggle, Is.Not.Null, $"{rowName} toggle");
             return toggle;
+        }
+
+        private static void AssertMuteLabelFits(SettingsAudioView audioView, string rowName)
+        {
+            var label = FindMuteLabel(audioView, rowName);
+            var rectTransform = label.rectTransform;
+            var preferredWidth = label.GetPreferredValues(label.text, Mathf.Infinity, rectTransform.rect.height).x;
+
+            Assert.That(label.text, Is.EqualTo("Mute"), rowName);
+            Assert.That(rectTransform.rect.width, Is.GreaterThanOrEqualTo(60f), rowName);
+            Assert.That(rectTransform.rect.width, Is.GreaterThanOrEqualTo(preferredWidth), rowName);
+        }
+
+        private static TMP_Text FindMuteLabel(SettingsAudioView audioView, string rowName)
+        {
+            var row = audioView.transform.Find(rowName);
+            Assert.That(row, Is.Not.Null, rowName);
+
+            var label = row.Find("MuteToggle/Label")?.GetComponent<TMP_Text>();
+            Assert.That(label, Is.Not.Null, $"{rowName} mute label");
+            return label;
         }
     }
 }

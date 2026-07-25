@@ -94,19 +94,19 @@ namespace Game.Feature.DemoStageControl
     {
         public DemoStageControlStageItem(
             StageId stageId,
-            string displayName,
+            string displayNameKey,
             bool isCurrent,
             bool isUnlocked)
         {
             StageId = stageId;
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
             IsCurrent = isCurrent;
             IsUnlocked = isUnlocked;
         }
 
         public StageId StageId { get; }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
         public bool IsCurrent { get; }
 

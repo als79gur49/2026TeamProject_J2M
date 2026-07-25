@@ -71,7 +71,7 @@ namespace Game.Feature.UI.Tests
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString()));
             Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-a")), Is.True);
             Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-b")), Is.True);
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, new SettingsScreenPayload("Updated", "Back"), "settings-a")), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-a")), Is.True);
 
             Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(controller.BackStackCount, Is.EqualTo(1));
@@ -142,7 +142,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(controller.Show(new ScreenRequest(
                 ScreenId.Settings,
-                new SettingsScreenPayload("Updated", "Back"),
+                SettingsScreenPayload.Default,
                 ScreenId.Settings.ToString())), Is.True);
             Assert.That(transitions, Has.Count.EqualTo(1));
 

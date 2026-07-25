@@ -1,16 +1,26 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
     public sealed class SettingsAudioPresenter
     {
         private readonly IAudioSettingsPort _audioSettingsPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
 
         public SettingsAudioPresenter(IAudioSettingsPort audioSettingsPort)
+            : this(audioSettingsPort, InvariantSettingsLocalizedTextResolver.Instance)
+        {
+        }
+
+        public SettingsAudioPresenter(
+            IAudioSettingsPort audioSettingsPort,
+            ILocalizedTextResolver localizedTextResolver)
         {
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
+            _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
         }
 
         public SettingsAudioViewModel ViewModel { get; } = new SettingsAudioViewModel();
@@ -38,22 +48,28 @@ namespace Game.Feature.UI.Application
             RefreshViewModel();
         }
 
+        public void RefreshLocalization()
+        {
+            RefreshViewModel();
+        }
+
         private void RefreshViewModel()
         {
             var snapshot = _audioSettingsPort.Read();
             ViewModel.SetContent(
-                BuildAudioRow(snapshot.Main),
-                BuildAudioRow(snapshot.Bgm),
-                BuildAudioRow(snapshot.Sfx));
+                BuildAudioRow(snapshot.Main, _localizedTextResolver),
+                BuildAudioRow(snapshot.Bgm, _localizedTextResolver),
+                BuildAudioRow(snapshot.Sfx, _localizedTextResolver));
         }
 
-        private static AudioSettingsRowViewModel BuildAudioRow(AudioSettingsPortChannelState state)
+        private static AudioSettingsRowViewModel BuildAudioRow(
+            AudioSettingsPortChannelState state,
+            ILocalizedTextResolver localizedTextResolver)
         {
             var normalizedVolume = Clamp01(state.Volume);
             var percent = (int)Math.Round(normalizedVolume * 100f, MidpointRounding.AwayFromZero);
-            var valueText = state.IsMuted
-                ? $"{percent}% (Muted)"
-                : $"{percent}%";
+            var valueText = localizedTextResolver.Resolve(
+                SettingsDynamicTextDescriptors.AudioVolumeValue(percent, state.IsMuted));
             return new AudioSettingsRowViewModel(valueText, normalizedVolume, state.IsMuted);
         }
 
@@ -129,14 +145,9 @@ namespace Game.Feature.UI.Application
 
     public sealed class SettingsDisplayPresenter
     {
-        private const string PreviewRevertedStatusText =
-            "Preview reverted to the previous saved display settings.";
-        private const string PreviewCommittedStatusText =
-            "Display settings saved.";
-        private const string ExternalDriftStatusText =
-            "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.";
-
         private readonly IDisplaySettingsPort _displaySettingsPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly IUiLocaleSelectionPort _localeSelectionPort;
         private DisplaySettingsPortSnapshot _displaySnapshot = new(
             Array.Empty<DisplaySettingsPortModeOption>(),
             0,
@@ -144,23 +155,79 @@ namespace Game.Feature.UI.Application
             string.Empty,
             DisplayWindowMode.Windowed,
             false);
+        private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
+        private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
+        private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
-        private string _displayStatusText = string.Empty;
+        private LocalizedTextDescriptor _displayStatusDescriptor;
         private bool _isDisplayStatusTransient;
         private DisplayPreviewCountdownSnapshot _previewCountdown = DisplayPreviewCountdownSnapshot.Inactive;
 
         public SettingsDisplayPresenter(IDisplaySettingsPort displaySettingsPort)
+            : this(
+                displaySettingsPort,
+                InvariantSettingsLocalizedTextResolver.Instance,
+                NoOpUiLocaleSelectionPort.Instance)
+        {
+        }
+
+        public SettingsDisplayPresenter(
+            IDisplaySettingsPort displaySettingsPort,
+            ILocalizedTextResolver localizedTextResolver,
+            IUiLocaleSelectionPort localeSelectionPort)
         {
             _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
+            _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+            _localeSelectionPort = localeSelectionPort ?? NoOpUiLocaleSelectionPort.Instance;
         }
 
         public SettingsDisplayViewModel ViewModel { get; } = new SettingsDisplayViewModel();
 
         public void Apply(double previewTimeoutSeconds)
         {
+            Apply(
+                SettingsStaticTextDescriptors.Language,
+                SettingsStaticTextDescriptors.LanguageEnglish,
+                SettingsStaticTextDescriptors.LanguageKorean,
+                previewTimeoutSeconds);
+        }
+
+        public void Apply(
+            LocalizedTextDescriptor languageLabelDescriptor,
+            LocalizedTextDescriptor englishLanguageLabelDescriptor,
+            LocalizedTextDescriptor koreanLanguageLabelDescriptor,
+            double previewTimeoutSeconds)
+        {
+            _languageLabelDescriptor = languageLabelDescriptor;
+            _englishLanguageLabelDescriptor = englishLanguageLabelDescriptor;
+            _koreanLanguageLabelDescriptor = koreanLanguageLabelDescriptor;
             ClearPreviewCountdown();
             ResyncState(resetStagedToCommitted: true, previewTimeoutSeconds: previewTimeoutSeconds);
+        }
+
+        public bool SelectNextLocale()
+        {
+            if (_localeSelectionPort.AvailableLocaleCodes.Count < 2)
+            {
+                return false;
+            }
+
+            var currentIndex = FindCurrentLocaleIndex();
+            var nextIndex = currentIndex < 0
+                ? 0
+                : (currentIndex + 1) % _localeSelectionPort.AvailableLocaleCodes.Count;
+            if (!_localeSelectionPort.TrySetLocale(_localeSelectionPort.AvailableLocaleCodes[nextIndex]))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public void RefreshLocalization()
+        {
+            RefreshViewModel();
         }
 
         public bool ApplyStagedSettings(double previewTimeoutSeconds)
@@ -180,7 +247,7 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: false,
                 previewTimeoutSeconds: previewTimeoutSeconds,
-                overrideStatusText: started ? BuildPreviewActiveStatusText(previewTimeoutSeconds) : null,
+                overrideStatusDescriptor: started ? BuildPreviewActiveStatusDescriptor(previewTimeoutSeconds) : default,
                 overrideStatusTransient: false);
             return started;
         }
@@ -192,7 +259,9 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: true,
                 previewTimeoutSeconds: 0d,
-                overrideStatusText: reverted ? PreviewRevertedStatusText : null,
+                overrideStatusDescriptor: reverted
+                    ? SettingsDynamicTextDescriptors.DisplayPreviewRevertedStatus()
+                    : default,
                 overrideStatusTransient: reverted);
             return reverted;
         }
@@ -204,7 +273,9 @@ namespace Game.Feature.UI.Application
             ResyncState(
                 resetStagedToCommitted: true,
                 previewTimeoutSeconds: 0d,
-                overrideStatusText: committed ? PreviewCommittedStatusText : null,
+                overrideStatusDescriptor: committed
+                    ? SettingsDynamicTextDescriptors.DisplaySavedStatus()
+                    : default,
                 overrideStatusTransient: committed);
             return committed;
         }
@@ -277,7 +348,7 @@ namespace Game.Feature.UI.Application
         private void ResyncState(
             bool resetStagedToCommitted,
             double previewTimeoutSeconds,
-            string overrideStatusText = null,
+            LocalizedTextDescriptor overrideStatusDescriptor = default,
             bool overrideStatusTransient = false)
         {
             _displaySnapshot = _displaySettingsPort.Read();
@@ -302,8 +373,10 @@ namespace Game.Feature.UI.Application
                 _stagedDisplayModeIndex = ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count);
             }
 
-            _displayStatusText = overrideStatusText ?? BuildDisplayStatusText(previewTimeoutSeconds);
-            _isDisplayStatusTransient = overrideStatusText != null && overrideStatusTransient;
+            _displayStatusDescriptor = HasDescriptor(overrideStatusDescriptor)
+                ? overrideStatusDescriptor
+                : BuildDisplayStatusDescriptor(previewTimeoutSeconds);
+            _isDisplayStatusTransient = HasDescriptor(overrideStatusDescriptor) && overrideStatusTransient;
             RefreshViewModel();
         }
 
@@ -314,42 +387,42 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            _displayStatusText = string.Empty;
+            _displayStatusDescriptor = default;
             _isDisplayStatusTransient = false;
         }
 
-        private static string BuildPreviewActiveStatusText(double previewTimeoutSeconds)
+        private static LocalizedTextDescriptor BuildPreviewActiveStatusDescriptor(double previewTimeoutSeconds)
         {
             var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
                 previewTimeoutSeconds,
                 previewTimeoutSeconds);
-            return $"Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {visibleTimeoutSeconds} seconds.";
+            return SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(visibleTimeoutSeconds);
         }
 
-        private string BuildDisplayStatusText(double previewTimeoutSeconds)
+        private LocalizedTextDescriptor BuildDisplayStatusDescriptor(double previewTimeoutSeconds)
         {
             if (_displaySnapshot.IsPreviewActive)
             {
-                return BuildPreviewActiveStatusText(previewTimeoutSeconds);
+                return BuildPreviewActiveStatusDescriptor(previewTimeoutSeconds);
             }
 
             if (_displaySnapshot.CurrentRuntimeWindowMode != _displaySnapshot.CommittedWindowMode)
             {
-                return ExternalDriftStatusText;
+                return SettingsDynamicTextDescriptors.DisplayExternalDriftStatus();
             }
 
             if (_displaySnapshot.AvailableModes.Count == 0)
             {
-                return string.Empty;
+                return default;
             }
 
             var committedIndex = ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count);
             if (_displaySnapshot.CurrentRuntimeResolutionLabel != _displaySnapshot.AvailableModes[committedIndex].LabelText)
             {
-                return ExternalDriftStatusText;
+                return SettingsDynamicTextDescriptors.DisplayExternalDriftStatus();
             }
 
-            return string.Empty;
+            return default;
         }
 
         private void RefreshViewModel()
@@ -365,26 +438,40 @@ namespace Game.Feature.UI.Application
                                             _previewCountdown.TotalSeconds > 0 &&
                                             _previewCountdown.RemainingSeconds > 0;
             var previewCountdownText = isPreviewCountdownVisible
-                ? $"Reverting in {_previewCountdown.RemainingSeconds}s"
+                ? Resolve(SettingsDynamicTextDescriptors.DisplayPreviewCountdown(_previewCountdown.RemainingSeconds))
                 : string.Empty;
             var previewCountdownNormalized = isPreviewCountdownVisible
                 ? Clamp01((float)_previewCountdown.RemainingSeconds / _previewCountdown.TotalSeconds)
                 : 0f;
+            var displayStatusText = HasDescriptor(_displayStatusDescriptor)
+                ? Resolve(_displayStatusDescriptor)
+                : string.Empty;
+            var hasSelectedMode = _displaySnapshot.AvailableModes.Count > 0;
+            var selectedMode = hasSelectedMode
+                ? _displaySnapshot.AvailableModes[
+                    ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count)]
+                : default;
 
             ViewModel.SetContent(
-                _displaySnapshot.CurrentRuntimeResolutionLabel,
+                Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue(
+                    _displaySnapshot.CurrentRuntimeResolutionLabel)),
                 resolutionOptions,
                 _stagedDisplayModeIndex,
                 _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
-                _displayStatusText,
+                displayStatusText,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 _displaySnapshot.IsPreviewActive,
                 previewCountdownText,
                 previewCountdownNormalized,
                 isPreviewCountdownVisible,
-                _displayStatusText.Length > 0,
-                _isDisplayStatusTransient);
+                displayStatusText.Length > 0,
+                _isDisplayStatusTransient,
+                Resolve(_languageLabelDescriptor),
+                Resolve(CurrentLanguageDescriptor),
+                _localeSelectionPort.AvailableLocaleCodes.Count > 1,
+                hasSelectedMode ? selectedMode.Width : 0,
+                hasSelectedMode ? selectedMode.Height : 0);
         }
 
         private bool IsDirty()
@@ -427,54 +514,93 @@ namespace Game.Feature.UI.Application
 
             return index;
         }
+
+        private LocalizedTextDescriptor CurrentLanguageDescriptor =>
+            string.Equals(_localeSelectionPort.CurrentLocaleCode, "ko-KR", StringComparison.Ordinal)
+                ? _koreanLanguageLabelDescriptor
+                : _englishLanguageLabelDescriptor;
+
+        private int FindCurrentLocaleIndex()
+        {
+            for (var i = 0; i < _localeSelectionPort.AvailableLocaleCodes.Count; i++)
+            {
+                if (string.Equals(_localeSelectionPort.AvailableLocaleCodes[i], _localeSelectionPort.CurrentLocaleCode, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return _localizedTextResolver.Resolve(descriptor);
+        }
+
+        private static bool HasDescriptor(LocalizedTextDescriptor descriptor)
+        {
+            return !string.IsNullOrEmpty(descriptor.Table) ||
+                   !string.IsNullOrEmpty(descriptor.Key);
+        }
     }
 
     public readonly struct SettingsInputPresenterInput
     {
         public SettingsInputPresenterInput(
-            string movementLabel,
-            string useArrowKeysLabel,
-            string pushLabel,
-            string flipLabel,
-            string changeLabel,
-            string resetLabel)
+            LocalizedTextDescriptor movementLabelDescriptor,
+            LocalizedTextDescriptor useArrowKeysLabelDescriptor,
+            LocalizedTextDescriptor pushLabelDescriptor,
+            LocalizedTextDescriptor flipLabelDescriptor,
+            LocalizedTextDescriptor changeLabelDescriptor,
+            LocalizedTextDescriptor resetLabelDescriptor)
         {
-            MovementLabel = movementLabel ?? string.Empty;
-            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
-            PushLabel = pushLabel ?? string.Empty;
-            FlipLabel = flipLabel ?? string.Empty;
-            ChangeLabel = changeLabel ?? string.Empty;
-            ResetLabel = resetLabel ?? string.Empty;
+            MovementLabelDescriptor = movementLabelDescriptor;
+            UseArrowKeysLabelDescriptor = useArrowKeysLabelDescriptor;
+            PushLabelDescriptor = pushLabelDescriptor;
+            FlipLabelDescriptor = flipLabelDescriptor;
+            ChangeLabelDescriptor = changeLabelDescriptor;
+            ResetLabelDescriptor = resetLabelDescriptor;
         }
 
-        public string MovementLabel { get; }
+        public LocalizedTextDescriptor MovementLabelDescriptor { get; }
 
-        public string UseArrowKeysLabel { get; }
+        public LocalizedTextDescriptor UseArrowKeysLabelDescriptor { get; }
 
-        public string PushLabel { get; }
+        public LocalizedTextDescriptor PushLabelDescriptor { get; }
 
-        public string FlipLabel { get; }
+        public LocalizedTextDescriptor FlipLabelDescriptor { get; }
 
-        public string ChangeLabel { get; }
+        public LocalizedTextDescriptor ChangeLabelDescriptor { get; }
 
-        public string ResetLabel { get; }
+        public LocalizedTextDescriptor ResetLabelDescriptor { get; }
     }
 
     public sealed class SettingsInputPresenter
     {
         private readonly IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
         private SettingsInputPresenterInput _input = new SettingsInputPresenterInput(
-            "Movement Keys",
-            "Use Arrow Keys",
-            "Push",
-            "Flip",
-            "Change",
-            "Reset Input");
+            SettingsStaticTextDescriptors.MovementKeys,
+            SettingsStaticTextDescriptors.UseArrowKeys,
+            SettingsStaticTextDescriptors.Push,
+            SettingsStaticTextDescriptors.Flip,
+            SettingsStaticTextDescriptors.Change,
+            SettingsStaticTextDescriptors.ResetInput);
         private string _statusText = string.Empty;
+        private LocalizedTextDescriptor _statusTextDescriptor;
 
         public SettingsInputPresenter(IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
+            : this(keyboardBindingSettingsPort, InvariantSettingsLocalizedTextResolver.Instance)
+        {
+        }
+
+        public SettingsInputPresenter(
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            ILocalizedTextResolver localizedTextResolver)
         {
             _keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort));
+            _localizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
         }
 
         public SettingsInputViewModel ViewModel { get; } = new SettingsInputViewModel();
@@ -489,10 +615,15 @@ namespace Game.Feature.UI.Application
             RefreshViewModel(_keyboardBindingSettingsPort.Read());
         }
 
+        public void RefreshLocalization()
+        {
+            RefreshViewModel(_keyboardBindingSettingsPort.Read());
+        }
+
         public void SetMovementScheme(KeyboardMovementScheme scheme)
         {
             var result = _keyboardBindingSettingsPort.TrySetMovementScheme(scheme);
-            _statusText = ToStatusText(result, KeyboardBindableAction.Push);
+            SetStatus(result, KeyboardBindableAction.Push);
             RefreshViewModel(_keyboardBindingSettingsPort.Read());
         }
 
@@ -501,14 +632,12 @@ namespace Game.Feature.UI.Application
             var startResult = _keyboardBindingSettingsPort.StartRebind(action, HandleRebindCompleted);
             if (startResult.Started)
             {
-                _statusText = action == KeyboardBindableAction.Push
-                    ? "Press a key for Push..."
-                    : "Press a key for Flip...";
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputRebindPrompt(action));
                 RefreshViewModel(startResult.Snapshot);
                 return;
             }
 
-            _statusText = ToStatusText(startResult.ValidationResult, action);
+            SetStatus(startResult.ValidationResult, action);
             RefreshViewModel(startResult.Snapshot);
         }
 
@@ -521,13 +650,13 @@ namespace Game.Feature.UI.Application
         public void ResetToDefaults()
         {
             var snapshot = _keyboardBindingSettingsPort.ResetToDefaults();
-            _statusText = "Input settings reset.";
+            SetStatusDescriptor(SettingsDynamicTextDescriptors.InputResetComplete());
             RefreshViewModel(snapshot);
         }
 
         private void HandleRebindCompleted(KeyboardRebindResult result)
         {
-            _statusText = ToStatusText(result.ValidationResult, result.Action);
+            SetStatus(result.ValidationResult, result.Action);
             RefreshViewModel(result.Snapshot);
             RebindCompleted?.Invoke(result);
         }
@@ -536,21 +665,75 @@ namespace Game.Feature.UI.Application
         {
             var areControlsInteractable = !snapshot.IsRebinding;
             ViewModel.SetContent(
-                _input.MovementLabel,
-                _input.UseArrowKeysLabel,
+                Resolve(_input.MovementLabelDescriptor),
+                Resolve(_input.UseArrowKeysLabelDescriptor),
                 snapshot.MovementScheme == KeyboardMovementScheme.ArrowKeys,
                 snapshot.MovementDisplayName,
-                _input.PushLabel,
+                Resolve(_input.PushLabelDescriptor),
                 snapshot.PushDisplayName,
-                _input.ChangeLabel,
-                _input.FlipLabel,
+                Resolve(_input.ChangeLabelDescriptor),
+                Resolve(_input.FlipLabelDescriptor),
                 snapshot.FlipDisplayName,
-                _input.ChangeLabel,
-                _input.ResetLabel,
-                _statusText,
+                Resolve(_input.ChangeLabelDescriptor),
+                Resolve(_input.ResetLabelDescriptor),
+                ResolveStatusText(),
                 snapshot.IsRebinding,
                 snapshot.RebindingAction,
                 areControlsInteractable);
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return _localizedTextResolver.Resolve(descriptor);
+        }
+
+        private void SetStatus(KeyboardBindingValidationResult result, KeyboardBindableAction action)
+        {
+            if (result == KeyboardBindingValidationResult.Canceled)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputRebindCanceled());
+                return;
+            }
+
+            if (result == KeyboardBindingValidationResult.ReservedKey)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputReservedKey());
+                return;
+            }
+
+            if (result == KeyboardBindingValidationResult.MovementConflict)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputMovementConflict());
+                return;
+            }
+
+            if (result == KeyboardBindingValidationResult.AlreadyRebinding)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputAlreadyRebinding());
+                return;
+            }
+
+            SetRawStatus(ToStatusText(result, action));
+        }
+
+        private void SetStatusDescriptor(LocalizedTextDescriptor descriptor)
+        {
+            _statusTextDescriptor = descriptor;
+            _statusText = string.Empty;
+        }
+
+        private void SetRawStatus(string statusText)
+        {
+            _statusTextDescriptor = default;
+            _statusText = statusText ?? string.Empty;
+        }
+
+        private string ResolveStatusText()
+        {
+            return string.IsNullOrEmpty(_statusTextDescriptor.Table) &&
+                   string.IsNullOrEmpty(_statusTextDescriptor.Key)
+                ? _statusText
+                : Resolve(_statusTextDescriptor);
         }
 
         private static string ToStatusText(KeyboardBindingValidationResult result, KeyboardBindableAction action)
@@ -560,27 +743,24 @@ namespace Game.Feature.UI.Application
                 case KeyboardBindingValidationResult.Success:
                     return string.Empty;
                 case KeyboardBindingValidationResult.Canceled:
-                    return "Rebind canceled.";
-                case KeyboardBindingValidationResult.ReservedKey:
-                    return "This key is reserved.";
+                    return string.Empty;
                 case KeyboardBindingValidationResult.DuplicateAction:
                     return action == KeyboardBindableAction.Push
                         ? "This key is already used by Flip."
                         : "This key is already used by Push.";
                 case KeyboardBindingValidationResult.MovementConflict:
-                    return "This key conflicts with movement keys.";
-                case KeyboardBindingValidationResult.AlreadyRebinding:
-                    return "Rebind already in progress.";
+                    return string.Empty;
                 default:
                     return "This key cannot be used.";
             }
         }
     }
 
-    public sealed class SettingsScreenPresenter
+    public sealed class SettingsScreenPresenter : IDisposable
     {
         private SettingsScreenPayload _payload = SettingsScreenPayload.Default;
         private SettingsSectionId _selectedSection = SettingsSectionId.Audio;
+        private bool _isDisposed;
 
         public SettingsScreenPresenter(
             IAudioSettingsPort audioSettingsPort,
@@ -588,7 +768,8 @@ namespace Game.Feature.UI.Application
             : this(
                 audioSettingsPort,
                 displaySettingsPort,
-                NoOpKeyboardBindingSettingsPort.Instance)
+                NoOpKeyboardBindingSettingsPort.Instance,
+                InvariantSettingsLocalizedTextResolver.Instance)
         {
         }
 
@@ -596,10 +777,47 @@ namespace Game.Feature.UI.Application
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
+            : this(
+                audioSettingsPort,
+                displaySettingsPort,
+                keyboardBindingSettingsPort,
+                InvariantSettingsLocalizedTextResolver.Instance)
         {
-            AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
-            DisplayPresenter = new SettingsDisplayPresenter(displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)));
-            InputPresenter = new SettingsInputPresenter(keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)));
+        }
+
+        public SettingsScreenPresenter(
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            ILocalizedTextResolver localizedTextResolver)
+            : this(
+                audioSettingsPort,
+                displaySettingsPort,
+                keyboardBindingSettingsPort,
+                localizedTextResolver,
+                localizedTextResolver as IUiLocaleSelectionPort)
+        {
+        }
+
+        public SettingsScreenPresenter(
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
+            ILocalizedTextResolver localizedTextResolver,
+            IUiLocaleSelectionPort localeSelectionPort)
+        {
+            LocalizedTextResolver = localizedTextResolver ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+            AudioPresenter = new SettingsAudioPresenter(
+                audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)),
+                LocalizedTextResolver);
+            DisplayPresenter = new SettingsDisplayPresenter(
+                displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)),
+                LocalizedTextResolver,
+                localeSelectionPort);
+            InputPresenter = new SettingsInputPresenter(
+                keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)),
+                LocalizedTextResolver);
+            LocalizedTextResolver.LocaleChanged += HandleLocaleChanged;
         }
 
         public SettingsAudioPresenter AudioPresenter { get; }
@@ -610,19 +828,49 @@ namespace Game.Feature.UI.Application
 
         public SettingsScreenViewModel ViewModel { get; } = new SettingsScreenViewModel();
 
+        private ILocalizedTextResolver LocalizedTextResolver { get; }
+
         public void Apply(SettingsScreenPayload payload, double previewTimeoutSeconds)
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
             AudioPresenter.Apply();
-            DisplayPresenter.Apply(previewTimeoutSeconds);
+            DisplayPresenter.Apply(
+                _payload.LanguageLabelDescriptor,
+                _payload.EnglishLanguageLabelDescriptor,
+                _payload.KoreanLanguageLabelDescriptor,
+                previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
-                _payload.MovementLabel,
-                _payload.UseArrowKeysLabel,
-                _payload.PushLabel,
-                _payload.FlipLabel,
-                _payload.InputChangeLabel,
-                _payload.ResetInputLabel));
+                _payload.MovementLabelDescriptor,
+                _payload.UseArrowKeysLabelDescriptor,
+                _payload.PushLabelDescriptor,
+                _payload.FlipLabelDescriptor,
+                _payload.InputChangeLabelDescriptor,
+                _payload.ResetInputLabelDescriptor));
             RefreshViewModel();
+        }
+
+        public bool SelectNextLocale()
+        {
+            return DisplayPresenter.SelectNextLocale();
+        }
+
+        public void RefreshLocalization()
+        {
+            AudioPresenter.RefreshLocalization();
+            DisplayPresenter.RefreshLocalization();
+            InputPresenter.RefreshLocalization();
+            RefreshViewModel();
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            LocalizedTextResolver.LocaleChanged -= HandleLocaleChanged;
         }
 
         public bool SelectSection(SettingsSectionId sectionId)
@@ -640,12 +888,227 @@ namespace Game.Feature.UI.Application
         private void RefreshViewModel()
         {
             ViewModel.SetContent(
-                _payload.TitleText,
-                _payload.BackLabel,
-                _payload.AudioTabLabel,
-                _payload.DisplayTabLabel,
-                _payload.InputTabLabel,
+                Resolve(_payload.TitleTextDescriptor),
+                Resolve(_payload.BackLabelDescriptor),
+                Resolve(_payload.AudioTabLabelDescriptor),
+                Resolve(_payload.DisplayTabLabelDescriptor),
+                Resolve(_payload.InputTabLabelDescriptor),
                 _selectedSection);
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return LocalizedTextResolver.Resolve(descriptor);
+        }
+
+        private void HandleLocaleChanged()
+        {
+            RefreshLocalization();
+        }
+    }
+
+    internal sealed class NoOpUiLocaleSelectionPort : IUiLocaleSelectionPort
+    {
+        public static readonly NoOpUiLocaleSelectionPort Instance = new();
+
+        private NoOpUiLocaleSelectionPort()
+        {
+        }
+
+        public string CurrentLocaleCode => "en-US";
+
+        public IReadOnlyList<string> AvailableLocaleCodes => Array.Empty<string>();
+
+        public bool TrySetLocale(string localeCode)
+        {
+            return false;
+        }
+    }
+
+    internal sealed class InvariantSettingsLocalizedTextResolver : ILocalizedTextResolver
+    {
+        public static readonly InvariantSettingsLocalizedTextResolver Instance = new();
+
+        private static readonly IReadOnlyDictionary<string, string> Values = new Dictionary<string, string>
+        {
+            [SettingsLocalizationContract.Keys.Title] = "Settings",
+            [SettingsLocalizationContract.Keys.AudioTab] = "Audio",
+            [SettingsLocalizationContract.Keys.DisplayTab] = "Display",
+            [SettingsLocalizationContract.Keys.InputTab] = "Input",
+            [SettingsLocalizationContract.Keys.AudioMain] = "Main",
+            [SettingsLocalizationContract.Keys.AudioBgm] = "Background Music",
+            [SettingsLocalizationContract.Keys.AudioSfx] = "Effects",
+            [SettingsLocalizationContract.Keys.AudioMute] = "Mute",
+            [SettingsLocalizationContract.Keys.DisplayCurrent] = "Current Display",
+            [SettingsLocalizationContract.Keys.DisplayResolution] = "Resolution",
+            [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "Only automatically detected resolutions are shown.",
+            [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "Fullscreen Window",
+            [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "On",
+            [SettingsLocalizationContract.Keys.DisplayApply] = "Apply",
+            [SettingsLocalizationContract.Keys.DisplayRevert] = "Revert",
+            [SettingsLocalizationContract.Keys.InputMovementKeys] = "Movement Keys",
+            [SettingsLocalizationContract.Keys.InputUseArrowKeys] = "Use Arrow Keys",
+            [SettingsLocalizationContract.Keys.InputPush] = "Push",
+            [SettingsLocalizationContract.Keys.InputFlip] = "Flip",
+            [SettingsLocalizationContract.Keys.InputChange] = "Change",
+            [SettingsLocalizationContract.Keys.InputReset] = "Reset Input",
+            [SettingsLocalizationContract.Keys.Language] = "Language",
+            [SettingsLocalizationContract.Keys.LanguageEnglish] = "English",
+            [SettingsLocalizationContract.Keys.LanguageKorean] = "Korean",
+            [SettingsLocalizationContract.Keys.AudioVolumeValue] = "{percent}%",
+            [SettingsLocalizationContract.Keys.AudioVolumeValueMuted] = "{percent}% (Muted)",
+            [SettingsLocalizationContract.Keys.DisplayResolutionValue] = "{0}",
+            [SettingsLocalizationContract.Keys.DisplayPreviewCountdown] = "Reverting in {0}s",
+            [SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus] = "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {0} seconds.",
+            [SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus] = "Preview reverted to the previous saved display settings.",
+            [SettingsLocalizationContract.Keys.DisplaySavedStatus] = "Display settings saved.",
+            [SettingsLocalizationContract.Keys.DisplayExternalDriftStatus] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
+            [SettingsLocalizationContract.Keys.InputRebindCanceled] = "Rebind canceled.",
+            [SettingsLocalizationContract.Keys.InputResetComplete] = "Input settings reset.",
+            [SettingsLocalizationContract.Keys.InputReservedKey] = "This key is reserved.",
+            [SettingsLocalizationContract.Keys.InputMovementConflict] = "This key conflicts with movement keys.",
+            [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
+            [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
+            [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
+            [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "Reset Input Settings",
+            [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "Reset input settings to defaults?",
+            [SettingsLocalizationContract.Keys.InputResetConfirmLabel] = "Reset",
+            [SettingsLocalizationContract.Keys.Cancel] = "Cancel",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "Confirm Display Preview",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody] =
+                "Preview {0} x {1} in Fullscreen Window. These changes are temporary and will revert in {2} seconds unless you confirm.",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
+                "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.",
+            [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "Keep",
+            [SettingsLocalizationContract.Keys.Back] = "Back",
+            ["ui.common.settings"] = "Settings",
+            ["ui.main_menu.start"] = "Start",
+            ["ui.main_menu.quit"] = "Quit",
+            ["ui.pause.title"] = "Paused",
+            ["ui.pause.description"] = "Pausing modal popup",
+            ["ui.pause.resume"] = "Resume",
+            ["ui.pause.retry"] = "Retry",
+            ["ui.pause.main_menu"] = "Main Menu",
+        };
+
+        private InvariantSettingsLocalizedTextResolver()
+        {
+        }
+
+        public string CurrentLocaleCode => "en-US";
+
+        public event Action LocaleChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            if (string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) &&
+                Values.TryGetValue(descriptor.Key, out var value))
+            {
+                return FormatKnownDynamicText(descriptor, value);
+            }
+
+            return $"[{descriptor.Table}:{descriptor.Key}]";
+        }
+
+        private static string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
+        {
+            if ((string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.AudioVolumeValueKey, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.AudioVolumeValueMutedKey, StringComparison.Ordinal)) &&
+                TryGetPercentArgument(descriptor, out var percent))
+            {
+                return value
+                    .Replace("{percent}", percent.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Replace("{0}", percent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            if (string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayResolutionValueKey, StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace("{0}", descriptor.Arguments[0]?.ToString() ?? string.Empty);
+            }
+
+            if ((string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayPreviewCountdownKey, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.DisplayPreviewActiveStatusKey, StringComparison.Ordinal)) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace(
+                    "{0}",
+                    Convert.ToString(
+                        descriptor.Arguments[0],
+                        System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            if ((string.Equals(
+                     descriptor.Key,
+                     SettingsDynamicTextDescriptors.DisplayPreviewConfirmFullscreenBodyKey,
+                     StringComparison.Ordinal) ||
+                 string.Equals(
+                     descriptor.Key,
+                     SettingsDynamicTextDescriptors.DisplayPreviewConfirmWindowedBodyKey,
+                     StringComparison.Ordinal)) &&
+                descriptor.Arguments.Count >= 3)
+            {
+                return value
+                    .Replace(
+                        "{0}",
+                        Convert.ToString(
+                            descriptor.Arguments[0],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+                    .Replace(
+                        "{1}",
+                        Convert.ToString(
+                            descriptor.Arguments[1],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+                    .Replace(
+                        "{2}",
+                        Convert.ToString(
+                            descriptor.Arguments[2],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            return value;
+        }
+
+        private static bool TryGetPercentArgument(LocalizedTextDescriptor descriptor, out int percent)
+        {
+            percent = 0;
+            if (descriptor.Arguments.Count == 0 || descriptor.Arguments[0] == null)
+            {
+                return false;
+            }
+
+            if (descriptor.Arguments[0] is int positionalIntValue)
+            {
+                percent = positionalIntValue;
+                return true;
+            }
+
+            if (descriptor.Arguments[0] is IDictionary<string, object> namedArguments &&
+                namedArguments.TryGetValue("percent", out var namedValue) &&
+                namedValue is int namedIntValue)
+            {
+                percent = namedIntValue;
+                return true;
+            }
+
+            var property = descriptor.Arguments[0].GetType().GetProperty("percent");
+            if (property == null)
+            {
+                return false;
+            }
+
+            var value = property.GetValue(descriptor.Arguments[0]);
+            if (value is int intValue)
+            {
+                percent = intValue;
+                return true;
+            }
+
+            return false;
         }
     }
 }

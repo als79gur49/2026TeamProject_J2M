@@ -12,6 +12,15 @@ DRY_RUN=0
 TEST_FILTER=""
 FILTERED_TOTAL=0
 
+TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
+TYPOGRAPHY_VISUAL_OUTPUT_DIR=""
+TYPOGRAPHY_VISUAL_UNITY_LOG=""
+TYPOGRAPHY_VISUAL_MANIFEST=""
+TYPOGRAPHY_VISUAL_WIDTH=1920
+TYPOGRAPHY_VISUAL_HEIGHT=1080
+TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
+TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
+TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
 
@@ -208,13 +217,279 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|typography-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
     printf '  '
     printf '%q ' "$@"
     printf '\n'
+}
+
+prepare_typography_visual_paths() {
+    local timestamp
+
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    TYPOGRAPHY_VISUAL_OUTPUT_DIR="$TYPOGRAPHY_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
+    TYPOGRAPHY_VISUAL_UNITY_LOG="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/manifest-unity.log"
+    TYPOGRAPHY_VISUAL_MANIFEST="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture.log"
+}
+
+print_typography_visual_plan() {
+    local output_dir_win
+    local locale
+    local target
+    local slice
+    local slice_name
+    local slice_log
+    local slice_log_win
+    local -a unity_command
+    local -a capture_slices=(
+        "en-US|"
+        "ko-KR|Settings"
+        "ko-KR|Pause"
+        "ko-KR|MainMenu"
+    )
+
+    output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
+
+    echo "Typography visual evidence plan:"
+    echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
+    echo "  PROJECT_PATH_WIN: $PROJECT_PATH_WIN"
+    echo "  UNITY_PATH:       $UNITY_PATH"
+    echo "  execute method:   $TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+    echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+    echo "  resolution:       ${TYPOGRAPHY_VISUAL_WIDTH}x${TYPOGRAPHY_VISUAL_HEIGHT}"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<slice>.log"
+    echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
+    echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
+    echo "  revision gate:    tracked repository files and Unity inputs must match Git HEAD"
+    echo "Would run isolated Unity typography visual evidence slices:"
+    for slice in "${capture_slices[@]}"; do
+        locale="${slice%%|*}"
+        target="${slice#*|}"
+        slice_name="$locale"
+        if [ -n "$target" ]; then
+            slice_name="${locale}-${target}"
+        fi
+        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${slice_name}.log"
+        slice_log_win="$(wslpath -w "$slice_log")"
+        unity_command=(
+            timeout --kill-after=10 600
+            "$UNITY_PATH"
+            -batchmode
+            -quit
+            -projectPath "$PROJECT_PATH_WIN"
+            -logFile "$slice_log_win"
+            -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+            -typographyScreenshotOutput "$output_dir_win"
+            -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+            -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+            -typographyScreenshotLocale "$locale"
+        )
+        if [ -n "$target" ]; then
+            unity_command+=( -typographyScreenshotTarget "$target" )
+        fi
+        print_shell_command "${unity_command[@]}"
+    done
+    echo "Would reconstruct the canonical manifest:"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -batchmode
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
+        -executeMethod "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD"
+        -typographyScreenshotOutput "$output_dir_win"
+    )
+    print_shell_command "${unity_command[@]}"
+}
+
+verify_typography_visual_revision_gate() {
+    local failed=0
+    local -a untracked_unity_inputs
+
+    if ! git diff --quiet; then
+        echo "ERROR: Canonical typography evidence is blocked by unstaged tracked changes:"
+        git status --short --untracked-files=no
+        failed=1
+    fi
+
+    if ! git diff --cached --quiet; then
+        echo "ERROR: Canonical typography evidence is blocked by staged tracked changes:"
+        git diff --cached --name-only | sed 's/^/  /'
+        failed=1
+    fi
+
+    mapfile -t untracked_unity_inputs < <(
+        git ls-files --others --exclude-standard -- Assets Packages ProjectSettings
+    )
+    if [ "${#untracked_unity_inputs[@]}" -ne 0 ]; then
+        echo "ERROR: Canonical typography evidence is blocked by untracked Unity inputs:"
+        printf '  %s\n' "${untracked_unity_inputs[@]}"
+        failed=1
+    fi
+
+    if [ "$failed" -ne 0 ]; then
+        echo "The manifest records Git HEAD only, so dirty rendered inputs cannot produce canonical evidence."
+        return 1
+    fi
+
+    echo "Canonical revision gate: PASS ($(git rev-parse HEAD))"
+}
+
+typography_visual_nanum_hash() {
+    git hash-object "$PROJECT_PATH_WSL/$TYPOGRAPHY_VISUAL_NANUM_ASSET"
+}
+
+typography_visual_nanum_diff_sha256() {
+    git diff -- "$TYPOGRAPHY_VISUAL_NANUM_ASSET" | sha256sum | awk '{print $1}'
+}
+
+verify_typography_visual_manifest() {
+    local expected_head="$1"
+    local expected_output_directory="${TYPOGRAPHY_VISUAL_OUTPUT_DIR#"$PROJECT_PATH_WSL/"}"
+
+    python3 - \
+        "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" \
+        "$TYPOGRAPHY_VISUAL_MANIFEST" \
+        "$expected_head" \
+        "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD" \
+        "$TYPOGRAPHY_VISUAL_WIDTH" \
+        "$TYPOGRAPHY_VISUAL_HEIGHT" \
+        "$expected_output_directory" <<'PY'
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1]).resolve()
+manifest_path = Path(sys.argv[2]).resolve()
+expected_head = sys.argv[3]
+expected_command = sys.argv[4]
+expected_width = sys.argv[5]
+expected_height = sys.argv[6]
+expected_output_directory = sys.argv[7]
+
+
+def fail(message):
+    raise SystemExit(f"ERROR: typography visual evidence verification failed: {message}")
+
+
+if not manifest_path.is_file() or manifest_path.stat().st_size <= 0:
+    fail(f"missing or empty manifest: {manifest_path}")
+
+root = {}
+entries = {}
+current = root
+for line_number, raw_line in enumerate(manifest_path.read_text(encoding="utf-8-sig").splitlines(), 1):
+    line = raw_line.strip()
+    if not line:
+        continue
+    if line.startswith("[") and line.endswith("]"):
+        section = line[1:-1]
+        if section in entries:
+            fail(f"duplicate manifest section [{section}]")
+        current = entries.setdefault(section, {})
+        continue
+    if "=" not in line:
+        fail(f"malformed manifest line {line_number}: {raw_line}")
+    key, value = line.split("=", 1)
+    if key in current:
+        fail(f"duplicate manifest field '{key}' on line {line_number}")
+    current[key] = value
+
+required_root = {
+    "schema_version": "1",
+    "git_head": expected_head,
+    "capture_command": expected_command,
+    "capture_mode": "RECONSTRUCTED_FROM_SPLIT_LOGS",
+    "output_directory": expected_output_directory,
+    "width": expected_width,
+    "height": expected_height,
+    "resolution": f"{expected_width}x{expected_height}",
+    "overall_result": "PASS",
+    "theme_validation": "PASS",
+    "prefab_validation": "PASS",
+    "guarded_asset_dirty_check": "PASS",
+}
+for key, expected in required_root.items():
+    actual = root.get(key)
+    if actual != expected:
+        fail(f"root {key} expected '{expected}', got '{actual}'")
+
+expected_entries = {
+    "Settings/en-US": ("Settings_en-US.png", "22", "38"),
+    "Settings/ko-KR": ("Settings_ko-KR.png", "22", "38"),
+    "Pause/en-US": ("Pause_en-US.png", "6", None),
+    "Pause/ko-KR": ("Pause_ko-KR.png", "6", None),
+    "MainMenu/en-US": ("MainMenu_en-US.png", "3", None),
+    "MainMenu/ko-KR": ("MainMenu_ko-KR.png", "3", None),
+}
+if set(entries) != set(expected_entries):
+    fail(
+        "manifest sections differ from six-entry closure; "
+        f"expected={sorted(expected_entries)}, actual={sorted(entries)}"
+    )
+
+expected_png_paths = set()
+for section, (expected_file, localized_count, typography_count) in expected_entries.items():
+    entry = entries[section]
+    checks = {
+        "file": expected_file,
+        "width": expected_width,
+        "height": expected_height,
+        "dimensions": f"{expected_width}x{expected_height}",
+        "localized_expected": localized_count,
+        "localized_applied": localized_count,
+        "capture_result": "PASS",
+    }
+    if typography_count is not None:
+        checks["typography_bindings"] = typography_count
+    for key, expected in checks.items():
+        actual = entry.get(key)
+        if actual != expected:
+            fail(f"[{section}] {key} expected '{expected}', got '{actual}'")
+
+    file_value = entry["file"]
+    if Path(file_value).name != file_value:
+        fail(f"[{section}] file must be a basename, got '{file_value}'")
+    png_path = output_dir / file_value
+    expected_png_paths.add(png_path.resolve())
+    if not png_path.is_file() or png_path.stat().st_size <= 0:
+        fail(f"[{section}] PNG missing or empty: {png_path}")
+
+    try:
+        recorded_size = int(entry.get("file_size_bytes", ""))
+    except ValueError:
+        fail(f"[{section}] invalid file_size_bytes '{entry.get('file_size_bytes')}'")
+    actual_size = png_path.stat().st_size
+    if recorded_size != actual_size:
+        fail(f"[{section}] size mismatch: manifest={recorded_size}, actual={actual_size}")
+
+    recorded_sha = entry.get("sha256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", recorded_sha):
+        fail(f"[{section}] invalid SHA-256 '{recorded_sha}'")
+    actual_sha = hashlib.sha256(png_path.read_bytes()).hexdigest()
+    if recorded_sha != actual_sha:
+        fail(f"[{section}] SHA-256 mismatch: manifest={recorded_sha}, actual={actual_sha}")
+
+actual_png_paths = {path.resolve() for path in output_dir.glob("*.png")}
+if actual_png_paths != expected_png_paths:
+    fail(
+        "output PNG set differs from the required six files; "
+        f"expected={sorted(path.name for path in expected_png_paths)}, "
+        f"actual={sorted(path.name for path in actual_png_paths)}"
+    )
+
+print("Typography visual manifest verification: PASS")
+print(f"  manifest: {manifest_path}")
+print("  entries: 6")
+print("  Settings en-US: typography_bindings=38 localized=22/22 capture_result=PASS")
+print("  Settings ko-KR: typography_bindings=38 localized=22/22 capture_result=PASS")
+print("  PNG size/SHA-256: verified for all six captures")
+PY
 }
 
 find_current_project_unity_processes() {
@@ -857,6 +1132,171 @@ run_unity_ui() {
     run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Feature.UI.Tests" ""
 }
 
+run_typography_visual() {
+    local output_dir_win
+    local unity_log_win
+    local slice_log
+    local slice_log_win
+    local locale
+    local target
+    local slice
+    local slice_name
+    local current_unity_log
+    local expected_head
+    local nanum_hash_before
+    local nanum_hash_after
+    local nanum_diff_before
+    local nanum_diff_after
+    local unity_exit=0
+    local residue_exit=0
+    local nanum_exit=0
+    local process_before
+    local -a unity_command
+    local -a capture_slices=(
+        "en-US|"
+        "ko-KR|Settings"
+        "ko-KR|Pause"
+        "ko-KR|MainMenu"
+    )
+
+    prepare_typography_visual_paths
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_typography_visual_plan
+        return 0
+    fi
+
+    verify_typography_visual_revision_gate
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+
+    mkdir -p "$TYPOGRAPHY_VISUAL_OUTPUT_ROOT"
+    if ! mkdir "$TYPOGRAPHY_VISUAL_OUTPUT_DIR"; then
+        echo "ERROR: Typography visual output directory already exists; refusing to overwrite:"
+        echo "  $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+        return 1
+    fi
+
+    expected_head="$(git rev-parse HEAD)"
+    nanum_hash_before="$(typography_visual_nanum_hash)"
+    nanum_diff_before="$(typography_visual_nanum_diff_sha256)"
+    output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
+
+    cleanup_generated_test_scenes
+    process_before="$(find_current_project_unity_processes)"
+    echo "Running isolated Unity typography visual evidence slices..."
+    echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+    echo "  raw Unity logs:   $TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-<slice>.log"
+    echo "  manifest log:     $TYPOGRAPHY_VISUAL_UNITY_LOG"
+    echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
+    for slice in "${capture_slices[@]}"; do
+        locale="${slice%%|*}"
+        target="${slice#*|}"
+        slice_name="$locale"
+        if [ -n "$target" ]; then
+            slice_name="${locale}-${target}"
+        fi
+        slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${slice_name}.log"
+        slice_log_win="$(wslpath -w "$slice_log")"
+        current_unity_log="$slice_log"
+        unity_command=(
+            timeout --kill-after=10 600
+            "$UNITY_PATH"
+            -batchmode
+            -quit
+            -projectPath "$PROJECT_PATH_WIN"
+            -logFile "$slice_log_win"
+            -executeMethod "$TYPOGRAPHY_VISUAL_EXECUTE_METHOD"
+            -typographyScreenshotOutput "$output_dir_win"
+            -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+            -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+            -typographyScreenshotLocale "$locale"
+        )
+        if [ -n "$target" ]; then
+            unity_command+=( -typographyScreenshotTarget "$target" )
+        fi
+        echo "  capture slice: $slice_name"
+        if "${unity_command[@]}"; then
+            unity_exit=0
+        else
+            unity_exit=$?
+            break
+        fi
+    done
+
+    if [ "$unity_exit" -eq 0 ]; then
+        unity_log_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
+        current_unity_log="$TYPOGRAPHY_VISUAL_UNITY_LOG"
+        unity_command=(
+            timeout --kill-after=10 600
+            "$UNITY_PATH"
+            -batchmode
+            -quit
+            -projectPath "$PROJECT_PATH_WIN"
+            -logFile "$unity_log_win"
+            -executeMethod "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD"
+            -typographyScreenshotOutput "$output_dir_win"
+        )
+        echo "Reconstructing canonical typography manifest..."
+        if "${unity_command[@]}"; then
+            unity_exit=0
+        else
+            unity_exit=$?
+        fi
+    fi
+
+    if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
+        echo "Unity typography visual capture timed out (possible hang)."
+        capture_unity_timeout_artifacts \
+            "typography-visual" \
+            "$current_unity_log" \
+            "$TYPOGRAPHY_VISUAL_MANIFEST" \
+            "$unity_exit" \
+            "$process_before"
+    fi
+
+    nanum_hash_after="$(typography_visual_nanum_hash)"
+    nanum_diff_after="$(typography_visual_nanum_diff_sha256)"
+    if [ "$nanum_hash_after" != "$nanum_hash_before" ]; then
+        echo "ERROR: Nanum asset content hash changed during typography capture."
+        echo "  before: $nanum_hash_before"
+        echo "  after:  $nanum_hash_after"
+        nanum_exit=1
+    fi
+    if [ "$nanum_diff_after" != "$nanum_diff_before" ]; then
+        echo "ERROR: Nanum asset diff SHA-256 changed during typography capture."
+        echo "  before: $nanum_diff_before"
+        echo "  after:  $nanum_diff_after"
+        nanum_exit=1
+    fi
+
+    if ! assert_no_generated_test_scenes; then
+        cleanup_generated_test_scenes
+        assert_no_generated_test_scenes || true
+        residue_exit=1
+    fi
+
+    if [ "$unity_exit" -ne 0 ]; then
+        echo "ERROR: Unity typography visual capture failed with exit code $unity_exit."
+        echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+        return "$unity_exit"
+    fi
+    if [ "$nanum_exit" -ne 0 ] || [ "$residue_exit" -ne 0 ]; then
+        echo "ERROR: Typography visual safety checks failed after Unity capture."
+        echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+        return 1
+    fi
+
+    if ! verify_typography_visual_manifest "$expected_head"; then
+        echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+        return 1
+    fi
+    echo "Typography visual evidence capture: PASS"
+    echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+    echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
+    echo "  recorded revision: $expected_head"
+    echo "  Nanum hash/diff: preserved"
+}
+
 run_unity_full() {
     run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "" ""
     run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
@@ -931,6 +1371,12 @@ parse_arguments() {
                 ;;
         esac
     done
+
+    if [ "$RUN_MODE" = "typography-visual" ] && [ -n "$TEST_FILTER" ]; then
+        echo "ERROR: typography-visual does not accept test filters."
+        print_usage
+        exit 1
+    fi
 }
 
 require_filtered_tests_if_needed() {
@@ -963,18 +1409,28 @@ main() {
     if [ "$DRY_RUN" -eq 0 ]; then
         require_command timeout
         require_command python3
-        require_file "$DOTNET_PATH" "dotnet executable"
         require_file "$UNITY_PATH" "Unity executable"
-        require_file "$STRATIFICATION_CHECKER_PATH" "stratification governance checker"
-        require_file "$SEMANTIC_QUERY_CHECKER_PATH" "semantic query governance checker"
-        require_file "$ACTION_PLAN_CORRELATION_CHECKER_PATH" "ActionPlanId correlation governance checker"
-        ensure_result_dirs
+        if [ "$mode" = "typography-visual" ]; then
+            require_command git
+            require_command sha256sum
+            ensure_result_dirs
+        else
+            require_file "$DOTNET_PATH" "dotnet executable"
+            require_file "$STRATIFICATION_CHECKER_PATH" "stratification governance checker"
+            require_file "$SEMANTIC_QUERY_CHECKER_PATH" "semantic query governance checker"
+            require_file "$ACTION_PLAN_CORRELATION_CHECKER_PATH" "ActionPlanId correlation governance checker"
+            ensure_result_dirs
 
-        run_governance_check
-        run_semantic_query_migration_check
-        run_action_plan_correlation_check
+            run_governance_check
+            run_semantic_query_migration_check
+            run_action_plan_correlation_check
+        fi
     else
-        echo "Dry run: governance checks, dotnet builds, and Unity stages will not execute."
+        if [ "$mode" = "typography-visual" ]; then
+            echo "Dry run: revision gate and Unity typography capture will not execute."
+        else
+            echo "Dry run: governance checks, dotnet builds, and Unity stages will not execute."
+        fi
     fi
 
     case "$mode" in
@@ -989,6 +1445,9 @@ main() {
         ui)
             run_dotnet_ui
             run_unity_ui
+            ;;
+        typography-visual)
+            run_typography_visual
             ;;
         full)
             run_dotnet_full
@@ -1014,7 +1473,7 @@ main() {
 
     require_filtered_tests_if_needed
 
-    if [ "$DRY_RUN" -eq 0 ]; then
+    if [ "$DRY_RUN" -eq 0 ] && [ "$mode" != "typography-visual" ]; then
         echo "ALL TESTS PASSED"
     fi
 }

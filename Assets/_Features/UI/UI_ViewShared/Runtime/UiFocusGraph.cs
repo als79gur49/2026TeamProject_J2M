@@ -474,7 +474,7 @@ namespace Game.Feature.UI.ViewShared
             for (var i = 0; i < _nodes.Count; i++)
             {
                 var node = _nodes[i];
-                node.Feedback?.SetNavigationFocused(false);
+                GetLiveFeedback(node)?.SetNavigationFocused(false);
                 if (node.Frame == null)
                 {
                     continue;
@@ -738,12 +738,12 @@ namespace Game.Feature.UI.ViewShared
 
         private void PlayCurrentSubmitFeedback()
         {
-            _current?.Feedback?.PlaySubmitFeedback();
+            GetLiveFeedback(_current)?.PlaySubmitFeedback();
         }
 
         private static void ApplyFrame(Node node, bool selected, bool editing)
         {
-            node.Feedback?.SetNavigationFocused(selected);
+            GetLiveFeedback(node)?.SetNavigationFocused(selected);
             if (node.Frame == null)
             {
                 return;
@@ -758,6 +758,17 @@ namespace Game.Feature.UI.ViewShared
             node.Frame.color = node.Profile != null
                 ? (editing ? node.Profile.EditFrameColor : selected ? node.Profile.SelectedFrameColor : node.Profile.UnselectedFrameColor)
                 : (selected ? Color.white : new Color(1f, 1f, 1f, 0f));
+        }
+
+        private static IUiSelectionFeedback GetLiveFeedback(Node node)
+        {
+            var feedback = node?.Feedback;
+            if (feedback is UnityEngine.Object unityObject && unityObject == null)
+            {
+                return null;
+            }
+
+            return feedback;
         }
 
         private sealed class Node

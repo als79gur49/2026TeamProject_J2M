@@ -39,7 +39,7 @@ namespace Game.Feature.Stages
     public sealed class StagePresentationResolvedData
     {
         public StagePresentationResolvedData(
-            string displayName,
+            string displayNameKey,
             GameObject backgroundPrefab,
             EnemyPresentationCatalog enemyPresentationCatalog,
             EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
@@ -56,7 +56,7 @@ namespace Game.Feature.Stages
             IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions,
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
-            DisplayName = displayName ?? string.Empty;
+            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
             BackgroundPrefab = backgroundPrefab;
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
@@ -74,7 +74,7 @@ namespace Game.Feature.Stages
             SuppressedBaseTileCells = CloneReadOnlySurfaceCells(suppressedBaseTileCells);
         }
 
-        public string DisplayName { get; }
+        public string DisplayNameKey { get; }
 
         public GameObject BackgroundPrefab { get; }
 
@@ -229,7 +229,7 @@ namespace Game.Feature.Stages
             }
 
             return new StagePresentationResolvedData(
-                definition.DisplayName,
+                definition.DisplayNameKey,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
@@ -262,7 +262,7 @@ namespace Game.Feature.Stages
                 definition.TileFeaturePresentationCatalog);
 
             return new StagePresentationResolvedData(
-                definition.DisplayName,
+                definition.DisplayNameKey,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,

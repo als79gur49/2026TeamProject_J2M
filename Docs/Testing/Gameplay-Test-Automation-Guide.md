@@ -14,7 +14,7 @@
 - 이 섹션의 baseline row는 pinned snapshot reference다. 서로 다른 날짜 artifact를 한 validation claim으로 합산하는 근거가 아니다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-06-12 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `697 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-07-22 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `872 total / 0 failed`; typography canonical evidence is `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` at revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`, while `CommandLine-20260720-194045` remains 51-count historical evidence
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
@@ -32,7 +32,7 @@
 - The baseline rows in this section are pinned snapshot references. They are not permission to merge artifacts from different dates into one validation claim.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-06-12 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `697 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-07-22 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `872 total / 0 failed`; typography canonical evidence is `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` at revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`, while `CommandLine-20260720-194045` remains 51-count historical evidence
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
@@ -417,9 +417,11 @@ WSL CLI
 ```bash
 ./run_tests.sh core
 ./run_tests.sh ui
+./run_tests.sh typography-visual
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
+./run_tests.sh --dry-run typography-visual
 ./run_tests.sh core --filter <test-or-fixture>
 ./run_tests.sh core --test-filter <test-or-fixture>
 ```
@@ -442,6 +444,11 @@ WSL CLI
   - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
   - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
+- `./run_tests.sh typography-visual`
+  - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
+  - current worktree/Unity path, 동일 프로젝트 process, revision gate, Nanum 전후 hash, manifest PASS fields, Settings 38 및 localized 22/22, 6개 PNG byte size/SHA-256을 검증한다.
+  - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
+  - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
 - `./run_tests.sh full`
   - 안정화 직전, 통합 직전, 혹은 넓은 회귀를 조사할 때 사용한다.
   - governance 검사 후 Windows solution build, Unity Full EditMode, Unity Full PlayMode를 실행한다.
@@ -467,9 +474,11 @@ WSL CLI
 ```bash
 ./run_tests.sh core
 ./run_tests.sh ui
+./run_tests.sh typography-visual
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
+./run_tests.sh --dry-run typography-visual
 ./run_tests.sh core --filter <test-or-fixture>
 ./run_tests.sh core --test-filter <test-or-fixture>
 ```
@@ -492,6 +501,11 @@ WSL CLI
   - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
   - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.
+- `./run_tests.sh typography-visual`
+  - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
+  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, before/after Nanum hashes, manifest PASS fields, exact Settings 38 and localized 22/22 counts, and all six PNG byte sizes/SHA-256 hashes.
+  - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
+  - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.
 - `./run_tests.sh full`
   - Use before stabilization, integration, or when investigating broader regressions.
   - Runs governance first, then Windows solution build, then Unity Full EditMode and Full PlayMode.

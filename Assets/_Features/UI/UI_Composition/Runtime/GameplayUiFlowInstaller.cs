@@ -9,6 +9,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Input;
 using UnityEngine;
@@ -51,6 +52,7 @@ namespace Game.Feature.UI.Composition
         private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
+        private ILocalizedTextResolver _localizedTextResolver;
         private UiNavigationInputRouter _navigationInputRouter;
         private IUiAudioPort _uiAudioPort;
         private StageResultAutoNextDriver _stageResultAutoNextDriver;
@@ -185,12 +187,14 @@ namespace Game.Feature.UI.Composition
             _audioSettingsLifecycleRelay = UiSettingsBridgeAssembly.EnsureAudioSettingsLifecycleRelay(gameObject, audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
+            _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
 
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog,
                 _demoStageControlCommandPort,
-                _demoGameplayOverrideCommandPort));
+                _demoGameplayOverrideCommandPort,
+                localizedTextResolver: _localizedTextResolver));
             _gameplayPauseAudioBridge = new GameplayPauseAudioBridge(
                 Ports.GameplayPauseService,
                 audioPauseService,
@@ -200,7 +204,7 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewTimeoutRelay);
 
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var stageInfoPresenter = new StageInfoPresenter();
+            var stageInfoPresenter = new StageInfoPresenter(_localizedTextResolver);
             var objectiveHudPresenter = new ObjectiveHudPresenter();
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
@@ -213,16 +217,17 @@ namespace Game.Feature.UI.Composition
                 playerStatusPresenter);
 
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
-                _rootView.ScreenLayerView,
-                Ports.QueryFacade,
-                PresentationSource,
-                audioSettingsPort,
-                displaySettingsPort,
-                _keyboardBindingSettingsPort,
-                uiAudioPort,
-                displayPreviewSessionHost,
-                _displaySettingsLifecycleRelay,
-                _screenPrefabCatalog));
+                screenLayerView: _rootView.ScreenLayerView,
+                queryFacade: Ports.QueryFacade,
+                presentationSource: PresentationSource,
+                audioSettingsPort: audioSettingsPort,
+                displaySettingsPort: displaySettingsPort,
+                keyboardBindingSettingsPort: _keyboardBindingSettingsPort,
+                uiAudioPort: uiAudioPort,
+                displayPreviewSessionHost: displayPreviewSessionHost,
+                displaySettingsLifecycleRelay: _displaySettingsLifecycleRelay,
+                screenPrefabCatalog: _screenPrefabCatalog,
+                localizedTextResolver: _localizedTextResolver));
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 stageInfoPresenter.ViewModel,
@@ -273,6 +278,8 @@ namespace Game.Feature.UI.Composition
             _hudUiAudioFeedbackController?.Dispose();
             HudRootPresenter?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
+            (_localizedTextResolver as IDisposable)?.Dispose();
+            _localizedTextResolver = null;
         }
 
         private void EnsureRootView()

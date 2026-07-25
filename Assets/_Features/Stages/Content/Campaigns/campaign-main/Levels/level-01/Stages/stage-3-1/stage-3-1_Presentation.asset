@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ownerEntry: {fileID: 11400000, guid: 943883a3c70b5919ad158109601542e6, type: 2}
   ownerEntryGuid: 943883a3c70b5919ad158109601542e6
-  displayName: Ward[B]-01
+  displayNameKey: stage.stage-3-1.display_name
   backgroundPrefab: {fileID: 4032346886678373965, guid: 04021a85b7c037c4a8f1aede4dba9a82, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.UI.Composition;
+using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -17,12 +19,18 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _currentDisplayValue;
         [SerializeField] private TMP_Text _resolutionLabel;
         [SerializeField] private TMP_Dropdown _resolutionDropdown;
+        [SerializeField] private TMP_Text _resolutionDropdownArrowLabel;
         [SerializeField] private RectTransform _resolutionInfoHotspot;
+        [SerializeField] private TMP_Text _resolutionInfoMarkerLabel;
         [SerializeField] private SettingsHoverRelay _resolutionHoverRelay;
         [SerializeField] private RectTransform _resolutionHoverHintRoot;
         [SerializeField] private TMP_Text _resolutionHoverHintLabel;
         [SerializeField] private TMP_Text _fullscreenLabel;
         [SerializeField] private Toggle _fullscreenToggle;
+        [SerializeField] private TMP_Text _fullscreenToggleLabel;
+        [SerializeField] private TMP_Text _languageLabel;
+        [SerializeField] private Button _languageCycleButton;
+        [SerializeField] private TMP_Text _languageCycleButtonLabel;
         [SerializeField] private TMP_Text _displayStatusLabel;
         [SerializeField] private RectTransform _previewCountdownRoot;
         [SerializeField] private TMP_Text _previewCountdownLabel;
@@ -36,6 +44,13 @@ namespace Game.Feature.UI.Screens
         private bool _isResolutionHoverHintVisible;
         private bool _isVisible;
         private int _resolutionKeyboardHighlightedIndex = -1;
+        private List<LocalizedTmpTextBinding> _localizedStaticBindings;
+        private ILocalizedTextResolver _localizedTextResolver;
+        private ILocalizedTypographyResolver _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
+        private GameplayUiTypographyTheme _typographyTheme;
+        private LocalizedTextDescriptor _languageLabelDescriptor = SettingsStaticTextDescriptors.Language;
+        private LocalizedTextDescriptor _englishLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageEnglish;
+        private LocalizedTextDescriptor _koreanLanguageLabelDescriptor = SettingsStaticTextDescriptors.LanguageKorean;
         private SettingsDisplayViewModel _viewModel;
 
         public event Action<int> ResolutionChanged;
@@ -45,6 +60,8 @@ namespace Game.Feature.UI.Screens
         public event Action ApplyRequested;
 
         public event Action RevertRequested;
+
+        public event Action LanguageCycleRequested;
 
         public string CurrentDisplayValueText =>
             _currentDisplayValue != null ? _currentDisplayValue.text : string.Empty;
@@ -74,6 +91,63 @@ namespace Game.Feature.UI.Screens
         public bool IsFullscreenOn =>
             _fullscreenToggle != null && _fullscreenToggle.isOn;
 
+        public string LanguageLabelText =>
+            _languageLabel != null ? _languageLabel.text : string.Empty;
+
+        public string CurrentLanguageText =>
+            _languageCycleButtonLabel != null ? _languageCycleButtonLabel.text : string.Empty;
+
+        public void BindStaticLocalization(
+            SettingsScreenPayload payload,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            UnbindStaticLocalization();
+            if (payload == null)
+            {
+                return;
+            }
+
+            _languageLabelDescriptor = payload.LanguageLabelDescriptor;
+            _englishLanguageLabelDescriptor = payload.EnglishLanguageLabelDescriptor;
+            _koreanLanguageLabelDescriptor = payload.KoreanLanguageLabelDescriptor;
+            _localizedTextResolver = textResolver;
+            _localizedTypographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            _typographyTheme = typographyTheme;
+            _localizedStaticBindings = new List<LocalizedTmpTextBinding>
+            {
+                CreateBinding(_currentDisplayLabel, payload.DisplayCurrentLabelDescriptor),
+                CreateBinding(_resolutionLabel, payload.DisplayResolutionTextDescriptor),
+                CreateBinding(_resolutionHoverHintLabel, payload.ResolutionHintDescriptor),
+                CreateBinding(_fullscreenLabel, payload.FullscreenWindowLabelDescriptor),
+                CreateBinding(_fullscreenToggleLabel, payload.FullscreenOnLabelDescriptor),
+                CreateBinding(_applyButtonLabel, payload.DisplayApplyButtonTextDescriptor),
+                CreateBinding(_revertButtonLabel, payload.DisplayRevertButtonTextDescriptor),
+            };
+
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
+            }
+
+            RefreshLocalizedLanguageTextStyle();
+            RefreshTypography();
+        }
+
+        public void UnbindStaticLocalization()
+        {
+            if (_localizedTextResolver != null)
+            {
+                _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            }
+
+            DisposeLocalizedStaticBindings();
+            _localizedTextResolver = null;
+            _localizedTypographyResolver = DefaultLocalizedTypographyResolver.Instance;
+            _typographyTheme = null;
+        }
+
         public void Bind(SettingsDisplayViewModel viewModel)
         {
             HideResolutionHoverHint();
@@ -100,12 +174,18 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_currentDisplayValue, nameof(_currentDisplayValue), issues);
             ValidateControl(_resolutionLabel, nameof(_resolutionLabel), issues);
             ValidateControl(_resolutionDropdown, nameof(_resolutionDropdown), issues);
+            ValidateControl(_resolutionDropdownArrowLabel, nameof(_resolutionDropdownArrowLabel), issues);
             ValidateControl(_resolutionInfoHotspot, nameof(_resolutionInfoHotspot), issues);
+            ValidateControl(_resolutionInfoMarkerLabel, nameof(_resolutionInfoMarkerLabel), issues);
             ValidateControl(_resolutionHoverRelay, nameof(_resolutionHoverRelay), issues);
             ValidateControl(_resolutionHoverHintRoot, nameof(_resolutionHoverHintRoot), issues);
             ValidateControl(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel), issues);
             ValidateControl(_fullscreenLabel, nameof(_fullscreenLabel), issues);
             ValidateControl(_fullscreenToggle, nameof(_fullscreenToggle), issues);
+            ValidateControl(_fullscreenToggleLabel, nameof(_fullscreenToggleLabel), issues);
+            ValidateControl(_languageLabel, nameof(_languageLabel), issues);
+            ValidateControl(_languageCycleButton, nameof(_languageCycleButton), issues);
+            ValidateControl(_languageCycleButtonLabel, nameof(_languageCycleButtonLabel), issues);
             ValidateControl(_displayStatusLabel, nameof(_displayStatusLabel), issues);
             ValidateControl(_previewCountdownRoot, nameof(_previewCountdownRoot), issues);
             ValidateControl(_previewCountdownLabel, nameof(_previewCountdownLabel), issues);
@@ -139,6 +219,18 @@ namespace Game.Feature.UI.Screens
             }
 
             RevertRequested?.Invoke();
+        }
+
+        public void ClickLanguageCycle()
+        {
+            if (!_isVisible ||
+                _viewModel == null ||
+                !_viewModel.IsLanguageSelectionAvailable)
+            {
+                return;
+            }
+
+            LanguageCycleRequested?.Invoke();
         }
 
         public void SelectResolution(int index)
@@ -185,6 +277,7 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
+            RefreshResolutionDropdownTypography();
             SetResolutionKeyboardHighlight(Mathf.Clamp(highlightedIndex, 0, ResolutionOptionCount - 1));
             return true;
         }
@@ -273,12 +366,18 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_currentDisplayValue, nameof(_currentDisplayValue));
             ValidateSerializedReference(_resolutionLabel, nameof(_resolutionLabel));
             ValidateSerializedReference(_resolutionDropdown, nameof(_resolutionDropdown));
+            ValidateSerializedReference(_resolutionDropdownArrowLabel, nameof(_resolutionDropdownArrowLabel));
             ValidateSerializedReference(_resolutionInfoHotspot, nameof(_resolutionInfoHotspot));
+            ValidateSerializedReference(_resolutionInfoMarkerLabel, nameof(_resolutionInfoMarkerLabel));
             ValidateSerializedReference(_resolutionHoverRelay, nameof(_resolutionHoverRelay));
             ValidateSerializedReference(_resolutionHoverHintRoot, nameof(_resolutionHoverHintRoot));
             ValidateSerializedReference(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel));
             ValidateSerializedReference(_fullscreenLabel, nameof(_fullscreenLabel));
             ValidateSerializedReference(_fullscreenToggle, nameof(_fullscreenToggle));
+            ValidateSerializedReference(_fullscreenToggleLabel, nameof(_fullscreenToggleLabel));
+            ValidateSerializedReference(_languageLabel, nameof(_languageLabel));
+            ValidateSerializedReference(_languageCycleButton, nameof(_languageCycleButton));
+            ValidateSerializedReference(_languageCycleButtonLabel, nameof(_languageCycleButtonLabel));
             ValidateSerializedReference(_displayStatusLabel, nameof(_displayStatusLabel));
             ValidateSerializedReference(_previewCountdownRoot, nameof(_previewCountdownRoot));
             ValidateSerializedReference(_previewCountdownLabel, nameof(_previewCountdownLabel));
@@ -295,6 +394,7 @@ namespace Game.Feature.UI.Screens
             HideResolutionHoverHint();
             CloseResolutionKeyboardList();
             UnbindResolutionHoverRelay();
+            UnbindStaticLocalization();
 
             if (_viewModel != null)
             {
@@ -380,6 +480,7 @@ namespace Game.Feature.UI.Screens
 
             RebindButton(_applyButton, ClickApply);
             RebindButton(_revertButton, ClickRevert);
+            RebindButton(_languageCycleButton, ClickLanguageCycle);
         }
 
         private void RefreshControls()
@@ -400,6 +501,21 @@ namespace Game.Feature.UI.Screens
                 if (_previewCountdownSlider != null)
                 {
                     ApplyPreviewCountdownSlider(0f);
+                }
+
+                if (_languageLabel != null)
+                {
+                    _languageLabel.text = string.Empty;
+                }
+
+                if (_languageCycleButtonLabel != null)
+                {
+                    _languageCycleButtonLabel.text = string.Empty;
+                }
+
+                if (_languageCycleButton != null)
+                {
+                    _languageCycleButton.interactable = false;
                 }
 
                 return;
@@ -461,11 +577,172 @@ namespace Game.Feature.UI.Screens
                     _fullscreenToggle.SetIsOnWithoutNotify(_viewModel.IsFullscreenEnabled);
                     _fullscreenToggle.interactable = !_viewModel.IsDisplayPreviewActive;
                 }
+
+                if (_languageLabel != null)
+                {
+                    _languageLabel.text = _viewModel.LanguageLabelText;
+                }
+
+                if (_languageCycleButtonLabel != null)
+                {
+                    _languageCycleButtonLabel.text = _viewModel.CurrentLanguageText;
+                }
+
+                if (_languageCycleButton != null)
+                {
+                    _languageCycleButton.interactable = _viewModel.IsLanguageSelectionAvailable;
+                }
+
+                RefreshLocalizedLanguageTextStyle();
+                RefreshTypography();
             }
             finally
             {
                 _isRefreshingDisplayControls = false;
             }
+        }
+
+        private void HandleLocaleChanged()
+        {
+            RefreshLocalizedLanguageTextStyle();
+            RefreshTypography();
+        }
+
+        private void RefreshLocalizedLanguageTextStyle()
+        {
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            ApplyLocalizedStyle(
+                _languageLabel,
+                _languageLabelDescriptor,
+                localeCode);
+            ApplyLocalizedStyle(
+                _languageCycleButtonLabel,
+                CurrentLanguageDescriptor(localeCode),
+                localeCode);
+        }
+
+        private void ApplyLocalizedStyle(
+            TMP_Text target,
+            LocalizedTextDescriptor descriptor,
+            string localeCode)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                    target,
+                    _typographyTheme,
+                    localeCode,
+                    requiredApplyMask: TypographyApplyMask.FontStyle))
+            {
+                return;
+            }
+
+            LocalizedTmpTextApplicator.ApplyTypography(
+                target,
+                _localizedTypographyResolver.Resolve(
+                    localeCode,
+                    descriptor.Role,
+                    descriptor.Weight));
+        }
+
+        private LocalizedTextDescriptor CurrentLanguageDescriptor(string localeCode)
+        {
+            return string.Equals(localeCode, "ko-KR", StringComparison.Ordinal)
+                ? _koreanLanguageLabelDescriptor
+                : _englishLanguageLabelDescriptor;
+        }
+
+        private void RefreshTypography()
+        {
+            if (_typographyTheme == null)
+            {
+                return;
+            }
+
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            ApplySettingsTypography(_currentDisplayLabel, localeCode);
+            ApplySettingsTypography(_currentDisplayValue, localeCode);
+            ApplySettingsTypography(_resolutionLabel, localeCode);
+            ApplySettingsTypography(_resolutionHoverHintLabel, localeCode);
+            ApplySettingsTypography(_fullscreenLabel, localeCode);
+            ApplySettingsTypography(_fullscreenToggleLabel, localeCode);
+            ApplySettingsTypography(_displayStatusLabel, localeCode);
+            ApplySettingsTypography(_previewCountdownLabel, localeCode);
+            ApplySettingsTypography(_applyButtonLabel, localeCode);
+            ApplySettingsTypography(_revertButtonLabel, localeCode);
+            ApplySettingsTypography(_resolutionDropdownArrowLabel, localeCode);
+            ApplySettingsTypography(_resolutionInfoMarkerLabel, localeCode);
+            RefreshResolutionDropdownTypography();
+        }
+
+        private void RefreshResolutionDropdownTypography()
+        {
+            if (_resolutionDropdown == null || _typographyTheme == null)
+            {
+                return;
+            }
+
+            var localeCode = _localizedTextResolver != null
+                ? _localizedTextResolver.CurrentLocaleCode
+                : string.Empty;
+            ApplySettingsTypography(_resolutionDropdown.captionText, localeCode);
+            ApplySettingsTypography(_resolutionDropdown.itemText, localeCode);
+
+            if (!TryGetNativeResolutionDropdownList(out var nativeList))
+            {
+                return;
+            }
+
+            var liveItemLabels = nativeList.GetComponentsInChildren<TMP_Text>(true);
+            for (var i = 0; i < liveItemLabels.Length; i++)
+            {
+                ApplySettingsTypography(liveItemLabels[i], localeCode);
+            }
+        }
+
+        private void ApplySettingsTypography(TMP_Text target, string localeCode)
+        {
+            LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                target,
+                _typographyTheme,
+                localeCode,
+                requiredApplyMask: TypographyApplyMask.FontStyle);
+        }
+
+        private LocalizedTmpTextBinding CreateBinding(
+            TMP_Text target,
+            LocalizedTextDescriptor descriptor)
+        {
+            return new LocalizedTmpTextBinding(
+                target,
+                descriptor,
+                _localizedTextResolver,
+                _localizedTypographyResolver,
+                null,
+                _typographyTheme,
+                requiredThemeApplyMask: TypographyApplyMask.FontStyle);
+        }
+
+        private void DisposeLocalizedStaticBindings()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            foreach (var binding in _localizedStaticBindings)
+            {
+                binding?.Dispose();
+            }
+
+            _localizedStaticBindings = null;
         }
 
         private void RefreshView()
@@ -512,6 +789,7 @@ namespace Game.Feature.UI.Screens
 
             UnbindButton(_applyButton, ClickApply);
             UnbindButton(_revertButton, ClickRevert);
+            UnbindButton(_languageCycleButton, ClickLanguageCycle);
         }
 
         private void ShowResolutionHoverHint()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DG.Tweening;
 using Game.Feature.UI.ViewShared;
 using TMPro;
@@ -29,6 +30,8 @@ namespace Game.Feature.UI.Popups
         private bool _lastVisibleState;
         private bool _hasRootRestAlpha;
         private bool _hasRootRestScale;
+        private List<PausePopupLocalizedTmpTextBinding> _localizedStaticBindings;
+        private bool _hasExternalStaticLocalization;
         private float _rootRestAlpha = 1f;
         private Vector3 _rootRestScale = Vector3.one;
 
@@ -36,9 +39,9 @@ namespace Game.Feature.UI.Popups
 
         public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
-        public string TitleText => _viewModel != null ? _viewModel.TitleText : string.Empty;
+        public string TitleText => _titleLabel != null ? _titleLabel.text : _viewModel != null ? _viewModel.TitleText : string.Empty;
 
-        public string DescriptionText => _viewModel != null ? _viewModel.DescriptionText : string.Empty;
+        public string DescriptionText => _descriptionLabel != null ? _descriptionLabel.text : _viewModel != null ? _viewModel.DescriptionText : string.Empty;
 
         public bool IsVisible
         {
@@ -63,6 +66,60 @@ namespace Game.Feature.UI.Popups
                 _viewModel.Changed += HandleViewModelChanged;
             }
 
+            RefreshView();
+        }
+
+        public void BindStaticLocalization(
+            PausePopupPayload payload,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver)
+        {
+            UnbindStaticLocalization();
+            if (payload == null)
+            {
+                return;
+            }
+
+            _localizedStaticBindings = new List<PausePopupLocalizedTmpTextBinding>
+            {
+                new(_titleLabel, payload.TitleTextDescriptor, textResolver, typographyResolver),
+                new(_descriptionLabel, payload.DescriptionTextDescriptor, textResolver, typographyResolver),
+                new(_resumeButtonLabel, payload.ResumeLabelDescriptor, textResolver, typographyResolver),
+                new(_settingsButtonLabel, payload.SettingsLabelDescriptor, textResolver, typographyResolver),
+                new(_retryButtonLabel, payload.RetryLabelDescriptor, textResolver, typographyResolver),
+                new(_mainMenuButtonLabel, payload.MainMenuLabelDescriptor, textResolver, typographyResolver),
+            };
+        }
+
+        public IReadOnlyList<PausePopupLocalizedTextTarget> CreateStaticLocalizationTargets(PausePopupPayload payload)
+        {
+            if (payload == null)
+            {
+                return Array.Empty<PausePopupLocalizedTextTarget>();
+            }
+
+            return new[]
+            {
+                new PausePopupLocalizedTextTarget(_titleLabel, payload.TitleTextDescriptor),
+                new PausePopupLocalizedTextTarget(_descriptionLabel, payload.DescriptionTextDescriptor),
+                new PausePopupLocalizedTextTarget(_resumeButtonLabel, payload.ResumeLabelDescriptor),
+                new PausePopupLocalizedTextTarget(_settingsButtonLabel, payload.SettingsLabelDescriptor),
+                new PausePopupLocalizedTextTarget(_retryButtonLabel, payload.RetryLabelDescriptor),
+                new PausePopupLocalizedTextTarget(_mainMenuButtonLabel, payload.MainMenuLabelDescriptor),
+            };
+        }
+
+        public void BindExternalStaticLocalization()
+        {
+            DisposeLocalizedStaticBindings();
+            _hasExternalStaticLocalization = true;
+            RefreshView();
+        }
+
+        public void UnbindStaticLocalization()
+        {
+            _hasExternalStaticLocalization = false;
+            DisposeLocalizedStaticBindings();
             RefreshView();
         }
 
@@ -211,6 +268,7 @@ namespace Game.Feature.UI.Popups
         private void OnDestroy()
         {
             StopRootEnterMotion();
+            DisposeLocalizedStaticBindings();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -232,6 +290,11 @@ namespace Game.Feature.UI.Popups
             ApplyRootVisibility();
 
             if (_viewModel == null)
+            {
+                return;
+            }
+
+            if (HasStaticLocalization)
             {
                 return;
             }
@@ -342,6 +405,127 @@ namespace Game.Feature.UI.Popups
             }
 
             button.onClick.RemoveListener(action);
+        }
+
+        private bool HasStaticLocalization =>
+            _hasExternalStaticLocalization ||
+            (_localizedStaticBindings != null && _localizedStaticBindings.Count > 0);
+
+        private void DisposeLocalizedStaticBindings()
+        {
+            if (_localizedStaticBindings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _localizedStaticBindings.Count; i++)
+            {
+                _localizedStaticBindings[i]?.Dispose();
+            }
+
+            _localizedStaticBindings = null;
+        }
+    }
+
+    public readonly struct PausePopupLocalizedTextTarget
+    {
+        public PausePopupLocalizedTextTarget(TMP_Text target, LocalizedTextDescriptor descriptor)
+        {
+            Target = target;
+            Descriptor = descriptor;
+        }
+
+        public TMP_Text Target { get; }
+
+        public LocalizedTextDescriptor Descriptor { get; }
+    }
+
+    internal sealed class PausePopupLocalizedTmpTextBinding : IDisposable
+    {
+        private readonly TMP_Text _target;
+        private readonly LocalizedTextDescriptor _descriptor;
+        private readonly ILocalizedTextResolver _textResolver;
+        private readonly ILocalizedTypographyResolver _typographyResolver;
+        private bool _isDisposed;
+
+        public PausePopupLocalizedTmpTextBinding(
+            TMP_Text target,
+            LocalizedTextDescriptor descriptor,
+            ILocalizedTextResolver textResolver,
+            ILocalizedTypographyResolver typographyResolver)
+        {
+            _target = target;
+            _descriptor = descriptor;
+            _textResolver = textResolver;
+            _typographyResolver = typographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+
+            if (_textResolver != null)
+            {
+                _textResolver.LocaleChanged += HandleLocaleChanged;
+            }
+
+            Refresh();
+        }
+
+        public void Refresh()
+        {
+            if (_isDisposed || _target == null)
+            {
+                return;
+            }
+
+            _target.text = ResolveText();
+            var localeCode = _textResolver != null ? _textResolver.CurrentLocaleCode : string.Empty;
+            ApplyTypography(
+                _target,
+                _typographyResolver.Resolve(
+                    localeCode,
+                    _descriptor.Role,
+                    _descriptor.Weight));
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            if (_textResolver != null)
+            {
+                _textResolver.LocaleChanged -= HandleLocaleChanged;
+            }
+
+            _isDisposed = true;
+        }
+
+        private string ResolveText()
+        {
+            if (_textResolver == null)
+            {
+                return _descriptor.Key;
+            }
+
+            return _textResolver.Resolve(_descriptor) ?? string.Empty;
+        }
+
+        private static void ApplyTypography(TMP_Text target, LocalizedTypographyStyle style)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            target.fontSize = style.FontSize;
+            target.lineSpacing = style.LineSpacing;
+            target.fontStyle = style.Bold
+                ? target.fontStyle | FontStyles.Bold
+                : target.fontStyle & ~FontStyles.Bold;
+        }
+
+        private void HandleLocaleChanged()
+        {
+            Refresh();
         }
     }
 }

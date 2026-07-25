@@ -16,7 +16,7 @@ namespace Game.Feature.UI.Tests
         {
             var readModel = new MinimalStageCompletionReadModel(
                 StageId.CreateOrThrow("payload-stage"),
-                "Payload Stage",
+                "stage.payload-stage.display_name",
                 new MinimalStageCompletionResult(
                     StageId.CreateOrThrow("payload-stage"),
                     new StageRunId("run-a"),
@@ -134,17 +134,33 @@ namespace Game.Feature.UI.Tests
         private static MinimalStageCompletionReadModel CreateMinimalReadModel(string stageIdValue)
         {
             var stageId = StageId.CreateOrThrow(stageIdValue);
-            return MinimalStageCompletionReadModelBuilder.Build(
-                entry: null,
-                new StageClearResult(
+            var result = new MinimalStageCompletionResult(
                     stageId,
                     new StageRunId("run-" + stageIdValue),
+                    new StageCompletionAttemptId("attempt-" + stageIdValue),
                     StageTerminalReason.Cleared,
                     wasCleared: true,
                     finalTickIndex: 1,
-                    default,
-                    Array.Empty<StageSessionMetricValue>(),
-                    Array.Empty<StageChallengeRuntimeState>()));
+                    new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
+                    StageClearSource.Objective);
+            var nextStageRequest = string.Equals(stageIdValue, "stage-1-1", StringComparison.Ordinal)
+                ? CreateNavigationRequest("stage-2-1", StageNavigationKind.NextStage)
+                    .WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
+                : StageNavigationRequest.None;
+            var continueRequest = nextStageRequest.IsValid
+                ? nextStageRequest
+                : CreateNavigationRequest(stageIdValue, StageNavigationKind.Continue)
+                    .WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
+            var retryRequest = CreateNavigationRequest(stageIdValue, StageNavigationKind.Retry)
+                .WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
+
+            return new MinimalStageCompletionReadModel(
+                stageId,
+                StageDisplayNameKeys.ForStage(stageId),
+                result,
+                continueRequest,
+                retryRequest,
+                nextStageRequest);
         }
 
         private static StageNavigationRequest CreateNavigationRequest(
@@ -154,7 +170,13 @@ namespace Game.Feature.UI.Tests
             return new StageNavigationRequest(
                 StageId.CreateOrThrow(stageIdValue),
                 navigationKind,
-                "test");
+                navigationKind switch
+                {
+                    StageNavigationKind.Continue => "stage-result-continue",
+                    StageNavigationKind.Retry => "stage-result-retry",
+                    StageNavigationKind.NextStage => "campaign-auto-next",
+                    _ => "test",
+                });
         }
 
     }

@@ -1,31 +1,229 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.DemoStageControl;
 using Game.Feature.DemoStageControl.UI;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
+    public static class PausePopupProductionLocalizationComposer
+    {
+        public static IDisposable Bind(
+            PausePopupView view,
+            PausePopupPayload payload,
+            ILocalizedTextResolver localizedTextResolver,
+            ILocalizedTypographyResolver localizedTypographyResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            if (view == null)
+            {
+                throw new ArgumentNullException(nameof(view));
+            }
+
+            if (payload == null)
+            {
+                throw new ArgumentNullException(nameof(payload));
+            }
+
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
+            }
+
+            if (localizedTypographyResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTypographyResolver));
+            }
+
+            if (typographyTheme == null)
+            {
+                throw new ArgumentNullException(nameof(typographyTheme));
+            }
+
+            view.BindExternalStaticLocalization();
+            var targets = view.CreateStaticLocalizationTargets(payload);
+            var bindings = new List<LocalizedTmpTextBinding>(targets.Count);
+            try
+            {
+                for (var i = 0; i < targets.Count; i++)
+                {
+                    bindings.Add(new LocalizedTmpTextBinding(
+                        targets[i].Target,
+                        targets[i].Descriptor,
+                        localizedTextResolver,
+                        localizedTypographyResolver,
+                        typographyTheme: typographyTheme));
+                }
+            }
+            catch
+            {
+                DisposeBindings(bindings);
+                view.UnbindStaticLocalization();
+                throw;
+            }
+
+            return new BindingScope(view, bindings);
+        }
+
+        private static void DisposeBindings(List<LocalizedTmpTextBinding> bindings)
+        {
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                bindings[i]?.Dispose();
+            }
+
+            bindings.Clear();
+        }
+
+        private sealed class BindingScope : IDisposable
+        {
+            private readonly PausePopupView _view;
+            private readonly List<LocalizedTmpTextBinding> _bindings;
+            private bool _isDisposed;
+
+            public BindingScope(PausePopupView view, List<LocalizedTmpTextBinding> bindings)
+            {
+                _view = view;
+                _bindings = bindings;
+            }
+
+            public void Dispose()
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                DisposeBindings(_bindings);
+                _view.UnbindStaticLocalization();
+                _isDisposed = true;
+            }
+        }
+    }
+
+    public static class ConfirmPopupProductionLocalizationComposer
+    {
+        private const int RequiredTargetCount = 4;
+
+        public static IDisposable Bind(
+            ConfirmPopupView view,
+            ILocalizedTextResolver localizedTextResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            if (view == null)
+            {
+                throw new ArgumentNullException(nameof(view));
+            }
+
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
+            }
+
+            if (typographyTheme == null)
+            {
+                throw new ArgumentNullException(nameof(typographyTheme));
+            }
+
+            var targets = view.CreateTypographyTargets();
+            if (targets == null || targets.Count != RequiredTargetCount)
+            {
+                throw new InvalidOperationException(
+                    $"ConfirmPopup requires exactly {RequiredTargetCount} production typography targets.");
+            }
+
+            var bindings = new List<LocalizedTmpTypographyBinding>(RequiredTargetCount);
+            try
+            {
+                for (var i = 0; i < targets.Count; i++)
+                {
+                    if (targets[i] == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"ConfirmPopup production typography target at index {i} is not assigned.");
+                    }
+
+                    bindings.Add(new LocalizedTmpTypographyBinding(
+                        targets[i],
+                        localizedTextResolver,
+                        typographyTheme));
+                }
+            }
+            catch
+            {
+                DisposeBindings(bindings);
+                throw;
+            }
+
+            return new BindingScope(bindings);
+        }
+
+        private static void DisposeBindings(List<LocalizedTmpTypographyBinding> bindings)
+        {
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                bindings[i]?.Dispose();
+            }
+
+            bindings.Clear();
+        }
+
+        private sealed class BindingScope : IDisposable
+        {
+            private readonly List<LocalizedTmpTypographyBinding> _bindings;
+            private bool _isDisposed;
+
+            public BindingScope(List<LocalizedTmpTypographyBinding> bindings)
+            {
+                _bindings = bindings;
+            }
+
+            public void Dispose()
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                DisposeBindings(_bindings);
+                _isDisposed = true;
+            }
+        }
+    }
+
     public sealed class GameplayPopupRuntimeFactory : IPopupRuntimeFactory
     {
         private readonly PopupPrefabCatalog _popupPrefabCatalog;
         private readonly PopupLayerView _popupLayerView;
         private readonly IDemoStageControlCommandPort _demoStageControlCommandPort;
         private readonly IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly ILocalizedTypographyResolver _localizedTypographyResolver;
+        private readonly GameplayUiTypographyTheme _typographyTheme;
 
         public GameplayPopupRuntimeFactory(
             PopupLayerView popupLayerView,
             PopupPrefabCatalog popupPrefabCatalog,
             IDemoStageControlCommandPort demoStageControlCommandPort = null,
-            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null)
+            IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            ILocalizedTypographyResolver localizedTypographyResolver = null,
+            GameplayUiTypographyTheme typographyTheme = null)
         {
             _popupLayerView = popupLayerView ?? throw new ArgumentNullException(nameof(popupLayerView));
             _popupPrefabCatalog = popupPrefabCatalog ?? throw new ArgumentNullException(nameof(popupPrefabCatalog));
             _demoStageControlCommandPort = demoStageControlCommandPort;
             _demoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new InvalidOperationException(
+                    "GameplayPopupRuntimeFactory requires an explicit production localized text resolver.");
+            _localizedTypographyResolver = localizedTypographyResolver ?? DefaultLocalizedTypographyResolver.Instance;
+            _typographyTheme = typographyTheme ?? _popupPrefabCatalog.TypographyTheme;
         }
 
         public PopupRuntimeFactoryResult Create(PopupRequest request)
@@ -48,11 +246,17 @@ namespace Game.Feature.UI.Composition
 
         private PopupRuntimeFactoryResult CreatePausePopup(PausePopupPayload payload)
         {
-            var presenter = new PausePopupPresenter();
+            var presenter = new PausePopupPresenter(_localizedTextResolver);
             presenter.Apply(payload);
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.PausePrefab, PopupId.Pause);
             view.Bind(presenter.ViewModel);
+            var localizedBindings = PausePopupProductionLocalizationComposer.Bind(
+                view,
+                payload,
+                _localizedTextResolver,
+                _localizedTypographyResolver,
+                _typographyTheme);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -65,6 +269,7 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<PausePopupView>(view, () =>
                 {
+                    localizedBindings.Dispose();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));
@@ -72,11 +277,15 @@ namespace Game.Feature.UI.Composition
 
         private PopupRuntimeFactoryResult CreateConfirmPopup(ConfirmPopupPayload payload)
         {
-            var presenter = new ConfirmPopupPresenter();
+            var presenter = new ConfirmPopupPresenter(_localizedTextResolver);
             presenter.Apply(payload);
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.ConfirmPrefab, PopupId.Confirm);
             view.Bind(presenter.ViewModel);
+            var typographyBindings = ConfirmPopupProductionLocalizationComposer.Bind(
+                view,
+                _localizedTextResolver,
+                _typographyTheme);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -89,6 +298,8 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<ConfirmPopupView>(view, () =>
                 {
+                    typographyBindings.Dispose();
+                    presenter.Dispose();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
                 }));
@@ -117,6 +328,7 @@ namespace Game.Feature.UI.Composition
                     _demoStageControlCommandPort,
                     _demoGameplayOverrideCommandPort,
                     payload,
+                    _localizedTextResolver,
                     () => DestroyObject(view.gameObject)));
         }
 
