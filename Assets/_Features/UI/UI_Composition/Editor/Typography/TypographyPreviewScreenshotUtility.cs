@@ -171,6 +171,22 @@ namespace Game.Feature.UI.Composition.Editor
             new("Main Menu", "MainMenu", "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
         };
 
+        public static readonly TypographyPreviewScreenshotTarget[] ClimateDiagnosticTargets =
+        {
+            new(
+                "Settings Audio Muted",
+                "SettingsAudioMuted",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Display Status",
+                "SettingsDisplayStatus",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Confirm Popup",
+                "ConfirmPopup",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+        };
+
         public static readonly string[] DirtyGuardAssetPaths =
         {
             NanumGothicFontAssetPath,
@@ -274,6 +290,8 @@ namespace Game.Feature.UI.Composition.Editor
             switch (fileStem)
             {
                 case "Settings":
+                case "SettingsAudioMuted":
+                case "SettingsDisplayStatus":
                     return 22;
 
                 case "Pause":
@@ -281,6 +299,9 @@ namespace Game.Feature.UI.Composition.Editor
 
                 case "MainMenu":
                     return 3;
+
+                case "ConfirmPopup":
+                    return 4;
 
                 default:
                     return 0;
@@ -601,7 +622,9 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             IDisposable scope = resolver;
-            if (string.Equals(target.FileStem, "Settings", StringComparison.Ordinal))
+            if (string.Equals(target.FileStem, "Settings", StringComparison.Ordinal) ||
+                string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal) ||
+                string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
             {
                 var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
                 if (view == null)
@@ -622,9 +645,9 @@ namespace Game.Feature.UI.Composition.Editor
                     string.Empty,
                     string.Empty,
                     string.Empty,
-                    SettingsSectionId.Input);
+                    GetSettingsPreviewSection(target.FileStem));
                 view.Bind(viewModel);
-                ApplySettingsInputPreviewState(prefabRoot, target);
+                ApplySettingsPreviewState(prefabRoot, target, resolver);
                 view.SetIsCurrent(true);
                 ValidateLocalizedText(
                     target,
@@ -635,6 +658,8 @@ namespace Game.Feature.UI.Composition.Editor
                 return new DisposableAction(() =>
                 {
                     view.InputView.Bind(null);
+                    view.AudioView.Bind(null);
+                    view.DisplayView.Bind(null);
                     view.Bind(null);
                     view.UnbindStaticLocalization();
                     scope.Dispose();
@@ -705,6 +730,56 @@ namespace Game.Feature.UI.Composition.Editor
                 });
             }
 
+            if (string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal))
+            {
+                var view = prefabRoot.GetComponentInChildren<ConfirmPopupView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: ConfirmPopupView was not found.");
+                    return scope;
+                }
+
+                var viewModel = new ConfirmPopupViewModel();
+                var localizedValues = new[]
+                {
+                    resolver.Resolve(SettingsStaticTextDescriptors.DisplayPreviewConfirmTitle),
+                    resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewConfirmBody(
+                        1280,
+                        720,
+                        isFullscreen: true,
+                        seconds: 15)),
+                    resolver.Resolve(SettingsStaticTextDescriptors.DisplayPreviewConfirmKeep),
+                    resolver.Resolve(SettingsStaticTextDescriptors.DisplayRevert),
+                };
+                viewModel.SetContent(
+                    localizedValues[0],
+                    localizedValues[1],
+                    localizedValues[2],
+                    localizedValues[3],
+                    isConfirmDestructive: false);
+                view.Bind(viewModel);
+                var productionTypographyScope = ConfirmPopupProductionLocalizationComposer.Bind(
+                    view,
+                    resolver,
+                    theme);
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                view.enabled = false;
+                capture.ExpectedLocalizedTextCount = localizedValues.Length;
+                capture.LocalizedTextAppliedCount = localizedValues.Length;
+                foreach (var value in localizedValues)
+                {
+                    capture.AddLocalizedText(value);
+                }
+
+                return new DisposableAction(() =>
+                {
+                    productionTypographyScope.Dispose();
+                    view.Bind(null);
+                    scope.Dispose();
+                });
+            }
+
             capture.AddError($"{target.Name}: No localized preview applicator exists for screenshot target '{target.FileStem}'.");
             return scope;
         }
@@ -750,17 +825,72 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
-        private static void ApplySettingsInputPreviewState(
-            GameObject prefabRoot,
-            TypographyPreviewScreenshotTarget target)
+        private static SettingsSectionId GetSettingsPreviewSection(string fileStem)
         {
-            if (!string.Equals(target.FileStem, "Settings", StringComparison.Ordinal))
+            if (string.Equals(fileStem, "SettingsAudioMuted", StringComparison.Ordinal))
+            {
+                return SettingsSectionId.Audio;
+            }
+
+            if (string.Equals(fileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
+            {
+                return SettingsSectionId.Display;
+            }
+
+            return SettingsSectionId.Input;
+        }
+
+        private static void ApplySettingsPreviewState(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotTarget target,
+            CaptureStringTableTextResolver resolver)
+        {
+            var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
+            if (view == null)
             {
                 return;
             }
 
-            var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
-            if (view == null || view.InputView == null)
+            if (string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal))
+            {
+                var value = resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(25, isMuted: true));
+                var row = new AudioSettingsRowViewModel(value, 0.25f, isMuted: true);
+                var audioViewModel = new SettingsAudioViewModel();
+                audioViewModel.SetContent(row, row, row);
+                view.AudioView.Bind(audioViewModel);
+                return;
+            }
+
+            if (string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
+            {
+                var displayViewModel = new SettingsDisplayViewModel();
+                displayViewModel.SetContent(
+                    "1920 x 1080",
+                    new[] { "1920 x 1080" },
+                    selectedResolutionIndex: 0,
+                    isFullscreenEnabled: true,
+                    displayStatusText: resolver.Resolve(
+                        SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(15)),
+                    isDisplayApplyInteractable: false,
+                    isDisplayRevertInteractable: false,
+                    isDisplayPreviewActive: true,
+                    previewCountdownText: resolver.Resolve(
+                        SettingsDynamicTextDescriptors.DisplayPreviewCountdown(15)),
+                    previewCountdownNormalized: 1f,
+                    isPreviewCountdownVisible: true,
+                    isDisplayStatusVisible: true,
+                    isDisplayStatusTransient: true,
+                    languageLabelText: resolver.Resolve(SettingsStaticTextDescriptors.Language),
+                    currentLanguageText: resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean),
+                    isLanguageSelectionAvailable: true,
+                    selectedResolutionWidth: 1920,
+                    selectedResolutionHeight: 1080);
+                view.DisplayView.Bind(displayViewModel);
+                return;
+            }
+
+            if (!string.Equals(target.FileStem, "Settings", StringComparison.Ordinal) ||
+                view.InputView == null)
             {
                 return;
             }
@@ -1026,6 +1156,11 @@ namespace Game.Feature.UI.Composition.Editor
             GameObject root,
             TypographyPreviewScreenshotCaptureResult capture)
         {
+            if (!string.Equals(capture.Target.FileStem, "Settings", StringComparison.Ordinal))
+            {
+                return;
+            }
+
             var activeTargetCount = 0;
             foreach (var binding in root.GetComponentsInChildren<TypographyBinding>(true))
             {

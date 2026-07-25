@@ -62,6 +62,8 @@ namespace Game.Feature.UI.Composition.Editor
                 ReadOptions(args));
             LogResult(result);
             result.ThrowIfFailed();
+
+            CaptureClimateDiagnosticsForSlice(targetName, localeCode, outputDirectory, ReadOptions(args));
         }
 
         public static void ReconstructCanonicalManifestFromCommandLine()
@@ -69,6 +71,46 @@ namespace Game.Feature.UI.Composition.Editor
             var args = Environment.GetCommandLineArgs();
             var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
             var result = TypographyPreviewScreenshotManifestUtility.ReconstructCanonicalManifest(outputDirectory);
+            LogResult(result);
+            result.ThrowIfFailed();
+        }
+
+        private static void CaptureClimateDiagnosticsForSlice(
+            string targetName,
+            string localeCode,
+            string outputDirectory,
+            TypographyPreviewScreenshotOptions options)
+        {
+            if (!string.Equals(localeCode, "ko-KR", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            TypographyPreviewScreenshotTarget[] targets;
+            if (string.Equals(targetName, "Settings", StringComparison.Ordinal))
+            {
+                targets = TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                    .Where(target =>
+                        string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal) ||
+                        string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
+                    .ToArray();
+            }
+            else if (string.Equals(targetName, "Pause", StringComparison.Ordinal))
+            {
+                targets = TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                    .Where(target => string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal))
+                    .ToArray();
+            }
+            else
+            {
+                return;
+            }
+
+            var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                targets,
+                new[] { localeCode },
+                outputDirectory,
+                options);
             LogResult(result);
             result.ThrowIfFailed();
         }
