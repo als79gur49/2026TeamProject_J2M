@@ -117,6 +117,78 @@ namespace Game.Feature.UI.Screens
         }
     }
 
+    public sealed class LocalizedTmpTypographyBinding : IDisposable
+    {
+        private readonly TMP_Text _target;
+        private readonly ILocalizedTextResolver _localeSource;
+        private readonly GameplayUiTypographyTheme _typographyTheme;
+        private readonly TypographyBinding _typographyBinding;
+        private bool _isDisposed;
+
+        public LocalizedTmpTypographyBinding(
+            TMP_Text target,
+            ILocalizedTextResolver localeSource,
+            GameplayUiTypographyTheme typographyTheme,
+            TypographyBinding typographyBinding = null)
+        {
+            _target = target ?? throw new ArgumentNullException(nameof(target));
+            _localeSource = localeSource ?? throw new ArgumentNullException(nameof(localeSource));
+            _typographyTheme = typographyTheme ?? throw new ArgumentNullException(nameof(typographyTheme));
+            _typographyBinding = typographyBinding ?? TypographyBinding.FindFor(target);
+            if (_typographyBinding == null)
+            {
+                throw new InvalidOperationException(
+                    $"Localized TMP typography target '{target.name}' requires a semantic TypographyBinding.");
+            }
+
+            try
+            {
+                _localeSource.LocaleChanged += HandleLocaleChanged;
+                Refresh();
+            }
+            catch
+            {
+                _localeSource.LocaleChanged -= HandleLocaleChanged;
+                throw;
+            }
+        }
+
+        public void Refresh()
+        {
+            if (_isDisposed || _target == null)
+            {
+                return;
+            }
+
+            if (!LocalizedTmpTextApplicator.ApplyTypographyTheme(
+                    _target,
+                    _typographyTheme,
+                    _localeSource.CurrentLocaleCode,
+                    _typographyBinding))
+            {
+                throw new InvalidOperationException(
+                    $"Typography style '{_typographyBinding.StyleTag}' is not available for locale " +
+                    $"'{_localeSource.CurrentLocaleCode}'.");
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _localeSource.LocaleChanged -= HandleLocaleChanged;
+            _isDisposed = true;
+        }
+
+        private void HandleLocaleChanged()
+        {
+            Refresh();
+        }
+    }
+
     public static class LocalizedTmpTextApplicator
     {
         private static readonly int ScaleRatioAProperty = Shader.PropertyToID("_ScaleRatioA");

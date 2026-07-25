@@ -220,6 +220,30 @@ MonoBehaviour:
     CharacterSpacing: 0
     FontStyle: 1
     ApplyMask: 7
+  - StyleTag: 17
+    FontCategory: 1
+    Weight: 2
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 0
+    ApplyMask: 7
+  - StyleTag: 18
+    FontCategory: 2
+    Weight: 1
+    SizingSource: 2
+    SizingMode: 0
+    FixedSize: 0
+    MinSize: 0
+    MaxSize: 0
+    LineSpacing: 0
+    CharacterSpacing: 0
+    FontStyle: 1
+    ApplyMask: 7
   localeFontSets:
   - LocaleCode: en-US
     Entries:

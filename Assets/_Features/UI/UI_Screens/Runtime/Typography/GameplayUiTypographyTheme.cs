@@ -26,6 +26,8 @@ namespace Game.Feature.UI.Composition
         SettingsAction,
         SettingsStatus,
         MainMenuCommand = 16,
+        PopupBody = 17,
+        PopupAction = 18,
     }
 
     public enum FontCategory
@@ -513,6 +515,18 @@ namespace Game.Feature.UI.Composition
                     TypographyStyleTag.MainMenuCommand,
                     FontCategory.Display,
                     LocalizedTextWeight.Bold,
+                    FontStyles.Bold,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
+                CreateRule(
+                    TypographyStyleTag.PopupBody,
+                    FontCategory.Heading,
+                    LocalizedTextWeight.Bold,
+                    FontStyles.Normal,
+                    TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
+                CreateRule(
+                    TypographyStyleTag.PopupAction,
+                    FontCategory.Body,
+                    LocalizedTextWeight.Regular,
                     FontStyles.Bold,
                     TypographyApplyMask.Font | TypographyApplyMask.Material | TypographyApplyMask.FontStyle),
             };

@@ -106,6 +106,96 @@ namespace Game.Feature.UI.Composition
         }
     }
 
+    public static class ConfirmPopupProductionLocalizationComposer
+    {
+        private const int RequiredTargetCount = 4;
+
+        public static IDisposable Bind(
+            ConfirmPopupView view,
+            ILocalizedTextResolver localizedTextResolver,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            if (view == null)
+            {
+                throw new ArgumentNullException(nameof(view));
+            }
+
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
+            }
+
+            if (typographyTheme == null)
+            {
+                throw new ArgumentNullException(nameof(typographyTheme));
+            }
+
+            var targets = view.CreateTypographyTargets();
+            if (targets == null || targets.Count != RequiredTargetCount)
+            {
+                throw new InvalidOperationException(
+                    $"ConfirmPopup requires exactly {RequiredTargetCount} production typography targets.");
+            }
+
+            var bindings = new List<LocalizedTmpTypographyBinding>(RequiredTargetCount);
+            try
+            {
+                for (var i = 0; i < targets.Count; i++)
+                {
+                    if (targets[i] == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"ConfirmPopup production typography target at index {i} is not assigned.");
+                    }
+
+                    bindings.Add(new LocalizedTmpTypographyBinding(
+                        targets[i],
+                        localizedTextResolver,
+                        typographyTheme));
+                }
+            }
+            catch
+            {
+                DisposeBindings(bindings);
+                throw;
+            }
+
+            return new BindingScope(bindings);
+        }
+
+        private static void DisposeBindings(List<LocalizedTmpTypographyBinding> bindings)
+        {
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                bindings[i]?.Dispose();
+            }
+
+            bindings.Clear();
+        }
+
+        private sealed class BindingScope : IDisposable
+        {
+            private readonly List<LocalizedTmpTypographyBinding> _bindings;
+            private bool _isDisposed;
+
+            public BindingScope(List<LocalizedTmpTypographyBinding> bindings)
+            {
+                _bindings = bindings;
+            }
+
+            public void Dispose()
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                DisposeBindings(_bindings);
+                _isDisposed = true;
+            }
+        }
+    }
+
     public sealed class GameplayPopupRuntimeFactory : IPopupRuntimeFactory
     {
         private readonly PopupPrefabCatalog _popupPrefabCatalog;
@@ -192,6 +282,10 @@ namespace Game.Feature.UI.Composition
 
             var view = InstantiatePopupPrefab(_popupPrefabCatalog.ConfirmPrefab, PopupId.Confirm);
             view.Bind(presenter.ViewModel);
+            var typographyBindings = ConfirmPopupProductionLocalizationComposer.Bind(
+                view,
+                _localizedTextResolver,
+                _typographyTheme);
             view.IsVisible = true;
 
             return new PopupRuntimeFactoryResult(
@@ -204,6 +298,7 @@ namespace Game.Feature.UI.Composition
                     blocksLowerLayers: true),
                 new PopupRuntime<ConfirmPopupView>(view, () =>
                 {
+                    typographyBindings.Dispose();
                     presenter.Dispose();
                     view.Bind(null);
                     DestroyObject(view.gameObject);
