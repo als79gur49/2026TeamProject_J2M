@@ -42,11 +42,9 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void ClimateAssets_KeepCommittedIdentityAndCanonicalMaterial()
         {
-            // Other UI fixtures can update TMP material ratios in memory while measuring text.
-            // Reload the committed static asset so this contract observes serialized identity.
-            AssetDatabase.ImportAsset(FontAssetPath, ImportAssetOptions.ForceUpdate);
             var fontAsset = LoadClimateFont();
             var material = fontAsset.material;
+            var serializedFontAsset = File.ReadAllText(FontAssetPath);
 
             Assert.That(AssetDatabase.AssetPathToGUID(SourceFontPath), Is.EqualTo("5360535d0de75234ca21822297323672"));
             AssertAssetIdentity(fontAsset, ClimateFontGuid, ClimateFontLocalId, "Climate TMP font");
@@ -55,9 +53,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1));
             Assert.That(fontAsset.atlasTextures[0], Is.Not.Null);
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
-            Assert.That(material.GetFloat("_ScaleRatioA"), Is.EqualTo(1f));
-            Assert.That(material.GetFloat("_ScaleRatioB"), Is.EqualTo(1f));
-            Assert.That(material.GetFloat("_ScaleRatioC"), Is.EqualTo(1f));
+            Assert.That(serializedFontAsset, Does.Contain("- _ScaleRatioA: 1"));
+            Assert.That(serializedFontAsset, Does.Contain("- _ScaleRatioB: 1"));
+            Assert.That(serializedFontAsset, Does.Contain("- _ScaleRatioC: 1"));
             Assert.That(ComputeSha256(SourceFontPath), Is.EqualTo(SourceFontSha256));
             Assert.That(ComputeSha256(FontAssetPath), Is.EqualTo(CommittedSdfSha256));
         }
