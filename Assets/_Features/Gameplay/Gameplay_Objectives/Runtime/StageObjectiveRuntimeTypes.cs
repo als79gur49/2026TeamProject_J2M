@@ -27,6 +27,85 @@ namespace Game.Feature.Gameplay.Objectives
         public const string ActivateMoonButton = "activate-moon-button";
     }
 
+    public enum ObjectiveConditionSemanticKind
+    {
+        None = 0,
+        ReachExit = 1,
+        ActivateButton = 2,
+        ActivateMoonButton = 3,
+    }
+
+    public readonly struct ObjectivePresentationIdentity
+    {
+        private ObjectivePresentationIdentity(string presentationId, string stableGroupKey)
+        {
+            PresentationId = presentationId;
+            StableGroupKey = stableGroupKey;
+        }
+
+        public string PresentationId { get; }
+
+        public string StableGroupKey { get; }
+
+        public static ObjectivePresentationIdentity For(
+            ObjectiveConditionSemanticKind kind,
+            StageObjectiveConditionRole role)
+        {
+            switch (kind)
+            {
+                case ObjectiveConditionSemanticKind.ReachExit:
+                    return new ObjectivePresentationIdentity(
+                        StageObjectiveConditionPresentationIds.ReachExit,
+                        StageObjectiveConditionPresentationIds.ReachExit);
+
+                case ObjectiveConditionSemanticKind.ActivateButton:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ActivateButton,
+                        role);
+
+                case ObjectiveConditionSemanticKind.ActivateMoonButton:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ActivateMoonButton,
+                        role);
+
+                case ObjectiveConditionSemanticKind.None:
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(kind),
+                        kind,
+                        "Objective presentation identity requires a known semantic kind.");
+            }
+        }
+
+        public static bool IsCanonicalPresentationId(string presentationId)
+        {
+            return string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ReachExit,
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ActivateButton,
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ActivateMoonButton,
+                       StringComparison.Ordinal);
+        }
+
+        private static ObjectivePresentationIdentity ForRole(
+            string presentationId,
+            StageObjectiveConditionRole role)
+        {
+            return new ObjectivePresentationIdentity(
+                presentationId,
+                string.Concat(
+                    presentationId,
+                    "|role-",
+                    ((int)role).ToString()));
+        }
+    }
+
     public readonly struct StageZoneRuntimeRegion
     {
         public StageZoneRuntimeRegion(UnityEngine.Vector2Int minInclusive, UnityEngine.Vector2Int maxInclusive)
@@ -505,8 +584,45 @@ namespace Game.Feature.Gameplay.Objectives
                 : stableConditionId.Trim();
             PresentationId = presentationId?.Trim() ?? string.Empty;
             StableGroupKey = stableGroupKey?.Trim() ?? string.Empty;
+            var hasPresentationId = PresentationId.Length > 0;
+            var hasStableGroupKey = StableGroupKey.Length > 0;
+            if (hasPresentationId != hasStableGroupKey)
+            {
+                throw new ArgumentException(
+                    "Objective presentation id and stable group key must either both be present or both be absent.");
+            }
+
+            if (hasPresentationId &&
+                !ObjectivePresentationIdentity.IsCanonicalPresentationId(PresentationId))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(presentationId),
+                    presentationId,
+                    "Objective presentation id must be a canonical semantic id.");
+            }
+
             SortOrder = sortOrder;
             AuthoringOrder = authoringOrder;
+        }
+
+        public StageObjectiveConditionRuntimeDefinitionEntry(
+            StageConditionRuntimeDefinition condition,
+            bool required,
+            StageObjectiveConditionRole role,
+            string stableConditionId,
+            ObjectivePresentationIdentity presentationIdentity,
+            int sortOrder,
+            int authoringOrder)
+            : this(
+                condition,
+                required,
+                role,
+                stableConditionId,
+                presentationIdentity.PresentationId,
+                presentationIdentity.StableGroupKey,
+                sortOrder,
+                authoringOrder)
+        {
         }
 
         public StageConditionRuntimeDefinition Condition { get; }

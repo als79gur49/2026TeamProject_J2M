@@ -401,20 +401,16 @@ namespace Game.Feature.Stages
                 }
 
                 var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
-                ResolvePresentationIdentity(
+                var presentationIdentity = ResolvePresentationIdentity(
                     validated.TileFeatures,
-                    authoringEntry,
-                    isExitPrimaryGoal,
-                    out var presentationId,
-                    out var stableGroupKey);
+                    authoringEntry);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
                     runtimeDefinition,
                     authoringEntry.Required,
                     authoringEntry.Role,
                     stableConditionId,
-                    presentationId,
-                    stableGroupKey,
+                    presentationIdentity,
                     authoringEntry.SortOrder,
                     i));
             }
@@ -424,18 +420,24 @@ namespace Game.Feature.Stages
                 : runtimeEntries.ToArray();
         }
 
-        private static void ResolvePresentationIdentity(
+        private static ObjectivePresentationIdentity ResolvePresentationIdentity(
             IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
-            StageObjectiveConditionEntry authoringEntry,
-            bool isExitPrimaryGoal,
-            out string presentationId,
-            out string stableGroupKey)
+            StageObjectiveConditionEntry authoringEntry)
         {
-            if (isExitPrimaryGoal)
+            var semanticKind = ResolveSemanticKind(tileFeatures, authoringEntry);
+            return semanticKind == ObjectiveConditionSemanticKind.None
+                ? default
+                : ObjectivePresentationIdentity.For(semanticKind, authoringEntry.Role);
+        }
+
+        private static ObjectiveConditionSemanticKind ResolveSemanticKind(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            StageObjectiveConditionEntry authoringEntry)
+        {
+            if (authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal &&
+                authoringEntry.Condition is PlayerAtAnyZoneConditionAsset)
             {
-                presentationId = StageObjectiveConditionPresentationIds.ReachExit;
-                stableGroupKey = presentationId;
-                return;
+                return ObjectiveConditionSemanticKind.ReachExit;
             }
 
             if (authoringEntry.Condition is ButtonActivatedConditionAsset buttonCondition)
@@ -451,18 +453,12 @@ namespace Game.Feature.Stages
                     }
                 }
 
-                presentationId = isMoonBlockOnly
-                    ? StageObjectiveConditionPresentationIds.ActivateMoonButton
-                    : StageObjectiveConditionPresentationIds.ActivateButton;
-                stableGroupKey = string.Concat(
-                    presentationId,
-                    "|role-",
-                    ((int)authoringEntry.Role).ToString());
-                return;
+                return isMoonBlockOnly
+                    ? ObjectiveConditionSemanticKind.ActivateMoonButton
+                    : ObjectiveConditionSemanticKind.ActivateButton;
             }
 
-            presentationId = string.Empty;
-            stableGroupKey = string.Empty;
+            return ObjectiveConditionSemanticKind.None;
         }
 
         private static StageConditionRuntimeDefinition CreateExitPrimaryGoalRuntimeDefinition(
