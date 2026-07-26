@@ -42,6 +42,9 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void ClimateAssets_KeepCommittedIdentityAndCanonicalMaterial()
         {
+            // Other UI fixtures can update TMP material ratios in memory while measuring text.
+            // Reload the committed static asset so this contract observes serialized identity.
+            AssetDatabase.ImportAsset(FontAssetPath, ImportAssetOptions.ForceUpdate);
             var fontAsset = LoadClimateFont();
             var material = fontAsset.material;
 

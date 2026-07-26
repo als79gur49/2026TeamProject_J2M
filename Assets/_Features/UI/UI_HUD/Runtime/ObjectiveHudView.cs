@@ -207,6 +207,17 @@ namespace Game.Feature.UI.HUD
 
         private void HandleViewModelChanged()
         {
+            if (_root == null)
+            {
+                if (_viewModel != null)
+                {
+                    _viewModel.Changed -= HandleViewModelChanged;
+                    _viewModel = null;
+                }
+
+                return;
+            }
+
             RefreshView();
         }
 
