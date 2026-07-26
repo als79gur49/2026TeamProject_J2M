@@ -21,6 +21,15 @@ TYPOGRAPHY_VISUAL_HEIGHT=1080
 TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
 TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+NANUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic.ttf"
+NANUM_SOURCE_TTF_META="$NANUM_SOURCE_TTF_ASSET.meta"
+NANUM_SDF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+NANUM_SDF_META="$NANUM_SDF_ASSET.meta"
+NANUM_SYNTHETIC_BOLD_ASSET="Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
+NANUM_SYNTHETIC_BOLD_META="$NANUM_SYNTHETIC_BOLD_ASSET.meta"
+NANUM_SOURCE_TTF_GUID="9efe96b63470e314280dc43c0aa565db"
+NANUM_SDF_GUID="4662feb1d501d1f479b757a82e304069"
+NANUM_SYNTHETIC_BOLD_GUID="2a2e67f1c1d143dc9f2d4af986ba7f21"
 OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/ObjectiveHudVisualQA"
 OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
@@ -31,7 +40,6 @@ CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
 CLIMATE_SDF_ASSET="$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET"
 CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
 CLIMATE_COMMITTED_SDF_SHA256="c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5"
-CLIMATE_IMPORT_DERIVED_SDF_SHA256="71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"
 CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
 CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
@@ -124,8 +132,11 @@ verify_climate_committed_source_integrity() {
     local retained_path
     local -a retained_nanum_paths=(
         "Assets/_Shared/UI/Fonts/NanumGothic.ttf"
+        "Assets/_Shared/UI/Fonts/NanumGothic.ttf.meta"
         "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+        "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset.meta"
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta"
     )
 
     committed_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_SDF_ASSET")"
@@ -162,53 +173,141 @@ verify_climate_committed_source_integrity() {
             return 1
         fi
     done
+    require_git_head_blob_text \
+        "$NANUM_SOURCE_TTF_META" \
+        "guid: $NANUM_SOURCE_TTF_GUID" \
+        "Nanum source TTF GUID"
+    require_git_head_blob_text \
+        "$NANUM_SDF_META" \
+        "guid: $NANUM_SDF_GUID" \
+        "Nanum SDF GUID"
+    require_git_head_blob_text \
+        "$NANUM_SYNTHETIC_BOLD_META" \
+        "guid: $NANUM_SYNTHETIC_BOLD_GUID" \
+        "Nanum synthetic-bold material GUID"
+    require_git_head_blob_text \
+        "$NANUM_SDF_ASSET" \
+        "m_SourceFontFileGUID: $NANUM_SOURCE_TTF_GUID" \
+        "Nanum SDF source TTF reference"
+    require_git_head_blob_text \
+        "$NANUM_SYNTHETIC_BOLD_ASSET" \
+        "guid: $NANUM_SDF_GUID" \
+        "Nanum synthetic-bold atlas reference"
 
     echo "Climate committed source integrity: PASS"
     echo "  SDF Git blob SHA-256: $committed_sdf_hash"
     echo "  TTF GUID:             $CLIMATE_SOURCE_TTF_GUID"
     echo "  SDF GUID:             $CLIMATE_SDF_GUID"
     echo "  Material localID:     $CLIMATE_MATERIAL_LOCAL_ID"
-    echo "  Nanum retained:       YES"
+    echo "  Nanum body/meta:      6/6 committed"
+    echo "  Nanum TTF GUID:       $NANUM_SOURCE_TTF_GUID"
+    echo "  Nanum SDF GUID:       $NANUM_SDF_GUID"
+    echo "  Nanum material GUID:  $NANUM_SYNTHETIC_BOLD_GUID"
 }
 
 climate_working_sha256() {
     sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
 }
 
-diagnose_climate_working_state() {
+diagnose_climate_file_state() {
     local label="$1"
-    local hash="$2"
+    local candidate="$2"
+    local hash
 
+    hash="$(sha256sum "$candidate" | awk '{print $1}')"
     echo "Climate working-state diagnostic [$label]:"
     echo "  SHA-256: $hash"
-    case "$hash" in
-        "$CLIMATE_COMMITTED_SDF_SHA256")
-            echo "  Classification: COMMITTED_SOURCE_SHAPE"
-            ;;
-        "$CLIMATE_IMPORT_DERIVED_SDF_SHA256")
-            echo "  Classification: EXPECTED_IMPORT_DERIVED_DRIFT"
-            echo "  Derived properties: ScaleRatioA=0.9 ScaleRatioC=0.73125"
-            ;;
-        *)
-            echo "  Classification: UNEXPECTED_IMPORTER_MUTATION"
-            return 1
-            ;;
-    esac
+    python3 - "$candidate" "$CLIMATE_SDF_ASSET" <<'PY'
+import subprocess
+import sys
+from pathlib import Path
+
+candidate_path = Path(sys.argv[1])
+asset_path = sys.argv[2]
+before = subprocess.run(
+    ["git", "show", f"HEAD:{asset_path}"],
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout.decode("utf-8").replace("\r\n", "\n").split("\n")
+after = candidate_path.read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
+if before == after:
+    print("  Classification: COMMITTED_SOURCE_SHAPE")
+    raise SystemExit(0)
+if len(before) != len(after):
+    raise SystemExit("ERROR: Climate mutation changed serialized line count.")
+
+allowed = {
+    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
+    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
+}
+required_whitespace_properties = {
+    "m_MipmapLimitGroupName:",
+    "m_PlatformBlob:",
+    "path:",
+    "referencedFontAssetGUID:",
+    "referencedTextAssetGUID:",
+    "m_SourceFontFilePath:",
+    "Name:",
+    "m_LockedProperties:",
+}
+changes = []
+whitespace_changes = set()
+for old, new in zip(before, after):
+    if old == new:
+        continue
+    if (
+        old.strip() == new.strip() and
+        old.strip() in required_whitespace_properties and
+        new == old + " "
+    ):
+        whitespace_changes.add(old.strip())
+        changes.append(f"serialization-whitespace:{old.strip()}")
+        continue
+    key = (old.strip(), new.strip())
+    if key not in allowed:
+        print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
+        raise SystemExit(
+            "ERROR: Climate mutation is outside the exact importer-derived property allowlist: "
+            f"{key[0]} -> {key[1]}"
+        )
+    changes.append(allowed[key])
+if (
+    whitespace_changes != required_whitespace_properties or
+    (
+        ("_ScaleRatioA:1->0.9" in changes) !=
+        ("_ScaleRatioC:1->0.73125" in changes)
+    )
+):
+    missing_whitespace = sorted(required_whitespace_properties - whitespace_changes)
+    print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
+    print(f"  Missing whitespace properties: {','.join(missing_whitespace)}", file=sys.stderr)
+    raise SystemExit(
+        "ERROR: Climate mutation did not match the complete exact property allowlist."
+    )
+print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
+print(f"  Derived properties: {','.join(changes)}")
+PY
 }
 
 verify_climate_working_transition() {
-    local before="$1"
-    local after="$2"
+    local before_snapshot="$1"
+    local after_path="$2"
+    local before_hash
+    local after_hash
+    local failed=0
 
-    diagnose_climate_working_state "pre-import" "$before"
-    diagnose_climate_working_state "post-import" "$after"
-    if [ "$before" = "$after" ]; then
+    before_hash="$(sha256sum "$before_snapshot" | awk '{print $1}')"
+    after_hash="$(sha256sum "$after_path" | awk '{print $1}')"
+    diagnose_climate_file_state "pre-import" "$before_snapshot" || failed=1
+    diagnose_climate_file_state "post-import" "$after_path" || failed=1
+    if [ "$failed" -ne 0 ]; then
+        echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
+        return 1
+    fi
+    if [ "$before_hash" = "$after_hash" ]; then
         echo "  Import transition: NO_DRIFT"
-    elif [ "$before" = "$CLIMATE_COMMITTED_SDF_SHA256" ] &&
-         [ "$after" = "$CLIMATE_IMPORT_DERIVED_SDF_SHA256" ]; then
-        echo "  Import transition: EXPECTED_IMPORT_DERIVED_DRIFT"
     else
-        echo "  Import transition: KNOWN_SHAPE_TRANSITION"
+        echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
     fi
 }
 
@@ -361,6 +460,27 @@ prepare_typography_visual_paths() {
     TYPOGRAPHY_VISUAL_MANIFEST="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture.log"
 }
 
+prepare_capture_asset_baseline() {
+    local baseline_root="$1"
+    local asset_path
+    local -a guarded_paths=(
+        "$CLIMATE_SDF_ASSET"
+        "$NANUM_SDF_ASSET"
+        "Assets/TextMesh Pro/Resources/TMP Settings.asset"
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset"
+        "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"
+        "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab"
+        "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"
+        "Assets/Synty/InterfaceSciFiSoldierHUD/Prefabs/_CommonComponents/Label_SciFiSoldier_SemiBold.prefab"
+    )
+
+    mkdir -p "$baseline_root"
+    for asset_path in "${guarded_paths[@]}"; do
+        mkdir -p "$baseline_root/$(dirname "$asset_path")"
+        cp "$PROJECT_PATH_WSL/$asset_path" "$baseline_root/$asset_path"
+    done
+}
+
 print_typography_visual_plan() {
     local output_dir_win
     local locale
@@ -369,6 +489,7 @@ print_typography_visual_plan() {
     local slice_name
     local slice_log
     local slice_log_win
+    local baseline_root_win
     local -a unity_command
     local -a capture_slices=(
         "en-US|"
@@ -378,6 +499,7 @@ print_typography_visual_plan() {
     )
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
+    baseline_root_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets")"
 
     echo "Typography visual evidence plan:"
     echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
@@ -412,6 +534,7 @@ print_typography_visual_plan() {
             -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
             -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
             -typographyScreenshotLocale "$locale"
+            -captureAssetBaselineRoot "$baseline_root_win"
         )
         if [ -n "$target" ]; then
             unity_command+=( -typographyScreenshotTarget "$target" )
@@ -539,6 +662,8 @@ required_root = {
     "theme_validation": "PASS",
     "prefab_validation": "PASS",
     "guarded_asset_dirty_check": "PASS",
+    "asset_mutation_observed_before_restore": "PASS",
+    "unexpected_asset_mutation_count": "0",
 }
 for key, expected in required_root.items():
     actual = root.get(key)
@@ -1255,17 +1380,45 @@ run_unity_core_feature_gate() {
 }
 
 run_unity_ui() {
-    local climate_hash_before
-    local climate_hash_after
+    local climate_before_snapshot
+    local climate_before_hash
+    local climate_restored_hash
+    local unity_status=0
 
-    climate_hash_before="$(climate_working_sha256)"
-    run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Feature.UI.Tests" ""
-    climate_hash_after="$(climate_working_sha256)"
-    verify_climate_working_transition "$climate_hash_before" "$climate_hash_after"
+    climate_before_snapshot="$(mktemp)"
+    cp "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" "$climate_before_snapshot"
+    climate_before_hash="$(sha256sum "$climate_before_snapshot" | awk '{print $1}')"
+    run_unity_stage \
+        "ui" \
+        "ui-editmode" \
+        "ui (EditMode)" \
+        "EditMode" \
+        "$UNITY_UI_EDITMODE_LOG" \
+        "$UNITY_UI_EDITMODE_XML" \
+        "TestRunnerCliBootstrap.RunEditMode" \
+        "Game.Feature.UI.Tests" \
+        "" || unity_status=$?
+    if [ "$unity_status" -eq 0 ]; then
+        verify_climate_working_transition \
+            "$climate_before_snapshot" \
+            "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" || unity_status=$?
+    fi
+    cp "$climate_before_snapshot" "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
+    climate_restored_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
+    if [ "$climate_restored_hash" != "$climate_before_hash" ]; then
+        echo "ERROR: Climate working asset was not restored after UI validation."
+        unity_status=1
+    fi
+    rm -f -- "$climate_before_snapshot"
+    return "$unity_status"
 }
 
 run_typography_visual() {
     local output_dir_win
+    local baseline_root
+    local baseline_root_win
     local unity_log_win
     local slice_log
     local slice_log_win
@@ -1275,6 +1428,9 @@ run_typography_visual() {
     local slice_name
     local current_unity_log
     local expected_head
+    local climate_hash_before
+    local climate_hash_after
+    local climate_restored_hash
     local nanum_hash_before
     local nanum_hash_after
     local nanum_diff_before
@@ -1282,6 +1438,7 @@ run_typography_visual() {
     local unity_exit=0
     local residue_exit=0
     local nanum_exit=0
+    local climate_exit=0
     local process_before
     local -a unity_command
     local -a capture_slices=(
@@ -1312,6 +1469,12 @@ run_typography_visual() {
     nanum_hash_before="$(typography_visual_nanum_hash)"
     nanum_diff_before="$(typography_visual_nanum_diff_sha256)"
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
+    baseline_root="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets"
+    baseline_root_win="$(wslpath -w "$baseline_root")"
+    prepare_capture_asset_baseline "$baseline_root"
+    climate_hash_before="$(
+        sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
 
     cleanup_generated_test_scenes
     process_before="$(find_current_project_unity_processes)"
@@ -1342,6 +1505,7 @@ run_typography_visual() {
             -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
             -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
             -typographyScreenshotLocale "$locale"
+            -captureAssetBaselineRoot "$baseline_root_win"
         )
         if [ -n "$target" ]; then
             unity_command+=( -typographyScreenshotTarget "$target" )
@@ -1388,6 +1552,24 @@ run_typography_visual() {
 
     nanum_hash_after="$(typography_visual_nanum_hash)"
     nanum_diff_after="$(typography_visual_nanum_diff_sha256)"
+    climate_hash_after="$(climate_working_sha256)"
+    if ! verify_climate_working_transition \
+        "$baseline_root/$CLIMATE_SDF_ASSET" \
+        "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"; then
+        climate_exit=1
+    fi
+    cp \
+        "$baseline_root/$CLIMATE_SDF_ASSET" \
+        "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
+    climate_restored_hash="$(climate_working_sha256)"
+    if [ "$climate_restored_hash" != "$climate_hash_before" ]; then
+        echo "ERROR: Climate asset was not restored after typography capture."
+        climate_exit=1
+    fi
+    echo "Typography Climate capture transition:"
+    echo "  before:   $climate_hash_before"
+    echo "  observed: $climate_hash_after"
+    echo "  restored: $climate_restored_hash"
     if [ "$nanum_hash_after" != "$nanum_hash_before" ]; then
         echo "ERROR: Nanum asset content hash changed during typography capture."
         echo "  before: $nanum_hash_before"
@@ -1412,7 +1594,9 @@ run_typography_visual() {
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
         return "$unity_exit"
     fi
-    if [ "$nanum_exit" -ne 0 ] || [ "$residue_exit" -ne 0 ]; then
+    if [ "$nanum_exit" -ne 0 ] ||
+       [ "$climate_exit" -ne 0 ] ||
+       [ "$residue_exit" -ne 0 ]; then
         echo "ERROR: Typography visual safety checks failed after Unity capture."
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
         return 1
@@ -1433,6 +1617,8 @@ run_objective_hud_visual() {
     local timestamp
     local output_dir
     local output_dir_win
+    local baseline_root
+    local baseline_root_win
     local unity_log
     local unity_log_win
     local manifest
@@ -1448,6 +1634,8 @@ run_objective_hud_visual() {
     unity_log="$output_dir/objective-hud-unity.log"
     manifest="$output_dir/objective-hud-capture.log"
     output_dir_win="$(wslpath -w "$output_dir")"
+    baseline_root="$output_dir/pre-capture-assets"
+    baseline_root_win="$(wslpath -w "$baseline_root")"
     unity_log_win="$(wslpath -w "$unity_log")"
     unity_command=(
         timeout --kill-after=10 600
@@ -1460,6 +1648,7 @@ run_objective_hud_visual() {
         -objectiveHudVisualOutput "$output_dir_win"
         -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
         -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"
+        -captureAssetBaselineRoot "$baseline_root_win"
     )
 
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -1476,6 +1665,7 @@ run_objective_hud_visual() {
     ensure_no_current_project_unity_lock
     mkdir -p "$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT"
     mkdir "$output_dir"
+    prepare_capture_asset_baseline "$baseline_root"
 
     expected_head="$(git rev-parse HEAD)"
     climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
@@ -1557,22 +1747,126 @@ required_sections = {
     "MaxStack/en-US",
     "MaxStack/ko-KR",
 }
+capture_sections = {
+    name: entry
+    for name, entry in sections.items()
+    if not name.startswith("asset-mutation/")
+}
+mutation_sections = {
+    name: entry
+    for name, entry in sections.items()
+    if name.startswith("asset-mutation/")
+}
 if root.get("git_head") != expected_head:
     raise SystemExit("ERROR: Objective HUD manifest git_head mismatch")
+if root.get("schema_version") != "2":
+    raise SystemExit("ERROR: Objective HUD manifest schema_version mismatch")
 if root.get("resolution") != f"{expected_width}x{expected_height}":
     raise SystemExit("ERROR: Objective HUD manifest resolution mismatch")
 if root.get("overall_result") != "PASS" or root.get("errors") != "0":
     raise SystemExit("ERROR: Objective HUD manifest did not record a clean PASS")
-if root.get("capture_count") != "4" or set(sections) != required_sections:
+if root.get("canonical_status") != "CANDIDATE_PENDING_INDEPENDENT_AUDIT":
+    raise SystemExit("ERROR: Objective HUD canonical audit status mismatch")
+if root.get("graphic_completeness") != "PASS":
+    raise SystemExit("ERROR: Objective HUD graphic completeness failed")
+if root.get("cross_locale_non_text_parity") != "PASS":
+    raise SystemExit("ERROR: Objective HUD cross-locale non-text parity failed")
+if root.get("unexpected_pixel_delta") != "0":
+    raise SystemExit("ERROR: Objective HUD unexpected non-text pixel delta is nonzero")
+if root.get("asset_mutation_observed_before_restore") != "PASS":
+    raise SystemExit("ERROR: capture mutation was not observed before restore")
+if root.get("unexpected_asset_mutation_count") != "0":
+    raise SystemExit("ERROR: capture recorded unexpected asset mutation")
+if root.get("capture_count") != "4" or set(capture_sections) != required_sections:
     raise SystemExit("ERROR: Objective HUD manifest capture set mismatch")
+if not mutation_sections:
+    raise SystemExit("ERROR: Objective HUD manifest has no guarded asset evidence")
 
-for name, entry in sections.items():
+for name, entry in capture_sections.items():
     if entry.get("capture_result") != "PASS":
         raise SystemExit(f"ERROR: {name} capture_result is not PASS")
     if entry.get("decode") != "PASS" or entry.get("layout") != "PASS":
         raise SystemExit(f"ERROR: {name} decode/layout validation failed")
     if entry.get("glyph_coverage") != "PASS":
         raise SystemExit(f"ERROR: {name} glyph coverage failed")
+    if entry.get("graphic_completeness") != "PASS":
+        raise SystemExit(f"ERROR: {name} graphic completeness failed")
+    for lifecycle in (
+        "localization_ready",
+        "presenter_render_complete",
+        "canvas_rebuild_complete",
+    ):
+        if entry.get(lifecycle) != "PASS":
+            raise SystemExit(f"ERROR: {name} lifecycle field {lifecycle} failed")
+    if entry.get("hud_root_active_in_hierarchy") != "1":
+        raise SystemExit(f"ERROR: {name} HUD root is inactive")
+    try:
+        root_alpha = float(entry.get("hud_root_canvas_group_alpha", ""))
+    except ValueError:
+        raise SystemExit(f"ERROR: {name} HUD root CanvasGroup alpha is invalid")
+    if root_alpha <= 0:
+        raise SystemExit(f"ERROR: {name} HUD root CanvasGroup alpha is zero")
+    for identity_hash in ("semantic_snapshot_hash", "hierarchy_hash"):
+        if not re.fullmatch(r"[0-9a-f]{64}", entry.get(identity_hash, "")):
+            raise SystemExit(f"ERROR: {name} {identity_hash} is invalid")
+    try:
+        graphic_count = int(entry.get("required_graphic_count", ""))
+    except ValueError:
+        raise SystemExit(f"ERROR: {name} required_graphic_count is invalid")
+    if graphic_count <= 0:
+        raise SystemExit(f"ERROR: {name} has no required graphics")
+    categories = []
+    for index in range(graphic_count):
+        prefix = f"graphic_{index:03d}_"
+        path = entry.get(prefix + "path", "")
+        category = entry.get(prefix + "category", "")
+        identity = entry.get(prefix + "identity", "")
+        if not path or not category or not identity:
+            raise SystemExit(f"ERROR: {name} graphic {index} identity is incomplete")
+        if entry.get(prefix + "active_in_hierarchy") != "1":
+            raise SystemExit(f"ERROR: {name} graphic {path} is inactive")
+        if entry.get(prefix + "graphic_enabled") != "1":
+            raise SystemExit(f"ERROR: {name} graphic {path} is disabled")
+        if entry.get(prefix + "visible_pixel_area") != "POSITIVE":
+            raise SystemExit(f"ERROR: {name} graphic {path} has no visible area")
+        try:
+            alpha = float(entry.get(prefix + "alpha_occupancy", ""))
+        except ValueError:
+            raise SystemExit(f"ERROR: {name} graphic {path} alpha is invalid")
+        if alpha <= 0:
+            raise SystemExit(f"ERROR: {name} graphic {path} alpha is zero")
+        categories.append(category)
+    expected_rows = 2 if name.startswith("Idle/") else 3
+    if categories.count("ObjectiveHud") < expected_rows + 1:
+        raise SystemExit(f"ERROR: {name} ObjectiveHud graphics are incomplete")
+    if "ChancePanel" not in categories or "SurfaceBelt" not in categories:
+        raise SystemExit(f"ERROR: {name} global HUD graphics are incomplete")
+    paths = [
+        entry[f"graphic_{index:03d}_path"]
+        for index in range(graphic_count)
+    ]
+    required_fragments = {
+        "objective panel background": (
+            "HUD_SciFiSoldier_Objectives_02",
+            "SPR_Background",
+        ),
+        "objective left decoration": (
+            "HUD_SciFiSoldier_Objectives_02",
+            "SPR_Flag",
+        ),
+        "chance panel background": ("ChancePanel", "Background"),
+        "surface belt background": ("SurfaceBeltIndicatorRoot", "Background"),
+    }
+    for label, fragments in required_fragments.items():
+        if not any(all(fragment in path for fragment in fragments) for path in paths):
+            raise SystemExit(f"ERROR: {name} required {label} path is missing")
+    checkbox_count = sum(
+        "HUD_SciFiSoldier_Objective_Item_01" in path and
+        "SPR_Item_Inactive" in path
+        for path in paths
+    )
+    if checkbox_count < expected_rows:
+        raise SystemExit(f"ERROR: {name} checkbox/icon graphics are incomplete")
     png = output_dir / entry["file"]
     data = png.read_bytes()
     if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
@@ -1582,6 +1876,55 @@ for name, entry in sections.items():
         raise SystemExit(f"ERROR: {png.name} dimensions {width}x{height}")
     if hashlib.sha256(data).hexdigest() != entry.get("sha256"):
         raise SystemExit(f"ERROR: {png.name} SHA-256 mismatch")
+
+for name, entry in mutation_sections.items():
+    required = (
+        "path",
+        "before_hash",
+        "after_capture_hash",
+        "mutation_detected",
+        "changed_properties",
+        "classification",
+        "allowed",
+        "lane_verdict_before_restore",
+        "restored",
+        "restored_hash",
+    )
+    if any(field not in entry for field in required):
+        raise SystemExit(f"ERROR: {name} mutation evidence is incomplete")
+    if not re.fullmatch(r"[0-9a-f]{64}", entry["before_hash"]):
+        raise SystemExit(f"ERROR: {name} before_hash is invalid")
+    if not re.fullmatch(r"[0-9a-f]{64}", entry["after_capture_hash"]):
+        raise SystemExit(f"ERROR: {name} after_capture_hash is invalid")
+    if entry["allowed"] != "1" or entry["lane_verdict_before_restore"] != "PASS":
+        raise SystemExit(f"ERROR: {name} failed before restore")
+    if entry["restored"] != "1" or entry["restored_hash"] != entry["before_hash"]:
+        raise SystemExit(f"ERROR: {name} restore evidence is invalid")
+    if entry["mutation_detected"] == "1":
+        if entry["classification"] != "EXPECTED_IMPORT_DERIVED_DRIFT":
+            raise SystemExit(f"ERROR: {name} mutation classification is not allowlisted")
+        required_whitespace_properties = {
+            "serialization-whitespace:m_MipmapLimitGroupName:",
+            "serialization-whitespace:m_PlatformBlob:",
+            "serialization-whitespace:path:",
+            "serialization-whitespace:referencedFontAssetGUID:",
+            "serialization-whitespace:referencedTextAssetGUID:",
+            "serialization-whitespace:m_SourceFontFilePath:",
+            "serialization-whitespace:Name:",
+            "serialization-whitespace:m_LockedProperties:",
+        }
+        scale_ratio_properties = {
+            "_ScaleRatioA:1->0.9",
+            "_ScaleRatioC:1->0.73125",
+        }
+        observed_properties = set(entry["changed_properties"].split(","))
+        if observed_properties not in (
+            required_whitespace_properties,
+            required_whitespace_properties | scale_ratio_properties,
+        ):
+            raise SystemExit(f"ERROR: {name} changed property set is not exact")
+    elif entry["mutation_detected"] != "0" or entry["classification"] != "NO_MUTATION":
+        raise SystemExit(f"ERROR: {name} no-mutation classification is invalid")
 
 print("Objective HUD visual manifest verification: PASS")
 PY

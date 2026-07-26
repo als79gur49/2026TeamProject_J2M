@@ -31,6 +31,161 @@ namespace Game.Feature.UI.Tests
             "TestLogs/TypographyVisualQA/CommandLine-20260720-194045";
 
         [Test]
+        public void CaptureMutationGuard_AllowsOnlyExactClimateScaleRatioDrift()
+        {
+            var before = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName:\n" +
+                "m_PlatformBlob:\n" +
+                "path:\n" +
+                "referencedFontAssetGUID:\n" +
+                "referencedTextAssetGUID:\n" +
+                "m_SourceFontFilePath:\n" +
+                "Name:\n" +
+                "m_LockedProperties:\n" +
+                "m_FloatTable:\n" +
+                "  - _ScaleRatioA: 1\n" +
+                "  - _ScaleRatioC: 1\n");
+            var after = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName: \n" +
+                "m_PlatformBlob: \n" +
+                "path: \n" +
+                "referencedFontAssetGUID: \n" +
+                "referencedTextAssetGUID: \n" +
+                "m_SourceFontFilePath: \n" +
+                "Name: \n" +
+                "m_LockedProperties: \n" +
+                "m_FloatTable:\n" +
+                "  - _ScaleRatioA: 0.9\n" +
+                "  - _ScaleRatioC: 0.73125\n");
+
+            var evidence = ClassifyCaptureMutation(
+                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                before,
+                after);
+
+            Assert.That(evidence.MutationDetected, Is.True);
+            Assert.That(evidence.Allowed, Is.True);
+            Assert.That(evidence.Classification, Is.EqualTo("EXPECTED_IMPORT_DERIVED_DRIFT"));
+            Assert.That(evidence.ChangedProperties, Does.Contain("_ScaleRatioA:1->0.9"));
+            Assert.That(evidence.ChangedProperties, Does.Contain("_ScaleRatioC:1->0.73125"));
+            Assert.That(
+                evidence.ChangedProperties.Split(','),
+                Has.Length.EqualTo(10));
+            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("PASS"));
+        }
+
+        [Test]
+        public void CaptureMutationGuard_AllowsExactClimateSerializationWhitespaceDrift()
+        {
+            var before = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName:\n" +
+                "m_PlatformBlob:\n" +
+                "path:\n" +
+                "referencedFontAssetGUID:\n" +
+                "referencedTextAssetGUID:\n" +
+                "m_SourceFontFilePath:\n" +
+                "Name:\n" +
+                "m_LockedProperties:\n");
+            var after = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName: \n" +
+                "m_PlatformBlob: \n" +
+                "path: \n" +
+                "referencedFontAssetGUID: \n" +
+                "referencedTextAssetGUID: \n" +
+                "m_SourceFontFilePath: \n" +
+                "Name: \n" +
+                "m_LockedProperties: \n");
+
+            var evidence = ClassifyCaptureMutation(
+                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                before,
+                after);
+
+            Assert.That(evidence.MutationDetected, Is.True);
+            Assert.That(evidence.Allowed, Is.True);
+            Assert.That(evidence.Classification, Is.EqualTo("EXPECTED_IMPORT_DERIVED_DRIFT"));
+            Assert.That(evidence.ChangedProperties.Split(','), Has.Length.EqualTo(8));
+            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("PASS"));
+        }
+
+        [Test]
+        public void CaptureMutationGuard_RejectsIncompleteClimateScaleRatioProfile()
+        {
+            var before = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName:\n" +
+                "m_PlatformBlob:\n" +
+                "path:\n" +
+                "referencedFontAssetGUID:\n" +
+                "referencedTextAssetGUID:\n" +
+                "m_SourceFontFilePath:\n" +
+                "Name:\n" +
+                "m_LockedProperties:\n" +
+                "  - _ScaleRatioA: 1\n" +
+                "  - _ScaleRatioC: 1\n");
+            var after = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName: \n" +
+                "m_PlatformBlob: \n" +
+                "path: \n" +
+                "referencedFontAssetGUID: \n" +
+                "referencedTextAssetGUID: \n" +
+                "m_SourceFontFilePath: \n" +
+                "Name: \n" +
+                "m_LockedProperties: \n" +
+                "  - _ScaleRatioA: 0.9\n" +
+                "  - _ScaleRatioC: 1\n");
+
+            var evidence = ClassifyCaptureMutation(
+                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                before,
+                after);
+
+            Assert.That(evidence.MutationDetected, Is.True);
+            Assert.That(evidence.Allowed, Is.False);
+            Assert.That(evidence.Classification, Is.EqualTo("UNEXPECTED_ASSET_MUTATION"));
+            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("FAIL"));
+        }
+
+        [Test]
+        public void CaptureMutationGuard_FailsUnexpectedMutationBeforeRestore()
+        {
+            var before = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName:\n" +
+                "m_PlatformBlob:\n" +
+                "path:\n" +
+                "referencedFontAssetGUID:\n" +
+                "referencedTextAssetGUID:\n" +
+                "m_SourceFontFilePath:\n" +
+                "Name:\n" +
+                "m_LockedProperties:\n" +
+                "m_FloatTable:\n" +
+                "  - _ScaleRatioA: 1\n" +
+                "  - _ScaleRatioC: 1\n");
+            var after = System.Text.Encoding.UTF8.GetBytes(
+                "m_MipmapLimitGroupName: \n" +
+                "m_PlatformBlob: \n" +
+                "path: \n" +
+                "referencedFontAssetGUID: \n" +
+                "referencedTextAssetGUID: \n" +
+                "m_SourceFontFilePath: \n" +
+                "Name: \n" +
+                "m_LockedProperties: \n" +
+                "m_FloatTable:\n" +
+                "  - _ScaleRatioA: 0.9\n" +
+                "  - _ScaleRatioC: 0.73125\n" +
+                "m_CharacterTable: changed\n");
+
+            var evidence = ClassifyCaptureMutation(
+                CaptureAssetMutationGuard.ClimateFontAssetPath,
+                before,
+                after);
+
+            Assert.That(evidence.MutationDetected, Is.True);
+            Assert.That(evidence.Allowed, Is.False);
+            Assert.That(evidence.Classification, Is.EqualTo("UNEXPECTED_ASSET_MUTATION"));
+            Assert.That(evidence.LaneVerdictBeforeRestore, Is.EqualTo("FAIL"));
+        }
+
+        [Test]
         public void TypographyThemeValidator_DetectsMissingLocaleFontSet()
         {
             var theme = CreateTheme(fontSets: new[] { CreateFontSet("en-US", LoadLiberationSans()) });
@@ -1215,6 +1370,21 @@ namespace Game.Feature.UI.Tests
             var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(LiberationSansFontAssetPath);
             Assert.That(font, Is.Not.Null, LiberationSansFontAssetPath);
             return font;
+        }
+
+        private static CaptureAssetMutationEvidence ClassifyCaptureMutation(
+            string path,
+            byte[] before,
+            byte[] after)
+        {
+            var method = typeof(CaptureAssetMutationGuard).GetMethod(
+                "ClassifyForTests",
+                System.Reflection.BindingFlags.Static |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (CaptureAssetMutationEvidence)method.Invoke(
+                null,
+                new object[] { path, before, after });
         }
     }
 }

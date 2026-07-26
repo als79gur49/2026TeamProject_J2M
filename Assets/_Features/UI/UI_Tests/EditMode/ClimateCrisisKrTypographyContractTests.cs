@@ -68,7 +68,14 @@ namespace Game.Feature.UI.Tests
                 Does.Contain("EXPECTED_IMPORT_DERIVED_DRIFT"));
             Assert.That(
                 runner,
-                Does.Contain("UNEXPECTED_IMPORTER_MUTATION"));
+                Does.Contain("_ScaleRatioA:1->0.9"));
+            Assert.That(
+                runner,
+                Does.Contain("_ScaleRatioC:1->0.73125"));
+            Assert.That(
+                runner,
+                Does.Not.Contain("71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"),
+                "An entire derived Climate blob must not be accepted as an allowlist.");
         }
 
         [Test]
@@ -100,8 +107,8 @@ namespace Game.Feature.UI.Tests
                 tablePaths,
                 Is.EquivalentTo(new[] { StageKoreanStringTablePath, UiKoreanStringTablePath }),
                 "Every managed ko-KR table must participate in native Climate glyph validation.");
-            Assert.That(values, Has.Length.EqualTo(70));
-            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(69));
+            Assert.That(values, Has.Length.EqualTo(71));
+            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(70));
             Assert.That(values, Does.Contain("밀기 키 입력하세요..."));
             Assert.That(values, Does.Contain("뒤집기 키 입력하세요..."));
             Assert.That(codepoints, Has.Length.EqualTo(116));
@@ -222,17 +229,49 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void LegacyNanumAssets_RemainAvailableDuringClimateMigration()
         {
-            var paths = new[]
+            var expected = new Dictionary<string, string>
             {
-                "Assets/_Shared/UI/Fonts/NanumGothic.ttf",
-                "Assets/_Shared/UI/Fonts/NanumGothic.ttf.meta",
-                "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset",
-                "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset.meta",
-                "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat",
-                "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta",
+                ["Assets/_Shared/UI/Fonts/NanumGothic.ttf"] =
+                    "9efe96b63470e314280dc43c0aa565db",
+                ["Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"] =
+                    "4662feb1d501d1f479b757a82e304069",
+                ["Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"] =
+                    "2a2e67f1c1d143dc9f2d4af986ba7f21",
             };
 
-            Assert.That(paths.Where(path => !File.Exists(path)), Is.Empty);
+            foreach (var pair in expected)
+            {
+                Assert.That(File.Exists(pair.Key), Is.True, pair.Key);
+                Assert.That(File.Exists(pair.Key + ".meta"), Is.True, pair.Key + ".meta");
+                Assert.That(AssetDatabase.AssetPathToGUID(pair.Key), Is.EqualTo(pair.Value), pair.Key);
+                Assert.That(
+                    File.ReadAllText(pair.Key + ".meta"),
+                    Does.Contain($"guid: {pair.Value}"),
+                    pair.Key + ".meta");
+            }
+
+            var sdf = File.ReadAllText("Assets/_Shared/UI/Fonts/NanumGothic SDF.asset");
+            var material = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat");
+            Assert.That(
+                sdf,
+                Does.Contain("m_SourceFontFileGUID: 9efe96b63470e314280dc43c0aa565db"));
+            Assert.That(
+                material,
+                Does.Contain("guid: 4662feb1d501d1f479b757a82e304069"));
+
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
+            Assert.That(
+                runner,
+                Does.Contain("git cat-file -e \"HEAD:$retained_path\""),
+                "A working-tree-generated .meta must not satisfy committed retention.");
+            foreach (var pair in expected)
+            {
+                Assert.That(runner, Does.Contain(pair.Key));
+                Assert.That(runner, Does.Contain(pair.Key + ".meta"));
+                Assert.That(runner, Does.Contain(pair.Value));
+            }
         }
 
         [Test]

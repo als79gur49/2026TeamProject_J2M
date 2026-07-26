@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Game.Feature.UI.Popups;
 using TMPro;
 using UnityEditor;
@@ -128,6 +130,10 @@ namespace Game.Feature.UI.Composition.Editor
 
         public bool GuardedAssetsClean { get; internal set; }
 
+        public bool AssetMutationObservationPassed { get; internal set; }
+
+        public int UnexpectedAssetMutationCount { get; internal set; }
+
         public bool HasErrors => errors.Count > 0 || captures.Any(capture => capture.HasErrors);
 
         public void AddCapture(TypographyPreviewScreenshotCaptureResult capture)
@@ -163,6 +169,8 @@ namespace Game.Feature.UI.Composition.Editor
         public const int SettingsExpectedAppliedBindingCount = 38;
         public const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         public const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
+        public const string ClimateCrisisKrFontAssetPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
 
         public static readonly TypographyPreviewScreenshotTarget[] RequiredTargets =
         {
@@ -243,7 +251,8 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             Directory.CreateDirectory(outputDirectory);
-            var fontAssetRestoreScope = TmpFontAssetFileRestoreScope.Capture(null);
+            var assetMutationGuard = CaptureAssetMutationGuard.Capture(
+                DirtyGuardAssetPaths.Concat(new[] { ClimateCrisisKrFontAssetPath }));
             try
             {
                 foreach (var target in targetList)
@@ -256,13 +265,70 @@ namespace Game.Feature.UI.Composition.Editor
                             outputDirectory,
                             options,
                             theme,
-                            fontAssetRestoreScope));
+                            assetMutationGuard));
                     }
                 }
             }
             finally
             {
-                fontAssetRestoreScope.Dispose();
+                try
+                {
+                    var evidence = assetMutationGuard.ObserveBeforeRestore();
+                    result.UnexpectedAssetMutationCount = evidence.Count(item => !item.Allowed);
+                    result.AssetMutationObservationPassed =
+                        result.UnexpectedAssetMutationCount == 0;
+                    foreach (var item in evidence)
+                    {
+                        Debug.Log(
+                            "CAPTURE_ASSET_MUTATION " +
+                            $"path={item.Path} " +
+                            $"before_hash={item.BeforeHash} " +
+                            $"after_capture_hash={item.AfterCaptureHash} " +
+                            $"mutation_detected={(item.MutationDetected ? 1 : 0)} " +
+                            $"changed_properties={item.ChangedProperties} " +
+                            $"classification={item.Classification} " +
+                            $"allowed={(item.Allowed ? 1 : 0)} " +
+                            $"lane_verdict_before_restore={item.LaneVerdictBeforeRestore}");
+                        if (!item.Allowed)
+                        {
+                            result.AddError(
+                                $"UNEXPECTED_ASSET_MUTATION before restore: {item.Path}");
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    result.AssetMutationObservationPassed = false;
+                    result.AddError(
+                        $"Capture asset mutation observation failed before restore: {exception.Message}");
+                }
+
+                try
+                {
+                    assetMutationGuard.Dispose();
+                    foreach (var item in assetMutationGuard.Evidence)
+                    {
+                        Debug.Log(
+                            "CAPTURE_ASSET_RESTORE " +
+                            $"path={item.Path} " +
+                            $"restored={(item.Restored ? 1 : 0)} " +
+                            $"restored_hash={item.RestoredHash}");
+                        if (!item.Restored)
+                        {
+                            result.AddError($"Capture asset restore failed: {item.Path}");
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    result.AddError($"Capture asset restore failed: {exception.Message}");
+                }
+
+                Debug.Log(
+                    "CAPTURE_ASSET_MUTATION_OBSERVED_BEFORE_RESTORE: " +
+                    (result.AssetMutationObservationPassed ? "PASS" : "FAIL"));
+                Debug.Log(
+                    $"CAPTURE_UNEXPECTED_ASSET_MUTATION_COUNT: {result.UnexpectedAssetMutationCount}");
             }
 
             var dirtyPaths = GetDirtyGuardAssetPaths();
@@ -395,7 +461,7 @@ namespace Game.Feature.UI.Composition.Editor
             string outputDirectory,
             TypographyPreviewScreenshotOptions options,
             GameplayUiTypographyTheme theme,
-            TmpFontAssetFileRestoreScope fontAssetRestoreScope)
+            CaptureAssetMutationGuard assetMutationGuard)
         {
             var filePath = Path.Combine(outputDirectory, BuildFileName(target, localeCode));
             var capture = new TypographyPreviewScreenshotCaptureResult(target, localeCode, filePath);
@@ -419,6 +485,7 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
+                assetMutationGuard?.IncludeFontAssets(prefabAsset);
                 previewScene = EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,
                     Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
@@ -449,7 +516,6 @@ namespace Game.Feature.UI.Composition.Editor
                     capture.AddError(error);
                 }
 
-                fontAssetRestoreScope?.Include(prefabRoot);
                 ValidateLocalizedGlyphCoverage(prefabRoot, capture);
                 if (capture.HasErrors)
                 {
@@ -1539,113 +1605,375 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
-        private sealed class TmpFontAssetFileRestoreScope : IDisposable
+    }
+
+    public sealed class CaptureAssetMutationEvidence
+    {
+        internal CaptureAssetMutationEvidence(
+            string path,
+            string beforeHash,
+            string afterCaptureHash,
+            bool mutationDetected,
+            string changedProperties,
+            string classification,
+            bool allowed)
         {
-            private readonly Dictionary<string, byte[]> snapshots;
-            private bool isDisposed;
+            Path = path;
+            BeforeHash = beforeHash;
+            AfterCaptureHash = afterCaptureHash;
+            MutationDetected = mutationDetected;
+            ChangedProperties = changedProperties;
+            Classification = classification;
+            Allowed = allowed;
+            LaneVerdictBeforeRestore = allowed ? "PASS" : "FAIL";
+        }
 
-            private TmpFontAssetFileRestoreScope(Dictionary<string, byte[]> snapshots)
+        public string Path { get; }
+
+        public string BeforeHash { get; }
+
+        public string AfterCaptureHash { get; }
+
+        public bool MutationDetected { get; }
+
+        public string ChangedProperties { get; }
+
+        public string Classification { get; }
+
+        public bool Allowed { get; }
+
+        public string LaneVerdictBeforeRestore { get; }
+
+        public bool Restored { get; internal set; }
+
+        public string RestoredHash { get; internal set; } = string.Empty;
+    }
+
+    public sealed class CaptureAssetMutationGuard : IDisposable
+    {
+        public const string BaselineRootCommandLineArgument =
+            "-captureAssetBaselineRoot";
+        public const string ClimateFontAssetPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+
+        private readonly Dictionary<string, byte[]> snapshots =
+            new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        private readonly string baselineRoot;
+        private IReadOnlyList<CaptureAssetMutationEvidence> evidence =
+            Array.Empty<CaptureAssetMutationEvidence>();
+        private bool observed;
+        private bool disposed;
+
+        private CaptureAssetMutationGuard(IEnumerable<string> paths)
+        {
+            baselineRoot = ReadCommandLineArgument(
+                Environment.GetCommandLineArgs(),
+                BaselineRootCommandLineArgument);
+            foreach (var path in paths ?? Array.Empty<string>())
             {
-                this.snapshots = snapshots;
+                IncludePath(path);
+            }
+        }
+
+        public IReadOnlyList<CaptureAssetMutationEvidence> Evidence => evidence;
+
+        public static CaptureAssetMutationGuard Capture(IEnumerable<string> paths)
+        {
+            return new CaptureAssetMutationGuard(paths);
+        }
+
+        public void IncludeFontAssets(GameObject root)
+        {
+            if (root == null || observed || disposed)
+            {
+                return;
             }
 
-            public static TmpFontAssetFileRestoreScope Capture(GameObject root)
+            var fontAssets = new HashSet<TMP_FontAsset>();
+            foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
             {
-                var snapshots = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                var scope = new TmpFontAssetFileRestoreScope(snapshots);
-                scope.Include(root);
-                return scope;
+                CollectFontAssets(text != null ? text.font : null, fontAssets);
             }
 
-            public void Include(GameObject root)
+            CollectFontAssets(TMP_Settings.defaultFontAsset, fontAssets);
+            if (TMP_Settings.fallbackFontAssets != null)
             {
-                if (root == null || isDisposed)
-                {
-                    return;
-                }
-
-                var fontAssets = new HashSet<TMP_FontAsset>();
-                foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
-                {
-                    CollectFontAssets(text != null ? text.font : null, fontAssets);
-                }
-
-                CollectFontAssets(TMP_Settings.defaultFontAsset, fontAssets);
-                if (TMP_Settings.fallbackFontAssets != null)
-                {
-                    foreach (var fallback in TMP_Settings.fallbackFontAssets)
-                    {
-                        CollectFontAssets(fallback, fontAssets);
-                    }
-                }
-
-                foreach (var fontAsset in fontAssets)
-                {
-                    var assetPath = AssetDatabase.GetAssetPath(fontAsset);
-                    if (string.IsNullOrWhiteSpace(assetPath) ||
-                        !assetPath.StartsWith("Assets/", StringComparison.Ordinal) ||
-                        !File.Exists(assetPath) ||
-                        snapshots.ContainsKey(assetPath))
-                    {
-                        continue;
-                    }
-
-                    snapshots.Add(assetPath, File.ReadAllBytes(assetPath));
-                }
-            }
-
-            public void Dispose()
-            {
-                if (isDisposed)
-                {
-                    return;
-                }
-
-                isDisposed = true;
-                foreach (var snapshot in snapshots)
-                {
-                    if (!File.Exists(snapshot.Key) ||
-                        File.ReadAllBytes(snapshot.Key).SequenceEqual(snapshot.Value))
-                    {
-                        ClearDirty(snapshot.Key);
-                        continue;
-                    }
-
-                    File.WriteAllBytes(snapshot.Key, snapshot.Value);
-                    AssetDatabase.ImportAsset(snapshot.Key, ImportAssetOptions.ForceUpdate);
-                    ClearDirty(snapshot.Key);
-                }
-            }
-
-            private static void CollectFontAssets(TMP_FontAsset fontAsset, HashSet<TMP_FontAsset> fontAssets)
-            {
-                if (fontAsset == null || !fontAssets.Add(fontAsset))
-                {
-                    return;
-                }
-
-                if (fontAsset.fallbackFontAssetTable == null)
-                {
-                    return;
-                }
-
-                foreach (var fallback in fontAsset.fallbackFontAssetTable)
+                foreach (var fallback in TMP_Settings.fallbackFontAssets)
                 {
                     CollectFontAssets(fallback, fontAssets);
                 }
             }
 
-            private static void ClearDirty(string assetPath)
+            foreach (var fontAsset in fontAssets)
             {
-                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+                IncludePath(AssetDatabase.GetAssetPath(fontAsset));
+            }
+        }
+
+        public IReadOnlyList<CaptureAssetMutationEvidence> ObserveBeforeRestore()
+        {
+            if (disposed)
+            {
+                throw new ObjectDisposedException(nameof(CaptureAssetMutationGuard));
+            }
+
+            if (observed)
+            {
+                return evidence;
+            }
+
+            observed = true;
+            evidence = snapshots
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => Observe(pair.Key, pair.Value))
+                .ToArray();
+            return evidence;
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            if (!observed)
+            {
+                ObserveBeforeRestore();
+            }
+
+            disposed = true;
+            foreach (var snapshot in snapshots)
+            {
+                if (!File.Exists(snapshot.Key) ||
+                    !File.ReadAllBytes(snapshot.Key).SequenceEqual(snapshot.Value))
                 {
-                    if (asset != null)
-                    {
-                        EditorUtility.ClearDirty(asset);
-                    }
+                    File.WriteAllBytes(snapshot.Key, snapshot.Value);
+                }
+
+                ClearDirty(snapshot.Key);
+                var restoredBytes = File.ReadAllBytes(snapshot.Key);
+                var record = evidence.First(item =>
+                    string.Equals(item.Path, snapshot.Key, StringComparison.Ordinal));
+                record.RestoredHash = ComputeSha256(restoredBytes);
+                record.Restored = restoredBytes.SequenceEqual(snapshot.Value);
+            }
+        }
+
+        internal static CaptureAssetMutationEvidence ClassifyForTests(
+            string path,
+            byte[] before,
+            byte[] after)
+        {
+            return Observe(path, before, after);
+        }
+
+        private void IncludePath(string path)
+        {
+            if (observed ||
+                disposed ||
+                string.IsNullOrWhiteSpace(path) ||
+                !path.StartsWith("Assets/", StringComparison.Ordinal) ||
+                !File.Exists(path) ||
+                snapshots.ContainsKey(path))
+            {
+                return;
+            }
+
+            var baselinePath = string.IsNullOrWhiteSpace(baselineRoot)
+                ? string.Empty
+                : Path.Combine(
+                    baselineRoot,
+                    path.Replace('/', Path.DirectorySeparatorChar));
+            snapshots.Add(
+                path,
+                baselinePath.Length > 0 && File.Exists(baselinePath)
+                    ? File.ReadAllBytes(baselinePath)
+                    : File.ReadAllBytes(path));
+        }
+
+        private static CaptureAssetMutationEvidence Observe(string path, byte[] before)
+        {
+            var after = File.Exists(path) ? File.ReadAllBytes(path) : Array.Empty<byte>();
+            return Observe(path, before, after);
+        }
+
+        private static CaptureAssetMutationEvidence Observe(
+            string path,
+            byte[] before,
+            byte[] after)
+        {
+            before ??= Array.Empty<byte>();
+            after ??= Array.Empty<byte>();
+            var mutationDetected = !before.SequenceEqual(after);
+            if (!mutationDetected)
+            {
+                return new CaptureAssetMutationEvidence(
+                    path,
+                    ComputeSha256(before),
+                    ComputeSha256(after),
+                    mutationDetected: false,
+                    changedProperties: string.Empty,
+                    classification: "NO_MUTATION",
+                    allowed: true);
+            }
+
+            var allowed = TryClassifyAllowedClimateScaleRatioDrift(
+                path,
+                before,
+                after,
+                out var changedProperties);
+            return new CaptureAssetMutationEvidence(
+                path,
+                ComputeSha256(before),
+                ComputeSha256(after),
+                mutationDetected: true,
+                changedProperties,
+                allowed
+                    ? "EXPECTED_IMPORT_DERIVED_DRIFT"
+                    : "UNEXPECTED_ASSET_MUTATION",
+                allowed);
+        }
+
+        private static bool TryClassifyAllowedClimateScaleRatioDrift(
+            string path,
+            byte[] before,
+            byte[] after,
+            out string changedProperties)
+        {
+            changedProperties = "binary-or-unclassified";
+            if (!string.Equals(path, ClimateFontAssetPath, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var beforeLines = DecodeLines(before);
+            var afterLines = DecodeLines(after);
+            if (beforeLines.Length != afterLines.Length)
+            {
+                return false;
+            }
+
+            var changed = new List<string>();
+            var requiredWhitespaceProperties = new HashSet<string>(
+                new[]
+                {
+                    "m_MipmapLimitGroupName:",
+                    "m_PlatformBlob:",
+                    "path:",
+                    "referencedFontAssetGUID:",
+                    "referencedTextAssetGUID:",
+                    "m_SourceFontFilePath:",
+                    "Name:",
+                    "m_LockedProperties:",
+                },
+                StringComparer.Ordinal);
+            var observedWhitespaceProperties = new HashSet<string>(
+                StringComparer.Ordinal);
+            for (var index = 0; index < beforeLines.Length; index++)
+            {
+                if (string.Equals(beforeLines[index], afterLines[index], StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var beforeValue = beforeLines[index].Trim();
+                var afterValue = afterLines[index].Trim();
+                if (string.Equals(beforeValue, afterValue, StringComparison.Ordinal) &&
+                    requiredWhitespaceProperties.Contains(beforeValue) &&
+                    string.Equals(
+                        afterLines[index],
+                        beforeLines[index] + " ",
+                        StringComparison.Ordinal))
+                {
+                    observedWhitespaceProperties.Add(beforeValue);
+                    changed.Add($"serialization-whitespace:{beforeValue}");
+                    continue;
+                }
+
+                if (string.Equals(beforeValue, "- _ScaleRatioA: 1", StringComparison.Ordinal) &&
+                    string.Equals(afterValue, "- _ScaleRatioA: 0.9", StringComparison.Ordinal))
+                {
+                    changed.Add("_ScaleRatioA:1->0.9");
+                    continue;
+                }
+
+                if (string.Equals(beforeValue, "- _ScaleRatioC: 1", StringComparison.Ordinal) &&
+                    string.Equals(afterValue, "- _ScaleRatioC: 0.73125", StringComparison.Ordinal))
+                {
+                    changed.Add("_ScaleRatioC:1->0.73125");
+                    continue;
+                }
+
+                return false;
+            }
+
+            changedProperties = string.Join(",", changed);
+            var hasScaleRatioA = changed.Contains("_ScaleRatioA:1->0.9");
+            var hasScaleRatioC = changed.Contains("_ScaleRatioC:1->0.73125");
+            return observedWhitespaceProperties.SetEquals(requiredWhitespaceProperties) &&
+                   hasScaleRatioA == hasScaleRatioC;
+        }
+
+        private static string[] DecodeLines(byte[] bytes)
+        {
+            return Encoding.UTF8.GetString(bytes ?? Array.Empty<byte>())
+                .Replace("\r\n", "\n")
+                .Split('\n');
+        }
+
+        private static string ComputeSha256(byte[] bytes)
+        {
+            using var sha256 = SHA256.Create();
+            return BitConverter.ToString(sha256.ComputeHash(bytes ?? Array.Empty<byte>()))
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
+        }
+
+        private static void CollectFontAssets(
+            TMP_FontAsset fontAsset,
+            HashSet<TMP_FontAsset> fontAssets)
+        {
+            if (fontAsset == null || !fontAssets.Add(fontAsset))
+            {
+                return;
+            }
+
+            if (fontAsset.fallbackFontAssetTable == null)
+            {
+                return;
+            }
+
+            foreach (var fallback in fontAsset.fallbackFontAssetTable)
+            {
+                CollectFontAssets(fallback, fontAssets);
+            }
+        }
+
+        private static void ClearDirty(string assetPath)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+            {
+                if (asset != null)
+                {
+                    EditorUtility.ClearDirty(asset);
                 }
             }
         }
 
+        private static string ReadCommandLineArgument(
+            IReadOnlyList<string> args,
+            string key)
+        {
+            for (var index = 0; index < args.Count - 1; index++)
+            {
+                if (string.Equals(args[index], key, StringComparison.Ordinal))
+                {
+                    return Path.GetFullPath(args[index + 1]);
+                }
+            }
+
+            return string.Empty;
+        }
     }
 }
