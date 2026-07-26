@@ -166,6 +166,29 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudBehavior_UsesSemanticIdentityWithoutDisplayCopyBranches()
+        {
+            var presenterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Application/Runtime/ObjectiveHudPresenter.cs");
+            var mapperSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Application/Runtime/UIStateMapper.cs");
+            var gameplayQuerySource = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostObjectiveQuery.cs");
+            var gameplayReadModelSource = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_UIAccess/Runtime/Models/GameplayObjectiveReadModel.cs");
+
+            Assert.That(presenterSource, Does.Not.Contain("condition.TitleText"));
+            Assert.That(presenterSource, Does.Not.Contain("condition.DisplayText"));
+            Assert.That(presenterSource, Does.Not.Contain("Role.ToString()"));
+            Assert.That(presenterSource, Does.Not.Contain("$\"{group.DisplayText}"));
+            Assert.That(mapperSource, Does.Not.Contain(".TitleText"));
+            Assert.That(mapperSource, Does.Not.Contain(".DisplayText"));
+            Assert.That(gameplayQuerySource, Does.Not.Contain(".DisplayText"));
+            Assert.That(gameplayReadModelSource, Does.Not.Contain("UnityEngine.Localization"));
+            Assert.That(gameplayReadModelSource, Does.Not.Contain("LocalizedTextDescriptor"));
+        }
+
+        [Test]
         public void PresenterOrchestrationTypes_RemainOwnedByApplicationAssembly()
         {
             var applicationAssembly = typeof(HUDRootPresenter).Assembly;

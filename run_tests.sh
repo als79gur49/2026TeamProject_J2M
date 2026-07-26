@@ -21,6 +21,11 @@ TYPOGRAPHY_VISUAL_HEIGHT=1080
 TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
 TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/ObjectiveHudVisualQA"
+OBJECTIVE_HUD_VISUAL_WIDTH=1920
+OBJECTIVE_HUD_VISUAL_HEIGHT=1080
+OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
+OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
 
@@ -217,7 +222,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|typography-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|typography-visual|typography-hud-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -1297,6 +1302,170 @@ run_typography_visual() {
     echo "  Nanum hash/diff: preserved"
 }
 
+run_objective_hud_visual() {
+    local timestamp
+    local output_dir
+    local output_dir_win
+    local unity_log
+    local unity_log_win
+    local manifest
+    local expected_head
+    local climate_hash_before
+    local climate_hash_after
+    local process_before
+    local unity_exit=0
+    local -a unity_command
+
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    output_dir="$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
+    unity_log="$output_dir/objective-hud-unity.log"
+    manifest="$output_dir/objective-hud-capture.log"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    unity_log_win="$(wslpath -w "$unity_log")"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -batchmode
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$unity_log_win"
+        -executeMethod "$OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD"
+        -objectiveHudVisualOutput "$output_dir_win"
+        -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
+        -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Objective HUD visual evidence plan:"
+        echo "  output directory: $output_dir"
+        echo "  resolution: ${OBJECTIVE_HUD_VISUAL_WIDTH}x${OBJECTIVE_HUD_VISUAL_HEIGHT}"
+        echo "  revision gate: tracked repository files and Unity inputs must match Git HEAD"
+        print_shell_command "${unity_command[@]}"
+        return 0
+    fi
+
+    verify_typography_visual_revision_gate
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT"
+    mkdir "$output_dir"
+
+    expected_head="$(git rev-parse HEAD)"
+    climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    process_before="$(find_current_project_unity_processes)"
+    echo "Running Objective HUD production-composition visual evidence..."
+    echo "  output directory: $output_dir"
+    echo "  manifest: $manifest"
+    if "${unity_command[@]}"; then
+        unity_exit=0
+    else
+        unity_exit=$?
+    fi
+
+    if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
+        capture_unity_timeout_artifacts \
+            "typography-hud-visual" \
+            "$unity_log" \
+            "$manifest" \
+            "$unity_exit" \
+            "$process_before"
+    fi
+    if [ "$unity_exit" -ne 0 ]; then
+        echo "ERROR: Objective HUD visual capture failed with exit code $unity_exit."
+        echo "Diagnostics were preserved in: $output_dir"
+        return "$unity_exit"
+    fi
+
+    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    if [ "$climate_hash_after" != "$climate_hash_before" ]; then
+        echo "ERROR: Climate SDF hash changed during Objective HUD capture."
+        echo "  before: $climate_hash_before"
+        echo "  after:  $climate_hash_after"
+        return 1
+    fi
+    if ! assert_no_generated_test_scenes; then
+        cleanup_generated_test_scenes
+        return 1
+    fi
+
+    python3 - "$output_dir" "$manifest" "$expected_head" \
+        "$OBJECTIVE_HUD_VISUAL_WIDTH" "$OBJECTIVE_HUD_VISUAL_HEIGHT" <<'PY'
+import hashlib
+import re
+import struct
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1]).resolve()
+manifest_path = Path(sys.argv[2]).resolve()
+expected_head = sys.argv[3]
+expected_width = int(sys.argv[4])
+expected_height = int(sys.argv[5])
+
+if not manifest_path.is_file():
+    raise SystemExit(f"ERROR: Objective HUD manifest missing: {manifest_path}")
+
+text = manifest_path.read_text(encoding="utf-8")
+root = {}
+sections = {}
+current = root
+for raw_line in text.splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    if line.startswith("[") and line.endswith("]"):
+        name = line[1:-1]
+        if name in sections:
+            raise SystemExit(f"ERROR: duplicate manifest section: {name}")
+        current = sections[name] = {}
+        continue
+    if "=" not in line:
+        raise SystemExit(f"ERROR: malformed manifest line: {line}")
+    key, value = line.split("=", 1)
+    current[key] = value
+
+required_sections = {
+    "Idle/en-US",
+    "Idle/ko-KR",
+    "MaxStack/en-US",
+    "MaxStack/ko-KR",
+}
+if root.get("git_head") != expected_head:
+    raise SystemExit("ERROR: Objective HUD manifest git_head mismatch")
+if root.get("resolution") != f"{expected_width}x{expected_height}":
+    raise SystemExit("ERROR: Objective HUD manifest resolution mismatch")
+if root.get("overall_result") != "PASS" or root.get("errors") != "0":
+    raise SystemExit("ERROR: Objective HUD manifest did not record a clean PASS")
+if root.get("capture_count") != "4" or set(sections) != required_sections:
+    raise SystemExit("ERROR: Objective HUD manifest capture set mismatch")
+
+for name, entry in sections.items():
+    if entry.get("capture_result") != "PASS":
+        raise SystemExit(f"ERROR: {name} capture_result is not PASS")
+    if entry.get("decode") != "PASS" or entry.get("layout") != "PASS":
+        raise SystemExit(f"ERROR: {name} decode/layout validation failed")
+    if entry.get("glyph_coverage") != "PASS":
+        raise SystemExit(f"ERROR: {name} glyph coverage failed")
+    png = output_dir / entry["file"]
+    data = png.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"ERROR: {png.name} is not a PNG")
+    width, height = struct.unpack(">II", data[16:24])
+    if (width, height) != (expected_width, expected_height):
+        raise SystemExit(f"ERROR: {png.name} dimensions {width}x{height}")
+    if hashlib.sha256(data).hexdigest() != entry.get("sha256"):
+        raise SystemExit(f"ERROR: {png.name} SHA-256 mismatch")
+
+print("Objective HUD visual manifest verification: PASS")
+PY
+
+    echo "Objective HUD visual evidence capture: PASS"
+    echo "  output directory: $output_dir"
+    echo "  manifest: $manifest"
+    echo "  recorded revision: $expected_head"
+    echo "  Climate SDF hash: preserved"
+}
+
 run_unity_full() {
     run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "" ""
     run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
@@ -1372,8 +1541,9 @@ parse_arguments() {
         esac
     done
 
-    if [ "$RUN_MODE" = "typography-visual" ] && [ -n "$TEST_FILTER" ]; then
-        echo "ERROR: typography-visual does not accept test filters."
+    if { [ "$RUN_MODE" = "typography-visual" ] || [ "$RUN_MODE" = "typography-hud-visual" ]; } &&
+       [ -n "$TEST_FILTER" ]; then
+        echo "ERROR: visual evidence lanes do not accept test filters."
         print_usage
         exit 1
     fi
@@ -1410,7 +1580,7 @@ main() {
         require_command timeout
         require_command python3
         require_file "$UNITY_PATH" "Unity executable"
-        if [ "$mode" = "typography-visual" ]; then
+        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
             require_command git
             require_command sha256sum
             ensure_result_dirs
@@ -1426,7 +1596,7 @@ main() {
             run_action_plan_correlation_check
         fi
     else
-        if [ "$mode" = "typography-visual" ]; then
+        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
             echo "Dry run: revision gate and Unity typography capture will not execute."
         else
             echo "Dry run: governance checks, dotnet builds, and Unity stages will not execute."
@@ -1448,6 +1618,9 @@ main() {
             ;;
         typography-visual)
             run_typography_visual
+            ;;
+        typography-hud-visual)
+            run_objective_hud_visual
             ;;
         full)
             run_dotnet_full
@@ -1473,7 +1646,9 @@ main() {
 
     require_filtered_tests_if_needed
 
-    if [ "$DRY_RUN" -eq 0 ] && [ "$mode" != "typography-visual" ]; then
+    if [ "$DRY_RUN" -eq 0 ] &&
+       [ "$mode" != "typography-visual" ] &&
+       [ "$mode" != "typography-hud-visual" ]; then
         echo "ALL TESTS PASSED"
     fi
 }
