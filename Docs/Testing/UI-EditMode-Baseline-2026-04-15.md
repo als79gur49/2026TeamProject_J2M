@@ -18,8 +18,8 @@
 - Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
 - Current Climate Crisis KR PR2 typography contract rerun: green on 2026-07-26 KST with code-head `CommandLine-20260726-052954`, Settings 38 applied / 13 skipped, six canonical PNGs, and three separate Climate diagnostic PNGs
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1073 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1073 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1074 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1074 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -61,8 +61,8 @@
   - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, `ResultContinueLabel`, StageResult text payload members, hidden title/detail prefab labels, and production YAML residue are absent
 - Test count delta:
   - previous documented current UI EditMode result: `1060 total / 0 failed`
-  - current rerun: `1073 total / 0 failed`
-  - observed delta since that documented result: `+13` tests across ObjectiveHud localization/visual-contract coverage and the separated Climate source/import guard
+  - current rerun: `1074 total / 0 failed`
+  - observed delta since that documented result: `+14` tests across ObjectiveHud localization/visual-contract coverage, the separated Climate source/import guard, and current-main governance coverage
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
