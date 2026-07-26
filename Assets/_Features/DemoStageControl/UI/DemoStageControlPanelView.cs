@@ -199,7 +199,7 @@ namespace Game.Feature.DemoStageControl.UI
             textComponent.fontStyle = style;
             textComponent.alignment = alignment;
             textComponent.color = Color.white;
-            textComponent.enableWordWrapping = true;
+            textComponent.textWrappingMode = TextWrappingModes.Normal;
             var layoutElement = textObject.AddComponent<LayoutElement>();
             layoutElement.minHeight = fontSize + 10f;
             return textComponent;
@@ -231,7 +231,7 @@ namespace Game.Feature.DemoStageControl.UI
             text.fontSize = 17f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
 
             var layoutElement = buttonObject.AddComponent<LayoutElement>();
             layoutElement.preferredHeight = 44f;
@@ -268,7 +268,7 @@ namespace Game.Feature.DemoStageControl.UI
             labelText.fontSize = 17f;
             labelText.alignment = TextAlignmentOptions.Center;
             labelText.color = Color.white;
-            labelText.enableWordWrapping = false;
+            labelText.textWrappingMode = TextWrappingModes.NoWrap;
 
             var layoutElement = buttonObject.AddComponent<LayoutElement>();
             layoutElement.preferredHeight = 44f;

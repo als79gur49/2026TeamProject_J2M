@@ -154,6 +154,36 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DemoStageControlPanel_TextWrappingModes_PreservePanelAndButtonIntent()
+        {
+            var view = CreateView();
+            var texts = view.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true);
+            var panelTextCount = 0;
+            var buttonLabelCount = 0;
+
+            for (var i = 0; i < texts.Length; i++)
+            {
+                var text = texts[i];
+                if (text.transform.parent == view.transform)
+                {
+                    panelTextCount++;
+                    Assert.That(text.textWrappingMode, Is.EqualTo(TMPro.TextWrappingModes.Normal));
+                    continue;
+                }
+
+                if (text.transform.parent != null &&
+                    text.transform.parent.GetComponent<Button>() != null)
+                {
+                    buttonLabelCount++;
+                    Assert.That(text.textWrappingMode, Is.EqualTo(TMPro.TextWrappingModes.NoWrap));
+                }
+            }
+
+            Assert.That(panelTextCount, Is.GreaterThan(0));
+            Assert.That(buttonLabelCount, Is.GreaterThan(0));
+        }
+
+        [Test]
         public void DemoStageControlPanel_ResolvesStageDisplayNameAndRefreshesLocaleUntilDisposed()
         {
             var commandPort = new RecordingCommandPort();
