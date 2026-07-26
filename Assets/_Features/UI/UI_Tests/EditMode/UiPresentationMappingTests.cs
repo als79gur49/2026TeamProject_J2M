@@ -308,10 +308,18 @@ namespace Game.Feature.UI.Tests
                 CreateRefreshInput(objective: objective));
 
             Assert.That(result.Snapshot.Objective.HasObjective, Is.True);
-            Assert.That(result.Snapshot.Objective.Title, Is.EqualTo("Reach the Exit"));
-            Assert.That(result.Snapshot.Objective.Summary, Is.EqualTo("Move to the exit zone."));
+            Assert.That(result.Snapshot.Objective.Title, Is.Empty);
+            Assert.That(result.Snapshot.Objective.Summary, Is.Empty);
             Assert.That(result.Snapshot.Objective.Conditions, Has.Count.EqualTo(1));
-            Assert.That(result.Snapshot.Objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
+            Assert.That(
+                result.Snapshot.Objective.Conditions[0].PresentationKind,
+                Is.EqualTo(GameplayObjectivePresentationKind.ReachExit));
+            Assert.That(
+                result.Snapshot.Objective.Conditions[0].TextDescriptor.Key,
+                Is.EqualTo(ObjectiveHudLocalization.Keys.ReachExit));
+            Assert.That(
+                result.Snapshot.Objective.Conditions[0].TextDescriptor.Arguments,
+                Is.EqualTo(new object[] { 0, 1 }));
             Assert.That(result.Snapshot.Objective.Conditions[0].Role, Is.EqualTo(UIObjectiveConditionRole.PrimaryGoal));
         }
 
@@ -344,6 +352,39 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIStateMapper_UnsupportedObjectivePresentationKind_FailsClosed()
+        {
+            var mapper = new UIStateMapper();
+            var objective = new GameplayObjectiveReadModel(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                isCleared: false,
+                conditions: new[]
+                {
+                    new GameplayObjectiveConditionReadModel(
+                        stableId: "unsupported",
+                        presentationKind: GameplayObjectivePresentationKind.None,
+                        stableGroupKey: "unsupported",
+                        role: GameplayObjectiveConditionRole.SecondaryGoal,
+                        required: true,
+                        isSatisfied: false,
+                        completedCount: 0,
+                        requiredCount: 1,
+                        sortOrder: 10),
+                });
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(objective: objective));
+
+            Assert.That(result.Snapshot.Objective.HasObjective, Is.True);
+            Assert.That(result.Snapshot.Objective.Conditions, Is.Empty);
+            Assert.That(result.Snapshot.Objective.Title, Is.Empty);
+            Assert.That(result.Snapshot.Objective.Summary, Is.Empty);
+        }
+
+        [Test]
         public void UIObjectiveSlice_PreservesVisibleAndSemanticTopLevelStateSeparately()
         {
             var mapper = new UIStateMapper();
@@ -352,8 +393,6 @@ namespace Game.Feature.UI.Tests
                 goalReached: false,
                 allConditionsSatisfied: false,
                 isCleared: false,
-                objectiveTitle: "Reach the Exit",
-                objectiveSummary: "Move to the exit zone.",
                 conditions: Array.Empty<GameplayObjectiveConditionReadModel>(),
                 semanticGoalReached: true,
                 semanticAllConditionsSatisfied: true,
@@ -675,8 +714,10 @@ namespace Game.Feature.UI.Tests
                 isTopologyTransitionActive: false));
 
             Assert.That(source.CurrentSnapshot.Objective.HasObjective, Is.True);
-            Assert.That(source.CurrentSnapshot.Objective.Summary, Is.EqualTo("Move to the exit zone."));
-            Assert.That(source.CurrentSnapshot.Objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
+            Assert.That(source.CurrentSnapshot.Objective.Summary, Is.Empty);
+            Assert.That(
+                source.CurrentSnapshot.Objective.Conditions[0].TextDescriptor.Key,
+                Is.EqualTo(ObjectiveHudLocalization.Keys.ReachExit));
         }
 
         [Test]
@@ -815,17 +856,17 @@ namespace Game.Feature.UI.Tests
                 goalReached: isSatisfied,
                 allConditionsSatisfied: isSatisfied,
                 isCleared: false,
-                objectiveTitle: "Reach the Exit",
-                objectiveSummary: "Move to the exit zone.",
                 conditions: new[]
                 {
                     new GameplayObjectiveConditionReadModel(
                         stableId: "primary-goal",
+                        presentationKind: GameplayObjectivePresentationKind.ReachExit,
+                        stableGroupKey: "reach-exit",
                         role: GameplayObjectiveConditionRole.PrimaryGoal,
                         required: true,
                         isSatisfied: isSatisfied,
-                        titleText: "Reach the exit zone",
-                        progressText: string.Empty,
+                        completedCount: isSatisfied ? 1 : 0,
+                        requiredCount: 1,
                         sortOrder: 0),
                 });
         }

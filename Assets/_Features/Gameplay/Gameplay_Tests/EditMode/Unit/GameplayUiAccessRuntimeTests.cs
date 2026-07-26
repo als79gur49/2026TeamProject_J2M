@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -173,7 +174,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostObjectiveQuery_ReturnsObjectiveTitleSummary()
+        public void GameplayHostObjectiveQuery_DoesNotExposeAuthoredDisplayCopy()
         {
             var hostObject = new GameObject("GameplayHostObjectiveQuery_ReturnsObjectiveTitleSummary");
 
@@ -187,8 +188,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var objective = host.UiAccess.QueryFacade.Objectives.Read();
 
                 Assert.That(objective.HasObjective, Is.True);
-                Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-                Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
+                Assert.That(
+                    typeof(GameplayObjectiveReadModel).GetProperty("ObjectiveTitle"),
+                    Is.Null);
+                Assert.That(
+                    typeof(GameplayObjectiveConditionReadModel).GetProperty("TitleText"),
+                    Is.Null);
             }
             finally
             {
@@ -215,8 +220,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(objective.Conditions[0].StableId, Is.EqualTo("primary-goal"));
                 Assert.That(objective.Conditions[0].Role, Is.EqualTo(GameplayObjectiveConditionRole.PrimaryGoal));
                 Assert.That(objective.Conditions[0].Required, Is.True);
-                Assert.That(objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
-                Assert.That(objective.Conditions[0].ProgressText, Is.Empty);
+                Assert.That(
+                    objective.Conditions[0].PresentationKind,
+                    Is.EqualTo(GameplayObjectivePresentationKind.ReachExit));
+                Assert.That(
+                    objective.Conditions[0].StableGroupKey,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
+                Assert.That(objective.Conditions[0].CompletedCount, Is.EqualTo(0));
+                Assert.That(objective.Conditions[0].RequiredCount, Is.EqualTo(1));
                 Assert.That(objective.Conditions[0].SortOrder, Is.EqualTo(0));
             }
             finally
@@ -227,7 +238,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsDisplayText()
+        public void GameplayHostObjectiveQuery_DoesNotExposeRawDetailsOrDisplayText()
         {
             var hostObject = new GameObject("GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsDisplayText");
 
@@ -241,10 +252,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var objective = host.UiAccess.QueryFacade.Objectives.Read();
 
                 Assert.That(objective.Conditions.Count, Is.EqualTo(1));
-                Assert.That(objective.Conditions[0].TitleText, Is.EqualTo("Reach the exit zone"));
-                Assert.That(objective.Conditions[0].TitleText, Does.Not.Contain("PlayerEntityId"));
-                Assert.That(objective.Conditions[0].TitleText, Does.Not.Contain("MatchedZoneId"));
-                Assert.That(objective.Conditions[0].ProgressText, Does.Not.Contain("PlayerEntityId"));
+                var stringProperties = typeof(GameplayObjectiveConditionReadModel)
+                    .GetProperties()
+                    .Where(property => property.PropertyType == typeof(string))
+                    .Select(property => property.Name)
+                    .ToArray();
+                Assert.That(
+                    stringProperties,
+                    Is.EquivalentTo(new[] { "StableId", "StableGroupKey" }));
             }
             finally
             {
@@ -268,8 +283,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var objective = host.UiAccess.QueryFacade.Objectives.Read();
 
                 Assert.That(objective.HasObjective, Is.False);
-                Assert.That(objective.ObjectiveTitle, Is.Empty);
-                Assert.That(objective.ObjectiveSummary, Is.Empty);
                 Assert.That(objective.Conditions, Is.Empty);
             }
             finally
@@ -999,27 +1012,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 condition: condition,
                 required: true,
                 role: StageObjectiveConditionRole.PrimaryGoal,
-                stableConditionId: "primary-goal");
-            var displayMetadata = new StageObjectiveDisplayMetadata(
-                "Reach the Exit",
-                "Move to the exit zone.",
-                new[]
-                {
-                    new StageObjectiveConditionDisplayMetadata(
-                        stableConditionId: "primary-goal",
-                        role: StageObjectiveConditionRole.PrimaryGoal,
-                        required: true,
-                        displayText: "Reach the exit zone",
-                        sortOrder: 0,
-                        authoringOrder: 0),
-                });
+                stableConditionId: "primary-goal",
+                presentationId: StageObjectiveConditionPresentationIds.ReachExit,
+                stableGroupKey: StageObjectiveConditionPresentationIds.ReachExit,
+                sortOrder: 0,
+                authoringOrder: 0);
 
             return new StageObjectiveRuntimeDefinition(
                 StageCompletionPolicy.RequireAllConditions,
                 playerEntityId: 10,
                 new[] { goalZone },
-                new[] { runtimeEntry },
-                displayMetadata);
+                new[] { runtimeEntry });
         }
 
         private static PlayerControlTimingSettings CreateRecoveryTimingSettings(

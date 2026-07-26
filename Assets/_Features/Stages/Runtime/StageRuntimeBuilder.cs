@@ -290,26 +290,20 @@ namespace Game.Feature.Stages
                     StageCompletionPolicy.Disabled,
                     validated.PlayerEntityId,
                     zoneDefinitions,
-                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>(),
-                    StageObjectiveDisplayMetadata.Empty);
+                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
             }
 
             var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
                 tileFeatureRuntimeDefinitionsById,
-                timing,
-                out var conditionDisplayMetadata);
+                timing);
 
             return new StageObjectiveRuntimeDefinition(
                 validated.Objective.CompletionPolicy,
                 validated.PlayerEntityId,
                 zoneDefinitions,
-                conditionEntries,
-                new StageObjectiveDisplayMetadata(
-                    validated.Objective.ObjectiveTitle,
-                    validated.Objective.ObjectiveSummary,
-                    conditionDisplayMetadata));
+                conditionEntries);
         }
 
         private static StageZoneRuntimeDefinition[] BuildZoneRuntimeDefinitions(
@@ -375,8 +369,7 @@ namespace Game.Feature.Stages
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
             IReadOnlyDictionary<int, TileFeatureRuntimeDefinition> tileFeatureRuntimeDefinitionsById,
-            StageSimulationTiming timing,
-            out StageObjectiveConditionDisplayMetadata[] conditionDisplayMetadata)
+            StageSimulationTiming timing)
         {
             var conditionEntries = validated.Objective.GetConditionEntriesOrEmpty();
 
@@ -387,14 +380,16 @@ namespace Game.Feature.Stages
                 timing,
                 tileFeatureRuntimeDefinitionsById);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
-            var displayEntries = new List<StageObjectiveConditionDisplayMetadata>();
             var hasExit = TryGetSingleExit(validated.TileFeatures, out var exitTileFeature);
 
             for (var i = 0; i < conditionEntries.Length; i++)
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
-                if (hasExit && authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                var isExitPrimaryGoal =
+                    hasExit &&
+                    authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal;
+                if (isExitPrimaryGoal)
                 {
                     runtimeDefinition = CreateExitPrimaryGoalRuntimeDefinition(
                         validated,
@@ -406,27 +401,68 @@ namespace Game.Feature.Stages
                 }
 
                 var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
+                ResolvePresentationIdentity(
+                    validated.TileFeatures,
+                    authoringEntry,
+                    isExitPrimaryGoal,
+                    out var presentationId,
+                    out var stableGroupKey);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
                     runtimeDefinition,
                     authoringEntry.Required,
                     authoringEntry.Role,
-                    stableConditionId));
-                displayEntries.Add(new StageObjectiveConditionDisplayMetadata(
                     stableConditionId,
-                    authoringEntry.Role,
-                    authoringEntry.Required,
-                    authoringEntry.DisplayText,
+                    presentationId,
+                    stableGroupKey,
                     authoringEntry.SortOrder,
                     i));
             }
 
-            conditionDisplayMetadata = displayEntries.Count == 0
-                ? Array.Empty<StageObjectiveConditionDisplayMetadata>()
-                : displayEntries.ToArray();
             return runtimeEntries.Count == 0
                 ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
                 : runtimeEntries.ToArray();
+        }
+
+        private static void ResolvePresentationIdentity(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            StageObjectiveConditionEntry authoringEntry,
+            bool isExitPrimaryGoal,
+            out string presentationId,
+            out string stableGroupKey)
+        {
+            if (isExitPrimaryGoal)
+            {
+                presentationId = StageObjectiveConditionPresentationIds.ReachExit;
+                stableGroupKey = presentationId;
+                return;
+            }
+
+            if (authoringEntry.Condition is ButtonActivatedConditionAsset buttonCondition)
+            {
+                var isMoonBlockOnly = false;
+                for (var i = 0; tileFeatures != null && i < tileFeatures.Count; i++)
+                {
+                    if (tileFeatures[i].TileId == buttonCondition.TileId)
+                    {
+                        isMoonBlockOnly =
+                            tileFeatures[i].BoxSelector == TileFeatureBoxSelector.MoonBlockOnly;
+                        break;
+                    }
+                }
+
+                presentationId = isMoonBlockOnly
+                    ? StageObjectiveConditionPresentationIds.ActivateMoonButton
+                    : StageObjectiveConditionPresentationIds.ActivateButton;
+                stableGroupKey = string.Concat(
+                    presentationId,
+                    "|role-",
+                    ((int)authoringEntry.Role).ToString());
+                return;
+            }
+
+            presentationId = string.Empty;
+            stableGroupKey = string.Empty;
         }
 
         private static StageConditionRuntimeDefinition CreateExitPrimaryGoalRuntimeDefinition(

@@ -512,46 +512,60 @@ namespace Game.Feature.UI.Application
     public readonly struct UIObjectiveConditionSlice : IEquatable<UIObjectiveConditionSlice>
     {
         public UIObjectiveConditionSlice(
-            string titleText,
-            string progressText,
+            GameplayObjectivePresentationKind presentationKind,
+            string stableGroupKey,
+            LocalizedTextDescriptor textDescriptor,
             bool isSatisfied,
             bool required,
             UIObjectiveConditionRole role,
+            int completedCount,
+            int requiredCount,
             int sortOrder)
             : this(
                 string.Empty,
-                titleText,
-                progressText,
+                presentationKind,
+                stableGroupKey,
+                textDescriptor,
                 isSatisfied,
                 required,
                 role,
+                completedCount,
+                requiredCount,
                 sortOrder)
         {
         }
 
         public UIObjectiveConditionSlice(
             string stableId,
-            string titleText,
-            string progressText,
+            GameplayObjectivePresentationKind presentationKind,
+            string stableGroupKey,
+            LocalizedTextDescriptor textDescriptor,
             bool isSatisfied,
             bool required,
             UIObjectiveConditionRole role,
+            int completedCount,
+            int requiredCount,
             int sortOrder)
         {
             StableId = stableId ?? string.Empty;
-            TitleText = titleText ?? string.Empty;
-            ProgressText = progressText ?? string.Empty;
+            PresentationKind = presentationKind;
+            StableGroupKey = stableGroupKey ?? string.Empty;
+            TextDescriptor = textDescriptor;
             IsSatisfied = isSatisfied;
             Required = required;
             Role = role;
+            CompletedCount = Math.Max(0, completedCount);
+            RequiredCount = Math.Max(0, requiredCount);
             SortOrder = sortOrder;
         }
 
         public string StableId { get; }
 
-        public string TitleText { get; }
+        public GameplayObjectivePresentationKind PresentationKind { get; }
 
-        public string ProgressText { get; }
+        public string StableGroupKey { get; }
+
+        public LocalizedTextDescriptor TextDescriptor { get; }
 
         public bool IsSatisfied { get; }
 
@@ -559,16 +573,23 @@ namespace Game.Feature.UI.Application
 
         public UIObjectiveConditionRole Role { get; }
 
+        public int CompletedCount { get; }
+
+        public int RequiredCount { get; }
+
         public int SortOrder { get; }
 
         public bool Equals(UIObjectiveConditionSlice other)
         {
             return string.Equals(StableId, other.StableId, StringComparison.Ordinal) &&
-                   string.Equals(TitleText, other.TitleText, StringComparison.Ordinal) &&
-                   string.Equals(ProgressText, other.ProgressText, StringComparison.Ordinal) &&
+                   PresentationKind == other.PresentationKind &&
+                   string.Equals(StableGroupKey, other.StableGroupKey, StringComparison.Ordinal) &&
+                   TextDescriptor.Equals(other.TextDescriptor) &&
                    IsSatisfied == other.IsSatisfied &&
                    Required == other.Required &&
                    Role == other.Role &&
+                   CompletedCount == other.CompletedCount &&
+                   RequiredCount == other.RequiredCount &&
                    SortOrder == other.SortOrder;
         }
 
@@ -579,8 +600,19 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            var hash = HashCode.Combine(StableId, TitleText, ProgressText, IsSatisfied);
-            hash = HashCode.Combine(hash, Required, Role, SortOrder);
+            var hash = HashCode.Combine(
+                StableId,
+                PresentationKind,
+                StableGroupKey,
+                TextDescriptor);
+            hash = HashCode.Combine(
+                hash,
+                IsSatisfied,
+                Required,
+                Role,
+                CompletedCount,
+                RequiredCount,
+                SortOrder);
             return hash;
         }
     }

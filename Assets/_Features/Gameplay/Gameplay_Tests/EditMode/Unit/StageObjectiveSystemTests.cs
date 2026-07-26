@@ -2368,7 +2368,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_CompilesObjectiveDisplayMetadata()
+        public void StageRuntimeBuilder_CompilesExitObjectiveSemanticPresentationIdentity()
         {
             var condition = CreatePrimaryGoalCondition(new[] { "goal" });
             var stage = CreateStage(
@@ -2395,10 +2395,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var objective = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition;
 
-                Assert.That(objective.DisplayMetadata.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-                Assert.That(objective.DisplayMetadata.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
-                Assert.That(objective.DisplayMetadata.ConditionEntries.Count, Is.EqualTo(1));
-                Assert.That(objective.DisplayMetadata.ConditionEntries[0].DisplayText, Is.EqualTo("Reach the exit zone"));
+                Assert.That(objective.ConditionEntries.Count, Is.EqualTo(1));
+                Assert.That(
+                    objective.ConditionEntries[0].PresentationId,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
+                Assert.That(
+                    objective.ConditionEntries[0].StableGroupKey,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
             }
             finally
             {
@@ -2409,7 +2412,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_ConditionDisplayMetadata_PreservesStableIdRoleRequiredSort()
+        public void StageRuntimeBuilder_ConditionRuntimeEntries_PreserveStableIdentityRoleRequiredSort()
         {
             var first = CreatePrimaryGoalCondition(new[] { "goal" });
             var second = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
@@ -2440,7 +2443,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var metadata = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition.DisplayMetadata.ConditionEntries;
+                var metadata = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition.ConditionEntries;
 
                 Assert.That(metadata.Count, Is.EqualTo(2));
                 Assert.That(metadata[0].StableConditionId, Is.EqualTo("primary-goal"));
@@ -2448,11 +2451,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(metadata[0].Required, Is.True);
                 Assert.That(metadata[0].SortOrder, Is.EqualTo(10));
                 Assert.That(metadata[0].AuthoringOrder, Is.EqualTo(0));
+                Assert.That(
+                    metadata[0].PresentationId,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
                 Assert.That(metadata[1].StableConditionId, Is.EqualTo("defeat-all"));
                 Assert.That(metadata[1].Role, Is.EqualTo(StageObjectiveConditionRole.Challenge));
                 Assert.That(metadata[1].Required, Is.False);
                 Assert.That(metadata[1].SortOrder, Is.EqualTo(20));
                 Assert.That(metadata[1].AuthoringOrder, Is.EqualTo(1));
+                Assert.That(metadata[1].PresentationId, Is.Empty);
+                Assert.That(metadata[1].StableGroupKey, Is.Empty);
             }
             finally
             {

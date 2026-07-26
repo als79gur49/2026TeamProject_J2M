@@ -49,7 +49,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return _lastReadModel;
             }
 
-            var displayMetadata = objectiveDefinition.DisplayMetadata ?? StageObjectiveDisplayMetadata.Empty;
             var visibleGoalReached = objectiveResult.GoalReached &&
                                      !HasPendingPrimaryGoalCompletionGate(objectiveResult, _barrierTracker);
             var visibleAllConditionsSatisfied = objectiveResult.AllConditionsSatisfied &&
@@ -64,9 +63,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                     visibleGoalReached,
                     visibleAllConditionsSatisfied,
                     visibleIsCleared,
-                    displayMetadata.ObjectiveTitle,
-                    displayMetadata.ObjectiveSummary,
-                    BuildConditionRows(objectiveResult, displayMetadata, _barrierTracker),
+                    BuildConditionRows(objectiveResult, objectiveDefinition, _barrierTracker),
                     objectiveResult.GoalReached,
                     objectiveResult.AllConditionsSatisfied,
                     objectiveResult.IsCleared));
@@ -86,12 +83,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         private static IReadOnlyList<GameplayObjectiveConditionReadModel> BuildConditionRows(
             StageObjectiveTickResult objectiveResult,
-            StageObjectiveDisplayMetadata displayMetadata,
+            StageObjectiveRuntimeDefinition objectiveDefinition,
             GameplayPresentationBarrierTracker barrierTracker)
         {
             var statuses = objectiveResult.ConditionStatuses;
-            var metadataEntries = displayMetadata.ConditionEntries;
-            if (statuses.Count == 0 || metadataEntries.Count == 0)
+            var definitionEntries = objectiveDefinition.ConditionEntries;
+            if (statuses.Count == 0 || definitionEntries.Count == 0)
             {
                 return EmptyConditions;
             }
@@ -111,21 +108,24 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return EmptyConditions;
             }
 
-            var sortedMetadata = new List<StageObjectiveConditionDisplayMetadata>(metadataEntries.Count);
-            for (var i = 0; i < metadataEntries.Count; i++)
+            var sortedEntries =
+                new List<StageObjectiveConditionRuntimeDefinitionEntry>(definitionEntries.Count);
+            for (var i = 0; i < definitionEntries.Count; i++)
             {
-                sortedMetadata.Add(metadataEntries[i]);
+                sortedEntries.Add(definitionEntries[i]);
             }
 
-            sortedMetadata.Sort(CompareConditionDisplayMetadata);
+            sortedEntries.Sort(CompareConditionEntries);
 
-            var rows = new List<GameplayObjectiveConditionReadModel>(sortedMetadata.Count);
-            for (var i = 0; i < sortedMetadata.Count; i++)
+            var rows = new List<GameplayObjectiveConditionReadModel>(sortedEntries.Count);
+            for (var i = 0; i < sortedEntries.Count; i++)
             {
-                var metadata = sortedMetadata[i];
-                if (string.IsNullOrWhiteSpace(metadata.DisplayText) ||
-                    string.IsNullOrWhiteSpace(metadata.StableConditionId) ||
-                    !statusesByStableId.TryGetValue(metadata.StableConditionId, out var status))
+                var definitionEntry = sortedEntries[i];
+                var presentationKind = MapPresentationKind(definitionEntry.PresentationId);
+                if (presentationKind == GameplayObjectivePresentationKind.None ||
+                    string.IsNullOrWhiteSpace(definitionEntry.StableGroupKey) ||
+                    string.IsNullOrWhiteSpace(definitionEntry.StableConditionId) ||
+                    !statusesByStableId.TryGetValue(definitionEntry.StableConditionId, out var status))
                 {
                     continue;
                 }
@@ -134,25 +134,45 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                   !IsVisibleCompletionGated(status, barrierTracker);
                 rows.Add(new GameplayObjectiveConditionReadModel(
                     status.ConditionId,
+                    presentationKind,
+                    definitionEntry.StableGroupKey,
                     MapRole(status.Role),
                     status.Required,
                     isSatisfied,
-                    metadata.DisplayText,
-                    string.Empty,
-                    metadata.SortOrder));
+                    isSatisfied ? 1 : 0,
+                    1,
+                    definitionEntry.SortOrder));
             }
 
             return rows.Count == 0 ? EmptyConditions : rows.ToArray();
         }
 
-        private static int CompareConditionDisplayMetadata(
-            StageObjectiveConditionDisplayMetadata left,
-            StageObjectiveConditionDisplayMetadata right)
+        private static int CompareConditionEntries(
+            StageObjectiveConditionRuntimeDefinitionEntry left,
+            StageObjectiveConditionRuntimeDefinitionEntry right)
         {
             var sortOrderComparison = left.SortOrder.CompareTo(right.SortOrder);
             return sortOrderComparison != 0
                 ? sortOrderComparison
                 : left.AuthoringOrder.CompareTo(right.AuthoringOrder);
+        }
+
+        private static GameplayObjectivePresentationKind MapPresentationKind(string presentationId)
+        {
+            switch (presentationId)
+            {
+                case StageObjectiveConditionPresentationIds.ReachExit:
+                    return GameplayObjectivePresentationKind.ReachExit;
+
+                case StageObjectiveConditionPresentationIds.ActivateButton:
+                    return GameplayObjectivePresentationKind.ActivateButton;
+
+                case StageObjectiveConditionPresentationIds.ActivateMoonButton:
+                    return GameplayObjectivePresentationKind.ActivateMoonButton;
+
+                default:
+                    return GameplayObjectivePresentationKind.None;
+            }
         }
 
         private static GameplayObjectiveConditionRole MapRole(StageObjectiveConditionRole role)

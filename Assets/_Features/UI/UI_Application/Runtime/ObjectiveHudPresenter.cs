@@ -1,19 +1,61 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
-    public sealed class ObjectiveHudPresenter
+    public sealed class ObjectiveHudPresenter : IDisposable
     {
         private readonly Dictionary<string, bool> _previousSatisfiedByStableId =
             new Dictionary<string, bool>(StringComparer.Ordinal);
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private UIObjectiveSlice _lastObjective = UIObjectiveSlice.Empty;
         private bool _hasPrevious;
+        private bool _isDisposed;
         private string _previousObjectiveStableId = string.Empty;
+
+        public ObjectiveHudPresenter(ILocalizedTextResolver localizedTextResolver = null)
+        {
+            _localizedTextResolver = localizedTextResolver ?? ObjectiveHudInvariantTextResolver.Instance;
+            _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
+        }
 
         public ObjectiveHudViewModel ViewModel { get; } = new();
 
         public void Apply(UIObjectiveSlice objective)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _lastObjective = objective;
+            Render(objective);
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            _isDisposed = true;
+        }
+
+        private void HandleLocaleChanged()
+        {
+            if (!_isDisposed)
+            {
+                Render(_lastObjective);
+            }
+        }
+
+        private void Render(UIObjectiveSlice objective)
         {
             if (!objective.HasObjective)
             {
@@ -32,7 +74,11 @@ namespace Game.Feature.UI.Application
             }
 
             var rows = BuildRows(objective);
-            ViewModel.SetState(true, objectiveStableId, rows);
+            ViewModel.SetState(
+                true,
+                objectiveStableId,
+                _localizedTextResolver.Resolve(ObjectiveHudLocalization.HeaderDescriptor),
+                rows);
 
             _previousSatisfiedByStableId.Clear();
             for (var i = 0; i < rows.Count; i++)
@@ -48,49 +94,48 @@ namespace Game.Feature.UI.Application
         {
             var conditions = new List<UIObjectiveConditionSlice>(objective.Conditions);
             conditions.Sort(CompareConditions);
-            var rowCandidates = new List<ObjectiveHudRowCandidate>(conditions.Count);
+            var candidates = new List<ObjectiveHudRowCandidate>(conditions.Count);
             var groupsByKey = new Dictionary<string, ObjectiveHudGroupAccumulator>(StringComparer.Ordinal);
 
             for (var i = 0; i < conditions.Count; i++)
             {
                 var condition = conditions[i];
-                if (string.IsNullOrWhiteSpace(condition.TitleText))
+                var stableId = ResolveStableId(condition, i);
+                if (string.IsNullOrEmpty(stableId))
                 {
                     continue;
                 }
 
-                var stableId = ResolveStableId(condition, i);
-                var rowKind = InferRowKind(condition, stableId);
-                if (IsGroupable(rowKind))
+                var rowKind = MapRowKind(condition.PresentationKind);
+                if (IsGroupable(rowKind) && !string.IsNullOrWhiteSpace(condition.StableGroupKey))
                 {
-                    var groupKey = BuildGroupKey(objective.ObjectiveStableId, condition, rowKind);
-                    if (!groupsByKey.TryGetValue(groupKey, out var group))
+                    var groupIdentity = BuildGroupIdentity(condition);
+                    if (!groupsByKey.TryGetValue(groupIdentity, out var group))
                     {
                         group = new ObjectiveHudGroupAccumulator(
-                            groupKey,
-                            condition.TitleText,
+                            condition.StableGroupKey,
+                            condition.PresentationKind,
                             rowKind,
                             condition.SortOrder);
-                        groupsByKey.Add(groupKey, group);
-                        rowCandidates.Add(ObjectiveHudRowCandidate.ForGroup(group));
+                        groupsByKey.Add(groupIdentity, group);
+                        candidates.Add(ObjectiveHudRowCandidate.ForGroup(group));
                     }
 
                     group.Add(condition);
                     continue;
                 }
 
-                rowCandidates.Add(ObjectiveHudRowCandidate.ForRow(
+                candidates.Add(ObjectiveHudRowCandidate.ForRow(
                     condition.SortOrder,
-                    condition.TitleText,
+                    stableId,
                     BuildSingleRow(stableId, condition)));
             }
 
-            rowCandidates.Sort(CompareRowCandidates);
-
-            var rows = new List<ObjectiveConditionHudViewModel>(rowCandidates.Count);
-            for (var i = 0; i < rowCandidates.Count; i++)
+            candidates.Sort(CompareRowCandidates);
+            var rows = new List<ObjectiveConditionHudViewModel>(candidates.Count);
+            for (var i = 0; i < candidates.Count; i++)
             {
-                rows.Add(rowCandidates[i].BuildRow(this, objective.ObjectiveStableId));
+                rows.Add(candidates[i].BuildRow(this, objective.ObjectiveStableId));
             }
 
             return rows;
@@ -100,34 +145,47 @@ namespace Game.Feature.UI.Application
             string stableId,
             UIObjectiveConditionSlice condition)
         {
-            var justSatisfied = IsJustSatisfied(stableId, condition.IsSatisfied);
             return new ObjectiveConditionHudViewModel(
                 stableId,
-                condition.TitleText,
+                _localizedTextResolver.Resolve(condition.TextDescriptor),
                 condition.IsSatisfied,
-                justSatisfied,
-                completedCount: condition.IsSatisfied ? 1 : 0,
-                requiredCount: 1);
+                IsJustSatisfied(stableId, condition.IsSatisfied),
+                completedCount: condition.CompletedCount,
+                requiredCount: condition.RequiredCount,
+                rowKind: MapRowKind(condition.PresentationKind),
+                groupKey: condition.StableGroupKey);
         }
 
         private ObjectiveConditionHudViewModel BuildGroupedRow(
             ObjectiveHudGroupAccumulator group,
             string objectiveStableId)
         {
-            var completedCount = group.CompletedCount;
-            var requiredCount = group.RequiredCount;
-            var isSatisfied = requiredCount > 0 && completedCount >= requiredCount;
-            var stableId = ComputeGroupStableId(objectiveStableId, group);
-            var justSatisfied = IsJustSatisfied(stableId, isSatisfied);
+            var isSatisfied =
+                group.RequiredCount > 0 &&
+                group.CompletedCount >= group.RequiredCount;
+            var stableId = string.Concat(
+                "objective-",
+                NormalizeStableIdPart(objectiveStableId),
+                "-group-",
+                NormalizeStableIdPart(group.GroupKey));
+            if (!ObjectiveHudLocalization.TryCreateConditionDescriptor(
+                    group.PresentationKind,
+                    group.CompletedCount,
+                    group.RequiredCount,
+                    out var descriptor))
+            {
+                throw new InvalidOperationException(
+                    $"Objective HUD group '{group.GroupKey}' has no localization descriptor.");
+            }
 
             return new ObjectiveConditionHudViewModel(
                 stableId,
-                $"{group.DisplayText} ({completedCount}/{requiredCount})",
+                _localizedTextResolver.Resolve(descriptor),
                 isSatisfied,
-                justSatisfied,
+                IsJustSatisfied(stableId, isSatisfied),
                 isGrouped: true,
-                completedCount: completedCount,
-                requiredCount: requiredCount,
+                completedCount: group.CompletedCount,
+                requiredCount: group.RequiredCount,
                 rowKind: group.RowKind,
                 groupKey: group.GroupKey);
         }
@@ -140,21 +198,28 @@ namespace Game.Feature.UI.Application
                    !wasSatisfied;
         }
 
-        private static string ResolveStableId(
-            UIObjectiveConditionSlice condition,
-            int index)
+        private static string ResolveStableId(UIObjectiveConditionSlice condition, int index)
         {
             if (!string.IsNullOrWhiteSpace(condition.StableId))
             {
                 return condition.StableId;
             }
 
-            if (!string.IsNullOrWhiteSpace(condition.TitleText))
-            {
-                return condition.TitleText;
-            }
+            return condition.PresentationKind == GameplayObjectivePresentationKind.None
+                ? string.Empty
+                : string.Concat(
+                    "row-",
+                    index.ToString(CultureInfo.InvariantCulture),
+                    "-kind-",
+                    ((int)condition.PresentationKind).ToString(CultureInfo.InvariantCulture));
+        }
 
-            return $"row-{index}";
+        private static string BuildGroupIdentity(UIObjectiveConditionSlice condition)
+        {
+            return string.Concat(
+                condition.StableGroupKey,
+                "|kind-",
+                ((int)condition.PresentationKind).ToString(CultureInfo.InvariantCulture));
         }
 
         private static int CompareConditions(
@@ -167,7 +232,13 @@ namespace Game.Feature.UI.Application
                 return sortComparison;
             }
 
-            return string.Compare(left.TitleText, right.TitleText, StringComparison.Ordinal);
+            var groupComparison = string.Compare(
+                left.StableGroupKey,
+                right.StableGroupKey,
+                StringComparison.Ordinal);
+            return groupComparison != 0
+                ? groupComparison
+                : string.Compare(left.StableId, right.StableId, StringComparison.Ordinal);
         }
 
         private static int CompareRowCandidates(
@@ -175,87 +246,31 @@ namespace Game.Feature.UI.Application
             ObjectiveHudRowCandidate right)
         {
             var sortComparison = left.SortOrder.CompareTo(right.SortOrder);
-            if (sortComparison != 0)
-            {
-                return sortComparison;
-            }
+            return sortComparison != 0
+                ? sortComparison
+                : string.Compare(left.StableSortKey, right.StableSortKey, StringComparison.Ordinal);
+        }
 
-            return string.Compare(left.TitleText, right.TitleText, StringComparison.Ordinal);
+        private static ObjectiveHudRowKind MapRowKind(
+            GameplayObjectivePresentationKind presentationKind)
+        {
+            switch (presentationKind)
+            {
+                case GameplayObjectivePresentationKind.ActivateButton:
+                    return ObjectiveHudRowKind.ButtonGroupGeneric;
+
+                case GameplayObjectivePresentationKind.ActivateMoonButton:
+                    return ObjectiveHudRowKind.ButtonGroupMoon;
+
+                default:
+                    return ObjectiveHudRowKind.Single;
+            }
         }
 
         private static bool IsGroupable(ObjectiveHudRowKind rowKind)
         {
             return rowKind == ObjectiveHudRowKind.ButtonGroupGeneric ||
                    rowKind == ObjectiveHudRowKind.ButtonGroupMoon;
-        }
-
-        private static ObjectiveHudRowKind InferRowKind(
-            UIObjectiveConditionSlice condition,
-            string stableId)
-        {
-            if (!IsButtonStableId(stableId))
-            {
-                return ObjectiveHudRowKind.Single;
-            }
-
-            if (string.Equals(
-                    condition.TitleText,
-                    "Place the MoonBlock on the button",
-                    StringComparison.Ordinal))
-            {
-                return ObjectiveHudRowKind.ButtonGroupMoon;
-            }
-
-            return ObjectiveHudRowKind.ButtonGroupGeneric;
-        }
-
-        private static bool IsButtonStableId(string stableId)
-        {
-            return !string.IsNullOrWhiteSpace(stableId) &&
-                   stableId.StartsWith("button-", StringComparison.Ordinal);
-        }
-
-        private static string BuildGroupKey(
-            string objectiveStableId,
-            UIObjectiveConditionSlice condition,
-            ObjectiveHudRowKind rowKind)
-        {
-            return string.Concat(
-                objectiveStableId ?? string.Empty,
-                "|",
-                condition.TitleText ?? string.Empty,
-                "|",
-                condition.Role.ToString(),
-                "|",
-                rowKind.ToString());
-        }
-
-        private static string ComputeGroupStableId(
-            string objectiveStableId,
-            ObjectiveHudGroupAccumulator group)
-        {
-            var objectivePart = NormalizeStableIdPart(objectiveStableId);
-            switch (group.RowKind)
-            {
-                case ObjectiveHudRowKind.ButtonGroupMoon:
-                    return string.Equals(
-                            group.DisplayText,
-                            "Place the MoonBlock on the button",
-                            StringComparison.Ordinal)
-                        ? $"objective-{objectivePart}-button-group-moon"
-                        : $"objective-{objectivePart}-button-group-moon-{NormalizeStableIdPart(group.GroupKey)}";
-
-                case ObjectiveHudRowKind.ButtonGroupGeneric:
-                    return string.Equals(
-                            group.DisplayText,
-                            "Place a push box on the button",
-                            StringComparison.Ordinal)
-                        ? $"objective-{objectivePart}-button-group-push"
-                        : $"objective-{objectivePart}-button-group-push-{NormalizeStableIdPart(group.GroupKey)}";
-
-                default:
-                    return $"objective-{objectivePart}-group-{NormalizeStableIdPart(group.GroupKey)}";
-            }
         }
 
         private static string NormalizeStableIdPart(string value)
@@ -283,19 +298,19 @@ namespace Game.Feature.UI.Application
         {
             public ObjectiveHudGroupAccumulator(
                 string groupKey,
-                string displayText,
+                GameplayObjectivePresentationKind presentationKind,
                 ObjectiveHudRowKind rowKind,
                 int sortOrder)
             {
                 GroupKey = groupKey ?? string.Empty;
-                DisplayText = displayText ?? string.Empty;
+                PresentationKind = presentationKind;
                 RowKind = rowKind;
                 SortOrder = sortOrder;
             }
 
             public string GroupKey { get; }
 
-            public string DisplayText { get; }
+            public GameplayObjectivePresentationKind PresentationKind { get; }
 
             public ObjectiveHudRowKind RowKind { get; }
 
@@ -307,12 +322,8 @@ namespace Game.Feature.UI.Application
 
             public void Add(UIObjectiveConditionSlice condition)
             {
-                RequiredCount++;
-                if (condition.IsSatisfied)
-                {
-                    CompletedCount++;
-                }
-
+                CompletedCount += condition.CompletedCount;
+                RequiredCount += condition.RequiredCount;
                 if (condition.SortOrder < SortOrder)
                 {
                     SortOrder = condition.SortOrder;
@@ -327,31 +338,35 @@ namespace Game.Feature.UI.Application
 
             private ObjectiveHudRowCandidate(
                 int sortOrder,
-                string titleText,
+                string stableSortKey,
                 ObjectiveConditionHudViewModel row,
                 ObjectiveHudGroupAccumulator group)
             {
                 SortOrder = sortOrder;
-                TitleText = titleText ?? string.Empty;
+                StableSortKey = stableSortKey ?? string.Empty;
                 _row = row;
                 _group = group;
             }
 
             public int SortOrder { get; }
 
-            public string TitleText { get; }
+            public string StableSortKey { get; }
 
             public static ObjectiveHudRowCandidate ForRow(
                 int sortOrder,
-                string titleText,
+                string stableSortKey,
                 ObjectiveConditionHudViewModel row)
             {
-                return new ObjectiveHudRowCandidate(sortOrder, titleText, row, null);
+                return new ObjectiveHudRowCandidate(sortOrder, stableSortKey, row, null);
             }
 
             public static ObjectiveHudRowCandidate ForGroup(ObjectiveHudGroupAccumulator group)
             {
-                return new ObjectiveHudRowCandidate(group.SortOrder, group.DisplayText, null, group);
+                return new ObjectiveHudRowCandidate(
+                    group.SortOrder,
+                    group.GroupKey,
+                    null,
+                    group);
             }
 
             public ObjectiveConditionHudViewModel BuildRow(
@@ -361,6 +376,51 @@ namespace Game.Feature.UI.Application
                 return _group != null
                     ? presenter.BuildGroupedRow(_group, objectiveStableId)
                     : _row;
+            }
+        }
+
+        private sealed class ObjectiveHudInvariantTextResolver : ILocalizedTextResolver
+        {
+            public static readonly ObjectiveHudInvariantTextResolver Instance = new();
+
+            public string CurrentLocaleCode => "en-US";
+
+            public event Action LocaleChanged
+            {
+                add { }
+                remove { }
+            }
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                switch (descriptor.Key)
+                {
+                    case ObjectiveHudLocalization.Keys.Header:
+                        return "Objectives";
+
+                    case ObjectiveHudLocalization.Keys.ReachExit:
+                        return Format("Reach the Exit Zone ({0}/{1})", descriptor.Arguments);
+
+                    case ObjectiveHudLocalization.Keys.ActivateButton:
+                        return Format("Place a push box on the button ({0}/{1})", descriptor.Arguments);
+
+                    case ObjectiveHudLocalization.Keys.ActivateMoonButton:
+                        return Format("Place the MoonBlock on the button ({0}/{1})", descriptor.Arguments);
+
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            private static string Format(string format, IReadOnlyList<object> arguments)
+            {
+                var values = new object[arguments.Count];
+                for (var i = 0; i < arguments.Count; i++)
+                {
+                    values[i] = arguments[i];
+                }
+
+                return string.Format(CultureInfo.InvariantCulture, format, values);
             }
         }
     }

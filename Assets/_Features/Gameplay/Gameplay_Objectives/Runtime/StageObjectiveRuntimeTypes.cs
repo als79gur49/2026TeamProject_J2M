@@ -20,59 +20,11 @@ namespace Game.Feature.Gameplay.Objectives
         Challenge = 3,
     }
 
-    public readonly struct StageObjectiveConditionDisplayMetadata
+    public static class StageObjectiveConditionPresentationIds
     {
-        public StageObjectiveConditionDisplayMetadata(
-            string stableConditionId,
-            StageObjectiveConditionRole role,
-            bool required,
-            string displayText,
-            int sortOrder,
-            int authoringOrder)
-        {
-            StableConditionId = stableConditionId?.Trim() ?? string.Empty;
-            Role = role;
-            Required = required;
-            DisplayText = displayText?.Trim() ?? string.Empty;
-            SortOrder = sortOrder;
-            AuthoringOrder = authoringOrder;
-        }
-
-        public string StableConditionId { get; }
-
-        public StageObjectiveConditionRole Role { get; }
-
-        public bool Required { get; }
-
-        public string DisplayText { get; }
-
-        public int SortOrder { get; }
-
-        public int AuthoringOrder { get; }
-    }
-
-    public sealed class StageObjectiveDisplayMetadata
-    {
-        public static readonly StageObjectiveDisplayMetadata Empty = new(
-            string.Empty,
-            string.Empty,
-            Array.Empty<StageObjectiveConditionDisplayMetadata>());
-
-        public StageObjectiveDisplayMetadata(
-            string objectiveTitle,
-            string objectiveSummary,
-            StageObjectiveConditionDisplayMetadata[] conditionEntries)
-        {
-            ObjectiveTitle = objectiveTitle?.Trim() ?? string.Empty;
-            ObjectiveSummary = objectiveSummary?.Trim() ?? string.Empty;
-            ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionDisplayMetadata>();
-        }
-
-        public string ObjectiveTitle { get; }
-
-        public string ObjectiveSummary { get; }
-
-        public IReadOnlyList<StageObjectiveConditionDisplayMetadata> ConditionEntries { get; }
+        public const string ReachExit = "reach-exit";
+        public const string ActivateButton = "activate-button";
+        public const string ActivateMoonButton = "activate-moon-button";
     }
 
     public readonly struct StageZoneRuntimeRegion
@@ -539,7 +491,11 @@ namespace Game.Feature.Gameplay.Objectives
             StageConditionRuntimeDefinition condition,
             bool required,
             StageObjectiveConditionRole role,
-            string stableConditionId)
+            string stableConditionId,
+            string presentationId = "",
+            string stableGroupKey = "",
+            int sortOrder = 0,
+            int authoringOrder = 0)
         {
             Condition = condition ?? throw new ArgumentNullException(nameof(condition));
             Required = required;
@@ -547,6 +503,10 @@ namespace Game.Feature.Gameplay.Objectives
             StableConditionId = string.IsNullOrWhiteSpace(stableConditionId)
                 ? condition.ConditionId
                 : stableConditionId.Trim();
+            PresentationId = presentationId?.Trim() ?? string.Empty;
+            StableGroupKey = stableGroupKey?.Trim() ?? string.Empty;
+            SortOrder = sortOrder;
+            AuthoringOrder = authoringOrder;
         }
 
         public StageConditionRuntimeDefinition Condition { get; }
@@ -556,6 +516,14 @@ namespace Game.Feature.Gameplay.Objectives
         public StageObjectiveConditionRole Role { get; }
 
         public string StableConditionId { get; }
+
+        public string PresentationId { get; }
+
+        public string StableGroupKey { get; }
+
+        public int SortOrder { get; }
+
+        public int AuthoringOrder { get; }
     }
 
     public sealed class StageObjectiveRuntimeDefinition
@@ -564,35 +532,18 @@ namespace Game.Feature.Gameplay.Objectives
             StageCompletionPolicy.Disabled,
             0,
             Array.Empty<StageZoneRuntimeDefinition>(),
-            Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>(),
-            StageObjectiveDisplayMetadata.Empty);
+            Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
 
         public StageObjectiveRuntimeDefinition(
             StageCompletionPolicy completionPolicy,
             int playerEntityId,
             StageZoneRuntimeDefinition[] zones,
             StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries)
-            : this(
-                completionPolicy,
-                playerEntityId,
-                zones,
-                conditionEntries,
-                StageObjectiveDisplayMetadata.Empty)
-        {
-        }
-
-        public StageObjectiveRuntimeDefinition(
-            StageCompletionPolicy completionPolicy,
-            int playerEntityId,
-            StageZoneRuntimeDefinition[] zones,
-            StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries,
-            StageObjectiveDisplayMetadata displayMetadata)
         {
             CompletionPolicy = completionPolicy;
             PlayerEntityId = playerEntityId;
             Zones = zones ?? Array.Empty<StageZoneRuntimeDefinition>();
             ConditionEntries = ValidateConditionEntries(conditionEntries);
-            DisplayMetadata = displayMetadata ?? StageObjectiveDisplayMetadata.Empty;
         }
 
         public StageCompletionPolicy CompletionPolicy { get; }
@@ -602,8 +553,6 @@ namespace Game.Feature.Gameplay.Objectives
         public IReadOnlyList<StageZoneRuntimeDefinition> Zones { get; }
 
         public IReadOnlyList<StageObjectiveConditionRuntimeDefinitionEntry> ConditionEntries { get; }
-
-        public StageObjectiveDisplayMetadata DisplayMetadata { get; }
 
         public bool HasObjective
         {

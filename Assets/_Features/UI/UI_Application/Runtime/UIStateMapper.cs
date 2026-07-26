@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -479,6 +480,13 @@ namespace Game.Feature.UI.Application
             }
         }
 
+        public static UIObjectiveSlice MapObjectiveForPresentation(
+            GameplayObjectiveReadModel objective,
+            StageId stageId)
+        {
+            return MapObjective(objective, stageId);
+        }
+
         private static UIObjectiveSlice MapObjective(
             GameplayObjectiveReadModel objective,
             StageId stageId)
@@ -489,25 +497,37 @@ namespace Game.Feature.UI.Application
             }
 
             var sourceConditions = objective.Conditions ?? Array.Empty<GameplayObjectiveConditionReadModel>();
-            var conditions = new UIObjectiveConditionSlice[sourceConditions.Count];
+            var conditions = new List<UIObjectiveConditionSlice>(sourceConditions.Count);
             for (var i = 0; i < sourceConditions.Count; i++)
             {
                 var condition = sourceConditions[i];
-                conditions[i] = new UIObjectiveConditionSlice(
+                if (!ObjectiveHudLocalization.TryCreateConditionDescriptor(
+                        condition.PresentationKind,
+                        condition.CompletedCount,
+                        condition.RequiredCount,
+                        out var descriptor))
+                {
+                    continue;
+                }
+
+                conditions.Add(new UIObjectiveConditionSlice(
                     condition.StableId,
-                    condition.TitleText,
-                    condition.ProgressText,
+                    condition.PresentationKind,
+                    condition.StableGroupKey,
+                    descriptor,
                     condition.IsSatisfied,
                     condition.Required,
                     MapObjectiveRole(condition.Role),
-                    condition.SortOrder);
+                    condition.CompletedCount,
+                    condition.RequiredCount,
+                    condition.SortOrder));
             }
 
             return new UIObjectiveSlice(
                 objective.HasObjective,
                 BuildObjectiveStableId(objective, stageId),
-                objective.ObjectiveTitle,
-                objective.ObjectiveSummary,
+                string.Empty,
+                string.Empty,
                 objective.GoalReached,
                 objective.AllConditionsSatisfied,
                 objective.IsCleared,
@@ -523,10 +543,6 @@ namespace Game.Feature.UI.Application
         {
             var builder = new StringBuilder();
             builder.Append(stageId.IsValid ? stageId.Value : string.Empty);
-            builder.Append('|');
-            builder.Append(objective.ObjectiveTitle ?? string.Empty);
-            builder.Append('|');
-            builder.Append(objective.ObjectiveSummary ?? string.Empty);
 
             var conditions = objective.Conditions ?? Array.Empty<GameplayObjectiveConditionReadModel>();
             for (var i = 0; i < conditions.Count; i++)
@@ -541,7 +557,9 @@ namespace Game.Feature.UI.Application
                 builder.Append(':');
                 builder.Append(condition.StableId ?? string.Empty);
                 builder.Append(':');
-                builder.Append(condition.TitleText ?? string.Empty);
+                builder.Append((int)condition.PresentationKind);
+                builder.Append(':');
+                builder.Append(condition.StableGroupKey ?? string.Empty);
             }
 
             return builder.ToString();
