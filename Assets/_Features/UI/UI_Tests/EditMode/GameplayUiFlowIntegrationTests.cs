@@ -226,6 +226,19 @@ namespace Game.Feature.UI.Tests
 
         private static void DestroySupportObjects(GameObject hostObject)
         {
+            if (hostObject != null)
+            {
+                var installer = hostObject.GetComponent<GameplayUiFlowInstaller>();
+                if (installer != null)
+                {
+                    var onDestroy = typeof(GameplayUiFlowInstaller).GetMethod(
+                        "OnDestroy",
+                        BindingFlags.Instance | BindingFlags.NonPublic);
+                    Assert.That(onDestroy, Is.Not.Null);
+                    onDestroy.Invoke(installer, null);
+                }
+            }
+
             var eventSystem = Object.FindFirstObjectByType<EventSystem>();
             if (eventSystem != null)
             {

@@ -59,6 +59,7 @@ namespace Game.Feature.UI.Composition
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
+        private bool _isDisposed;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -276,6 +277,15 @@ namespace Game.Feature.UI.Composition
 
         private void OnDestroy()
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            // Dispose the persistent HUD presenter before any view/controller teardown can
+            // encounter a partially destroyed hidden HUD hierarchy.
+            HudRootPresenter?.Dispose();
             UnwireViewEvents();
             UnwireControllerEvents();
             _audioSettingsLifecycleRelay?.FlushNow();
@@ -286,7 +296,6 @@ namespace Game.Feature.UI.Composition
             PopupController?.Dispose();
             HudController?.Dispose();
             _hudUiAudioFeedbackController?.Dispose();
-            HudRootPresenter?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
             _localizedTextResolver = null;
