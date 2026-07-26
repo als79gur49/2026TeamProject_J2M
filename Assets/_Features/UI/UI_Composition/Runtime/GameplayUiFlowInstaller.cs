@@ -205,7 +205,17 @@ namespace Game.Feature.UI.Composition
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter(_localizedTextResolver);
-            var objectiveHudPresenter = new ObjectiveHudPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter(_localizedTextResolver);
+            var objectiveTypographyBinding =
+                _rootView.HudView.ObjectiveHudView.GetComponent<ObjectiveHudTypographyBinding>();
+            if (objectiveTypographyBinding == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplayHudRoot ObjectiveHudView is missing ObjectiveHudTypographyBinding.");
+            }
+
+            objectiveTypographyBinding.Initialize(_localizedTextResolver);
+            _rootView.HudView.ObjectiveHudView.ConfigureTypography(objectiveTypographyBinding);
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             HudRootPresenter = new HUDRootPresenter(

@@ -55,6 +55,7 @@ namespace Game.Feature.UI.Application
         {
             _presentationSource.SnapshotChanged -= HandleSnapshotChanged;
             _stageInfoPresenter.Dispose();
+            _objectiveHudPresenter.Dispose();
         }
 
         private void HandleSnapshotChanged(UIPresentationSnapshot snapshot)

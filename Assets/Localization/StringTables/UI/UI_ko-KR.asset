@@ -257,6 +257,25 @@ MonoBehaviour:
     m_Localized: "유지"
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693646
+    m_Localized: "과업"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693647
+    m_Localized: "지정 장소로 이동하기 ({0}/{1})"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693648
+    m_Localized: "밀기 상자 지정 장소로 이동하기 ({0}/{1})"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693649
+    m_Localized: "전용 상자 지정 장소로 이동하기 ({0}/{1})"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
   references:
     version: 2
     RefIds:
@@ -272,3 +291,6 @@ MonoBehaviour:
         - id: 4971587610693632
         - id: 4971587610693643
         - id: 4971587610693644
+        - id: 4971587610693647
+        - id: 4971587610693648
+        - id: 4971587610693649

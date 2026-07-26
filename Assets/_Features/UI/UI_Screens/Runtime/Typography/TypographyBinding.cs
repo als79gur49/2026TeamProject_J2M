@@ -30,6 +30,21 @@ namespace Game.Feature.UI.Composition
 
         public bool UseApplyMaskOverride => useApplyMaskOverride;
 
+        public void Configure(TMP_Text textTarget, TypographyStyleTag semanticStyleTag)
+        {
+            if (hasAuthoredState && target != null && target != textTarget)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(TypographyBinding)} cannot change target after authored typography was captured.");
+            }
+
+            target = textTarget != null ? textTarget : GetComponent<TMP_Text>();
+            styleTag = semanticStyleTag;
+            localeParticipation = TypographyLocaleParticipation.LocaleThemed;
+            sizingSourceOverride = TypographySizingSource.Hybrid;
+            useApplyMaskOverride = false;
+        }
+
         public TmpTypographyAuthoredState CaptureAuthoredState()
         {
             if (!hasAuthoredState)

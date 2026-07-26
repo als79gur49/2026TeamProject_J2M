@@ -6,6 +6,13 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.HUD
 {
+    public interface IObjectiveHudTypographyApplicator
+    {
+        void ApplyHeader(TMP_Text target);
+
+        void ApplyRow(TMP_Text target);
+    }
+
     internal enum ObjectiveHudCollectionTransitionKind
     {
         None,
@@ -35,6 +42,7 @@ namespace Game.Feature.UI.HUD
     public sealed class ObjectiveHudView : MonoBehaviour
     {
         [SerializeField] private GameObject _root;
+        [SerializeField] private TMP_Text _headerLabel;
         [SerializeField] private RectTransform _objectiveListRoot;
         [SerializeField] private RectTransform _objectiveItemTemplate;
 
@@ -78,10 +86,19 @@ namespace Game.Feature.UI.HUD
         private bool _isProcessingTransitionAdvance;
         private bool _isForceClearing;
         private bool _isDestroyedOrDisabled;
+        private IObjectiveHudTypographyApplicator _typographyApplicator;
 
         [SerializeField] private float collectionTransitionGapSeconds = 0.05f;
 
         public ObjectiveHudViewModel ViewModel => _viewModel;
+
+        public TMP_Text HeaderLabel => _headerLabel;
+
+        public void ConfigureTypography(IObjectiveHudTypographyApplicator typographyApplicator)
+        {
+            _typographyApplicator = typographyApplicator;
+            RefreshTypography();
+        }
 
         private void Awake()
         {
@@ -107,6 +124,7 @@ namespace Game.Feature.UI.HUD
         public void ValidateAuthoredStructureOrThrow()
         {
             RequireReference(_root, nameof(_root));
+            RequireReference(_headerLabel, nameof(_headerLabel));
             RequireReference(_objectiveListRoot, nameof(_objectiveListRoot));
             RequireReference(_objectiveItemTemplate, nameof(_objectiveItemTemplate));
 
@@ -169,6 +187,7 @@ namespace Game.Feature.UI.HUD
         private void OnValidate()
         {
             ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_headerLabel, nameof(_headerLabel));
             ValidateSerializedReference(_objectiveListRoot, nameof(_objectiveListRoot));
             ValidateSerializedReference(_objectiveItemTemplate, nameof(_objectiveItemTemplate));
         }
@@ -209,6 +228,9 @@ namespace Game.Feature.UI.HUD
                 _currentObjectiveStableId = null;
                 return;
             }
+
+            _headerLabel.text = _viewModel.HeaderText;
+            RefreshTypography();
 
             var objectiveStableId = _viewModel.ObjectiveStableId ?? string.Empty;
             if (!string.Equals(_currentObjectiveStableId, objectiveStableId, StringComparison.Ordinal))
@@ -777,6 +799,7 @@ namespace Game.Feature.UI.HUD
                 var pooled = _pool.Pop();
                 if (pooled != null)
                 {
+                    pooled.ConfigureTypography(_typographyApplicator);
                     return pooled;
                 }
             }
@@ -798,8 +821,18 @@ namespace Game.Feature.UI.HUD
             }
 
             rowView.Initialize();
+            rowView.ConfigureTypography(_typographyApplicator);
             rowView.ForceResetForPool();
             return rowView;
+        }
+
+        private void RefreshTypography()
+        {
+            _typographyApplicator?.ApplyHeader(_headerLabel);
+            foreach (var pair in _activeRowsByStableId)
+            {
+                pair.Value?.RefreshTypography();
+            }
         }
 
         private void ReturnRowToPool(ObjectiveHudRowView rowView)

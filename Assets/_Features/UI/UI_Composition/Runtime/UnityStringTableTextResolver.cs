@@ -8,10 +8,10 @@ using UnityEngine.Localization.Tables;
 
 namespace Game.Feature.UI.Composition
 {
-    internal sealed class UnityStringTableTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort, IDisposable
+    public sealed class UnityStringTableTextResolver : ILocalizedTextResolver, IUiLocaleSelectionPort, IDisposable
     {
-        internal const string DefaultLocaleCode = "en-US";
-        internal const string KoreanLocaleCode = "ko-KR";
+        public const string DefaultLocaleCode = "en-US";
+        public const string KoreanLocaleCode = "ko-KR";
 
         private readonly IUiLocalePreferenceStore _localePreferenceStore;
         private IReadOnlyList<string> _availableLocaleCodes = Array.Empty<string>();
