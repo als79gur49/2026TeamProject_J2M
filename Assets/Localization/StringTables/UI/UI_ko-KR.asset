@@ -262,7 +262,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693647
-    m_Localized: "지정 장소로 이동하기 ({0}/{1})"
+    m_Localized: "종료 장소로 이동하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -273,6 +273,11 @@ MonoBehaviour:
       - rid: 5336917459874873345
   - m_Id: 4971587610693649
     m_Localized: "전용 상자 지정 장소로 이동하기 ({0}/{1})"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693650
+    m_Localized: "지정 장소로 이동하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -294,3 +299,4 @@ MonoBehaviour:
         - id: 4971587610693647
         - id: 4971587610693648
         - id: 4971587610693649
+        - id: 4971587610693650

@@ -324,6 +324,41 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIStateMapper_MapsGeneralZoneToDedicatedLocalizationKey()
+        {
+            var objective = new GameplayObjectiveReadModel(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                isCleared: false,
+                conditions: new[]
+                {
+                    new GameplayObjectiveConditionReadModel(
+                        stableId: "general-zone",
+                        presentationKind: GameplayObjectivePresentationKind.ReachZone,
+                        stableGroupKey: "reach-zone|role-1",
+                        role: GameplayObjectiveConditionRole.PrimaryGoal,
+                        required: true,
+                        isSatisfied: false,
+                        completedCount: 0,
+                        requiredCount: 1,
+                        sortOrder: 0),
+                });
+
+            var result = new UIStateMapper().ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(objective: objective));
+
+            Assert.That(result.Snapshot.Objective.Conditions, Has.Count.EqualTo(1));
+            Assert.That(
+                result.Snapshot.Objective.Conditions[0].PresentationKind,
+                Is.EqualTo(GameplayObjectivePresentationKind.ReachZone));
+            Assert.That(
+                result.Snapshot.Objective.Conditions[0].TextDescriptor.Key,
+                Is.EqualTo(ObjectiveHudLocalization.Keys.ReachZone));
+        }
+
+        [Test]
         public void UIObjectiveSlice_EmptyWhenNoObjective()
         {
             var mapper = new UIStateMapper();
@@ -861,7 +896,7 @@ namespace Game.Feature.UI.Tests
                     new GameplayObjectiveConditionReadModel(
                         stableId: "primary-goal",
                         presentationKind: GameplayObjectivePresentationKind.ReachExit,
-                        stableGroupKey: "reach-exit",
+                        stableGroupKey: "reach-exit|role-1",
                         role: GameplayObjectiveConditionRole.PrimaryGoal,
                         required: true,
                         isSatisfied: isSatisfied,

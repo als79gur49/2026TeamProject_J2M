@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         ReachExit = 1,
         ActivateButton = 2,
         ActivateMoonButton = 3,
+        ReachZone = 4,
     }
 
     public readonly struct GameplayObjectiveConditionReadModel

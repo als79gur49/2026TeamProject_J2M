@@ -240,7 +240,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(60));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(61));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -381,11 +381,13 @@ namespace Game.Feature.UI.Tests
                 collection.GetTable("en-US") as StringTable,
                 "Objectives",
                 "Reach the Exit Zone ({0}/{1})",
+                "Reach the designated zone ({0}/{1})",
                 "Place a push box on the button ({0}/{1})",
                 "Place the MoonBlock on the button ({0}/{1})");
             AssertObjectiveHudEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "과업",
+                "종료 장소로 이동하기 ({0}/{1})",
                 "지정 장소로 이동하기 ({0}/{1})",
                 "밀기 상자 지정 장소로 이동하기 ({0}/{1})",
                 "전용 상자 지정 장소로 이동하기 ({0}/{1})");
@@ -400,6 +402,7 @@ namespace Game.Feature.UI.Tests
                 resolver,
                 "Objectives",
                 "Reach the Exit Zone",
+                "Reach the designated zone",
                 "Place a push box on the button",
                 "Place the MoonBlock on the button");
 
@@ -407,6 +410,7 @@ namespace Game.Feature.UI.Tests
             AssertObjectiveHudResolvedText(
                 resolver,
                 "과업",
+                "종료 장소로 이동하기",
                 "지정 장소로 이동하기",
                 "밀기 상자 지정 장소로 이동하기",
                 "전용 상자 지정 장소로 이동하기");
@@ -416,6 +420,7 @@ namespace Game.Feature.UI.Tests
                 resolver,
                 "Objectives",
                 "Reach the Exit Zone",
+                "Reach the designated zone",
                 "Place a push box on the button",
                 "Place the MoonBlock on the button");
         }
@@ -1359,12 +1364,14 @@ namespace Game.Feature.UI.Tests
             StringTable table,
             string header,
             string reachExit,
+            string reachZone,
             string activateButton,
             string activateMoonButton)
         {
             Assert.That(table, Is.Not.Null);
             AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.Header, header, isSmart: false);
             AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ReachExit, reachExit, isSmart: true);
+            AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ReachZone, reachZone, isSmart: true);
             AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ActivateButton, activateButton, isSmart: true);
             AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ActivateMoonButton, activateMoonButton, isSmart: true);
         }
@@ -1385,6 +1392,7 @@ namespace Game.Feature.UI.Tests
             ILocalizedTextResolver resolver,
             string header,
             string reachExit,
+            string reachZone,
             string activateButton,
             string activateMoonButton)
         {
@@ -1395,6 +1403,10 @@ namespace Game.Feature.UI.Tests
                 resolver,
                 GameplayObjectivePresentationKind.ReachExit,
                 reachExit);
+            AssertObjectiveHudResolvedCounts(
+                resolver,
+                GameplayObjectivePresentationKind.ReachZone,
+                reachZone);
             AssertObjectiveHudResolvedCounts(
                 resolver,
                 GameplayObjectivePresentationKind.ActivateButton,

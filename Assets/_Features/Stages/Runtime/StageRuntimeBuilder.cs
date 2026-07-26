@@ -386,9 +386,14 @@ namespace Game.Feature.Stages
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
+                var semanticKind = ResolveSemanticKind(
+                    validated.TileFeatures,
+                    zonesById,
+                    hasExit,
+                    exitTileFeature,
+                    authoringEntry);
                 var isExitPrimaryGoal =
-                    hasExit &&
-                    authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal;
+                    semanticKind == ObjectiveConditionSemanticKind.ReachExit;
                 if (isExitPrimaryGoal)
                 {
                     runtimeDefinition = CreateExitPrimaryGoalRuntimeDefinition(
@@ -401,9 +406,9 @@ namespace Game.Feature.Stages
                 }
 
                 var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
-                var presentationIdentity = ResolvePresentationIdentity(
-                    validated.TileFeatures,
-                    authoringEntry);
+                var presentationIdentity = semanticKind == ObjectiveConditionSemanticKind.None
+                    ? default
+                    : ObjectivePresentationIdentity.For(semanticKind, authoringEntry.Role);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
                     runtimeDefinition,
@@ -420,24 +425,20 @@ namespace Game.Feature.Stages
                 : runtimeEntries.ToArray();
         }
 
-        private static ObjectivePresentationIdentity ResolvePresentationIdentity(
-            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
-            StageObjectiveConditionEntry authoringEntry)
-        {
-            var semanticKind = ResolveSemanticKind(tileFeatures, authoringEntry);
-            return semanticKind == ObjectiveConditionSemanticKind.None
-                ? default
-                : ObjectivePresentationIdentity.For(semanticKind, authoringEntry.Role);
-        }
-
         private static ObjectiveConditionSemanticKind ResolveSemanticKind(
             IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            bool hasExit,
+            StageTileFeatureDefinition exitTileFeature,
             StageObjectiveConditionEntry authoringEntry)
         {
-            if (authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal &&
-                authoringEntry.Condition is PlayerAtAnyZoneConditionAsset)
+            if (authoringEntry.Condition is PlayerAtAnyZoneConditionAsset playerAtZoneCondition)
             {
-                return ObjectiveConditionSemanticKind.ReachExit;
+                return authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal &&
+                       hasExit &&
+                       TargetsExitZone(playerAtZoneCondition, zonesById, exitTileFeature.Cell)
+                    ? ObjectiveConditionSemanticKind.ReachExit
+                    : ObjectiveConditionSemanticKind.ReachZone;
             }
 
             if (authoringEntry.Condition is ButtonActivatedConditionAsset buttonCondition)
@@ -459,6 +460,28 @@ namespace Game.Feature.Stages
             }
 
             return ObjectiveConditionSemanticKind.None;
+        }
+
+        private static bool TargetsExitZone(
+            PlayerAtAnyZoneConditionAsset condition,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            SurfaceCell exitCell)
+        {
+            if (condition == null || zonesById == null)
+            {
+                return false;
+            }
+
+            var zoneIds = condition.ZoneIds;
+            if (zoneIds.Length != 1)
+            {
+                return false;
+            }
+
+            var zoneId = zoneIds[0]?.Trim() ?? string.Empty;
+            return zoneId.Length > 0 &&
+                   zonesById.TryGetValue(zoneId, out var targetZone) &&
+                   targetZone.Contains(exitCell);
         }
 
         private static StageConditionRuntimeDefinition CreateExitPrimaryGoalRuntimeDefinition(

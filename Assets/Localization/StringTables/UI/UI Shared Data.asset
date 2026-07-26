@@ -255,6 +255,10 @@ MonoBehaviour:
     m_Key: ui.hud.objective.activate_moon_button
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693650
+    m_Key: ui.hud.objective.reach_zone
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

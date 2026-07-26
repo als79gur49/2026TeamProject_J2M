@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Objectives
     public static class StageObjectiveConditionPresentationIds
     {
         public const string ReachExit = "reach-exit";
+        public const string ReachZone = "reach-zone";
         public const string ActivateButton = "activate-button";
         public const string ActivateMoonButton = "activate-moon-button";
     }
@@ -33,6 +34,7 @@ namespace Game.Feature.Gameplay.Objectives
         ReachExit = 1,
         ActivateButton = 2,
         ActivateMoonButton = 3,
+        ReachZone = 4,
     }
 
     public readonly struct ObjectivePresentationIdentity
@@ -54,9 +56,14 @@ namespace Game.Feature.Gameplay.Objectives
             switch (kind)
             {
                 case ObjectiveConditionSemanticKind.ReachExit:
-                    return new ObjectivePresentationIdentity(
+                    return ForRole(
                         StageObjectiveConditionPresentationIds.ReachExit,
-                        StageObjectiveConditionPresentationIds.ReachExit);
+                        role);
+
+                case ObjectiveConditionSemanticKind.ReachZone:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ReachZone,
+                        role);
 
                 case ObjectiveConditionSemanticKind.ActivateButton:
                     return ForRole(
@@ -85,12 +92,44 @@ namespace Game.Feature.Gameplay.Objectives
                        StringComparison.Ordinal) ||
                    string.Equals(
                        presentationId,
+                       StageObjectiveConditionPresentationIds.ReachZone,
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       presentationId,
                        StageObjectiveConditionPresentationIds.ActivateButton,
                        StringComparison.Ordinal) ||
                    string.Equals(
                        presentationId,
                        StageObjectiveConditionPresentationIds.ActivateMoonButton,
                        StringComparison.Ordinal);
+        }
+
+        public static bool TryResolveSemanticKind(
+            string presentationId,
+            out ObjectiveConditionSemanticKind kind)
+        {
+            switch (presentationId)
+            {
+                case StageObjectiveConditionPresentationIds.ReachExit:
+                    kind = ObjectiveConditionSemanticKind.ReachExit;
+                    return true;
+
+                case StageObjectiveConditionPresentationIds.ReachZone:
+                    kind = ObjectiveConditionSemanticKind.ReachZone;
+                    return true;
+
+                case StageObjectiveConditionPresentationIds.ActivateButton:
+                    kind = ObjectiveConditionSemanticKind.ActivateButton;
+                    return true;
+
+                case StageObjectiveConditionPresentationIds.ActivateMoonButton:
+                    kind = ObjectiveConditionSemanticKind.ActivateMoonButton;
+                    return true;
+
+                default:
+                    kind = ObjectiveConditionSemanticKind.None;
+                    return false;
+            }
         }
 
         private static ObjectivePresentationIdentity ForRole(
@@ -592,13 +631,30 @@ namespace Game.Feature.Gameplay.Objectives
                     "Objective presentation id and stable group key must either both be present or both be absent.");
             }
 
+            var semanticKind = ObjectiveConditionSemanticKind.None;
             if (hasPresentationId &&
-                !ObjectivePresentationIdentity.IsCanonicalPresentationId(PresentationId))
+                !ObjectivePresentationIdentity.TryResolveSemanticKind(
+                    PresentationId,
+                    out semanticKind))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(presentationId),
                     presentationId,
                     "Objective presentation id must be a canonical semantic id.");
+            }
+
+            if (hasPresentationId)
+            {
+                var canonicalIdentity = ObjectivePresentationIdentity.For(semanticKind, role);
+                if (!string.Equals(
+                        StableGroupKey,
+                        canonicalIdentity.StableGroupKey,
+                        StringComparison.Ordinal))
+                {
+                    throw new ArgumentException(
+                        "Objective presentation id, role, and stable group key must form a canonical semantic pair.",
+                        nameof(stableGroupKey));
+                }
             }
 
             SortOrder = sortOrder;

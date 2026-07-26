@@ -225,7 +225,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.EqualTo(GameplayObjectivePresentationKind.ReachExit));
                 Assert.That(
                     objective.Conditions[0].StableGroupKey,
-                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
+                    Is.EqualTo("reach-exit|role-1"));
                 Assert.That(objective.Conditions[0].CompletedCount, Is.EqualTo(0));
                 Assert.That(objective.Conditions[0].RequiredCount, Is.EqualTo(1));
                 Assert.That(objective.Conditions[0].SortOrder, Is.EqualTo(0));
@@ -1014,7 +1014,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 role: StageObjectiveConditionRole.PrimaryGoal,
                 stableConditionId: "primary-goal",
                 presentationId: StageObjectiveConditionPresentationIds.ReachExit,
-                stableGroupKey: StageObjectiveConditionPresentationIds.ReachExit,
+                stableGroupKey: "reach-exit|role-1",
                 sortOrder: 0,
                 authoringOrder: 0);
 

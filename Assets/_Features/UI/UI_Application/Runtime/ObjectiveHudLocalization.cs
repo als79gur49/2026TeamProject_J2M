@@ -12,6 +12,7 @@ namespace Game.Feature.UI.Application
         {
             public const string Header = "ui.hud.objectives.title";
             public const string ReachExit = "ui.hud.objective.reach_exit";
+            public const string ReachZone = "ui.hud.objective.reach_zone";
             public const string ActivateButton = "ui.hud.objective.activate_button";
             public const string ActivateMoonButton = "ui.hud.objective.activate_moon_button";
         }
@@ -55,6 +56,9 @@ namespace Game.Feature.UI.Application
             {
                 case GameplayObjectivePresentationKind.ReachExit:
                     return Keys.ReachExit;
+
+                case GameplayObjectivePresentationKind.ReachZone:
+                    return Keys.ReachZone;
 
                 case GameplayObjectivePresentationKind.ActivateButton:
                     return Keys.ActivateButton;

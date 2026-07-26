@@ -273,6 +273,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344
+  - m_Id: 4971587610693650
+    m_Localized: Reach the designated zone ({0}/{1})
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
   references:
     version: 2
     RefIds:
@@ -291,3 +296,4 @@ MonoBehaviour:
         - id: 4971587610693647
         - id: 4971587610693648
         - id: 4971587610693649
+        - id: 4971587610693650

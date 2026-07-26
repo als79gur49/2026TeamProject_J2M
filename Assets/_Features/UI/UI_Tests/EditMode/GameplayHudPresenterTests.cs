@@ -817,8 +817,13 @@ namespace Game.Feature.UI.Tests
                 {
                     case ObjectiveHudLocalization.Keys.ReachExit:
                         return korean
-                            ? "지정 장소로 이동하기 ({0}/{1})"
+                            ? "종료 장소로 이동하기 ({0}/{1})"
                             : "Reach the Exit Zone ({0}/{1})";
+
+                    case ObjectiveHudLocalization.Keys.ReachZone:
+                        return korean
+                            ? "지정 장소로 이동하기 ({0}/{1})"
+                            : "Reach the designated zone ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ActivateButton:
                         return korean

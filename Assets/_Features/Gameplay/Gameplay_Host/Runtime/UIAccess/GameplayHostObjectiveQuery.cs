@@ -164,6 +164,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 case StageObjectiveConditionPresentationIds.ReachExit:
                     return GameplayObjectivePresentationKind.ReachExit;
 
+                case StageObjectiveConditionPresentationIds.ReachZone:
+                    return GameplayObjectivePresentationKind.ReachZone;
+
                 case StageObjectiveConditionPresentationIds.ActivateButton:
                     return GameplayObjectivePresentationKind.ActivateButton;
 
