@@ -389,7 +389,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
                 Assert.That(result.AppliedCount, Is.EqualTo(38));
                 Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
-                Assert.That(governedBinding.Target.font, Is.SameAs(UiTestPrefabAssetUtility.LoadNanumGothicFont()));
+                Assert.That(
+                    governedBinding.Target.font,
+                    Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
                 Assert.That(
                     governedBinding.Target.fontSharedMaterial,
                     Is.SameAs(theme.ResolveOrThrow("ko-KR", governedBinding.StyleTag).MaterialPreset));
@@ -566,7 +568,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
                 UiTestPrefabAssetUtility.PausePopupPrefabPath,
                 UiTestPrefabAssetUtility.MainMenuScreenPrefabPath,
-                UiTestPrefabAssetUtility.NanumGothicFontAssetPath,
+                UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
                 TmpSettingsAssetPath,
             };
 
@@ -662,6 +664,72 @@ namespace Game.Feature.UI.Tests
 
             AssertGuardedAssetsAreClean(guardedAssets);
 
+            Directory.Delete(result.OutputDirectory, recursive: true);
+        }
+
+        [Test]
+        public void TypographyPreviewScreenshotUtility_CapturesClimateKoreanDiagnosticsSeparately()
+        {
+            var outputDirectory = Path.Combine(
+                "Temp",
+                "TypographyPreviewScreenshotTests",
+                "ClimateDiagnostics-" + System.DateTime.Now.ToString(
+                    "yyyyMMdd-HHmmss-fff",
+                    System.Globalization.CultureInfo.InvariantCulture));
+            var guardedAssets = new[]
+            {
+                UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
+                UiTestPrefabAssetUtility.PausePopupPrefabPath,
+                UiTestPrefabAssetUtility.ConfirmPopupPrefabPath,
+                UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
+                TmpSettingsAssetPath,
+            };
+
+            AssertGuardedAssetsAreClean(guardedAssets);
+            TypographyPreviewScreenshotBatchResult result;
+            var previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                    TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets,
+                    new[] { "ko-KR" },
+                    outputDirectory,
+                    new TypographyPreviewScreenshotOptions
+                    {
+                        Width = 960,
+                        Height = 540,
+                    });
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
+            }
+
+            Assert.That(
+                result.HasErrors,
+                Is.False,
+                string.Join("; ", result.Errors.Concat(result.Captures.SelectMany(capture => capture.Errors))));
+            Assert.That(result.Captures, Has.Count.EqualTo(3));
+            Assert.That(
+                result.Captures.Select(capture => Path.GetFileName(capture.FilePath)),
+                Is.EquivalentTo(new[]
+                {
+                    "SettingsAudioMuted_ko-KR.png",
+                    "SettingsDisplayStatus_ko-KR.png",
+                    "ConfirmPopup_ko-KR.png",
+                }));
+            foreach (var capture in result.Captures)
+            {
+                Assert.That(File.Exists(capture.FilePath), Is.True, capture.FilePath);
+                Assert.That(capture.Width, Is.EqualTo(960), capture.FilePath);
+                Assert.That(capture.Height, Is.EqualTo(540), capture.FilePath);
+                Assert.That(capture.LocalizedTextAppliedCount, Is.EqualTo(
+                    TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(capture.Target.FileStem)));
+                Assert.That(capture.GlyphTofuValidationResult, Is.EqualTo("PASS"), capture.FilePath);
+            }
+
+            AssertGuardedAssetsAreClean(guardedAssets);
             Directory.Delete(result.OutputDirectory, recursive: true);
         }
 

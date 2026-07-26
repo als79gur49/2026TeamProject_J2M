@@ -1,0 +1,135 @@
+# Climate Crisis KR Typography Migration PR2 Closeout
+
+## Scope and decision
+
+This document is the current closeout for Climate Crisis KR typography PR2. It
+supersedes Nanum-based current-state wording in earlier typography planning and
+PR1 visual documents, while retaining those documents and assets as historical
+evidence.
+
+The governed production surfaces are Settings, Pause, Main Menu, and
+ConfirmPopup typography. The policy is:
+
+- `ALL_ROLE_CLIMATE`: all 19 semantic roles resolve to the canonical Climate
+  font/material with `FontStyles.Normal` in `ko-KR`.
+- `PRESERVE_AUTHORED_SIZE`: locale rules do not own font size, Auto Size, its
+  min/max range, line spacing, or character spacing.
+- `SettingsStatus` remains `Hybrid / PreserveAuthored`, `fontSize 14`, Auto
+  Size on, range `10-14`, and authored height `28`. Two Korean lines are
+  intentional when there is no clipping or overflow.
+- `en-US` retains the serialized base/canonical identities. Generic Button
+  remains SciFiSoldier and MainMenuCommand remains Orbitron.
+
+## Font provenance and asset identity
+
+The font is **Climate Crisis KR / 기후위기-한글**, distributed under the
+NohType name. The repository TTF metadata records copyright 2022 NohType,
+design credits, and “SIL Open Font License, Version 1.1.” The SandollCloud
+distribution page identifies NohType, the 2022 release, designers Noh Eunyou
+and Lee Joohee, the Climate Crisis KR filename, and the supported use scope:
+
+- <https://www.sandollcloud.com/font/17665/Climate-Crisis-KR>
+
+`Assets/_Shared/UI/Fonts/기후위기-한글_사용설명서.pdf` is a usage guide. It
+is not described or treated as standalone license text.
+
+| Identity | Canonical value |
+|---|---|
+| TTF GUID | `5360535d0de75234ca21822297323672` |
+| TTF SHA-256 | `aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1` |
+| SDF GUID | `40d61154fd6576b4d85c2d78460b16ad` |
+| SDF material local ID | `1352911973252649374` |
+| Committed SDF SHA-256 | `c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5` |
+| Material scale ratios | `A=1`, `B=1`, `C=1` |
+| Atlas/fallback | committed static atlas; fallback table empty |
+
+The dirty source-worktree SDF values (`ScaleRatioA=0.9`,
+`ScaleRatioC=0.73125`) and its different file hash are explicitly excluded.
+The contract test fixes both semantic material properties and the exact
+committed file hash.
+
+## Role, glyph, and retention governance
+
+- Base roles: `19`; en-US resolved roles: `19`; ko-KR resolved roles: `19`.
+- Missing or duplicate resolved roles: `0`.
+- Every ko-KR role resolves to the canonical Climate font/material, Normal
+  style, and a sizing mask that does not own authored sizing.
+- Managed `*_ko-KR.asset` String Tables are scanned dynamically. The closeout
+  set contains 66 values, 65 distinct values, and 116 distinct non-ASCII
+  codepoints; missing native Climate glyphs and fallback dependencies are `0`.
+- The Nanum TTF/meta, SDF/meta, and SyntheticBold material/meta remain tracked.
+  Retention is independent from the fact that current ko-KR role mapping no
+  longer resolves to Nanum.
+
+## Layout correction
+
+| Target | Before | Final contract | Result |
+|---|---|---|---|
+| `PausePopup/Title` | width `82.02`, x `158.99`, two Korean lines | width `160`, x `120`, height `40`, anchor/pivot unchanged | visual center remains exactly `200`; `일시 정지` is one line |
+| Settings Main/Bgm/Sfx `Value` | Rect width and preferred width `100` | Rect width and preferred width `140`, height `32` | `0/25/50/75/100%` muted/unmuted values are one line |
+| Settings `DisplayStatus` | height `28` | unchanged: height/preferred height `28`, size `14`, Auto Size `10-14` | two Korean lines allowed; no clipping/overflow |
+
+No theme sizing rule, font size, Auto Size flag/range, semantic role, runtime
+resolver, font asset, or Nanum asset was changed for the layout correction.
+
+## Automated evidence
+
+Code-head evidence before this documentation-only closeout:
+
+- revision: `840a5cd2fe0c1460a0a47fc34d8e020f73c76abf`
+- Core EditMode: `197/197`
+- Core PlayMode: `92/92`
+- UI EditMode: `1060/1060`
+- focused Climate/Theme/Typography/Settings/Pause/Main Menu/Localization
+  aggregation: `167/167` at the governance head, plus the later dedicated
+  diagnostic capture test `1/1`
+- project-wide: `NOT_RUN`; the documented broad baseline remains red and no
+  project-wide green claim is made
+
+Governance tests pin asset GUID/material/hash, material scale ratios, theme
+completeness, en-US serialized payload identity, Nanum retention, glyph
+coverage, and the three approved layout contracts.
+
+## Visual evidence
+
+The code-head canonical candidate is:
+
+```text
+TestLogs/TypographyVisualQA/CommandLine-20260726-052954/
+```
+
+Its schema-1 `capture.log` records revision
+`840a5cd2fe0c1460a0a47fc34d8e020f73c76abf`, `1920x1080`,
+`RECONSTRUCTED_FROM_SPLIT_LOGS`, overall `PASS`, six canonical entries,
+Settings `38` typography bindings and localized `22/22` for both locales,
+empty errors, verified PNG byte size/SHA-256, and preserved Nanum state.
+
+`Diagnostics/` is deliberately outside the exact six-file canonical root and
+contains:
+
+- `SettingsAudioMuted_ko-KR.png`:
+  `0b4518f0c6ede9bae2d46f6687ac245821a2da96279dc2025275c75b8aa2a902`
+- `SettingsDisplayStatus_ko-KR.png`:
+  `1667019c1f7089ec04921f9041a2d10cd736c073c80bee19cd23c2b3a706f2ca`
+- `ConfirmPopup_ko-KR.png`:
+  `d7e37f8c745c9f557f98df22da662faccdec737daf9cf03e2819787a1bc6dc6b`
+
+Against `CommandLine-20260725-154732`, Settings en-US and Main Menu en-US are
+byte-identical. Pause en-US is `EXPECTED_LAYOUT_DELTA`: its approved width
+increase changes the Auto Size render result while the authored visual center,
+alignment, font identity, font size setting, Auto Size flag/range, and one-line
+flow remain fixed. It is not an en-US typography identity regression.
+
+Generated final evidence is not committed because adding it would create a new
+revision and immediately invalidate `manifest git_head == HEAD`. The final
+same-revision output path and hashes belong in PR evidence; historical
+canonical folders are retained and never overwritten.
+
+## Known limitations and follow-up boundary
+
+- Display status intentionally permits two lines; forcing one line or height
+  `48` is a contract regression.
+- This closeout does not expand typography to ungoverned future UI surfaces.
+- No Climate SDF regeneration, global font scaling, package/TMP Settings
+  fallback change, Nanum deletion, PR creation, or merge is authorized here.
+- Independent current-head audit remains required before opening the PR.

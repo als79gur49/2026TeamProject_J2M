@@ -6,9 +6,28 @@ Localization is implemented to a substantial production baseline. The current pr
 
 Typography foundation and production wiring are implemented for Settings, Pause, and Main Menu.
 
-The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and `NanumGothic SDF` glyph coverage generated from Korean String Tables.
+The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and `ClimateCrisisKR-2000 SDF` glyph coverage generated from Korean String Tables.
 
 Typography is not globally applied to every future UI surface. The current production wiring is scoped to Settings, Pause, and Main Menu. HUD/objective/save slot/inventory/audio/voice localization remains outside this migration.
+
+### 2026-07-26 Climate PR2 current-state override
+
+[Climate-Crisis-KR-Typography-Migration-Closeout.md](./Climate-Crisis-KR-Typography-Migration-Closeout.md)
+is the current truth for the migrated ko-KR typography surfaces. Earlier
+Nanum-based mappings and synthetic-bold polish notes below are retained as
+historical baseline/decision sequence, not current runtime mapping.
+
+- All 19 semantic roles resolve to the canonical Climate font/material with
+  Normal style in ko-KR.
+- Sizing policy is `PRESERVE_AUTHORED_SIZE`; locale rules do not own size,
+  Auto Size, min/max, or spacing.
+- SettingsStatus remains `14 / Auto / 10-14`, height `28`, and may render two
+  lines without clipping.
+- Pause title width is `160` with visual center preserved; Settings audio value
+  effective width is `140`.
+- Nanum assets remain tracked, but no current Climate role resolves to Nanum.
+- Managed ko-KR String Tables require 116/116 native Climate glyphs and zero
+  fallback dependency.
 
 Current baseline captured for this cleanup pass:
 
@@ -88,10 +107,10 @@ Current baseline captured for this cleanup pass:
 | `TypographyBinding` | Done | Prefabs/views carry style tag, sizing-source override, and optional apply-mask override without owning text keys. |
 | Locale participation | Done | `LocaleThemed` is the serialized default. The 13 Settings physical-key TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
-| Pause / Main Menu typography migration | Done | Pause uses its existing semantic rules. Main Menu Start/Settings/Quit use the dedicated `MainMenuCommand` role so en-US preserves authored Orbitron while ko-KR retains Nanum; generic `Button` remains SciFiSoldier. |
+| Pause / Main Menu typography migration | Done | Pause uses its existing semantic rules. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR resolves through the all-role Climate policy, and generic en-US `Button` remains SciFiSoldier. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
-| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates the current worktree/Unity path, revision gate, isolated capture slices, Nanum preservation, manifest closure, and PNG hashes. The corrected canonical 1920x1080 set is `TestLogs/TypographyVisualQA/CommandLine-20260724-214429/`; `CommandLine-20260722-210829` is the historical defective SciFiSoldier Main Menu evidence and `CommandLine-20260720-194045` remains 51-count historical evidence. |
-| NanumGothic glyph coverage | Done | `NanumGothic SDF` coverage was expanded from Korean String Tables and is validated by UI tests. |
+| Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, Nanum preservation, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
+| Climate glyph coverage | Done | Managed ko-KR tables resolve 116/116 distinct non-ASCII codepoints natively in `ClimateCrisisKR-2000 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
 

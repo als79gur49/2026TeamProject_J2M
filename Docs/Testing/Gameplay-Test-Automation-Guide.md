@@ -14,7 +14,7 @@
 - 이 섹션의 baseline row는 pinned snapshot reference다. 서로 다른 날짜 artifact를 한 validation claim으로 합산하는 근거가 아니다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-07-22 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `872 total / 0 failed`; typography canonical evidence is `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` at revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`, while `CommandLine-20260720-194045` remains 51-count historical evidence
+  - `./run_tests.sh ui`: Climate PR2 code-head reference green on 2026-07-26 KST, Windows UI build `0` errors, Unity UI EditMode `1060 total / 0 failed`; code-head visual evidence is `TestLogs/TypographyVisualQA/CommandLine-20260726-052954/` at revision `840a5cd2fe0c1460a0a47fc34d8e020f73c76abf`, with six canonical PNGs and three separate `Diagnostics/` PNGs
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
@@ -32,7 +32,7 @@
 - The baseline rows in this section are pinned snapshot references. They are not permission to merge artifacts from different dates into one validation claim.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-07-22 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `872 total / 0 failed`; typography canonical evidence is `TestLogs/TypographyVisualQA/CommandLine-20260722-210829/` at revision `31b92cd2c9718e1a653da39a6db47c7a17ea7452`, while `CommandLine-20260720-194045` remains 51-count historical evidence
+  - `./run_tests.sh ui`: Climate PR2 code-head reference green on 2026-07-26 KST, Windows UI build `0` errors, Unity UI EditMode `1060 total / 0 failed`; code-head visual evidence is `TestLogs/TypographyVisualQA/CommandLine-20260726-052954/` at revision `840a5cd2fe0c1460a0a47fc34d8e020f73c76abf`, with six canonical PNGs and three separate `Diagnostics/` PNGs
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
@@ -447,6 +447,7 @@ WSL CLI
 - `./run_tests.sh typography-visual`
   - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
   - current worktree/Unity path, 동일 프로젝트 process, revision gate, Nanum 전후 hash, manifest PASS fields, Settings 38 및 localized 22/22, 6개 PNG byte size/SHA-256을 검증한다.
+  - Climate PR2에서는 ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
   - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
   - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
 - `./run_tests.sh full`
@@ -504,6 +505,7 @@ WSL CLI
 - `./run_tests.sh typography-visual`
   - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
   - Validates the current worktree/Unity path, same-project process exclusion, revision gate, before/after Nanum hashes, manifest PASS fields, exact Settings 38 and localized 22/22 counts, and all six PNG byte sizes/SHA-256 hashes.
+  - For Climate PR2, it also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
   - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
   - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.
 - `./run_tests.sh full`

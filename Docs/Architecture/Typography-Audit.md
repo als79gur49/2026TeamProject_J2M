@@ -1,5 +1,27 @@
 # Typography Audit
 
+## 2026-07-26 Climate PR2 current-state override
+
+The current production decision is recorded in
+[Climate-Crisis-KR-Typography-Migration-Closeout.md](./Climate-Crisis-KR-Typography-Migration-Closeout.md).
+It supersedes the Nanum candidate mappings, synthetic-bold risks, open
+questions, and “next implementation” wording retained later in this audit.
+
+- ko-KR uses the canonical Climate Crisis KR font/material with Normal style
+  for all 19 semantic roles.
+- Authored sizing is preserved. SettingsStatus remains `14 / Auto / 10-14`
+  at height `28` and may use two lines.
+- Pause title width is `160` with center preserved; audio values use effective
+  width `140`.
+- en-US identities remain base-authored; Generic Button stays SciFiSoldier and
+  MainMenuCommand stays Orbitron.
+- Managed ko-KR glyph coverage is 116/116 with no fallback dependency.
+- Nanum TTF/SDF/SyntheticBold assets remain tracked for retention/history but
+  are not used by current Climate runtime role mapping.
+
+Older sections remain useful provenance for the preceding localization PR and
+must not be interpreted as the current mapping.
+
 ## 1. Verdict
 
 Verdict: PASS_WITH_NOTES

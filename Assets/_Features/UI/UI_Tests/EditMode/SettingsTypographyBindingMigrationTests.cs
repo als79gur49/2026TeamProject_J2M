@@ -77,7 +77,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsTitle_KoreanThemeAppliesNanumGothicWithoutChangingSizing()
+        public void SettingsTitle_KoreanThemeAppliesClimateCrisisKrWithoutChangingSizing()
         {
             var theme = LoadTheme();
             var prefab = UnityEngine.Object.Instantiate(LoadSettingsPrefab().gameObject);
@@ -96,9 +96,9 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(LocalizedTmpTextApplicator.ApplyTypographyTheme(title, theme, "ko-KR"), Is.True);
 
-                Assert.That(title.font, Is.SameAs(LoadNanumGothic()));
+                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
                 Assert.That(title.fontSharedMaterial, Is.SameAs(koreanStyle.MaterialPreset));
-                Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Bold));
+                Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
                 Assert.That(title.fontSize, Is.EqualTo(originalFontSize));
                 Assert.That(title.enableAutoSizing, Is.EqualTo(originalAutoSizing));
                 Assert.That(title.fontSizeMin, Is.EqualTo(originalMin));
@@ -157,7 +157,7 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("ko-KR");
 
                 Assert.That(label.text, Is.EqualTo("설정"));
-                Assert.That(label.font, Is.SameAs(LoadNanumGothic()));
+                Assert.That(label.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
 
                 resolver.SetLocale("en-US");
 
@@ -279,13 +279,6 @@ namespace Game.Feature.UI.Tests
             var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemeAssetPath);
             Assert.That(theme, Is.Not.Null, $"{ThemeAssetPath} must exist.");
             return theme;
-        }
-
-        private static TMP_FontAsset LoadNanumGothic()
-        {
-            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
-            Assert.That(font, Is.Not.Null, $"{NanumGothicFontValidationUtility.FontAssetPath} must exist.");
-            return font;
         }
 
         private static TMP_FontAsset LoadOrbitron()

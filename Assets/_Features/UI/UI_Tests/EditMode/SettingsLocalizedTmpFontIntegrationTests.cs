@@ -39,14 +39,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LocalizedTmpTextBinding_AppliesNanumGothicFontForKoreanSettingsTitle()
+        public void LocalizedTmpTextBinding_AppliesClimateCrisisKrFontForKoreanSettingsTitle()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = LoadClimateCrisisKr();
             var englishFont = LoadLiberationSans();
             var resolver = new FakeLocalizedTextResolver();
             resolver.SetLocale("ko-KR");
             var typographyResolver = new StaticTypographyResolver(new LocalizedTypographyStyle(33f, 4f, false));
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
+            var fontResolver = new DefaultLocalizedTmpFontResolver(climateCrisisKr);
             var label = CreateTmpText("settings-title");
             label.font = englishFont;
 
@@ -60,7 +60,7 @@ namespace Game.Feature.UI.Tests
                     fontResolver);
 
                 Assert.That(label.text, Is.EqualTo("설정"));
-                Assert.That(label.font, Is.SameAs(nanumGothic));
+                Assert.That(label.font, Is.SameAs(climateCrisisKr));
                 Assert.That(label.fontSize, Is.EqualTo(33f));
                 Assert.That(label.lineSpacing, Is.EqualTo(4f));
                 Assert.That((label.fontStyle & FontStyles.Bold) == FontStyles.Bold, Is.False);
@@ -72,12 +72,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LocalizedTmpTextBinding_KeepsEnglishFontThenRefreshesToNanumGothicOnKoreanLocale()
+        public void LocalizedTmpTextBinding_KeepsEnglishFontThenRefreshesToClimateCrisisKrOnKoreanLocale()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = LoadClimateCrisisKr();
             var englishFont = LoadLiberationSans();
             var resolver = new FakeLocalizedTextResolver();
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
+            var fontResolver = new DefaultLocalizedTmpFontResolver(climateCrisisKr);
             var typographyResolver = new StaticTypographyResolver(new LocalizedTypographyStyle(18f, 0f, false));
             var label = CreateTmpText("settings-title");
             label.font = englishFont;
@@ -97,7 +97,7 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("ko-KR");
 
                 Assert.That(label.text, Is.EqualTo("설정"));
-                Assert.That(label.font, Is.SameAs(nanumGothic));
+                Assert.That(label.font, Is.SameAs(climateCrisisKr));
 
                 resolver.SetLocale("en-US");
 
@@ -113,10 +113,10 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void LocalizedTmpTextBinding_DisposeStopsTextAndFontRefresh()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = LoadClimateCrisisKr();
             var englishFont = LoadLiberationSans();
             var resolver = new FakeLocalizedTextResolver();
-            var fontResolver = new DefaultLocalizedTmpFontResolver(nanumGothic);
+            var fontResolver = new DefaultLocalizedTmpFontResolver(climateCrisisKr);
             var typographyResolver = new StaticTypographyResolver(new LocalizedTypographyStyle(18f, 0f, false));
             var label = CreateTmpText("settings-title");
             label.font = englishFont;
@@ -146,11 +146,9 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static TMP_FontAsset LoadNanumGothic()
+        private static TMP_FontAsset LoadClimateCrisisKr()
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
-            Assert.That(fontAsset, Is.Not.Null, $"{NanumGothicFontValidationUtility.FontAssetPath} must be present.");
-            return fontAsset;
+            return UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
         }
 
         private static TMP_FontAsset LoadLiberationSans()

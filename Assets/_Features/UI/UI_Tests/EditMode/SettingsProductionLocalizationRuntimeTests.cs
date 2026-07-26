@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
@@ -287,7 +288,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -296,13 +297,13 @@ namespace Game.Feature.UI.Tests
 
             var titleLabel = GetText(harness.SettingsView, "_titleLabel");
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
         }
 
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_LanguageCycleSwitchesLocaleRefreshesLabelsAndFont()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             using var harness = GameplaySettingsHarness.Create(resolver);
 
@@ -323,10 +324,10 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
-            Assert.That(languageButtonLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(languageButtonLabel.font, Is.SameAs(climateCrisisKr));
             Assert.That(harness.UiAudioPort.PlayedCueIds, Does.Contain(UiAudioCueId.Toggle));
 
             view.DisplayView.ClickLanguageCycle();
@@ -362,6 +363,82 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("en-US"));
             Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (Muted)"));
+        }
+
+        [TestCase(0)]
+        [TestCase(25)]
+        [TestCase(50)]
+        [TestCase(75)]
+        [TestCase(100)]
+        public void GameplayScreenRuntimeFactory_AudioValuesStaySingleLineAcrossLocaleRoundTrip(int percent)
+        {
+            AssertAudioValueVariant(percent, isMuted: false);
+            AssertAudioValueVariant(percent, isMuted: true);
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_KoreanDisplayStatusRetainsAuthoredTwoLineLayout()
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickDisplayTab();
+            view.DisplayView.SelectResolution(2);
+            view.DisplayView.ClickApply();
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            var status = GetField<TMP_Text>(view.DisplayView, "_displayStatusLabel");
+            var binding = TypographyBinding.FindFor(status);
+            var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(TypographyThemeAssetPath);
+            var style = theme.ResolveOrThrow(
+                PackageFreeLocalizedTextResolver.KoreanLocaleCode,
+                TypographyStyleTag.SettingsStatus);
+            ForceSettingsLayout(view);
+            status.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            var singleLinePreferred =
+                GetPreferredValuesAtFontSize(status, status.fontSizeMax, Mathf.Infinity);
+            var constrainedPreferred =
+                GetPreferredValuesAtFontSize(status, status.fontSizeMax, status.rectTransform.rect.width);
+            var minimumSizeConstrainedPreferred =
+                GetPreferredValuesAtFontSize(status, status.fontSizeMin, status.rectTransform.rect.width);
+
+            Assert.That(status.text, Does.Contain("15초"));
+            Assert.That(status.rectTransform.rect.height, Is.EqualTo(28f).Within(0.01f));
+            Assert.That(status.fontSize, Is.EqualTo(14f));
+            Assert.That(status.enableAutoSizing, Is.True);
+            Assert.That(status.fontSizeMin, Is.EqualTo(10f));
+            Assert.That(status.fontSizeMax, Is.EqualTo(14f));
+            if (status.textInfo.lineCount > 0)
+            {
+                Assert.That(
+                    status.textInfo.lineCount,
+                    Is.EqualTo(2),
+                    "Authored Display status intentionally permits two lines.");
+            }
+            else
+            {
+                Assert.That(
+                    singleLinePreferred.x,
+                    Is.GreaterThan(status.rectTransform.rect.width),
+                    "The Korean Display status must retain its authored two-line flow.");
+                Assert.That(
+                    constrainedPreferred.y,
+                    Is.GreaterThan(singleLinePreferred.y + 0.01f),
+                    "The Korean Display status must retain its authored two-line flow.");
+            }
+            Assert.That(
+                minimumSizeConstrainedPreferred.y,
+                Is.LessThanOrEqualTo(status.rectTransform.rect.height + 0.01f),
+                "Display status clipping");
+            Assert.That(status.isTextOverflowing, Is.False);
+            Assert.That(binding, Is.Not.Null);
+            Assert.That(binding.StyleTag, Is.EqualTo(TypographyStyleTag.SettingsStatus));
+            Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid));
+            Assert.That(binding.UseApplyMaskOverride, Is.False);
+            Assert.That(style.SizingMode, Is.EqualTo(TypographySizingMode.PreserveAuthored));
+            Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
         }
 
         [Test]
@@ -702,7 +779,7 @@ namespace Game.Feature.UI.Tests
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ReopenStartsFromPersistedLocaleAndFont()
         {
             var store = new FakeUiLocalePreferenceStore();
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
 
             using (var firstHarness = GameplaySettingsHarness.Create(
                        PackageFreeLocalizedTextResolver.CreateSettingsDefault(store)))
@@ -721,7 +798,7 @@ namespace Game.Feature.UI.Tests
 
                 var titleLabel = GetText(secondHarness.SettingsView, "_titleLabel");
                 Assert.That(titleLabel.text, Is.EqualTo("설정"));
-                Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+                Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
                 Assert.That(secondHarness.SettingsView.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
                 Assert.That(secondHarness.SettingsView.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
             }
@@ -730,7 +807,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_DoesNotRequireLegacyKoreanFontResolver()
         {
-            var expectedFont = LoadNanumGothic();
+            var expectedFont = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -764,7 +841,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuSettingsRuntime_UsesCatalogKoreanTypographyTheme()
         {
-            var nanumGothic = LoadNanumGothic();
+            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault(
                 PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             using var harness = MainMenuSettingsHarness.Create(resolver);
@@ -773,7 +850,7 @@ namespace Game.Feature.UI.Tests
 
             var titleLabel = GetText(harness.Runtime.View, "_titleLabel");
             Assert.That(titleLabel.text, Is.EqualTo("설정"));
-            Assert.That(titleLabel.font, Is.SameAs(nanumGothic));
+            Assert.That(titleLabel.font, Is.SameAs(climateCrisisKr));
         }
 
         [Test]
@@ -990,7 +1067,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.HeaderLarge,
-                FontStyles.Bold,
                 30f,
                 16f,
                 30f);
@@ -999,7 +1075,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.PopupBody,
-                FontStyles.Normal,
                 20f,
                 12f,
                 20f);
@@ -1008,7 +1083,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.PopupAction,
-                FontStyles.Bold,
                 18f,
                 14f,
                 18f);
@@ -1017,7 +1091,6 @@ namespace Game.Feature.UI.Tests
                 theme,
                 localeCode,
                 TypographyStyleTag.PopupAction,
-                FontStyles.Bold,
                 18f,
                 14f,
                 18f);
@@ -1028,7 +1101,6 @@ namespace Game.Feature.UI.Tests
             GameplayUiTypographyTheme theme,
             string localeCode,
             TypographyStyleTag expectedTag,
-            FontStyles expectedFontStyle,
             float expectedFontSize,
             float expectedMinSize,
             float expectedMaxSize)
@@ -1045,7 +1117,7 @@ namespace Game.Feature.UI.Tests
                 target.fontSharedMaterial,
                 Is.SameAs(style.MaterialPreset),
                 $"{target.name} material {localeCode}");
-            Assert.That(target.fontStyle, Is.EqualTo(expectedFontStyle), $"{target.name} style {localeCode}");
+            Assert.That(target.fontStyle, Is.EqualTo(style.FontStyle), $"{target.name} style {localeCode}");
             Assert.That(style.ApplyMask & TypographyApplyMask.Sizing, Is.EqualTo(TypographyApplyMask.None));
             Assert.That(target.fontSize, Is.EqualTo(expectedFontSize), $"{target.name} size {localeCode}");
             Assert.That(target.enableAutoSizing, Is.True, $"{target.name} auto sizing {localeCode}");
@@ -1054,7 +1126,10 @@ namespace Game.Feature.UI.Tests
 
             if (string.Equals(localeCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal))
             {
-                Assert.That(target.font, Is.SameAs(LoadNanumGothic()), $"{target.name} ko-KR Nanum identity");
+                Assert.That(
+                    target.font,
+                    Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
+                    $"{target.name} ko-KR Climate identity");
             }
         }
 
@@ -1120,11 +1195,149 @@ namespace Game.Feature.UI.Tests
             return value;
         }
 
-        private static TMP_FontAsset LoadNanumGothic()
+        private static void AssertAudioValueVariant(int percent, bool isMuted)
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumGothicFontValidationUtility.FontAssetPath);
-            Assert.That(fontAsset, Is.Not.Null, $"{NanumGothicFontValidationUtility.FontAssetPath} must be present.");
-            return fontAsset;
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var harness = GameplaySettingsHarness.Create(resolver);
+            var normalizedValue = percent / 100f;
+            foreach (var channel in new[]
+                     {
+                         AudioSettingsChannel.Main,
+                         AudioSettingsChannel.Bgm,
+                         AudioSettingsChannel.Sfx,
+                     })
+            {
+                harness.AudioPort.SetVolume(channel, normalizedValue);
+                harness.AudioPort.SetMuted(channel, isMuted);
+            }
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            var values = GetAudioValueTexts(view.AudioView);
+            var sizing = values.ToDictionary(
+                pair => pair.Value,
+                pair => (
+                    pair.Value.fontSize,
+                    pair.Value.enableAutoSizing,
+                    pair.Value.fontSizeMin,
+                    pair.Value.fontSizeMax));
+            var englishIdentity = values.ToDictionary(
+                pair => pair.Value,
+                pair => (pair.Value.font, pair.Value.fontSharedMaterial, pair.Value.fontStyle));
+            var englishText = isMuted ? $"{percent}% (Muted)" : $"{percent}%";
+            var koreanText = isMuted ? $"{percent}% (음소거)" : $"{percent}%";
+
+            AssertAudioValueLayout(view, values, sizing, englishText, "en-US");
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            AssertAudioValueLayout(view, values, sizing, koreanText, "ko-KR");
+            foreach (var pair in values)
+            {
+                Assert.That(pair.Value.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()), pair.Key);
+                Assert.That(pair.Value.fontStyle, Is.EqualTo(FontStyles.Normal), pair.Key);
+            }
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            AssertAudioValueLayout(view, values, sizing, englishText, "restored en-US");
+            foreach (var pair in values)
+            {
+                var expected = englishIdentity[pair.Value];
+                Assert.That(pair.Value.font, Is.SameAs(expected.font), $"{pair.Key} font");
+                Assert.That(pair.Value.fontSharedMaterial, Is.SameAs(expected.fontSharedMaterial), $"{pair.Key} material");
+                Assert.That(pair.Value.fontStyle, Is.EqualTo(expected.fontStyle), $"{pair.Key} style");
+            }
+        }
+
+        private static IReadOnlyDictionary<string, TMP_Text> GetAudioValueTexts(SettingsAudioView view)
+        {
+            return new Dictionary<string, TMP_Text>
+            {
+                ["MainAudioRow"] = GetAudioValueText(view, "_mainRow"),
+                ["BgmAudioRow"] = GetAudioValueText(view, "_bgmRow"),
+                ["SfxAudioRow"] = GetAudioValueText(view, "_sfxRow"),
+            };
+        }
+
+        private static void AssertAudioValueLayout(
+            SettingsScreenView view,
+            IReadOnlyDictionary<string, TMP_Text> values,
+            IReadOnlyDictionary<TMP_Text, (float fontSize, bool autoSize, float min, float max)> sizing,
+            string expectedText,
+            string stage)
+        {
+            ForceSettingsLayout(view);
+            foreach (var pair in values)
+            {
+                var value = pair.Value;
+                var row = value.rectTransform.parent as RectTransform;
+                var toggle = row?.Find("MuteToggle") as RectTransform;
+                var layoutElement = value.GetComponent<LayoutElement>();
+                Assert.That(row, Is.Not.Null, pair.Key);
+                Assert.That(toggle, Is.Not.Null, $"{pair.Key} MuteToggle");
+                Assert.That(layoutElement, Is.Not.Null, $"{pair.Key} Value LayoutElement");
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(row);
+                value.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+                var singleLinePreferred =
+                    GetPreferredValuesAtFontSize(value, value.fontSizeMin, Mathf.Infinity);
+
+                Assert.That(value.text, Is.EqualTo(expectedText), $"{pair.Key} {stage} text");
+                Assert.That(value.rectTransform.rect.width, Is.EqualTo(140f).Within(0.01f), $"{pair.Key} width");
+                Assert.That(value.rectTransform.rect.height, Is.EqualTo(32f).Within(0.01f), $"{pair.Key} height");
+                Assert.That(layoutElement.preferredWidth, Is.EqualTo(140f), $"{pair.Key} preferred width");
+                if (value.textInfo.lineCount > 0)
+                {
+                    Assert.That(value.textInfo.lineCount, Is.EqualTo(1), $"{pair.Key} {stage} line count");
+                }
+                Assert.That(
+                    singleLinePreferred.x,
+                    Is.LessThanOrEqualTo(value.rectTransform.rect.width + 0.01f),
+                    $"{pair.Key} {stage} single-line width");
+                Assert.That(
+                    singleLinePreferred.y,
+                    Is.LessThanOrEqualTo(value.rectTransform.rect.height + 0.01f),
+                    $"{pair.Key} {stage} vertical fit");
+                Assert.That(value.isTextOverflowing, Is.False, $"{pair.Key} {stage} overflow");
+
+                var expectedSizing = sizing[value];
+                Assert.That(value.fontSize, Is.EqualTo(expectedSizing.fontSize), $"{pair.Key} {stage} fontSize");
+                Assert.That(value.enableAutoSizing, Is.EqualTo(expectedSizing.autoSize), $"{pair.Key} {stage} Auto Size");
+                Assert.That(value.fontSizeMin, Is.EqualTo(expectedSizing.min), $"{pair.Key} {stage} min");
+                Assert.That(value.fontSizeMax, Is.EqualTo(expectedSizing.max), $"{pair.Key} {stage} max");
+
+                var valueBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(row, value.rectTransform);
+                var toggleBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(row, toggle);
+                Assert.That(
+                    valueBounds.max.x,
+                    Is.LessThanOrEqualTo(toggleBounds.min.x + 0.01f),
+                    $"{pair.Key} {stage} Value/MuteToggle overlap");
+            }
+        }
+
+        private static void ForceSettingsLayout(SettingsScreenView view)
+        {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)view.transform);
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static Vector2 GetPreferredValuesAtFontSize(TMP_Text target, float fontSize, float width)
+        {
+            var authoredFontSize = target.fontSize;
+            var authoredAutoSizing = target.enableAutoSizing;
+            try
+            {
+                target.enableAutoSizing = false;
+                target.fontSize = fontSize;
+                return target.GetPreferredValues(target.text, width, Mathf.Infinity);
+            }
+            finally
+            {
+                target.fontSize = authoredFontSize;
+                target.enableAutoSizing = authoredAutoSizing;
+            }
         }
 
         private static ScreenLayerView CreateScreenLayer(GameObject rootObject)
