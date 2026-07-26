@@ -78,6 +78,19 @@ namespace Game.Feature.UI.Tests
                         errors.Add($"{scenario.State} {scenario.Locale}: {exception}");
                     }
                 }
+
+                foreach (var localeCaptures in captures.GroupBy(capture => capture.Scenario.Locale))
+                {
+                    var stateHashes = localeCaptures
+                        .Select(capture => capture.Sha256)
+                        .Distinct(StringComparer.Ordinal)
+                        .Count();
+                    if (localeCaptures.Count() > 1 && stateHashes != localeCaptures.Count())
+                    {
+                        errors.Add(
+                            $"{localeCaptures.Key}: visual states produced duplicate PNG hashes.");
+                    }
+                }
             }
 
             var manifestPath = WriteManifest(
@@ -355,6 +368,12 @@ namespace Game.Feature.UI.Tests
                 var rows = GetActiveRows(view);
                 foreach (var row in rows)
                 {
+                    var animator = row.View.GetComponent<Animator>();
+                    if (animator != null)
+                    {
+                        animator.Update(5f);
+                    }
+
                     row.View.Tick(5f);
                 }
 
