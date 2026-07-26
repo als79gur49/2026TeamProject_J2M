@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void WorldState_SetUnitKinematicState_PersistsNonDefaultAndLegacyMoveClearsIt()
+        public void WorldState_SetUnitKinematicState_PersistsNonDefaultAndMoveEntityClearsKinematicState()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var writeContext = worldState.CreateWriteContext();

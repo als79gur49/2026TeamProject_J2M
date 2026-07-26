@@ -49,7 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement()
+        public void BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement()
         {
             AssertDefaultGameplayLocomotionFlags();
 
@@ -62,7 +62,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(playerTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
             MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(playerTick, 10);
+            EnemyOrdinary_DefaultGameplay_UsesKinematicAndNoGenericExpansionOwned();
+            EnemyCharge_DefaultGameplay_KinematicNoGenericExpansionOwned();
+        }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyOrdinary_DefaultGameplay_UsesKinematicAndNoGenericExpansionOwned()
+        {
+            AssertDefaultGameplayLocomotionFlags();
             var enemyWorld = CreateWorldState(new[]
             {
                 CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase),
@@ -75,7 +83,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(enemyTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
             MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(enemyTick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(enemyTick);
+        }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyCharge_DefaultGameplay_KinematicNoGenericExpansionOwned()
+        {
+            AssertDefaultGameplayLocomotionFlags();
             var chargeWorld = CreateWorldState(new[]
             {
                 CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Charge),
@@ -101,34 +116,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.MotionMode == MotionMode.Charge),
                 Is.True);
             MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(chargeTick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(chargeTick);
         }
 
         [Test]
         [Category("Core")]
         public void DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoGenericExpansionOwned()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
         [Category("Core")]
         public void DeprecationPhase1_DefaultGameplayLocomotion_PlayerOrdinary_NoGenericExpansionOwned()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
         [Category("Core")]
         public void DeprecationPhase1_DefaultGameplayLocomotion_EnemyOrdinary_NoGenericExpansionOwned()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
         [Category("Core")]
         public void DeprecationPhase1_DefaultGameplayLocomotion_ChargeActive_NoGenericExpansionOwned()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
@@ -219,7 +235,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            MovementExecutionOwnershipAssert.EnemyGenericExpansionRemovedFromRuntime(enemyTick, 40);
+            MovementExecutionOwnershipAssert.EnemyGenericExpansionCurrentOwnershipBaseline(enemyTick, 40);
             MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(enemyTick, 40);
 
             var chargeTick = CreatePipeline(
@@ -227,7 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            MovementExecutionOwnershipAssert.ChargeGenericExpansionRemovedFromRuntime(chargeTick, 50);
+            MovementExecutionOwnershipAssert.ChargeActiveRejectedBeforeGenericExpansion(chargeTick, 50);
             MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(chargeTick);
         }
 
@@ -370,7 +386,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
-            MovementExecutionOwnershipAssert.NoEnemyLegacyOrdinaryFallback(tick, 40);
+            MovementExecutionOwnershipAssert.NoEnemyGenericExpansionOrdinaryFallback(tick, 40);
             MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
@@ -411,14 +427,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Phase5_CurrentOwnershipBaseline_EnemyFallbackRemoved()
         {
-            var tick = CreatePipeline(
-                    CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
-                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
-                    GameplayRuntimeFeatureFlags.None)
-                .RunTick(new TickInput(1));
-
-            MovementExecutionOwnershipAssert.EnemyGenericExpansionRemovedFromRuntime(tick, 40);
-            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick, 40);
+            EnemyOrdinary_NonePolicy_GenericExpansionCurrentOwnershipBaseline();
         }
 
         [Test]
@@ -451,7 +460,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeMoveFallback()
+        public void Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeGenericExpansionFallback()
         {
             AssertDefaultGameplayLocomotionFlags();
 
@@ -480,28 +489,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Phase6_DefaultGameplay_ChargeFallbackStillAbsent()
         {
-            Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeMoveFallback();
+            Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeGenericExpansionFallback();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer()
+        public void NoLegacyChargeEntityMotionOutput_DefaultGameplay()
         {
-            Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeMoveFallback();
+            Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeGenericExpansionFallback();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_DefaultGameplay_Unreachable()
+        public void LegacyChargeEntityMotionOutputProducer_DefaultGameplay_Unreachable()
         {
-            ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer();
+            NoLegacyChargeEntityMotionOutput_DefaultGameplay();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_DefaultGameplay_NoChargeMove()
+        public void LegacyChargeEntityMotionOutputIsolation_DefaultGameplay_NoOutput()
         {
-            ChargeMoveProducer_DefaultGameplay_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_DefaultGameplay_Unreachable();
         }
 
         [Test]
@@ -519,41 +528,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Phase6_None_ChargeFallbackStillBlocked()
         {
-            var worldState = CreateActiveChargeWorldState(50);
-            var tick = CreatePipeline(
-                    worldState,
-                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    GameplayRuntimeFeatureFlags.None)
-                .RunTick(new TickInput(1));
-
-            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(tick, 50);
-            Assert.That(
-                tick.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
-                    reason.Contains("Source=50", StringComparison.Ordinal)),
-                Is.True);
-            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
+            EnemyCharge_NonePolicy_RejectedBeforeGenericExpansion();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_None_NoChargeMoveProducer()
+        public void NoLegacyChargeEntityMotionOutput_None()
         {
             Phase6_None_ChargeFallbackStillBlocked();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_None_Unreachable()
+        public void LegacyChargeEntityMotionOutputProducer_None_Unreachable()
         {
-            ChargeMoveCleanup_None_NoChargeMoveProducer();
+            NoLegacyChargeEntityMotionOutput_None();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_None_NoChargeMove()
+        public void LegacyChargeEntityMotionOutputIsolation_None_NoOutput()
         {
-            ChargeMoveProducer_None_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_None_Unreachable();
         }
 
         [Test]
@@ -568,41 +564,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved()
         {
-            var worldState = CreateActiveChargeWorldState(50);
-            var tick = CreatePipeline(
-                    worldState,
-                    new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    GameplayRuntimeFeatureFlags.None)
-                .RunTick(new TickInput(1));
-
-            MovementExecutionOwnershipAssert.ChargeGenericExpansionRemovedFromRuntime(tick, 50);
-            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
+            EnemyCharge_NonePolicy_RejectedBeforeGenericExpansion();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_CurrentOwnershipBaseline_NoChargeMoveProducer()
+        public void NoLegacyChargeEntityMotionOutput_CurrentOwnershipBaseline()
         {
             Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable()
+        public void LegacyChargeEntityMotionOutputProducer_CurrentOwnershipBaseline_Unreachable()
         {
-            ChargeMoveCleanup_CurrentOwnershipBaseline_NoChargeMoveProducer();
+            NoLegacyChargeEntityMotionOutput_CurrentOwnershipBaseline();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_CurrentOwnershipBaseline_NoChargeMove()
+        public void LegacyChargeEntityMotionOutputIsolation_CurrentOwnershipBaseline_NoOutput()
         {
-            ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_CurrentOwnershipBaseline_Unreachable();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge()
+        public void RemovedLegacyChargeEntityMotionOutput_ChargePresentationSignal_StillUsedForKinematicCharge()
         {
             var worldState = CreateActiveChargeWorldState(50);
             var tick = CreatePipeline(
@@ -631,35 +619,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_DefaultGameplay_ChargePresentationStillWorks()
+        public void LegacyChargeEntityMotionOutputDeletion_DefaultGameplay_ChargePresentationStillWorks()
         {
-            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+            RemovedLegacyChargeEntityMotionOutput_ChargePresentationSignal_StillUsedForKinematicCharge();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_ChargeSignalStillEmitted()
+        public void LegacyChargeEntityMotionOutputDeletion_ChargeSignalStillEmitted()
         {
-            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+            RemovedLegacyChargeEntityMotionOutput_ChargePresentationSignal_StillUsedForKinematicCharge();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_TickKinematicMotionTrackStillEmitted()
+        public void LegacyChargeEntityMotionOutputDeletion_TickKinematicMotionTrackStillEmitted()
         {
-            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+            RemovedLegacyChargeEntityMotionOutput_ChargePresentationSignal_StillUsedForKinematicCharge();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_ChargeKinematicSignal_IsNotChargeMove()
+        public void LegacyChargeEntityMotionOutputProducer_ChargeKinematicSignal_IsNotLegacyOutput()
         {
-            ChargeMoveCleanup_ChargePresentationSignal_StillUsedForKinematicCharge();
+            RemovedLegacyChargeEntityMotionOutput_ChargePresentationSignal_StillUsedForKinematicCharge();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_AllKinematic_Unreachable()
+        public void LegacyChargeEntityMotionOutputProducer_AllKinematic_Unreachable()
         {
             var worldState = CreateActiveChargeWorldState(50);
             var tick = CreatePipeline(
@@ -679,20 +667,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_AllKinematic_NoChargeMove()
+        public void LegacyChargeEntityMotionOutputIsolation_AllKinematic_NoOutput()
         {
-            ChargeMoveProducer_AllKinematic_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_AllKinematic_Unreachable();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_RuntimeReachabilityMatrix_IsCurrent()
+        public void LegacyChargeEntityMotionOutputProducer_RuntimeReachabilityMatrix_IsCurrent()
         {
-            ChargeMoveProducer_DefaultGameplay_Unreachable();
-            ChargeMoveProducer_None_Unreachable();
-            ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable();
-            ChargeMoveProducer_AllKinematic_Unreachable();
-            ChargeMoveProducer_ChargeKinematicSignal_IsNotChargeMove();
+            LegacyChargeEntityMotionOutputProducer_DefaultGameplay_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_None_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_CurrentOwnershipBaseline_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_AllKinematic_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_ChargeKinematicSignal_IsNotLegacyOutput();
         }
 
         [Test]
@@ -788,7 +776,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void Phase3_DefaultGameplayLocomotion_NoCoveredFallback()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
@@ -802,27 +790,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             MovementExecutionOwnershipAssert.NoCoveredFallbackUnderNone(playerTick, 10);
 
+            EnemyOrdinary_NonePolicy_GenericExpansionCurrentOwnershipBaseline();
+            EnemyCharge_NonePolicy_RejectedBeforeGenericExpansion();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyOrdinary_NonePolicy_GenericExpansionCurrentOwnershipBaseline()
+        {
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            MovementExecutionOwnershipAssert.HasGenericExpansionOwnedMoveEntity(enemyTick, 40);
-            MovementExecutionOwnershipAssert.HasGenericExpansionOwnedMove(enemyTick, 40);
-            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(enemyTick);
+            MovementExecutionOwnershipAssert.EnemyGenericExpansionCurrentOwnershipBaseline(enemyTick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(enemyTick, 40);
+        }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyCharge_NonePolicy_RejectedBeforeGenericExpansion()
+        {
             var chargeWorld = CreateActiveChargeWorldState(50);
             var chargeTick = CreatePipeline(
                     chargeWorld,
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(chargeTick, 50);
-            Assert.That(
-                chargeTick.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
-                    reason.Contains("Source=50", StringComparison.Ordinal)),
-                Is.True);
+            MovementExecutionOwnershipAssert.ChargeActiveRejectedBeforeGenericExpansion(chargeTick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(chargeTick);
         }
 
         [Test]
@@ -881,6 +877,44 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
             AssertPartitionConsumesPlayerFree2DOrdinaryIntent(topologyWorld, topologyIntent);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void UnhandledExpansionPartition_DoesNotMeanLegacyMovement()
+        {
+            var enemyWorld = CreateWorldState(new[]
+            {
+                CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase),
+            });
+            var enemyIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            enemyIntent.AssignIntentId(1);
+            AssertPartitionKeepsGenericExpansionIntent(enemyWorld, enemyIntent);
+            EnemyOrdinary_DefaultGameplay_UsesKinematicAndNoGenericExpansionOwned();
+
+            var chargeWorld = CreateActiveChargeWorldState(50);
+            var chargeIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
+            chargeIntent.AssignIntentId(2);
+            AssertPartitionKeepsGenericExpansionIntent(chargeWorld, chargeIntent);
+            EnemyCharge_NonePolicy_RejectedBeforeGenericExpansion();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SharedExpansionPartition_RemainsAvailableForNonEnemyPaths()
+        {
+            BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion();
+            Phase3_None_GridTransactionsRemainAllowed();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ForwardCellMove_SharedPresentationVocabulary_NotEnemyFallback()
+        {
+            Assert.That((int)ResolvedActionSemanticKind.ForwardCellMove, Is.EqualTo(7));
+            Assert.That((int)MovementSemanticKind.ForwardCellMove, Is.EqualTo(7));
+            Assert.That(TickEntityMotionKind.ForwardCellMove, Is.Not.EqualTo(TickEntityMotionKind.Move));
+            EnemyOrdinary_DefaultGameplay_UsesKinematicAndNoGenericExpansionOwned();
         }
 
         [Test]
@@ -1044,7 +1078,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void Phase7_DefaultGameplay_NoCoveredFallback()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
@@ -1207,7 +1241,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_Docs_RecordHistoricalRemoval()
+        public void LegacyChargeEntityMotionOutputDeletion_Docs_RecordHistoricalRemoval()
         {
             var consolidationDoc = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
@@ -1227,14 +1261,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_PresentationConsumers_RemovalIsRecorded()
+        public void LegacyChargeEntityMotionOutputDeletion_PresentationConsumers_RemovalIsRecorded()
         {
-            ChargeMoveDeletion_Docs_RecordHistoricalRemoval();
+            LegacyChargeEntityMotionOutputDeletion_Docs_RecordHistoricalRemoval();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveResidue_YamlResidueReport_IsCurrent()
+        public void LegacyChargeEntityMotionOutputResidue_YamlResidueReport_IsCurrent()
         {
             var report = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md");
@@ -1250,7 +1284,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveResidue_PresentationAuthoring_RuntimeReadRemoved()
+        public void LegacyChargeEntityMotionOutputResidue_PresentationAuthoring_RuntimeReadRemoved()
         {
             var report = ReadRepoFile(
                 "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-ChargeMove-Deletion-Verification-And-Residue-Report-2026-05-02.md");
@@ -1266,7 +1300,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_NoChargeMoveReferencesRemain()
+        public void LegacyChargeEntityMotionOutputDeletion_NoReferencesRemain()
         {
             var sourceFiles = new[]
             {
@@ -1317,7 +1351,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_MovePresentationUnaffected()
+        public void LegacyChargeEntityMotionOutputDeletion_MovePresentationUnaffected()
         {
             CompatibilityLayer_MovePresentation_InventoryIsCurrent();
         }
@@ -1364,7 +1398,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_RetainedGridTransactionsUnaffected()
+        public void LegacyChargeEntityMotionOutputDeletion_RetainedGridTransactionsUnaffected()
         {
             CompatibilityLayer_RetainedGridTransactions_StillProtected();
         }
@@ -1674,7 +1708,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .RunTick(new TickInput(1));
 
                 Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out _), Is.True);
-                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(glideTick, 40);
+                MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMoveOperationOrDiagnostic(glideTick, 40);
             }
             finally
             {
@@ -2074,7 +2108,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void DeprecationPhase1_NoCoveredLocomotionLegacyPresentation()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
@@ -2129,7 +2163,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void ScopedDeletionPrep_DefaultGameplayLocomotion_NoCoveredLegacyPresentation()
         {
-            BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
+            BoundaryInventory_DefaultGameplayLocomotion_NoGenericExpansionOrdinaryUnitMovement();
         }
 
         [Test]
@@ -2139,8 +2173,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var flagOffFallbacks = new[]
             {
                 "player generic expansion: removed with PlayerGenericExpansionRemovedFromRuntime",
-                "enemy generic expansion: removed with EnemyGenericExpansionRemovedFromRuntime",
-                "charge generic expansion: removed with ChargeGenericExpansionRemovedFromRuntime",
+                "enemy generic expansion: current baseline with EnemyGenericExpansionCurrentOwnershipBaseline",
+                "charge generic expansion: rejected before expansion with ChargeActiveRejectedBeforeGenericExpansion",
             };
             var flagOnTargets = new[]
             {

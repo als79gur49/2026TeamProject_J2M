@@ -11,16 +11,17 @@ namespace Game.Feature.Gameplay.Tests
         public const string PlayerGenericExpansionOwnedRemovedReason = "PlayerGenericExpansionRemovedFromRuntime";
         public const string EnemyGenericExpansionOwnedRemovedReason = "EnemyGenericExpansionRemovedFromRuntime";
         public const string ChargeGenericExpansionOwnedRemovedReason = "ChargeGenericExpansionRemovedFromRuntime";
+        public const string EnemyChargeKinematicFlagOffActiveMoveRejectedReason = "EnemyChargeKinematicFlagOffActiveMoveRejected";
 
-        public static void NoLegacyOrdinaryUnitMove(TickResult result, params int[] entityIds)
+        public static void NoGenericExpansionOrdinaryUnitMove(TickResult result, params int[] entityIds)
         {
             for (var i = 0; i < entityIds.Length; i++)
             {
-                NoLegacyOrdinaryUnitMove(result, entityIds[i]);
+                NoGenericExpansionOrdinaryUnitMove(result, entityIds[i]);
             }
         }
 
-        public static void NoLegacyOrdinaryUnitMove(TickResult result, int entityId)
+        public static void NoGenericExpansionOrdinaryUnitMove(TickResult result, int entityId)
         {
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
@@ -58,7 +59,7 @@ namespace Game.Feature.Gameplay.Tests
         public static void NoCoveredLocomotionGenericExpansionOwned(TickResult result, params int[] entityIds)
         {
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
-            NoLegacyOrdinaryUnitMove(result, entityIds);
+            NoGenericExpansionOrdinaryUnitMove(result, entityIds);
         }
 
         public static void NoCoveredFallbackInDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
@@ -102,15 +103,31 @@ namespace Game.Feature.Gameplay.Tests
 
         public static void EnemyGenericExpansionRemovedFromRuntime(TickResult result, int enemyEntityId)
         {
+            EnemyGenericExpansionCurrentOwnershipBaseline(result, enemyEntityId);
+        }
+
+        public static void ChargeGenericExpansionRemovedFromRuntime(TickResult result, int chargeEntityId)
+        {
+            ChargeActiveRejectedBeforeGenericExpansion(result, chargeEntityId);
+        }
+
+        public static void EnemyGenericExpansionCurrentOwnershipBaseline(TickResult result, int enemyEntityId)
+        {
             HasGenericExpansionOwnedMoveEntity(result, enemyEntityId);
             HasGenericExpansionOwnedMove(result, enemyEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
-        public static void ChargeGenericExpansionRemovedFromRuntime(TickResult result, int chargeEntityId)
+        public static void ChargeActiveRejectedBeforeGenericExpansion(TickResult result, int chargeEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, chargeEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            Assert.That(
+                result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains(EnemyChargeKinematicFlagOffActiveMoveRejectedReason, System.StringComparison.Ordinal) &&
+                    reason.Contains($"Source={chargeEntityId}", System.StringComparison.Ordinal)),
+                Is.True,
+                BuildDebug(result, chargeEntityId));
         }
 
         public static void AssertCoveredFallbackCurrentOwnerships(TickResult result, params int[] entityIds)
@@ -140,17 +157,17 @@ namespace Game.Feature.Gameplay.Tests
 
         public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
         {
-            NoLegacyOrdinaryUnitMove(result, playerEntityId);
+            NoGenericExpansionOrdinaryUnitMove(result, playerEntityId);
         }
 
-        public static void NoEnemyLegacyOrdinaryFallback(TickResult result, int enemyEntityId)
+        public static void NoEnemyGenericExpansionOrdinaryFallback(TickResult result, int enemyEntityId)
         {
-            NoLegacyOrdinaryUnitMove(result, enemyEntityId);
+            NoGenericExpansionOrdinaryUnitMove(result, enemyEntityId);
         }
 
         public static void NoChargeActiveGenericExpansionOwned(TickResult result, int chargeEntityId)
         {
-            NoLegacyOrdinaryUnitMove(result, chargeEntityId);
+            NoGenericExpansionOrdinaryUnitMove(result, chargeEntityId);
         }
 
         public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
@@ -167,7 +184,7 @@ namespace Game.Feature.Gameplay.Tests
         {
             if (glideFlagEnabled)
             {
-                NoLegacyOrdinaryUnitMove(result, entityId);
+                NoGenericExpansionOrdinaryUnitMove(result, entityId);
                 return;
             }
 
@@ -315,10 +332,10 @@ namespace Game.Feature.Gameplay.Tests
         public static void NoFlagOnLegacyOrdinaryReadinessLeaks(TickResult result, params int[] entityIds)
         {
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
-            NoLegacyOrdinaryUnitMove(result, entityIds);
+            NoGenericExpansionOrdinaryUnitMove(result, entityIds);
         }
 
-        public static void NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(TickResult result, int entityId)
+        public static void NoGenericExpansionOrdinaryUnitMoveOperationOrDiagnostic(TickResult result, int entityId)
         {
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>

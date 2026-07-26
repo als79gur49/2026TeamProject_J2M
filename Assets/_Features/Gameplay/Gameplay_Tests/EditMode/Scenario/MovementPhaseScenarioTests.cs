@@ -833,7 +833,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result,
                 30,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(
                     motion => motion.EntityId == 30 &&
@@ -865,7 +865,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result,
                 30,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(
                     motion => motion.EntityId == 30 &&
@@ -897,7 +897,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result,
                 10,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(
                 SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog),
@@ -1102,37 +1102,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove()
+        public void Phase6_ChargeKinematicFlagOn_NoLegacyChargeEntityMotionOutput()
         {
             MovementIntentPartitioner_ChargeActiveMove_RemainsGenericExpansionInput();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer()
+        public void NoLegacyChargeEntityMotionOutput_ChargeKinematicFlagOn()
         {
             MovementIntentPartitioner_ChargeActiveMove_RemainsGenericExpansionInput();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveDeletion_ChargeKinematicFlagOn_ChargePresentationStillWorks()
+        public void LegacyChargeEntityMotionOutputDeletion_ChargeKinematicFlagOn_ChargePresentationStillWorks()
         {
-            ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer();
+            NoLegacyChargeEntityMotionOutput_ChargeKinematicFlagOn();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_ChargeKinematicFlagOn_Unreachable()
+        public void LegacyChargeEntityMotionOutputProducer_ChargeKinematicFlagOn_Unreachable()
         {
-            ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer();
+            NoLegacyChargeEntityMotionOutput_ChargeKinematicFlagOn();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_ChargeKinematicFlagOn_NoChargeMove()
+        public void LegacyChargeEntityMotionOutputIsolation_ChargeKinematicFlagOn_NoOutput()
         {
-            ChargeMoveProducer_ChargeKinematicFlagOn_Unreachable();
+            LegacyChargeEntityMotionOutputProducer_ChargeKinematicFlagOn_Unreachable();
         }
 
         [Test]

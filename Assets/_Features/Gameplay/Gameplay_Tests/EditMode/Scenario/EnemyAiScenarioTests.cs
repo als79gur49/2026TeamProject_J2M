@@ -4498,7 +4498,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     40,
                     MovementExecutionBoundaryKind.LocomotionAnchorCommit,
                     "OrdinaryKinematicAnchorCommit");
-                MovementExecutionOwnershipAssert.NoEnemyLegacyOrdinaryFallback(result, 40);
+                MovementExecutionOwnershipAssert.NoEnemyGenericExpansionOrdinaryFallback(result, 40);
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
                     Is.True,
@@ -4878,7 +4878,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 40),
                     Is.False,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
-                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(result, 40);
             }
             finally
             {
@@ -5079,7 +5079,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyCharge_ChargeKinematicFlagOff_NoLegacyChargeMoveProducer()
+        public void EnemyCharge_ChargeKinematicFlagOff_NoLegacyChargeEntityMotionOutput()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -5112,7 +5112,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
-                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(result, 40);
                 Assert.That(
                     result.MovementPhaseResult.RejectedReasons.Any(reason =>
                         reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
@@ -5171,7 +5171,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.PresentationData.EntityMotions.Any(motion =>
                         motion.EntityId == 40),
                     Is.False);
-                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(result, 40);
             }
             finally
             {
@@ -5297,7 +5297,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyCharge_ChargeKinematicFlagOff_PatrolToChargeWaitsForOrdinarySettleThenRejectsLegacyChargeMove()
+        public void EnemyCharge_ChargeKinematicFlagOff_PatrolToChargeWaitsForOrdinarySettleThenRejectsLegacyChargeEntityMotionOutput()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -5364,7 +5364,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
-                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(thirdTick, 40);
+                MovementExecutionOwnershipAssert.NoGenericExpansionOrdinaryUnitMove(thirdTick, 40);
                 Assert.That(
                     thirdTick.MovementPhaseResult.RejectedReasons.Any(reason =>
                         reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&

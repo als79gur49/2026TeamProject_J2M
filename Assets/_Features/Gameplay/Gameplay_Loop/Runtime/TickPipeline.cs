@@ -3011,7 +3011,7 @@ namespace Game.Feature.Gameplay.Loop
             List<string> rejectedReasons,
             Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
         {
-            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
+            var remainingExpansionIntents = new List<MoveIntent>(sortedIntents.Count);
             var continuingEnemyIds = new HashSet<int>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
@@ -3044,7 +3044,7 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    legacyIntents.Add(intent);
+                    remainingExpansionIntents.Add(intent);
                     continue;
                 }
 
@@ -3067,10 +3067,10 @@ namespace Game.Feature.Gameplay.Loop
                     }
                 }
 
-                legacyIntents.Add(intent);
+                remainingExpansionIntents.Add(intent);
             }
 
-            return legacyIntents;
+            return remainingExpansionIntents;
         }
 
         private List<MoveIntent> BuildEnemyChargeKinematicLocomotionPlans(
@@ -3080,7 +3080,7 @@ namespace Game.Feature.Gameplay.Loop
             List<string> rejectedReasons,
             Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
         {
-            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
+            var remainingExpansionIntents = new List<MoveIntent>(sortedIntents.Count);
             var continuingChargeEnemyIds = new HashSet<int>();
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
@@ -3112,7 +3112,7 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    legacyIntents.Add(intent);
+                    remainingExpansionIntents.Add(intent);
                     continue;
                 }
 
@@ -3135,10 +3135,10 @@ namespace Game.Feature.Gameplay.Loop
                     }
                 }
 
-                legacyIntents.Add(intent);
+                remainingExpansionIntents.Add(intent);
             }
 
-            return legacyIntents;
+            return remainingExpansionIntents;
         }
 
         private List<MoveIntent> RejectEnemyChargeActiveFallbackIntents(

@@ -15,6 +15,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
 {
     public sealed class EnemyKinematicLocomotionReplayTests
     {
+        private const string EnemyChargeKinematicFlagOffActiveMoveRejectedReason = "EnemyChargeKinematicFlagOffActiveMoveRejected";
+
         [Test]
         [Category("Extended")]
         public void Replay_EnemySameFaceContinuousLocomotion_PassiveContactFiresOnFinalizedSameCellMove_IsDeterministic()
@@ -589,10 +591,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Is.EqualTo(secondPlayerReplay.Select(frame => frame.Trace).ToArray()));
             Assert.That(firstPlayerReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
             Assert.That(
-                firstPlayerReplay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.PlayerGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.PlayerGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
-                Is.True);
+                firstPlayerReplay.Any(frame => frame.Trace.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                               frame.EventLogDump.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
 
             var enemyInputs = new[] { new TickInput(1) };
             var enemyMove = new Dictionary<int, RawMovementIntent>
@@ -620,12 +621,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstEnemyReplay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondEnemyReplay.Select(frame => frame.Trace).ToArray()));
-            Assert.That(firstEnemyReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 firstEnemyReplay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.EnemyGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.EnemyGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
+                    frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains("GenericExpansionOwned", StringComparison.Ordinal)),
                 Is.True);
+            Assert.That(
+                firstEnemyReplay.Any(frame => frame.Trace.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                              frame.EventLogDump.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
 
             var chargeMove = new Dictionary<int, RawMovementIntent>
             {
@@ -646,35 +650,21 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstChargeReplay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondChargeReplay.Select(frame => frame.Trace).ToArray()));
-            Assert.That(firstChargeReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
-            Assert.That(
-                firstChargeReplay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.ChargeGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.ChargeGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
-                Is.True);
+            AssertChargeReplayRejectedBeforeGenericExpansion(firstChargeReplay);
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase3_None_NoCoveredFallback()
+        public void Replay_Phase3_None_EnemyGenericExpansionCurrentOwnershipBaseline()
         {
-            var enemyReplay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.None, out var secondEnemyReplay);
-            AssertReplayCanonicalStateEqual(enemyReplay, secondEnemyReplay);
-            Assert.That(enemyReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
-            Assert.That(
-                enemyReplay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.ExplicitGenericExpansionOwnedRequiredReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.ExplicitGenericExpansionOwnedRequiredReason, StringComparison.Ordinal)),
-                Is.True);
+            Replay_EnemyOrdinary_NonePolicy_GenericExpansionCurrentOwnershipBaseline();
+        }
 
-            var chargeReplay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.None, out var secondChargeReplay);
-            AssertReplayCanonicalStateEqual(chargeReplay, secondChargeReplay);
-            Assert.That(chargeReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
-            Assert.That(
-                chargeReplay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.ExplicitGenericExpansionOwnedRequiredReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.ExplicitGenericExpansionOwnedRequiredReason, StringComparison.Ordinal)),
-                Is.True);
+        [Test]
+        [Category("Core")]
+        public void Replay_Phase3_None_ChargeRejectedBeforeGenericExpansion()
+        {
+            Replay_EnemyCharge_NonePolicy_NoChargeMoveAndNoGenericExpansionOwned();
         }
 
         [Test]
@@ -694,6 +684,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         [Category("Extended")]
         public void Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoGenericExpansionOwned()
+        {
+            Replay_EnemyOrdinary_DefaultGameplay_NoGenericExpansionOwned();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_EnemyOrdinary_DefaultGameplay_NoGenericExpansionOwned()
         {
             var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
 
@@ -730,6 +727,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase5_EnemyCurrentOwnershipBaseline_FallbackRemoved()
         {
+            Replay_Phase3_None_EnemyGenericExpansionCurrentOwnershipBaseline();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_EnemyOrdinary_NonePolicy_GenericExpansionCurrentOwnershipBaseline()
+        {
             var replay = RunScriptedEnemyOrdinaryReplay(
                 GameplayRuntimeFeatureFlags.None,
                 out var secondReplay);
@@ -738,17 +742,27 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 replay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
-            Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 replay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.EnemyGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.EnemyGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
+                    frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains("GenericExpansionOwned", StringComparison.Ordinal)),
                 Is.True);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback()
+        public void Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeGenericExpansionFallback()
+        {
+            Replay_EnemyCharge_DefaultGameplay_NoGenericExpansionOwned();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_EnemyCharge_DefaultGameplay_NoGenericExpansionOwned()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
 
@@ -762,7 +776,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback()
+        public void Replay_Phase2C_ChargeKinematicFlagOn_NoChargeGenericExpansionFallback()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled, out var secondReplay);
 
@@ -776,9 +790,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove()
+        public void Replay_Phase6_ChargeKinematicFlagOn_NoLegacyChargeEntityMotionOutput()
         {
-            Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback();
+            Replay_Phase2C_ChargeKinematicFlagOn_NoChargeGenericExpansionFallback();
         }
 
         [Test]
@@ -793,6 +807,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase6_ChargeCurrentOwnershipBaseline_FallbackRemoved()
         {
+            Replay_Phase3_None_ChargeRejectedBeforeGenericExpansion();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_EnemyCharge_NonePolicy_NoChargeMoveAndNoGenericExpansionOwned()
+        {
             var replay = RunScriptedChargeActiveReplay(
                 GameplayRuntimeFeatureFlags.None,
                 out var secondReplay);
@@ -801,24 +822,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 replay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
-            Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
-            Assert.That(
-                replay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.ChargeGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.ChargeGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
-                Is.True);
+            AssertChargeReplayRejectedBeforeGenericExpansion(replay);
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_DefaultGameplay_NoChargeMove()
+        public void Replay_Phase6_DefaultGameplay_NoLegacyChargeEntityMotionOutput()
         {
-            Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback();
+            Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeGenericExpansionFallback();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveCleanup_NoChargeMoveOutput()
+        public void Replay_NoLegacyChargeEntityMotionOutput_DefaultGameplay()
         {
             var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
 
@@ -828,14 +844,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveDeletion_NoChargeMoveOutput()
+        public void Replay_LegacyChargeEntityMotionOutputDeletion_NoOutput()
         {
-            Replay_ChargeMoveCleanup_NoChargeMoveOutput();
+            Replay_NoLegacyChargeEntityMotionOutput_DefaultGameplay();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput()
+        public void Replay_NoLegacyChargeEntityMotionOutput_NonePolicyRejectsBeforeGenericExpansion()
         {
             var replay = RunScriptedChargeActiveReplay(
                 GameplayRuntimeFeatureFlags.None,
@@ -845,18 +861,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 replay.Select(frame => frame.Trace).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.Trace).ToArray()));
-            AssertReplayHasNoChargeMove(replay);
-            Assert.That(replay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
-            Assert.That(
-                replay.Any(frame =>
-                    frame.Trace.Contains(MovementExecutionOwnershipAssert.ChargeGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.ChargeGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
-                Is.True);
+            AssertReplayHasNoLegacyChargeEntityMotionOutput(replay);
+            AssertChargeReplayRejectedBeforeGenericExpansion(replay);
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputProducer_RuntimeMatrix_NoOutput()
         {
             var defaultReplay = RunScriptedChargeActiveReplay(
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
@@ -879,28 +890,28 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveIsolation_NoRuntimeChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputIsolation_NoRuntimeOutput()
         {
-            Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove();
+            Replay_LegacyChargeEntityMotionOutputProducer_RuntimeMatrix_NoOutput();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputProducer_NonePolicyNoOutput()
         {
-            Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput();
+            Replay_NoLegacyChargeEntityMotionOutput_NonePolicyRejectsBeforeGenericExpansion();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ChargeMoveIsolation_DiagnosticBaseline_NoChargeMove()
+        public void Replay_LegacyChargeEntityMotionOutputIsolation_NonePolicyNoRuntimeOutput()
         {
-            Replay_ChargeMoveProducer_DiagnosticBaseline_NoChargeMove();
+            Replay_LegacyChargeEntityMotionOutputProducer_NonePolicyNoOutput();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeMove()
+        public void Replay_Phase6_ChargeKinematicAnchorCommit_UsesMoveEntityButNoLegacyChargeEntityMotionOutput()
         {
             var inputs = Enumerable.Range(1, 5)
                 .Select(tick => new TickInput(tick))
@@ -1256,13 +1267,27 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Is.False);
         }
 
-        private static void AssertReplayHasNoChargeMove(IReadOnlyList<TickReplayFrame> replay)
+        private static void AssertReplayHasNoLegacyChargeEntityMotionOutput(IReadOnlyList<TickReplayFrame> replay)
         {
             Assert.That(
                 replay.Any(frame =>
                     frame.Trace.Contains("ChargeMove", StringComparison.Ordinal) ||
                     frame.EventLogDump.Contains("ChargeMove", StringComparison.Ordinal)),
                 Is.False);
+        }
+
+        private static void AssertChargeReplayRejectedBeforeGenericExpansion(IReadOnlyList<TickReplayFrame> replay)
+        {
+            AssertReplayHasNoLegacyChargeEntityMotionOutput(replay);
+            Assert.That(
+                replay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal) ||
+                                    frame.EventLogDump.Contains("GenericExpansionOwned", StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                replay.Any(frame =>
+                    frame.Trace.Contains(EnemyChargeKinematicFlagOffActiveMoveRejectedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(EnemyChargeKinematicFlagOffActiveMoveRejectedReason, StringComparison.Ordinal)),
+                Is.True);
         }
 
         private static IReadOnlyList<TickReplayFrame> RunScriptedChargeActiveReplay(
