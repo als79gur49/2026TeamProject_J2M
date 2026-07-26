@@ -175,11 +175,6 @@ namespace Game.Feature.UI.Tests
                 objectiveView.Bind(objectivePresenter.ViewModel);
                 SettleObjectiveRows(objectiveView);
 
-                if (string.Equals(scenario.State, "MaxStack", StringComparison.Ordinal))
-                {
-                    source.Publish(CreateSnapshot(CreateReadModel(scenario, completePrimary: true)));
-                }
-
                 ForceLayoutAndText(root);
                 var activeRows = GetActiveRows(objectiveView);
                 ValidatePresentation(
