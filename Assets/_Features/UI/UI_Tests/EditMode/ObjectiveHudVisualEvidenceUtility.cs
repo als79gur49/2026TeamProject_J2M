@@ -350,7 +350,7 @@ namespace Game.Feature.UI.Tests
                 throw new MissingMethodException(nameof(ObjectiveHudView), "ProcessTransitionAdvance");
             }
 
-            for (var iteration = 0; iteration < 16; iteration++)
+            for (var iteration = 0; iteration < 64; iteration++)
             {
                 var rows = GetActiveRows(view);
                 foreach (var row in rows)
