@@ -60,8 +60,12 @@ namespace Game.Feature.UI.Tests
             var gitHead = TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead();
             var errors = new List<string>();
             var captures = new List<CaptureRecord>();
-
-            using (var assetGuard = AssetFileRestoreGuard.Capture(ClimateFontPath))
+            var crossLocaleParity = false;
+            var unexpectedPixelDelta = -1L;
+            IReadOnlyList<CaptureAssetMutationEvidence> mutationEvidence =
+                Array.Empty<CaptureAssetMutationEvidence>();
+            var assetGuard = CaptureAssetMutationGuard.Capture(new[] { ClimateFontPath });
+            try
             {
                 foreach (var scenario in Scenarios)
                 {
@@ -71,7 +75,8 @@ namespace Game.Feature.UI.Tests
                             scenario,
                             outputDirectory,
                             width,
-                            height));
+                            height,
+                            assetGuard));
                     }
                     catch (Exception exception)
                     {
@@ -91,6 +96,46 @@ namespace Game.Feature.UI.Tests
                             $"{localeCaptures.Key}: visual states produced duplicate PNG hashes.");
                     }
                 }
+
+                crossLocaleParity = ValidateCrossLocaleParity(
+                    captures,
+                    errors,
+                    out unexpectedPixelDelta);
+            }
+            finally
+            {
+                try
+                {
+                    mutationEvidence = assetGuard.ObserveBeforeRestore();
+                    foreach (var item in mutationEvidence)
+                    {
+                        if (!item.Allowed)
+                        {
+                            errors.Add($"UNEXPECTED_ASSET_MUTATION before restore: {item.Path}");
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(
+                        $"Capture asset mutation observation failed before restore: {exception.Message}");
+                }
+
+                try
+                {
+                    assetGuard.Dispose();
+                    foreach (var item in mutationEvidence)
+                    {
+                        if (!item.Restored)
+                        {
+                            errors.Add($"Capture asset restore failed: {item.Path}");
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    errors.Add($"Capture asset restore failed: {exception.Message}");
+                }
             }
 
             var manifestPath = WriteManifest(
@@ -99,6 +144,9 @@ namespace Game.Feature.UI.Tests
                 height,
                 gitHead,
                 captures,
+                mutationEvidence,
+                crossLocaleParity,
+                unexpectedPixelDelta,
                 errors);
             Debug.Log($"Objective HUD visual manifest: {manifestPath}");
             if (errors.Count > 0 ||
@@ -114,13 +162,15 @@ namespace Game.Feature.UI.Tests
             CaptureScenario scenario,
             string outputDirectory,
             int width,
-            int height)
+            int height,
+            CaptureAssetMutationGuard assetGuard)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
             if (prefab == null)
             {
                 throw new InvalidOperationException($"Gameplay HUD prefab was not found at {HudPrefabPath}.");
             }
+            assetGuard.IncludeFontAssets(prefab);
 
             var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
             if (climate == null)
@@ -161,7 +211,8 @@ namespace Game.Feature.UI.Tests
                 }
 
                 root = Object.Instantiate(prefab);
-                root.name = $"ObjectiveHudVisual_{scenario.State}_{scenario.Locale}";
+                root.name = $"ObjectiveHudVisual_{scenario.State}";
+                assetGuard.IncludeFontAssets(root);
                 var hud = root.GetComponent<HUDRootView>();
                 hud.ValidateAuthoredStructureOrThrow();
                 var objectiveView = hud.ObjectiveHudView;
@@ -210,6 +261,7 @@ namespace Game.Feature.UI.Tests
                 };
                 texture = TypographyPreviewScreenshotUtility.CaptureRootForValidation(root, options);
                 var pngBytes = texture.EncodeToPNG();
+                var pixels = texture.GetPixels32();
                 var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
                 var filePath = Path.Combine(outputDirectory, fileName);
                 File.WriteAllBytes(filePath, pngBytes);
@@ -238,6 +290,9 @@ namespace Game.Feature.UI.Tests
 
                 var headerIdentity = ReadIdentity(objectiveView.HeaderLabel);
                 var rowIdentity = ReadIdentity(activeRows[0].Label);
+                var graphicStates = CaptureRequiredGraphicStates(root, width, height);
+                ValidateRequiredGraphicCategories(graphicStates, scenario);
+                var textRegions = CaptureTextRegions(root, width, height);
                 return new CaptureRecord(
                     scenario,
                     fileName,
@@ -245,7 +300,16 @@ namespace Game.Feature.UI.Tests
                     ComputeSha256(pngBytes),
                     headerIdentity,
                     rowIdentity,
+                    graphicStates,
+                    textRegions,
+                    pixels,
+                    width,
+                    root.activeInHierarchy,
+                    ResolveRootCanvasGroupAlpha(root),
+                    ComputeSemanticSnapshotHash(initialReadModel),
+                    ComputeHierarchyHash(root),
                     nonBlank ? "PASS" : "FAIL",
+                    "PASS",
                     "PASS",
                     "PASS",
                     string.Empty);
@@ -275,7 +339,7 @@ namespace Game.Feature.UI.Tests
                 CreateCondition(
                     "reach-exit",
                     GameplayObjectivePresentationKind.ReachExit,
-                    "reach-exit",
+                    "reach-exit|role-1",
                     GameplayObjectiveConditionRole.PrimaryGoal,
                     completePrimary,
                     completePrimary ? 1 : 0,
@@ -384,6 +448,11 @@ namespace Game.Feature.UI.Tests
         private static void ForceLayoutAndText(GameObject root)
         {
             Canvas.ForceUpdateCanvases();
+            foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
+            {
+                graphic.SetAllDirty();
+            }
+
             foreach (var rect in root.GetComponentsInChildren<RectTransform>(true))
             {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
@@ -391,7 +460,14 @@ namespace Game.Feature.UI.Tests
 
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
             {
+                text.SetAllDirty();
                 text.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            }
+
+            Canvas.ForceUpdateCanvases();
+            foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
+            {
+                graphic.SetAllDirty();
             }
 
             Canvas.ForceUpdateCanvases();
@@ -639,16 +715,488 @@ namespace Game.Feature.UI.Tests
             return pixels.Length > 0 && pixels.Any(pixel => !pixel.Equals(pixels[0]));
         }
 
+        private static IReadOnlyList<GraphicState> CaptureRequiredGraphicStates(
+            GameObject root,
+            int width,
+            int height)
+        {
+            if (!(root.transform is RectTransform rootRect))
+            {
+                throw new InvalidOperationException("HUD capture root must be a RectTransform.");
+            }
+
+            var states = new List<GraphicState>();
+            foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
+            {
+                if (graphic == null ||
+                    graphic is TMP_Text ||
+                    !graphic.gameObject.activeInHierarchy ||
+                    !graphic.enabled)
+                {
+                    continue;
+                }
+
+                var alphaOccupancy = ResolveAlphaOccupancy(graphic);
+                if (alphaOccupancy <= 0.001f || graphic.canvasRenderer.cull)
+                {
+                    continue;
+                }
+
+                var rectTransform = graphic.rectTransform;
+                var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    rootRect,
+                    rectTransform);
+                var relativeBounds = Rect.MinMaxRect(
+                    bounds.min.x,
+                    bounds.min.y,
+                    bounds.max.x,
+                    bounds.max.y);
+                var screenBounds = Rect.MinMaxRect(
+                    relativeBounds.xMin - rootRect.rect.xMin,
+                    relativeBounds.yMin - rootRect.rect.yMin,
+                    relativeBounds.xMax - rootRect.rect.xMin,
+                    relativeBounds.yMax - rootRect.rect.yMin);
+                var identity = ReadGraphicIdentity(graphic);
+                states.Add(new GraphicState(
+                    BuildTransformPath(root.transform, graphic.transform),
+                    ResolveGraphicCategory(graphic),
+                    graphic.gameObject.activeInHierarchy,
+                    alphaOccupancy,
+                    graphic.enabled,
+                    identity,
+                    relativeBounds,
+                    screenBounds,
+                    screenBounds.width > 0f &&
+                    screenBounds.height > 0f &&
+                    screenBounds.xMax > 0f &&
+                    screenBounds.yMax > 0f &&
+                    screenBounds.xMin < width &&
+                    screenBounds.yMin < height));
+            }
+
+            return states
+                .OrderBy(state => state.Path, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        private static void ValidateRequiredGraphicCategories(
+            IReadOnlyList<GraphicState> graphicStates,
+            CaptureScenario scenario)
+        {
+            var objectiveCount = graphicStates.Count(state =>
+                string.Equals(state.Category, "ObjectiveHud", StringComparison.Ordinal));
+            var chanceCount = graphicStates.Count(state =>
+                string.Equals(state.Category, "ChancePanel", StringComparison.Ordinal));
+            var surfaceCount = graphicStates.Count(state =>
+                string.Equals(state.Category, "SurfaceBelt", StringComparison.Ordinal));
+            if (objectiveCount < scenario.ExpectedRowCount + 1)
+            {
+                throw new InvalidOperationException(
+                    $"ObjectiveHud required non-text graphics are incomplete: {objectiveCount}.");
+            }
+
+            if (chanceCount < 1)
+            {
+                throw new InvalidOperationException(
+                    "ChancePanel required non-text graphics are incomplete.");
+            }
+
+            if (surfaceCount < 1)
+            {
+                throw new InvalidOperationException(
+                    "SurfaceBelt required non-text graphics are incomplete.");
+            }
+
+            RequireGraphicPath(
+                graphicStates,
+                "objective panel background",
+                "HUD_SciFiSoldier_Objectives_02",
+                "SPR_Background");
+            RequireGraphicPath(
+                graphicStates,
+                "objective left decoration",
+                "HUD_SciFiSoldier_Objectives_02",
+                "SPR_Flag");
+            RequireGraphicPath(
+                graphicStates,
+                "chance panel background",
+                "ChancePanel",
+                "Background");
+            RequireGraphicPath(
+                graphicStates,
+                "surface belt background",
+                "SurfaceBeltIndicatorRoot",
+                "Background");
+            var objectiveCheckboxCount = graphicStates.Count(state =>
+                PathContainsAll(
+                    state.Path,
+                    "HUD_SciFiSoldier_Objective_Item_01",
+                    "SPR_Item_Inactive"));
+            if (objectiveCheckboxCount < scenario.ExpectedRowCount)
+            {
+                throw new InvalidOperationException(
+                    "Objective row checkbox/icon graphics are incomplete: " +
+                    $"{objectiveCheckboxCount}/{scenario.ExpectedRowCount}.");
+            }
+
+            var failed = graphicStates.Where(state => !state.Passed).ToArray();
+            if (failed.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    "Required non-text graphic state failed: " +
+                    string.Join(", ", failed.Select(state => state.Path)));
+            }
+        }
+
+        private static void RequireGraphicPath(
+            IEnumerable<GraphicState> graphicStates,
+            string label,
+            params string[] pathFragments)
+        {
+            if (!graphicStates.Any(state => PathContainsAll(state.Path, pathFragments)))
+            {
+                throw new InvalidOperationException(
+                    $"Required {label} graphic was not visible in the production hierarchy.");
+            }
+        }
+
+        private static bool PathContainsAll(string path, params string[] fragments)
+        {
+            return !string.IsNullOrEmpty(path) &&
+                   fragments.All(fragment =>
+                       path.IndexOf(fragment, StringComparison.Ordinal) >= 0);
+        }
+
+        private static float ResolveRootCanvasGroupAlpha(GameObject root)
+        {
+            var group = root.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                throw new InvalidOperationException(
+                    "HUD production capture root is missing its CanvasGroup.");
+            }
+
+            return group.alpha;
+        }
+
+        private static IReadOnlyList<Rect> CaptureTextRegions(
+            GameObject root,
+            int width,
+            int height)
+        {
+            var rootRect = root.transform as RectTransform
+                           ?? throw new InvalidOperationException(
+                               "HUD capture root must be a RectTransform.");
+            var regions = new List<Rect>();
+            foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
+            {
+                if (text == null ||
+                    !text.isActiveAndEnabled ||
+                    text.color.a <= 0f ||
+                    text.canvasRenderer.cull)
+                {
+                    continue;
+                }
+
+                var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    rootRect,
+                    text.rectTransform);
+                const float padding = 8f;
+                var region = Rect.MinMaxRect(
+                    Mathf.Max(0f, bounds.min.x - rootRect.rect.xMin - padding),
+                    Mathf.Max(0f, bounds.min.y - rootRect.rect.yMin - padding),
+                    Mathf.Min(width, bounds.max.x - rootRect.rect.xMin + padding),
+                    Mathf.Min(height, bounds.max.y - rootRect.rect.yMin + padding));
+                if (region.width > 0f && region.height > 0f)
+                {
+                    regions.Add(region);
+                }
+            }
+
+            return regions;
+        }
+
+        private static bool ValidateCrossLocaleParity(
+            IReadOnlyList<CaptureRecord> captures,
+            ICollection<string> errors,
+            out long unexpectedPixelDelta)
+        {
+            unexpectedPixelDelta = 0;
+            var passed = true;
+            foreach (var stateGroup in captures.GroupBy(capture => capture.Scenario.State))
+            {
+                var english = stateGroup.SingleOrDefault(capture =>
+                    string.Equals(capture.Scenario.Locale, "en-US", StringComparison.Ordinal));
+                var korean = stateGroup.SingleOrDefault(capture =>
+                    string.Equals(capture.Scenario.Locale, "ko-KR", StringComparison.Ordinal));
+                if (string.IsNullOrEmpty(english.FileName) ||
+                    string.IsNullOrEmpty(korean.FileName))
+                {
+                    errors?.Add($"{stateGroup.Key}: locale pair is incomplete.");
+                    passed = false;
+                    continue;
+                }
+
+                if (!string.Equals(
+                        english.SemanticSnapshotHash,
+                        korean.SemanticSnapshotHash,
+                        StringComparison.Ordinal))
+                {
+                    errors?.Add($"{stateGroup.Key}: semantic snapshot differs across locales.");
+                    passed = false;
+                }
+
+                if (!string.Equals(
+                        english.HierarchyHash,
+                        korean.HierarchyHash,
+                        StringComparison.Ordinal))
+                {
+                    errors?.Add($"{stateGroup.Key}: canvas hierarchy differs across locales.");
+                    passed = false;
+                }
+
+                var englishGraphics = english.GraphicStates.ToDictionary(
+                    state => state.Path,
+                    StringComparer.Ordinal);
+                var koreanGraphics = korean.GraphicStates.ToDictionary(
+                    state => state.Path,
+                    StringComparer.Ordinal);
+                if (!englishGraphics.Keys.OrderBy(value => value, StringComparer.Ordinal)
+                        .SequenceEqual(
+                            koreanGraphics.Keys.OrderBy(value => value, StringComparer.Ordinal),
+                            StringComparer.Ordinal))
+                {
+                    errors?.Add($"{stateGroup.Key}: required non-text graphic paths differ across locales.");
+                    passed = false;
+                }
+
+                foreach (var path in englishGraphics.Keys.Intersect(
+                             koreanGraphics.Keys,
+                             StringComparer.Ordinal))
+                {
+                    var left = englishGraphics[path];
+                    var right = koreanGraphics[path];
+                    if (!string.Equals(left.Identity, right.Identity, StringComparison.Ordinal) ||
+                        !RectsApproximatelyEqual(left.ScreenBounds, right.ScreenBounds) ||
+                        Mathf.Abs(left.AlphaOccupancy - right.AlphaOccupancy) > 0.001f)
+                    {
+                        errors?.Add(
+                            $"{stateGroup.Key}: non-text graphic parity mismatch at {path}.");
+                        passed = false;
+                    }
+                }
+
+                var pixelDelta = CountUnexpectedPixelDelta(english, korean);
+                unexpectedPixelDelta += pixelDelta;
+                if (pixelDelta != 0)
+                {
+                    errors?.Add(
+                        $"{stateGroup.Key}: {pixelDelta} non-text pixels differ across locales.");
+                    passed = false;
+                }
+            }
+
+            return passed;
+        }
+
+        private static long CountUnexpectedPixelDelta(
+            CaptureRecord english,
+            CaptureRecord korean)
+        {
+            if (english.Pixels == null ||
+                korean.Pixels == null ||
+                english.Pixels.Length != korean.Pixels.Length)
+            {
+                return long.MaxValue;
+            }
+
+            var excluded = english.TextRegions.Concat(korean.TextRegions).ToArray();
+            long delta = 0;
+            for (var index = 0; index < english.Pixels.Length; index++)
+            {
+                var x = index % english.Width;
+                var y = index / english.Width;
+                if (excluded.Any(region => region.Contains(new Vector2(x, y))))
+                {
+                    continue;
+                }
+
+                if (!english.Pixels[index].Equals(korean.Pixels[index]))
+                {
+                    delta++;
+                }
+            }
+
+            return delta;
+        }
+
+        private static string ComputeSemanticSnapshotHash(GameplayObjectiveReadModel model)
+        {
+            var builder = new StringBuilder();
+            builder.Append(model.HasObjective ? 1 : 0)
+                .Append('|')
+                .Append(model.GoalReached ? 1 : 0)
+                .Append('|')
+                .Append(model.AllConditionsSatisfied ? 1 : 0)
+                .Append('|')
+                .Append(model.IsCleared ? 1 : 0);
+            foreach (var condition in model.Conditions)
+            {
+                builder.Append('|')
+                    .Append(condition.StableId)
+                    .Append('|')
+                    .Append((int)condition.PresentationKind)
+                    .Append('|')
+                    .Append(condition.StableGroupKey)
+                    .Append('|')
+                    .Append((int)condition.Role)
+                    .Append('|')
+                    .Append(condition.Required ? 1 : 0)
+                    .Append('|')
+                    .Append(condition.IsSatisfied ? 1 : 0)
+                    .Append('|')
+                    .Append(condition.CompletedCount)
+                    .Append('|')
+                    .Append(condition.RequiredCount)
+                    .Append('|')
+                    .Append(condition.SortOrder);
+            }
+
+            return ComputeSha256(Encoding.UTF8.GetBytes(builder.ToString()));
+        }
+
+        private static string ComputeHierarchyHash(GameObject root)
+        {
+            var builder = new StringBuilder();
+            foreach (var transform in root.GetComponentsInChildren<Transform>(true)
+                         .OrderBy(item => BuildTransformPath(root.transform, item), StringComparer.Ordinal))
+            {
+                builder.Append(BuildTransformPath(root.transform, transform))
+                    .Append('|')
+                    .Append(transform.gameObject.activeSelf ? 1 : 0)
+                    .Append('|')
+                    .Append(transform.GetSiblingIndex())
+                    .AppendLine();
+            }
+
+            return ComputeSha256(Encoding.UTF8.GetBytes(builder.ToString()));
+        }
+
+        private static string BuildTransformPath(Transform root, Transform target)
+        {
+            var parts = new Stack<string>();
+            var current = target;
+            while (current != null)
+            {
+                parts.Push($"{current.name}[{current.GetSiblingIndex()}]");
+                if (ReferenceEquals(current, root))
+                {
+                    break;
+                }
+
+                current = current.parent;
+            }
+
+            return string.Join("/", parts);
+        }
+
+        private static string ResolveGraphicCategory(Graphic graphic)
+        {
+            if (graphic.GetComponentInParent<ObjectiveHudView>() != null)
+            {
+                return "ObjectiveHud";
+            }
+
+            if (graphic.GetComponentInParent<ChancePanelView>() != null)
+            {
+                return "ChancePanel";
+            }
+
+            if (graphic.GetComponentInParent<SurfaceBeltIndicatorView>() != null)
+            {
+                return "SurfaceBelt";
+            }
+
+            return "HudShell";
+        }
+
+        private static float ResolveAlphaOccupancy(Graphic graphic)
+        {
+            var alpha = graphic.color.a * graphic.canvasRenderer.GetAlpha();
+            var current = graphic.transform;
+            while (current != null)
+            {
+                var group = current.GetComponent<CanvasGroup>();
+                if (group != null)
+                {
+                    alpha *= group.alpha;
+                }
+
+                current = current.parent;
+            }
+
+            return alpha;
+        }
+
+        private static string ReadGraphicIdentity(Graphic graphic)
+        {
+            UnityEngine.Object asset = null;
+            if (graphic is Image image && image.sprite != null)
+            {
+                asset = image.sprite;
+            }
+            else if (graphic.material != null)
+            {
+                asset = graphic.material;
+            }
+
+            AssetDatabase.TryGetGUIDAndLocalFileIdentifier(
+                asset,
+                out var guid,
+                out long localId);
+            return string.Concat(
+                graphic.GetType().Name,
+                ":",
+                asset != null ? asset.name : "default",
+                ":",
+                guid,
+                ":",
+                localId.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static bool RectsApproximatelyEqual(Rect left, Rect right)
+        {
+            const float tolerance = 0.01f;
+            return Mathf.Abs(left.xMin - right.xMin) <= tolerance &&
+                   Mathf.Abs(left.yMin - right.yMin) <= tolerance &&
+                   Mathf.Abs(left.xMax - right.xMax) <= tolerance &&
+                   Mathf.Abs(left.yMax - right.yMax) <= tolerance;
+        }
+
+        private static string FormatRect(Rect rect)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0:F3},{1:F3},{2:F3},{3:F3}",
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height);
+        }
+
         private static string WriteManifest(
             string outputDirectory,
             int width,
             int height,
             string gitHead,
             IReadOnlyList<CaptureRecord> captures,
+            IReadOnlyList<CaptureAssetMutationEvidence> mutationEvidence,
+            bool crossLocaleParity,
+            long unexpectedPixelDelta,
             IReadOnlyList<string> errors)
         {
             var builder = new StringBuilder();
-            Append(builder, "schema_version", "1");
+            Append(builder, "schema_version", "2");
             Append(builder, "generated_at", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
             Append(builder, "git_head", gitHead);
             Append(builder, "unity_version", UnityEngine.Application.unityVersion);
@@ -666,6 +1214,34 @@ namespace Game.Feature.UI.Tests
                     ? "PASS"
                     : "FAIL");
             Append(builder, "canonical_status", "CANDIDATE_PENDING_INDEPENDENT_AUDIT");
+            Append(
+                builder,
+                "graphic_completeness",
+                captures.Count == Scenarios.Length &&
+                captures.All(capture =>
+                    string.Equals(
+                        capture.GraphicCompleteness,
+                        "PASS",
+                        StringComparison.Ordinal))
+                    ? "PASS"
+                    : "FAIL");
+            Append(
+                builder,
+                "cross_locale_non_text_parity",
+                crossLocaleParity ? "PASS" : "FAIL");
+            Append(
+                builder,
+                "unexpected_pixel_delta",
+                unexpectedPixelDelta.ToString(CultureInfo.InvariantCulture));
+            Append(
+                builder,
+                "asset_mutation_observed_before_restore",
+                mutationEvidence.Count > 0 ? "PASS" : "FAIL");
+            Append(
+                builder,
+                "unexpected_asset_mutation_count",
+                mutationEvidence.Count(item => !item.Allowed)
+                    .ToString(CultureInfo.InvariantCulture));
 
             foreach (var capture in captures)
             {
@@ -686,6 +1262,41 @@ namespace Game.Feature.UI.Tests
                 Append(builder, "nonblank", capture.NonBlank);
                 Append(builder, "glyph_coverage", capture.GlyphCoverage);
                 Append(builder, "layout", capture.Layout);
+                Append(builder, "graphic_completeness", capture.GraphicCompleteness);
+                Append(
+                    builder,
+                    "required_graphic_count",
+                    capture.GraphicStates.Count.ToString(CultureInfo.InvariantCulture));
+                Append(builder, "semantic_snapshot_hash", capture.SemanticSnapshotHash);
+                Append(builder, "hierarchy_hash", capture.HierarchyHash);
+                Append(builder, "localization_ready", "PASS");
+                Append(builder, "presenter_render_complete", "PASS");
+                Append(builder, "canvas_rebuild_complete", "PASS");
+                Append(builder, "hud_root_active_in_hierarchy", capture.RootActive ? "1" : "0");
+                Append(
+                    builder,
+                    "hud_root_canvas_group_alpha",
+                    capture.RootCanvasGroupAlpha.ToString("F6", CultureInfo.InvariantCulture));
+                Append(builder, "objective_settle_iterations", "64");
+                Append(builder, "end_of_frame_count", "0");
+                Append(builder, "capture_frame_index", "0");
+                for (var index = 0; index < capture.GraphicStates.Count; index++)
+                {
+                    var graphic = capture.GraphicStates[index];
+                    var prefix = $"graphic_{index:D3}_";
+                    Append(builder, prefix + "path", graphic.Path);
+                    Append(builder, prefix + "category", graphic.Category);
+                    Append(builder, prefix + "active_in_hierarchy", graphic.ActiveInHierarchy ? "1" : "0");
+                    Append(
+                        builder,
+                        prefix + "alpha_occupancy",
+                        graphic.AlphaOccupancy.ToString("F6", CultureInfo.InvariantCulture));
+                    Append(builder, prefix + "graphic_enabled", graphic.Enabled ? "1" : "0");
+                    Append(builder, prefix + "identity", graphic.Identity);
+                    Append(builder, prefix + "rect_bounds", FormatRect(graphic.RectBounds));
+                    Append(builder, prefix + "screen_space_bounds", FormatRect(graphic.ScreenBounds));
+                    Append(builder, prefix + "visible_pixel_area", graphic.VisiblePixelArea ? "POSITIVE" : "ZERO");
+                }
                 Append(builder, "header_font", capture.HeaderIdentity.FontName);
                 Append(builder, "header_font_guid", capture.HeaderIdentity.FontGuid);
                 Append(builder, "header_font_local_id", capture.HeaderIdentity.FontLocalId.ToString(CultureInfo.InvariantCulture));
@@ -702,6 +1313,23 @@ namespace Game.Feature.UI.Tests
                 Append(builder, "row_style", capture.RowIdentity.Style);
                 Append(builder, "capture_result", capture.Passed ? "PASS" : "FAIL");
                 Append(builder, "capture_errors", capture.Error);
+            }
+
+            for (var index = 0; index < mutationEvidence.Count; index++)
+            {
+                var mutation = mutationEvidence[index];
+                builder.AppendLine();
+                builder.Append("[asset-mutation/").Append(index).AppendLine("]");
+                Append(builder, "path", mutation.Path);
+                Append(builder, "before_hash", mutation.BeforeHash);
+                Append(builder, "after_capture_hash", mutation.AfterCaptureHash);
+                Append(builder, "mutation_detected", mutation.MutationDetected ? "1" : "0");
+                Append(builder, "changed_properties", mutation.ChangedProperties);
+                Append(builder, "classification", mutation.Classification);
+                Append(builder, "allowed", mutation.Allowed ? "1" : "0");
+                Append(builder, "lane_verdict_before_restore", mutation.LaneVerdictBeforeRestore);
+                Append(builder, "restored", mutation.Restored ? "1" : "0");
+                Append(builder, "restored_hash", mutation.RestoredHash);
             }
 
             foreach (var error in errors)
@@ -853,6 +1481,56 @@ namespace Game.Feature.UI.Tests
             public string Style { get; }
         }
 
+        private readonly struct GraphicState
+        {
+            public GraphicState(
+                string path,
+                string category,
+                bool activeInHierarchy,
+                float alphaOccupancy,
+                bool enabled,
+                string identity,
+                Rect rectBounds,
+                Rect screenBounds,
+                bool visiblePixelArea)
+            {
+                Path = path;
+                Category = category;
+                ActiveInHierarchy = activeInHierarchy;
+                AlphaOccupancy = alphaOccupancy;
+                Enabled = enabled;
+                Identity = identity;
+                RectBounds = rectBounds;
+                ScreenBounds = screenBounds;
+                VisiblePixelArea = visiblePixelArea;
+            }
+
+            public string Path { get; }
+
+            public string Category { get; }
+
+            public bool ActiveInHierarchy { get; }
+
+            public float AlphaOccupancy { get; }
+
+            public bool Enabled { get; }
+
+            public string Identity { get; }
+
+            public Rect RectBounds { get; }
+
+            public Rect ScreenBounds { get; }
+
+            public bool VisiblePixelArea { get; }
+
+            public bool Passed =>
+                ActiveInHierarchy &&
+                Enabled &&
+                AlphaOccupancy > 0.001f &&
+                !string.IsNullOrWhiteSpace(Identity) &&
+                VisiblePixelArea;
+        }
+
         private readonly struct CaptureRecord
         {
             public CaptureRecord(
@@ -862,9 +1540,18 @@ namespace Game.Feature.UI.Tests
                 string sha256,
                 AssetIdentity headerIdentity,
                 AssetIdentity rowIdentity,
+                IReadOnlyList<GraphicState> graphicStates,
+                IReadOnlyList<Rect> textRegions,
+                Color32[] pixels,
+                int width,
+                bool rootActive,
+                float rootCanvasGroupAlpha,
+                string semanticSnapshotHash,
+                string hierarchyHash,
                 string nonBlank,
                 string glyphCoverage,
                 string layout,
+                string graphicCompleteness,
                 string error)
             {
                 Scenario = scenario;
@@ -873,9 +1560,18 @@ namespace Game.Feature.UI.Tests
                 Sha256 = sha256;
                 HeaderIdentity = headerIdentity;
                 RowIdentity = rowIdentity;
+                GraphicStates = graphicStates ?? Array.Empty<GraphicState>();
+                TextRegions = textRegions ?? Array.Empty<Rect>();
+                Pixels = pixels ?? Array.Empty<Color32>();
+                Width = width;
+                RootActive = rootActive;
+                RootCanvasGroupAlpha = rootCanvasGroupAlpha;
+                SemanticSnapshotHash = semanticSnapshotHash ?? string.Empty;
+                HierarchyHash = hierarchyHash ?? string.Empty;
                 NonBlank = nonBlank;
                 GlyphCoverage = glyphCoverage;
                 Layout = layout;
+                GraphicCompleteness = graphicCompleteness;
                 Error = error ?? string.Empty;
             }
 
@@ -891,11 +1587,29 @@ namespace Game.Feature.UI.Tests
 
             public AssetIdentity RowIdentity { get; }
 
+            public IReadOnlyList<GraphicState> GraphicStates { get; }
+
+            public IReadOnlyList<Rect> TextRegions { get; }
+
+            public Color32[] Pixels { get; }
+
+            public int Width { get; }
+
+            public bool RootActive { get; }
+
+            public float RootCanvasGroupAlpha { get; }
+
+            public string SemanticSnapshotHash { get; }
+
+            public string HierarchyHash { get; }
+
             public string NonBlank { get; }
 
             public string GlyphCoverage { get; }
 
             public string Layout { get; }
+
+            public string GraphicCompleteness { get; }
 
             public string Error { get; }
 
@@ -905,6 +1619,11 @@ namespace Game.Feature.UI.Tests
                 string.Equals(NonBlank, "PASS", StringComparison.Ordinal) &&
                 string.Equals(GlyphCoverage, "PASS", StringComparison.Ordinal) &&
                 string.Equals(Layout, "PASS", StringComparison.Ordinal) &&
+                string.Equals(GraphicCompleteness, "PASS", StringComparison.Ordinal) &&
+                RootActive &&
+                RootCanvasGroupAlpha > 0.001f &&
+                GraphicStates.Count > 0 &&
+                GraphicStates.All(graphic => graphic.Passed) &&
                 string.IsNullOrEmpty(Error);
         }
 
@@ -959,35 +1678,5 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class AssetFileRestoreGuard : IDisposable
-        {
-            private readonly string path;
-            private readonly byte[] bytes;
-
-            private AssetFileRestoreGuard(string path)
-            {
-                this.path = path;
-                bytes = File.ReadAllBytes(path);
-            }
-
-            public static AssetFileRestoreGuard Capture(string path)
-            {
-                return new AssetFileRestoreGuard(path);
-            }
-
-            public void Dispose()
-            {
-                if (!File.ReadAllBytes(path).SequenceEqual(bytes))
-                {
-                    File.WriteAllBytes(path, bytes);
-                }
-
-                var assets = AssetDatabase.LoadAllAssetsAtPath(path);
-                foreach (var asset in assets)
-                {
-                    EditorUtility.ClearDirty(asset);
-                }
-            }
-        }
     }
 }

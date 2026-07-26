@@ -39,15 +39,41 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveTypography_PersistentPrefabTarget_RejectsRuntimeMetadataMutation()
+        {
+            var hud = UiTestPrefabAssetUtility.LoadHudPrefab();
+            var objectiveView = hud.ObjectiveHudView;
+            var binding = objectiveView.GetComponent<ObjectiveHudTypographyBinding>();
+            var header = objectiveView.HeaderLabel;
+            var existingBinding = TypographyBinding.FindFor(header);
+            var resolver = new MutableLocaleResolver("en-US");
+
+            Assert.That(existingBinding, Is.Null);
+            var exception = Assert.Throws<InvalidOperationException>(() => binding.Initialize(resolver));
+
+            Assert.That(exception.Message, Does.Contain("persistent asset"));
+            Assert.That(TypographyBinding.FindFor(header), Is.Null);
+        }
+
+        [Test]
         public void ObjectiveTypography_LocaleRoundTrip_ChangesIdentityAndPreservesAuthoredSizing()
         {
-            var instance = UnityEngine.Object.Instantiate(UiTestPrefabAssetUtility.LoadHudPrefab());
+            var parentObject = new GameObject("ObjectiveTypographyTestRoot", typeof(RectTransform));
+            var instance = UiTestPrefabAssetUtility.InstantiateHudPrefab(
+                parentObject.GetComponent<RectTransform>());
+            GameObject rowClone = null;
             try
             {
                 var objectiveView = instance.ObjectiveHudView;
                 var binding = objectiveView.GetComponent<ObjectiveHudTypographyBinding>();
-                var row = GetField<RectTransform>(objectiveView, "_objectiveItemTemplate")
-                    .GetComponent<ObjectiveHudRowView>();
+                var template = GetField<RectTransform>(objectiveView, "_objectiveItemTemplate");
+                rowClone = UnityEngine.Object.Instantiate(
+                    template.gameObject,
+                    template.parent,
+                    false);
+                rowClone.name = "ObjectiveTypographyRoundTripRow";
+                rowClone.SetActive(true);
+                var row = rowClone.GetComponent<ObjectiveHudRowView>();
                 var header = objectiveView.HeaderLabel;
                 var rowLabel = GetField<TMP_Text>(row, "_label");
                 var headerSizing = TextSizingSnapshot.Capture(header);
@@ -88,7 +114,12 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+                if (rowClone != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(rowClone);
+                }
+
+                UnityEngine.Object.DestroyImmediate(parentObject);
             }
         }
 
@@ -96,7 +127,9 @@ namespace Game.Feature.UI.Tests
         [TestCase("ko-KR", "밀기 상자 지정 장소로 이동하기 (99/99)")]
         public void ObjectiveRow_LongApprovedCopy_FitsAuthoredRow(string localeCode, string text)
         {
-            var instance = UnityEngine.Object.Instantiate(UiTestPrefabAssetUtility.LoadHudPrefab());
+            var parentObject = new GameObject("ObjectiveTypographyTestRoot", typeof(RectTransform));
+            var instance = UiTestPrefabAssetUtility.InstantiateHudPrefab(
+                parentObject.GetComponent<RectTransform>());
             GameObject rowClone = null;
             try
             {
@@ -130,7 +163,7 @@ namespace Game.Feature.UI.Tests
                     UnityEngine.Object.DestroyImmediate(rowClone);
                 }
 
-                UnityEngine.Object.DestroyImmediate(instance.gameObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
             }
         }
 

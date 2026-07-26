@@ -298,7 +298,26 @@ namespace Game.Feature.UI.Screens
                 ? binding.ApplyMaskOverride
                 : style.ApplyMask;
             applyMask |= requiredApplyMask;
-            var sizingSource = binding.SizingSourceOverride;
+            ApplyResolvedTypography(
+                target,
+                style,
+                authoredState,
+                applyMask,
+                binding.SizingSourceOverride);
+        }
+
+        public static void ApplyResolvedTypography(
+            TMP_Text target,
+            ResolvedTmpTypographyStyle style,
+            TmpTypographyAuthoredState authoredState,
+            TypographyApplyMask applyMask,
+            TypographySizingSource sizingSource)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
             var appliesFont = (applyMask & TypographyApplyMask.Font) != TypographyApplyMask.None;
             var appliesFontStyle = (applyMask & TypographyApplyMask.FontStyle) != TypographyApplyMask.None;
             var fontAssetMaterialState = CaptureMaterialScaleRatios(

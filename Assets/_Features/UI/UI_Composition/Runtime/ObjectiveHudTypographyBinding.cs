@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
@@ -16,6 +17,8 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private TypographyStyleTag _rowStyle = TypographyStyleTag.BodySmall;
 
         private ILocalizedTextResolver _localeSource;
+        private readonly Dictionary<TMP_Text, TmpTypographyAuthoredState> _authoredStates =
+            new Dictionary<TMP_Text, TmpTypographyAuthoredState>();
 
         public GameplayUiTypographyTheme Theme => _theme;
 
@@ -62,14 +65,24 @@ namespace Game.Feature.UI.Composition
             }
 
             ValidateAuthoredStructureOrThrow();
-            var binding = TypographyBinding.FindFor(target);
-            if (binding == null)
+#if UNITY_EDITOR
+            if (UnityEditor.EditorUtility.IsPersistent(this))
             {
-                binding = target.gameObject.AddComponent<TypographyBinding>();
+                throw new InvalidOperationException(
+                    $"{nameof(ObjectiveHudTypographyBinding)} cannot apply typography to a persistent asset. " +
+                    "Instantiate the authored HUD first.");
+            }
+#endif
+
+            var binding = TypographyBinding.FindFor(target);
+            if (binding != null)
+            {
+                binding.Configure(target, styleTag);
             }
 
-            binding.Configure(target, styleTag);
-            var authoredState = binding.CaptureAuthoredState();
+            var authoredState = binding != null
+                ? binding.CaptureAuthoredState()
+                : GetOrCaptureAuthoredState(target);
             if (string.Equals(
                     _localeSource.CurrentLocaleCode,
                     UnityStringTableTextResolver.DefaultLocaleCode,
@@ -82,13 +95,37 @@ namespace Game.Feature.UI.Composition
             }
 
             var resolvedStyle = _theme.ResolveOrThrow(_localeSource.CurrentLocaleCode, styleTag);
+            const TypographyApplyMask requiredMask =
+                TypographyApplyMask.Font |
+                TypographyApplyMask.Material |
+                TypographyApplyMask.FontStyle;
+            if (binding != null)
+            {
+                LocalizedTmpTextApplicator.ApplyResolvedTypography(
+                    target,
+                    resolvedStyle,
+                    binding,
+                    requiredMask);
+                return;
+            }
+
             LocalizedTmpTextApplicator.ApplyResolvedTypography(
                 target,
                 resolvedStyle,
-                binding,
-                TypographyApplyMask.Font |
-                TypographyApplyMask.Material |
-                TypographyApplyMask.FontStyle);
+                authoredState,
+                resolvedStyle.ApplyMask | requiredMask,
+                TypographySizingSource.Hybrid);
+        }
+
+        private TmpTypographyAuthoredState GetOrCaptureAuthoredState(TMP_Text target)
+        {
+            if (!_authoredStates.TryGetValue(target, out var authoredState))
+            {
+                authoredState = TmpTypographyAuthoredState.Capture(target);
+                _authoredStates.Add(target, authoredState);
+            }
+
+            return authoredState;
         }
     }
 }
