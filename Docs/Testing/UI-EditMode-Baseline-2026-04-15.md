@@ -18,8 +18,8 @@
 - Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
 - Current Climate Crisis KR PR2 typography contract rerun: green on 2026-07-26 KST with code-head `CommandLine-20260726-052954`, Settings 38 applied / 13 skipped, six canonical PNGs, and three separate Climate diagnostic PNGs
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1060 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1060 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1073 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1073 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -29,7 +29,7 @@
 
 ## Structural Delta
 - Added tests:
-  - Climate Crisis KR asset GUID/material/hash and ScaleRatio A/B/C governance, 19-role completeness, en-US identity preservation, Nanum retention, dynamic managed-table glyph scanning, and approved Pause/audio/display layout guards
+  - Climate Crisis KR committed TTF/SDF Git-blob, GUID, material localID, and Nanum-retention preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values are diagnostic only
   - Climate ko-KR diagnostic screenshot coverage for ConfirmPopup, Settings Audio muted, and Settings Display status, kept outside the exact canonical six-file root
   - locale-independent typography P2 guards for invalid invariant style enums, null-theme invariant/themed preview parity, parent/child Selection normalization, independent roots, repeated preview calls, unique restore counts, live Settings 38-count capture, and schema-v1 manifest rejection of Settings count 51
   - production Settings typography composition tests that open Settings through the actual Main Menu scene installer/overlay path and the actual UIAudioScene installer/coordinator path, then verify the shared catalog/builder, exact closure across all 51 TMP targets / binding targets / manifest entries, 36 governed-target font/material/fontStyle parity, open dropdown live-item restyling, and prefab-authored `en-US -> ko-KR -> en-US` restoration
@@ -60,9 +60,9 @@
   - PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary
   - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, `ResultContinueLabel`, StageResult text payload members, hidden title/detail prefab labels, and production YAML residue are absent
 - Test count delta:
-  - previous documented current UI EditMode result: `872 total / 0 failed`
-  - current rerun: `1060 total / 0 failed`
-  - observed delta since that documented result: `+188` tests across intervening UI work; Climate PR2 adds bounded asset/role/glyph/layout and diagnostic visual guards, while unrelated intervening growth is not attributed to this slice
+  - previous documented current UI EditMode result: `1060 total / 0 failed`
+  - current rerun: `1073 total / 0 failed`
+  - observed delta since that documented result: `+13` tests across ObjectiveHud localization/visual-contract coverage and the separated Climate source/import guard
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -94,6 +94,7 @@
   - legitimate public-surface evolution is allowed only when it is durable, architecture-relevant, and lands with the functional change, updated freeze expectation, matching behavior guard, and baseline/doc rationale in the same change
 - Stale baseline wording correction:
   - the baseline note and `Docs/Testing/Gameplay-Test-Automation-Guide.md` must be updated together when the UI lane scope, interpretation, or counts change
+  - Climate committed source identity must remain a pre-Unity Git-object gate; UI tests must not reinterpret a known importer-derived working serialization as source corruption
 - Weak-to-strong guard replacement:
   - replacing a weak guard is acceptable only when this note records the old seam, the stronger replacement guard, and the reason the replacement is stronger
 - Accidental seam erosion:

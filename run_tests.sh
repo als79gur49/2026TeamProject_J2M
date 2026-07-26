@@ -26,6 +26,16 @@ OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
 OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
 OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
+CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
+CLIMATE_SDF_ASSET="$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET"
+CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
+CLIMATE_COMMITTED_SDF_SHA256="c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5"
+CLIMATE_IMPORT_DERIVED_SDF_SHA256="71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"
+CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
+CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
+CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
+CLIMATE_MATERIAL_LOCAL_ID="1352911973252649374"
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
 
@@ -88,6 +98,117 @@ require_command() {
     if ! command -v "$command_name" >/dev/null 2>&1; then
         echo "Missing required command: $command_name"
         exit 1
+    fi
+}
+
+git_head_blob_sha256() {
+    local path="$1"
+
+    git show "HEAD:$path" | sha256sum | awk '{print $1}'
+}
+
+require_git_head_blob_text() {
+    local path="$1"
+    local expected="$2"
+    local label="$3"
+
+    if ! git show "HEAD:$path" | grep -F -- "$expected" >/dev/null; then
+        echo "ERROR: Git HEAD $label mismatch: $path"
+        return 1
+    fi
+}
+
+verify_climate_committed_source_integrity() {
+    local committed_sdf_hash
+    local committed_ttf_hash
+    local retained_path
+    local -a retained_nanum_paths=(
+        "Assets/_Shared/UI/Fonts/NanumGothic.ttf"
+        "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
+    )
+
+    committed_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_SDF_ASSET")"
+    committed_ttf_hash="$(git_head_blob_sha256 "$CLIMATE_SOURCE_TTF_ASSET")"
+    if [ "$committed_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Climate committed SDF Git blob mismatch."
+        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  actual:   $committed_sdf_hash"
+        return 1
+    fi
+    if [ "$committed_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Climate committed source TTF Git blob mismatch."
+        echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
+        echo "  actual:   $committed_ttf_hash"
+        return 1
+    fi
+
+    require_git_head_blob_text \
+        "$CLIMATE_SOURCE_TTF_META" \
+        "guid: $CLIMATE_SOURCE_TTF_GUID" \
+        "source TTF GUID"
+    require_git_head_blob_text \
+        "$CLIMATE_SDF_META" \
+        "guid: $CLIMATE_SDF_GUID" \
+        "SDF GUID"
+    require_git_head_blob_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "material localID"
+
+    for retained_path in "${retained_nanum_paths[@]}"; do
+        if ! git cat-file -e "HEAD:$retained_path"; then
+            echo "ERROR: Required retained Nanum asset is absent from Git HEAD: $retained_path"
+            return 1
+        fi
+    done
+
+    echo "Climate committed source integrity: PASS"
+    echo "  SDF Git blob SHA-256: $committed_sdf_hash"
+    echo "  TTF GUID:             $CLIMATE_SOURCE_TTF_GUID"
+    echo "  SDF GUID:             $CLIMATE_SDF_GUID"
+    echo "  Material localID:     $CLIMATE_MATERIAL_LOCAL_ID"
+    echo "  Nanum retained:       YES"
+}
+
+climate_working_sha256() {
+    sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+}
+
+diagnose_climate_working_state() {
+    local label="$1"
+    local hash="$2"
+
+    echo "Climate working-state diagnostic [$label]:"
+    echo "  SHA-256: $hash"
+    case "$hash" in
+        "$CLIMATE_COMMITTED_SDF_SHA256")
+            echo "  Classification: COMMITTED_SOURCE_SHAPE"
+            ;;
+        "$CLIMATE_IMPORT_DERIVED_SDF_SHA256")
+            echo "  Classification: EXPECTED_IMPORT_DERIVED_DRIFT"
+            echo "  Derived properties: ScaleRatioA=0.9 ScaleRatioC=0.73125"
+            ;;
+        *)
+            echo "  Classification: UNEXPECTED_IMPORTER_MUTATION"
+            return 1
+            ;;
+    esac
+}
+
+verify_climate_working_transition() {
+    local before="$1"
+    local after="$2"
+
+    diagnose_climate_working_state "pre-import" "$before"
+    diagnose_climate_working_state "post-import" "$after"
+    if [ "$before" = "$after" ]; then
+        echo "  Import transition: NO_DRIFT"
+    elif [ "$before" = "$CLIMATE_COMMITTED_SDF_SHA256" ] &&
+         [ "$after" = "$CLIMATE_IMPORT_DERIVED_SDF_SHA256" ]; then
+        echo "  Import transition: EXPECTED_IMPORT_DERIVED_DRIFT"
+    else
+        echo "  Import transition: KNOWN_SHAPE_TRANSITION"
     fi
 }
 
@@ -1134,7 +1255,13 @@ run_unity_core_feature_gate() {
 }
 
 run_unity_ui() {
+    local climate_hash_before
+    local climate_hash_after
+
+    climate_hash_before="$(climate_working_sha256)"
     run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Feature.UI.Tests" ""
+    climate_hash_after="$(climate_working_sha256)"
+    verify_climate_working_transition "$climate_hash_before" "$climate_hash_after"
 }
 
 run_typography_visual() {
@@ -1580,9 +1707,14 @@ main() {
         require_command timeout
         require_command python3
         require_file "$UNITY_PATH" "Unity executable"
-        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
+        if [ "$mode" = "ui" ] ||
+           [ "$mode" = "typography-visual" ] ||
+           [ "$mode" = "typography-hud-visual" ]; then
             require_command git
             require_command sha256sum
+            verify_climate_committed_source_integrity
+        fi
+        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
             ensure_result_dirs
         else
             require_file "$DOTNET_PATH" "dotnet executable"

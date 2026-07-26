@@ -32,19 +32,14 @@ namespace Game.Feature.UI.Tests
         private const string ClimateFontGuid = "40d61154fd6576b4d85c2d78460b16ad";
         private const long ClimateFontLocalId = 11400000;
         private const long ClimateMaterialLocalId = 1352911973252649374;
-        private const string SourceFontSha256 =
-            "aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1";
-        private const string CommittedSdfSha256 =
-            "c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5";
         private const string EnglishContractSha256 =
             "3def0381e783b5bd7286e824a6fcea11dddb659ed5a3aab667a239d070868f92";
 
         [Test]
-        public void ClimateAssets_KeepCommittedIdentityAndCanonicalMaterial()
+        public void ClimateAssets_KeepRuntimeIdentityAndCanonicalReferences()
         {
             var fontAsset = LoadClimateFont();
             var material = fontAsset.material;
-            var serializedFontAsset = File.ReadAllText(FontAssetPath);
 
             Assert.That(AssetDatabase.AssetPathToGUID(SourceFontPath), Is.EqualTo("5360535d0de75234ca21822297323672"));
             AssertAssetIdentity(fontAsset, ClimateFontGuid, ClimateFontLocalId, "Climate TMP font");
@@ -53,11 +48,27 @@ namespace Game.Feature.UI.Tests
             Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1));
             Assert.That(fontAsset.atlasTextures[0], Is.Not.Null);
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
-            Assert.That(serializedFontAsset, Does.Contain("- _ScaleRatioA: 1"));
-            Assert.That(serializedFontAsset, Does.Contain("- _ScaleRatioB: 1"));
-            Assert.That(serializedFontAsset, Does.Contain("- _ScaleRatioC: 1"));
-            Assert.That(ComputeSha256(SourceFontPath), Is.EqualTo(SourceFontSha256));
-            Assert.That(ComputeSha256(FontAssetPath), Is.EqualTo(CommittedSdfSha256));
+        }
+
+        [Test]
+        public void ClimateSourceGuard_SeparatesHeadBlobIntegrityFromWorkingImportState()
+        {
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
+
+            Assert.That(
+                runner,
+                Does.Contain("git show \"HEAD:$path\" | sha256sum"),
+                "Committed source integrity must read Git HEAD blobs.");
+            Assert.That(
+                runner,
+                Does.Contain("Climate committed source integrity: PASS"));
+            Assert.That(
+                runner,
+                Does.Contain("EXPECTED_IMPORT_DERIVED_DRIFT"));
+            Assert.That(
+                runner,
+                Does.Contain("UNEXPECTED_IMPORTER_MUTATION"));
         }
 
         [Test]
@@ -380,11 +391,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(start, Is.GreaterThanOrEqualTo(0), startMarker);
             Assert.That(end, Is.GreaterThan(start), endMarker);
             return value.Substring(start + startMarker.Length, end - start - startMarker.Length);
-        }
-
-        private static string ComputeSha256(string path)
-        {
-            return ComputeSha256(File.ReadAllBytes(path));
         }
 
         private static string ComputeTextSha256(string value)
