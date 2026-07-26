@@ -460,8 +460,18 @@ namespace Game.Feature.UI.Tests
                     $"Objective viewport height {objectiveLayout?.preferredHeight ?? 0f} is below required {requiredHeight}.");
             }
 
+            ValidateViewportGeometry(view, activeRows);
+
             foreach (var text in new[] { view.HeaderLabel }.Concat(activeRows.Select(row => row.Label)))
             {
+                if (!text.isActiveAndEnabled ||
+                    text.color.a <= 0f ||
+                    text.canvasRenderer.cull)
+                {
+                    throw new InvalidOperationException(
+                        $"{text.name} is not visible in the production HUD composition.");
+                }
+
                 var missing = text.text
                     .Where(character => !char.IsControl(character) && !char.IsWhiteSpace(character))
                     .Where(character => !text.font.HasCharacter(
@@ -485,6 +495,74 @@ namespace Game.Feature.UI.Tests
                 {
                     throw new InvalidOperationException(
                         $"{text.name} preferred height {preferred.y} exceeds {availableHeight}.");
+                }
+            }
+        }
+
+        private static void ValidateViewportGeometry(
+            ObjectiveHudView view,
+            IReadOnlyList<ActiveRow> activeRows)
+        {
+            if (!(view.transform is RectTransform viewport))
+            {
+                throw new InvalidOperationException("Objective HUD root is not a RectTransform.");
+            }
+
+            var presentationRects = new List<PresentationRect>
+            {
+                new PresentationRect("header", view.HeaderLabel.rectTransform),
+            };
+            presentationRects.AddRange(activeRows.Select(row =>
+                new PresentationRect(
+                    $"row '{row.View.StableId}'",
+                    row.View.transform as RectTransform)));
+
+            var viewportRect = viewport.rect;
+            var projected = new List<ProjectedPresentationRect>(presentationRects.Count);
+            foreach (var presentationRect in presentationRects)
+            {
+                if (presentationRect.Target == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{presentationRect.Name} has no RectTransform.");
+                }
+
+                var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    viewport,
+                    presentationRect.Target);
+                var rect = Rect.MinMaxRect(
+                    bounds.min.x,
+                    bounds.min.y,
+                    bounds.max.x,
+                    bounds.max.y);
+                if (rect.width <= 0f || rect.height <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{presentationRect.Name} has invalid bounds {rect}.");
+                }
+
+                const float tolerance = 0.01f;
+                if (rect.xMin < viewportRect.xMin - tolerance ||
+                    rect.xMax > viewportRect.xMax + tolerance ||
+                    rect.yMin < viewportRect.yMin - tolerance ||
+                    rect.yMax > viewportRect.yMax + tolerance)
+                {
+                    throw new InvalidOperationException(
+                        $"{presentationRect.Name} bounds {rect} escape Objective viewport {viewportRect}.");
+                }
+
+                projected.Add(new ProjectedPresentationRect(presentationRect.Name, rect));
+            }
+
+            projected.Sort((left, right) => right.Rect.yMax.CompareTo(left.Rect.yMax));
+            for (var index = 1; index < projected.Count; index++)
+            {
+                var previous = projected[index - 1];
+                var current = projected[index];
+                if (current.Rect.yMax > previous.Rect.yMin + 0.01f)
+                {
+                    throw new InvalidOperationException(
+                        $"{previous.Name} bounds {previous.Rect} overlap {current.Name} bounds {current.Rect}.");
                 }
             }
         }
@@ -712,6 +790,32 @@ namespace Game.Feature.UI.Tests
             public ObjectiveHudRowView View { get; }
 
             public TMP_Text Label { get; }
+        }
+
+        private readonly struct PresentationRect
+        {
+            public PresentationRect(string name, RectTransform target)
+            {
+                Name = name;
+                Target = target;
+            }
+
+            public string Name { get; }
+
+            public RectTransform Target { get; }
+        }
+
+        private readonly struct ProjectedPresentationRect
+        {
+            public ProjectedPresentationRect(string name, Rect rect)
+            {
+                Name = name;
+                Rect = rect;
+            }
+
+            public string Name { get; }
+
+            public Rect Rect { get; }
         }
 
         private readonly struct AssetIdentity
