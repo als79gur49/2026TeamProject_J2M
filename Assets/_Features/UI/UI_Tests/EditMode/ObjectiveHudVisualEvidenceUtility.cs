@@ -830,7 +830,7 @@ namespace Game.Feature.UI.Tests
             var objectiveCheckboxCount = graphicStates.Count(state =>
                 PathContainsAll(
                     state.Path,
-                    "HUD_SciFiSoldier_Objective_Item_01",
+                    "Objective_Item_Runtime_",
                     "SPR_Item_Inactive"));
             if (objectiveCheckboxCount < scenario.ExpectedRowCount)
             {

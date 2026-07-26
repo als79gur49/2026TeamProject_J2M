@@ -640,6 +640,9 @@ namespace Game.Feature.UI.Composition.Editor
             try
             {
                 SetupPreviewScene(root, options, out cameraObject, out canvasObject, out var camera);
+                ForceLayoutUpdates(root);
+                ForceGraphicUpdates(root);
+                ForceTextMeshUpdates(root);
                 Canvas.ForceUpdateCanvases();
                 return RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
             }
