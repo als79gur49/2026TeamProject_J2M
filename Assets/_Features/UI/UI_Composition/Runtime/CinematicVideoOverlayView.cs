@@ -40,7 +40,9 @@ namespace Game.Feature.UI.Composition
         private CinematicPlaybackCompletion _pendingCompletion;
         private bool _completionDispatched;
         private bool _exitFadeRequested;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private bool _hasLoggedPlaybackDiagnostics;
+#endif
         private bool _hasLoggedClipAspectFallbackWarning;
         private bool _hasLoggedViewportFallbackWarning;
         private bool _queuedSkip;
@@ -221,7 +223,9 @@ namespace Game.Feature.UI.Composition
             _completion = completion;
             _completionDispatched = false;
             _exitFadeRequested = false;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             _hasLoggedPlaybackDiagnostics = false;
+#endif
             _queuedSkip = false;
             _skipEnabled = options.SkipEnabled;
             _fadeSettings = options.FadeSettings;
