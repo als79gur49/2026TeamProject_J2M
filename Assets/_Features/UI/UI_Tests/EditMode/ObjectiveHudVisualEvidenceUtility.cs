@@ -277,7 +277,11 @@ namespace Game.Feature.UI.Tests
                     Height = height,
                     BackgroundColor = new Color(0.015f, 0.025f, 0.045f, 1f),
                 };
-                texture = TypographyPreviewScreenshotUtility.CaptureRootForValidation(root, options);
+                texture = TypographyPreviewScreenshotUtility.CaptureRootForValidation(
+                    root,
+                    options,
+                    out var cameraRenderPassCount,
+                    out var captureFrameIndex);
                 var pngBytes = texture.EncodeToPNG();
                 var pixels = texture.GetPixels32();
                 var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
@@ -326,6 +330,8 @@ namespace Game.Feature.UI.Tests
                     ResolveRootCanvasGroupAlpha(root),
                     ComputeSemanticSnapshotHash(initialReadModel),
                     ComputeHierarchyHash(root),
+                    cameraRenderPassCount,
+                    captureFrameIndex,
                     nonBlank ? "PASS" : "FAIL",
                     "PASS",
                     "PASS",
@@ -1319,7 +1325,14 @@ namespace Game.Feature.UI.Tests
                     capture.RootCanvasGroupAlpha.ToString("F6", CultureInfo.InvariantCulture));
                 Append(builder, "objective_settle_iterations", "64");
                 Append(builder, "end_of_frame_count", "0");
-                Append(builder, "capture_frame_index", "0");
+                Append(
+                    builder,
+                    "camera_render_pass_count",
+                    capture.CameraRenderPassCount.ToString(CultureInfo.InvariantCulture));
+                Append(
+                    builder,
+                    "capture_frame_index",
+                    capture.CaptureFrameIndex.ToString(CultureInfo.InvariantCulture));
                 for (var index = 0; index < capture.GraphicStates.Count; index++)
                 {
                     var graphic = capture.GraphicStates[index];
@@ -1587,6 +1600,8 @@ namespace Game.Feature.UI.Tests
                 float rootCanvasGroupAlpha,
                 string semanticSnapshotHash,
                 string hierarchyHash,
+                int cameraRenderPassCount,
+                int captureFrameIndex,
                 string nonBlank,
                 string glyphCoverage,
                 string layout,
@@ -1607,6 +1622,8 @@ namespace Game.Feature.UI.Tests
                 RootCanvasGroupAlpha = rootCanvasGroupAlpha;
                 SemanticSnapshotHash = semanticSnapshotHash ?? string.Empty;
                 HierarchyHash = hierarchyHash ?? string.Empty;
+                CameraRenderPassCount = cameraRenderPassCount;
+                CaptureFrameIndex = captureFrameIndex;
                 NonBlank = nonBlank;
                 GlyphCoverage = glyphCoverage;
                 Layout = layout;
@@ -1641,6 +1658,10 @@ namespace Game.Feature.UI.Tests
             public string SemanticSnapshotHash { get; }
 
             public string HierarchyHash { get; }
+
+            public int CameraRenderPassCount { get; }
+
+            public int CaptureFrameIndex { get; }
 
             public string NonBlank { get; }
 

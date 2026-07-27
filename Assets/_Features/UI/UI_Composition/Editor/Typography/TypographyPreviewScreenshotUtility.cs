@@ -529,7 +529,13 @@ namespace Game.Feature.UI.Composition.Editor
                 ForceTextMeshUpdates(prefabRoot);
                 Canvas.ForceUpdateCanvases();
 
-                var texture = RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
+                var texture = RenderCameraToTexture(
+                    camera,
+                    options,
+                    out renderTexture,
+                    out previousRenderTexture,
+                    out _,
+                    out _);
                 try
                 {
                     ValidatePauseRenderedTargets(prefabRoot, capture);
@@ -622,6 +628,19 @@ namespace Game.Feature.UI.Composition.Editor
             GameObject root,
             TypographyPreviewScreenshotOptions options = null)
         {
+            return CaptureRootForValidation(
+                root,
+                options,
+                out _,
+                out _);
+        }
+
+        public static Texture2D CaptureRootForValidation(
+            GameObject root,
+            TypographyPreviewScreenshotOptions options,
+            out int cameraRenderPassCount,
+            out int captureFrameIndex)
+        {
             if (root == null)
             {
                 throw new ArgumentNullException(nameof(root));
@@ -644,7 +663,13 @@ namespace Game.Feature.UI.Composition.Editor
                 ForceGraphicUpdates(root);
                 ForceTextMeshUpdates(root);
                 Canvas.ForceUpdateCanvases();
-                return RenderCameraToTexture(camera, options, out renderTexture, out previousRenderTexture);
+                return RenderCameraToTexture(
+                    camera,
+                    options,
+                    out renderTexture,
+                    out previousRenderTexture,
+                    out cameraRenderPassCount,
+                    out captureFrameIndex);
             }
             finally
             {
@@ -1300,8 +1325,11 @@ namespace Game.Feature.UI.Composition.Editor
             Camera camera,
             TypographyPreviewScreenshotOptions options,
             out RenderTexture renderTexture,
-            out RenderTexture previousRenderTexture)
+            out RenderTexture previousRenderTexture,
+            out int cameraRenderPassCount,
+            out int captureFrameIndex)
         {
+            const int maximumRenderPasses = 8;
             renderTexture = new RenderTexture(options.Width, options.Height, 24, RenderTextureFormat.ARGB32)
             {
                 name = "TypographyPreviewScreenshotRT",
@@ -1313,28 +1341,89 @@ namespace Game.Feature.UI.Composition.Editor
             previousRenderTexture = RenderTexture.active;
             Graphics.SetRenderTarget(renderTexture);
             RenderTexture.active = renderTexture;
-            GL.Clear(true, true, options.BackgroundColor);
-            camera.Render();
-            Canvas.ForceUpdateCanvases();
-            Graphics.SetRenderTarget(renderTexture);
-            RenderTexture.active = renderTexture;
-            GL.Clear(true, true, options.BackgroundColor);
-            camera.Render();
-            Graphics.SetRenderTarget(renderTexture);
-            RenderTexture.active = renderTexture;
+            Texture2D previousTexture = null;
+            string previousHash = null;
+            var observedHashes = new List<string>(maximumRenderPasses);
+            cameraRenderPassCount = 0;
+            captureFrameIndex = -1;
+            for (var pass = 1; pass <= maximumRenderPasses; pass++)
+            {
+                Canvas.ForceUpdateCanvases();
+                Graphics.SetRenderTarget(renderTexture);
+                RenderTexture.active = renderTexture;
+                GL.Clear(true, true, options.BackgroundColor);
+                camera.Render();
+                Graphics.SetRenderTarget(renderTexture);
+                RenderTexture.active = renderTexture;
 
-            var texture = new Texture2D(options.Width, options.Height, TextureFormat.RGBA32, false);
+                var texture = ReadRenderTexture(renderTexture, options);
+                var hash = ComputeTextureHash(texture);
+                observedHashes.Add(hash);
+                cameraRenderPassCount = pass;
+                Debug.Log($"CAPTURE_RENDER_PASS index={pass - 1} sha256={hash}");
+                if (string.Equals(hash, previousHash, StringComparison.Ordinal))
+                {
+                    if (previousTexture != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(previousTexture);
+                    }
+
+                    captureFrameIndex = pass - 1;
+                    return texture;
+                }
+
+                if (previousTexture != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(previousTexture);
+                }
+
+                previousTexture = texture;
+                previousHash = hash;
+            }
+
+            if (previousTexture != null)
+            {
+                UnityEngine.Object.DestroyImmediate(previousTexture);
+            }
+
+            throw new InvalidOperationException(
+                "Capture rendering did not converge to two identical consecutive frames. " +
+                $"Observed hashes: {string.Join(", ", observedHashes)}.");
+        }
+
+        private static Texture2D ReadRenderTexture(
+            RenderTexture renderTexture,
+            TypographyPreviewScreenshotOptions options)
+        {
+            var texture = new Texture2D(
+                options.Width,
+                options.Height,
+                TextureFormat.RGBA32,
+                false);
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
             {
                 Graphics.CopyTexture(renderTexture, texture);
             }
             else
             {
-                texture.ReadPixels(new Rect(0, 0, options.Width, options.Height), 0, 0, false);
+                texture.ReadPixels(
+                    new Rect(0, 0, options.Width, options.Height),
+                    0,
+                    0,
+                    false);
             }
 
             texture.Apply();
             return texture;
+        }
+
+        private static string ComputeTextureHash(Texture2D texture)
+        {
+            using var sha = SHA256.Create();
+            var bytes = texture.GetRawTextureData<byte>().ToArray();
+            return string.Concat(
+                sha.ComputeHash(bytes)
+                    .Select(value => value.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         private static string NormalizeOutputDirectory(string outputDirectory)
