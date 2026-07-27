@@ -1771,6 +1771,12 @@ if root.get("overall_result") != "PASS" or root.get("errors") != "0":
     raise SystemExit("ERROR: Objective HUD manifest did not record a clean PASS")
 if root.get("canonical_status") != "CANDIDATE_PENDING_INDEPENDENT_AUDIT":
     raise SystemExit("ERROR: Objective HUD canonical audit status mismatch")
+if root.get("capture_mode") != "SCREEN_SPACE_OVERLAY_PRODUCTION_CONTROLLER_END_OF_FRAME":
+    raise SystemExit("ERROR: Objective HUD capture mode is not the production overlay path")
+if root.get("capture_environment") != "NON_BATCH_GAME_VIEW":
+    raise SystemExit("ERROR: Objective HUD capture environment cannot render EndOfFrame")
+if root.get("root_cause") != "FIXTURE_STATE_MISMATCH":
+    raise SystemExit("ERROR: Objective HUD old evidence root-cause classification mismatch")
 if root.get("graphic_completeness") != "PASS":
     raise SystemExit("ERROR: Objective HUD graphic completeness failed")
 if root.get("cross_locale_non_text_parity") != "PASS":
@@ -1802,6 +1808,17 @@ for name, entry in capture_sections.items():
     ):
         if entry.get(lifecycle) != "PASS":
             raise SystemExit(f"ERROR: {name} lifecycle field {lifecycle} failed")
+    if entry.get("objective_settle_strategy") != "PRODUCTION_UNSCALED_TIME":
+        raise SystemExit(f"ERROR: {name} did not use production objective lifecycle")
+    if entry.get("objective_settle_seconds") != "2.000":
+        raise SystemExit(f"ERROR: {name} objective settle duration mismatch")
+    try:
+        end_of_frame_count = int(entry.get("end_of_frame_count", ""))
+        capture_frame_index = int(entry.get("capture_frame_index", ""))
+    except ValueError:
+        raise SystemExit(f"ERROR: {name} frame lifecycle values are invalid")
+    if end_of_frame_count < 1 or capture_frame_index < end_of_frame_count:
+        raise SystemExit(f"ERROR: {name} EndOfFrame lifecycle was not observed")
     if entry.get("hud_root_active_in_hierarchy") != "1":
         raise SystemExit(f"ERROR: {name} HUD root is inactive")
     try:

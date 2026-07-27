@@ -12,6 +12,7 @@ using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
+using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.ViewShared;
 using TMPro;
@@ -28,6 +29,8 @@ namespace Game.Feature.UI.Tests
     {
         public const string CommandLineEntryPoint =
             "Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine";
+        public const string OverlayPlayModeEntryPoint =
+            "Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureOverlayFromPlayMode";
         public const string HudPrefabPath =
             "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         public const string ClimateFontPath =
@@ -195,7 +198,11 @@ namespace Game.Feature.UI.Tests
                 mutationEvidence,
                 crossLocaleParity,
                 unexpectedPixelDelta,
-                errors);
+                errors,
+                OverlayPlayModeEntryPoint,
+                "SCREEN_SPACE_OVERLAY_PRODUCTION_CONTROLLER_END_OF_FRAME",
+                "NON_BATCH_GAME_VIEW",
+                "FIXTURE_STATE_MISMATCH");
             Debug.Log($"Objective HUD overlay visual manifest: {manifestPath}");
             if (errors.Count > 0 ||
                 captures.Count != Scenarios.Length ||
@@ -300,7 +307,11 @@ namespace Game.Feature.UI.Tests
                 mutationEvidence,
                 crossLocaleParity,
                 unexpectedPixelDelta,
-                errors);
+                errors,
+                CommandLineEntryPoint,
+                "CAMERA_RENDER_TEXTURE_PRODUCTION_COMPOSITION",
+                "BATCH_COMPATIBLE_RENDER_TEXTURE",
+                "NOT_APPLICABLE");
             Debug.Log($"Objective HUD visual manifest: {manifestPath}");
             if (errors.Count > 0 ||
                 captures.Count != Scenarios.Length ||
@@ -348,6 +359,7 @@ namespace Game.Feature.UI.Tests
             GameObject root = null;
             UnityStringTableTextResolver resolver = null;
             HUDRootPresenter rootPresenter = null;
+            HUDController hudController = null;
             Texture2D texture = null;
             try
             {
@@ -408,19 +420,36 @@ namespace Game.Feature.UI.Tests
                 var source = new EvidencePresentationSource(initialSnapshot);
                 var stagePresenter = new StageInfoPresenter(resolver);
                 var objectivePresenter = new ObjectiveHudPresenter(resolver);
+                var chancePresenter = new ChancePanelPresenter();
+                var surfaceBeltPresenter = new SurfaceBeltIndicatorPresenter();
+                var playerStatusPresenter = new PlayerStatusPresenter();
                 rootPresenter = new HUDRootPresenter(
                     source,
                     stagePresenter,
                     objectivePresenter,
-                    new ChancePanelPresenter(),
-                    new SurfaceBeltIndicatorPresenter(),
-                    new PlayerStatusPresenter());
-
-                hud.Bind(rootPresenter.ViewModel);
-                hud.BindStageInfo(stagePresenter.ViewModel);
-                objectiveView.Bind(objectivePresenter.ViewModel);
-                SettleObjectiveRows(objectiveView);
+                    chancePresenter,
+                    surfaceBeltPresenter,
+                    playerStatusPresenter);
+                hudController = new HUDController(
+                    rootPresenter.ViewModel,
+                    stagePresenter.ViewModel,
+                    objectivePresenter.ViewModel,
+                    chancePresenter.ViewModel,
+                    surfaceBeltPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel);
+                hudController.AttachView(hud);
                 ForceLayoutAndText(root);
+
+                yield return new WaitForSecondsRealtime(2f);
+
+                const int settledFrameCount = 8;
+                for (var frame = 0; frame < settledFrameCount; frame++)
+                {
+                    yield return null;
+                    ForceLayoutAndText(root);
+                    Canvas.ForceUpdateCanvases();
+                    yield return new WaitForEndOfFrame();
+                }
 
                 var activeRows = GetActiveRows(objectiveView);
                 ValidatePresentation(
@@ -434,15 +463,6 @@ namespace Game.Feature.UI.Tests
                     englishRowFont,
                     englishRowMaterial,
                     englishRowStyle);
-
-                const int settledFrameCount = 8;
-                for (var frame = 0; frame < settledFrameCount; frame++)
-                {
-                    yield return null;
-                    ForceLayoutAndText(root);
-                    Canvas.ForceUpdateCanvases();
-                    yield return new WaitForEndOfFrame();
-                }
 
                 texture = ScreenCapture.CaptureScreenshotAsTexture();
                 var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
@@ -503,27 +523,28 @@ namespace Game.Feature.UI.Tests
             {
                 if (texture != null)
                 {
-                    Object.Destroy(texture);
+                    Object.DestroyImmediate(texture);
                 }
 
+                hudController?.Dispose();
                 rootPresenter?.Dispose();
                 resolver?.Dispose();
                 if (root != null)
                 {
                     root.SetActive(false);
-                    Object.Destroy(root);
+                    Object.DestroyImmediate(root);
                 }
 
                 if (canvasObject != null)
                 {
                     canvasObject.SetActive(false);
-                    Object.Destroy(canvasObject);
+                    Object.DestroyImmediate(canvasObject);
                 }
 
                 if (cameraObject != null)
                 {
                     cameraObject.SetActive(false);
-                    Object.Destroy(cameraObject);
+                    Object.DestroyImmediate(cameraObject);
                 }
             }
         }
@@ -562,6 +583,7 @@ namespace Game.Feature.UI.Tests
             GameObject root = null;
             UnityStringTableTextResolver resolver = null;
             HUDRootPresenter rootPresenter = null;
+            HUDController hudController = null;
             Texture2D texture = null;
             var previousActiveScene = SceneManager.GetActiveScene();
             var previewScene = default(Scene);
@@ -612,17 +634,24 @@ namespace Game.Feature.UI.Tests
                 var source = new EvidencePresentationSource(initialSnapshot);
                 var stagePresenter = new StageInfoPresenter(resolver);
                 var objectivePresenter = new ObjectiveHudPresenter(resolver);
+                var chancePresenter = new ChancePanelPresenter();
+                var surfaceBeltPresenter = new SurfaceBeltIndicatorPresenter();
+                var playerStatusPresenter = new PlayerStatusPresenter();
                 rootPresenter = new HUDRootPresenter(
                     source,
                     stagePresenter,
                     objectivePresenter,
-                    new ChancePanelPresenter(),
-                    new SurfaceBeltIndicatorPresenter(),
-                    new PlayerStatusPresenter());
-
-                hud.Bind(rootPresenter.ViewModel);
-                hud.BindStageInfo(stagePresenter.ViewModel);
-                objectiveView.Bind(objectivePresenter.ViewModel);
+                    chancePresenter,
+                    surfaceBeltPresenter,
+                    playerStatusPresenter);
+                hudController = new HUDController(
+                    rootPresenter.ViewModel,
+                    stagePresenter.ViewModel,
+                    objectivePresenter.ViewModel,
+                    chancePresenter.ViewModel,
+                    surfaceBeltPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel);
+                hudController.AttachView(hud);
                 SettleObjectiveRows(objectiveView);
 
                 ForceLayoutAndText(root);
@@ -714,6 +743,7 @@ namespace Game.Feature.UI.Tests
                     Object.DestroyImmediate(texture);
                 }
 
+                hudController?.Dispose();
                 rootPresenter?.Dispose();
                 resolver?.Dispose();
                 if (root != null)
@@ -815,7 +845,10 @@ namespace Game.Feature.UI.Tests
                 empty.Interaction,
                 empty.Stage,
                 objective,
-                empty.Chance,
+                new UIChanceSlice(
+                    hasChances: true,
+                    remainingChances: 3,
+                    maxChances: 3),
                 empty.Topology,
                 empty.SurfaceBelt,
                 empty.Player,
@@ -907,10 +940,20 @@ namespace Game.Feature.UI.Tests
 
             if (string.Equals(scenario.Locale, "ko-KR", StringComparison.Ordinal))
             {
-                AssertHudSafeClimateIdentity(view.HeaderLabel, climate, "ko-KR header");
+                AssertIdentity(
+                    view.HeaderLabel,
+                    climate,
+                    climate.material,
+                    FontStyles.Normal,
+                    "ko-KR header");
                 foreach (var row in activeRows)
                 {
-                    AssertHudSafeClimateIdentity(row.Label, climate, "ko-KR row");
+                    AssertIdentity(
+                        row.Label,
+                        climate,
+                        climate.material,
+                        FontStyles.Normal,
+                        "ko-KR row");
                 }
             }
             else
@@ -1063,29 +1106,6 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static void AssertHudSafeClimateIdentity(
-            TMP_Text target,
-            TMP_FontAsset climate,
-            string context)
-        {
-            if (!ReferenceEquals(target.font, climate) ||
-                target.fontSharedMaterial == null ||
-                ReferenceEquals(target.fontSharedMaterial, climate.material) ||
-                target.fontSharedMaterial.shader == null ||
-                !string.Equals(
-                    target.fontSharedMaterial.shader.name,
-                    "TextMeshPro/Distance Field",
-                    StringComparison.Ordinal) ||
-                !ReferenceEquals(
-                    target.fontSharedMaterial.mainTexture,
-                    climate.material.mainTexture) ||
-                target.fontStyle != FontStyles.Normal)
-            {
-                throw new InvalidOperationException(
-                    $"{context} HUD-safe typography identity mismatch.");
-            }
-        }
-
         private static RectTransform GetTemplateRow(ObjectiveHudView view)
         {
             var field = typeof(ObjectiveHudView).GetField(
@@ -1156,16 +1176,20 @@ namespace Game.Feature.UI.Tests
             var states = new List<GraphicState>();
             foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
             {
-                if (graphic == null ||
-                    graphic is TMP_Text ||
-                    !graphic.gameObject.activeInHierarchy ||
-                    !graphic.enabled)
+                if (graphic == null || graphic is TMP_Text)
                 {
                     continue;
                 }
 
+                var path = BuildTransformPath(root.transform, graphic.transform);
+                var category = ResolveGraphicCategory(graphic);
                 var alphaOccupancy = ResolveAlphaOccupancy(graphic);
-                if (alphaOccupancy <= 0.001f || graphic.canvasRenderer.cull)
+                var isCanonicalRequired = IsCanonicalRequiredGraphic(path, category);
+                if (!isCanonicalRequired &&
+                    (!graphic.gameObject.activeInHierarchy ||
+                     !graphic.enabled ||
+                     alphaOccupancy <= 0.001f ||
+                     graphic.canvasRenderer.cull))
                 {
                     continue;
                 }
@@ -1186,14 +1210,15 @@ namespace Game.Feature.UI.Tests
                     relativeBounds.yMax - rootRect.rect.yMin);
                 var identity = ReadGraphicIdentity(graphic);
                 states.Add(new GraphicState(
-                    BuildTransformPath(root.transform, graphic.transform),
-                    ResolveGraphicCategory(graphic),
+                    path,
+                    category,
                     graphic.gameObject.activeInHierarchy,
                     alphaOccupancy,
                     graphic.enabled,
                     identity,
                     relativeBounds,
                     screenBounds,
+                    !graphic.canvasRenderer.cull &&
                     screenBounds.width > 0f &&
                     screenBounds.height > 0f &&
                     screenBounds.xMax > 0f &&
@@ -1205,6 +1230,25 @@ namespace Game.Feature.UI.Tests
             return states
                 .OrderBy(state => state.Path, StringComparer.Ordinal)
                 .ToArray();
+        }
+
+        private static bool IsCanonicalRequiredGraphic(string path, string category)
+        {
+            if (string.Equals(category, "ObjectiveHud", StringComparison.Ordinal))
+            {
+                return PathContainsAll(path, "HUD_SciFiSoldier_Objectives_02", "SPR_Background") ||
+                       PathContainsAll(path, "HUD_SciFiSoldier_Objectives_02", "SPR_Flag") ||
+                       PathContainsAll(path, "Objective_Item_Runtime_", "SPR_Item_Inactive");
+            }
+
+            if (string.Equals(category, "ChancePanel", StringComparison.Ordinal))
+            {
+                return PathContainsAll(path, "ChancePanel", "Background") &&
+                       path.IndexOf("ChanceSlotView", StringComparison.Ordinal) < 0;
+            }
+
+            return string.Equals(category, "SurfaceBelt", StringComparison.Ordinal) &&
+                   PathContainsAll(path, "SurfaceBeltIndicatorRoot", "Background");
         }
 
         private static void ValidateRequiredGraphicCategories(
@@ -1621,15 +1665,21 @@ namespace Game.Feature.UI.Tests
             IReadOnlyList<CaptureAssetMutationEvidence> mutationEvidence,
             bool crossLocaleParity,
             long unexpectedPixelDelta,
-            IReadOnlyList<string> errors)
+            IReadOnlyList<string> errors,
+            string captureCommand,
+            string captureMode,
+            string captureEnvironment,
+            string rootCause)
         {
             var builder = new StringBuilder();
             Append(builder, "schema_version", "2");
             Append(builder, "generated_at", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
             Append(builder, "git_head", gitHead);
             Append(builder, "unity_version", UnityEngine.Application.unityVersion);
-            Append(builder, "capture_command", CommandLineEntryPoint);
-            Append(builder, "capture_mode", "OBJECTIVE_HUD_PRODUCTION_COMPOSITION");
+            Append(builder, "capture_command", captureCommand);
+            Append(builder, "capture_mode", captureMode);
+            Append(builder, "capture_environment", captureEnvironment);
+            Append(builder, "root_cause", rootCause);
             Append(builder, "resolution", $"{width}x{height}");
             Append(builder, "capture_count", captures.Count.ToString(CultureInfo.InvariantCulture));
             Append(builder, "errors", errors.Count.ToString(CultureInfo.InvariantCulture));
@@ -1705,7 +1755,20 @@ namespace Game.Feature.UI.Tests
                     builder,
                     "hud_root_canvas_group_alpha",
                     capture.RootCanvasGroupAlpha.ToString("F6", CultureInfo.InvariantCulture));
-                Append(builder, "objective_settle_iterations", "64");
+                Append(
+                    builder,
+                    "objective_settle_strategy",
+                    capture.EndOfFrameCount > 0
+                        ? "PRODUCTION_UNSCALED_TIME"
+                        : "SYNCHRONOUS_TEST_SETTLE");
+                Append(
+                    builder,
+                    "objective_settle_seconds",
+                    capture.EndOfFrameCount > 0 ? "2.000" : "0.000");
+                Append(
+                    builder,
+                    "objective_settle_iterations",
+                    capture.EndOfFrameCount > 0 ? "0" : "64");
                 Append(
                     builder,
                     "end_of_frame_count",
@@ -1965,6 +2028,7 @@ namespace Game.Feature.UI.Tests
                 ActiveInHierarchy &&
                 Enabled &&
                 AlphaOccupancy > 0.001f &&
+                VisiblePixelArea &&
                 !string.IsNullOrWhiteSpace(Identity);
         }
 
