@@ -1330,7 +1330,7 @@ namespace Game.Feature.UI.Composition.Editor
             out int captureFrameIndex)
         {
             const int maximumRenderPasses = 8;
-            renderTexture = new RenderTexture(options.Width, options.Height, 24, RenderTextureFormat.ARGB32)
+            renderTexture = new RenderTexture(options.Width, options.Height, 0, RenderTextureFormat.ARGB32)
             {
                 name = "TypographyPreviewScreenshotRT",
                 antiAliasing = 1,
