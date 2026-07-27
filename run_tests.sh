@@ -1621,6 +1621,8 @@ run_objective_hud_visual() {
     local baseline_root_win
     local unity_log
     local unity_log_win
+    local test_results
+    local test_results_win
     local manifest
     local expected_head
     local climate_hash_before
@@ -1632,11 +1634,13 @@ run_objective_hud_visual() {
     timestamp="$(date +%Y%m%d-%H%M%S)"
     output_dir="$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
     unity_log="$output_dir/objective-hud-unity.log"
+    test_results="$output_dir/objective-hud-playmode.xml"
     manifest="$output_dir/objective-hud-capture.log"
     output_dir_win="$(wslpath -w "$output_dir")"
     baseline_root="$output_dir/pre-capture-assets"
     baseline_root_win="$(wslpath -w "$baseline_root")"
     unity_log_win="$(wslpath -w "$unity_log")"
+    test_results_win="$(wslpath -w "$test_results")"
     unity_command=(
         timeout --kill-after=10 600
         "$UNITY_PATH"
@@ -1644,7 +1648,10 @@ run_objective_hud_visual() {
         -quit
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$unity_log_win"
-        -executeMethod "$OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD"
+        -runTests
+        -testPlatform PlayMode
+        -testFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterEndOfFrame"
+        -testResults "$test_results_win"
         -objectiveHudVisualOutput "$output_dir_win"
         -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
         -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"

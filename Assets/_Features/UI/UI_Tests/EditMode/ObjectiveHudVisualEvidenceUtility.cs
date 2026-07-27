@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -53,6 +54,154 @@ namespace Game.Feature.UI.Tests
             var width = ReadPositiveInt(args, "-objectiveHudVisualWidth", 1920);
             var height = ReadPositiveInt(args, "-objectiveHudVisualHeight", 1080);
             Capture(outputDirectory, width, height);
+        }
+
+        public static IEnumerator CaptureOverlayFromPlayMode()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var outputDirectory = ReadArgument(args, "-objectiveHudVisualOutput");
+            if (string.IsNullOrWhiteSpace(outputDirectory))
+            {
+                throw new InvalidOperationException("-objectiveHudVisualOutput is required.");
+            }
+
+            var width = ReadPositiveInt(args, "-objectiveHudVisualWidth", 1920);
+            var height = ReadPositiveInt(args, "-objectiveHudVisualHeight", 1080);
+            outputDirectory = Path.GetFullPath(outputDirectory);
+            Directory.CreateDirectory(outputDirectory);
+            Screen.SetResolution(width, height, FullScreenMode.Windowed);
+            yield return null;
+            yield return new WaitForEndOfFrame();
+
+            var gitHead = TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead();
+            var errors = new List<string>();
+            var captures = new List<CaptureRecord>();
+            var crossLocaleParity = false;
+            var unexpectedPixelDelta = -1L;
+            IReadOnlyList<CaptureAssetMutationEvidence> mutationEvidence =
+                Array.Empty<CaptureAssetMutationEvidence>();
+            var assetGuard = CaptureAssetMutationGuard.Capture(new[] { ClimateFontPath });
+            try
+            {
+                foreach (var scenario in Scenarios)
+                {
+                    CaptureRecord captured = default;
+                    Exception captureFailure = null;
+                    var routine = CaptureScenarioOverlay(
+                        scenario,
+                        outputDirectory,
+                        width,
+                        height,
+                        assetGuard,
+                        result => captured = result);
+                    while (true)
+                    {
+                        bool moved;
+                        object current = null;
+                        try
+                        {
+                            moved = routine.MoveNext();
+                            if (moved)
+                            {
+                                current = routine.Current;
+                            }
+                        }
+                        catch (Exception exception)
+                        {
+                            moved = false;
+                            captureFailure = exception;
+                        }
+
+                        if (!moved)
+                        {
+                            break;
+                        }
+
+                        yield return current;
+                    }
+
+                    if (captureFailure != null)
+                    {
+                        errors.Add($"{scenario.State} {scenario.Locale}: {captureFailure}");
+                    }
+                    else
+                    {
+                        captures.Add(captured);
+                    }
+                }
+
+                foreach (var localeCaptures in captures.GroupBy(capture => capture.Scenario.Locale))
+                {
+                    var stateHashes = localeCaptures
+                        .Select(capture => capture.Sha256)
+                        .Distinct(StringComparer.Ordinal)
+                        .Count();
+                    if (localeCaptures.Count() > 1 && stateHashes != localeCaptures.Count())
+                    {
+                        errors.Add(
+                            $"{localeCaptures.Key}: visual states produced duplicate PNG hashes.");
+                    }
+                }
+
+                crossLocaleParity = ValidateCrossLocaleParity(
+                    captures,
+                    errors,
+                    out unexpectedPixelDelta);
+            }
+            finally
+            {
+                try
+                {
+                    mutationEvidence = assetGuard.ObserveBeforeRestore();
+                    foreach (var item in mutationEvidence)
+                    {
+                        if (!item.Allowed)
+                        {
+                            errors.Add($"UNEXPECTED_ASSET_MUTATION before restore: {item.Path}");
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(
+                        $"Capture asset mutation observation failed before restore: {exception.Message}");
+                }
+
+                try
+                {
+                    assetGuard.Dispose();
+                    foreach (var item in mutationEvidence)
+                    {
+                        if (!item.Restored)
+                        {
+                            errors.Add($"Capture asset restore failed: {item.Path}");
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    errors.Add($"Capture asset restore failed: {exception.Message}");
+                }
+            }
+
+            var manifestPath = WriteManifest(
+                outputDirectory,
+                width,
+                height,
+                gitHead,
+                captures,
+                mutationEvidence,
+                crossLocaleParity,
+                unexpectedPixelDelta,
+                errors);
+            Debug.Log($"Objective HUD overlay visual manifest: {manifestPath}");
+            if (errors.Count > 0 ||
+                captures.Count != Scenarios.Length ||
+                captures.Any(capture => !capture.Passed))
+            {
+                throw new InvalidOperationException(
+                    $"Objective HUD overlay visual evidence failed. See {manifestPath}");
+            }
         }
 
         public static void Capture(string outputDirectory, int width, int height)
@@ -157,6 +306,220 @@ namespace Game.Feature.UI.Tests
             {
                 throw new InvalidOperationException(
                     $"Objective HUD visual evidence failed. See {manifestPath}");
+            }
+        }
+
+        private static IEnumerator CaptureScenarioOverlay(
+            CaptureScenario scenario,
+            string outputDirectory,
+            int width,
+            int height,
+            CaptureAssetMutationGuard assetGuard,
+            Action<CaptureRecord> onCaptured)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException($"Gameplay HUD prefab was not found at {HudPrefabPath}.");
+            }
+
+            assetGuard.IncludeFontAssets(prefab);
+            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
+            if (climate == null)
+            {
+                throw new InvalidOperationException($"Climate font was not found at {ClimateFontPath}.");
+            }
+
+            var prefabHud = prefab.GetComponent<HUDRootView>();
+            var prefabObjective = prefabHud.ObjectiveHudView;
+            var prefabHeader = prefabObjective.HeaderLabel;
+            var prefabRowLabel = GetTemplateRow(prefabObjective).GetComponentInChildren<TMP_Text>(true);
+            var englishHeaderFont = prefabHeader.font;
+            var englishHeaderMaterial = prefabHeader.fontSharedMaterial;
+            var englishHeaderStyle = prefabHeader.fontStyle;
+            var englishRowFont = prefabRowLabel.font;
+            var englishRowMaterial = prefabRowLabel.fontSharedMaterial;
+            var englishRowStyle = prefabRowLabel.fontStyle;
+
+            GameObject canvasObject = null;
+            GameObject cameraObject = null;
+            GameObject root = null;
+            UnityStringTableTextResolver resolver = null;
+            HUDRootPresenter rootPresenter = null;
+            Texture2D texture = null;
+            try
+            {
+                cameraObject = new GameObject(
+                    "Objective HUD Overlay Evidence Camera",
+                    typeof(Camera));
+                var camera = cameraObject.GetComponent<Camera>();
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = new Color(0.015f, 0.025f, 0.045f, 1f);
+                camera.orthographic = true;
+                camera.orthographicSize = height * 0.5f;
+                camera.nearClipPlane = 0.01f;
+                camera.farClipPlane = 1000f;
+                camera.depth = -100f;
+                cameraObject.transform.position = new Vector3(0f, 0f, -100f);
+
+                canvasObject = new GameObject(
+                    "Objective HUD Overlay Evidence Canvas",
+                    typeof(RectTransform),
+                    typeof(Canvas),
+                    typeof(CanvasScaler));
+                var canvas = canvasObject.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                var scaler = canvasObject.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(width, height);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 1f;
+
+                if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
+                        new MemoryLocalePreferenceStore(scenario.Locale),
+                        out resolver,
+                        out var failureReason))
+                {
+                    throw new InvalidOperationException(
+                        $"Production Unity String Table resolver could not initialize: {failureReason}");
+                }
+
+                if (!resolver.TrySetLocale(scenario.Locale))
+                {
+                    throw new InvalidOperationException(
+                        $"Production resolver rejected locale '{scenario.Locale}'.");
+                }
+
+                root = Object.Instantiate(prefab, canvasObject.transform, false);
+                root.name = $"ObjectiveHudVisual_{scenario.State}";
+                assetGuard.IncludeFontAssets(root);
+                var hud = root.GetComponent<HUDRootView>();
+                hud.ValidateAuthoredStructureOrThrow();
+                var objectiveView = hud.ObjectiveHudView;
+                var typography = objectiveView.GetComponent<ObjectiveHudTypographyBinding>();
+                typography.ValidateAuthoredStructureOrThrow();
+                typography.Initialize(resolver);
+                objectiveView.ConfigureTypography(typography);
+
+                var initialReadModel = CreateReadModel(scenario, completePrimary: false);
+                var initialSnapshot = CreateSnapshot(initialReadModel);
+                var source = new EvidencePresentationSource(initialSnapshot);
+                var stagePresenter = new StageInfoPresenter(resolver);
+                var objectivePresenter = new ObjectiveHudPresenter(resolver);
+                rootPresenter = new HUDRootPresenter(
+                    source,
+                    stagePresenter,
+                    objectivePresenter,
+                    new ChancePanelPresenter(),
+                    new SurfaceBeltIndicatorPresenter(),
+                    new PlayerStatusPresenter());
+
+                hud.Bind(rootPresenter.ViewModel);
+                hud.BindStageInfo(stagePresenter.ViewModel);
+                objectiveView.Bind(objectivePresenter.ViewModel);
+                SettleObjectiveRows(objectiveView);
+                ForceLayoutAndText(root);
+
+                var activeRows = GetActiveRows(objectiveView);
+                ValidatePresentation(
+                    scenario,
+                    objectiveView,
+                    activeRows,
+                    climate,
+                    englishHeaderFont,
+                    englishHeaderMaterial,
+                    englishHeaderStyle,
+                    englishRowFont,
+                    englishRowMaterial,
+                    englishRowStyle);
+
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                yield return new WaitForEndOfFrame();
+                Canvas.ForceUpdateCanvases();
+                yield return new WaitForEndOfFrame();
+
+                texture = ScreenCapture.CaptureScreenshotAsTexture();
+                if (texture == null)
+                {
+                    throw new InvalidOperationException(
+                        "ScreenSpaceOverlay backbuffer capture returned no texture.");
+                }
+
+                var pngBytes = texture.EncodeToPNG();
+                var pixels = texture.GetPixels32();
+                var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
+                var filePath = Path.Combine(outputDirectory, fileName);
+                File.WriteAllBytes(filePath, pngBytes);
+                if (texture.width != width || texture.height != height)
+                {
+                    throw new InvalidOperationException(
+                        $"{fileName} captured {texture.width}x{texture.height}, expected {width}x{height}.");
+                }
+
+                var nonBlank = SystemInfo.graphicsDeviceType ==
+                               UnityEngine.Rendering.GraphicsDeviceType.Null ||
+                               HasNonBlankPixels(texture);
+                if (!nonBlank)
+                {
+                    throw new InvalidOperationException($"{fileName} is blank or single-color.");
+                }
+
+                var headerIdentity = ReadIdentity(objectiveView.HeaderLabel);
+                var rowIdentity = ReadIdentity(activeRows[0].Label);
+                var graphicStates = CaptureRequiredGraphicStates(root, width, height);
+                ValidateRequiredGraphicCategories(graphicStates, scenario);
+                var textRegions = CaptureTextRegions(root, width, height);
+                onCaptured(new CaptureRecord(
+                    scenario,
+                    fileName,
+                    pngBytes.LongLength,
+                    ComputeSha256(pngBytes),
+                    headerIdentity,
+                    rowIdentity,
+                    graphicStates,
+                    textRegions,
+                    pixels,
+                    width,
+                    root.activeInHierarchy,
+                    ResolveRootCanvasGroupAlpha(root),
+                    ComputeSemanticSnapshotHash(initialReadModel),
+                    ComputeHierarchyHash(root),
+                    cameraRenderPassCount: 0,
+                    captureFrameIndex: 2,
+                    endOfFrameCount: 2,
+                    nonBlank ? "PASS" : "FAIL",
+                    "PASS",
+                    "PASS",
+                    "PASS",
+                    string.Empty));
+            }
+            finally
+            {
+                if (texture != null)
+                {
+                    Object.Destroy(texture);
+                }
+
+                rootPresenter?.Dispose();
+                resolver?.Dispose();
+                if (root != null)
+                {
+                    root.SetActive(false);
+                    Object.Destroy(root);
+                }
+
+                if (canvasObject != null)
+                {
+                    canvasObject.SetActive(false);
+                    Object.Destroy(canvasObject);
+                }
+
+                if (cameraObject != null)
+                {
+                    cameraObject.SetActive(false);
+                    Object.Destroy(cameraObject);
+                }
             }
         }
 
@@ -332,6 +695,7 @@ namespace Game.Feature.UI.Tests
                     ComputeHierarchyHash(root),
                     cameraRenderPassCount,
                     captureFrameIndex,
+                    endOfFrameCount: 0,
                     nonBlank ? "PASS" : "FAIL",
                     "PASS",
                     "PASS",
@@ -1337,7 +1701,10 @@ namespace Game.Feature.UI.Tests
                     "hud_root_canvas_group_alpha",
                     capture.RootCanvasGroupAlpha.ToString("F6", CultureInfo.InvariantCulture));
                 Append(builder, "objective_settle_iterations", "64");
-                Append(builder, "end_of_frame_count", "0");
+                Append(
+                    builder,
+                    "end_of_frame_count",
+                    capture.EndOfFrameCount.ToString(CultureInfo.InvariantCulture));
                 Append(
                     builder,
                     "camera_render_pass_count",
@@ -1615,6 +1982,7 @@ namespace Game.Feature.UI.Tests
                 string hierarchyHash,
                 int cameraRenderPassCount,
                 int captureFrameIndex,
+                int endOfFrameCount,
                 string nonBlank,
                 string glyphCoverage,
                 string layout,
@@ -1637,6 +2005,7 @@ namespace Game.Feature.UI.Tests
                 HierarchyHash = hierarchyHash ?? string.Empty;
                 CameraRenderPassCount = cameraRenderPassCount;
                 CaptureFrameIndex = captureFrameIndex;
+                EndOfFrameCount = endOfFrameCount;
                 NonBlank = nonBlank;
                 GlyphCoverage = glyphCoverage;
                 Layout = layout;
@@ -1675,6 +2044,8 @@ namespace Game.Feature.UI.Tests
             public int CameraRenderPassCount { get; }
 
             public int CaptureFrameIndex { get; }
+
+            public int EndOfFrameCount { get; }
 
             public string NonBlank { get; }
 
