@@ -19,6 +19,8 @@ namespace Game.Feature.UI.Composition
         private ILocalizedTextResolver _localeSource;
         private readonly Dictionary<TMP_Text, TmpTypographyAuthoredState> _authoredStates =
             new Dictionary<TMP_Text, TmpTypographyAuthoredState>();
+        private readonly Dictionary<Material, Material> _runtimeUiMaterials =
+            new Dictionary<Material, Material>();
 
         public GameplayUiTypographyTheme Theme => _theme;
 
@@ -94,7 +96,8 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            var resolvedStyle = _theme.ResolveOrThrow(_localeSource.CurrentLocaleCode, styleTag);
+            var resolvedStyle = ResolveHudSafeStyle(
+                _theme.ResolveOrThrow(_localeSource.CurrentLocaleCode, styleTag));
             const TypographyApplyMask requiredMask =
                 TypographyApplyMask.Font |
                 TypographyApplyMask.Material |
@@ -126,6 +129,76 @@ namespace Game.Feature.UI.Composition
             }
 
             return authoredState;
+        }
+
+        private ResolvedTmpTypographyStyle ResolveHudSafeStyle(
+            ResolvedTmpTypographyStyle style)
+        {
+            var sourceMaterial = style.MaterialPreset;
+            if (sourceMaterial == null ||
+                sourceMaterial.shader == null ||
+                !string.Equals(
+                    sourceMaterial.shader.name,
+                    "TextMeshPro/Mobile/Distance Field",
+                    StringComparison.Ordinal))
+            {
+                return style;
+            }
+
+            if (!_runtimeUiMaterials.TryGetValue(sourceMaterial, out var runtimeMaterial) ||
+                runtimeMaterial == null)
+            {
+                var uiShader = Shader.Find("TextMeshPro/Distance Field");
+                if (uiShader == null)
+                {
+                    throw new InvalidOperationException(
+                        "Objective HUD could not resolve the TextMeshPro UI distance-field shader.");
+                }
+
+                runtimeMaterial = new Material(uiShader)
+                {
+                    name = $"{sourceMaterial.name} (ObjectiveHud Runtime)",
+                };
+                runtimeMaterial.CopyPropertiesFromMaterial(sourceMaterial);
+                runtimeMaterial.shader = uiShader;
+                _runtimeUiMaterials[sourceMaterial] = runtimeMaterial;
+            }
+
+            return new ResolvedTmpTypographyStyle(
+                style.FontAsset,
+                runtimeMaterial,
+                style.FontStyle,
+                style.SizingSource,
+                style.SizingMode,
+                style.FixedSize,
+                style.MinSize,
+                style.MaxSize,
+                style.LineSpacing,
+                style.CharacterSpacing,
+                style.ApplyMask,
+                style.WeightStrategy);
+        }
+
+        private void OnDestroy()
+        {
+            foreach (var material in _runtimeUiMaterials.Values)
+            {
+                if (material == null)
+                {
+                    continue;
+                }
+
+                if (UnityEngine.Application.isPlaying)
+                {
+                    Destroy(material);
+                }
+                else
+                {
+                    DestroyImmediate(material);
+                }
+            }
+
+            _runtimeUiMaterials.Clear();
         }
     }
 }
