@@ -1647,10 +1647,10 @@ run_objective_hud_visual() {
         -quit
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$unity_log_win"
-        -runTests
-        -testPlatform PlayMode
-        -testFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterEndOfFrame"
-        -testResults "$test_results_win"
+        -executeMethod TestRunnerCliBootstrap.RunPlayMode
+        -codexSelection full
+        -codexResultPath "$test_results_win"
+        -codexTestFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterEndOfFrame"
         -objectiveHudVisualOutput "$output_dir_win"
         -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
         -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"
