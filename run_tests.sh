@@ -12,6 +12,24 @@ DRY_RUN=0
 TEST_FILTER=""
 FILTERED_TOTAL=0
 
+VISUAL_GUARD_BASELINE_ROOT=""
+VISUAL_GUARD_MUTATION_EVIDENCE=""
+VISUAL_GUARD_LIFECYCLE_EVIDENCE=""
+VISUAL_GUARD_LANE=""
+VISUAL_GUARD_BASELINE_READY=0
+VISUAL_GUARD_TRAP_INSTALLED=0
+VISUAL_GUARD_INTERRUPTED=0
+VISUAL_GUARD_TERMINATION_SIGNAL=""
+VISUAL_GUARD_SIGNAL_STATUS=0
+VISUAL_GUARD_OBSERVATION_COMPLETED=0
+VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
+VISUAL_GUARD_CLEANUP_STARTED=0
+VISUAL_GUARD_CLEANUP_COMPLETED=0
+VISUAL_GUARD_CLEANUP_STATUS=0
+VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
+VISUAL_GUARD_ACTIVE_CHILD_PID=""
+VISUAL_GUARD_EXITING=0
+
 TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
 TYPOGRAPHY_VISUAL_OUTPUT_DIR=""
 TYPOGRAPHY_VISUAL_UNITY_LOG=""
@@ -746,6 +764,239 @@ restore_capture_assets_from_baseline() {
         echo "ERROR: Runner capture baseline restore failed."
     fi
     return "$restore_exit"
+}
+
+visual_guard_reset_state() {
+    VISUAL_GUARD_BASELINE_ROOT=""
+    VISUAL_GUARD_MUTATION_EVIDENCE=""
+    VISUAL_GUARD_LIFECYCLE_EVIDENCE=""
+    VISUAL_GUARD_LANE=""
+    VISUAL_GUARD_BASELINE_READY=0
+    VISUAL_GUARD_TRAP_INSTALLED=0
+    VISUAL_GUARD_INTERRUPTED=0
+    VISUAL_GUARD_TERMINATION_SIGNAL=""
+    VISUAL_GUARD_SIGNAL_STATUS=0
+    VISUAL_GUARD_OBSERVATION_COMPLETED=0
+    VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
+    VISUAL_GUARD_CLEANUP_STARTED=0
+    VISUAL_GUARD_CLEANUP_COMPLETED=0
+    VISUAL_GUARD_CLEANUP_STATUS=0
+    VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
+    VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_EXITING=0
+}
+
+visual_guard_write_lifecycle_evidence() {
+    local final_exit_status="$1"
+
+    if [ -z "$VISUAL_GUARD_LIFECYCLE_EVIDENCE" ]; then
+        return 0
+    fi
+
+    {
+        echo "schema_version=1"
+        echo "lane=$VISUAL_GUARD_LANE"
+        echo "cleanup_trap_installed=$VISUAL_GUARD_TRAP_INSTALLED"
+        echo "interrupted=$(
+            if [ "$VISUAL_GUARD_INTERRUPTED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "termination_signal=$VISUAL_GUARD_TERMINATION_SIGNAL"
+        echo "signal_exit_status=$VISUAL_GUARD_SIGNAL_STATUS"
+        echo "observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"
+        echo "mutation_observation_completed=$VISUAL_GUARD_OBSERVATION_COMPLETED"
+        echo "lane_verdict=$VISUAL_GUARD_LANE_VERDICT"
+        echo "cleanup_started=$VISUAL_GUARD_CLEANUP_STARTED"
+        echo "cleanup_completed=$VISUAL_GUARD_CLEANUP_COMPLETED"
+        echo "restore_result=$VISUAL_GUARD_RESTORE_RESULT"
+        echo "final_exit_status=$final_exit_status"
+    } > "$VISUAL_GUARD_LIFECYCLE_EVIDENCE"
+}
+
+visual_guard_prepare_interrupted_mutation_evidence() {
+    if [ -z "$VISUAL_GUARD_MUTATION_EVIDENCE" ] ||
+       [ -s "$VISUAL_GUARD_MUTATION_EVIDENCE" ]; then
+        return 0
+    fi
+
+    {
+        echo "schema_version=1"
+        echo "observation_order=INTERRUPTED_BEFORE_COMPLETE_CLASSIFICATION"
+        echo "lane_verdict_before_restore=INTERRUPTED"
+        echo "termination_signal=$VISUAL_GUARD_TERMINATION_SIGNAL"
+        echo "signal_exit_status=$VISUAL_GUARD_SIGNAL_STATUS"
+    } > "$VISUAL_GUARD_MUTATION_EVIDENCE"
+}
+
+visual_guard_stop_active_child() {
+    local child_pid="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    local attempt
+
+    if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
+        kill -TERM -- "-$child_pid" 2>/dev/null ||
+            kill -TERM "$child_pid" 2>/dev/null ||
+            true
+        for attempt in $(seq 1 50); do
+            if ! kill -0 "$child_pid" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+        done
+        if kill -0 "$child_pid" 2>/dev/null; then
+            kill -KILL -- "-$child_pid" 2>/dev/null ||
+                kill -KILL "$child_pid" 2>/dev/null ||
+                true
+        fi
+    fi
+    if [ -n "$child_pid" ]; then
+        wait "$child_pid" 2>/dev/null || true
+    fi
+    VISUAL_GUARD_ACTIVE_CHILD_PID=""
+
+    if declare -F terminate_current_project_unity_processes >/dev/null; then
+        terminate_current_project_unity_processes
+    fi
+    if declare -F find_current_project_unity_processes >/dev/null &&
+       [ -n "$(find_current_project_unity_processes)" ]; then
+        echo "ERROR: Visual guard left a current-project Unity child running."
+        return 1
+    fi
+}
+
+visual_guard_cleanup() {
+    local original_status="${1:-0}"
+    local cleanup_status=0
+
+    if [ "$VISUAL_GUARD_CLEANUP_STARTED" -eq 1 ]; then
+        return "$VISUAL_GUARD_CLEANUP_STATUS"
+    fi
+
+    VISUAL_GUARD_CLEANUP_STARTED=1
+    trap '' INT TERM
+
+    if ! visual_guard_stop_active_child; then
+        cleanup_status=1
+    fi
+
+    if [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ]; then
+        visual_guard_prepare_interrupted_mutation_evidence
+        if restore_capture_assets_from_baseline \
+            "$VISUAL_GUARD_BASELINE_ROOT" \
+            "$VISUAL_GUARD_MUTATION_EVIDENCE"; then
+            VISUAL_GUARD_RESTORE_RESULT="PASS"
+        else
+            VISUAL_GUARD_RESTORE_RESULT="FAIL"
+            cleanup_status=1
+        fi
+    else
+        VISUAL_GUARD_RESTORE_RESULT="SKIPPED_BASELINE_NOT_READY"
+    fi
+
+    VISUAL_GUARD_CLEANUP_STATUS="$cleanup_status"
+    VISUAL_GUARD_CLEANUP_COMPLETED=1
+    visual_guard_write_lifecycle_evidence "$original_status"
+    if [ "$VISUAL_GUARD_TRAP_INSTALLED" -eq 1 ] &&
+       [ "$VISUAL_GUARD_EXITING" -eq 0 ]; then
+        trap 'visual_guard_handle_signal INT 130' INT
+        trap 'visual_guard_handle_signal TERM 143' TERM
+    fi
+    return "$cleanup_status"
+}
+
+visual_guard_handle_signal() {
+    VISUAL_GUARD_INTERRUPTED=1
+    VISUAL_GUARD_TERMINATION_SIGNAL="$1"
+    VISUAL_GUARD_SIGNAL_STATUS="$2"
+    VISUAL_GUARD_LANE_VERDICT="INTERRUPTED"
+    exit "$2"
+}
+
+visual_guard_handle_exit() {
+    local original_status="$1"
+    local cleanup_status=0
+    local final_status="$original_status"
+
+    VISUAL_GUARD_EXITING=1
+    trap - EXIT INT TERM
+    visual_guard_cleanup "$original_status" || cleanup_status=$?
+    if [ "$original_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+        final_status="$cleanup_status"
+    fi
+    if [ "$cleanup_status" -ne 0 ]; then
+        echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
+    fi
+    visual_guard_write_lifecycle_evidence "$final_status"
+    exit "$final_status"
+}
+
+visual_guard_begin() {
+    local baseline_root="$1"
+    local mutation_evidence="$2"
+    local lifecycle_evidence="$3"
+    local lane="$4"
+    local asset_path
+    local -a guarded_paths
+
+    visual_guard_reset_state
+    VISUAL_GUARD_BASELINE_ROOT="$baseline_root"
+    VISUAL_GUARD_MUTATION_EVIDENCE="$mutation_evidence"
+    VISUAL_GUARD_LIFECYCLE_EVIDENCE="$lifecycle_evidence"
+    VISUAL_GUARD_LANE="$lane"
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+    for asset_path in "${guarded_paths[@]}"; do
+        if [ ! -f "$baseline_root/$asset_path" ]; then
+            echo "ERROR: Visual guard baseline is incomplete: $asset_path"
+            return 1
+        fi
+    done
+
+    VISUAL_GUARD_BASELINE_READY=1
+    trap 'visual_guard_handle_exit $?' EXIT
+    trap 'visual_guard_handle_signal INT 130' INT
+    trap 'visual_guard_handle_signal TERM 143' TERM
+    VISUAL_GUARD_TRAP_INSTALLED=1
+    visual_guard_write_lifecycle_evidence 0
+}
+
+visual_guard_run_command() {
+    local command_status
+
+    setsid "$@" &
+    VISUAL_GUARD_ACTIVE_CHILD_PID=$!
+    if wait "$VISUAL_GUARD_ACTIVE_CHILD_PID"; then
+        command_status=0
+    else
+        command_status=$?
+    fi
+    VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    return "$command_status"
+}
+
+visual_guard_mark_observation_complete() {
+    VISUAL_GUARD_OBSERVATION_COMPLETED=1
+    VISUAL_GUARD_LANE_VERDICT="$1"
+}
+
+visual_guard_finish() {
+    local original_status="$1"
+    local cleanup_status=0
+    local final_status="$original_status"
+
+    visual_guard_cleanup "$original_status" || cleanup_status=$?
+    if [ "$original_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
+        final_status="$cleanup_status"
+    fi
+    if [ "$cleanup_status" -ne 0 ]; then
+        echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
+    fi
+
+    trap - EXIT INT TERM
+    visual_guard_write_lifecycle_evidence "$final_status"
+    return "$final_status"
 }
 
 print_typography_visual_plan() {
@@ -1696,6 +1947,7 @@ run_typography_visual() {
     local current_unity_log
     local expected_head
     local runner_mutation_evidence
+    local runner_lifecycle_evidence
     local climate_hash_before
     local climate_hash_after
     local climate_restored_hash
@@ -1742,7 +1994,13 @@ run_typography_visual() {
     baseline_root="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets"
     baseline_root_win="$(wslpath -w "$baseline_root")"
     runner_mutation_evidence="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/runner-asset-mutation.log"
+    runner_lifecycle_evidence="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/runner-cleanup-lifecycle.log"
     prepare_capture_asset_baseline "$baseline_root"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$runner_mutation_evidence" \
+        "$runner_lifecycle_evidence" \
+        "Typography"
     climate_hash_before="$(
         sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
     )"
@@ -1782,7 +2040,7 @@ run_typography_visual() {
             unity_command+=( -typographyScreenshotTarget "$target" )
         fi
         echo "  capture slice: $slice_name"
-        if "${unity_command[@]}"; then
+        if visual_guard_run_command "${unity_command[@]}"; then
             unity_exit=0
         else
             unity_exit=$?
@@ -1804,7 +2062,7 @@ run_typography_visual() {
             -typographyScreenshotOutput "$output_dir_win"
         )
         echo "Reconstructing canonical typography manifest..."
-        if "${unity_command[@]}"; then
+        if visual_guard_run_command "${unity_command[@]}"; then
             unity_exit=0
         else
             unity_exit=$?
@@ -1834,9 +2092,12 @@ run_typography_visual() {
         "$runner_mutation_evidence"; then
         capture_guard_exit=1
     fi
-    if ! restore_capture_assets_from_baseline \
-        "$baseline_root" \
-        "$runner_mutation_evidence"; then
+    if [ "$capture_guard_exit" -eq 0 ]; then
+        visual_guard_mark_observation_complete "PASS"
+    else
+        visual_guard_mark_observation_complete "FAIL"
+    fi
+    if ! visual_guard_cleanup "$unity_exit"; then
         restore_exit=1
     fi
     climate_restored_hash="$(climate_working_sha256)"
@@ -1870,7 +2131,8 @@ run_typography_visual() {
     if [ "$unity_exit" -ne 0 ]; then
         echo "ERROR: Unity typography visual capture failed with exit code $unity_exit."
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-        return "$unity_exit"
+        visual_guard_finish "$unity_exit" || return $?
+        return 0
     fi
     if [ "$nanum_exit" -ne 0 ] ||
        [ "$climate_exit" -ne 0 ] ||
@@ -1879,12 +2141,14 @@ run_typography_visual() {
        [ "$residue_exit" -ne 0 ]; then
         echo "ERROR: Typography visual safety checks failed after Unity capture."
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-        return 1
+        visual_guard_finish 1 || return $?
+        return 0
     fi
 
     if ! verify_typography_visual_manifest "$expected_head"; then
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-        return 1
+        visual_guard_finish 1 || return $?
+        return 0
     fi
     echo "Typography visual evidence capture: PASS"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
@@ -1892,6 +2156,7 @@ run_typography_visual() {
     echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Nanum hash/diff: preserved"
+    visual_guard_finish 0
 }
 
 run_objective_hud_visual() {
@@ -1907,6 +2172,7 @@ run_objective_hud_visual() {
     local manifest
     local expected_head
     local runner_mutation_evidence
+    local runner_lifecycle_evidence
     local climate_hash_before
     local climate_hash_after
     local climate_restored_hash
@@ -1922,6 +2188,7 @@ run_objective_hud_visual() {
     test_results="$output_dir/objective-hud-playmode.xml"
     manifest="$output_dir/objective-hud-capture.log"
     runner_mutation_evidence="$output_dir/runner-asset-mutation.log"
+    runner_lifecycle_evidence="$output_dir/runner-cleanup-lifecycle.log"
     output_dir_win="$(wslpath -w "$output_dir")"
     baseline_root="$output_dir/pre-capture-assets"
     baseline_root_win="$(wslpath -w "$baseline_root")"
@@ -1957,6 +2224,11 @@ run_objective_hud_visual() {
     mkdir -p "$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT"
     mkdir "$output_dir"
     prepare_capture_asset_baseline "$baseline_root"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$runner_mutation_evidence" \
+        "$runner_lifecycle_evidence" \
+        "ObjectiveHud"
 
     expected_head="$(git rev-parse HEAD)"
     climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
@@ -1964,7 +2236,7 @@ run_objective_hud_visual() {
     echo "Running Objective HUD production-composition visual evidence..."
     echo "  output directory: $output_dir"
     echo "  manifest: $manifest"
-    if "${unity_command[@]}"; then
+    if visual_guard_run_command "${unity_command[@]}"; then
         unity_exit=0
     else
         unity_exit=$?
@@ -1985,9 +2257,12 @@ run_objective_hud_visual() {
         "$runner_mutation_evidence"; then
         capture_guard_exit=1
     fi
-    if ! restore_capture_assets_from_baseline \
-        "$baseline_root" \
-        "$runner_mutation_evidence"; then
+    if [ "$capture_guard_exit" -eq 0 ]; then
+        visual_guard_mark_observation_complete "PASS"
+    else
+        visual_guard_mark_observation_complete "FAIL"
+    fi
+    if ! visual_guard_cleanup "$unity_exit"; then
         restore_exit=1
     fi
     climate_restored_hash="$(
@@ -2001,16 +2276,19 @@ run_objective_hud_visual() {
     if [ "$unity_exit" -ne 0 ]; then
         echo "ERROR: Objective HUD visual capture failed with exit code $unity_exit."
         echo "Diagnostics were preserved in: $output_dir"
-        return "$unity_exit"
+        visual_guard_finish "$unity_exit" || return $?
+        return 0
     fi
     if [ "$capture_guard_exit" -ne 0 ] || [ "$restore_exit" -ne 0 ]; then
         echo "ERROR: Objective HUD runner asset safety checks failed."
         echo "  mutation evidence: $runner_mutation_evidence"
-        return 1
+        visual_guard_finish 1 || return $?
+        return 0
     fi
     if ! assert_no_generated_test_scenes; then
         cleanup_generated_test_scenes
-        return 1
+        visual_guard_finish 1 || return $?
+        return 0
     fi
 
     python3 - "$output_dir" "$manifest" "$expected_head" <<'PY'
@@ -2259,6 +2537,7 @@ PY
     echo "  runner mutation: $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Climate SDF hash: preserved"
+    visual_guard_finish 0
 }
 
 run_unity_full() {
@@ -2384,6 +2663,7 @@ main() {
             verify_climate_worktree_source_integrity
         fi
         if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
+            require_command setsid
             ensure_result_dirs
         else
             require_file "$DOTNET_PATH" "dotnet executable"
@@ -2454,4 +2734,6 @@ main() {
     fi
 }
 
-main "$@"
+if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -eq 0 ]; then
+    main "$@"
+fi

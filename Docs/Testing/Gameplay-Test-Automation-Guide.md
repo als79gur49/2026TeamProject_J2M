@@ -45,6 +45,19 @@
 - Use [Display-Settings-Build-Validation-Checklist.md](./Display-Settings-Build-Validation-Checklist.md) for display-settings-specific real-build validation. Editor-only execution is not sufficient evidence for fullscreen/window correctness.
 - The generated stratification report is no longer an active governance truth source.
 
+## Visual runner interruption contract / visual runner 중단 계약
+### 한국어
+- `typography-visual`과 `typography-hud-visual`은 8개 guarded path의 baseline이 완성된 직후 `EXIT`, `INT`, `TERM` cleanup trap을 설치한다.
+- 정상 capture는 모든 guarded path를 restore 전에 관측하고 lane verdict를 확정한 뒤 restore한다.
+- 중단 capture는 `INTERRUPTED`로 기록하며, 해당 project의 Unity child를 종료한 뒤 idempotent cleanup으로 baseline을 복원한다.
+- cleanup은 원래 command status를 보존하며 `SIGINT=130`, `SIGTERM=143`을 성공으로 바꾸지 않는다. Lifecycle evidence는 각 output directory의 `runner-cleanup-lifecycle.log`에 기록한다.
+
+### English Original
+- `typography-visual` and `typography-hud-visual` install `EXIT`, `INT`, and `TERM` cleanup traps immediately after all eight guarded-path baselines are complete.
+- A normal capture observes every guarded path and fixes the lane verdict before any restore.
+- An interrupted capture records `INTERRUPTED`, terminates only the current-project Unity child, and restores the baseline through one idempotent cleanup path.
+- Cleanup preserves the original command status, including `SIGINT=130` and `SIGTERM=143`, and writes lifecycle evidence to `runner-cleanup-lifecycle.log` in the capture output directory.
+
 ## 1. Overview / 개요
 ### 한국어
 - 이 시스템은 WSL에서 테스트를 오케스트레이션하면서 실제 빌드와 실행은 Windows `dotnet`과 Unity에서 수행하도록 고정한 게임플레이 테스트 운영 체계다.
