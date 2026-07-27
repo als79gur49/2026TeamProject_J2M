@@ -71,7 +71,7 @@ namespace Game.Feature.UI.Tests
             Directory.CreateDirectory(outputDirectory);
             Screen.SetResolution(width, height, FullScreenMode.Windowed);
             yield return null;
-            yield return new WaitForEndOfFrame();
+            yield return null;
 
             var gitHead = TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead();
             var errors = new List<string>();
@@ -435,9 +435,9 @@ namespace Game.Feature.UI.Tests
 
                 yield return null;
                 Canvas.ForceUpdateCanvases();
-                yield return new WaitForEndOfFrame();
+                yield return null;
                 Canvas.ForceUpdateCanvases();
-                yield return new WaitForEndOfFrame();
+                yield return null;
 
                 texture = ScreenCapture.CaptureScreenshotAsTexture();
                 if (texture == null)
@@ -486,8 +486,8 @@ namespace Game.Feature.UI.Tests
                     ComputeSemanticSnapshotHash(initialReadModel),
                     ComputeHierarchyHash(root),
                     cameraRenderPassCount: 0,
-                    captureFrameIndex: 2,
-                    endOfFrameCount: 2,
+                    captureFrameIndex: 3,
+                    endOfFrameCount: 0,
                     nonBlank ? "PASS" : "FAIL",
                     "PASS",
                     "PASS",

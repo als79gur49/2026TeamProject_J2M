@@ -7,11 +7,11 @@ using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
-    [Category("Full")]
     public sealed class ObjectiveHudVisualEvidencePlayModeTests
     {
+        [Category("Full")]
         [UnityTest]
-        public IEnumerator CaptureScreenSpaceOverlayEvidenceAfterEndOfFrame()
+        public IEnumerator CaptureScreenSpaceOverlayEvidenceAfterSettledFrames()
         {
             var utilityType = Type.GetType(
                 "Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility, Game.Feature.UI.Tests",

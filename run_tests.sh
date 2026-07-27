@@ -1650,7 +1650,7 @@ run_objective_hud_visual() {
         -executeMethod TestRunnerCliBootstrap.RunPlayMode
         -codexSelection full
         -codexResultPath "$test_results_win"
-        -codexTestFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterEndOfFrame"
+        -codexTestFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterSettledFrames"
         -objectiveHudVisualOutput "$output_dir_win"
         -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
         -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"
