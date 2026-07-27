@@ -439,18 +439,37 @@ namespace Game.Feature.UI.Tests
                 Canvas.ForceUpdateCanvases();
                 yield return null;
 
-                texture = ScreenCapture.CaptureScreenshotAsTexture();
-                if (texture == null)
-                {
-                    throw new InvalidOperationException(
-                        "ScreenSpaceOverlay backbuffer capture returned no texture.");
-                }
-
-                var pngBytes = texture.EncodeToPNG();
-                var pixels = texture.GetPixels32();
                 var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
                 var filePath = Path.Combine(outputDirectory, fileName);
-                File.WriteAllBytes(filePath, pngBytes);
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+
+                ScreenCapture.CaptureScreenshot(filePath);
+                var captureFrameIndex = 0;
+                while (captureFrameIndex < 16 &&
+                       (!File.Exists(filePath) || new FileInfo(filePath).Length == 0))
+                {
+                    captureFrameIndex++;
+                    yield return null;
+                }
+
+                if (!File.Exists(filePath) || new FileInfo(filePath).Length == 0)
+                {
+                    throw new InvalidOperationException(
+                        "ScreenSpaceOverlay screenshot request did not produce a PNG within 16 frames.");
+                }
+
+                var pngBytes = File.ReadAllBytes(filePath);
+                texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!ImageConversion.LoadImage(texture, pngBytes, markNonReadable: false))
+                {
+                    throw new InvalidOperationException(
+                        "ScreenSpaceOverlay screenshot PNG could not be decoded.");
+                }
+
+                var pixels = texture.GetPixels32();
                 if (texture.width != width || texture.height != height)
                 {
                     throw new InvalidOperationException(
@@ -486,8 +505,8 @@ namespace Game.Feature.UI.Tests
                     ComputeSemanticSnapshotHash(initialReadModel),
                     ComputeHierarchyHash(root),
                     cameraRenderPassCount: 0,
-                    captureFrameIndex: 3,
-                    endOfFrameCount: 0,
+                    captureFrameIndex,
+                    endOfFrameCount: 1,
                     nonBlank ? "PASS" : "FAIL",
                     "PASS",
                     "PASS",
