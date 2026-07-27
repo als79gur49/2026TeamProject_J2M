@@ -115,6 +115,21 @@ git_head_blob_sha256() {
     git show "HEAD:$path" | sha256sum | awk '{print $1}'
 }
 
+git_head_runner_constant() {
+    local name="$1"
+    local value
+
+    value="$(
+        git show HEAD:run_tests.sh |
+            sed -n "s/^${name}=\"\\([^\"]*\\)\"$/\\1/p"
+    )"
+    if [ -z "$value" ]; then
+        echo "ERROR: Git HEAD run_tests.sh constant is missing: $name" >&2
+        return 1
+    fi
+    printf '%s\n' "$value"
+}
+
 require_git_head_blob_text() {
     local path="$1"
     local expected="$2"
@@ -129,6 +144,14 @@ require_git_head_blob_text() {
 verify_climate_committed_source_integrity() {
     local committed_sdf_hash
     local committed_ttf_hash
+    local head_climate_sdf_sha256
+    local head_climate_ttf_sha256
+    local head_climate_ttf_guid
+    local head_climate_sdf_guid
+    local head_climate_material_local_id
+    local head_nanum_ttf_guid
+    local head_nanum_sdf_guid
+    local head_nanum_material_guid
     local retained_path
     local -a retained_nanum_paths=(
         "Assets/_Shared/UI/Fonts/NanumGothic.ttf"
@@ -139,32 +162,45 @@ verify_climate_committed_source_integrity() {
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta"
     )
 
+    head_climate_sdf_sha256="$(git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256)"
+    head_climate_ttf_sha256="$(git_head_runner_constant CLIMATE_SOURCE_TTF_SHA256)"
+    head_climate_ttf_guid="$(git_head_runner_constant CLIMATE_SOURCE_TTF_GUID)"
+    head_climate_sdf_guid="$(git_head_runner_constant CLIMATE_SDF_GUID)"
+    head_climate_material_local_id="$(
+        git_head_runner_constant CLIMATE_MATERIAL_LOCAL_ID
+    )"
+    head_nanum_ttf_guid="$(git_head_runner_constant NANUM_SOURCE_TTF_GUID)"
+    head_nanum_sdf_guid="$(git_head_runner_constant NANUM_SDF_GUID)"
+    head_nanum_material_guid="$(
+        git_head_runner_constant NANUM_SYNTHETIC_BOLD_GUID
+    )"
+
     committed_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_SDF_ASSET")"
     committed_ttf_hash="$(git_head_blob_sha256 "$CLIMATE_SOURCE_TTF_ASSET")"
-    if [ "$committed_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+    if [ "$committed_sdf_hash" != "$head_climate_sdf_sha256" ]; then
         echo "ERROR: Climate committed SDF Git blob mismatch."
-        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  expected: $head_climate_sdf_sha256"
         echo "  actual:   $committed_sdf_hash"
         return 1
     fi
-    if [ "$committed_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
+    if [ "$committed_ttf_hash" != "$head_climate_ttf_sha256" ]; then
         echo "ERROR: Climate committed source TTF Git blob mismatch."
-        echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
+        echo "  expected: $head_climate_ttf_sha256"
         echo "  actual:   $committed_ttf_hash"
         return 1
     fi
 
     require_git_head_blob_text \
         "$CLIMATE_SOURCE_TTF_META" \
-        "guid: $CLIMATE_SOURCE_TTF_GUID" \
+        "guid: $head_climate_ttf_guid" \
         "source TTF GUID"
     require_git_head_blob_text \
         "$CLIMATE_SDF_META" \
-        "guid: $CLIMATE_SDF_GUID" \
+        "guid: $head_climate_sdf_guid" \
         "SDF GUID"
     require_git_head_blob_text \
         "$CLIMATE_SDF_ASSET" \
-        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "--- !u!21 &$head_climate_material_local_id" \
         "material localID"
 
     for retained_path in "${retained_nanum_paths[@]}"; do
@@ -175,34 +211,122 @@ verify_climate_committed_source_integrity() {
     done
     require_git_head_blob_text \
         "$NANUM_SOURCE_TTF_META" \
-        "guid: $NANUM_SOURCE_TTF_GUID" \
+        "guid: $head_nanum_ttf_guid" \
         "Nanum source TTF GUID"
     require_git_head_blob_text \
         "$NANUM_SDF_META" \
-        "guid: $NANUM_SDF_GUID" \
+        "guid: $head_nanum_sdf_guid" \
         "Nanum SDF GUID"
     require_git_head_blob_text \
         "$NANUM_SYNTHETIC_BOLD_META" \
-        "guid: $NANUM_SYNTHETIC_BOLD_GUID" \
+        "guid: $head_nanum_material_guid" \
         "Nanum synthetic-bold material GUID"
     require_git_head_blob_text \
         "$NANUM_SDF_ASSET" \
-        "m_SourceFontFileGUID: $NANUM_SOURCE_TTF_GUID" \
+        "m_SourceFontFileGUID: $head_nanum_ttf_guid" \
         "Nanum SDF source TTF reference"
     require_git_head_blob_text \
+        "$NANUM_SYNTHETIC_BOLD_ASSET" \
+        "guid: $head_nanum_sdf_guid" \
+        "Nanum synthetic-bold atlas reference"
+
+    echo "Climate committed source integrity: PASS (historical HEAD audit)"
+    echo "  SDF Git blob SHA-256: $committed_sdf_hash"
+    echo "  TTF GUID:             $head_climate_ttf_guid"
+    echo "  SDF GUID:             $head_climate_sdf_guid"
+    echo "  Material localID:     $head_climate_material_local_id"
+    echo "  Nanum body/meta:      6/6 committed"
+    echo "  Nanum TTF GUID:       $head_nanum_ttf_guid"
+    echo "  Nanum SDF GUID:       $head_nanum_sdf_guid"
+    echo "  Nanum material GUID:  $head_nanum_material_guid"
+}
+
+require_worktree_file_text() {
+    local path="$1"
+    local expected="$2"
+    local label="$3"
+
+    if ! grep -F -- "$expected" "$PROJECT_PATH_WSL/$path" >/dev/null; then
+        echo "ERROR: Candidate worktree $label mismatch: $path"
+        return 1
+    fi
+}
+
+verify_climate_worktree_source_integrity() {
+    local candidate_sdf_hash
+    local candidate_ttf_hash
+    local retained_path
+    local -a retained_nanum_paths=(
+        "$NANUM_SOURCE_TTF_ASSET"
+        "$NANUM_SOURCE_TTF_META"
+        "$NANUM_SDF_ASSET"
+        "$NANUM_SDF_META"
+        "$NANUM_SYNTHETIC_BOLD_ASSET"
+        "$NANUM_SYNTHETIC_BOLD_META"
+    )
+
+    candidate_sdf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
+    candidate_ttf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SOURCE_TTF_ASSET" | awk '{print $1}'
+    )"
+    if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate SDF mismatch."
+        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  actual:   $candidate_sdf_hash"
+        return 1
+    fi
+    if [ "$candidate_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate source TTF mismatch."
+        echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
+        echo "  actual:   $candidate_ttf_hash"
+        return 1
+    fi
+
+    require_worktree_file_text \
+        "$CLIMATE_SOURCE_TTF_META" \
+        "guid: $CLIMATE_SOURCE_TTF_GUID" \
+        "source TTF GUID"
+    require_worktree_file_text \
+        "$CLIMATE_SDF_META" \
+        "guid: $CLIMATE_SDF_GUID" \
+        "SDF GUID"
+    require_worktree_file_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "material localID"
+
+    for retained_path in "${retained_nanum_paths[@]}"; do
+        if [ ! -f "$PROJECT_PATH_WSL/$retained_path" ]; then
+            echo "ERROR: Required retained Nanum candidate is absent: $retained_path"
+            return 1
+        fi
+    done
+    require_worktree_file_text \
+        "$NANUM_SOURCE_TTF_META" \
+        "guid: $NANUM_SOURCE_TTF_GUID" \
+        "Nanum source TTF GUID"
+    require_worktree_file_text \
+        "$NANUM_SDF_META" \
+        "guid: $NANUM_SDF_GUID" \
+        "Nanum SDF GUID"
+    require_worktree_file_text \
+        "$NANUM_SYNTHETIC_BOLD_META" \
+        "guid: $NANUM_SYNTHETIC_BOLD_GUID" \
+        "Nanum synthetic-bold material GUID"
+    require_worktree_file_text \
+        "$NANUM_SDF_ASSET" \
+        "m_SourceFontFileGUID: $NANUM_SOURCE_TTF_GUID" \
+        "Nanum SDF source TTF reference"
+    require_worktree_file_text \
         "$NANUM_SYNTHETIC_BOLD_ASSET" \
         "guid: $NANUM_SDF_GUID" \
         "Nanum synthetic-bold atlas reference"
 
-    echo "Climate committed source integrity: PASS"
-    echo "  SDF Git blob SHA-256: $committed_sdf_hash"
-    echo "  TTF GUID:             $CLIMATE_SOURCE_TTF_GUID"
-    echo "  SDF GUID:             $CLIMATE_SDF_GUID"
-    echo "  Material localID:     $CLIMATE_MATERIAL_LOCAL_ID"
-    echo "  Nanum body/meta:      6/6 committed"
-    echo "  Nanum TTF GUID:       $NANUM_SOURCE_TTF_GUID"
-    echo "  Nanum SDF GUID:       $NANUM_SDF_GUID"
-    echo "  Nanum material GUID:  $NANUM_SYNTHETIC_BOLD_GUID"
+    echo "Climate/Nanum candidate worktree integrity: PASS"
+    echo "  Climate SDF SHA-256: $candidate_sdf_hash"
+    echo "  Nanum body/meta:     6/6 present"
 }
 
 climate_working_sha256() {
@@ -460,25 +584,168 @@ prepare_typography_visual_paths() {
     TYPOGRAPHY_VISUAL_MANIFEST="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture.log"
 }
 
+capture_guarded_paths() {
+    printf '%s\n' \
+        "$CLIMATE_SDF_ASSET" \
+        "$NANUM_SDF_ASSET" \
+        "Assets/TextMesh Pro/Resources/TMP Settings.asset" \
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset" \
+        "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab" \
+        "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab" \
+        "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab" \
+        "Assets/Synty/InterfaceSciFiSoldierHUD/Prefabs/_CommonComponents/Label_SciFiSoldier_SemiBold.prefab"
+}
+
 prepare_capture_asset_baseline() {
     local baseline_root="$1"
     local asset_path
-    local -a guarded_paths=(
-        "$CLIMATE_SDF_ASSET"
-        "$NANUM_SDF_ASSET"
-        "Assets/TextMesh Pro/Resources/TMP Settings.asset"
-        "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset"
-        "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"
-        "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab"
-        "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"
-        "Assets/Synty/InterfaceSciFiSoldierHUD/Prefabs/_CommonComponents/Label_SciFiSoldier_SemiBold.prefab"
-    )
+    local -a guarded_paths
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
 
     mkdir -p "$baseline_root"
     for asset_path in "${guarded_paths[@]}"; do
         mkdir -p "$baseline_root/$(dirname "$asset_path")"
         cp "$PROJECT_PATH_WSL/$asset_path" "$baseline_root/$asset_path"
     done
+}
+
+observe_capture_assets_before_restore() {
+    local baseline_root="$1"
+    local evidence_path="$2"
+    local asset_path
+    local before_hash
+    local after_hash
+    local transition_output
+    local transition_exit
+    local index
+    local mutation_exit=0
+    local -a guarded_paths
+    local -a before_hashes
+    local -a after_hashes
+    local -a mutation_detected
+    local -a changed_properties
+    local -a classifications
+    local -a allowed
+    local -a lane_verdicts
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+    for index in "${!guarded_paths[@]}"; do
+        asset_path="${guarded_paths[$index]}"
+        before_hash="$(
+            sha256sum "$baseline_root/$asset_path" | awk '{print $1}'
+        )"
+        if [ -f "$PROJECT_PATH_WSL/$asset_path" ]; then
+            after_hash="$(
+                sha256sum "$PROJECT_PATH_WSL/$asset_path" | awk '{print $1}'
+            )"
+        else
+            after_hash="MISSING"
+        fi
+        before_hashes[$index]="$before_hash"
+        after_hashes[$index]="$after_hash"
+        mutation_detected[$index]=0
+        changed_properties[$index]=""
+        classifications[$index]="NO_MUTATION"
+        allowed[$index]=1
+        lane_verdicts[$index]="PASS"
+        if [ "$before_hash" = "$after_hash" ]; then
+            continue
+        fi
+
+        mutation_detected[$index]=1
+        if [ "$asset_path" = "$CLIMATE_SDF_ASSET" ]; then
+            transition_exit=0
+            transition_output="$(
+                verify_climate_working_transition \
+                    "$baseline_root/$asset_path" \
+                    "$PROJECT_PATH_WSL/$asset_path" 2>&1
+            )" || transition_exit=$?
+            printf '%s\n' "$transition_output"
+            if [ "$transition_exit" -eq 0 ]; then
+                changed_properties[$index]="$(
+                    printf '%s\n' "$transition_output" |
+                        sed -n 's/^  Derived properties: //p'
+                )"
+                classifications[$index]="EXPECTED_IMPORT_DERIVED_DRIFT"
+                continue
+            fi
+        fi
+
+        changed_properties[$index]="UNCLASSIFIED_BYTE_DELTA"
+        classifications[$index]="UNEXPECTED_ASSET_MUTATION"
+        allowed[$index]=0
+        lane_verdicts[$index]="FAIL"
+        mutation_exit=1
+    done
+
+    {
+        echo "schema_version=1"
+        echo "observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"
+        echo "guarded_path_count=${#guarded_paths[@]}"
+        echo "lane_verdict_before_restore=$(
+            if [ "$mutation_exit" -eq 0 ]; then
+                printf PASS
+            else
+                printf FAIL
+            fi
+        )"
+        for index in "${!guarded_paths[@]}"; do
+            echo
+            echo "[asset-mutation/$index]"
+            echo "path=${guarded_paths[$index]}"
+            echo "before_hash=${before_hashes[$index]}"
+            echo "after_capture_hash=${after_hashes[$index]}"
+            echo "mutation_detected=${mutation_detected[$index]}"
+            echo "changed_properties=${changed_properties[$index]}"
+            echo "classification=${classifications[$index]}"
+            echo "allowed=${allowed[$index]}"
+            echo "lane_verdict_before_restore=${lane_verdicts[$index]}"
+        done
+    } > "$evidence_path"
+
+    return "$mutation_exit"
+}
+
+restore_capture_assets_from_baseline() {
+    local baseline_root="$1"
+    local evidence_path="$2"
+    local asset_path
+    local before_hash
+    local restored_hash
+    local restored
+    local restore_exit=0
+    local -a guarded_paths
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+    for asset_path in "${guarded_paths[@]}"; do
+        cp "$baseline_root/$asset_path" "$PROJECT_PATH_WSL/$asset_path"
+    done
+    for asset_path in "${guarded_paths[@]}"; do
+        before_hash="$(
+            sha256sum "$baseline_root/$asset_path" | awk '{print $1}'
+        )"
+        restored_hash="$(
+            sha256sum "$PROJECT_PATH_WSL/$asset_path" | awk '{print $1}'
+        )"
+        restored=1
+        if [ "$restored_hash" != "$before_hash" ]; then
+            restored=0
+            restore_exit=1
+        fi
+        {
+            echo
+            echo "[asset-restore/$asset_path]"
+            echo "restored=$restored"
+            echo "restored_hash=$restored_hash"
+            echo "expected_hash=$before_hash"
+        } >> "$evidence_path"
+    done
+
+    if [ "$restore_exit" -ne 0 ]; then
+        echo "ERROR: Runner capture baseline restore failed."
+    fi
+    return "$restore_exit"
 }
 
 print_typography_visual_plan() {
@@ -1428,6 +1695,7 @@ run_typography_visual() {
     local slice_name
     local current_unity_log
     local expected_head
+    local runner_mutation_evidence
     local climate_hash_before
     local climate_hash_after
     local climate_restored_hash
@@ -1439,6 +1707,8 @@ run_typography_visual() {
     local residue_exit=0
     local nanum_exit=0
     local climate_exit=0
+    local capture_guard_exit=0
+    local restore_exit=0
     local process_before
     local -a unity_command
     local -a capture_slices=(
@@ -1471,6 +1741,7 @@ run_typography_visual() {
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
     baseline_root="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets"
     baseline_root_win="$(wslpath -w "$baseline_root")"
+    runner_mutation_evidence="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/runner-asset-mutation.log"
     prepare_capture_asset_baseline "$baseline_root"
     climate_hash_before="$(
         sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
@@ -1547,7 +1818,7 @@ run_typography_visual() {
             "$current_unity_log" \
             "$TYPOGRAPHY_VISUAL_MANIFEST" \
             "$unity_exit" \
-            "$process_before"
+            "$process_before" || true
     fi
 
     nanum_hash_after="$(typography_visual_nanum_hash)"
@@ -1558,9 +1829,16 @@ run_typography_visual() {
         "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"; then
         climate_exit=1
     fi
-    cp \
-        "$baseline_root/$CLIMATE_SDF_ASSET" \
-        "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
+    if ! observe_capture_assets_before_restore \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        capture_guard_exit=1
+    fi
+    if ! restore_capture_assets_from_baseline \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        restore_exit=1
+    fi
     climate_restored_hash="$(climate_working_sha256)"
     if [ "$climate_restored_hash" != "$climate_hash_before" ]; then
         echo "ERROR: Climate asset was not restored after typography capture."
@@ -1596,6 +1874,8 @@ run_typography_visual() {
     fi
     if [ "$nanum_exit" -ne 0 ] ||
        [ "$climate_exit" -ne 0 ] ||
+       [ "$capture_guard_exit" -ne 0 ] ||
+       [ "$restore_exit" -ne 0 ] ||
        [ "$residue_exit" -ne 0 ]; then
         echo "ERROR: Typography visual safety checks failed after Unity capture."
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
@@ -1609,6 +1889,7 @@ run_typography_visual() {
     echo "Typography visual evidence capture: PASS"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
+    echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Nanum hash/diff: preserved"
 }
@@ -1625,10 +1906,14 @@ run_objective_hud_visual() {
     local test_results_win
     local manifest
     local expected_head
+    local runner_mutation_evidence
     local climate_hash_before
     local climate_hash_after
+    local climate_restored_hash
     local process_before
     local unity_exit=0
+    local capture_guard_exit=0
+    local restore_exit=0
     local -a unity_command
 
     timestamp="$(date +%Y%m%d-%H%M%S)"
@@ -1636,6 +1921,7 @@ run_objective_hud_visual() {
     unity_log="$output_dir/objective-hud-unity.log"
     test_results="$output_dir/objective-hud-playmode.xml"
     manifest="$output_dir/objective-hud-capture.log"
+    runner_mutation_evidence="$output_dir/runner-asset-mutation.log"
     output_dir_win="$(wslpath -w "$output_dir")"
     baseline_root="$output_dir/pre-capture-assets"
     baseline_root_win="$(wslpath -w "$baseline_root")"
@@ -1690,19 +1976,36 @@ run_objective_hud_visual() {
             "$unity_log" \
             "$manifest" \
             "$unity_exit" \
-            "$process_before"
+            "$process_before" || true
     fi
+
+    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    if ! observe_capture_assets_before_restore \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        capture_guard_exit=1
+    fi
+    if ! restore_capture_assets_from_baseline \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        restore_exit=1
+    fi
+    climate_restored_hash="$(
+        sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}'
+    )"
+    echo "Objective HUD runner Climate transition:"
+    echo "  before:   $climate_hash_before"
+    echo "  observed: $climate_hash_after"
+    echo "  restored: $climate_restored_hash"
+
     if [ "$unity_exit" -ne 0 ]; then
         echo "ERROR: Objective HUD visual capture failed with exit code $unity_exit."
         echo "Diagnostics were preserved in: $output_dir"
         return "$unity_exit"
     fi
-
-    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
-    if [ "$climate_hash_after" != "$climate_hash_before" ]; then
-        echo "ERROR: Climate SDF hash changed during Objective HUD capture."
-        echo "  before: $climate_hash_before"
-        echo "  after:  $climate_hash_after"
+    if [ "$capture_guard_exit" -ne 0 ] || [ "$restore_exit" -ne 0 ]; then
+        echo "ERROR: Objective HUD runner asset safety checks failed."
+        echo "  mutation evidence: $runner_mutation_evidence"
         return 1
     fi
     if ! assert_no_generated_test_scenes; then
@@ -1953,6 +2256,7 @@ PY
     echo "Objective HUD visual evidence capture: PASS"
     echo "  output directory: $output_dir"
     echo "  manifest: $manifest"
+    echo "  runner mutation: $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Climate SDF hash: preserved"
 }
@@ -2077,6 +2381,7 @@ main() {
             require_command git
             require_command sha256sum
             verify_climate_committed_source_integrity
+            verify_climate_worktree_source_integrity
         fi
         if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
             ensure_result_dirs

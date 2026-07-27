@@ -62,7 +62,23 @@ namespace Game.Feature.UI.Tests
                 "Committed source integrity must read Git HEAD blobs.");
             Assert.That(
                 runner,
+                Does.Contain("git_head_runner_constant"),
+                "Historical HEAD blobs must use the constants committed with that HEAD.");
+            Assert.That(
+                runner,
                 Does.Contain("Climate committed source integrity: PASS"));
+            Assert.That(
+                runner,
+                Does.Contain("verify_climate_worktree_source_integrity"),
+                "The candidate lane must validate current worktree bytes before commit.");
+            Assert.That(
+                runner,
+                Does.Contain("sha256sum \"$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET\""),
+                "The candidate Climate SDF hash must come from the current worktree.");
+            Assert.That(
+                runner,
+                Does.Contain("require_worktree_file_text"),
+                "Candidate meta/GUID/reference validation must read worktree files.");
             Assert.That(
                 runner,
                 Does.Contain("EXPECTED_IMPORT_DERIVED_DRIFT"));
@@ -76,6 +92,22 @@ namespace Game.Feature.UI.Tests
                 runner,
                 Does.Not.Contain("71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"),
                 "An entire derived Climate blob must not be accepted as an allowlist.");
+        }
+
+        [Test]
+        public void CaptureRunner_ObservesAllGuardedAssetsBeforeRestoreAndBeforeFailureReturn()
+        {
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
+
+            AssertCaptureFailureOrdering(runner, "run_typography_visual()", "run_objective_hud_visual()");
+            AssertCaptureFailureOrdering(runner, "run_objective_hud_visual()", "run_unity_full()");
+            Assert.That(
+                runner,
+                Does.Contain("observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"));
+            Assert.That(runner, Does.Contain("UNEXPECTED_ASSET_MUTATION"));
+            Assert.That(runner, Does.Contain("lane_verdict_before_restore"));
+            Assert.That(runner, Does.Contain("restored_hash"));
         }
 
         [Test]
@@ -311,6 +343,38 @@ namespace Game.Feature.UI.Tests
             Assert.That(binding.StyleTag, Is.EqualTo(TypographyStyleTag.HeaderMedium));
             Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid));
             Assert.That(binding.UseApplyMaskOverride, Is.False);
+        }
+
+        private static void AssertCaptureFailureOrdering(
+            string runner,
+            string functionName,
+            string nextFunctionName)
+        {
+            var functionStart = runner.IndexOf(functionName, StringComparison.Ordinal);
+            var functionEnd = runner.IndexOf(
+                nextFunctionName,
+                functionStart + functionName.Length,
+                StringComparison.Ordinal);
+            Assert.That(functionStart, Is.GreaterThanOrEqualTo(0), functionName);
+            Assert.That(functionEnd, Is.GreaterThan(functionStart), nextFunctionName);
+
+            var functionBody = runner.Substring(functionStart, functionEnd - functionStart);
+            var observe = functionBody.IndexOf(
+                "observe_capture_assets_before_restore",
+                StringComparison.Ordinal);
+            var restore = functionBody.IndexOf(
+                "restore_capture_assets_from_baseline",
+                StringComparison.Ordinal);
+            var failureReturn = functionBody.IndexOf(
+                "if [ \"$unity_exit\" -ne 0 ]",
+                StringComparison.Ordinal);
+
+            Assert.That(observe, Is.GreaterThanOrEqualTo(0), functionName + " observe");
+            Assert.That(restore, Is.GreaterThan(observe), functionName + " restore ordering");
+            Assert.That(
+                failureReturn,
+                Is.GreaterThan(restore),
+                functionName + " must restore before returning Unity failure.");
         }
 
         private static void AssertAudioValueLayouts(SettingsScreenView settings)
