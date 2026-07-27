@@ -304,6 +304,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveHudPresenter_InvariantResolver_ShowsReachZoneConditionText()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Move to the designated zone.",
+                title: "Reach the Zone",
+                conditions: new[]
+                {
+                    CreateCondition(
+                        "primary-zone",
+                        isSatisfied: false,
+                        role: UIObjectiveConditionRole.PrimaryGoal,
+                        sortOrder: 0,
+                        presentationKind: GameplayObjectivePresentationKind.ReachZone,
+                        stableGroupKey: "reach-zone"),
+                }));
+
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
+            Assert.That(
+                presenter.ViewModel.Rows[0].Text,
+                Is.EqualTo("Reach the designated zone (0/1)"));
+        }
+
+        [Test]
         public void ObjectiveHudPresenter_SortsRowsByConditionSortOrder()
         {
             var presenter = new ObjectiveHudPresenter();

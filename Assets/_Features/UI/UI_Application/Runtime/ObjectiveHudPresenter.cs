@@ -401,6 +401,9 @@ namespace Game.Feature.UI.Application
                     case ObjectiveHudLocalization.Keys.ReachExit:
                         return Format("Reach the Exit Zone ({0}/{1})", descriptor.Arguments);
 
+                    case ObjectiveHudLocalization.Keys.ReachZone:
+                        return Format("Reach the designated zone ({0}/{1})", descriptor.Arguments);
+
                     case ObjectiveHudLocalization.Keys.ActivateButton:
                         return Format("Place a push box on the button ({0}/{1})", descriptor.Arguments);
 
