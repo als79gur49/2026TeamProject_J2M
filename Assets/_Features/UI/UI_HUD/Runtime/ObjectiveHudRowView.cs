@@ -63,6 +63,7 @@ namespace Game.Feature.UI.HUD
         private bool _hasProgressHighlightBaseColors;
         private float _progressHighlightAlpha;
         private bool _missingProgressHighlightWarningRaised;
+        private IObjectiveHudTypographyApplicator _typographyApplicator;
 
         public event Action<ObjectiveHudRowView> DismissFinished;
         public event Action<ObjectiveHudRowView, ObjectiveRowTransitionKind> TransitionFinished;
@@ -79,6 +80,20 @@ namespace Game.Feature.UI.HUD
         internal bool IsProgressPulsePlayingForTests => _isProgressPulsePlaying;
 
         internal Transform ProgressPulseScaleTargetForTests => _progressPulseScaleTarget;
+
+        internal TMP_Text LabelForTests => _label;
+
+        public void ConfigureTypography(IObjectiveHudTypographyApplicator typographyApplicator)
+        {
+            _typographyApplicator = typographyApplicator;
+            RefreshTypography();
+        }
+
+        public void RefreshTypography()
+        {
+            ResolveReferences();
+            _typographyApplicator?.ApplyRow(_label);
+        }
 
         public void Initialize()
         {
@@ -110,6 +125,7 @@ namespace Game.Feature.UI.HUD
             _enterFinishedRaised = false;
             _dismissFinishedRaised = false;
             _label.text = model.Text;
+            RefreshTypography();
             _layoutElement.ignoreLayout = false;
             ResetProgressPulseState();
             SetAnimatorBool(false);
@@ -143,6 +159,7 @@ namespace Game.Feature.UI.HUD
             }
 
             _label.text = model.Text;
+            RefreshTypography();
 
             if (IsDismissing)
             {

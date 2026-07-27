@@ -2902,6 +2902,7 @@ GameObject:
   - component: {fileID: 5990311596550497153}
   - component: {fileID: 4242456996189818405}
   - component: {fileID: 114151}
+  - component: {fileID: 924173310451101170}
   m_Layer: 5
   m_Name: HUD_SciFiSoldier_Objectives_02
   m_TagString: Untagged
@@ -2984,9 +2985,26 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.HUD::Game.Feature.UI.HUD.ObjectiveHudView
   _root: {fileID: 2831088734598737084}
+  _headerLabel: {fileID: 8213008027789479052}
   _objectiveListRoot: {fileID: 6815743470876774167}
   _objectiveItemTemplate: {fileID: 1824100642747264196}
   collectionTransitionGapSeconds: 0.05
+--- !u!114 &924173310451101170
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2831088734598737084}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33f91348427a4e11916834e356091b36, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.ObjectiveHudTypographyBinding
+  _theme: {fileID: 11400000, guid: e414ca8f5dbd4575ad144ce41643de05, type: 2}
+  _headerTarget: {fileID: 8213008027789479052}
+  _headerStyle: 3
+  _rowStyle: 5
 --- !u!1 &3166319505692110947
 GameObject:
   m_ObjectHideFlags: 0

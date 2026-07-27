@@ -290,26 +290,20 @@ namespace Game.Feature.Stages
                     StageCompletionPolicy.Disabled,
                     validated.PlayerEntityId,
                     zoneDefinitions,
-                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>(),
-                    StageObjectiveDisplayMetadata.Empty);
+                    Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
             }
 
             var conditionEntries = BuildConditionRuntimeEntries(
                 validated,
                 zonesById,
                 tileFeatureRuntimeDefinitionsById,
-                timing,
-                out var conditionDisplayMetadata);
+                timing);
 
             return new StageObjectiveRuntimeDefinition(
                 validated.Objective.CompletionPolicy,
                 validated.PlayerEntityId,
                 zoneDefinitions,
-                conditionEntries,
-                new StageObjectiveDisplayMetadata(
-                    validated.Objective.ObjectiveTitle,
-                    validated.Objective.ObjectiveSummary,
-                    conditionDisplayMetadata));
+                conditionEntries);
         }
 
         private static StageZoneRuntimeDefinition[] BuildZoneRuntimeDefinitions(
@@ -375,8 +369,7 @@ namespace Game.Feature.Stages
             StageDefinitionValidator.ValidatedStageData validated,
             IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
             IReadOnlyDictionary<int, TileFeatureRuntimeDefinition> tileFeatureRuntimeDefinitionsById,
-            StageSimulationTiming timing,
-            out StageObjectiveConditionDisplayMetadata[] conditionDisplayMetadata)
+            StageSimulationTiming timing)
         {
             var conditionEntries = validated.Objective.GetConditionEntriesOrEmpty();
 
@@ -387,14 +380,21 @@ namespace Game.Feature.Stages
                 timing,
                 tileFeatureRuntimeDefinitionsById);
             var runtimeEntries = new List<StageObjectiveConditionRuntimeDefinitionEntry>();
-            var displayEntries = new List<StageObjectiveConditionDisplayMetadata>();
             var hasExit = TryGetSingleExit(validated.TileFeatures, out var exitTileFeature);
 
             for (var i = 0; i < conditionEntries.Length; i++)
             {
                 var authoringEntry = conditionEntries[i];
                 var runtimeDefinition = authoringEntry.Condition.Compile(in compilationContext);
-                if (hasExit && authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                var semanticKind = ResolveSemanticKind(
+                    validated.TileFeatures,
+                    zonesById,
+                    hasExit,
+                    exitTileFeature,
+                    authoringEntry);
+                var isExitPrimaryGoal =
+                    semanticKind == ObjectiveConditionSemanticKind.ReachExit;
+                if (isExitPrimaryGoal)
                 {
                     runtimeDefinition = CreateExitPrimaryGoalRuntimeDefinition(
                         validated,
@@ -406,27 +406,82 @@ namespace Game.Feature.Stages
                 }
 
                 var stableConditionId = ResolveStableConditionId(authoringEntry.StableConditionId, i, runtimeDefinition);
+                var presentationIdentity = semanticKind == ObjectiveConditionSemanticKind.None
+                    ? default
+                    : ObjectivePresentationIdentity.For(semanticKind, authoringEntry.Role);
 
                 runtimeEntries.Add(new StageObjectiveConditionRuntimeDefinitionEntry(
                     runtimeDefinition,
                     authoringEntry.Required,
                     authoringEntry.Role,
-                    stableConditionId));
-                displayEntries.Add(new StageObjectiveConditionDisplayMetadata(
                     stableConditionId,
-                    authoringEntry.Role,
-                    authoringEntry.Required,
-                    authoringEntry.DisplayText,
+                    presentationIdentity,
                     authoringEntry.SortOrder,
                     i));
             }
 
-            conditionDisplayMetadata = displayEntries.Count == 0
-                ? Array.Empty<StageObjectiveConditionDisplayMetadata>()
-                : displayEntries.ToArray();
             return runtimeEntries.Count == 0
                 ? Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>()
                 : runtimeEntries.ToArray();
+        }
+
+        private static ObjectiveConditionSemanticKind ResolveSemanticKind(
+            IReadOnlyList<StageTileFeatureDefinition> tileFeatures,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            bool hasExit,
+            StageTileFeatureDefinition exitTileFeature,
+            StageObjectiveConditionEntry authoringEntry)
+        {
+            if (authoringEntry.Condition is PlayerAtAnyZoneConditionAsset playerAtZoneCondition)
+            {
+                return authoringEntry.Role == StageObjectiveConditionRole.PrimaryGoal &&
+                       hasExit &&
+                       TargetsExitZone(playerAtZoneCondition, zonesById, exitTileFeature.Cell)
+                    ? ObjectiveConditionSemanticKind.ReachExit
+                    : ObjectiveConditionSemanticKind.ReachZone;
+            }
+
+            if (authoringEntry.Condition is ButtonActivatedConditionAsset buttonCondition)
+            {
+                var isMoonBlockOnly = false;
+                for (var i = 0; tileFeatures != null && i < tileFeatures.Count; i++)
+                {
+                    if (tileFeatures[i].TileId == buttonCondition.TileId)
+                    {
+                        isMoonBlockOnly =
+                            tileFeatures[i].BoxSelector == TileFeatureBoxSelector.MoonBlockOnly;
+                        break;
+                    }
+                }
+
+                return isMoonBlockOnly
+                    ? ObjectiveConditionSemanticKind.ActivateMoonButton
+                    : ObjectiveConditionSemanticKind.ActivateButton;
+            }
+
+            return ObjectiveConditionSemanticKind.None;
+        }
+
+        private static bool TargetsExitZone(
+            PlayerAtAnyZoneConditionAsset condition,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById,
+            SurfaceCell exitCell)
+        {
+            if (condition == null || zonesById == null)
+            {
+                return false;
+            }
+
+            var zoneIds = condition.ZoneIds;
+            if (zoneIds.Length != 1)
+            {
+                return false;
+            }
+
+            var zoneId = zoneIds[0]?.Trim() ?? string.Empty;
+            return zoneId.Length > 0 &&
+                   zonesById.TryGetValue(zoneId, out var targetZone) &&
+                   targetZone.Contains(exitCell);
         }
 
         private static StageConditionRuntimeDefinition CreateExitPrimaryGoalRuntimeDefinition(

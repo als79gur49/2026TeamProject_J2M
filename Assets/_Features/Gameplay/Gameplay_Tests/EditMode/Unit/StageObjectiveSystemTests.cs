@@ -2366,9 +2366,121 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
         }
 
+        [Category("Extended")]
+        [TestCase(
+            ObjectiveConditionSemanticKind.ReachExit,
+            StageObjectiveConditionRole.PrimaryGoal,
+            StageObjectiveConditionPresentationIds.ReachExit,
+            "reach-exit|role-1")]
+        [TestCase(
+            ObjectiveConditionSemanticKind.ReachZone,
+            StageObjectiveConditionRole.SecondaryGoal,
+            StageObjectiveConditionPresentationIds.ReachZone,
+            "reach-zone|role-2")]
+        [TestCase(
+            ObjectiveConditionSemanticKind.ActivateButton,
+            StageObjectiveConditionRole.SecondaryGoal,
+            StageObjectiveConditionPresentationIds.ActivateButton,
+            "activate-button|role-2")]
+        [TestCase(
+            ObjectiveConditionSemanticKind.ActivateMoonButton,
+            StageObjectiveConditionRole.Challenge,
+            StageObjectiveConditionPresentationIds.ActivateMoonButton,
+            "activate-moon-button|role-3")]
+        public void ObjectivePresentationIdentity_For_MapsCanonicalSemanticIdentity(
+            ObjectiveConditionSemanticKind kind,
+            StageObjectiveConditionRole role,
+            string expectedPresentationId,
+            string expectedStableGroupKey)
+        {
+            var identity = ObjectivePresentationIdentity.For(kind, role);
+
+            Assert.That(identity.PresentationId, Is.EqualTo(expectedPresentationId));
+            Assert.That(identity.StableGroupKey, Is.EqualTo(expectedStableGroupKey));
+        }
+
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_CompilesObjectiveDisplayMetadata()
+        public void ObjectivePresentationIdentity_For_RejectsNoneAndUnknownKinds()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ObjectivePresentationIdentity.For(
+                    ObjectiveConditionSemanticKind.None,
+                    StageObjectiveConditionRole.PrimaryGoal));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => ObjectivePresentationIdentity.For(
+                    (ObjectiveConditionSemanticKind)999,
+                    StageObjectiveConditionRole.PrimaryGoal));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ObjectiveRuntimeEntry_RejectsPartialAndNonSemanticPresentationIdentity()
+        {
+            var condition = new FixedConditionRuntimeDefinition(
+                "condition",
+                "Localized display copy",
+                isSatisfied: false);
+
+            Assert.Throws<ArgumentException>(
+                () => new StageObjectiveConditionRuntimeDefinitionEntry(
+                    condition,
+                    required: true,
+                    StageObjectiveConditionRole.PrimaryGoal,
+                    "condition",
+                    StageObjectiveConditionPresentationIds.ReachExit,
+                    stableGroupKey: string.Empty));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new StageObjectiveConditionRuntimeDefinitionEntry(
+                    condition,
+                    required: true,
+                    StageObjectiveConditionRole.PrimaryGoal,
+                    "condition",
+                    presentationId: "reach-the-exit",
+                    stableGroupKey: "reach-the-exit"));
+            Assert.Throws<ArgumentException>(
+                () => new StageObjectiveConditionRuntimeDefinitionEntry(
+                    condition,
+                    required: true,
+                    StageObjectiveConditionRole.PrimaryGoal,
+                    "condition",
+                    StageObjectiveConditionPresentationIds.ReachExit,
+                    stableGroupKey: "arbitrary-group"));
+            Assert.Throws<ArgumentException>(
+                () => new StageObjectiveConditionRuntimeDefinitionEntry(
+                    condition,
+                    required: true,
+                    StageObjectiveConditionRole.PrimaryGoal,
+                    "condition",
+                    StageObjectiveConditionPresentationIds.ReachZone,
+                    stableGroupKey: "reach-zone|role-2"));
+            Assert.Throws<ArgumentException>(
+                () => new StageObjectiveConditionRuntimeDefinitionEntry(
+                    condition,
+                    required: true,
+                    StageObjectiveConditionRole.PrimaryGoal,
+                    "condition",
+                    StageObjectiveConditionPresentationIds.ReachZone,
+                    stableGroupKey: "Reach the designated zone"));
+
+            var canonical = ObjectivePresentationIdentity.For(
+                ObjectiveConditionSemanticKind.ReachZone,
+                StageObjectiveConditionRole.PrimaryGoal);
+            var canonicalEntry = new StageObjectiveConditionRuntimeDefinitionEntry(
+                condition,
+                required: true,
+                StageObjectiveConditionRole.PrimaryGoal,
+                "condition",
+                canonical,
+                sortOrder: 0,
+                authoringOrder: 0);
+            Assert.That(canonicalEntry.PresentationId, Is.EqualTo(StageObjectiveConditionPresentationIds.ReachZone));
+            Assert.That(canonicalEntry.StableGroupKey, Is.EqualTo("reach-zone|role-1"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_CompilesExitObjectiveSemanticPresentationIdentity()
         {
             var condition = CreatePrimaryGoalCondition(new[] { "goal" });
             var stage = CreateStage(
@@ -2384,21 +2496,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             required: true,
                             StageObjectiveConditionRole.PrimaryGoal,
                             "primary-goal",
-                            "Reach the exit zone",
+                            "출구에 도달",
                             sortOrder: 3),
                     },
-                    "Reach the Exit",
-                    "Move to the exit zone."),
+                    "목표",
+                    "출구까지 이동하세요."),
                 CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+            SetPrivateField(stage, "tileFeatures", new[]
+            {
+                CreateStageTileFeature(
+                    100,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    TileFeatureKind.Exit,
+                    TileFeatureActivationRule.ActiveFaceOnly,
+                    TileFeatureBoxSelector.None),
+            });
 
             try
             {
-                var objective = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition;
+                var firstBuild = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition;
+                var secondBuild = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition;
+                var firstEntry = firstBuild.ConditionEntries[0];
+                var secondEntry = secondBuild.ConditionEntries[0];
 
-                Assert.That(objective.DisplayMetadata.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-                Assert.That(objective.DisplayMetadata.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
-                Assert.That(objective.DisplayMetadata.ConditionEntries.Count, Is.EqualTo(1));
-                Assert.That(objective.DisplayMetadata.ConditionEntries[0].DisplayText, Is.EqualTo("Reach the exit zone"));
+                Assert.That(firstBuild.ConditionEntries.Count, Is.EqualTo(1));
+                Assert.That(firstEntry.StableConditionId, Is.EqualTo("primary-goal"));
+                Assert.That(firstEntry.Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
+                Assert.That(firstEntry.Required, Is.True);
+                Assert.That(firstEntry.SortOrder, Is.EqualTo(3));
+                Assert.That(firstEntry.AuthoringOrder, Is.Zero);
+                Assert.That(
+                    firstEntry.PresentationId,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
+                Assert.That(
+                    firstEntry.StableGroupKey,
+                    Is.EqualTo("reach-exit|role-1"));
+                Assert.That(secondEntry.PresentationId, Is.EqualTo(firstEntry.PresentationId));
+                Assert.That(secondEntry.StableGroupKey, Is.EqualTo(firstEntry.StableGroupKey));
+                Assert.That(secondEntry.StableConditionId, Is.EqualTo(firstEntry.StableConditionId));
+                Assert.That(firstEntry.Condition.CreateRuntime().CreateStatus().IsSatisfied, Is.False);
             }
             finally
             {
@@ -2409,7 +2545,136 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_ConditionDisplayMetadata_PreservesStableIdRoleRequiredSort()
+        public void StageRuntimeBuilder_CompilesGeneralPrimaryAndSecondaryZonesWithoutExitAsReachZone()
+        {
+            var primary = CreatePrimaryGoalCondition(new[] { "primary-zone" });
+            var secondary = CreatePrimaryGoalCondition(new[] { "secondary-zone" });
+            var stage = CreateStage(
+                "GeneralZoneSemanticStage",
+                CreateBoard(),
+                new[]
+                {
+                    CreateZone("primary-zone", FaceId.Floor, CreateRegion(0, 0, 0, 0)),
+                    CreateZone("secondary-zone", FaceId.Floor, CreateRegion(1, 0, 1, 0)),
+                },
+                CreateObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        CreateConditionEntry(
+                            primary,
+                            required: true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "primary-zone",
+                            "copy must not define semantics",
+                            sortOrder: 10),
+                        CreateConditionEntry(
+                            secondary,
+                            required: false,
+                            StageObjectiveConditionRole.SecondaryGoal,
+                            "secondary-zone",
+                            "Reach the exit",
+                            sortOrder: 20),
+                    }),
+                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+
+            try
+            {
+                var entries = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition.ConditionEntries;
+
+                Assert.That(entries.Count, Is.EqualTo(2));
+                Assert.That(entries[0].PresentationId, Is.EqualTo(StageObjectiveConditionPresentationIds.ReachZone));
+                Assert.That(entries[0].StableGroupKey, Is.EqualTo("reach-zone|role-1"));
+                Assert.That(entries[0].Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
+                Assert.That(entries[0].Required, Is.True);
+                Assert.That(entries[0].SortOrder, Is.EqualTo(10));
+                Assert.That(entries[1].PresentationId, Is.EqualTo(StageObjectiveConditionPresentationIds.ReachZone));
+                Assert.That(entries[1].StableGroupKey, Is.EqualTo("reach-zone|role-2"));
+                Assert.That(entries[1].Role, Is.EqualTo(StageObjectiveConditionRole.SecondaryGoal));
+                Assert.That(entries[1].Required, Is.False);
+                Assert.That(entries[1].SortOrder, Is.EqualTo(20));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(primary);
+                UnityEngine.Object.DestroyImmediate(secondary);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_CompilesMixedExitAndGeneralZoneSemanticsIndependently()
+        {
+            var exit = CreatePrimaryGoalCondition(new[] { "exit-zone" });
+            var general = CreatePrimaryGoalCondition(new[] { "general-zone" });
+            var stage = CreateStage(
+                "MixedExitAndGeneralZoneSemanticStage",
+                CreateBoard(),
+                new[]
+                {
+                    CreateZone("exit-zone", FaceId.Floor, CreateRegion(0, 0, 0, 0)),
+                    CreateZone("general-zone", FaceId.Floor, CreateRegion(1, 0, 1, 0)),
+                },
+                CreateObjective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    new[]
+                    {
+                        CreateConditionEntry(
+                            exit,
+                            required: true,
+                            StageObjectiveConditionRole.PrimaryGoal,
+                            "exit",
+                            "display copy ignored",
+                            sortOrder: 0),
+                        CreateConditionEntry(
+                            general,
+                            required: true,
+                            StageObjectiveConditionRole.SecondaryGoal,
+                            "general",
+                            "Reach the Exit Zone",
+                            sortOrder: 10),
+                    }),
+                CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 1, 0)));
+            SetPrivateField(stage, "tileFeatures", new[]
+            {
+                CreateStageTileFeature(
+                    100,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    TileFeatureKind.Exit,
+                    TileFeatureActivationRule.ActiveFaceOnly,
+                    TileFeatureBoxSelector.None),
+            });
+
+            try
+            {
+                var entries = StageRuntimeBuilder.Build(stage)
+                    .ObjectiveRuntimeDefinition
+                    .ConditionEntries;
+
+                Assert.That(entries.Count, Is.EqualTo(2));
+                Assert.That(
+                    entries[0].PresentationId,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachExit));
+                Assert.That(entries[0].StableGroupKey, Is.EqualTo("reach-exit|role-1"));
+                Assert.That(
+                    entries[1].PresentationId,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachZone));
+                Assert.That(entries[1].StableGroupKey, Is.EqualTo("reach-zone|role-2"));
+                Assert.That(entries[0].SortOrder, Is.EqualTo(0));
+                Assert.That(entries[1].SortOrder, Is.EqualTo(10));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+                UnityEngine.Object.DestroyImmediate(exit);
+                UnityEngine.Object.DestroyImmediate(general);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_ConditionRuntimeEntries_PreserveStableIdentityRoleRequiredSort()
         {
             var first = CreatePrimaryGoalCondition(new[] { "goal" });
             var second = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
@@ -2440,7 +2705,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var metadata = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition.DisplayMetadata.ConditionEntries;
+                var metadata = StageRuntimeBuilder.Build(stage).ObjectiveRuntimeDefinition.ConditionEntries;
 
                 Assert.That(metadata.Count, Is.EqualTo(2));
                 Assert.That(metadata[0].StableConditionId, Is.EqualTo("primary-goal"));
@@ -2448,11 +2713,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(metadata[0].Required, Is.True);
                 Assert.That(metadata[0].SortOrder, Is.EqualTo(10));
                 Assert.That(metadata[0].AuthoringOrder, Is.EqualTo(0));
+                Assert.That(
+                    metadata[0].PresentationId,
+                    Is.EqualTo(StageObjectiveConditionPresentationIds.ReachZone));
+                Assert.That(
+                    metadata[0].StableGroupKey,
+                    Is.EqualTo("reach-zone|role-1"));
                 Assert.That(metadata[1].StableConditionId, Is.EqualTo("defeat-all"));
                 Assert.That(metadata[1].Role, Is.EqualTo(StageObjectiveConditionRole.Challenge));
                 Assert.That(metadata[1].Required, Is.False);
                 Assert.That(metadata[1].SortOrder, Is.EqualTo(20));
                 Assert.That(metadata[1].AuthoringOrder, Is.EqualTo(1));
+                Assert.That(metadata[1].PresentationId, Is.Empty);
+                Assert.That(metadata[1].StableGroupKey, Is.Empty);
             }
             finally
             {

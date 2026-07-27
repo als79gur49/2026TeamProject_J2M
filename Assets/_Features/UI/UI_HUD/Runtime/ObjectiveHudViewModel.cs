@@ -66,6 +66,8 @@ namespace Game.Feature.UI.HUD
 
         public string ObjectiveStableId { get; private set; } = string.Empty;
 
+        public string HeaderText { get; private set; } = string.Empty;
+
         public IReadOnlyList<ObjectiveConditionHudViewModel> Rows { get; private set; } = EmptyRows;
 
         public void SetState(
@@ -80,10 +82,21 @@ namespace Game.Feature.UI.HUD
             string objectiveStableId,
             IReadOnlyList<ObjectiveConditionHudViewModel> rows)
         {
+            SetState(isVisible, objectiveStableId, string.Empty, rows);
+        }
+
+        public void SetState(
+            bool isVisible,
+            string objectiveStableId,
+            string headerText,
+            IReadOnlyList<ObjectiveConditionHudViewModel> rows)
+        {
             var nextRows = CopyRows(rows);
             var nextObjectiveStableId = objectiveStableId ?? string.Empty;
+            var nextHeaderText = headerText ?? string.Empty;
             if (IsVisible == isVisible &&
                 string.Equals(ObjectiveStableId, nextObjectiveStableId, StringComparison.Ordinal) &&
+                string.Equals(HeaderText, nextHeaderText, StringComparison.Ordinal) &&
                 RowsEqual(Rows, nextRows))
             {
                 return;
@@ -91,13 +104,14 @@ namespace Game.Feature.UI.HUD
 
             IsVisible = isVisible;
             ObjectiveStableId = nextObjectiveStableId;
+            HeaderText = nextHeaderText;
             Rows = nextRows;
             Changed?.Invoke();
         }
 
         public void Reset()
         {
-            SetState(false, string.Empty, EmptyRows);
+            SetState(false, string.Empty, string.Empty, EmptyRows);
         }
 
         private static ObjectiveConditionHudViewModel[] CopyRows(

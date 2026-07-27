@@ -11,27 +11,44 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         Challenge = 3,
     }
 
+    public enum GameplayObjectivePresentationKind
+    {
+        None = 0,
+        ReachExit = 1,
+        ActivateButton = 2,
+        ActivateMoonButton = 3,
+        ReachZone = 4,
+    }
+
     public readonly struct GameplayObjectiveConditionReadModel
     {
         public GameplayObjectiveConditionReadModel(
             string stableId,
+            GameplayObjectivePresentationKind presentationKind,
+            string stableGroupKey,
             GameplayObjectiveConditionRole role,
             bool required,
             bool isSatisfied,
-            string titleText,
-            string progressText,
+            int completedCount,
+            int requiredCount,
             int sortOrder)
         {
             StableId = stableId ?? string.Empty;
+            PresentationKind = presentationKind;
+            StableGroupKey = stableGroupKey ?? string.Empty;
             Role = role;
             Required = required;
             IsSatisfied = isSatisfied;
-            TitleText = titleText ?? string.Empty;
-            ProgressText = progressText ?? string.Empty;
+            CompletedCount = Math.Max(0, completedCount);
+            RequiredCount = Math.Max(0, requiredCount);
             SortOrder = sortOrder;
         }
 
         public string StableId { get; }
+
+        public GameplayObjectivePresentationKind PresentationKind { get; }
+
+        public string StableGroupKey { get; }
 
         public GameplayObjectiveConditionRole Role { get; }
 
@@ -39,9 +56,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
 
         public bool IsSatisfied { get; }
 
-        public string TitleText { get; }
+        public int CompletedCount { get; }
 
-        public string ProgressText { get; }
+        public int RequiredCount { get; }
 
         public int SortOrder { get; }
     }
@@ -53,8 +70,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             false,
             false,
             false,
-            string.Empty,
-            string.Empty,
             Array.Empty<GameplayObjectiveConditionReadModel>());
 
         public GameplayObjectiveReadModel(
@@ -67,8 +82,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
                 goalReached,
                 allConditionsSatisfied,
                 isCleared,
-                string.Empty,
-                string.Empty,
                 Array.Empty<GameplayObjectiveConditionReadModel>())
         {
         }
@@ -78,8 +91,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool goalReached,
             bool allConditionsSatisfied,
             bool isCleared,
-            string objectiveTitle,
-            string objectiveSummary,
             IReadOnlyList<GameplayObjectiveConditionReadModel> conditions,
             bool? semanticGoalReached = null,
             bool? semanticAllConditionsSatisfied = null,
@@ -92,8 +103,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             SemanticGoalReached = semanticGoalReached ?? goalReached;
             SemanticAllConditionsSatisfied = semanticAllConditionsSatisfied ?? allConditionsSatisfied;
             SemanticIsCleared = semanticIsCleared ?? isCleared;
-            ObjectiveTitle = objectiveTitle ?? string.Empty;
-            ObjectiveSummary = objectiveSummary ?? string.Empty;
             Conditions = conditions ?? Array.Empty<GameplayObjectiveConditionReadModel>();
         }
 
@@ -110,10 +119,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public bool SemanticAllConditionsSatisfied { get; }
 
         public bool SemanticIsCleared { get; }
-
-        public string ObjectiveTitle { get; }
-
-        public string ObjectiveSummary { get; }
 
         public IReadOnlyList<GameplayObjectiveConditionReadModel> Conditions { get; }
     }

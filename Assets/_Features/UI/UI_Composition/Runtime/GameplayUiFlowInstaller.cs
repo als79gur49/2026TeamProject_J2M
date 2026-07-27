@@ -59,6 +59,7 @@ namespace Game.Feature.UI.Composition
         private HudUiAudioFeedbackController _hudUiAudioFeedbackController;
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
+        private bool _isDisposed;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -205,7 +206,17 @@ namespace Game.Feature.UI.Composition
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var stageInfoPresenter = new StageInfoPresenter(_localizedTextResolver);
-            var objectiveHudPresenter = new ObjectiveHudPresenter();
+            var objectiveHudPresenter = new ObjectiveHudPresenter(_localizedTextResolver);
+            var objectiveTypographyBinding =
+                _rootView.HudView.ObjectiveHudView.GetComponent<ObjectiveHudTypographyBinding>();
+            if (objectiveTypographyBinding == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplayHudRoot ObjectiveHudView is missing ObjectiveHudTypographyBinding.");
+            }
+
+            objectiveTypographyBinding.Initialize(_localizedTextResolver);
+            _rootView.HudView.ObjectiveHudView.ConfigureTypography(objectiveTypographyBinding);
             var chancePanelPresenter = new ChancePanelPresenter();
             var surfaceBeltIndicatorPresenter = new SurfaceBeltIndicatorPresenter();
             HudRootPresenter = new HUDRootPresenter(
@@ -266,6 +277,15 @@ namespace Game.Feature.UI.Composition
 
         private void OnDestroy()
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            // Dispose the persistent HUD presenter before any view/controller teardown can
+            // encounter a partially destroyed hidden HUD hierarchy.
+            HudRootPresenter?.Dispose();
             UnwireViewEvents();
             UnwireControllerEvents();
             _audioSettingsLifecycleRelay?.FlushNow();
@@ -276,7 +296,6 @@ namespace Game.Feature.UI.Composition
             PopupController?.Dispose();
             HudController?.Dispose();
             _hudUiAudioFeedbackController?.Dispose();
-            HudRootPresenter?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
             _localizedTextResolver = null;

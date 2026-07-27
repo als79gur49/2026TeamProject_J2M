@@ -20,59 +20,129 @@ namespace Game.Feature.Gameplay.Objectives
         Challenge = 3,
     }
 
-    public readonly struct StageObjectiveConditionDisplayMetadata
+    public static class StageObjectiveConditionPresentationIds
     {
-        public StageObjectiveConditionDisplayMetadata(
-            string stableConditionId,
-            StageObjectiveConditionRole role,
-            bool required,
-            string displayText,
-            int sortOrder,
-            int authoringOrder)
-        {
-            StableConditionId = stableConditionId?.Trim() ?? string.Empty;
-            Role = role;
-            Required = required;
-            DisplayText = displayText?.Trim() ?? string.Empty;
-            SortOrder = sortOrder;
-            AuthoringOrder = authoringOrder;
-        }
-
-        public string StableConditionId { get; }
-
-        public StageObjectiveConditionRole Role { get; }
-
-        public bool Required { get; }
-
-        public string DisplayText { get; }
-
-        public int SortOrder { get; }
-
-        public int AuthoringOrder { get; }
+        public const string ReachExit = "reach-exit";
+        public const string ReachZone = "reach-zone";
+        public const string ActivateButton = "activate-button";
+        public const string ActivateMoonButton = "activate-moon-button";
     }
 
-    public sealed class StageObjectiveDisplayMetadata
+    public enum ObjectiveConditionSemanticKind
     {
-        public static readonly StageObjectiveDisplayMetadata Empty = new(
-            string.Empty,
-            string.Empty,
-            Array.Empty<StageObjectiveConditionDisplayMetadata>());
+        None = 0,
+        ReachExit = 1,
+        ActivateButton = 2,
+        ActivateMoonButton = 3,
+        ReachZone = 4,
+    }
 
-        public StageObjectiveDisplayMetadata(
-            string objectiveTitle,
-            string objectiveSummary,
-            StageObjectiveConditionDisplayMetadata[] conditionEntries)
+    public readonly struct ObjectivePresentationIdentity
+    {
+        private ObjectivePresentationIdentity(string presentationId, string stableGroupKey)
         {
-            ObjectiveTitle = objectiveTitle?.Trim() ?? string.Empty;
-            ObjectiveSummary = objectiveSummary?.Trim() ?? string.Empty;
-            ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionDisplayMetadata>();
+            PresentationId = presentationId;
+            StableGroupKey = stableGroupKey;
         }
 
-        public string ObjectiveTitle { get; }
+        public string PresentationId { get; }
 
-        public string ObjectiveSummary { get; }
+        public string StableGroupKey { get; }
 
-        public IReadOnlyList<StageObjectiveConditionDisplayMetadata> ConditionEntries { get; }
+        public static ObjectivePresentationIdentity For(
+            ObjectiveConditionSemanticKind kind,
+            StageObjectiveConditionRole role)
+        {
+            switch (kind)
+            {
+                case ObjectiveConditionSemanticKind.ReachExit:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ReachExit,
+                        role);
+
+                case ObjectiveConditionSemanticKind.ReachZone:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ReachZone,
+                        role);
+
+                case ObjectiveConditionSemanticKind.ActivateButton:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ActivateButton,
+                        role);
+
+                case ObjectiveConditionSemanticKind.ActivateMoonButton:
+                    return ForRole(
+                        StageObjectiveConditionPresentationIds.ActivateMoonButton,
+                        role);
+
+                case ObjectiveConditionSemanticKind.None:
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(kind),
+                        kind,
+                        "Objective presentation identity requires a known semantic kind.");
+            }
+        }
+
+        public static bool IsCanonicalPresentationId(string presentationId)
+        {
+            return string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ReachExit,
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ReachZone,
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ActivateButton,
+                       StringComparison.Ordinal) ||
+                   string.Equals(
+                       presentationId,
+                       StageObjectiveConditionPresentationIds.ActivateMoonButton,
+                       StringComparison.Ordinal);
+        }
+
+        public static bool TryResolveSemanticKind(
+            string presentationId,
+            out ObjectiveConditionSemanticKind kind)
+        {
+            switch (presentationId)
+            {
+                case StageObjectiveConditionPresentationIds.ReachExit:
+                    kind = ObjectiveConditionSemanticKind.ReachExit;
+                    return true;
+
+                case StageObjectiveConditionPresentationIds.ReachZone:
+                    kind = ObjectiveConditionSemanticKind.ReachZone;
+                    return true;
+
+                case StageObjectiveConditionPresentationIds.ActivateButton:
+                    kind = ObjectiveConditionSemanticKind.ActivateButton;
+                    return true;
+
+                case StageObjectiveConditionPresentationIds.ActivateMoonButton:
+                    kind = ObjectiveConditionSemanticKind.ActivateMoonButton;
+                    return true;
+
+                default:
+                    kind = ObjectiveConditionSemanticKind.None;
+                    return false;
+            }
+        }
+
+        private static ObjectivePresentationIdentity ForRole(
+            string presentationId,
+            StageObjectiveConditionRole role)
+        {
+            return new ObjectivePresentationIdentity(
+                presentationId,
+                string.Concat(
+                    presentationId,
+                    "|role-",
+                    ((int)role).ToString()));
+        }
     }
 
     public readonly struct StageZoneRuntimeRegion
@@ -539,7 +609,11 @@ namespace Game.Feature.Gameplay.Objectives
             StageConditionRuntimeDefinition condition,
             bool required,
             StageObjectiveConditionRole role,
-            string stableConditionId)
+            string stableConditionId,
+            string presentationId = "",
+            string stableGroupKey = "",
+            int sortOrder = 0,
+            int authoringOrder = 0)
         {
             Condition = condition ?? throw new ArgumentNullException(nameof(condition));
             Required = required;
@@ -547,6 +621,64 @@ namespace Game.Feature.Gameplay.Objectives
             StableConditionId = string.IsNullOrWhiteSpace(stableConditionId)
                 ? condition.ConditionId
                 : stableConditionId.Trim();
+            PresentationId = presentationId?.Trim() ?? string.Empty;
+            StableGroupKey = stableGroupKey?.Trim() ?? string.Empty;
+            var hasPresentationId = PresentationId.Length > 0;
+            var hasStableGroupKey = StableGroupKey.Length > 0;
+            if (hasPresentationId != hasStableGroupKey)
+            {
+                throw new ArgumentException(
+                    "Objective presentation id and stable group key must either both be present or both be absent.");
+            }
+
+            var semanticKind = ObjectiveConditionSemanticKind.None;
+            if (hasPresentationId &&
+                !ObjectivePresentationIdentity.TryResolveSemanticKind(
+                    PresentationId,
+                    out semanticKind))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(presentationId),
+                    presentationId,
+                    "Objective presentation id must be a canonical semantic id.");
+            }
+
+            if (hasPresentationId)
+            {
+                var canonicalIdentity = ObjectivePresentationIdentity.For(semanticKind, role);
+                if (!string.Equals(
+                        StableGroupKey,
+                        canonicalIdentity.StableGroupKey,
+                        StringComparison.Ordinal))
+                {
+                    throw new ArgumentException(
+                        "Objective presentation id, role, and stable group key must form a canonical semantic pair.",
+                        nameof(stableGroupKey));
+                }
+            }
+
+            SortOrder = sortOrder;
+            AuthoringOrder = authoringOrder;
+        }
+
+        public StageObjectiveConditionRuntimeDefinitionEntry(
+            StageConditionRuntimeDefinition condition,
+            bool required,
+            StageObjectiveConditionRole role,
+            string stableConditionId,
+            ObjectivePresentationIdentity presentationIdentity,
+            int sortOrder,
+            int authoringOrder)
+            : this(
+                condition,
+                required,
+                role,
+                stableConditionId,
+                presentationIdentity.PresentationId,
+                presentationIdentity.StableGroupKey,
+                sortOrder,
+                authoringOrder)
+        {
         }
 
         public StageConditionRuntimeDefinition Condition { get; }
@@ -556,6 +688,14 @@ namespace Game.Feature.Gameplay.Objectives
         public StageObjectiveConditionRole Role { get; }
 
         public string StableConditionId { get; }
+
+        public string PresentationId { get; }
+
+        public string StableGroupKey { get; }
+
+        public int SortOrder { get; }
+
+        public int AuthoringOrder { get; }
     }
 
     public sealed class StageObjectiveRuntimeDefinition
@@ -564,35 +704,18 @@ namespace Game.Feature.Gameplay.Objectives
             StageCompletionPolicy.Disabled,
             0,
             Array.Empty<StageZoneRuntimeDefinition>(),
-            Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>(),
-            StageObjectiveDisplayMetadata.Empty);
+            Array.Empty<StageObjectiveConditionRuntimeDefinitionEntry>());
 
         public StageObjectiveRuntimeDefinition(
             StageCompletionPolicy completionPolicy,
             int playerEntityId,
             StageZoneRuntimeDefinition[] zones,
             StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries)
-            : this(
-                completionPolicy,
-                playerEntityId,
-                zones,
-                conditionEntries,
-                StageObjectiveDisplayMetadata.Empty)
-        {
-        }
-
-        public StageObjectiveRuntimeDefinition(
-            StageCompletionPolicy completionPolicy,
-            int playerEntityId,
-            StageZoneRuntimeDefinition[] zones,
-            StageObjectiveConditionRuntimeDefinitionEntry[] conditionEntries,
-            StageObjectiveDisplayMetadata displayMetadata)
         {
             CompletionPolicy = completionPolicy;
             PlayerEntityId = playerEntityId;
             Zones = zones ?? Array.Empty<StageZoneRuntimeDefinition>();
             ConditionEntries = ValidateConditionEntries(conditionEntries);
-            DisplayMetadata = displayMetadata ?? StageObjectiveDisplayMetadata.Empty;
         }
 
         public StageCompletionPolicy CompletionPolicy { get; }
@@ -602,8 +725,6 @@ namespace Game.Feature.Gameplay.Objectives
         public IReadOnlyList<StageZoneRuntimeDefinition> Zones { get; }
 
         public IReadOnlyList<StageObjectiveConditionRuntimeDefinitionEntry> ConditionEntries { get; }
-
-        public StageObjectiveDisplayMetadata DisplayMetadata { get; }
 
         public bool HasObjective
         {

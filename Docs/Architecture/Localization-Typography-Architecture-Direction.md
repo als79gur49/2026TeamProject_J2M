@@ -28,6 +28,10 @@ historical baseline/decision sequence, not current runtime mapping.
 - Nanum assets remain tracked, but no current Climate role resolves to Nanum.
 - Managed ko-KR String Tables require 116/116 native Climate glyphs and zero
   fallback dependency.
+- Climate committed source identity is a pre-Unity `HEAD` Git-blob contract.
+  Unity-loaded font/material/glyph/fallback/render behavior is a separate
+  runtime contract; the known `71ae…` working-file shape is importer-derived
+  diagnostic state and is never a production source canonical.
 
 Current baseline captured for this cleanup pass:
 

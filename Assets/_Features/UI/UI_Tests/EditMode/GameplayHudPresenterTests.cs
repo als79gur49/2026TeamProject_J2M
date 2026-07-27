@@ -295,11 +295,37 @@ namespace Game.Feature.UI.Tests
             presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
 
             Assert.That(presenter.ViewModel.IsVisible, Is.True);
-            Assert.That(presenter.ViewModel.ObjectiveStableId, Is.EqualTo("test-objective|Reach the Exit|Move to the exit zone."));
+            Assert.That(presenter.ViewModel.ObjectiveStableId, Is.EqualTo("test-objective"));
+            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("Objectives"));
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the exit zone"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the Exit Zone (0/1)"));
             Assert.That(presenter.ViewModel.Rows[0].IsSatisfied, Is.False);
             Assert.That(presenter.ViewModel.Rows[0].JustSatisfied, Is.False);
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_InvariantResolver_ShowsReachZoneConditionText()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Move to the designated zone.",
+                title: "Reach the Zone",
+                conditions: new[]
+                {
+                    CreateCondition(
+                        "primary-zone",
+                        isSatisfied: false,
+                        role: UIObjectiveConditionRole.PrimaryGoal,
+                        sortOrder: 0,
+                        presentationKind: GameplayObjectivePresentationKind.ReachZone,
+                        stableGroupKey: "reach-zone"),
+                }));
+
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
+            Assert.That(
+                presenter.ViewModel.Rows[0].Text,
+                Is.EqualTo("Reach the designated zone (0/1)"));
         }
 
         [Test]
@@ -313,16 +339,15 @@ namespace Game.Feature.UI.Tests
                 conditions: new[]
                 {
                     CreateCondition("primary-goal", isSatisfied: true, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
-                    CreateCondition("Open the gate", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
-                    CreateCondition("Enter the exit room", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 20),
-                    CreateCondition("Leave no enemies behind", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 30),
+                    CreateCondition("secondary-10", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
+                    CreateCondition("secondary-20", isSatisfied: false, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 20),
+                    CreateCondition("secondary-30", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 30),
                 }));
 
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(4));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("primary-goal"));
-            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Open the gate"));
-            Assert.That(presenter.ViewModel.Rows[2].Text, Is.EqualTo("Enter the exit room"));
-            Assert.That(presenter.ViewModel.Rows[3].Text, Is.EqualTo("Leave no enemies behind"));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.StableId),
+                Is.EqualTo(new[] { "primary-goal", "secondary-10", "secondary-20", "secondary-30" }));
         }
 
         [Test]
@@ -336,7 +361,7 @@ namespace Game.Feature.UI.Tests
                 conditions: new[]
                 {
                     CreateCondition(
-                        "Reach the exit zone",
+                        "primary-goal",
                         isSatisfied: true,
                         role: UIObjectiveConditionRole.PrimaryGoal,
                         sortOrder: 0),
@@ -357,17 +382,17 @@ namespace Game.Feature.UI.Tests
                 summary: "Move to the exit zone.",
                 conditions: new[]
                 {
-                    CreateCondition("Reach the exit zone", isSatisfied: false, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
-                    CreateCondition("Open the gate", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
+                    CreateCondition("primary-goal", isSatisfied: false, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
+                    CreateCondition("secondary-goal", isSatisfied: true, role: UIObjectiveConditionRole.SecondaryGoal, sortOrder: 10),
                 }));
 
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
-            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Open the gate"));
+            Assert.That(presenter.ViewModel.Rows[1].StableId, Is.EqualTo("secondary-goal"));
             Assert.That(presenter.ViewModel.Rows[1].JustSatisfied, Is.False);
         }
 
         [Test]
-        public void ObjectiveHudPresenter_ButtonRows_AreGroupedByDisplayGoal()
+        public void ObjectiveHudPresenter_ButtonRows_AreGroupedByStableSemanticGroup()
         {
             var presenter = new ObjectiveHudPresenter();
 
@@ -375,10 +400,10 @@ namespace Game.Feature.UI.Tests
                 summary: "Activate all buttons.",
                 conditions: new[]
                 {
-                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                    CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-2", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-3", false, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-4", false, UIObjectiveConditionRole.SecondaryGoal, 40, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
                 }));
 
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
@@ -398,10 +423,10 @@ namespace Game.Feature.UI.Tests
                 summary: "Activate all buttons.",
                 conditions: new[]
                 {
-                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
-                    CreateCondition("Place the MoonBlock on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
-                    CreateCondition("Place the MoonBlock on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                    CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-2", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-3", false, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                    CreateCondition("button-4", false, UIObjectiveConditionRole.SecondaryGoal, 40, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
                 }));
 
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
@@ -421,10 +446,10 @@ namespace Game.Feature.UI.Tests
                 summary: "Activate all buttons.",
                 conditions: new[]
                 {
-                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                    CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-2", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-3", false, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-4", false, UIObjectiveConditionRole.SecondaryGoal, 40, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
                 }));
             var stableId = presenter.ViewModel.Rows[0].StableId;
 
@@ -432,15 +457,99 @@ namespace Game.Feature.UI.Tests
                 summary: "Activate all buttons.",
                 conditions: new[]
                 {
-                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 10, "button-1"),
-                    CreateCondition("Place a push box on the button", true, UIObjectiveConditionRole.SecondaryGoal, 20, "button-2"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 30, "button-3"),
-                    CreateCondition("Place a push box on the button", false, UIObjectiveConditionRole.SecondaryGoal, 40, "button-4"),
+                    CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-2", true, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-3", false, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-4", false, UIObjectiveConditionRole.SecondaryGoal, 40, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
                 }));
 
             Assert.That(presenter.ViewModel.Rows[0].StableId, Is.EqualTo(stableId));
             Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (2/4)"));
             Assert.That(presenter.ViewModel.Rows[0].JustSatisfied, Is.False);
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_LocaleRoundTrip_RefreshesHeaderAndRowsWithoutChangingSemanticState()
+        {
+            var resolver = new MutableObjectiveLocalizedTextResolver();
+            using var presenter = new ObjectiveHudPresenter(resolver);
+            presenter.Apply(CreateObjectiveSlice(
+                summary: string.Empty,
+                conditions: new[]
+                {
+                    CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-2", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-3", false, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                }));
+
+            var englishStableIds = presenter.ViewModel.Rows.Select(row => row.StableId).ToArray();
+            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("Objectives"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Place the MoonBlock on the button (0/1)"));
+
+            resolver.SetLocale("ko-KR");
+
+            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("과업"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("밀기 상자 지정 장소로 이동하기 (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("전용 상자 지정 장소로 이동하기 (0/1)"));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.StableId),
+                Is.EqualTo(englishStableIds));
+            Assert.That(presenter.ViewModel.Rows[0].CompletedCount, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.Rows[0].RequiredCount, Is.EqualTo(2));
+
+            resolver.SetLocale("en-US");
+
+            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("Objectives"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/2)"));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.StableId),
+                Is.EqualTo(englishStableIds));
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_CopyCollisionAndCopyChange_DoNotChangeGrouping()
+        {
+            var resolver = new MutableObjectiveLocalizedTextResolver { CollapseConditionCopy = true };
+            using var presenter = new ObjectiveHudPresenter(resolver);
+            presenter.Apply(CreateObjectiveSlice(
+                summary: string.Empty,
+                conditions: new[]
+                {
+                    CreateCondition("button-1", false, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("button-2", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                }));
+
+            var stableIds = presenter.ViewModel.Rows.Select(row => row.StableId).ToArray();
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo(presenter.ViewModel.Rows[1].Text));
+
+            resolver.CollapseConditionCopy = false;
+            resolver.RefreshCopy();
+
+            Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.StableId),
+                Is.EqualTo(stableIds));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.Not.EqualTo(presenter.ViewModel.Rows[1].Text));
+        }
+
+        [Test]
+        public void ObjectiveHudPresenter_Dispose_UnsubscribesExactlyOnceAndStopsLocaleUpdates()
+        {
+            var resolver = new MutableObjectiveLocalizedTextResolver();
+            var presenter = new ObjectiveHudPresenter(resolver);
+            presenter.Apply(CreateObjectiveSlice(summary: string.Empty));
+
+            Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
+            presenter.Dispose();
+            presenter.Dispose();
+            Assert.That(resolver.SubscriberCount, Is.EqualTo(0));
+
+            resolver.SetLocale("ko-KR");
+
+            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("Objectives"));
+            Assert.That(resolver.LocaleChangedRaiseCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -460,7 +569,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
             Assert.That(objectiveHudPresenter.ViewModel.Rows.Count, Is.EqualTo(1));
-            Assert.That(objectiveHudPresenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the exit zone"));
+            Assert.That(objectiveHudPresenter.ViewModel.Rows[0].Text, Is.EqualTo("Reach the Exit Zone (0/1)"));
         }
 
         [Test]
@@ -610,7 +719,7 @@ namespace Game.Feature.UI.Tests
         {
             return new UIObjectiveSlice(
                 hasObjective: true,
-                objectiveStableId: $"test-objective|{title}|{summary}",
+                objectiveStableId: "test-objective",
                 title,
                 summary,
                 goalReached: false,
@@ -619,7 +728,7 @@ namespace Game.Feature.UI.Tests
                 conditions ?? new[]
                 {
                     CreateCondition(
-                        "Reach the exit zone",
+                        "primary-goal",
                         isSatisfied: false,
                         role: UIObjectiveConditionRole.PrimaryGoal,
                         sortOrder: 0),
@@ -627,19 +736,30 @@ namespace Game.Feature.UI.Tests
         }
 
         private static UIObjectiveConditionSlice CreateCondition(
-            string titleText,
+            string stableId,
             bool isSatisfied,
             UIObjectiveConditionRole role,
             int sortOrder,
-            string stableId = "")
+            GameplayObjectivePresentationKind presentationKind = GameplayObjectivePresentationKind.ReachExit,
+            string stableGroupKey = "reach-exit")
         {
+            Assert.That(
+                ObjectiveHudLocalization.TryCreateConditionDescriptor(
+                    presentationKind,
+                    isSatisfied ? 1 : 0,
+                    1,
+                    out var descriptor),
+                Is.True);
             return new UIObjectiveConditionSlice(
                 stableId,
-                titleText,
-                progressText: string.Empty,
+                presentationKind,
+                stableGroupKey,
+                descriptor,
                 isSatisfied,
                 required: true,
                 role,
+                completedCount: isSatisfied ? 1 : 0,
+                requiredCount: 1,
                 sortOrder);
         }
 
@@ -659,6 +779,96 @@ namespace Game.Feature.UI.Tests
             public string Resolve(LocalizedTextDescriptor descriptor)
             {
                 return _resolvedText;
+            }
+        }
+
+        private sealed class MutableObjectiveLocalizedTextResolver : ILocalizedTextResolver
+        {
+            private Action _localeChanged;
+
+            public string CurrentLocaleCode { get; private set; } = "en-US";
+
+            public int SubscriberCount { get; private set; }
+
+            public int LocaleChangedRaiseCount { get; private set; }
+
+            public bool CollapseConditionCopy { get; set; }
+
+            public event Action LocaleChanged
+            {
+                add
+                {
+                    _localeChanged += value;
+                    SubscriberCount++;
+                }
+                remove
+                {
+                    _localeChanged -= value;
+                    SubscriberCount--;
+                }
+            }
+
+            public string Resolve(LocalizedTextDescriptor descriptor)
+            {
+                if (descriptor.Key == ObjectiveHudLocalization.Keys.Header)
+                {
+                    return CurrentLocaleCode == "ko-KR" ? "과업" : "Objectives";
+                }
+
+                var format = ResolveConditionFormat(descriptor.Key);
+                return string.Format(format, descriptor.Arguments.ToArray());
+            }
+
+            public void SetLocale(string localeCode)
+            {
+                CurrentLocaleCode = localeCode;
+                RaiseLocaleChanged();
+            }
+
+            public void RefreshCopy()
+            {
+                RaiseLocaleChanged();
+            }
+
+            private string ResolveConditionFormat(string key)
+            {
+                if (CollapseConditionCopy)
+                {
+                    return "Same objective ({0}/{1})";
+                }
+
+                var korean = CurrentLocaleCode == "ko-KR";
+                switch (key)
+                {
+                    case ObjectiveHudLocalization.Keys.ReachExit:
+                        return korean
+                            ? "종료 장소로 이동하기 ({0}/{1})"
+                            : "Reach the Exit Zone ({0}/{1})";
+
+                    case ObjectiveHudLocalization.Keys.ReachZone:
+                        return korean
+                            ? "지정 장소로 이동하기 ({0}/{1})"
+                            : "Reach the designated zone ({0}/{1})";
+
+                    case ObjectiveHudLocalization.Keys.ActivateButton:
+                        return korean
+                            ? "밀기 상자 지정 장소로 이동하기 ({0}/{1})"
+                            : "Place a push box on the button ({0}/{1})";
+
+                    case ObjectiveHudLocalization.Keys.ActivateMoonButton:
+                        return korean
+                            ? "전용 상자 지정 장소로 이동하기 ({0}/{1})"
+                            : "Place the MoonBlock on the button ({0}/{1})";
+
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            private void RaiseLocaleChanged()
+            {
+                LocaleChangedRaiseCount++;
+                _localeChanged?.Invoke();
             }
         }
     }

@@ -998,7 +998,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var buildResult = StageRuntimeBuilder.Build(stage);
 
                 Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
-                var runtime = buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0].Condition.CreateRuntime();
+                var entry = buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0];
+                Assert.That(entry.PresentationId, Is.EqualTo(StageObjectiveConditionPresentationIds.ActivateButton));
+                Assert.That(entry.StableGroupKey, Is.EqualTo("activate-button|role-0"));
+                var runtime = entry.Condition.CreateRuntime();
                 Assert.That(runtime.CreateStatus().ConditionType, Is.EqualTo(nameof(ButtonActivatedConditionAsset)));
             }
             finally
@@ -1132,6 +1135,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var buildResult = StageRuntimeBuilder.Build(stage);
 
                 Assert.That(buildResult.ObjectiveRuntimeDefinition.ConditionEntries.Count, Is.EqualTo(1));
+                var entry = buildResult.ObjectiveRuntimeDefinition.ConditionEntries[0];
+                Assert.That(entry.PresentationId, Is.EqualTo(StageObjectiveConditionPresentationIds.ActivateMoonButton));
+                Assert.That(entry.StableGroupKey, Is.EqualTo("activate-moon-button|role-0"));
             }
             finally
             {
@@ -2258,11 +2264,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.PlayerEntityId, Is.EqualTo(expected.PlayerEntityId));
             Assert.That(actual.Zones.Count, Is.EqualTo(expected.Zones.Count));
             Assert.That(actual.ConditionEntries.Count, Is.EqualTo(expected.ConditionEntries.Count));
-            Assert.That(actual.DisplayMetadata.ObjectiveTitle, Is.EqualTo(expected.DisplayMetadata.ObjectiveTitle));
-            Assert.That(actual.DisplayMetadata.ObjectiveSummary, Is.EqualTo(expected.DisplayMetadata.ObjectiveSummary));
-            Assert.That(
-                actual.DisplayMetadata.ConditionEntries.Count,
-                Is.EqualTo(expected.DisplayMetadata.ConditionEntries.Count));
+            for (var i = 0; i < expected.ConditionEntries.Count; i++)
+            {
+                Assert.That(
+                    actual.ConditionEntries[i].StableConditionId,
+                    Is.EqualTo(expected.ConditionEntries[i].StableConditionId));
+                Assert.That(
+                    actual.ConditionEntries[i].PresentationId,
+                    Is.EqualTo(expected.ConditionEntries[i].PresentationId));
+                Assert.That(
+                    actual.ConditionEntries[i].StableGroupKey,
+                    Is.EqualTo(expected.ConditionEntries[i].StableGroupKey));
+                Assert.That(
+                    actual.ConditionEntries[i].SortOrder,
+                    Is.EqualTo(expected.ConditionEntries[i].SortOrder));
+                Assert.That(
+                    actual.ConditionEntries[i].AuthoringOrder,
+                    Is.EqualTo(expected.ConditionEntries[i].AuthoringOrder));
+            }
         }
 
         private static int[] ToTileIds(IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings)

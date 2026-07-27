@@ -32,15 +32,11 @@ namespace Game.Feature.UI.Tests
         private const string ClimateFontGuid = "40d61154fd6576b4d85c2d78460b16ad";
         private const long ClimateFontLocalId = 11400000;
         private const long ClimateMaterialLocalId = 1352911973252649374;
-        private const string SourceFontSha256 =
-            "aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1";
-        private const string CommittedSdfSha256 =
-            "c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5";
         private const string EnglishContractSha256 =
             "3def0381e783b5bd7286e824a6fcea11dddb659ed5a3aab667a239d070868f92";
 
         [Test]
-        public void ClimateAssets_KeepCommittedIdentityAndCanonicalMaterial()
+        public void ClimateAssets_KeepRuntimeIdentityAndCanonicalReferences()
         {
             var fontAsset = LoadClimateFont();
             var material = fontAsset.material;
@@ -52,11 +48,67 @@ namespace Game.Feature.UI.Tests
             Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1));
             Assert.That(fontAsset.atlasTextures[0], Is.Not.Null);
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
-            Assert.That(material.GetFloat("_ScaleRatioA"), Is.EqualTo(1f));
-            Assert.That(material.GetFloat("_ScaleRatioB"), Is.EqualTo(1f));
-            Assert.That(material.GetFloat("_ScaleRatioC"), Is.EqualTo(1f));
-            Assert.That(ComputeSha256(SourceFontPath), Is.EqualTo(SourceFontSha256));
-            Assert.That(ComputeSha256(FontAssetPath), Is.EqualTo(CommittedSdfSha256));
+        }
+
+        [Test]
+        public void ClimateSourceGuard_SeparatesHeadBlobIntegrityFromWorkingImportState()
+        {
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
+
+            Assert.That(
+                runner,
+                Does.Contain("git show \"HEAD:$path\" | sha256sum"),
+                "Committed source integrity must read Git HEAD blobs.");
+            Assert.That(
+                runner,
+                Does.Contain("git_head_runner_constant"),
+                "Historical HEAD blobs must use the constants committed with that HEAD.");
+            Assert.That(
+                runner,
+                Does.Contain("Climate committed source integrity: PASS"));
+            Assert.That(
+                runner,
+                Does.Contain("verify_climate_worktree_source_integrity"),
+                "The candidate lane must validate current worktree bytes before commit.");
+            Assert.That(
+                runner,
+                Does.Contain("sha256sum \"$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET\""),
+                "The candidate Climate SDF hash must come from the current worktree.");
+            Assert.That(
+                runner,
+                Does.Contain("require_worktree_file_text"),
+                "Candidate meta/GUID/reference validation must read worktree files.");
+            Assert.That(
+                runner,
+                Does.Contain("EXPECTED_IMPORT_DERIVED_DRIFT"));
+            Assert.That(
+                runner,
+                Does.Contain("_ScaleRatioA:1->0.9"));
+            Assert.That(
+                runner,
+                Does.Contain("_ScaleRatioC:1->0.73125"));
+            Assert.That(
+                runner,
+                Does.Not.Contain("71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445"),
+                "An entire derived Climate blob must not be accepted as an allowlist.");
+        }
+
+        [Test]
+        public void CaptureRunner_ObservesAllGuardedAssetsBeforeRestoreAndBeforeFailureReturn()
+        {
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
+
+            AssertVisualGuardRestoreOrdering(runner);
+            AssertCaptureFailureOrdering(runner, "run_typography_visual()", "run_objective_hud_visual()");
+            AssertCaptureFailureOrdering(runner, "run_objective_hud_visual()", "run_unity_full()");
+            Assert.That(
+                runner,
+                Does.Contain("observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"));
+            Assert.That(runner, Does.Contain("UNEXPECTED_ASSET_MUTATION"));
+            Assert.That(runner, Does.Contain("lane_verdict_before_restore"));
+            Assert.That(runner, Does.Contain("restored_hash"));
         }
 
         [Test]
@@ -88,8 +140,8 @@ namespace Game.Feature.UI.Tests
                 tablePaths,
                 Is.EquivalentTo(new[] { StageKoreanStringTablePath, UiKoreanStringTablePath }),
                 "Every managed ko-KR table must participate in native Climate glyph validation.");
-            Assert.That(values, Has.Length.EqualTo(66));
-            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(65));
+            Assert.That(values, Has.Length.EqualTo(71));
+            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(70));
             Assert.That(values, Does.Contain("밀기 키 입력하세요..."));
             Assert.That(values, Does.Contain("뒤집기 키 입력하세요..."));
             Assert.That(codepoints, Has.Length.EqualTo(116));
@@ -210,17 +262,49 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void LegacyNanumAssets_RemainAvailableDuringClimateMigration()
         {
-            var paths = new[]
+            var expected = new Dictionary<string, string>
             {
-                "Assets/_Shared/UI/Fonts/NanumGothic.ttf",
-                "Assets/_Shared/UI/Fonts/NanumGothic.ttf.meta",
-                "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset",
-                "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset.meta",
-                "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat",
-                "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta",
+                ["Assets/_Shared/UI/Fonts/NanumGothic.ttf"] =
+                    "9efe96b63470e314280dc43c0aa565db",
+                ["Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"] =
+                    "4662feb1d501d1f479b757a82e304069",
+                ["Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"] =
+                    "2a2e67f1c1d143dc9f2d4af986ba7f21",
             };
 
-            Assert.That(paths.Where(path => !File.Exists(path)), Is.Empty);
+            foreach (var pair in expected)
+            {
+                Assert.That(File.Exists(pair.Key), Is.True, pair.Key);
+                Assert.That(File.Exists(pair.Key + ".meta"), Is.True, pair.Key + ".meta");
+                Assert.That(AssetDatabase.AssetPathToGUID(pair.Key), Is.EqualTo(pair.Value), pair.Key);
+                Assert.That(
+                    File.ReadAllText(pair.Key + ".meta"),
+                    Does.Contain($"guid: {pair.Value}"),
+                    pair.Key + ".meta");
+            }
+
+            var sdf = File.ReadAllText("Assets/_Shared/UI/Fonts/NanumGothic SDF.asset");
+            var material = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat");
+            Assert.That(
+                sdf,
+                Does.Contain("m_SourceFontFileGUID: 9efe96b63470e314280dc43c0aa565db"));
+            Assert.That(
+                material,
+                Does.Contain("guid: 4662feb1d501d1f479b757a82e304069"));
+
+            var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
+            Assert.That(
+                runner,
+                Does.Contain("git cat-file -e \"HEAD:$retained_path\""),
+                "A working-tree-generated .meta must not satisfy committed retention.");
+            foreach (var pair in expected)
+            {
+                Assert.That(runner, Does.Contain(pair.Key));
+                Assert.That(runner, Does.Contain(pair.Key + ".meta"));
+                Assert.That(runner, Does.Contain(pair.Value));
+            }
         }
 
         [Test]
@@ -260,6 +344,68 @@ namespace Game.Feature.UI.Tests
             Assert.That(binding.StyleTag, Is.EqualTo(TypographyStyleTag.HeaderMedium));
             Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid));
             Assert.That(binding.UseApplyMaskOverride, Is.False);
+        }
+
+        private static void AssertCaptureFailureOrdering(
+            string runner,
+            string functionName,
+            string nextFunctionName)
+        {
+            var functionStart = runner.IndexOf(functionName, StringComparison.Ordinal);
+            var functionEnd = runner.IndexOf(
+                nextFunctionName,
+                functionStart + functionName.Length,
+                StringComparison.Ordinal);
+            Assert.That(functionStart, Is.GreaterThanOrEqualTo(0), functionName);
+            Assert.That(functionEnd, Is.GreaterThan(functionStart), nextFunctionName);
+
+            var functionBody = runner.Substring(functionStart, functionEnd - functionStart);
+            var observe = functionBody.IndexOf(
+                "observe_capture_assets_before_restore",
+                StringComparison.Ordinal);
+            var cleanup = functionBody.IndexOf(
+                "visual_guard_cleanup \"$unity_exit\"",
+                StringComparison.Ordinal);
+            var failureReturn = functionBody.IndexOf(
+                "if [ \"$unity_exit\" -ne 0 ]",
+                StringComparison.Ordinal);
+
+            Assert.That(observe, Is.GreaterThanOrEqualTo(0), functionName + " observe");
+            Assert.That(cleanup, Is.GreaterThan(observe), functionName + " cleanup ordering");
+            Assert.That(
+                failureReturn,
+                Is.GreaterThan(cleanup),
+                functionName + " must restore before returning Unity failure.");
+        }
+
+        private static void AssertVisualGuardRestoreOrdering(string runner)
+        {
+            const string functionName = "visual_guard_cleanup()";
+            const string nextFunctionName = "visual_guard_handle_signal()";
+            var functionStart = runner.IndexOf(functionName, StringComparison.Ordinal);
+            var functionEnd = runner.IndexOf(
+                nextFunctionName,
+                functionStart + functionName.Length,
+                StringComparison.Ordinal);
+            Assert.That(functionStart, Is.GreaterThanOrEqualTo(0), functionName);
+            Assert.That(functionEnd, Is.GreaterThan(functionStart), nextFunctionName);
+
+            var functionBody = runner.Substring(functionStart, functionEnd - functionStart);
+            var cleanupStarted = functionBody.IndexOf(
+                "VISUAL_GUARD_CLEANUP_STARTED=1",
+                StringComparison.Ordinal);
+            var restore = functionBody.IndexOf(
+                "restore_capture_assets_from_baseline",
+                StringComparison.Ordinal);
+            var cleanupCompleted = functionBody.IndexOf(
+                "VISUAL_GUARD_CLEANUP_COMPLETED=1",
+                StringComparison.Ordinal);
+
+            Assert.That(restore, Is.GreaterThan(cleanupStarted), "restore starts inside cleanup");
+            Assert.That(
+                cleanupCompleted,
+                Is.GreaterThan(restore),
+                "cleanup completes only after guarded assets are restored.");
         }
 
         private static void AssertAudioValueLayouts(SettingsScreenView settings)
@@ -379,11 +525,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(start, Is.GreaterThanOrEqualTo(0), startMarker);
             Assert.That(end, Is.GreaterThan(start), endMarker);
             return value.Substring(start + startMarker.Length, end - start - startMarker.Length);
-        }
-
-        private static string ComputeSha256(string path)
-        {
-            return ComputeSha256(File.ReadAllBytes(path));
         }
 
         private static string ComputeTextSha256(string value)

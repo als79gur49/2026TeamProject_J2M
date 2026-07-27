@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -239,7 +240,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(56));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(61));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -368,6 +369,60 @@ namespace Game.Feature.UI.Tests
                 "키 변경이 이미 진행 중입니다.",
                 "밀기 키 입력하세요...",
                 "뒤집기 키 입력하세요...");
+        }
+
+        [Test]
+        public void UiStringTable_ContainsExactObjectiveHudSchemaInBothLocales()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection(ObjectiveHudLocalization.Table);
+            Assert.That(collection, Is.Not.Null);
+
+            AssertObjectiveHudEntries(
+                collection.GetTable("en-US") as StringTable,
+                "Objectives",
+                "Reach the Exit Zone ({0}/{1})",
+                "Reach the designated zone ({0}/{1})",
+                "Place a push box on the button ({0}/{1})",
+                "Place the MoonBlock on the button ({0}/{1})");
+            AssertObjectiveHudEntries(
+                collection.GetTable("ko-KR") as StringTable,
+                "과업",
+                "종료 장소로 이동하기 ({0}/{1})",
+                "지정 장소로 이동하기 ({0}/{1})",
+                "밀기 상자 지정 장소로 이동하기 ({0}/{1})",
+                "전용 상자 지정 장소로 이동하기 ({0}/{1})");
+        }
+
+        [Test]
+        public void UnityStringTableTextResolver_ResolvesObjectiveHudCountsAndLocaleRoundTrip()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            AssertObjectiveHudResolvedText(
+                resolver,
+                "Objectives",
+                "Reach the Exit Zone",
+                "Reach the designated zone",
+                "Place a push box on the button",
+                "Place the MoonBlock on the button");
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            AssertObjectiveHudResolvedText(
+                resolver,
+                "과업",
+                "종료 장소로 이동하기",
+                "지정 장소로 이동하기",
+                "밀기 상자 지정 장소로 이동하기",
+                "전용 상자 지정 장소로 이동하기");
+
+            Assert.That(resolver.TrySetLocale("en-US"), Is.True);
+            AssertObjectiveHudResolvedText(
+                resolver,
+                "Objectives",
+                "Reach the Exit Zone",
+                "Reach the designated zone",
+                "Place a push box on the button",
+                "Place the MoonBlock on the button");
         }
 
         [Test]
@@ -890,7 +945,8 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void UiSettingsBridgeAssembly_UsesUnityAdapterWhenLocalizationAssetsAreAvailable()
         {
-            var resolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver(new FakeUiLocalePreferenceStore());
+            var resolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver(
+                new FakeUiLocalePreferenceStore("en-US"));
 
             try
             {
@@ -1302,6 +1358,89 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(rebindFlipPromptValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputRebindFlipPromptKey);
+        }
+
+        private static void AssertObjectiveHudEntries(
+            StringTable table,
+            string header,
+            string reachExit,
+            string reachZone,
+            string activateButton,
+            string activateMoonButton)
+        {
+            Assert.That(table, Is.Not.Null);
+            AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.Header, header, isSmart: false);
+            AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ReachExit, reachExit, isSmart: true);
+            AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ReachZone, reachZone, isSmart: true);
+            AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ActivateButton, activateButton, isSmart: true);
+            AssertObjectiveHudEntry(table, ObjectiveHudLocalization.Keys.ActivateMoonButton, activateMoonButton, isSmart: true);
+        }
+
+        private static void AssertObjectiveHudEntry(
+            StringTable table,
+            string key,
+            string expected,
+            bool isSmart)
+        {
+            var entry = table.GetEntry(key);
+            Assert.That(entry, Is.Not.Null, key);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(expected), key);
+            Assert.That(entry.IsSmart, Is.EqualTo(isSmart), key);
+        }
+
+        private static void AssertObjectiveHudResolvedText(
+            ILocalizedTextResolver resolver,
+            string header,
+            string reachExit,
+            string reachZone,
+            string activateButton,
+            string activateMoonButton)
+        {
+            Assert.That(
+                resolver.Resolve(ObjectiveHudLocalization.HeaderDescriptor),
+                Is.EqualTo(header));
+            AssertObjectiveHudResolvedCounts(
+                resolver,
+                GameplayObjectivePresentationKind.ReachExit,
+                reachExit);
+            AssertObjectiveHudResolvedCounts(
+                resolver,
+                GameplayObjectivePresentationKind.ReachZone,
+                reachZone);
+            AssertObjectiveHudResolvedCounts(
+                resolver,
+                GameplayObjectivePresentationKind.ActivateButton,
+                activateButton);
+            AssertObjectiveHudResolvedCounts(
+                resolver,
+                GameplayObjectivePresentationKind.ActivateMoonButton,
+                activateMoonButton);
+        }
+
+        private static void AssertObjectiveHudResolvedCounts(
+            ILocalizedTextResolver resolver,
+            GameplayObjectivePresentationKind kind,
+            string expectedTitle)
+        {
+            var counts = new[]
+            {
+                (Completed: 1, Required: 1),
+                (Completed: 9, Required: 10),
+                (Completed: 99, Required: 99),
+            };
+            foreach (var count in counts)
+            {
+                Assert.That(
+                    ObjectiveHudLocalization.TryCreateConditionDescriptor(
+                        kind,
+                        count.Completed,
+                        count.Required,
+                        out var descriptor),
+                    Is.True);
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo($"{expectedTitle} ({count.Completed}/{count.Required})"));
+            }
         }
 
         private static void AssertSmartFlagMatchesParsedArguments(

@@ -12,6 +12,89 @@ DRY_RUN=0
 TEST_FILTER=""
 FILTERED_TOTAL=0
 
+VISUAL_GUARD_BASELINE_ROOT=""
+VISUAL_GUARD_MUTATION_EVIDENCE=""
+VISUAL_GUARD_LIFECYCLE_EVIDENCE=""
+VISUAL_GUARD_LANE=""
+VISUAL_GUARD_BASELINE_READY=0
+VISUAL_GUARD_TRAP_INSTALLED=0
+VISUAL_GUARD_INTERRUPTED=0
+VISUAL_GUARD_TERMINATION_SIGNAL=""
+VISUAL_GUARD_SIGNAL_STATUS=0
+VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME="none"
+VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS=0
+VISUAL_GUARD_OBSERVED_SIGNAL_MASK=0
+VISUAL_GUARD_OBSERVED_INT=0
+VISUAL_GUARD_OBSERVED_TERM=0
+VISUAL_GUARD_CO_PENDING_DETECTED="false"
+VISUAL_GUARD_SIGNAL_ORDER_CONTRACT="FIRST_OBSERVED_SEQUENTIAL_CO_PENDING_UNSPECIFIED"
+VISUAL_GUARD_ORIGINAL_COMMAND_STATUS=0
+VISUAL_GUARD_OBSERVATION_COMPLETED=0
+VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
+VISUAL_GUARD_CLEANUP_STARTED=0
+VISUAL_GUARD_CLEANUP_COMPLETED=0
+VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=0
+VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=0
+VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=0
+VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=0
+VISUAL_GUARD_CLEANUP_STATUS=0
+VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
+VISUAL_GUARD_ACTIVE_CHILD_PID=""
+VISUAL_GUARD_ACTIVE_CHILD_PGID=""
+VISUAL_GUARD_OWNED_CHILD_PID=""
+VISUAL_GUARD_OWNED_CHILD_PGID=""
+VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
+VISUAL_GUARD_FALLBACK_USED=0
+VISUAL_GUARD_PRIMARY_WAS_LIVE=0
+VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=0
+VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_ATTEMPTED"
+VISUAL_GUARD_PRIMARY_WAIT_RESULT="NOT_ATTEMPTED"
+VISUAL_GUARD_FALLBACK_SCAN_PERFORMED=0
+VISUAL_GUARD_FALLBACK_SCAN_PASSES=0
+VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=0
+VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=0
+VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+VISUAL_GUARD_EARLY_EMPTY_STREAK=0
+VISUAL_GUARD_POST_GRACE_QUIET_STREAK=0
+VISUAL_GUARD_FALLBACK_TIMEOUT=0
+VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
+VISUAL_GUARD_FALLBACK_SEEN_KEYS=""
+VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS=""
+VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS=""
+VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS=""
+VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS=0
+VISUAL_GUARD_STARTUP_GRACE_COMPLETED=0
+VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS=""
+VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS=""
+VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS=""
+VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS=""
+VISUAL_GUARD_QUIET_PERIOD_COMPLETED=0
+VISUAL_GUARD_LATE_CANDIDATE_DETECTED=0
+VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS=""
+VISUAL_GUARD_HARD_TIMEOUT_REACHED=0
+VISUAL_GUARD_FALLBACK_FAILURE_REASON=""
+VISUAL_GUARD_CURRENT_SCAN_AT_MS=""
+VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
+VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
+VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
+UNITY_DETACHED_STARTUP_GRACE_MS="${UNITY_DETACHED_STARTUP_GRACE_MS:-6000}"
+UNITY_DETACHED_POLL_INTERVAL_MS="${UNITY_DETACHED_POLL_INTERVAL_MS:-200}"
+UNITY_DETACHED_QUIET_PERIOD_MS="${UNITY_DETACHED_QUIET_PERIOD_MS:-400}"
+UNITY_DETACHED_HARD_TIMEOUT_MS="${UNITY_DETACHED_HARD_TIMEOUT_MS:-12000}"
+VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
+VISUAL_GUARD_CANDIDATE_SOURCES=()
+VISUAL_GUARD_CANDIDATE_PIDS=()
+VISUAL_GUARD_CANDIDATE_START_IDENTITIES=()
+VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW=()
+VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL=()
+VISUAL_GUARD_CANDIDATE_PREEXISTING=()
+VISUAL_GUARD_CANDIDATE_MATCHES=()
+VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED=()
+VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
+VISUAL_GUARD_EXITING=0
+VISUAL_GUARD_PHASE="DONE"
+VISUAL_GUARD_FINAL_STATUS_SNAPSHOT=0
+
 TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
 TYPOGRAPHY_VISUAL_OUTPUT_DIR=""
 TYPOGRAPHY_VISUAL_UNITY_LOG=""
@@ -21,6 +104,29 @@ TYPOGRAPHY_VISUAL_HEIGHT=1080
 TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
 TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+NANUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic.ttf"
+NANUM_SOURCE_TTF_META="$NANUM_SOURCE_TTF_ASSET.meta"
+NANUM_SDF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+NANUM_SDF_META="$NANUM_SDF_ASSET.meta"
+NANUM_SYNTHETIC_BOLD_ASSET="Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
+NANUM_SYNTHETIC_BOLD_META="$NANUM_SYNTHETIC_BOLD_ASSET.meta"
+NANUM_SOURCE_TTF_GUID="9efe96b63470e314280dc43c0aa565db"
+NANUM_SDF_GUID="4662feb1d501d1f479b757a82e304069"
+NANUM_SYNTHETIC_BOLD_GUID="2a2e67f1c1d143dc9f2d4af986ba7f21"
+OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/ObjectiveHudVisualQA"
+OBJECTIVE_HUD_VISUAL_WIDTH=1920
+OBJECTIVE_HUD_VISUAL_HEIGHT=1080
+OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
+OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
+CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
+CLIMATE_SDF_ASSET="$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET"
+CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
+CLIMATE_COMMITTED_SDF_SHA256="c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5"
+CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
+CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
+CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
+CLIMATE_MATERIAL_LOCAL_ID="1352911973252649374"
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
 
@@ -83,6 +189,332 @@ require_command() {
     if ! command -v "$command_name" >/dev/null 2>&1; then
         echo "Missing required command: $command_name"
         exit 1
+    fi
+}
+
+git_head_blob_sha256() {
+    local path="$1"
+
+    git show "HEAD:$path" | sha256sum | awk '{print $1}'
+}
+
+git_head_runner_constant() {
+    local name="$1"
+    local value
+
+    value="$(
+        git show HEAD:run_tests.sh |
+            sed -n "s/^${name}=\"\\([^\"]*\\)\"$/\\1/p"
+    )"
+    if [ -z "$value" ]; then
+        echo "ERROR: Git HEAD run_tests.sh constant is missing: $name" >&2
+        return 1
+    fi
+    printf '%s\n' "$value"
+}
+
+require_git_head_blob_text() {
+    local path="$1"
+    local expected="$2"
+    local label="$3"
+
+    if ! git show "HEAD:$path" | grep -F -- "$expected" >/dev/null; then
+        echo "ERROR: Git HEAD $label mismatch: $path"
+        return 1
+    fi
+}
+
+verify_climate_committed_source_integrity() {
+    local committed_sdf_hash
+    local committed_ttf_hash
+    local head_climate_sdf_sha256
+    local head_climate_ttf_sha256
+    local head_climate_ttf_guid
+    local head_climate_sdf_guid
+    local head_climate_material_local_id
+    local head_nanum_ttf_guid
+    local head_nanum_sdf_guid
+    local head_nanum_material_guid
+    local retained_path
+    local -a retained_nanum_paths=(
+        "Assets/_Shared/UI/Fonts/NanumGothic.ttf"
+        "Assets/_Shared/UI/Fonts/NanumGothic.ttf.meta"
+        "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
+        "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset.meta"
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta"
+    )
+
+    head_climate_sdf_sha256="$(git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256)"
+    head_climate_ttf_sha256="$(git_head_runner_constant CLIMATE_SOURCE_TTF_SHA256)"
+    head_climate_ttf_guid="$(git_head_runner_constant CLIMATE_SOURCE_TTF_GUID)"
+    head_climate_sdf_guid="$(git_head_runner_constant CLIMATE_SDF_GUID)"
+    head_climate_material_local_id="$(
+        git_head_runner_constant CLIMATE_MATERIAL_LOCAL_ID
+    )"
+    head_nanum_ttf_guid="$(git_head_runner_constant NANUM_SOURCE_TTF_GUID)"
+    head_nanum_sdf_guid="$(git_head_runner_constant NANUM_SDF_GUID)"
+    head_nanum_material_guid="$(
+        git_head_runner_constant NANUM_SYNTHETIC_BOLD_GUID
+    )"
+
+    committed_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_SDF_ASSET")"
+    committed_ttf_hash="$(git_head_blob_sha256 "$CLIMATE_SOURCE_TTF_ASSET")"
+    if [ "$committed_sdf_hash" != "$head_climate_sdf_sha256" ]; then
+        echo "ERROR: Climate committed SDF Git blob mismatch."
+        echo "  expected: $head_climate_sdf_sha256"
+        echo "  actual:   $committed_sdf_hash"
+        return 1
+    fi
+    if [ "$committed_ttf_hash" != "$head_climate_ttf_sha256" ]; then
+        echo "ERROR: Climate committed source TTF Git blob mismatch."
+        echo "  expected: $head_climate_ttf_sha256"
+        echo "  actual:   $committed_ttf_hash"
+        return 1
+    fi
+
+    require_git_head_blob_text \
+        "$CLIMATE_SOURCE_TTF_META" \
+        "guid: $head_climate_ttf_guid" \
+        "source TTF GUID"
+    require_git_head_blob_text \
+        "$CLIMATE_SDF_META" \
+        "guid: $head_climate_sdf_guid" \
+        "SDF GUID"
+    require_git_head_blob_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!21 &$head_climate_material_local_id" \
+        "material localID"
+
+    for retained_path in "${retained_nanum_paths[@]}"; do
+        if ! git cat-file -e "HEAD:$retained_path"; then
+            echo "ERROR: Required retained Nanum asset is absent from Git HEAD: $retained_path"
+            return 1
+        fi
+    done
+    require_git_head_blob_text \
+        "$NANUM_SOURCE_TTF_META" \
+        "guid: $head_nanum_ttf_guid" \
+        "Nanum source TTF GUID"
+    require_git_head_blob_text \
+        "$NANUM_SDF_META" \
+        "guid: $head_nanum_sdf_guid" \
+        "Nanum SDF GUID"
+    require_git_head_blob_text \
+        "$NANUM_SYNTHETIC_BOLD_META" \
+        "guid: $head_nanum_material_guid" \
+        "Nanum synthetic-bold material GUID"
+    require_git_head_blob_text \
+        "$NANUM_SDF_ASSET" \
+        "m_SourceFontFileGUID: $head_nanum_ttf_guid" \
+        "Nanum SDF source TTF reference"
+    require_git_head_blob_text \
+        "$NANUM_SYNTHETIC_BOLD_ASSET" \
+        "guid: $head_nanum_sdf_guid" \
+        "Nanum synthetic-bold atlas reference"
+
+    echo "Climate committed source integrity: PASS (historical HEAD audit)"
+    echo "  SDF Git blob SHA-256: $committed_sdf_hash"
+    echo "  TTF GUID:             $head_climate_ttf_guid"
+    echo "  SDF GUID:             $head_climate_sdf_guid"
+    echo "  Material localID:     $head_climate_material_local_id"
+    echo "  Nanum body/meta:      6/6 committed"
+    echo "  Nanum TTF GUID:       $head_nanum_ttf_guid"
+    echo "  Nanum SDF GUID:       $head_nanum_sdf_guid"
+    echo "  Nanum material GUID:  $head_nanum_material_guid"
+}
+
+require_worktree_file_text() {
+    local path="$1"
+    local expected="$2"
+    local label="$3"
+
+    if ! grep -F -- "$expected" "$PROJECT_PATH_WSL/$path" >/dev/null; then
+        echo "ERROR: Candidate worktree $label mismatch: $path"
+        return 1
+    fi
+}
+
+verify_climate_worktree_source_integrity() {
+    local candidate_sdf_hash
+    local candidate_ttf_hash
+    local retained_path
+    local -a retained_nanum_paths=(
+        "$NANUM_SOURCE_TTF_ASSET"
+        "$NANUM_SOURCE_TTF_META"
+        "$NANUM_SDF_ASSET"
+        "$NANUM_SDF_META"
+        "$NANUM_SYNTHETIC_BOLD_ASSET"
+        "$NANUM_SYNTHETIC_BOLD_META"
+    )
+
+    candidate_sdf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
+    candidate_ttf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SOURCE_TTF_ASSET" | awk '{print $1}'
+    )"
+    if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate SDF mismatch."
+        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  actual:   $candidate_sdf_hash"
+        return 1
+    fi
+    if [ "$candidate_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate source TTF mismatch."
+        echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
+        echo "  actual:   $candidate_ttf_hash"
+        return 1
+    fi
+
+    require_worktree_file_text \
+        "$CLIMATE_SOURCE_TTF_META" \
+        "guid: $CLIMATE_SOURCE_TTF_GUID" \
+        "source TTF GUID"
+    require_worktree_file_text \
+        "$CLIMATE_SDF_META" \
+        "guid: $CLIMATE_SDF_GUID" \
+        "SDF GUID"
+    require_worktree_file_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "material localID"
+
+    for retained_path in "${retained_nanum_paths[@]}"; do
+        if [ ! -f "$PROJECT_PATH_WSL/$retained_path" ]; then
+            echo "ERROR: Required retained Nanum candidate is absent: $retained_path"
+            return 1
+        fi
+    done
+    require_worktree_file_text \
+        "$NANUM_SOURCE_TTF_META" \
+        "guid: $NANUM_SOURCE_TTF_GUID" \
+        "Nanum source TTF GUID"
+    require_worktree_file_text \
+        "$NANUM_SDF_META" \
+        "guid: $NANUM_SDF_GUID" \
+        "Nanum SDF GUID"
+    require_worktree_file_text \
+        "$NANUM_SYNTHETIC_BOLD_META" \
+        "guid: $NANUM_SYNTHETIC_BOLD_GUID" \
+        "Nanum synthetic-bold material GUID"
+    require_worktree_file_text \
+        "$NANUM_SDF_ASSET" \
+        "m_SourceFontFileGUID: $NANUM_SOURCE_TTF_GUID" \
+        "Nanum SDF source TTF reference"
+    require_worktree_file_text \
+        "$NANUM_SYNTHETIC_BOLD_ASSET" \
+        "guid: $NANUM_SDF_GUID" \
+        "Nanum synthetic-bold atlas reference"
+
+    echo "Climate/Nanum candidate worktree integrity: PASS"
+    echo "  Climate SDF SHA-256: $candidate_sdf_hash"
+    echo "  Nanum body/meta:     6/6 present"
+}
+
+climate_working_sha256() {
+    sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+}
+
+diagnose_climate_file_state() {
+    local label="$1"
+    local candidate="$2"
+    local hash
+
+    hash="$(sha256sum "$candidate" | awk '{print $1}')"
+    echo "Climate working-state diagnostic [$label]:"
+    echo "  SHA-256: $hash"
+    python3 - "$candidate" "$CLIMATE_SDF_ASSET" <<'PY'
+import subprocess
+import sys
+from pathlib import Path
+
+candidate_path = Path(sys.argv[1])
+asset_path = sys.argv[2]
+before = subprocess.run(
+    ["git", "show", f"HEAD:{asset_path}"],
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout.decode("utf-8").replace("\r\n", "\n").split("\n")
+after = candidate_path.read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
+if before == after:
+    print("  Classification: COMMITTED_SOURCE_SHAPE")
+    raise SystemExit(0)
+if len(before) != len(after):
+    raise SystemExit("ERROR: Climate mutation changed serialized line count.")
+
+allowed = {
+    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
+    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
+}
+required_whitespace_properties = {
+    "m_MipmapLimitGroupName:",
+    "m_PlatformBlob:",
+    "path:",
+    "referencedFontAssetGUID:",
+    "referencedTextAssetGUID:",
+    "m_SourceFontFilePath:",
+    "Name:",
+    "m_LockedProperties:",
+}
+changes = []
+whitespace_changes = set()
+for old, new in zip(before, after):
+    if old == new:
+        continue
+    if (
+        old.strip() == new.strip() and
+        old.strip() in required_whitespace_properties and
+        new == old + " "
+    ):
+        whitespace_changes.add(old.strip())
+        changes.append(f"serialization-whitespace:{old.strip()}")
+        continue
+    key = (old.strip(), new.strip())
+    if key not in allowed:
+        print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
+        raise SystemExit(
+            "ERROR: Climate mutation is outside the exact importer-derived property allowlist: "
+            f"{key[0]} -> {key[1]}"
+        )
+    changes.append(allowed[key])
+if (
+    whitespace_changes != required_whitespace_properties or
+    (
+        ("_ScaleRatioA:1->0.9" in changes) !=
+        ("_ScaleRatioC:1->0.73125" in changes)
+    )
+):
+    missing_whitespace = sorted(required_whitespace_properties - whitespace_changes)
+    print(f"  Observed properties: {','.join(changes)}", file=sys.stderr)
+    print(f"  Missing whitespace properties: {','.join(missing_whitespace)}", file=sys.stderr)
+    raise SystemExit(
+        "ERROR: Climate mutation did not match the complete exact property allowlist."
+    )
+print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
+print(f"  Derived properties: {','.join(changes)}")
+PY
+}
+
+verify_climate_working_transition() {
+    local before_snapshot="$1"
+    local after_path="$2"
+    local before_hash
+    local after_hash
+    local failed=0
+
+    before_hash="$(sha256sum "$before_snapshot" | awk '{print $1}')"
+    after_hash="$(sha256sum "$after_path" | awk '{print $1}')"
+    diagnose_climate_file_state "pre-import" "$before_snapshot" || failed=1
+    diagnose_climate_file_state "post-import" "$after_path" || failed=1
+    if [ "$failed" -ne 0 ]; then
+        echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
+        return 1
+    fi
+    if [ "$before_hash" = "$after_hash" ]; then
+        echo "  Import transition: NO_DRIFT"
+    else
+        echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
     fi
 }
 
@@ -217,7 +649,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|typography-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|typography-visual|typography-hud-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -235,6 +667,836 @@ prepare_typography_visual_paths() {
     TYPOGRAPHY_VISUAL_MANIFEST="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture.log"
 }
 
+capture_guarded_paths() {
+    printf '%s\n' \
+        "$CLIMATE_SDF_ASSET" \
+        "$NANUM_SDF_ASSET" \
+        "Assets/TextMesh Pro/Resources/TMP Settings.asset" \
+        "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset" \
+        "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab" \
+        "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab" \
+        "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab" \
+        "Assets/Synty/InterfaceSciFiSoldierHUD/Prefabs/_CommonComponents/Label_SciFiSoldier_SemiBold.prefab"
+}
+
+prepare_capture_asset_baseline() {
+    local baseline_root="$1"
+    local asset_path
+    local -a guarded_paths
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+
+    mkdir -p "$baseline_root"
+    for asset_path in "${guarded_paths[@]}"; do
+        mkdir -p "$baseline_root/$(dirname "$asset_path")"
+        cp "$PROJECT_PATH_WSL/$asset_path" "$baseline_root/$asset_path"
+    done
+}
+
+observe_capture_assets_before_restore() {
+    local baseline_root="$1"
+    local evidence_path="$2"
+    local asset_path
+    local before_hash
+    local after_hash
+    local transition_output
+    local transition_exit
+    local index
+    local mutation_exit=0
+    local -a guarded_paths
+    local -a before_hashes
+    local -a after_hashes
+    local -a mutation_detected
+    local -a changed_properties
+    local -a classifications
+    local -a allowed
+    local -a lane_verdicts
+
+    if [ "${VISUAL_GUARD_TRAP_INSTALLED:-0}" -eq 1 ]; then
+        VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=$((VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT + 1))
+    fi
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+    for index in "${!guarded_paths[@]}"; do
+        asset_path="${guarded_paths[$index]}"
+        before_hash="$(
+            sha256sum "$baseline_root/$asset_path" | awk '{print $1}'
+        )"
+        if [ -f "$PROJECT_PATH_WSL/$asset_path" ]; then
+            after_hash="$(
+                sha256sum "$PROJECT_PATH_WSL/$asset_path" | awk '{print $1}'
+            )"
+        else
+            after_hash="MISSING"
+        fi
+        before_hashes[$index]="$before_hash"
+        after_hashes[$index]="$after_hash"
+        mutation_detected[$index]=0
+        changed_properties[$index]=""
+        classifications[$index]="NO_MUTATION"
+        allowed[$index]=1
+        lane_verdicts[$index]="PASS"
+        if [ "$before_hash" = "$after_hash" ]; then
+            continue
+        fi
+
+        mutation_detected[$index]=1
+        if [ "$asset_path" = "$CLIMATE_SDF_ASSET" ]; then
+            transition_exit=0
+            transition_output="$(
+                verify_climate_working_transition \
+                    "$baseline_root/$asset_path" \
+                    "$PROJECT_PATH_WSL/$asset_path" 2>&1
+            )" || transition_exit=$?
+            printf '%s\n' "$transition_output"
+            if [ "$transition_exit" -eq 0 ]; then
+                changed_properties[$index]="$(
+                    printf '%s\n' "$transition_output" |
+                        sed -n 's/^  Derived properties: //p'
+                )"
+                classifications[$index]="EXPECTED_IMPORT_DERIVED_DRIFT"
+                continue
+            fi
+        fi
+
+        changed_properties[$index]="UNCLASSIFIED_BYTE_DELTA"
+        classifications[$index]="UNEXPECTED_ASSET_MUTATION"
+        allowed[$index]=0
+        lane_verdicts[$index]="FAIL"
+        mutation_exit=1
+    done
+
+    {
+        echo "schema_version=1"
+        echo "observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"
+        echo "guarded_path_count=${#guarded_paths[@]}"
+        echo "lane_verdict_before_restore=$(
+            if [ "$mutation_exit" -eq 0 ]; then
+                printf PASS
+            else
+                printf FAIL
+            fi
+        )"
+        for index in "${!guarded_paths[@]}"; do
+            echo
+            echo "[asset-mutation/$index]"
+            echo "path=${guarded_paths[$index]}"
+            echo "before_hash=${before_hashes[$index]}"
+            echo "after_capture_hash=${after_hashes[$index]}"
+            echo "mutation_detected=${mutation_detected[$index]}"
+            echo "changed_properties=${changed_properties[$index]}"
+            echo "classification=${classifications[$index]}"
+            echo "allowed=${allowed[$index]}"
+            echo "lane_verdict_before_restore=${lane_verdicts[$index]}"
+        done
+    } > "$evidence_path"
+
+    return "$mutation_exit"
+}
+
+restore_capture_assets_from_baseline() {
+    local baseline_root="$1"
+    local evidence_path="$2"
+    local asset_path
+    local before_hash
+    local restored_hash
+    local restored
+    local restore_exit=0
+    local -a guarded_paths
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+    for asset_path in "${guarded_paths[@]}"; do
+        cp "$baseline_root/$asset_path" "$PROJECT_PATH_WSL/$asset_path"
+    done
+    for asset_path in "${guarded_paths[@]}"; do
+        before_hash="$(
+            sha256sum "$baseline_root/$asset_path" | awk '{print $1}'
+        )"
+        restored_hash="$(
+            sha256sum "$PROJECT_PATH_WSL/$asset_path" | awk '{print $1}'
+        )"
+        restored=1
+        if [ "$restored_hash" != "$before_hash" ]; then
+            restored=0
+            restore_exit=1
+        fi
+        {
+            echo
+            echo "[asset-restore/$asset_path]"
+            echo "restored=$restored"
+            echo "restored_hash=$restored_hash"
+            echo "expected_hash=$before_hash"
+        } >> "$evidence_path"
+    done
+
+    if [ "$restore_exit" -ne 0 ]; then
+        echo "ERROR: Runner capture baseline restore failed."
+    fi
+    return "$restore_exit"
+}
+
+visual_guard_reset_state() {
+    VISUAL_GUARD_BASELINE_ROOT=""
+    VISUAL_GUARD_MUTATION_EVIDENCE=""
+    VISUAL_GUARD_LIFECYCLE_EVIDENCE=""
+    VISUAL_GUARD_LANE=""
+    VISUAL_GUARD_BASELINE_READY=0
+    VISUAL_GUARD_TRAP_INSTALLED=0
+    VISUAL_GUARD_INTERRUPTED=0
+    VISUAL_GUARD_TERMINATION_SIGNAL=""
+    VISUAL_GUARD_SIGNAL_STATUS=0
+    VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME="none"
+    VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS=0
+    VISUAL_GUARD_OBSERVED_SIGNAL_MASK=0
+    VISUAL_GUARD_OBSERVED_INT=0
+    VISUAL_GUARD_OBSERVED_TERM=0
+    VISUAL_GUARD_CO_PENDING_DETECTED="false"
+    VISUAL_GUARD_SIGNAL_ORDER_CONTRACT="FIRST_OBSERVED_SEQUENTIAL_CO_PENDING_UNSPECIFIED"
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS=0
+    VISUAL_GUARD_OBSERVATION_COMPLETED=0
+    VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
+    VISUAL_GUARD_CLEANUP_STARTED=0
+    VISUAL_GUARD_CLEANUP_COMPLETED=0
+    VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_CLEANUP_STATUS=0
+    VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
+    VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_ACTIVE_CHILD_PGID=""
+    VISUAL_GUARD_OWNED_CHILD_PID=""
+    VISUAL_GUARD_OWNED_CHILD_PGID=""
+    VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
+    VISUAL_GUARD_FALLBACK_USED=0
+    VISUAL_GUARD_PRIMARY_WAS_LIVE=0
+    VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=0
+    VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_ATTEMPTED"
+    VISUAL_GUARD_PRIMARY_WAIT_RESULT="NOT_ATTEMPTED"
+    VISUAL_GUARD_FALLBACK_SCAN_PERFORMED=0
+    VISUAL_GUARD_FALLBACK_SCAN_PASSES=0
+    VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=0
+    VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=0
+    VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+    VISUAL_GUARD_EARLY_EMPTY_STREAK=0
+    VISUAL_GUARD_POST_GRACE_QUIET_STREAK=0
+    VISUAL_GUARD_FALLBACK_TIMEOUT=0
+    VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
+    VISUAL_GUARD_FALLBACK_SEEN_KEYS=""
+    VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS=""
+    VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS=""
+    VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS=""
+    VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS=0
+    VISUAL_GUARD_STARTUP_GRACE_COMPLETED=0
+    VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS=""
+    VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS=""
+    VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS=""
+    VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS=""
+    VISUAL_GUARD_QUIET_PERIOD_COMPLETED=0
+    VISUAL_GUARD_LATE_CANDIDATE_DETECTED=0
+    VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS=""
+    VISUAL_GUARD_HARD_TIMEOUT_REACHED=0
+    VISUAL_GUARD_FALLBACK_FAILURE_REASON=""
+    VISUAL_GUARD_CURRENT_SCAN_AT_MS=""
+    VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
+    VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
+    VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
+    VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
+    VISUAL_GUARD_CANDIDATE_SOURCES=()
+    VISUAL_GUARD_CANDIDATE_PIDS=()
+    VISUAL_GUARD_CANDIDATE_START_IDENTITIES=()
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW=()
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL=()
+    VISUAL_GUARD_CANDIDATE_PREEXISTING=()
+    VISUAL_GUARD_CANDIDATE_MATCHES=()
+    VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED=()
+    VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
+    VISUAL_GUARD_EXITING=0
+    VISUAL_GUARD_PHASE="RUNNING"
+    VISUAL_GUARD_FINAL_STATUS_SNAPSHOT=0
+}
+
+visual_guard_write_lifecycle_evidence() {
+    local final_exit_status="$1"
+    local index
+    local observed_signal_mask_name="none"
+
+    if [ -z "$VISUAL_GUARD_LIFECYCLE_EVIDENCE" ]; then
+        return 0
+    fi
+
+    case "$VISUAL_GUARD_OBSERVED_SIGNAL_MASK" in
+        1)
+            observed_signal_mask_name="INT"
+            ;;
+        2)
+            observed_signal_mask_name="TERM"
+            ;;
+        3)
+            observed_signal_mask_name="INT|TERM"
+            ;;
+    esac
+
+    {
+        echo "schema_version=4"
+        echo "lane=$VISUAL_GUARD_LANE"
+        echo "cleanup_trap_installed=$VISUAL_GUARD_TRAP_INSTALLED"
+        echo "interrupted=$(
+            if [ "$VISUAL_GUARD_INTERRUPTED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "termination_signal=$VISUAL_GUARD_TERMINATION_SIGNAL"
+        echo "signal_exit_status=$VISUAL_GUARD_SIGNAL_STATUS"
+        echo "signal_order_contract=$VISUAL_GUARD_SIGNAL_ORDER_CONTRACT"
+        echo "first_observed_signal=$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME"
+        echo "first_observed_status=$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+        echo "observed_signal_mask=$observed_signal_mask_name"
+        echo "observed_int=$(
+            if [ "$VISUAL_GUARD_OBSERVED_INT" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "observed_term=$(
+            if [ "$VISUAL_GUARD_OBSERVED_TERM" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "co_pending_detected=$VISUAL_GUARD_CO_PENDING_DETECTED"
+        echo "final_interruption_status=$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+        echo "original_command_status=$VISUAL_GUARD_ORIGINAL_COMMAND_STATUS"
+        echo "observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"
+        echo "mutation_observation_completed=$VISUAL_GUARD_OBSERVATION_COMPLETED"
+        echo "lane_verdict=$VISUAL_GUARD_LANE_VERDICT"
+        echo "cleanup_started=$VISUAL_GUARD_CLEANUP_STARTED"
+        echo "cleanup_completed=$VISUAL_GUARD_CLEANUP_COMPLETED"
+        echo "cleanup_effective_count=$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT"
+        echo "process_cleanup_effective_count=$VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT"
+        echo "mutation_observation_effective_count=$VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT"
+        echo "asset_restore_effective_count=$VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT"
+        echo "cleanup_status=$VISUAL_GUARD_CLEANUP_STATUS"
+        echo "restore_result=$VISUAL_GUARD_RESTORE_RESULT"
+        echo "guard_phase=$VISUAL_GUARD_PHASE"
+        echo "final_status_snapshot=$VISUAL_GUARD_FINAL_STATUS_SNAPSHOT"
+        echo "owned_child_pid=$VISUAL_GUARD_OWNED_CHILD_PID"
+        echo "owned_child_pgid=$VISUAL_GUARD_OWNED_CHILD_PGID"
+        echo "fallback_used=$VISUAL_GUARD_FALLBACK_USED"
+        echo "primary_pid=$VISUAL_GUARD_OWNED_CHILD_PID"
+        echo "primary_pgid=$VISUAL_GUARD_OWNED_CHILD_PGID"
+        echo "primary_was_live=$VISUAL_GUARD_PRIMARY_WAS_LIVE"
+        echo "primary_termination_attempted=$VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED"
+        echo "primary_termination_result=$VISUAL_GUARD_PRIMARY_TERMINATION_RESULT"
+        echo "primary_wait_result=$VISUAL_GUARD_PRIMARY_WAIT_RESULT"
+        echo "primary_terminated_at=$VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS"
+        echo "fallback_scan_performed=$(
+            if [ "$VISUAL_GUARD_FALLBACK_SCAN_PERFORMED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "fallback_scan_passes=$VISUAL_GUARD_FALLBACK_SCAN_PASSES"
+        echo "fallback_candidate_count=$VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT"
+        echo "fallback_termination_count=$VISUAL_GUARD_FALLBACK_TERMINATION_COUNT"
+        echo "fallback_empty_streak=$VISUAL_GUARD_FALLBACK_EMPTY_STREAK"
+        echo "startup_grace_ms=$UNITY_DETACHED_STARTUP_GRACE_MS"
+        echo "startup_grace_started_at=$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS"
+        echo "startup_grace_deadline=$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS"
+        echo "startup_grace_elapsed_ms=$VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS"
+        echo "startup_grace_completed=$(
+            if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "poll_interval_ms=$UNITY_DETACHED_POLL_INTERVAL_MS"
+        echo "early_empty_streak=$VISUAL_GUARD_EARLY_EMPTY_STREAK"
+        echo "post_grace_quiet_streak=$VISUAL_GUARD_POST_GRACE_QUIET_STREAK"
+        echo "quiet_period_ms=$UNITY_DETACHED_QUIET_PERIOD_MS"
+        echo "quiet_period_started_at=$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS"
+        echo "quiet_period_deadline=$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS"
+        echo "quiet_period_completed=$(
+            if [ "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "late_candidate_detected=$(
+            if [ "$VISUAL_GUARD_LATE_CANDIDATE_DETECTED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "last_candidate_seen_at=$VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS"
+        echo "last_candidate_terminated_at=$VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS"
+        echo "hard_timeout_ms=$UNITY_DETACHED_HARD_TIMEOUT_MS"
+        echo "hard_cleanup_deadline=$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS"
+        echo "hard_timeout_reached=$(
+            if [ "$VISUAL_GUARD_HARD_TIMEOUT_REACHED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "clock_source=MONOTONIC_PROC_UPTIME"
+        echo "fallback_failure_reason=$VISUAL_GUARD_FALLBACK_FAILURE_REASON"
+        echo "fallback_timeout=$(
+            if [ "$VISUAL_GUARD_FALLBACK_TIMEOUT" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "final_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
+        echo "final_survivor_pids=$VISUAL_GUARD_FINAL_SURVIVOR_PIDS"
+        echo "cleanup_process_result=$VISUAL_GUARD_CLEANUP_PROCESS_RESULT"
+        echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
+        echo "final_exit_status=$final_exit_status"
+        for index in "${!VISUAL_GUARD_CANDIDATE_PIDS[@]}"; do
+            echo
+            echo "[process-candidate/$index]"
+            echo "candidate_source=${VISUAL_GUARD_CANDIDATE_SOURCES[$index]}"
+            echo "candidate_pid=${VISUAL_GUARD_CANDIDATE_PIDS[$index]}"
+            echo "candidate_start_identity=${VISUAL_GUARD_CANDIDATE_START_IDENTITIES[$index]}"
+            echo "candidate_project_path_raw=${VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW[$index]}"
+            echo "candidate_project_path_canonical=${VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL[$index]}"
+            echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
+            echo "preexisting=${VISUAL_GUARD_CANDIDATE_PREEXISTING[$index]}"
+            echo "match=${VISUAL_GUARD_CANDIDATE_MATCHES[$index]}"
+            echo "termination_attempted=${VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED[$index]}"
+            echo "termination_result=${VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS[$index]}"
+        done
+    } > "$VISUAL_GUARD_LIFECYCLE_EVIDENCE"
+}
+
+visual_guard_prepare_interrupted_mutation_evidence() {
+    if [ -z "$VISUAL_GUARD_MUTATION_EVIDENCE" ] ||
+       [ -s "$VISUAL_GUARD_MUTATION_EVIDENCE" ]; then
+        return 0
+    fi
+
+    VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=$((VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT + 1))
+    {
+        echo "schema_version=1"
+        echo "observation_order=INTERRUPTED_BEFORE_COMPLETE_CLASSIFICATION"
+        echo "lane_verdict_before_restore=INTERRUPTED"
+        echo "termination_signal=$VISUAL_GUARD_TERMINATION_SIGNAL"
+        echo "signal_exit_status=$VISUAL_GUARD_SIGNAL_STATUS"
+    } > "$VISUAL_GUARD_MUTATION_EVIDENCE"
+}
+
+visual_guard_record_signal() {
+    local signal_name="$1"
+    local signal_status="$2"
+    local first_observation=0
+
+    case "$signal_name" in
+        INT)
+            VISUAL_GUARD_OBSERVED_INT=1
+            VISUAL_GUARD_OBSERVED_SIGNAL_MASK=$((VISUAL_GUARD_OBSERVED_SIGNAL_MASK | 1))
+            ;;
+        TERM)
+            VISUAL_GUARD_OBSERVED_TERM=1
+            VISUAL_GUARD_OBSERVED_SIGNAL_MASK=$((VISUAL_GUARD_OBSERVED_SIGNAL_MASK | 2))
+            ;;
+    esac
+    if [ "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" -eq 0 ]; then
+        VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME="$signal_name"
+        VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS="$signal_status"
+        first_observation=1
+    fi
+    VISUAL_GUARD_CO_PENDING_DETECTED="unknown"
+    VISUAL_GUARD_INTERRUPTED=1
+    VISUAL_GUARD_TERMINATION_SIGNAL="$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME"
+    VISUAL_GUARD_SIGNAL_STATUS="$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+    VISUAL_GUARD_LANE_VERDICT="INTERRUPTED"
+    if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -eq 1 ] &&
+       [ "${VISUAL_GUARD_TEST_HOOKS_ENABLED:-0}" -eq 1 ] &&
+       declare -F visual_guard_signal_observed_test_hook >/dev/null; then
+        visual_guard_signal_observed_test_hook \
+            "$signal_name" \
+            "$signal_status" \
+            "$first_observation"
+    fi
+}
+
+visual_guard_request_active_child_stop() {
+    if { [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PID" ] &&
+         kill -0 "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null; } ||
+       { [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PGID" ] &&
+         kill -0 -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null; }; then
+        VISUAL_GUARD_PRIMARY_WAS_LIVE=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="REQUESTED"
+    fi
+    if [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PID" ] &&
+       kill -0 "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null; then
+        kill -TERM "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null || true
+    fi
+    if [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PGID" ] &&
+       kill -0 -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null; then
+        kill -TERM -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null || true
+    fi
+}
+
+visual_guard_calculate_final_status() {
+    local original_status="$1"
+    local cleanup_status="$2"
+
+    if [ "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" -ne 0 ]; then
+        printf '%s\n' "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+    elif [ "$original_status" -ne 0 ]; then
+        printf '%s\n' "$original_status"
+    elif [ "$cleanup_status" -ne 0 ]; then
+        printf '%s\n' "$cleanup_status"
+    else
+        printf '0\n'
+    fi
+}
+
+visual_guard_run_finalization_test_hook() {
+    local phase="$1"
+
+    if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -ne 1 ] ||
+       [ "${VISUAL_GUARD_TEST_HOOKS_ENABLED:-0}" -ne 1 ] ||
+       ! declare -F visual_guard_finalization_test_hook >/dev/null; then
+        return 0
+    fi
+    visual_guard_finalization_test_hook "$phase"
+}
+
+visual_guard_monotonic_ms() {
+    local uptime
+    local seconds
+    local fraction
+
+    if [ ! -r /proc/uptime ]; then
+        echo "ERROR: Monotonic /proc/uptime clock is unavailable." >&2
+        return 1
+    fi
+    IFS=' ' read -r uptime _ < /proc/uptime
+    seconds="${uptime%%.*}"
+    fraction="${uptime#*.}000"
+    fraction="${fraction:0:3}"
+    printf '%s\n' "$((10#$seconds * 1000 + 10#$fraction))"
+}
+
+visual_guard_sleep_ms() {
+    local duration_ms="$1"
+    local duration
+
+    if [ "$duration_ms" -le 0 ]; then
+        return 0
+    fi
+    printf -v duration '%d.%03d' \
+        "$((duration_ms / 1000))" \
+        "$((duration_ms % 1000))"
+    sleep "$duration"
+}
+
+visual_guard_validate_cleanup_timing_config() {
+    local name
+    local value
+
+    for name in \
+        UNITY_DETACHED_STARTUP_GRACE_MS \
+        UNITY_DETACHED_POLL_INTERVAL_MS \
+        UNITY_DETACHED_QUIET_PERIOD_MS \
+        UNITY_DETACHED_HARD_TIMEOUT_MS
+    do
+        value="${!name}"
+        if ! [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
+            echo "ERROR: $name must be a positive integer millisecond value: $value"
+            return 1
+        fi
+    done
+    if [ "$UNITY_DETACHED_HARD_TIMEOUT_MS" -le \
+         "$((UNITY_DETACHED_STARTUP_GRACE_MS + UNITY_DETACHED_QUIET_PERIOD_MS))" ]; then
+        echo "ERROR: UNITY_DETACHED_HARD_TIMEOUT_MS must exceed startup grace plus quiet period."
+        return 1
+    fi
+}
+
+visual_guard_stop_active_child() {
+    local child_pid="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    local child_pgid="$VISUAL_GUARD_ACTIVE_CHILD_PGID"
+    local attempt
+    local primary_failed=0
+    local fallback_failed=0
+
+    if { [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; } ||
+       { [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; }; then
+        VISUAL_GUARD_PRIMARY_WAS_LIVE=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="REQUESTED"
+    fi
+
+    if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
+        kill -TERM "$child_pid" 2>/dev/null || true
+        for attempt in $(seq 1 20); do
+            if ! kill -0 "$child_pid" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+        done
+        if kill -0 "$child_pid" 2>/dev/null; then
+            kill -KILL "$child_pid" 2>/dev/null || true
+            for attempt in $(seq 1 20); do
+                if ! kill -0 "$child_pid" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
+        fi
+    fi
+    if [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; then
+        kill -TERM -- "-$child_pgid" 2>/dev/null || true
+        for attempt in $(seq 1 30); do
+            if ! kill -0 -- "-$child_pgid" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+        done
+        if kill -0 -- "-$child_pgid" 2>/dev/null; then
+            kill -KILL -- "-$child_pgid" 2>/dev/null || true
+            for attempt in $(seq 1 20); do
+                if ! kill -0 -- "-$child_pgid" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
+        fi
+    fi
+    if [ -n "$child_pid" ]; then
+        wait "$child_pid" 2>/dev/null || true
+    fi
+
+    if { [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; } ||
+       { [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; }; then
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="FAILED"
+        VISUAL_GUARD_PRIMARY_WAIT_RESULT="STILL_LIVE"
+        primary_failed=1
+    elif [ "$VISUAL_GUARD_PRIMARY_WAS_LIVE" -eq 1 ]; then
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="TERMINATED"
+        VISUAL_GUARD_PRIMARY_WAIT_RESULT="EXITED"
+    else
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_NEEDED"
+        VISUAL_GUARD_PRIMARY_WAIT_RESULT="ALREADY_EXITED"
+    fi
+    if [ "$primary_failed" -eq 0 ]; then
+        VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS="$(visual_guard_monotonic_ms)"
+    fi
+    VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_ACTIVE_CHILD_PGID=""
+
+    if ! visual_guard_poll_fallback_candidates; then
+        fallback_failed=1
+    fi
+    if [ "$primary_failed" -ne 0 ]; then
+        VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_PRIMARY_TERMINATION"
+        echo "ERROR: Visual guard could not terminate the runner-recorded primary process."
+    elif [ "$fallback_failed" -ne 0 ]; then
+        if [ "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" -ne 0 ]; then
+            VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_RUNNER_OWNED_PROCESS_REMAINS"
+        else
+            VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_CLEANUP_QUIET_PERIOD_TIMEOUT"
+        fi
+        if [ "$VISUAL_GUARD_INTERRUPTED" -eq 0 ]; then
+            VISUAL_GUARD_LANE_VERDICT="$VISUAL_GUARD_CLEANUP_PROCESS_RESULT"
+        fi
+        echo "ERROR: Visual guard fallback cleanup did not reach a clean quiescent state: $VISUAL_GUARD_FALLBACK_FAILURE_REASON"
+    else
+        VISUAL_GUARD_CLEANUP_PROCESS_RESULT="PASS"
+    fi
+    [ "$primary_failed" -eq 0 ] && [ "$fallback_failed" -eq 0 ]
+}
+
+visual_guard_cleanup() {
+    local original_status="${1:-0}"
+    local cleanup_status=0
+
+    if [ "$VISUAL_GUARD_CLEANUP_STARTED" -eq 1 ]; then
+        return "$VISUAL_GUARD_CLEANUP_STATUS"
+    fi
+
+    VISUAL_GUARD_PHASE="CLEANING"
+    VISUAL_GUARD_CLEANUP_STARTED=1
+    VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT + 1))
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
+
+    VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT + 1))
+    if ! visual_guard_stop_active_child; then
+        cleanup_status=1
+    fi
+
+    if declare -F visual_guard_cleanup_test_hook >/dev/null; then
+        visual_guard_cleanup_test_hook "before_restore"
+    fi
+    if [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ]; then
+        visual_guard_prepare_interrupted_mutation_evidence
+        VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=$((VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT + 1))
+        if restore_capture_assets_from_baseline \
+            "$VISUAL_GUARD_BASELINE_ROOT" \
+            "$VISUAL_GUARD_MUTATION_EVIDENCE"; then
+            VISUAL_GUARD_RESTORE_RESULT="PASS"
+        else
+            VISUAL_GUARD_RESTORE_RESULT="FAIL"
+            cleanup_status=1
+        fi
+    else
+        VISUAL_GUARD_RESTORE_RESULT="SKIPPED_BASELINE_NOT_READY"
+    fi
+    if declare -F visual_guard_cleanup_test_hook >/dev/null; then
+        visual_guard_cleanup_test_hook "after_restore_before_completed"
+    fi
+    visual_guard_run_finalization_test_hook "before_cleanup_completed"
+
+    VISUAL_GUARD_CLEANUP_STATUS="$cleanup_status"
+    VISUAL_GUARD_CLEANUP_COMPLETED=1
+    visual_guard_run_finalization_test_hook "after_cleanup_completed"
+    visual_guard_write_lifecycle_evidence "$original_status"
+    return "$cleanup_status"
+}
+
+visual_guard_handle_signal() {
+    visual_guard_record_signal "$1" "$2"
+    case "$VISUAL_GUARD_PHASE" in
+        RUNNING)
+            visual_guard_request_active_child_stop
+            exit "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+            ;;
+        CLEANING)
+            return 0
+            ;;
+        FINALIZING|DONE)
+            visual_guard_write_lifecycle_evidence \
+                "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" || true
+            exit "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+            ;;
+        *)
+            exit "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+            ;;
+    esac
+}
+
+visual_guard_finalize_and_exit() {
+    local original_status="$1"
+    local cleanup_status="$2"
+    local final_status
+
+    visual_guard_run_finalization_test_hook "before_finalizing"
+    VISUAL_GUARD_PHASE="FINALIZING"
+    visual_guard_run_finalization_test_hook "after_finalizing"
+    visual_guard_run_finalization_test_hook "before_final_status_snapshot"
+    final_status="$(
+        visual_guard_calculate_final_status "$original_status" "$cleanup_status"
+    )"
+    VISUAL_GUARD_FINAL_STATUS_SNAPSHOT="$final_status"
+    visual_guard_run_finalization_test_hook "after_final_status_snapshot"
+    if [ "$cleanup_status" -ne 0 ]; then
+        echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
+    fi
+    visual_guard_write_lifecycle_evidence "$final_status"
+    visual_guard_run_finalization_test_hook "before_final_exit"
+    if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -eq 1 ] &&
+       [ "${VISUAL_GUARD_TEST_HOOKS_ENABLED:-0}" -eq 1 ] &&
+       [ "${VISUAL_GUARD_TEST_RETURN_AFTER_FINALIZE:-0}" -eq 1 ]; then
+        VISUAL_GUARD_PHASE="DONE"
+        trap - INT TERM
+        return "$final_status"
+    fi
+    VISUAL_GUARD_PHASE="DONE"
+    exit "$final_status"
+}
+
+visual_guard_handle_exit() {
+    local original_status="$1"
+    local cleanup_status=0
+
+    VISUAL_GUARD_EXITING=1
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
+    VISUAL_GUARD_PHASE="CLEANING"
+    trap - EXIT
+    visual_guard_cleanup "$original_status" || cleanup_status=$?
+    visual_guard_finalize_and_exit "$original_status" "$cleanup_status"
+}
+
+visual_guard_begin() {
+    local baseline_root="$1"
+    local mutation_evidence="$2"
+    local lifecycle_evidence="$3"
+    local lane="$4"
+    local asset_path
+    local -a guarded_paths
+
+    visual_guard_validate_cleanup_timing_config
+    visual_guard_reset_state
+    VISUAL_GUARD_BASELINE_ROOT="$baseline_root"
+    VISUAL_GUARD_MUTATION_EVIDENCE="$mutation_evidence"
+    VISUAL_GUARD_LIFECYCLE_EVIDENCE="$lifecycle_evidence"
+    VISUAL_GUARD_LANE="$lane"
+
+    mapfile -t guarded_paths < <(capture_guarded_paths)
+    for asset_path in "${guarded_paths[@]}"; do
+        if [ ! -f "$baseline_root/$asset_path" ]; then
+            echo "ERROR: Visual guard baseline is incomplete: $asset_path"
+            return 1
+        fi
+    done
+
+    VISUAL_GUARD_BASELINE_READY=1
+    trap 'visual_guard_handle_exit $?' EXIT
+    trap 'visual_guard_handle_signal INT 130' INT
+    trap 'visual_guard_handle_signal TERM 143' TERM
+    VISUAL_GUARD_TRAP_INSTALLED=1
+    visual_guard_write_lifecycle_evidence 0
+    visual_guard_snapshot_preexisting_unity_pids
+    visual_guard_write_lifecycle_evidence 0
+}
+
+visual_guard_run_command() {
+    local command_status
+
+    setsid "$@" &
+    VISUAL_GUARD_ACTIVE_CHILD_PID=$!
+    VISUAL_GUARD_ACTIVE_CHILD_PGID="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    VISUAL_GUARD_OWNED_CHILD_PID="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    VISUAL_GUARD_OWNED_CHILD_PGID="$VISUAL_GUARD_ACTIVE_CHILD_PGID"
+    visual_guard_write_lifecycle_evidence 0
+    if wait "$VISUAL_GUARD_ACTIVE_CHILD_PID"; then
+        command_status=0
+    else
+        command_status=$?
+    fi
+    VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_ACTIVE_CHILD_PGID=""
+    return "$command_status"
+}
+
+visual_guard_mark_observation_complete() {
+    VISUAL_GUARD_OBSERVATION_COMPLETED=1
+    VISUAL_GUARD_LANE_VERDICT="$1"
+}
+
+visual_guard_finish() {
+    local original_status="$1"
+    local cleanup_status=0
+
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
+    VISUAL_GUARD_PHASE="CLEANING"
+    trap - EXIT
+    visual_guard_cleanup "$original_status" || cleanup_status=$?
+    visual_guard_finalize_and_exit "$original_status" "$cleanup_status"
+}
+
 print_typography_visual_plan() {
     local output_dir_win
     local locale
@@ -243,6 +1505,7 @@ print_typography_visual_plan() {
     local slice_name
     local slice_log
     local slice_log_win
+    local baseline_root_win
     local -a unity_command
     local -a capture_slices=(
         "en-US|"
@@ -252,6 +1515,7 @@ print_typography_visual_plan() {
     )
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
+    baseline_root_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets")"
 
     echo "Typography visual evidence plan:"
     echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
@@ -286,6 +1550,7 @@ print_typography_visual_plan() {
             -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
             -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
             -typographyScreenshotLocale "$locale"
+            -captureAssetBaselineRoot "$baseline_root_win"
         )
         if [ -n "$target" ]; then
             unity_command+=( -typographyScreenshotTarget "$target" )
@@ -413,6 +1678,8 @@ required_root = {
     "theme_validation": "PASS",
     "prefab_validation": "PASS",
     "guarded_asset_dirty_check": "PASS",
+    "asset_mutation_observed_before_restore": "PASS",
+    "unexpected_asset_mutation_count": "0",
 }
 for key, expected in required_root.items():
     actual = root.get(key)
@@ -492,87 +1759,557 @@ print("  PNG size/SHA-256: verified for all six captures")
 PY
 }
 
-find_current_project_unity_processes() {
-    ps -eo pid,ppid,stat,etime,args |
-        grep -F "$PROJECT_PATH_WIN" |
-        grep -Ei 'Unity(\.exe|Editor)|/Unity\.exe' |
-        grep -v '[g]rep' || true
+extract_project_path_from_argv() {
+    local previous_was_project_path=0
+    local argument
 
-    find_current_project_windows_unity_processes
+    for argument in "$@"; do
+        if [ "$previous_was_project_path" -eq 1 ]; then
+            printf '%s\n' "$argument"
+            return 0
+        fi
+        if [ "${argument,,}" = "-projectpath" ]; then
+            previous_was_project_path=1
+        fi
+    done
+    return 1
+}
+
+canonicalize_visual_project_path() {
+    local raw_path="$1"
+    local normalized_path
+
+    if [ -z "$raw_path" ]; then
+        return 1
+    fi
+    normalized_path="${raw_path//\\//}"
+    if [[ "$normalized_path" =~ ^[A-Za-z]:/ ]]; then
+        if command -v wslpath >/dev/null 2>&1; then
+            normalized_path="$(wslpath -u "$normalized_path" 2>/dev/null || printf '%s' "$normalized_path")"
+        fi
+    fi
+    if [[ "$normalized_path" = /* ]]; then
+        normalized_path="$(realpath -m -- "$normalized_path" 2>/dev/null || printf '%s' "$normalized_path")"
+    else
+        normalized_path="$(realpath -m -- "$PROJECT_PATH_WSL/$normalized_path" 2>/dev/null || printf '%s' "$normalized_path")"
+    fi
+    if [[ "$normalized_path" =~ ^/mnt/[A-Za-z]/ ]]; then
+        normalized_path="${normalized_path,,}"
+    fi
+    if [ "$normalized_path" != "/" ]; then
+        normalized_path="${normalized_path%/}"
+    fi
+    printf '%s\n' "$normalized_path"
+}
+
+visual_project_paths_match() {
+    local candidate_canonical
+    local expected_canonical
+
+    candidate_canonical="$(canonicalize_visual_project_path "$1")" || return 1
+    expected_canonical="$(canonicalize_visual_project_path "$2")" || return 1
+    [ "$candidate_canonical" = "$expected_canonical" ]
+}
+
+visual_guard_iter_wsl_unity_process_records() {
+    local process_dir
+    local pid
+    local ppid
+    local start_identity
+    local stat_line
+    local executable_name
+    local project_path_raw
+    local project_path_base64
+    local -a argv
+
+    for process_dir in /proc/[0-9]*; do
+        pid="${process_dir##*/}"
+        if [ ! -r "$process_dir/cmdline" ] || [ ! -r "$process_dir/stat" ]; then
+            continue
+        fi
+        argv=()
+        mapfile -d '' -t argv < "$process_dir/cmdline" 2>/dev/null || true
+        if [ "${#argv[@]}" -eq 0 ]; then
+            continue
+        fi
+        executable_name="${argv[0]##*[\\/]}"
+        case "${executable_name,,}" in
+            unity|unity.exe|unityeditor|unityeditor.exe)
+                ;;
+            *)
+                continue
+                ;;
+        esac
+        stat_line="$(sed 's/^[^)]*) //' "$process_dir/stat" 2>/dev/null || true)"
+        ppid="$(printf '%s\n' "$stat_line" | awk '{print $2}')"
+        start_identity="$(printf '%s\n' "$stat_line" | awk '{print $20}')"
+        project_path_raw="$(extract_project_path_from_argv "${argv[@]}" || true)"
+        project_path_base64="$(printf '%s' "$project_path_raw" | base64 -w0)"
+        printf 'wsl\t%s\t%s\t%s\t%s\n' \
+            "$pid" "$ppid" "$start_identity" "$project_path_base64"
+    done
+}
+
+visual_guard_iter_windows_unity_process_records() {
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        return 0
+    fi
+
+    powershell.exe -NoProfile -Command '
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class VisualGuardCommandLine {
+    [DllImport("shell32.dll", SetLastError = true)]
+    public static extern IntPtr CommandLineToArgvW(
+        [MarshalAs(UnmanagedType.LPWStr)] string commandLine,
+        out int argumentCount);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr LocalFree(IntPtr memory);
+}
+"@
+        function Split-NativeCommandLine([string]$commandLine) {
+            if ([string]::IsNullOrWhiteSpace($commandLine)) { return @() }
+            $count = 0
+            $pointer = [VisualGuardCommandLine]::CommandLineToArgvW($commandLine, [ref]$count)
+            if ($pointer -eq [IntPtr]::Zero) { return @() }
+            try {
+                $arguments = @()
+                for ($index = 0; $index -lt $count; $index++) {
+                    $item = [Runtime.InteropServices.Marshal]::ReadIntPtr(
+                        $pointer,
+                        $index * [IntPtr]::Size)
+                    $arguments += [Runtime.InteropServices.Marshal]::PtrToStringUni($item)
+                }
+                return $arguments
+            }
+            finally {
+                [void][VisualGuardCommandLine]::LocalFree($pointer)
+            }
+        }
+        Get-CimInstance Win32_Process |
+            Where-Object { $_.Name -ieq "Unity.exe" } |
+            ForEach-Object {
+                $arguments = @(Split-NativeCommandLine $_.CommandLine)
+                $projectPath = ""
+                for ($index = 0; $index -lt $arguments.Count; $index++) {
+                    if ($arguments[$index] -ieq "-projectPath" -and
+                        ($index + 1) -lt $arguments.Count) {
+                        $projectPath = $arguments[$index + 1]
+                        break
+                    }
+                }
+                $encoded = [Convert]::ToBase64String(
+                    [Text.Encoding]::UTF8.GetBytes($projectPath))
+                $startIdentity = ""
+                if ($_.CreationDate) {
+                    $startIdentity = $_.CreationDate.ToUniversalTime().ToString("o")
+                }
+                "windows`t$($_.ProcessId)`t$($_.ParentProcessId)`t$startIdentity`t$encoded"
+            }
+    ' 2>/dev/null | tr -d '\r' || true
+}
+
+visual_guard_iter_unity_process_records() {
+    visual_guard_iter_wsl_unity_process_records
+    visual_guard_iter_windows_unity_process_records
+}
+
+visual_guard_decode_project_path() {
+    local encoded="$1"
+
+    if [ -z "$encoded" ]; then
+        return 0
+    fi
+    printf '%s' "$encoded" | base64 -d 2>/dev/null || true
+}
+
+visual_guard_is_preexisting_unity_key() {
+    local key="$1"
+
+    if [ -z "$VISUAL_GUARD_PREEXISTING_UNITY_KEYS" ]; then
+        return 1
+    fi
+    printf '%s\n' "$VISUAL_GUARD_PREEXISTING_UNITY_KEYS" | grep -Fx -- "$key" >/dev/null
+}
+
+visual_guard_snapshot_preexisting_unity_pids() {
+    local source
+    local pid
+    local ppid
+    local start_identity
+    local project_path_base64
+    local key
+
+    VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
+        if [ -z "$source" ] || [ -z "$pid" ]; then
+            continue
+        fi
+        key="$source:$pid:$start_identity"
+        VISUAL_GUARD_PREEXISTING_UNITY_KEYS+="${VISUAL_GUARD_PREEXISTING_UNITY_KEYS:+$'\n'}$key"
+    done < <(visual_guard_iter_unity_process_records)
+    VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL="$(
+        canonicalize_visual_project_path "$PROJECT_PATH_WIN" || true
+    )"
+}
+
+visual_guard_record_process_candidate() {
+    VISUAL_GUARD_CANDIDATE_SOURCES+=("$1")
+    VISUAL_GUARD_CANDIDATE_PIDS+=("$2")
+    VISUAL_GUARD_CANDIDATE_START_IDENTITIES+=("$3")
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW+=("$4")
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL+=("$5")
+    VISUAL_GUARD_CANDIDATE_PREEXISTING+=("$6")
+    VISUAL_GUARD_CANDIDATE_MATCHES+=("$7")
+    VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED+=("$8")
+    VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS+=("$9")
+}
+
+visual_guard_terminate_candidate() {
+    local source="$1"
+    local pid="$2"
+    local attempt
+
+    if [ "$source" = "wsl" ]; then
+        if ! kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        kill -TERM "$pid" 2>/dev/null || true
+        for attempt in $(seq 1 20); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+                return 0
+            fi
+            sleep 0.1
+        done
+        kill -KILL "$pid" 2>/dev/null || true
+        ! kill -0 "$pid" 2>/dev/null
+        return
+    fi
+    if [ "$source" = "windows" ] &&
+       command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -Command '
+            param([int]$ProcessId)
+            Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        ' "$pid" >/dev/null 2>&1 || true
+        return 0
+    fi
+    return 1
+}
+
+visual_guard_terminate_fallback_candidates() {
+    local source
+    local pid
+    local ppid
+    local start_identity
+    local project_path_base64
+    local project_path_raw
+    local project_path_canonical
+    local preexisting
+    local match
+    local attempted
+    local result
+    local key
+
+    VISUAL_GUARD_FALLBACK_SCAN_PERFORMED=1
+    VISUAL_GUARD_FALLBACK_SCAN_PASSES=$((VISUAL_GUARD_FALLBACK_SCAN_PASSES + 1))
+    VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
+        if [ -z "$source" ] || [ -z "$pid" ]; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        project_path_canonical="$(
+            canonicalize_visual_project_path "$project_path_raw" || true
+        )"
+        key="$source:$pid:$start_identity"
+        preexisting=0
+        match=0
+        attempted=0
+        result="NOT_ATTEMPTED"
+        if visual_guard_is_preexisting_unity_key "$key"; then
+            preexisting=1
+        fi
+        if [ -n "$project_path_canonical" ] &&
+           [ "$project_path_canonical" = "$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL" ]; then
+            match=1
+        fi
+        if [ "$match" -eq 1 ] && [ "$preexisting" -eq 0 ]; then
+            VISUAL_GUARD_FALLBACK_USED=1
+            VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=$((VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT + 1))
+            VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS="$VISUAL_GUARD_CURRENT_SCAN_AT_MS"
+            if [ -n "$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS" ] &&
+               [ "$VISUAL_GUARD_CURRENT_SCAN_AT_MS" -gt \
+                 "$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS" ]; then
+                VISUAL_GUARD_LATE_CANDIDATE_DETECTED=1
+            fi
+            if [ -z "$VISUAL_GUARD_FALLBACK_SEEN_KEYS" ] ||
+               ! printf '%s\n' "$VISUAL_GUARD_FALLBACK_SEEN_KEYS" |
+                   grep -Fx -- "$key" >/dev/null; then
+                VISUAL_GUARD_FALLBACK_SEEN_KEYS+="$(
+                    printf '%s%s' \
+                        "${VISUAL_GUARD_FALLBACK_SEEN_KEYS:+$'\n'}" \
+                        "$key"
+                )"
+                VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=$((VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT + 1))
+            fi
+            attempted=1
+            VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=$((VISUAL_GUARD_FALLBACK_TERMINATION_COUNT + 1))
+            if visual_guard_terminate_candidate "$source" "$pid"; then
+                result="TERMINATED_OR_ALREADY_EXITED"
+                VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS="$(
+                    visual_guard_monotonic_ms
+                )"
+            else
+                result="FAILED"
+            fi
+        fi
+        visual_guard_record_process_candidate \
+            "$source" \
+            "$pid" \
+            "$start_identity" \
+            "$project_path_raw" \
+            "$project_path_canonical" \
+            "$preexisting" \
+            "$match" \
+            "$attempted" \
+            "$result"
+    done < <(visual_guard_iter_unity_process_records)
+}
+
+visual_guard_find_owned_remaining_unity_processes() {
+    local source
+    local pid
+    local ppid
+    local start_identity
+    local project_path_base64
+    local project_path_raw
+    local project_path_canonical
+
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
+        if [ -z "$source" ] || [ -z "$pid" ] ||
+           visual_guard_is_preexisting_unity_key "$source:$pid:$start_identity"; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        project_path_canonical="$(
+            canonicalize_visual_project_path "$project_path_raw" || true
+        )"
+        if [ -n "$project_path_canonical" ] &&
+           [ "$project_path_canonical" = "$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL" ]; then
+            printf '%s:%s:%s\n' "$source" "$pid" "$start_identity"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
+}
+
+visual_guard_update_final_survivors() {
+    local survivor
+    local source
+    local pid
+    local start_identity
+
+    VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
+    VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
+    while IFS=: read -r source pid start_identity; do
+        if [ -z "$source" ] || [ -z "$pid" ]; then
+            continue
+        fi
+        VISUAL_GUARD_FINAL_SURVIVOR_COUNT=$((VISUAL_GUARD_FINAL_SURVIVOR_COUNT + 1))
+        survivor="$source:$pid"
+        VISUAL_GUARD_FINAL_SURVIVOR_PIDS+="$(
+            printf '%s%s' \
+                "${VISUAL_GUARD_FINAL_SURVIVOR_PIDS:+,}" \
+                "$survivor"
+        )"
+    done < <(visual_guard_find_owned_remaining_unity_processes)
+}
+
+visual_guard_poll_fallback_candidates() {
+    local pass=0
+    local now_ms
+    local after_scan_ms
+    local next_wake_ms
+    local wait_ms
+
+    VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS="$VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS"
+    if [ -z "$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS" ]; then
+        VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS="$(visual_guard_monotonic_ms)"
+    fi
+    VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS="$((
+        10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS +
+        10#$UNITY_DETACHED_STARTUP_GRACE_MS
+    ))"
+    VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS="$((
+        10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS +
+        10#$UNITY_DETACHED_HARD_TIMEOUT_MS
+    ))"
+
+    while :; do
+        now_ms="$(visual_guard_monotonic_ms)"
+        if [ "$now_ms" -ge "$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS" ]; then
+            VISUAL_GUARD_FALLBACK_TIMEOUT=1
+            VISUAL_GUARD_HARD_TIMEOUT_REACHED=1
+            break
+        fi
+
+        pass=$((pass + 1))
+        VISUAL_GUARD_CURRENT_SCAN_AT_MS="$now_ms"
+        if declare -F visual_guard_fallback_scan_test_hook >/dev/null; then
+            visual_guard_fallback_scan_test_hook "$pass" "before_scan"
+        fi
+        visual_guard_terminate_fallback_candidates
+        if declare -F visual_guard_fallback_scan_test_hook >/dev/null; then
+            visual_guard_fallback_scan_test_hook "$pass" "after_scan"
+        fi
+
+        if [ "$VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT" -eq 0 ]; then
+            VISUAL_GUARD_FALLBACK_EMPTY_STREAK=$((VISUAL_GUARD_FALLBACK_EMPTY_STREAK + 1))
+        else
+            VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+            VISUAL_GUARD_POST_GRACE_QUIET_STREAK=0
+            VISUAL_GUARD_QUIET_PERIOD_COMPLETED=0
+            if [ -n "$VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS" ]; then
+                VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS="$VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS"
+                VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS="$((
+                    10#$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS +
+                    10#$UNITY_DETACHED_QUIET_PERIOD_MS
+                ))"
+            else
+                VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS=""
+                VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS=""
+            fi
+        fi
+
+        after_scan_ms="$(visual_guard_monotonic_ms)"
+        VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS="$((
+            10#$after_scan_ms -
+            10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS
+        ))"
+        if [ "$after_scan_ms" -ge "$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS" ]; then
+            VISUAL_GUARD_STARTUP_GRACE_COMPLETED=1
+        elif [ "$VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT" -eq 0 ]; then
+            VISUAL_GUARD_EARLY_EMPTY_STREAK=$((VISUAL_GUARD_EARLY_EMPTY_STREAK + 1))
+        else
+            VISUAL_GUARD_EARLY_EMPTY_STREAK=0
+        fi
+
+        if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 1 ] &&
+           [ "$VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT" -eq 0 ]; then
+            VISUAL_GUARD_POST_GRACE_QUIET_STREAK=$((VISUAL_GUARD_POST_GRACE_QUIET_STREAK + 1))
+            if [ -z "$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS" ]; then
+                VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS="$after_scan_ms"
+                VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS="$((
+                    10#$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS +
+                    10#$UNITY_DETACHED_QUIET_PERIOD_MS
+                ))"
+            fi
+            if [ "$after_scan_ms" -ge "$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS" ]; then
+                VISUAL_GUARD_QUIET_PERIOD_COMPLETED=1
+                break
+            fi
+        fi
+
+        if [ "$after_scan_ms" -ge "$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS" ]; then
+            VISUAL_GUARD_FALLBACK_TIMEOUT=1
+            VISUAL_GUARD_HARD_TIMEOUT_REACHED=1
+            break
+        fi
+
+        next_wake_ms="$((after_scan_ms + UNITY_DETACHED_POLL_INTERVAL_MS))"
+        if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 0 ] &&
+           [ "$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS" -lt "$next_wake_ms" ]; then
+            next_wake_ms="$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS"
+        fi
+        if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 1 ] &&
+           [ -n "$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS" ] &&
+           [ "$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS" -lt "$next_wake_ms" ]; then
+            next_wake_ms="$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS"
+        fi
+        if [ "$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS" -lt "$next_wake_ms" ]; then
+            next_wake_ms="$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS"
+        fi
+        wait_ms="$((next_wake_ms - after_scan_ms))"
+        visual_guard_sleep_ms "$wait_ms" || true
+    done
+
+    now_ms="$(visual_guard_monotonic_ms)"
+    VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS="$((
+        10#$now_ms -
+        10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS
+    ))"
+    visual_guard_update_final_survivors
+    if [ "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" -ne 0 ]; then
+        VISUAL_GUARD_FALLBACK_FAILURE_REASON="ELIGIBLE_SURVIVOR_AFTER_FINAL_INVENTORY"
+        return 1
+    fi
+    if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -ne 1 ]; then
+        VISUAL_GUARD_FALLBACK_FAILURE_REASON="STARTUP_GRACE_NOT_COMPLETED"
+        return 1
+    fi
+    if [ "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" -ne 1 ]; then
+        VISUAL_GUARD_FALLBACK_FAILURE_REASON="POST_GRACE_QUIET_PERIOD_NOT_COMPLETED"
+        return 1
+    fi
+    VISUAL_GUARD_FALLBACK_FAILURE_REASON=""
+    return 0
+}
+
+find_current_project_unity_processes() {
+    local source
+    local pid
+    local ppid
+    local start_identity
+    local project_path_base64
+    local project_path_raw
+
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
+            printf '%s %s %s projectPath=%s\n' "$pid" "$ppid" "$source" "$project_path_raw"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
 }
 
 find_current_project_windows_unity_processes() {
-    if ! command -v powershell.exe >/dev/null 2>&1; then
-        return 0
-    fi
-
-    powershell.exe -NoProfile -Command '
-        & {
-        param([string]$project)
-        if ([string]::IsNullOrWhiteSpace($project)) { exit 0 }
-        $project = $project.TrimEnd("\").ToLowerInvariant()
-        $processes = Get-CimInstance Win32_Process
-        $roots = $processes | Where-Object {
-            $_.Name -eq "Unity.exe" -and
-            $_.CommandLine -and
-            $_.CommandLine.ToLowerInvariant().Contains($project)
-        }
-        $ids = @($roots | ForEach-Object { [int]$_.ProcessId })
-        do {
-            $added = $false
-            foreach ($process in $processes) {
-                if (($ids -contains [int]$process.ParentProcessId) -and -not ($ids -contains [int]$process.ProcessId)) {
-                    $ids += [int]$process.ProcessId
-                    $added = $true
-                }
-            }
-        } while ($added)
-        foreach ($process in $processes) {
-            if ($ids -contains [int]$process.ProcessId) {
-                "{0} {1} {2} {3}" -f $process.ProcessId, $process.ParentProcessId, $process.Name, $process.CommandLine
-            }
-        }
-        }
-    ' "$PROJECT_PATH_WIN" 2>/dev/null | tr -d '\r' || true
+    find_current_project_unity_processes | awk '$3 == "windows"'
 }
 
 current_project_unity_pids() {
-    ps -eo pid,ppid,stat,etime,args |
-        grep -F "$PROJECT_PATH_WIN" |
-        grep -Ei 'Unity(\.exe|Editor)|/Unity\.exe' |
-        grep -v '[g]rep' |
-        awk '{print $1}' || true
+    local source
+    local pid
+    local ppid
+    local start_identity
+    local project_path_base64
+    local project_path_raw
+
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
+        if [ "$source" != "wsl" ]; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
+            printf '%s\n' "$pid"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
 }
 
 current_project_windows_unity_pids() {
-    if ! command -v powershell.exe >/dev/null 2>&1; then
-        return 0
-    fi
+    local source
+    local pid
+    local ppid
+    local start_identity
+    local project_path_base64
+    local project_path_raw
 
-    powershell.exe -NoProfile -Command '
-        & {
-        param([string]$project)
-        if ([string]::IsNullOrWhiteSpace($project)) { exit 0 }
-        $project = $project.TrimEnd("\").ToLowerInvariant()
-        $processes = Get-CimInstance Win32_Process
-        $roots = $processes | Where-Object {
-            $_.Name -eq "Unity.exe" -and
-            $_.CommandLine -and
-            $_.CommandLine.ToLowerInvariant().Contains($project)
-        }
-        $ids = @($roots | ForEach-Object { [int]$_.ProcessId })
-        do {
-            $added = $false
-            foreach ($process in $processes) {
-                if (($ids -contains [int]$process.ParentProcessId) -and -not ($ids -contains [int]$process.ProcessId)) {
-                    $ids += [int]$process.ProcessId
-                    $added = $true
-                }
-            }
-        } while ($added)
-        $ids | Sort-Object -Descending
-        }
-    ' "$PROJECT_PATH_WIN" 2>/dev/null | tr -d '\r' || true
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
+        if [ "$source" != "windows" ]; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
+            printf '%s\n' "$pid"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
 }
 
 current_project_lock_holders() {
@@ -1129,11 +2866,45 @@ run_unity_core_feature_gate() {
 }
 
 run_unity_ui() {
-    run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Feature.UI.Tests" ""
+    local climate_before_snapshot
+    local climate_before_hash
+    local climate_restored_hash
+    local unity_status=0
+
+    climate_before_snapshot="$(mktemp)"
+    cp "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" "$climate_before_snapshot"
+    climate_before_hash="$(sha256sum "$climate_before_snapshot" | awk '{print $1}')"
+    run_unity_stage \
+        "ui" \
+        "ui-editmode" \
+        "ui (EditMode)" \
+        "EditMode" \
+        "$UNITY_UI_EDITMODE_LOG" \
+        "$UNITY_UI_EDITMODE_XML" \
+        "TestRunnerCliBootstrap.RunEditMode" \
+        "Game.Feature.UI.Tests" \
+        "" || unity_status=$?
+    if [ "$unity_status" -eq 0 ]; then
+        verify_climate_working_transition \
+            "$climate_before_snapshot" \
+            "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" || unity_status=$?
+    fi
+    cp "$climate_before_snapshot" "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
+    climate_restored_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
+    if [ "$climate_restored_hash" != "$climate_before_hash" ]; then
+        echo "ERROR: Climate working asset was not restored after UI validation."
+        unity_status=1
+    fi
+    rm -f -- "$climate_before_snapshot"
+    return "$unity_status"
 }
 
 run_typography_visual() {
     local output_dir_win
+    local baseline_root
+    local baseline_root_win
     local unity_log_win
     local slice_log
     local slice_log_win
@@ -1143,6 +2914,11 @@ run_typography_visual() {
     local slice_name
     local current_unity_log
     local expected_head
+    local runner_mutation_evidence
+    local runner_lifecycle_evidence
+    local climate_hash_before
+    local climate_hash_after
+    local climate_restored_hash
     local nanum_hash_before
     local nanum_hash_after
     local nanum_diff_before
@@ -1150,6 +2926,9 @@ run_typography_visual() {
     local unity_exit=0
     local residue_exit=0
     local nanum_exit=0
+    local climate_exit=0
+    local capture_guard_exit=0
+    local restore_exit=0
     local process_before
     local -a unity_command
     local -a capture_slices=(
@@ -1180,6 +2959,19 @@ run_typography_visual() {
     nanum_hash_before="$(typography_visual_nanum_hash)"
     nanum_diff_before="$(typography_visual_nanum_diff_sha256)"
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
+    baseline_root="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/pre-capture-assets"
+    baseline_root_win="$(wslpath -w "$baseline_root")"
+    runner_mutation_evidence="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/runner-asset-mutation.log"
+    runner_lifecycle_evidence="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/runner-cleanup-lifecycle.log"
+    prepare_capture_asset_baseline "$baseline_root"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$runner_mutation_evidence" \
+        "$runner_lifecycle_evidence" \
+        "Typography"
+    climate_hash_before="$(
+        sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
 
     cleanup_generated_test_scenes
     process_before="$(find_current_project_unity_processes)"
@@ -1210,12 +3002,13 @@ run_typography_visual() {
             -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
             -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
             -typographyScreenshotLocale "$locale"
+            -captureAssetBaselineRoot "$baseline_root_win"
         )
         if [ -n "$target" ]; then
             unity_command+=( -typographyScreenshotTarget "$target" )
         fi
         echo "  capture slice: $slice_name"
-        if "${unity_command[@]}"; then
+        if visual_guard_run_command "${unity_command[@]}"; then
             unity_exit=0
         else
             unity_exit=$?
@@ -1237,7 +3030,7 @@ run_typography_visual() {
             -typographyScreenshotOutput "$output_dir_win"
         )
         echo "Reconstructing canonical typography manifest..."
-        if "${unity_command[@]}"; then
+        if visual_guard_run_command "${unity_command[@]}"; then
             unity_exit=0
         else
             unity_exit=$?
@@ -1251,11 +3044,39 @@ run_typography_visual() {
             "$current_unity_log" \
             "$TYPOGRAPHY_VISUAL_MANIFEST" \
             "$unity_exit" \
-            "$process_before"
+            "$process_before" || true
     fi
 
     nanum_hash_after="$(typography_visual_nanum_hash)"
     nanum_diff_after="$(typography_visual_nanum_diff_sha256)"
+    climate_hash_after="$(climate_working_sha256)"
+    if ! verify_climate_working_transition \
+        "$baseline_root/$CLIMATE_SDF_ASSET" \
+        "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"; then
+        climate_exit=1
+    fi
+    if ! observe_capture_assets_before_restore \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        capture_guard_exit=1
+    fi
+    if [ "$capture_guard_exit" -eq 0 ]; then
+        visual_guard_mark_observation_complete "PASS"
+    else
+        visual_guard_mark_observation_complete "FAIL"
+    fi
+    if ! visual_guard_cleanup "$unity_exit"; then
+        restore_exit=1
+    fi
+    climate_restored_hash="$(climate_working_sha256)"
+    if [ "$climate_restored_hash" != "$climate_hash_before" ]; then
+        echo "ERROR: Climate asset was not restored after typography capture."
+        climate_exit=1
+    fi
+    echo "Typography Climate capture transition:"
+    echo "  before:   $climate_hash_before"
+    echo "  observed: $climate_hash_after"
+    echo "  restored: $climate_restored_hash"
     if [ "$nanum_hash_after" != "$nanum_hash_before" ]; then
         echo "ERROR: Nanum asset content hash changed during typography capture."
         echo "  before: $nanum_hash_before"
@@ -1278,23 +3099,413 @@ run_typography_visual() {
     if [ "$unity_exit" -ne 0 ]; then
         echo "ERROR: Unity typography visual capture failed with exit code $unity_exit."
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-        return "$unity_exit"
+        visual_guard_finish "$unity_exit" || return $?
+        return 0
     fi
-    if [ "$nanum_exit" -ne 0 ] || [ "$residue_exit" -ne 0 ]; then
+    if [ "$nanum_exit" -ne 0 ] ||
+       [ "$climate_exit" -ne 0 ] ||
+       [ "$capture_guard_exit" -ne 0 ] ||
+       [ "$restore_exit" -ne 0 ] ||
+       [ "$residue_exit" -ne 0 ]; then
         echo "ERROR: Typography visual safety checks failed after Unity capture."
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-        return 1
+        visual_guard_finish 1 || return $?
+        return 0
     fi
 
     if ! verify_typography_visual_manifest "$expected_head"; then
         echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
-        return 1
+        visual_guard_finish 1 || return $?
+        return 0
     fi
     echo "Typography visual evidence capture: PASS"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
+    echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Nanum hash/diff: preserved"
+    visual_guard_finish 0
+}
+
+run_objective_hud_visual() {
+    local timestamp
+    local output_dir
+    local output_dir_win
+    local baseline_root
+    local baseline_root_win
+    local unity_log
+    local unity_log_win
+    local test_results
+    local test_results_win
+    local manifest
+    local expected_head
+    local runner_mutation_evidence
+    local runner_lifecycle_evidence
+    local climate_hash_before
+    local climate_hash_after
+    local climate_restored_hash
+    local process_before
+    local unity_exit=0
+    local capture_guard_exit=0
+    local restore_exit=0
+    local -a unity_command
+
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    output_dir="$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
+    unity_log="$output_dir/objective-hud-unity.log"
+    test_results="$output_dir/objective-hud-playmode.xml"
+    manifest="$output_dir/objective-hud-capture.log"
+    runner_mutation_evidence="$output_dir/runner-asset-mutation.log"
+    runner_lifecycle_evidence="$output_dir/runner-cleanup-lifecycle.log"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    baseline_root="$output_dir/pre-capture-assets"
+    baseline_root_win="$(wslpath -w "$baseline_root")"
+    unity_log_win="$(wslpath -w "$unity_log")"
+    test_results_win="$(wslpath -w "$test_results")"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$unity_log_win"
+        -runTests
+        -testPlatform PlayMode
+        -testFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterSettledFrames"
+        -testResults "$test_results_win"
+        -objectiveHudVisualOutput "$output_dir_win"
+        -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
+        -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"
+        -captureAssetBaselineRoot "$baseline_root_win"
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Objective HUD visual evidence plan:"
+        echo "  output directory: $output_dir"
+        echo "  resolution: ${OBJECTIVE_HUD_VISUAL_WIDTH}x${OBJECTIVE_HUD_VISUAL_HEIGHT}"
+        echo "  revision gate: tracked repository files and Unity inputs must match Git HEAD"
+        print_shell_command "${unity_command[@]}"
+        return 0
+    fi
+
+    verify_typography_visual_revision_gate
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT"
+    mkdir "$output_dir"
+    prepare_capture_asset_baseline "$baseline_root"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$runner_mutation_evidence" \
+        "$runner_lifecycle_evidence" \
+        "ObjectiveHud"
+
+    expected_head="$(git rev-parse HEAD)"
+    climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    process_before="$(find_current_project_unity_processes)"
+    echo "Running Objective HUD production-composition visual evidence..."
+    echo "  output directory: $output_dir"
+    echo "  manifest: $manifest"
+    if visual_guard_run_command "${unity_command[@]}"; then
+        unity_exit=0
+    else
+        unity_exit=$?
+    fi
+
+    if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
+        capture_unity_timeout_artifacts \
+            "typography-hud-visual" \
+            "$unity_log" \
+            "$manifest" \
+            "$unity_exit" \
+            "$process_before" || true
+    fi
+
+    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    if ! observe_capture_assets_before_restore \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        capture_guard_exit=1
+    fi
+    if [ "$capture_guard_exit" -eq 0 ]; then
+        visual_guard_mark_observation_complete "PASS"
+    else
+        visual_guard_mark_observation_complete "FAIL"
+    fi
+    if ! visual_guard_cleanup "$unity_exit"; then
+        restore_exit=1
+    fi
+    climate_restored_hash="$(
+        sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}'
+    )"
+    echo "Objective HUD runner Climate transition:"
+    echo "  before:   $climate_hash_before"
+    echo "  observed: $climate_hash_after"
+    echo "  restored: $climate_restored_hash"
+
+    if [ "$unity_exit" -ne 0 ]; then
+        echo "ERROR: Objective HUD visual capture failed with exit code $unity_exit."
+        echo "Diagnostics were preserved in: $output_dir"
+        visual_guard_finish "$unity_exit" || return $?
+        return 0
+    fi
+    if [ "$capture_guard_exit" -ne 0 ] || [ "$restore_exit" -ne 0 ]; then
+        echo "ERROR: Objective HUD runner asset safety checks failed."
+        echo "  mutation evidence: $runner_mutation_evidence"
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
+    if ! assert_no_generated_test_scenes; then
+        cleanup_generated_test_scenes
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
+
+    python3 - "$output_dir" "$manifest" "$expected_head" <<'PY'
+import hashlib
+import re
+import struct
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1]).resolve()
+manifest_path = Path(sys.argv[2]).resolve()
+expected_head = sys.argv[3]
+
+if not manifest_path.is_file():
+    raise SystemExit(f"ERROR: Objective HUD manifest missing: {manifest_path}")
+
+text = manifest_path.read_text(encoding="utf-8")
+root = {}
+sections = {}
+current = root
+for raw_line in text.splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    if line.startswith("[") and line.endswith("]"):
+        name = line[1:-1]
+        if name in sections:
+            raise SystemExit(f"ERROR: duplicate manifest section: {name}")
+        current = sections[name] = {}
+        continue
+    if "=" not in line:
+        raise SystemExit(f"ERROR: malformed manifest line: {line}")
+    key, value = line.split("=", 1)
+    current[key] = value
+
+required_sections = {
+    "Idle/en-US",
+    "Idle/ko-KR",
+    "MaxStack/en-US",
+    "MaxStack/ko-KR",
+}
+capture_sections = {
+    name: entry
+    for name, entry in sections.items()
+    if not name.startswith("asset-mutation/")
+}
+mutation_sections = {
+    name: entry
+    for name, entry in sections.items()
+    if name.startswith("asset-mutation/")
+}
+if root.get("git_head") != expected_head:
+    raise SystemExit("ERROR: Objective HUD manifest git_head mismatch")
+if root.get("schema_version") != "2":
+    raise SystemExit("ERROR: Objective HUD manifest schema_version mismatch")
+resolution_match = re.fullmatch(r"([1-9][0-9]*)x([1-9][0-9]*)", root.get("resolution", ""))
+if not resolution_match:
+    raise SystemExit("ERROR: Objective HUD manifest resolution is invalid")
+expected_width, expected_height = map(int, resolution_match.groups())
+if root.get("overall_result") != "PASS" or root.get("errors") != "0":
+    raise SystemExit("ERROR: Objective HUD manifest did not record a clean PASS")
+if root.get("canonical_status") != "CANDIDATE_PENDING_INDEPENDENT_AUDIT":
+    raise SystemExit("ERROR: Objective HUD canonical audit status mismatch")
+if root.get("capture_mode") != "SCREEN_SPACE_OVERLAY_PRODUCTION_CONTROLLER_END_OF_FRAME":
+    raise SystemExit("ERROR: Objective HUD capture mode is not the production overlay path")
+if root.get("capture_environment") != "NON_BATCH_GAME_VIEW":
+    raise SystemExit("ERROR: Objective HUD capture environment cannot render EndOfFrame")
+if root.get("root_cause") != "FIXTURE_STATE_MISMATCH":
+    raise SystemExit("ERROR: Objective HUD old evidence root-cause classification mismatch")
+if root.get("graphic_completeness") != "PASS":
+    raise SystemExit("ERROR: Objective HUD graphic completeness failed")
+if root.get("cross_locale_non_text_parity") != "PASS":
+    raise SystemExit("ERROR: Objective HUD cross-locale non-text parity failed")
+if root.get("unexpected_pixel_delta") != "0":
+    raise SystemExit("ERROR: Objective HUD unexpected non-text pixel delta is nonzero")
+if root.get("asset_mutation_observed_before_restore") != "PASS":
+    raise SystemExit("ERROR: capture mutation was not observed before restore")
+if root.get("unexpected_asset_mutation_count") != "0":
+    raise SystemExit("ERROR: capture recorded unexpected asset mutation")
+if root.get("capture_count") != "4" or set(capture_sections) != required_sections:
+    raise SystemExit("ERROR: Objective HUD manifest capture set mismatch")
+if not mutation_sections:
+    raise SystemExit("ERROR: Objective HUD manifest has no guarded asset evidence")
+
+for name, entry in capture_sections.items():
+    if entry.get("capture_result") != "PASS":
+        raise SystemExit(f"ERROR: {name} capture_result is not PASS")
+    if entry.get("decode") != "PASS" or entry.get("layout") != "PASS":
+        raise SystemExit(f"ERROR: {name} decode/layout validation failed")
+    if entry.get("glyph_coverage") != "PASS":
+        raise SystemExit(f"ERROR: {name} glyph coverage failed")
+    if entry.get("graphic_completeness") != "PASS":
+        raise SystemExit(f"ERROR: {name} graphic completeness failed")
+    for lifecycle in (
+        "localization_ready",
+        "presenter_render_complete",
+        "canvas_rebuild_complete",
+    ):
+        if entry.get(lifecycle) != "PASS":
+            raise SystemExit(f"ERROR: {name} lifecycle field {lifecycle} failed")
+    if entry.get("objective_settle_strategy") != "PRODUCTION_UNSCALED_TIME":
+        raise SystemExit(f"ERROR: {name} did not use production objective lifecycle")
+    if entry.get("objective_settle_seconds") != "2.000":
+        raise SystemExit(f"ERROR: {name} objective settle duration mismatch")
+    try:
+        end_of_frame_count = int(entry.get("end_of_frame_count", ""))
+        capture_frame_index = int(entry.get("capture_frame_index", ""))
+    except ValueError:
+        raise SystemExit(f"ERROR: {name} frame lifecycle values are invalid")
+    if end_of_frame_count < 1 or capture_frame_index < end_of_frame_count:
+        raise SystemExit(f"ERROR: {name} EndOfFrame lifecycle was not observed")
+    if entry.get("hud_root_active_in_hierarchy") != "1":
+        raise SystemExit(f"ERROR: {name} HUD root is inactive")
+    try:
+        root_alpha = float(entry.get("hud_root_canvas_group_alpha", ""))
+    except ValueError:
+        raise SystemExit(f"ERROR: {name} HUD root CanvasGroup alpha is invalid")
+    if root_alpha <= 0:
+        raise SystemExit(f"ERROR: {name} HUD root CanvasGroup alpha is zero")
+    for identity_hash in ("semantic_snapshot_hash", "hierarchy_hash"):
+        if not re.fullmatch(r"[0-9a-f]{64}", entry.get(identity_hash, "")):
+            raise SystemExit(f"ERROR: {name} {identity_hash} is invalid")
+    try:
+        graphic_count = int(entry.get("required_graphic_count", ""))
+    except ValueError:
+        raise SystemExit(f"ERROR: {name} required_graphic_count is invalid")
+    if graphic_count <= 0:
+        raise SystemExit(f"ERROR: {name} has no required graphics")
+    categories = []
+    for index in range(graphic_count):
+        prefix = f"graphic_{index:03d}_"
+        path = entry.get(prefix + "path", "")
+        category = entry.get(prefix + "category", "")
+        identity = entry.get(prefix + "identity", "")
+        if not path or not category or not identity:
+            raise SystemExit(f"ERROR: {name} graphic {index} identity is incomplete")
+        if entry.get(prefix + "active_in_hierarchy") != "1":
+            raise SystemExit(f"ERROR: {name} graphic {path} is inactive")
+        if entry.get(prefix + "graphic_enabled") != "1":
+            raise SystemExit(f"ERROR: {name} graphic {path} is disabled")
+        if entry.get(prefix + "visible_pixel_area") != "POSITIVE":
+            raise SystemExit(f"ERROR: {name} graphic {path} has no visible area")
+        try:
+            alpha = float(entry.get(prefix + "alpha_occupancy", ""))
+        except ValueError:
+            raise SystemExit(f"ERROR: {name} graphic {path} alpha is invalid")
+        if alpha <= 0:
+            raise SystemExit(f"ERROR: {name} graphic {path} alpha is zero")
+        categories.append(category)
+    expected_rows = 2 if name.startswith("Idle/") else 3
+    if categories.count("ObjectiveHud") < expected_rows + 1:
+        raise SystemExit(f"ERROR: {name} ObjectiveHud graphics are incomplete")
+    if "ChancePanel" not in categories or "SurfaceBelt" not in categories:
+        raise SystemExit(f"ERROR: {name} global HUD graphics are incomplete")
+    paths = [
+        entry[f"graphic_{index:03d}_path"]
+        for index in range(graphic_count)
+    ]
+    required_fragments = {
+        "objective panel background": (
+            "HUD_SciFiSoldier_Objectives_02",
+            "SPR_Background",
+        ),
+        "objective left decoration": (
+            "HUD_SciFiSoldier_Objectives_02",
+            "SPR_Flag",
+        ),
+        "chance panel background": ("ChancePanel", "Background"),
+        "surface belt background": ("SurfaceBeltIndicatorRoot", "Background"),
+    }
+    for label, fragments in required_fragments.items():
+        if not any(all(fragment in path for fragment in fragments) for path in paths):
+            raise SystemExit(f"ERROR: {name} required {label} path is missing")
+    checkbox_count = sum(
+        "Objective_Item_Runtime_" in path and
+        "SPR_Item_Inactive" in path
+        for path in paths
+    )
+    if checkbox_count < expected_rows:
+        raise SystemExit(f"ERROR: {name} checkbox/icon graphics are incomplete")
+    png = output_dir / entry["file"]
+    data = png.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"ERROR: {png.name} is not a PNG")
+    width, height = struct.unpack(">II", data[16:24])
+    if (width, height) != (expected_width, expected_height):
+        raise SystemExit(f"ERROR: {png.name} dimensions {width}x{height}")
+    if hashlib.sha256(data).hexdigest() != entry.get("sha256"):
+        raise SystemExit(f"ERROR: {png.name} SHA-256 mismatch")
+
+for name, entry in mutation_sections.items():
+    required = (
+        "path",
+        "before_hash",
+        "after_capture_hash",
+        "mutation_detected",
+        "changed_properties",
+        "classification",
+        "allowed",
+        "lane_verdict_before_restore",
+        "restored",
+        "restored_hash",
+    )
+    if any(field not in entry for field in required):
+        raise SystemExit(f"ERROR: {name} mutation evidence is incomplete")
+    if not re.fullmatch(r"[0-9a-f]{64}", entry["before_hash"]):
+        raise SystemExit(f"ERROR: {name} before_hash is invalid")
+    if not re.fullmatch(r"[0-9a-f]{64}", entry["after_capture_hash"]):
+        raise SystemExit(f"ERROR: {name} after_capture_hash is invalid")
+    if entry["allowed"] != "1" or entry["lane_verdict_before_restore"] != "PASS":
+        raise SystemExit(f"ERROR: {name} failed before restore")
+    if entry["restored"] != "1" or entry["restored_hash"] != entry["before_hash"]:
+        raise SystemExit(f"ERROR: {name} restore evidence is invalid")
+    if entry["mutation_detected"] == "1":
+        if entry["classification"] != "EXPECTED_IMPORT_DERIVED_DRIFT":
+            raise SystemExit(f"ERROR: {name} mutation classification is not allowlisted")
+        required_whitespace_properties = {
+            "serialization-whitespace:m_MipmapLimitGroupName:",
+            "serialization-whitespace:m_PlatformBlob:",
+            "serialization-whitespace:path:",
+            "serialization-whitespace:referencedFontAssetGUID:",
+            "serialization-whitespace:referencedTextAssetGUID:",
+            "serialization-whitespace:m_SourceFontFilePath:",
+            "serialization-whitespace:Name:",
+            "serialization-whitespace:m_LockedProperties:",
+        }
+        scale_ratio_properties = {
+            "_ScaleRatioA:1->0.9",
+            "_ScaleRatioC:1->0.73125",
+        }
+        observed_properties = set(entry["changed_properties"].split(","))
+        if observed_properties not in (
+            required_whitespace_properties,
+            required_whitespace_properties | scale_ratio_properties,
+        ):
+            raise SystemExit(f"ERROR: {name} changed property set is not exact")
+    elif entry["mutation_detected"] != "0" or entry["classification"] != "NO_MUTATION":
+        raise SystemExit(f"ERROR: {name} no-mutation classification is invalid")
+
+print("Objective HUD visual manifest verification: PASS")
+PY
+
+    echo "Objective HUD visual evidence capture: PASS"
+    echo "  output directory: $output_dir"
+    echo "  manifest: $manifest"
+    echo "  runner mutation: $runner_mutation_evidence"
+    echo "  recorded revision: $expected_head"
+    echo "  Climate SDF hash: preserved"
+    visual_guard_finish 0
 }
 
 run_unity_full() {
@@ -1372,8 +3583,9 @@ parse_arguments() {
         esac
     done
 
-    if [ "$RUN_MODE" = "typography-visual" ] && [ -n "$TEST_FILTER" ]; then
-        echo "ERROR: typography-visual does not accept test filters."
+    if { [ "$RUN_MODE" = "typography-visual" ] || [ "$RUN_MODE" = "typography-hud-visual" ]; } &&
+       [ -n "$TEST_FILTER" ]; then
+        echo "ERROR: visual evidence lanes do not accept test filters."
         print_usage
         exit 1
     fi
@@ -1410,9 +3622,16 @@ main() {
         require_command timeout
         require_command python3
         require_file "$UNITY_PATH" "Unity executable"
-        if [ "$mode" = "typography-visual" ]; then
+        if [ "$mode" = "ui" ] ||
+           [ "$mode" = "typography-visual" ] ||
+           [ "$mode" = "typography-hud-visual" ]; then
             require_command git
             require_command sha256sum
+            verify_climate_committed_source_integrity
+            verify_climate_worktree_source_integrity
+        fi
+        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
+            require_command setsid
             ensure_result_dirs
         else
             require_file "$DOTNET_PATH" "dotnet executable"
@@ -1426,7 +3645,7 @@ main() {
             run_action_plan_correlation_check
         fi
     else
-        if [ "$mode" = "typography-visual" ]; then
+        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
             echo "Dry run: revision gate and Unity typography capture will not execute."
         else
             echo "Dry run: governance checks, dotnet builds, and Unity stages will not execute."
@@ -1448,6 +3667,9 @@ main() {
             ;;
         typography-visual)
             run_typography_visual
+            ;;
+        typography-hud-visual)
+            run_objective_hud_visual
             ;;
         full)
             run_dotnet_full
@@ -1473,9 +3695,13 @@ main() {
 
     require_filtered_tests_if_needed
 
-    if [ "$DRY_RUN" -eq 0 ] && [ "$mode" != "typography-visual" ]; then
+    if [ "$DRY_RUN" -eq 0 ] &&
+       [ "$mode" != "typography-visual" ] &&
+       [ "$mode" != "typography-hud-visual" ]; then
         echo "ALL TESTS PASSED"
     fi
 }
 
-main "$@"
+if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -eq 0 ]; then
+    main "$@"
+fi

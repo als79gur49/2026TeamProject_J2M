@@ -40,13 +40,22 @@ is not described or treated as standalone license text.
 | SDF GUID | `40d61154fd6576b4d85c2d78460b16ad` |
 | SDF material local ID | `1352911973252649374` |
 | Committed SDF SHA-256 | `c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5` |
-| Material scale ratios | `A=1`, `B=1`, `C=1` |
 | Atlas/fallback | committed static atlas; fallback table empty |
 
-The dirty source-worktree SDF values (`ScaleRatioA=0.9`,
-`ScaleRatioC=0.73125`) and its different file hash are explicitly excluded.
-The contract test fixes both semantic material properties and the exact
-committed file hash.
+Committed source identity and Unity-loaded state are separate contracts.
+`run_tests.sh` verifies the `HEAD` Git blob, GUIDs, local ID, source TTF, and
+Nanum retention before Unity starts. Unity tests verify the loaded font and
+material references, static atlas, native glyph coverage, empty fallback,
+theme-role mapping, and layout/rendering behavior.
+
+The working-file shape with SHA-256
+`71ae00a952cf086150c90764db323bf078bf871e133ce52844cc1c94070d6445`
+and derived values `ScaleRatioA=0.9`, `ScaleRatioC=0.73125` is recorded only as
+`EXPECTED_IMPORT_DERIVED_DRIFT`. It is not a committed source identity,
+production input contract, or commit candidate. A working hash outside the
+committed and known derived shapes is `UNEXPECTED_IMPORTER_MUTATION`; any
+glyph, atlas, reference, fallback, or unexplained pixel change remains a
+blocker.
 
 ## Role, glyph, and retention governance
 
@@ -86,9 +95,12 @@ Code-head evidence before this documentation-only closeout:
 - project-wide: `NOT_RUN`; the documented broad baseline remains red and no
   project-wide green claim is made
 
-Governance tests pin asset GUID/material/hash, material scale ratios, theme
-completeness, en-US serialized payload identity, Nanum retention, glyph
-coverage, and the three approved layout contracts.
+The shell preflight pins the committed asset GUID/material/blob identity and
+Nanum retention. Unity governance tests pin runtime references, theme
+completeness, en-US serialized theme payload identity, glyph coverage,
+fallback absence, and the three approved layout contracts. Import-derived
+scale ratios and the post-import working-file hash are diagnostics, not Unity
+source-integrity assertions.
 
 ## Visual evidence
 

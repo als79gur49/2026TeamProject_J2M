@@ -239,6 +239,26 @@ MonoBehaviour:
     m_Key: ui.settings.display.preview_confirm.keep
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693646
+    m_Key: ui.hud.objectives.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693647
+    m_Key: ui.hud.objective.reach_exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693648
+    m_Key: ui.hud.objective.activate_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693649
+    m_Key: ui.hud.objective.activate_moon_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693650
+    m_Key: ui.hud.objective.reach_zone
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

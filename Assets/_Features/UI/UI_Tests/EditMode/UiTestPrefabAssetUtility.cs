@@ -41,7 +41,8 @@ namespace Game.Feature.UI.Tests
 
         internal static HUDRootView InstantiateHudPrefab(RectTransform parent)
         {
-            return Object.Instantiate(LoadHudPrefab(), parent, false);
+            var instance = Object.Instantiate(LoadHudPrefab().gameObject, parent, false);
+            return instance.GetComponent<HUDRootView>();
         }
 
         internal static void AssignHudPrefab(GameplayUiFlowInstaller installer)

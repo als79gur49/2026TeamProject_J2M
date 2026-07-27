@@ -40,6 +40,10 @@ namespace Game.Feature.UI.Composition.Editor
 
         public string GuardedAssetDirtyCheck { get; internal set; }
 
+        public string AssetMutationObservedBeforeRestore { get; internal set; }
+
+        public int UnexpectedAssetMutationCount { get; internal set; }
+
         public string ReconstructedFrom { get; internal set; }
 
         public IReadOnlyList<TypographyPreviewScreenshotManifestEntry> Entries => entries;
@@ -170,6 +174,12 @@ namespace Game.Feature.UI.Composition.Editor
                 ThemeValidation = ReadRequired(root, "theme_validation"),
                 PrefabValidation = ReadRequired(root, "prefab_validation"),
                 GuardedAssetDirtyCheck = ReadRequired(root, "guarded_asset_dirty_check"),
+                AssetMutationObservedBeforeRestore =
+                    ReadOptional(root, "asset_mutation_observed_before_restore") is { Length: > 0 } observed
+                        ? observed
+                        : "NOT_RECORDED",
+                UnexpectedAssetMutationCount =
+                    ReadOptionalInt(root, "unexpected_asset_mutation_count"),
                 ReconstructedFrom = ReadOptional(root, "reconstructed_from"),
             };
 
@@ -241,6 +251,23 @@ namespace Game.Feature.UI.Composition.Editor
 
             return parsed;
         }
+
+        private static int ReadOptionalInt(
+            IReadOnlyDictionary<string, string> fields,
+            string key)
+        {
+            if (!fields.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            {
+                throw new FormatException($"Manifest field '{key}' is not an integer: '{value}'.");
+            }
+
+            return parsed;
+        }
     }
 
     public sealed class TypographyPreviewScreenshotManifestContext
@@ -299,6 +326,8 @@ namespace Game.Feature.UI.Composition.Editor
                 result.ThemeValidationPassed &&
                 result.PrefabValidationPassed &&
                 result.GuardedAssetsClean &&
+                result.AssetMutationObservationPassed &&
+                result.UnexpectedAssetMutationCount == 0 &&
                 !result.HasErrors &&
                 IsGitHead(gitHead) &&
                 requiredEntries.All(entry => string.Equals(entry.CaptureResult, "PASS", StringComparison.Ordinal));
@@ -323,6 +352,14 @@ namespace Game.Feature.UI.Composition.Editor
             Append(builder, "theme_validation", result.ThemeValidationPassed ? "PASS" : "FAIL");
             Append(builder, "prefab_validation", result.PrefabValidationPassed ? "PASS" : "FAIL");
             Append(builder, "guarded_asset_dirty_check", result.GuardedAssetsClean ? "PASS" : "FAIL");
+            Append(
+                builder,
+                "asset_mutation_observed_before_restore",
+                result.AssetMutationObservationPassed ? "PASS" : "FAIL");
+            Append(
+                builder,
+                "unexpected_asset_mutation_count",
+                result.UnexpectedAssetMutationCount.ToString(CultureInfo.InvariantCulture));
             if (!string.IsNullOrWhiteSpace(context.ReconstructedFrom))
             {
                 Append(builder, "reconstructed_from", context.ReconstructedFrom);
@@ -383,6 +420,19 @@ namespace Game.Feature.UI.Composition.Editor
             var logRows = ReadSplitLogRows(logPaths, result);
             result.ThemeValidationPassed = logPaths.Length > 0 && logPaths.All(LogExitedSuccessfully);
             result.PrefabValidationPassed = result.ThemeValidationPassed;
+            result.AssetMutationObservationPassed =
+                result.ThemeValidationPassed &&
+                logPaths.All(path => LogContains(
+                    path,
+                    "CAPTURE_ASSET_MUTATION_OBSERVED_BEFORE_RESTORE: PASS"));
+            result.UnexpectedAssetMutationCount = logPaths.Count(path =>
+                !LogContains(path, "CAPTURE_UNEXPECTED_ASSET_MUTATION_COUNT: 0"));
+            if (!result.AssetMutationObservationPassed ||
+                result.UnexpectedAssetMutationCount != 0)
+            {
+                result.AddError(
+                    "Split capture logs did not prove mutation observation before restore with zero unexpected mutations.");
+            }
             var dirtyGuardPaths = TypographyPreviewScreenshotUtility.GetDirtyGuardAssetPaths();
             result.GuardedAssetsClean = result.ThemeValidationPassed && dirtyGuardPaths.Count == 0;
             foreach (var dirtyGuardPath in dirtyGuardPaths)
@@ -446,6 +496,12 @@ namespace Game.Feature.UI.Composition.Editor
                     ReconstructedFrom = string.Join(",", logPaths.Select(Path.GetFileName)),
                 });
             return result;
+        }
+
+        private static bool LogContains(string path, string expected)
+        {
+            return File.Exists(path) &&
+                   File.ReadAllText(path).Contains(expected, StringComparison.Ordinal);
         }
 
         public static string ReadCurrentGitHead()
