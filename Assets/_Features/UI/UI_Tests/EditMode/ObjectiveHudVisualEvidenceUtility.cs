@@ -435,11 +435,14 @@ namespace Game.Feature.UI.Tests
                     englishRowMaterial,
                     englishRowStyle);
 
-                yield return null;
-                Canvas.ForceUpdateCanvases();
-                yield return new WaitForEndOfFrame();
-                Canvas.ForceUpdateCanvases();
-                yield return new WaitForEndOfFrame();
+                const int settledFrameCount = 8;
+                for (var frame = 0; frame < settledFrameCount; frame++)
+                {
+                    yield return null;
+                    ForceLayoutAndText(root);
+                    Canvas.ForceUpdateCanvases();
+                    yield return new WaitForEndOfFrame();
+                }
 
                 texture = ScreenCapture.CaptureScreenshotAsTexture();
                 var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
@@ -488,8 +491,8 @@ namespace Game.Feature.UI.Tests
                     ComputeSemanticSnapshotHash(initialReadModel),
                     ComputeHierarchyHash(root),
                     cameraRenderPassCount: 0,
-                    captureFrameIndex: 2,
-                    endOfFrameCount: 2,
+                    captureFrameIndex: settledFrameCount,
+                    endOfFrameCount: settledFrameCount,
                     nonBlank ? "PASS" : "FAIL",
                     "PASS",
                     "PASS",
