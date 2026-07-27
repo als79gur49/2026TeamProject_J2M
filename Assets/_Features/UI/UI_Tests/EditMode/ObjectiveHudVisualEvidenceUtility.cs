@@ -532,10 +532,20 @@ namespace Game.Feature.UI.Tests
 
             if (string.Equals(scenario.Locale, "ko-KR", StringComparison.Ordinal))
             {
-                AssertHudSafeClimateIdentity(view.HeaderLabel, climate, "ko-KR header");
+                AssertIdentity(
+                    view.HeaderLabel,
+                    climate,
+                    climate.material,
+                    FontStyles.Normal,
+                    "ko-KR header");
                 foreach (var row in activeRows)
                 {
-                    AssertHudSafeClimateIdentity(row.Label, climate, "ko-KR row");
+                    AssertIdentity(
+                        row.Label,
+                        climate,
+                        climate.material,
+                        FontStyles.Normal,
+                        "ko-KR row");
                 }
             }
             else
@@ -685,29 +695,6 @@ namespace Game.Feature.UI.Tests
                 target.fontStyle != style)
             {
                 throw new InvalidOperationException($"{context} typography identity mismatch.");
-            }
-        }
-
-        private static void AssertHudSafeClimateIdentity(
-            TMP_Text target,
-            TMP_FontAsset climate,
-            string context)
-        {
-            if (!ReferenceEquals(target.font, climate) ||
-                target.fontSharedMaterial == null ||
-                ReferenceEquals(target.fontSharedMaterial, climate.material) ||
-                target.fontSharedMaterial.shader == null ||
-                !string.Equals(
-                    target.fontSharedMaterial.shader.name,
-                    "TextMeshPro/Distance Field",
-                    StringComparison.Ordinal) ||
-                !ReferenceEquals(
-                    target.fontSharedMaterial.mainTexture,
-                    climate.material.mainTexture) ||
-                target.fontStyle != FontStyles.Normal)
-            {
-                throw new InvalidOperationException(
-                    $"{context} HUD-safe typography identity mismatch.");
             }
         }
 
