@@ -100,6 +100,7 @@ namespace Game.Feature.UI.Tests
             var repoRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             var runner = File.ReadAllText(Path.Combine(repoRoot, "run_tests.sh"));
 
+            AssertVisualGuardRestoreOrdering(runner);
             AssertCaptureFailureOrdering(runner, "run_typography_visual()", "run_objective_hud_visual()");
             AssertCaptureFailureOrdering(runner, "run_objective_hud_visual()", "run_unity_full()");
             Assert.That(
@@ -362,19 +363,49 @@ namespace Game.Feature.UI.Tests
             var observe = functionBody.IndexOf(
                 "observe_capture_assets_before_restore",
                 StringComparison.Ordinal);
-            var restore = functionBody.IndexOf(
-                "restore_capture_assets_from_baseline",
+            var cleanup = functionBody.IndexOf(
+                "visual_guard_cleanup \"$unity_exit\"",
                 StringComparison.Ordinal);
             var failureReturn = functionBody.IndexOf(
                 "if [ \"$unity_exit\" -ne 0 ]",
                 StringComparison.Ordinal);
 
             Assert.That(observe, Is.GreaterThanOrEqualTo(0), functionName + " observe");
-            Assert.That(restore, Is.GreaterThan(observe), functionName + " restore ordering");
+            Assert.That(cleanup, Is.GreaterThan(observe), functionName + " cleanup ordering");
             Assert.That(
                 failureReturn,
-                Is.GreaterThan(restore),
+                Is.GreaterThan(cleanup),
                 functionName + " must restore before returning Unity failure.");
+        }
+
+        private static void AssertVisualGuardRestoreOrdering(string runner)
+        {
+            const string functionName = "visual_guard_cleanup()";
+            const string nextFunctionName = "visual_guard_handle_signal()";
+            var functionStart = runner.IndexOf(functionName, StringComparison.Ordinal);
+            var functionEnd = runner.IndexOf(
+                nextFunctionName,
+                functionStart + functionName.Length,
+                StringComparison.Ordinal);
+            Assert.That(functionStart, Is.GreaterThanOrEqualTo(0), functionName);
+            Assert.That(functionEnd, Is.GreaterThan(functionStart), nextFunctionName);
+
+            var functionBody = runner.Substring(functionStart, functionEnd - functionStart);
+            var cleanupStarted = functionBody.IndexOf(
+                "VISUAL_GUARD_CLEANUP_STARTED=1",
+                StringComparison.Ordinal);
+            var restore = functionBody.IndexOf(
+                "restore_capture_assets_from_baseline",
+                StringComparison.Ordinal);
+            var cleanupCompleted = functionBody.IndexOf(
+                "VISUAL_GUARD_CLEANUP_COMPLETED=1",
+                StringComparison.Ordinal);
+
+            Assert.That(restore, Is.GreaterThan(cleanupStarted), "restore starts inside cleanup");
+            Assert.That(
+                cleanupCompleted,
+                Is.GreaterThan(restore),
+                "cleanup completes only after guarded assets are restored.");
         }
 
         private static void AssertAudioValueLayouts(SettingsScreenView settings)
