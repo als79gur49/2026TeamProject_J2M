@@ -658,7 +658,13 @@ namespace Game.Feature.UI.Composition.Editor
 
             try
             {
-                SetupPreviewScene(root, options, out cameraObject, out canvasObject, out var camera);
+                SetupPreviewScene(
+                    root,
+                    options,
+                    out cameraObject,
+                    out canvasObject,
+                    out var camera,
+                    useWorldSpaceCanvas: true);
                 ForceLayoutUpdates(root);
                 ForceGraphicUpdates(root);
                 ForceTextMeshUpdates(root);
@@ -1149,7 +1155,8 @@ namespace Game.Feature.UI.Composition.Editor
             TypographyPreviewScreenshotOptions options,
             out GameObject cameraObject,
             out GameObject canvasObject,
-            out Camera camera)
+            out Camera camera,
+            bool useWorldSpaceCanvas = false)
         {
             var scene = prefabRoot.scene;
             cameraObject = new GameObject("Typography Preview Screenshot Camera");
@@ -1168,13 +1175,21 @@ namespace Game.Feature.UI.Composition.Editor
             canvasObject = new GameObject("Typography Preview Screenshot Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             EditorSceneManager.MoveGameObjectToScene(canvasObject, scene);
             var canvasRect = canvasObject.GetComponent<RectTransform>();
-            canvasRect.anchorMin = Vector2.zero;
-            canvasRect.anchorMax = Vector2.one;
+            canvasRect.anchorMin = useWorldSpaceCanvas
+                ? new Vector2(0.5f, 0.5f)
+                : Vector2.zero;
+            canvasRect.anchorMax = useWorldSpaceCanvas
+                ? new Vector2(0.5f, 0.5f)
+                : Vector2.one;
+            canvasRect.pivot = new Vector2(0.5f, 0.5f);
             canvasRect.sizeDelta = new Vector2(options.Width, options.Height);
             canvasRect.anchoredPosition = Vector2.zero;
+            canvasRect.localScale = Vector3.one;
 
             var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.renderMode = useWorldSpaceCanvas
+                ? RenderMode.WorldSpace
+                : RenderMode.ScreenSpaceCamera;
             canvas.worldCamera = camera;
             canvas.planeDistance = 100f;
 
@@ -1186,14 +1201,24 @@ namespace Game.Feature.UI.Composition.Editor
 
             prefabRoot.SetActive(true);
             prefabRoot.transform.SetParent(canvasObject.transform, false);
-            ConfigureCanvases(prefabRoot, camera, options.Width, options.Height);
+            ConfigureCanvases(
+                prefabRoot,
+                camera,
+                options.Width,
+                options.Height,
+                useWorldSpaceCanvas ? RenderMode.WorldSpace : RenderMode.ScreenSpaceCamera);
         }
 
-        private static void ConfigureCanvases(GameObject root, Camera camera, int width, int height)
+        private static void ConfigureCanvases(
+            GameObject root,
+            Camera camera,
+            int width,
+            int height,
+            RenderMode renderMode)
         {
             foreach (var canvas in root.GetComponentsInChildren<Canvas>(true))
             {
-                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.renderMode = renderMode;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = 100f;
                 canvas.pixelPerfect = false;
