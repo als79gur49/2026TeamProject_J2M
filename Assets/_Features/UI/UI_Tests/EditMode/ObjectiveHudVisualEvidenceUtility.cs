@@ -197,11 +197,14 @@ namespace Game.Feature.UI.Tests
             Texture2D texture = null;
             var previousActiveScene = SceneManager.GetActiveScene();
             var previewScene = default(Scene);
+            var shouldClosePreviewScene = !UnityEngine.Application.isBatchMode;
             try
             {
                 previewScene = EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,
-                    NewSceneMode.Additive);
+                    UnityEngine.Application.isBatchMode
+                        ? NewSceneMode.Single
+                        : NewSceneMode.Additive);
                 EditorSceneManager.SetActiveScene(previewScene);
 
                 if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
@@ -343,7 +346,9 @@ namespace Game.Feature.UI.Tests
                     Object.DestroyImmediate(root);
                 }
 
-                if (previewScene.IsValid() && previewScene.isLoaded)
+                if (shouldClosePreviewScene &&
+                    previewScene.IsValid() &&
+                    previewScene.isLoaded)
                 {
                     if (previousActiveScene.IsValid() && previousActiveScene.isLoaded)
                     {
