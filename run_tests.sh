@@ -46,14 +46,33 @@ VISUAL_GUARD_FALLBACK_SCAN_PASSES=0
 VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=0
 VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=0
 VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+VISUAL_GUARD_EARLY_EMPTY_STREAK=0
+VISUAL_GUARD_POST_GRACE_QUIET_STREAK=0
 VISUAL_GUARD_FALLBACK_TIMEOUT=0
 VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
 VISUAL_GUARD_FALLBACK_SEEN_KEYS=""
+VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS=""
+VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS=""
+VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS=""
+VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS=0
+VISUAL_GUARD_STARTUP_GRACE_COMPLETED=0
+VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS=""
+VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS=""
+VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS=""
+VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS=""
+VISUAL_GUARD_QUIET_PERIOD_COMPLETED=0
+VISUAL_GUARD_LATE_CANDIDATE_DETECTED=0
+VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS=""
+VISUAL_GUARD_HARD_TIMEOUT_REACHED=0
+VISUAL_GUARD_FALLBACK_FAILURE_REASON=""
+VISUAL_GUARD_CURRENT_SCAN_AT_MS=""
 VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
 VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
 VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
-VISUAL_GUARD_FALLBACK_MAX_PASSES="${VISUAL_GUARD_FALLBACK_MAX_PASSES:-30}"
-VISUAL_GUARD_FALLBACK_POLL_SECONDS="${VISUAL_GUARD_FALLBACK_POLL_SECONDS:-0.2}"
+UNITY_DETACHED_STARTUP_GRACE_MS="${UNITY_DETACHED_STARTUP_GRACE_MS:-6000}"
+UNITY_DETACHED_POLL_INTERVAL_MS="${UNITY_DETACHED_POLL_INTERVAL_MS:-200}"
+UNITY_DETACHED_QUIET_PERIOD_MS="${UNITY_DETACHED_QUIET_PERIOD_MS:-400}"
+UNITY_DETACHED_HARD_TIMEOUT_MS="${UNITY_DETACHED_HARD_TIMEOUT_MS:-12000}"
 VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
 VISUAL_GUARD_CANDIDATE_SOURCES=()
 VISUAL_GUARD_CANDIDATE_PIDS=()
@@ -837,9 +856,26 @@ visual_guard_reset_state() {
     VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=0
     VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=0
     VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+    VISUAL_GUARD_EARLY_EMPTY_STREAK=0
+    VISUAL_GUARD_POST_GRACE_QUIET_STREAK=0
     VISUAL_GUARD_FALLBACK_TIMEOUT=0
     VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
     VISUAL_GUARD_FALLBACK_SEEN_KEYS=""
+    VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS=""
+    VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS=""
+    VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS=""
+    VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS=0
+    VISUAL_GUARD_STARTUP_GRACE_COMPLETED=0
+    VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS=""
+    VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS=""
+    VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS=""
+    VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS=""
+    VISUAL_GUARD_QUIET_PERIOD_COMPLETED=0
+    VISUAL_GUARD_LATE_CANDIDATE_DETECTED=0
+    VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS=""
+    VISUAL_GUARD_HARD_TIMEOUT_REACHED=0
+    VISUAL_GUARD_FALLBACK_FAILURE_REASON=""
+    VISUAL_GUARD_CURRENT_SCAN_AT_MS=""
     VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
     VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
     VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
@@ -865,7 +901,7 @@ visual_guard_write_lifecycle_evidence() {
     fi
 
     {
-        echo "schema_version=2"
+        echo "schema_version=3"
         echo "lane=$VISUAL_GUARD_LANE"
         echo "cleanup_trap_installed=$VISUAL_GUARD_TRAP_INSTALLED"
         echo "interrupted=$(
@@ -897,6 +933,7 @@ visual_guard_write_lifecycle_evidence() {
         echo "primary_termination_attempted=$VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED"
         echo "primary_termination_result=$VISUAL_GUARD_PRIMARY_TERMINATION_RESULT"
         echo "primary_wait_result=$VISUAL_GUARD_PRIMARY_WAIT_RESULT"
+        echo "primary_terminated_at=$VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS"
         echo "fallback_scan_performed=$(
             if [ "$VISUAL_GUARD_FALLBACK_SCAN_PERFORMED" -eq 1 ]; then
                 printf true
@@ -908,6 +945,50 @@ visual_guard_write_lifecycle_evidence() {
         echo "fallback_candidate_count=$VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT"
         echo "fallback_termination_count=$VISUAL_GUARD_FALLBACK_TERMINATION_COUNT"
         echo "fallback_empty_streak=$VISUAL_GUARD_FALLBACK_EMPTY_STREAK"
+        echo "startup_grace_ms=$UNITY_DETACHED_STARTUP_GRACE_MS"
+        echo "startup_grace_started_at=$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS"
+        echo "startup_grace_deadline=$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS"
+        echo "startup_grace_elapsed_ms=$VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS"
+        echo "startup_grace_completed=$(
+            if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "poll_interval_ms=$UNITY_DETACHED_POLL_INTERVAL_MS"
+        echo "early_empty_streak=$VISUAL_GUARD_EARLY_EMPTY_STREAK"
+        echo "post_grace_quiet_streak=$VISUAL_GUARD_POST_GRACE_QUIET_STREAK"
+        echo "quiet_period_ms=$UNITY_DETACHED_QUIET_PERIOD_MS"
+        echo "quiet_period_started_at=$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS"
+        echo "quiet_period_deadline=$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS"
+        echo "quiet_period_completed=$(
+            if [ "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "late_candidate_detected=$(
+            if [ "$VISUAL_GUARD_LATE_CANDIDATE_DETECTED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "last_candidate_seen_at=$VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS"
+        echo "last_candidate_terminated_at=$VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS"
+        echo "hard_timeout_ms=$UNITY_DETACHED_HARD_TIMEOUT_MS"
+        echo "hard_cleanup_deadline=$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS"
+        echo "hard_timeout_reached=$(
+            if [ "$VISUAL_GUARD_HARD_TIMEOUT_REACHED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "clock_source=MONOTONIC_PROC_UPTIME"
+        echo "fallback_failure_reason=$VISUAL_GUARD_FALLBACK_FAILURE_REASON"
         echo "fallback_timeout=$(
             if [ "$VISUAL_GUARD_FALLBACK_TIMEOUT" -eq 1 ]; then
                 printf true
@@ -1000,6 +1081,58 @@ visual_guard_calculate_final_status() {
     fi
 }
 
+visual_guard_monotonic_ms() {
+    local uptime
+    local seconds
+    local fraction
+
+    if [ ! -r /proc/uptime ]; then
+        echo "ERROR: Monotonic /proc/uptime clock is unavailable." >&2
+        return 1
+    fi
+    IFS=' ' read -r uptime _ < /proc/uptime
+    seconds="${uptime%%.*}"
+    fraction="${uptime#*.}000"
+    fraction="${fraction:0:3}"
+    printf '%s\n' "$((10#$seconds * 1000 + 10#$fraction))"
+}
+
+visual_guard_sleep_ms() {
+    local duration_ms="$1"
+    local duration
+
+    if [ "$duration_ms" -le 0 ]; then
+        return 0
+    fi
+    printf -v duration '%d.%03d' \
+        "$((duration_ms / 1000))" \
+        "$((duration_ms % 1000))"
+    sleep "$duration"
+}
+
+visual_guard_validate_cleanup_timing_config() {
+    local name
+    local value
+
+    for name in \
+        UNITY_DETACHED_STARTUP_GRACE_MS \
+        UNITY_DETACHED_POLL_INTERVAL_MS \
+        UNITY_DETACHED_QUIET_PERIOD_MS \
+        UNITY_DETACHED_HARD_TIMEOUT_MS
+    do
+        value="${!name}"
+        if ! [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
+            echo "ERROR: $name must be a positive integer millisecond value: $value"
+            return 1
+        fi
+    done
+    if [ "$UNITY_DETACHED_HARD_TIMEOUT_MS" -le \
+         "$((UNITY_DETACHED_STARTUP_GRACE_MS + UNITY_DETACHED_QUIET_PERIOD_MS))" ]; then
+        echo "ERROR: UNITY_DETACHED_HARD_TIMEOUT_MS must exceed startup grace plus quiet period."
+        return 1
+    fi
+}
+
 visual_guard_stop_active_child() {
     local child_pid="$VISUAL_GUARD_ACTIVE_CHILD_PID"
     local child_pgid="$VISUAL_GUARD_ACTIVE_CHILD_PGID"
@@ -1066,6 +1199,9 @@ visual_guard_stop_active_child() {
         VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_NEEDED"
         VISUAL_GUARD_PRIMARY_WAIT_RESULT="ALREADY_EXITED"
     fi
+    if [ "$primary_failed" -eq 0 ]; then
+        VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS="$(visual_guard_monotonic_ms)"
+    fi
     VISUAL_GUARD_ACTIVE_CHILD_PID=""
     VISUAL_GUARD_ACTIVE_CHILD_PGID=""
 
@@ -1076,11 +1212,15 @@ visual_guard_stop_active_child() {
         VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_PRIMARY_TERMINATION"
         echo "ERROR: Visual guard could not terminate the runner-recorded primary process."
     elif [ "$fallback_failed" -ne 0 ]; then
-        VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_RUNNER_OWNED_PROCESS_REMAINS"
-        if [ "$VISUAL_GUARD_INTERRUPTED" -eq 0 ]; then
-            VISUAL_GUARD_LANE_VERDICT="FAILED_RUNNER_OWNED_PROCESS_REMAINS"
+        if [ "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" -ne 0 ]; then
+            VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_RUNNER_OWNED_PROCESS_REMAINS"
+        else
+            VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_CLEANUP_QUIET_PERIOD_TIMEOUT"
         fi
-        echo "ERROR: Visual guard left an eligible current-project Unity process running."
+        if [ "$VISUAL_GUARD_INTERRUPTED" -eq 0 ]; then
+            VISUAL_GUARD_LANE_VERDICT="$VISUAL_GUARD_CLEANUP_PROCESS_RESULT"
+        fi
+        echo "ERROR: Visual guard fallback cleanup did not reach a clean quiescent state: $VISUAL_GUARD_FALLBACK_FAILURE_REASON"
     else
         VISUAL_GUARD_CLEANUP_PROCESS_RESULT="PASS"
     fi
@@ -1164,6 +1304,7 @@ visual_guard_begin() {
     local asset_path
     local -a guarded_paths
 
+    visual_guard_validate_cleanup_timing_config
     visual_guard_reset_state
     VISUAL_GUARD_BASELINE_ROOT="$baseline_root"
     VISUAL_GUARD_MUTATION_EVIDENCE="$mutation_evidence"
@@ -1769,6 +1910,12 @@ visual_guard_terminate_fallback_candidates() {
         if [ "$match" -eq 1 ] && [ "$preexisting" -eq 0 ]; then
             VISUAL_GUARD_FALLBACK_USED=1
             VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=$((VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT + 1))
+            VISUAL_GUARD_LAST_CANDIDATE_SEEN_AT_MS="$VISUAL_GUARD_CURRENT_SCAN_AT_MS"
+            if [ -n "$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS" ] &&
+               [ "$VISUAL_GUARD_CURRENT_SCAN_AT_MS" -gt \
+                 "$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS" ]; then
+                VISUAL_GUARD_LATE_CANDIDATE_DETECTED=1
+            fi
             if [ -z "$VISUAL_GUARD_FALLBACK_SEEN_KEYS" ] ||
                ! printf '%s\n' "$VISUAL_GUARD_FALLBACK_SEEN_KEYS" |
                    grep -Fx -- "$key" >/dev/null; then
@@ -1783,6 +1930,9 @@ visual_guard_terminate_fallback_candidates() {
             VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=$((VISUAL_GUARD_FALLBACK_TERMINATION_COUNT + 1))
             if visual_guard_terminate_candidate "$source" "$pid"; then
                 result="TERMINATED_OR_ALREADY_EXITED"
+                VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS="$(
+                    visual_guard_monotonic_ms
+                )"
             else
                 result="FAILED"
             fi
@@ -1848,9 +1998,35 @@ visual_guard_update_final_survivors() {
 }
 
 visual_guard_poll_fallback_candidates() {
-    local pass
+    local pass=0
+    local now_ms
+    local after_scan_ms
+    local next_wake_ms
+    local wait_ms
 
-    for pass in $(seq 1 "$VISUAL_GUARD_FALLBACK_MAX_PASSES"); do
+    VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS="$VISUAL_GUARD_PRIMARY_TERMINATED_AT_MS"
+    if [ -z "$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS" ]; then
+        VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS="$(visual_guard_monotonic_ms)"
+    fi
+    VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS="$((
+        10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS +
+        10#$UNITY_DETACHED_STARTUP_GRACE_MS
+    ))"
+    VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS="$((
+        10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS +
+        10#$UNITY_DETACHED_HARD_TIMEOUT_MS
+    ))"
+
+    while :; do
+        now_ms="$(visual_guard_monotonic_ms)"
+        if [ "$now_ms" -ge "$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS" ]; then
+            VISUAL_GUARD_FALLBACK_TIMEOUT=1
+            VISUAL_GUARD_HARD_TIMEOUT_REACHED=1
+            break
+        fi
+
+        pass=$((pass + 1))
+        VISUAL_GUARD_CURRENT_SCAN_AT_MS="$now_ms"
         if declare -F visual_guard_fallback_scan_test_hook >/dev/null; then
             visual_guard_fallback_scan_test_hook "$pass" "before_scan"
         fi
@@ -1863,19 +2039,92 @@ visual_guard_poll_fallback_candidates() {
             VISUAL_GUARD_FALLBACK_EMPTY_STREAK=$((VISUAL_GUARD_FALLBACK_EMPTY_STREAK + 1))
         else
             VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+            VISUAL_GUARD_POST_GRACE_QUIET_STREAK=0
+            VISUAL_GUARD_QUIET_PERIOD_COMPLETED=0
+            if [ -n "$VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS" ]; then
+                VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS="$VISUAL_GUARD_LAST_CANDIDATE_TERMINATED_AT_MS"
+                VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS="$((
+                    10#$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS +
+                    10#$UNITY_DETACHED_QUIET_PERIOD_MS
+                ))"
+            else
+                VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS=""
+                VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS=""
+            fi
         fi
-        if [ "$VISUAL_GUARD_FALLBACK_EMPTY_STREAK" -ge 2 ]; then
-            break
+
+        after_scan_ms="$(visual_guard_monotonic_ms)"
+        VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS="$((
+            10#$after_scan_ms -
+            10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS
+        ))"
+        if [ "$after_scan_ms" -ge "$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS" ]; then
+            VISUAL_GUARD_STARTUP_GRACE_COMPLETED=1
+        elif [ "$VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT" -eq 0 ]; then
+            VISUAL_GUARD_EARLY_EMPTY_STREAK=$((VISUAL_GUARD_EARLY_EMPTY_STREAK + 1))
+        else
+            VISUAL_GUARD_EARLY_EMPTY_STREAK=0
         fi
-        if [ "$pass" -ge "$VISUAL_GUARD_FALLBACK_MAX_PASSES" ]; then
+
+        if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 1 ] &&
+           [ "$VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT" -eq 0 ]; then
+            VISUAL_GUARD_POST_GRACE_QUIET_STREAK=$((VISUAL_GUARD_POST_GRACE_QUIET_STREAK + 1))
+            if [ -z "$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS" ]; then
+                VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS="$after_scan_ms"
+                VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS="$((
+                    10#$VISUAL_GUARD_QUIET_PERIOD_STARTED_AT_MS +
+                    10#$UNITY_DETACHED_QUIET_PERIOD_MS
+                ))"
+            fi
+            if [ "$after_scan_ms" -ge "$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS" ]; then
+                VISUAL_GUARD_QUIET_PERIOD_COMPLETED=1
+                break
+            fi
+        fi
+
+        if [ "$after_scan_ms" -ge "$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS" ]; then
             VISUAL_GUARD_FALLBACK_TIMEOUT=1
+            VISUAL_GUARD_HARD_TIMEOUT_REACHED=1
             break
         fi
-        sleep "$VISUAL_GUARD_FALLBACK_POLL_SECONDS"
+
+        next_wake_ms="$((after_scan_ms + UNITY_DETACHED_POLL_INTERVAL_MS))"
+        if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 0 ] &&
+           [ "$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS" -lt "$next_wake_ms" ]; then
+            next_wake_ms="$VISUAL_GUARD_STARTUP_GRACE_DEADLINE_MS"
+        fi
+        if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -eq 1 ] &&
+           [ -n "$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS" ] &&
+           [ "$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS" -lt "$next_wake_ms" ]; then
+            next_wake_ms="$VISUAL_GUARD_QUIET_PERIOD_DEADLINE_MS"
+        fi
+        if [ "$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS" -lt "$next_wake_ms" ]; then
+            next_wake_ms="$VISUAL_GUARD_HARD_CLEANUP_DEADLINE_MS"
+        fi
+        wait_ms="$((next_wake_ms - after_scan_ms))"
+        visual_guard_sleep_ms "$wait_ms" || true
     done
 
+    now_ms="$(visual_guard_monotonic_ms)"
+    VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS="$((
+        10#$now_ms -
+        10#$VISUAL_GUARD_STARTUP_GRACE_STARTED_AT_MS
+    ))"
     visual_guard_update_final_survivors
-    [ "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" -eq 0 ]
+    if [ "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" -ne 0 ]; then
+        VISUAL_GUARD_FALLBACK_FAILURE_REASON="ELIGIBLE_SURVIVOR_AFTER_FINAL_INVENTORY"
+        return 1
+    fi
+    if [ "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" -ne 1 ]; then
+        VISUAL_GUARD_FALLBACK_FAILURE_REASON="STARTUP_GRACE_NOT_COMPLETED"
+        return 1
+    fi
+    if [ "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" -ne 1 ]; then
+        VISUAL_GUARD_FALLBACK_FAILURE_REASON="POST_GRACE_QUIET_PERIOD_NOT_COMPLETED"
+        return 1
+    fi
+    VISUAL_GUARD_FALLBACK_FAILURE_REASON=""
+    return 0
 }
 
 find_current_project_unity_processes() {

@@ -5,6 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN_TESTS_LIBRARY_ONLY=1
 source "$ROOT_DIR/run_tests.sh"
 
+TEST_MONOTONIC_MS=100000
+visual_guard_monotonic_ms() {
+    printf '%s\n' "$TEST_MONOTONIC_MS"
+}
+visual_guard_sleep_ms() {
+    TEST_MONOTONIC_MS=$((TEST_MONOTONIC_MS + $1))
+}
+
 assert_equal() {
     local expected="$1"
     local actual="$2"
@@ -494,7 +502,11 @@ if kill -0 "$primary_pid" 2>/dev/null; then
 fi
 assert_equal "0" "$VISUAL_GUARD_FALLBACK_USED" "primary-only cleanup has no fallback candidate"
 assert_equal "1" "$VISUAL_GUARD_FALLBACK_SCAN_PERFORMED" "valid primary metadata still runs fallback"
-assert_equal "2" "$VISUAL_GUARD_FALLBACK_SCAN_PASSES" "primary cleanup reaches two empty fallback scans"
+assert_equal "33" "$VISUAL_GUARD_FALLBACK_SCAN_PASSES" "primary cleanup observes full grace and quiet period"
+assert_equal "1" "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" "primary cleanup grace completed"
+assert_equal "6000" "$UNITY_DETACHED_STARTUP_GRACE_MS" "primary cleanup configured grace"
+assert_equal "6400" "$VISUAL_GUARD_STARTUP_GRACE_ELAPSED_MS" "primary cleanup grace plus quiet elapsed"
+assert_equal "1" "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" "primary cleanup quiet completed"
 assert_equal "0" "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" "primary cleanup final survivors"
 assert_equal "" "$(cat "$process_killed")" "primary termination does not use candidate killer"
 echo "primary PID/PGID ownership: PASS"
@@ -524,8 +536,10 @@ run_detached_cleanup_scenario() (
 
     PROJECT_PATH_WSL="$exact_project"
     PROJECT_PATH_WIN="$exact_project"
-    VISUAL_GUARD_FALLBACK_MAX_PASSES=4
-    VISUAL_GUARD_FALLBACK_POLL_SECONDS=0.01
+    UNITY_DETACHED_STARTUP_GRACE_MS=600
+    UNITY_DETACHED_POLL_INTERVAL_MS=200
+    UNITY_DETACHED_QUIET_PERIOD_MS=400
+    UNITY_DETACHED_HARD_TIMEOUT_MS=1400
     capture_guarded_paths() {
         printf '%s\n' "guarded.asset"
     }
@@ -680,5 +694,143 @@ run_detached_cleanup_scenario int-during-fallback gone exact during INT 0 130 0
 run_detached_cleanup_scenario term-during-fallback gone exact during TERM 0 143 0
 run_detached_cleanup_scenario original-failure-detached gone exact none "" 37 37 0
 echo "detached process polling, protection, and status precedence: PASS"
+
+run_timed_grace_scenario() (
+    local name="$1"
+    local spawn_times_csv="$2"
+    local signal_at_ms="$3"
+    local signal_name="$4"
+    local original_status="$5"
+    local refuses_termination="$6"
+    local expected_status="$7"
+    local expected_candidates="$8"
+    local expected_killed="$9"
+    local expected_survivors="${10}"
+    local expected_hard_timeout="${11:-0}"
+    local termination_delay_ms="${12:-0}"
+    local scenario_root="$TEST_ROOT/timed-$name"
+    local inventory_killed="$scenario_root/killed.log"
+    local exact_project="$scenario_root/project"
+    local signal_sent=0
+    local scenario_status=0
+    local elapsed
+    local spawn_at
+    local pid
+    local index
+    local actual_killed
+    local -a spawn_times=()
+
+    TEST_MONOTONIC_MS=0
+    IFS=',' read -r -a spawn_times <<< "$spawn_times_csv"
+    mkdir -p "$scenario_root/project" "$scenario_root/baseline"
+    printf 'baseline\n' > "$scenario_root/project/guarded.asset"
+    cp "$scenario_root/project/guarded.asset" "$scenario_root/baseline/guarded.asset"
+    : > "$inventory_killed"
+
+    PROJECT_PATH_WSL="$exact_project"
+    PROJECT_PATH_WIN="$exact_project"
+    UNITY_DETACHED_STARTUP_GRACE_MS=6000
+    UNITY_DETACHED_POLL_INTERVAL_MS=200
+    UNITY_DETACHED_QUIET_PERIOD_MS=400
+    UNITY_DETACHED_HARD_TIMEOUT_MS=12000
+    capture_guarded_paths() {
+        printf '%s\n' "guarded.asset"
+    }
+    visual_guard_iter_unity_process_records() {
+        elapsed="$TEST_MONOTONIC_MS"
+        for index in "${!spawn_times[@]}"; do
+            spawn_at="${spawn_times[$index]}"
+            if [ -z "$spawn_at" ] || [ "$elapsed" -lt "$spawn_at" ]; then
+                continue
+            fi
+            pid=$((700 + index))
+            if grep -Fx -- "wsl:$pid" "$inventory_killed" >/dev/null; then
+                continue
+            fi
+            write_process_record wsl "$pid" "$exact_project"
+        done
+    }
+    visual_guard_terminate_candidate() {
+        if [ "$refuses_termination" -eq 1 ]; then
+            return 1
+        fi
+        printf '%s:%s\n' "$1" "$2" >> "$inventory_killed"
+        TEST_MONOTONIC_MS=$((TEST_MONOTONIC_MS + termination_delay_ms))
+    }
+    visual_guard_fallback_scan_test_hook() {
+        local phase="$2"
+
+        if [ "$phase" != "before_scan" ] ||
+           [ -z "$signal_at_ms" ] ||
+           [ "$signal_sent" -eq 1 ] ||
+           [ "$TEST_MONOTONIC_MS" -lt "$signal_at_ms" ]; then
+            return 0
+        fi
+        signal_sent=1
+        if [ "$signal_name" = "INT" ]; then
+            visual_guard_record_signal INT 130
+        else
+            visual_guard_record_signal TERM 143
+        fi
+    }
+
+    visual_guard_begin \
+        "$scenario_root/baseline" \
+        "$scenario_root/mutation.log" \
+        "$scenario_root/lifecycle.log" \
+        "TimedGrace"
+    observe_capture_assets_before_restore \
+        "$scenario_root/baseline" \
+        "$scenario_root/mutation.log"
+    visual_guard_mark_observation_complete "PASS"
+    if visual_guard_finish "$original_status"; then
+        scenario_status=0
+    else
+        scenario_status=$?
+    fi
+
+    actual_killed="$(
+        awk 'NF' "$inventory_killed" |
+            sort -u |
+            wc -l |
+            tr -d '[:space:]'
+    )"
+    assert_equal "$expected_status" "$scenario_status" "$name final status"
+    assert_equal "$expected_candidates" "$VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT" "$name candidates"
+    assert_equal "$expected_killed" "$actual_killed" "$name killed"
+    assert_equal "$expected_survivors" "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" "$name survivors"
+    assert_equal "1" "$VISUAL_GUARD_STARTUP_GRACE_COMPLETED" "$name startup grace completed"
+    assert_equal "1" "$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT" "$name cleanup count"
+    assert_equal "baseline" "$(cat "$scenario_root/project/guarded.asset")" "$name restore"
+    if [ "$refuses_termination" -eq 1 ]; then
+        assert_equal "1" "$VISUAL_GUARD_HARD_TIMEOUT_REACHED" "$name hard timeout"
+        assert_equal "ELIGIBLE_SURVIVOR_AFTER_FINAL_INVENTORY" "$VISUAL_GUARD_FALLBACK_FAILURE_REASON" "$name survivor reason"
+    elif [ "$expected_hard_timeout" -eq 1 ]; then
+        assert_equal "1" "$VISUAL_GUARD_HARD_TIMEOUT_REACHED" "$name hard timeout"
+        assert_equal "0" "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" "$name quiet incomplete"
+        assert_equal "POST_GRACE_QUIET_PERIOD_NOT_COMPLETED" "$VISUAL_GUARD_FALLBACK_FAILURE_REASON" "$name quiet timeout reason"
+    else
+        assert_equal "1" "$VISUAL_GUARD_QUIET_PERIOD_COMPLETED" "$name quiet completed"
+        assert_equal "0" "$VISUAL_GUARD_HARD_TIMEOUT_REACHED" "$name no hard timeout"
+    fi
+    echo "timed grace $name: PASS"
+)
+
+run_timed_grace_scenario no-candidate "" "" "" 0 0 0 0 0 0
+run_timed_grace_scenario old-early-exit-800ms "800" "" "" 0 0 0 1 1 0
+run_timed_grace_scenario mid-grace-3000ms "3000" "" "" 0 0 0 1 1 0
+run_timed_grace_scenario grace-minus-poll "5800" "" "" 0 0 0 1 1 0
+run_timed_grace_scenario grace-deadline-boundary "6000" "" "" 0 0 0 1 1 0
+run_timed_grace_scenario after-three-empty-scans "800" "" "" 0 0 0 1 1 0
+run_timed_grace_scenario repeated-detached "800,3000,5800" "" "" 0 0 0 3 3 0
+run_timed_grace_scenario post-grace-quiet-candidate "6200" "" "" 0 0 0 1 1 0
+run_timed_grace_scenario refuses-termination "3000" "" "" 0 1 1 1 0 1
+run_timed_grace_scenario quiet-timeout-no-survivor "6000" "" "" 0 0 1 1 1 0 1 6000
+run_timed_grace_scenario int-early-grace "800" "200" INT 0 0 130 1 1 0
+run_timed_grace_scenario term-mid-grace "3000" "2000" TERM 0 0 143 1 1 0
+run_timed_grace_scenario int-near-grace-end "5800" "5600" INT 0 0 130 1 1 0
+run_timed_grace_scenario original-failure-delayed "2000" "" "" 37 0 37 1 1 0
+run_timed_grace_scenario refuses-with-int "3000" "2000" INT 0 1 130 1 0 1
+echo "time-based startup grace, quiet reset, hard timeout, and signal matrix: PASS"
 
 echo "visual runner interruption cleanup checks passed"

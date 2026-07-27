@@ -51,22 +51,26 @@
 - 정상 capture는 모든 guarded path를 restore 전에 관측하고 lane verdict를 확정한 뒤 restore한다.
 - 중단 capture는 `INTERRUPTED`로 기록하며, runner-owned PID/PGID를 우선 종료한 뒤 idempotent cleanup으로 baseline을 복원한다.
 - Primary PID/PGID 종료 결과와 무관하게 exact-projectPath fallback scan을 항상 실행한다. Primary와 fallback은 대체 분기가 아니라 순차 cleanup 단계다.
-- Fallback은 연속 2회 eligible candidate가 없을 때까지 bounded polling하며, restore 직전 final inventory에 post-start exact-path Unity가 남으면 `FAILED_RUNNER_OWNED_PROCESS_REMAINS`로 cleanup을 실패시킨다.
+- Fallback은 `/proc/uptime` monotonic clock을 기준으로 primary 종료 후 `6000ms` startup grace 전체를 `200ms` 간격으로 관찰한다. Grace 중 empty scan은 조기 종료 조건이 아니며, deadline scan에 나타난 eligible candidate도 종료한다.
+- Startup grace가 완료되고 exact-path candidate가 없는 상태에서만 quiet completion을 판정한다. Quiet period는 마지막 candidate 종료 시점(한 번도 없으면 grace 완료 시점)부터 `400ms`이며, quiet 중 candidate가 나타나면 종료 후 deadline을 다시 계산한다.
+- Fallback hard timeout은 `12000ms`다. Timeout 또는 final inventory에서 post-start exact-path Unity가 남으면 `FAILED_RUNNER_OWNED_PROCESS_REMAINS`로, survivor는 없지만 quiet가 완료되지 않으면 cleanup failure로 처리한 뒤 asset restore를 best effort로 수행한다.
 - cleanup 시작 전이나 진행 중 도착한 첫 `SIGINT`/`SIGTERM`은 pending signal로 보존한다. cleanup 중 signal은 restore를 재진입하거나 중단하지 않으며, restore 완료 후 첫 signal의 `130`/`143`을 반환한다.
 - 최종 status 우선순위는 pending signal, 원래 command nonzero, cleanup failure, `0` 순서다.
 - Unity fallback 종료는 lane 시작 후 나타난 non-preexisting process 중 argv에서 정확히 파싱한 `-projectPath`가 canonical current project path와 같은 process에만 적용한다. 부분 문자열, 유사/prefix/suffix path, 다른 argument의 path는 ownership 근거가 아니다.
-- Lifecycle evidence는 각 output directory의 `runner-cleanup-lifecycle.log`에 cleanup status, owned PID/PGID, fallback/candidate exact-match 판정을 기록한다.
+- Lifecycle evidence는 각 output directory의 `runner-cleanup-lifecycle.log`에 cleanup status, owned PID/PGID, fallback/candidate exact-match 판정과 startup-grace/quiet/hard-timeout monotonic timestamp 및 completion 상태를 기록한다.
 
 ### English Original
 - `typography-visual` and `typography-hud-visual` install `EXIT`, `INT`, and `TERM` cleanup traps immediately after all eight guarded-path baselines are complete.
 - A normal capture observes every guarded path and fixes the lane verdict before any restore.
 - An interrupted capture records `INTERRUPTED`, terminates the runner-owned PID/PGID first, and restores the baseline through one idempotent cleanup path.
 - The exact-projectPath fallback scan always runs after primary PID/PGID termination, regardless of the primary result. Primary termination and fallback are sequential cleanup stages, not alternative branches.
-- Fallback uses bounded polling until two consecutive scans have no eligible candidate. If the final pre-restore inventory still contains a post-start exact-path Unity process, cleanup fails as `FAILED_RUNNER_OWNED_PROCESS_REMAINS`.
+- Fallback uses the `/proc/uptime` monotonic clock to observe the full `6000ms` startup grace after primary termination at `200ms` intervals. Empty scans during grace never end polling early, and an eligible candidate on the deadline scan is still terminated.
+- Quiet completion is evaluated only after startup grace completes with no exact-path candidate. The `400ms` quiet period starts at the last candidate termination (or at grace completion when none appeared), and a candidate during quiet is terminated and resets its deadline.
+- The fallback hard timeout is `12000ms`. A timeout or a post-start exact-path Unity process in the final inventory fails cleanup as `FAILED_RUNNER_OWNED_PROCESS_REMAINS`; a timeout with no survivor but incomplete quiet also fails cleanup before best-effort asset restore.
 - The first `SIGINT` or `SIGTERM` received before or during cleanup is retained as a pending signal. A cleanup-time signal neither re-enters nor aborts restore; after restore, the runner returns the first signal's `130` or `143`.
 - Final status precedence is pending signal, original command nonzero, cleanup failure, then `0`.
 - Unity fallback termination is limited to non-preexisting processes first observed after lane start whose exactly parsed `-projectPath` argv token canonically equals the current project path. Substrings, similar/prefix/suffix paths, and paths found in other arguments do not establish ownership.
-- `runner-cleanup-lifecycle.log` records cleanup status, owned PID/PGID, and fallback/candidate exact-match decisions in each capture output directory.
+- `runner-cleanup-lifecycle.log` records cleanup status, owned PID/PGID, fallback/candidate exact-match decisions, and startup-grace/quiet/hard-timeout monotonic timestamps and completion state in each capture output directory.
 
 ## 1. Overview / 개요
 ### 한국어
