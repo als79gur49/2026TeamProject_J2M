@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN_TESTS_LIBRARY_ONLY=1
 source "$ROOT_DIR/run_tests.sh"
+VISUAL_GUARD_TEST_HOOKS_ENABLED=1
+VISUAL_GUARD_TEST_RETURN_AFTER_FINALIZE=1
 
 TEST_MONOTONIC_MS=100000
 visual_guard_monotonic_ms() {
@@ -55,6 +57,11 @@ run_scenario_child() {
     local runner_shell_pid="$BASHPID"
     local cleanup_signal_sequence=""
     local cleanup_signal_phase="before_restore"
+    local finalization_signal_sequence=""
+    local finalization_hook_phase=""
+    local finalization_latch_sequence=""
+    local force_process_cleanup_failure=0
+    local finalize_via_exit=0
 
     PROJECT_PATH_WSL="$scenario_root/project"
     PROJECT_PATH_WIN="$PROJECT_PATH_WSL"
@@ -117,6 +124,74 @@ run_scenario_child() {
                 cleanup_signal_sequence="INT"
                 cleanup_signal_phase="after_restore_before_completed"
                 ;;
+            before-cleanup-completed-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="before_cleanup_completed"
+                ;;
+            after-cleanup-completed-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="after_cleanup_completed"
+                ;;
+            before-finalizing-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="before_finalizing"
+                ;;
+            after-finalizing-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="after_finalizing"
+                ;;
+            before-snapshot-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="before_final_status_snapshot"
+                ;;
+            before-snapshot-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="before_final_status_snapshot"
+                ;;
+            after-snapshot-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="after_final_status_snapshot"
+                ;;
+            after-snapshot-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="after_final_status_snapshot"
+                ;;
+            exit-after-snapshot-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="after_final_status_snapshot"
+                finalize_via_exit=1
+                ;;
+            exit-after-snapshot-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="after_final_status_snapshot"
+                finalize_via_exit=1
+                ;;
+            failure-after-snapshot-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="after_final_status_snapshot"
+                runner_status=37
+                ;;
+            cleanup-failure-after-snapshot-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="after_final_status_snapshot"
+                force_process_cleanup_failure=1
+                ;;
+            after-snapshot-int-term)
+                finalization_latch_sequence="INT TERM"
+                finalization_hook_phase="after_final_status_snapshot"
+                ;;
+            after-snapshot-term-int)
+                finalization_latch_sequence="TERM INT"
+                finalization_hook_phase="after_final_status_snapshot"
+                ;;
+            before-final-exit-int)
+                finalization_signal_sequence="INT"
+                finalization_hook_phase="before_final_exit"
+                ;;
+            before-final-exit-term)
+                finalization_signal_sequence="TERM"
+                finalization_hook_phase="before_final_exit"
+                ;;
             *)
                 echo "ERROR: unsupported scenario: $scenario"
                 return 1
@@ -133,6 +208,40 @@ run_scenario_child() {
                 kill "-$cleanup_signal" "$BASHPID"
             done
         }
+        visual_guard_finalization_test_hook() {
+            local phase="$1"
+            local finalization_signal
+            local first_signal
+            local second_signal
+
+            if [ "$phase" != "$finalization_hook_phase" ]; then
+                return 0
+            fi
+            if [ -n "$finalization_latch_sequence" ]; then
+                first_signal="${finalization_latch_sequence%% *}"
+                second_signal="${finalization_latch_sequence#* }"
+                if [ "$first_signal" = "INT" ]; then
+                    visual_guard_record_signal INT 130
+                else
+                    visual_guard_record_signal TERM 143
+                fi
+                if [ "$second_signal" = "INT" ]; then
+                    visual_guard_handle_signal INT 130
+                else
+                    visual_guard_handle_signal TERM 143
+                fi
+                return 0
+            fi
+            for finalization_signal in $finalization_signal_sequence; do
+                kill "-$finalization_signal" "$BASHPID"
+            done
+        }
+        if [ "$force_process_cleanup_failure" -eq 1 ]; then
+            visual_guard_stop_active_child() {
+                VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_TEST_PROCESS_CLEANUP"
+                return 1
+            }
+        fi
         printf 'mutated\n' > "$guarded_file"
         observe_capture_assets_before_restore \
             "$baseline_root" \
@@ -141,6 +250,9 @@ run_scenario_child() {
             visual_guard_mark_observation_complete "PASS"
         else
             visual_guard_mark_observation_complete "FAIL"
+        fi
+        if [ "$finalize_via_exit" -eq 1 ]; then
+            exit "$runner_status"
         fi
         visual_guard_finish "$runner_status"
     fi
@@ -194,6 +306,9 @@ run_guard_scenario() {
     assert_equal "1" "$(sed -n 's/^cleanup_started=//p' "$lifecycle_evidence")" "$lane $scenario cleanup started"
     assert_equal "1" "$(sed -n 's/^cleanup_completed=//p' "$lifecycle_evidence")" "$lane $scenario cleanup completed"
     assert_equal "1" "$(sed -n 's/^cleanup_effective_count=//p' "$lifecycle_evidence")" "$lane $scenario cleanup count"
+    assert_equal "1" "$(sed -n 's/^process_cleanup_effective_count=//p' "$lifecycle_evidence")" "$lane $scenario process cleanup count"
+    assert_equal "1" "$(sed -n 's/^mutation_observation_effective_count=//p' "$lifecycle_evidence")" "$lane $scenario mutation observation count"
+    assert_equal "1" "$(sed -n 's/^asset_restore_effective_count=//p' "$lifecycle_evidence")" "$lane $scenario asset restore count"
     assert_equal "$signal_name" "$(sed -n 's/^termination_signal=//p' "$lifecycle_evidence")" "$lane $scenario signal"
     assert_equal "$expected_status" "$(
         sed -n 's/^final_exit_status=//p' "$lifecycle_evidence"
@@ -231,6 +346,22 @@ run_guard_scenario ObjectiveHud cleanup-int-term INT 130
 run_guard_scenario ObjectiveHud cleanup-term-int TERM 143
 run_guard_scenario ObjectiveHud failure-cleanup-int INT 130
 run_guard_scenario ObjectiveHud completed-race-int INT 130
+run_guard_scenario ObjectiveHud before-cleanup-completed-int INT 130
+run_guard_scenario ObjectiveHud after-cleanup-completed-term TERM 143
+run_guard_scenario ObjectiveHud before-finalizing-int INT 130
+run_guard_scenario ObjectiveHud after-finalizing-term TERM 143
+run_guard_scenario ObjectiveHud before-snapshot-int INT 130
+run_guard_scenario ObjectiveHud before-snapshot-term TERM 143
+run_guard_scenario ObjectiveHud after-snapshot-int INT 130
+run_guard_scenario ObjectiveHud after-snapshot-term TERM 143
+run_guard_scenario ObjectiveHud exit-after-snapshot-int INT 130
+run_guard_scenario ObjectiveHud exit-after-snapshot-term TERM 143
+run_guard_scenario ObjectiveHud failure-after-snapshot-int INT 130
+run_guard_scenario ObjectiveHud cleanup-failure-after-snapshot-term TERM 143
+run_guard_scenario ObjectiveHud after-snapshot-int-term INT 130
+run_guard_scenario ObjectiveHud after-snapshot-term-int TERM 143
+run_guard_scenario ObjectiveHud before-final-exit-int INT 130
+run_guard_scenario ObjectiveHud before-final-exit-term TERM 143
 
 visual_guard_iter_unity_process_records() {
     return 0
@@ -254,23 +385,37 @@ idempotent_root="$TEST_ROOT/idempotent"
 mkdir -p "$idempotent_root/project" "$idempotent_root/baseline"
 printf 'baseline\n' > "$idempotent_root/project/guarded.asset"
 cp "$idempotent_root/project/guarded.asset" "$idempotent_root/baseline/guarded.asset"
-PROJECT_PATH_WSL="$idempotent_root/project"
-visual_guard_begin \
-    "$idempotent_root/baseline" \
-    "$idempotent_root/mutation.log" \
-    "$idempotent_root/lifecycle.log" \
-    "Idempotent"
-printf 'mutated\n' > "$idempotent_root/project/guarded.asset"
-visual_guard_cleanup 37
-visual_guard_cleanup 37
 idempotent_status=0
-if visual_guard_finish 37; then
+if (
+    PROJECT_PATH_WSL="$idempotent_root/project"
+    PROJECT_PATH_WIN="$PROJECT_PATH_WSL"
+    capture_guarded_paths() {
+        printf '%s\n' "guarded.asset"
+    }
+    visual_guard_iter_unity_process_records() {
+        return 0
+    }
+    visual_guard_begin \
+        "$idempotent_root/baseline" \
+        "$idempotent_root/mutation.log" \
+        "$idempotent_root/lifecycle.log" \
+        "Idempotent"
+    printf 'mutated\n' > "$idempotent_root/project/guarded.asset"
+    observe_capture_assets_before_restore \
+        "$idempotent_root/baseline" \
+        "$idempotent_root/mutation.log" || true
+    visual_guard_cleanup 37
+    visual_guard_cleanup 37
+    visual_guard_finish 37
+); then
     idempotent_status=0
 else
     idempotent_status=$?
 fi
 assert_equal "baseline" "$(cat "$idempotent_root/project/guarded.asset")" "double cleanup restore"
-assert_equal "1" "$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT" "double cleanup effective count"
+assert_equal "1" "$(sed -n 's/^cleanup_effective_count=//p' "$idempotent_root/lifecycle.log")" "double cleanup effective count"
+assert_equal "1" "$(sed -n 's/^process_cleanup_effective_count=//p' "$idempotent_root/lifecycle.log")" "double cleanup process count"
+assert_equal "1" "$(sed -n 's/^asset_restore_effective_count=//p' "$idempotent_root/lifecycle.log")" "double cleanup restore count"
 assert_equal "37" "$idempotent_status" "double cleanup original status"
 echo "partial baseline and double cleanup: PASS"
 

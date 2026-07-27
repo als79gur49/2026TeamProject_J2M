@@ -29,6 +29,9 @@ VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
 VISUAL_GUARD_CLEANUP_STARTED=0
 VISUAL_GUARD_CLEANUP_COMPLETED=0
 VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=0
+VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=0
+VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=0
+VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=0
 VISUAL_GUARD_CLEANUP_STATUS=0
 VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
 VISUAL_GUARD_ACTIVE_CHILD_PID=""
@@ -84,6 +87,8 @@ VISUAL_GUARD_CANDIDATE_MATCHES=()
 VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED=()
 VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
 VISUAL_GUARD_EXITING=0
+VISUAL_GUARD_PHASE="DONE"
+VISUAL_GUARD_FINAL_STATUS_SNAPSHOT=0
 
 TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
 TYPOGRAPHY_VISUAL_OUTPUT_DIR=""
@@ -702,6 +707,9 @@ observe_capture_assets_before_restore() {
     local -a allowed
     local -a lane_verdicts
 
+    if [ "${VISUAL_GUARD_TRAP_INSTALLED:-0}" -eq 1 ]; then
+        VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=$((VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT + 1))
+    fi
     mapfile -t guarded_paths < <(capture_guarded_paths)
     for index in "${!guarded_paths[@]}"; do
         asset_path="${guarded_paths[$index]}"
@@ -839,6 +847,9 @@ visual_guard_reset_state() {
     VISUAL_GUARD_CLEANUP_STARTED=0
     VISUAL_GUARD_CLEANUP_COMPLETED=0
     VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=0
+    VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=0
     VISUAL_GUARD_CLEANUP_STATUS=0
     VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
     VISUAL_GUARD_ACTIVE_CHILD_PID=""
@@ -890,6 +901,8 @@ visual_guard_reset_state() {
     VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED=()
     VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
     VISUAL_GUARD_EXITING=0
+    VISUAL_GUARD_PHASE="RUNNING"
+    VISUAL_GUARD_FINAL_STATUS_SNAPSHOT=0
 }
 
 visual_guard_write_lifecycle_evidence() {
@@ -922,8 +935,13 @@ visual_guard_write_lifecycle_evidence() {
         echo "cleanup_started=$VISUAL_GUARD_CLEANUP_STARTED"
         echo "cleanup_completed=$VISUAL_GUARD_CLEANUP_COMPLETED"
         echo "cleanup_effective_count=$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT"
+        echo "process_cleanup_effective_count=$VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT"
+        echo "mutation_observation_effective_count=$VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT"
+        echo "asset_restore_effective_count=$VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT"
         echo "cleanup_status=$VISUAL_GUARD_CLEANUP_STATUS"
         echo "restore_result=$VISUAL_GUARD_RESTORE_RESULT"
+        echo "guard_phase=$VISUAL_GUARD_PHASE"
+        echo "final_status_snapshot=$VISUAL_GUARD_FINAL_STATUS_SNAPSHOT"
         echo "owned_child_pid=$VISUAL_GUARD_OWNED_CHILD_PID"
         echo "owned_child_pgid=$VISUAL_GUARD_OWNED_CHILD_PGID"
         echo "fallback_used=$VISUAL_GUARD_FALLBACK_USED"
@@ -1024,6 +1042,7 @@ visual_guard_prepare_interrupted_mutation_evidence() {
         return 0
     fi
 
+    VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT=$((VISUAL_GUARD_MUTATION_OBSERVATION_EFFECTIVE_COUNT + 1))
     {
         echo "schema_version=1"
         echo "observation_order=INTERRUPTED_BEFORE_COMPLETE_CLASSIFICATION"
@@ -1079,6 +1098,17 @@ visual_guard_calculate_final_status() {
     else
         printf '0\n'
     fi
+}
+
+visual_guard_run_finalization_test_hook() {
+    local phase="$1"
+
+    if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -ne 1 ] ||
+       [ "${VISUAL_GUARD_TEST_HOOKS_ENABLED:-0}" -ne 1 ] ||
+       ! declare -F visual_guard_finalization_test_hook >/dev/null; then
+        return 0
+    fi
+    visual_guard_finalization_test_hook "$phase"
 }
 
 visual_guard_monotonic_ms() {
@@ -1235,10 +1265,12 @@ visual_guard_cleanup() {
         return "$VISUAL_GUARD_CLEANUP_STATUS"
     fi
 
+    VISUAL_GUARD_PHASE="CLEANING"
     VISUAL_GUARD_CLEANUP_STARTED=1
     VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT + 1))
     VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
 
+    VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT + 1))
     if ! visual_guard_stop_active_child; then
         cleanup_status=1
     fi
@@ -1248,6 +1280,7 @@ visual_guard_cleanup() {
     fi
     if [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ]; then
         visual_guard_prepare_interrupted_mutation_evidence
+        VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=$((VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT + 1))
         if restore_capture_assets_from_baseline \
             "$VISUAL_GUARD_BASELINE_ROOT" \
             "$VISUAL_GUARD_MUTATION_EVIDENCE"; then
@@ -1262,38 +1295,76 @@ visual_guard_cleanup() {
     if declare -F visual_guard_cleanup_test_hook >/dev/null; then
         visual_guard_cleanup_test_hook "after_restore_before_completed"
     fi
+    visual_guard_run_finalization_test_hook "before_cleanup_completed"
 
     VISUAL_GUARD_CLEANUP_STATUS="$cleanup_status"
     VISUAL_GUARD_CLEANUP_COMPLETED=1
+    visual_guard_run_finalization_test_hook "after_cleanup_completed"
     visual_guard_write_lifecycle_evidence "$original_status"
     return "$cleanup_status"
 }
 
 visual_guard_handle_signal() {
     visual_guard_record_signal "$1" "$2"
-    if [ "$VISUAL_GUARD_CLEANUP_STARTED" -eq 1 ]; then
-        return 0
+    case "$VISUAL_GUARD_PHASE" in
+        RUNNING)
+            visual_guard_request_active_child_stop
+            exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+            ;;
+        CLEANING)
+            return 0
+            ;;
+        FINALIZING|DONE)
+            visual_guard_write_lifecycle_evidence \
+                "$VISUAL_GUARD_PENDING_SIGNAL_STATUS" || true
+            exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+            ;;
+        *)
+            exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+            ;;
+    esac
+}
+
+visual_guard_finalize_and_exit() {
+    local original_status="$1"
+    local cleanup_status="$2"
+    local final_status
+
+    visual_guard_run_finalization_test_hook "before_finalizing"
+    VISUAL_GUARD_PHASE="FINALIZING"
+    visual_guard_run_finalization_test_hook "after_finalizing"
+    visual_guard_run_finalization_test_hook "before_final_status_snapshot"
+    final_status="$(
+        visual_guard_calculate_final_status "$original_status" "$cleanup_status"
+    )"
+    VISUAL_GUARD_FINAL_STATUS_SNAPSHOT="$final_status"
+    visual_guard_run_finalization_test_hook "after_final_status_snapshot"
+    if [ "$cleanup_status" -ne 0 ]; then
+        echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
     fi
-    visual_guard_request_active_child_stop
-    exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+    visual_guard_write_lifecycle_evidence "$final_status"
+    visual_guard_run_finalization_test_hook "before_final_exit"
+    if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -eq 1 ] &&
+       [ "${VISUAL_GUARD_TEST_HOOKS_ENABLED:-0}" -eq 1 ] &&
+       [ "${VISUAL_GUARD_TEST_RETURN_AFTER_FINALIZE:-0}" -eq 1 ]; then
+        VISUAL_GUARD_PHASE="DONE"
+        trap - INT TERM
+        return "$final_status"
+    fi
+    VISUAL_GUARD_PHASE="DONE"
+    exit "$final_status"
 }
 
 visual_guard_handle_exit() {
     local original_status="$1"
     local cleanup_status=0
-    local final_status
 
     VISUAL_GUARD_EXITING=1
     VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
+    VISUAL_GUARD_PHASE="CLEANING"
     trap - EXIT
     visual_guard_cleanup "$original_status" || cleanup_status=$?
-    final_status="$(visual_guard_calculate_final_status "$original_status" "$cleanup_status")"
-    if [ "$cleanup_status" -ne 0 ]; then
-        echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
-    fi
-    visual_guard_write_lifecycle_evidence "$final_status"
-    trap - INT TERM
-    exit "$final_status"
+    visual_guard_finalize_and_exit "$original_status" "$cleanup_status"
 }
 
 visual_guard_begin() {
@@ -1356,18 +1427,12 @@ visual_guard_mark_observation_complete() {
 visual_guard_finish() {
     local original_status="$1"
     local cleanup_status=0
-    local final_status
 
     VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
+    VISUAL_GUARD_PHASE="CLEANING"
+    trap - EXIT
     visual_guard_cleanup "$original_status" || cleanup_status=$?
-    final_status="$(visual_guard_calculate_final_status "$original_status" "$cleanup_status")"
-    if [ "$cleanup_status" -ne 0 ]; then
-        echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
-    fi
-
-    trap - EXIT INT TERM
-    visual_guard_write_lifecycle_evidence "$final_status"
-    return "$final_status"
+    visual_guard_finalize_and_exit "$original_status" "$cleanup_status"
 }
 
 print_typography_visual_plan() {

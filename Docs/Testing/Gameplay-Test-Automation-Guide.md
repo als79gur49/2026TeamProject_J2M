@@ -55,6 +55,8 @@
 - Startup grace가 완료되고 exact-path candidate가 없는 상태에서만 quiet completion을 판정한다. Quiet period는 마지막 candidate 종료 시점(한 번도 없으면 grace 완료 시점)부터 `400ms`이며, quiet 중 candidate가 나타나면 종료 후 deadline을 다시 계산한다.
 - Fallback hard timeout은 `12000ms`다. Timeout 또는 final inventory에서 post-start exact-path Unity가 남으면 `FAILED_RUNNER_OWNED_PROCESS_REMAINS`로, survivor는 없지만 quiet가 완료되지 않으면 cleanup failure로 처리한 뒤 asset restore를 best effort로 수행한다.
 - cleanup 시작 전이나 진행 중 도착한 첫 `SIGINT`/`SIGTERM`은 pending signal로 보존한다. cleanup 중 signal은 restore를 재진입하거나 중단하지 않으며, restore 완료 후 첫 signal의 `130`/`143`을 반환한다.
+- guard phase는 `RUNNING`, `CLEANING`, `FINALIZING`, `DONE`으로 구분한다. `EXIT` cleanup은 진입 직후 재귀가 차단되고 정확히 한 번만 실행되며, `INT`/`TERM` trap은 최종 `exit`까지 유지한다.
+- `FINALIZING`에서 final status snapshot 전후로 signal이 도착하면 handler가 첫 pending signal을 유지한 채 즉시 `130`/`143`으로 종료한다. 이 경로는 process cleanup, mutation observation, asset restore를 다시 실행하지 않는다.
 - 최종 status 우선순위는 pending signal, 원래 command nonzero, cleanup failure, `0` 순서다.
 - Unity fallback 종료는 lane 시작 후 나타난 non-preexisting process 중 argv에서 정확히 파싱한 `-projectPath`가 canonical current project path와 같은 process에만 적용한다. 부분 문자열, 유사/prefix/suffix path, 다른 argument의 path는 ownership 근거가 아니다.
 - Lifecycle evidence는 각 output directory의 `runner-cleanup-lifecycle.log`에 cleanup status, owned PID/PGID, fallback/candidate exact-match 판정과 startup-grace/quiet/hard-timeout monotonic timestamp 및 completion 상태를 기록한다.
@@ -68,6 +70,8 @@
 - Quiet completion is evaluated only after startup grace completes with no exact-path candidate. The `400ms` quiet period starts at the last candidate termination (or at grace completion when none appeared), and a candidate during quiet is terminated and resets its deadline.
 - The fallback hard timeout is `12000ms`. A timeout or a post-start exact-path Unity process in the final inventory fails cleanup as `FAILED_RUNNER_OWNED_PROCESS_REMAINS`; a timeout with no survivor but incomplete quiet also fails cleanup before best-effort asset restore.
 - The first `SIGINT` or `SIGTERM` received before or during cleanup is retained as a pending signal. A cleanup-time signal neither re-enters nor aborts restore; after restore, the runner returns the first signal's `130` or `143`.
+- Guard phases are `RUNNING`, `CLEANING`, `FINALIZING`, and `DONE`. Recursive `EXIT` cleanup is disabled on entry and cleanup runs exactly once, while the `INT` and `TERM` traps remain installed through the final `exit`.
+- A signal arriving before or after the final-status snapshot in `FINALIZING` immediately exits with the first pending signal's `130` or `143`. This path does not repeat process cleanup, mutation observation, or asset restore.
 - Final status precedence is pending signal, original command nonzero, cleanup failure, then `0`.
 - Unity fallback termination is limited to non-preexisting processes first observed after lane start whose exactly parsed `-projectPath` argv token canonically equals the current project path. Substrings, similar/prefix/suffix paths, and paths found in other arguments do not establish ownership.
 - `runner-cleanup-lifecycle.log` records cleanup status, owned PID/PGID, fallback/candidate exact-match decisions, and startup-grace/quiet/hard-timeout monotonic timestamps and completion state in each capture output directory.
