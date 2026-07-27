@@ -15,7 +15,9 @@ using Game.Feature.UI.HUD;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -193,8 +195,15 @@ namespace Game.Feature.UI.Tests
             UnityStringTableTextResolver resolver = null;
             HUDRootPresenter rootPresenter = null;
             Texture2D texture = null;
+            var previousActiveScene = SceneManager.GetActiveScene();
+            var previewScene = default(Scene);
             try
             {
+                previewScene = EditorSceneManager.NewScene(
+                    NewSceneSetup.EmptyScene,
+                    NewSceneMode.Additive);
+                EditorSceneManager.SetActiveScene(previewScene);
+
                 if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
                         new MemoryLocalePreferenceStore(scenario.Locale),
                         out resolver,
@@ -210,7 +219,13 @@ namespace Game.Feature.UI.Tests
                         $"Production resolver rejected locale '{scenario.Locale}'.");
                 }
 
-                root = Object.Instantiate(prefab);
+                root = PrefabUtility.InstantiatePrefab(prefab, previewScene) as GameObject;
+                if (root == null)
+                {
+                    throw new InvalidOperationException(
+                        "Gameplay HUD prefab could not be instantiated in the isolated preview scene.");
+                }
+
                 root.name = $"ObjectiveHudVisual_{scenario.State}";
                 assetGuard.IncludeFontAssets(root);
                 var hud = root.GetComponent<HUDRootView>();
@@ -326,6 +341,16 @@ namespace Game.Feature.UI.Tests
                 if (root != null)
                 {
                     Object.DestroyImmediate(root);
+                }
+
+                if (previewScene.IsValid() && previewScene.isLoaded)
+                {
+                    if (previousActiveScene.IsValid() && previousActiveScene.isLoaded)
+                    {
+                        EditorSceneManager.SetActiveScene(previousActiveScene);
+                    }
+
+                    EditorSceneManager.CloseScene(previewScene, true);
                 }
             }
         }

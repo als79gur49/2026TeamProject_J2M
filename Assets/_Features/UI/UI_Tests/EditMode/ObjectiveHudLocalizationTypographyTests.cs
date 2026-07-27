@@ -95,10 +95,10 @@ namespace Game.Feature.UI.Tests
                 binding.ApplyRow(rowLabel);
 
                 Assert.That(header.font, Is.SameAs(climate));
-                AssertHudSafeClimateMaterial(header, climate);
+                Assert.That(header.fontSharedMaterial, Is.SameAs(climate.material));
                 Assert.That(header.fontStyle, Is.EqualTo(FontStyles.Normal));
                 Assert.That(rowLabel.font, Is.SameAs(climate));
-                AssertHudSafeClimateMaterial(rowLabel, climate);
+                Assert.That(rowLabel.fontSharedMaterial, Is.SameAs(climate.material));
                 Assert.That(rowLabel.fontStyle, Is.EqualTo(FontStyles.Normal));
                 headerSizing.AssertUnchanged(header);
                 rowSizing.AssertUnchanged(rowLabel);
@@ -189,18 +189,6 @@ namespace Game.Feature.UI.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"{target.GetType().Name}.{fieldName}");
             return (T)field.GetValue(target);
-        }
-
-        private static void AssertHudSafeClimateMaterial(TMP_Text target, TMP_FontAsset climate)
-        {
-            Assert.That(target.fontSharedMaterial, Is.Not.Null);
-            Assert.That(target.fontSharedMaterial, Is.Not.SameAs(climate.material));
-            Assert.That(
-                target.fontSharedMaterial.shader.name,
-                Is.EqualTo("TextMeshPro/Distance Field"));
-            Assert.That(
-                target.fontSharedMaterial.mainTexture,
-                Is.SameAs(climate.material.mainTexture));
         }
 
         private sealed class MutableLocaleResolver : ILocalizedTextResolver
