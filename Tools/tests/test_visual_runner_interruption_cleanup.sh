@@ -45,15 +45,15 @@ run_scenario_child() {
     local child_marker="$scenario_root/child.pid"
     local runner_status=0
     local runner_shell_pid="$BASHPID"
+    local cleanup_signal_sequence=""
+    local cleanup_signal_phase="before_restore"
 
     PROJECT_PATH_WSL="$scenario_root/project"
+    PROJECT_PATH_WIN="$PROJECT_PATH_WSL"
     capture_guarded_paths() {
         printf '%s\n' "guarded.asset"
     }
-    terminate_current_project_unity_processes() {
-        return 0
-    }
-    find_current_project_unity_processes() {
+    visual_guard_iter_unity_process_records() {
         return 0
     }
 
@@ -79,7 +79,7 @@ run_scenario_child() {
             "$mutation_evidence" || true
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish "$runner_status"
-    else
+    elif [ "$scenario" = "sigint" ] || [ "$scenario" = "sigterm" ]; then
         (
             wait_for_file_content "$guarded_file" "mutated"
             kill "-$signal_name" "$runner_shell_pid"
@@ -87,6 +87,54 @@ run_scenario_child() {
         visual_guard_run_command bash -c \
             'printf "%s\n" "$$" > "$2"; printf "mutated\n" > "$1"; exec sleep 300' \
             _ "$guarded_file" "$child_marker"
+    else
+        case "$scenario" in
+            cleanup-int)
+                cleanup_signal_sequence="INT"
+                ;;
+            cleanup-term)
+                cleanup_signal_sequence="TERM"
+                ;;
+            cleanup-int-term)
+                cleanup_signal_sequence="INT TERM"
+                ;;
+            cleanup-term-int)
+                cleanup_signal_sequence="TERM INT"
+                ;;
+            failure-cleanup-int)
+                cleanup_signal_sequence="INT"
+                runner_status=37
+                ;;
+            completed-race-int)
+                cleanup_signal_sequence="INT"
+                cleanup_signal_phase="after_restore_before_completed"
+                ;;
+            *)
+                echo "ERROR: unsupported scenario: $scenario"
+                return 1
+                ;;
+        esac
+        visual_guard_cleanup_test_hook() {
+            local phase="$1"
+            local cleanup_signal
+
+            if [ "$phase" != "$cleanup_signal_phase" ]; then
+                return 0
+            fi
+            for cleanup_signal in $cleanup_signal_sequence; do
+                kill "-$cleanup_signal" "$BASHPID"
+            done
+        }
+        printf 'mutated\n' > "$guarded_file"
+        observe_capture_assets_before_restore \
+            "$baseline_root" \
+            "$mutation_evidence" || true
+        if [ "$runner_status" -eq 0 ]; then
+            visual_guard_mark_observation_complete "PASS"
+        else
+            visual_guard_mark_observation_complete "FAIL"
+        fi
+        visual_guard_finish "$runner_status"
     fi
 }
 
@@ -137,13 +185,19 @@ run_guard_scenario() {
     assert_equal "1" "$(sed -n 's/^cleanup_trap_installed=//p' "$lifecycle_evidence")" "$lane $scenario trap"
     assert_equal "1" "$(sed -n 's/^cleanup_started=//p' "$lifecycle_evidence")" "$lane $scenario cleanup started"
     assert_equal "1" "$(sed -n 's/^cleanup_completed=//p' "$lifecycle_evidence")" "$lane $scenario cleanup completed"
+    assert_equal "1" "$(sed -n 's/^cleanup_effective_count=//p' "$lifecycle_evidence")" "$lane $scenario cleanup count"
     assert_equal "$signal_name" "$(sed -n 's/^termination_signal=//p' "$lifecycle_evidence")" "$lane $scenario signal"
+    assert_equal "$expected_status" "$(
+        sed -n 's/^final_exit_status=//p' "$lifecycle_evidence"
+    )" "$lane $scenario lifecycle status"
 
     if [ -n "$signal_name" ]; then
         assert_equal "INTERRUPTED" "$(sed -n 's/^lane_verdict=//p' "$lifecycle_evidence")" "$lane $scenario verdict"
-        assert_equal "INTERRUPTED_BEFORE_COMPLETE_CLASSIFICATION" "$(
-            sed -n 's/^observation_order=//p' "$mutation_evidence"
-        )" "$lane $scenario interrupted observation"
+        if [ "$scenario" = "sigint" ] || [ "$scenario" = "sigterm" ]; then
+            assert_equal "INTERRUPTED_BEFORE_COMPLETE_CLASSIFICATION" "$(
+                sed -n 's/^observation_order=//p' "$mutation_evidence"
+            )" "$lane $scenario interrupted observation"
+        fi
     fi
 
     if [ -f "$child_marker" ]; then
@@ -161,12 +215,24 @@ for lane in ObjectiveHud Typography; do
     run_guard_scenario "$lane" failure "" 37
     run_guard_scenario "$lane" sigint INT 130
     run_guard_scenario "$lane" sigterm TERM 143
+    run_guard_scenario "$lane" cleanup-int INT 130
+    run_guard_scenario "$lane" cleanup-term TERM 143
 done
+
+run_guard_scenario ObjectiveHud cleanup-int-term INT 130
+run_guard_scenario ObjectiveHud cleanup-term-int TERM 143
+run_guard_scenario ObjectiveHud failure-cleanup-int INT 130
+run_guard_scenario ObjectiveHud completed-race-int INT 130
+
+visual_guard_iter_unity_process_records() {
+    return 0
+}
 
 partial_root="$TEST_ROOT/partial"
 mkdir -p "$partial_root/project"
 printf 'user-bytes\n' > "$partial_root/project/guarded.asset"
 PROJECT_PATH_WSL="$partial_root/project"
+PROJECT_PATH_WIN="$PROJECT_PATH_WSL"
 capture_guarded_paths() {
     printf '%s\n' "guarded.asset"
 }
@@ -187,10 +253,17 @@ visual_guard_begin \
     "$idempotent_root/lifecycle.log" \
     "Idempotent"
 printf 'mutated\n' > "$idempotent_root/project/guarded.asset"
-visual_guard_cleanup 0
-visual_guard_cleanup 0
-visual_guard_finish 0
+visual_guard_cleanup 37
+visual_guard_cleanup 37
+idempotent_status=0
+if visual_guard_finish 37; then
+    idempotent_status=0
+else
+    idempotent_status=$?
+fi
 assert_equal "baseline" "$(cat "$idempotent_root/project/guarded.asset")" "double cleanup restore"
+assert_equal "1" "$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT" "double cleanup effective count"
+assert_equal "37" "$idempotent_status" "double cleanup original status"
 echo "partial baseline and double cleanup: PASS"
 
 cleanup_failure_root="$TEST_ROOT/cleanup-failure"
@@ -254,5 +327,164 @@ else
 fi
 assert_equal "37" "$cleanup_failure_status" "nonzero status survives cleanup failure"
 echo "cleanup failure status preservation: PASS"
+
+assert_path_match() {
+    local expected="$1"
+    local label="$2"
+    shift 2
+    local candidate
+
+    candidate="$(extract_project_path_from_argv "$@")" || {
+        echo "ERROR: $label did not parse -projectPath"
+        exit 1
+    }
+    if ! visual_project_paths_match "$candidate" "$expected"; then
+        echo "ERROR: $label exact path mismatch"
+        echo "  expected: $expected"
+        echo "  candidate: $candidate"
+        exit 1
+    fi
+}
+
+assert_path_no_match() {
+    local expected="$1"
+    local label="$2"
+    shift 2
+    local candidate
+
+    candidate="$(extract_project_path_from_argv "$@" || true)"
+    if [ -n "$candidate" ] && visual_project_paths_match "$candidate" "$expected"; then
+        echo "ERROR: $label unexpectedly matched"
+        echo "  expected: $expected"
+        echo "  candidate: $candidate"
+        exit 1
+    fi
+}
+
+path_root="$TEST_ROOT/path parser"
+mkdir -p "$path_root/game" "$path_root/game-copy" "$path_root/game/sub"
+assert_path_match "$path_root/game" "exact path" \
+    Unity.exe -projectPath "$path_root/game"
+assert_path_no_match "$path_root/game" "copy suffix" \
+    Unity.exe -projectPath "$path_root/game-copy"
+assert_path_no_match "$path_root/game" "subdirectory" \
+    Unity.exe -projectPath "$path_root/game/sub"
+assert_path_no_match "$path_root/game" "log argument is not ownership" \
+    Unity.exe -logFile "$path_root/game/log" -projectPath "$path_root/game-copy"
+assert_path_no_match "$path_root/game" "missing projectPath" \
+    Unity.exe -logFile "$path_root/game/log"
+assert_path_match "$path_root/game" "quoted whitespace token" \
+    Unity.exe -projectPath "$path_root/game"
+assert_path_match "C:\\Repo\\Game" "Windows and WSL equivalence" \
+    Unity.exe -PROJECTPATH "/mnt/c/Repo/Game"
+echo "exact projectPath parser checks: PASS"
+
+process_root="$TEST_ROOT/process-ownership"
+mkdir -p "$process_root/project" "$process_root/baseline"
+printf 'baseline\n' > "$process_root/project/guarded.asset"
+cp "$process_root/project/guarded.asset" "$process_root/baseline/guarded.asset"
+process_inventory="$process_root/inventory.tsv"
+process_killed="$process_root/killed.log"
+expected_project="$process_root/project"
+similar_project="$process_root/project-copy"
+sub_project="$process_root/project/sub"
+
+write_process_record() {
+    local source="$1"
+    local pid="$2"
+    local project_path="$3"
+
+    printf '%s\t%s\t1\t%s\n' \
+        "$source" \
+        "$pid" \
+        "$(printf '%s' "$project_path" | base64 -w0)"
+}
+
+visual_guard_iter_unity_process_records() {
+    local source
+    local pid
+    local ppid
+    local encoded
+
+    while IFS=$'\t' read -r source pid ppid encoded; do
+        if [ -s "$process_killed" ] &&
+           grep -Fx -- "$source:$pid" "$process_killed" >/dev/null; then
+            continue
+        fi
+        printf '%s\t%s\t%s\t%s\n' "$source" "$pid" "$ppid" "$encoded"
+    done < "$process_inventory"
+}
+
+visual_guard_terminate_candidate() {
+    printf '%s:%s\n' "$1" "$2" >> "$process_killed"
+}
+
+write_process_record wsl 100 "$expected_project" > "$process_inventory"
+PROJECT_PATH_WSL="$process_root/project"
+PROJECT_PATH_WIN="$expected_project"
+capture_guarded_paths() {
+    printf '%s\n' "guarded.asset"
+}
+visual_guard_begin \
+    "$process_root/baseline" \
+    "$process_root/mutation.log" \
+    "$process_root/lifecycle.log" \
+    "ProcessOwnership"
+{
+    write_process_record wsl 100 "$expected_project"
+    write_process_record wsl 101 "$expected_project"
+    write_process_record wsl 102 "$similar_project"
+    write_process_record wsl 103 "$sub_project"
+    write_process_record wsl 104 ""
+} > "$process_inventory"
+visual_guard_finish 0
+
+assert_equal "wsl:101" "$(cat "$process_killed")" "only new exact-path process killed"
+assert_equal "1" "$VISUAL_GUARD_FALLBACK_USED" "fallback used for orphan exact candidate"
+assert_equal "1" "$(
+    sed -n '/candidate_pid=100/,/termination_result=/p' "$process_root/lifecycle.log" |
+        sed -n 's/^preexisting=//p'
+)" "same-path preexisting protected"
+assert_equal "0" "$(
+    sed -n '/candidate_pid=102/,/termination_result=/p' "$process_root/lifecycle.log" |
+        sed -n 's/^match=//p'
+)" "similar path rejected"
+assert_equal "0" "$(
+    sed -n '/candidate_pid=103/,/termination_result=/p' "$process_root/lifecycle.log" |
+        sed -n 's/^match=//p'
+)" "subproject rejected"
+assert_equal "0" "$(
+    sed -n '/candidate_pid=104/,/termination_result=/p' "$process_root/lifecycle.log" |
+        sed -n 's/^match=//p'
+)" "missing projectPath rejected"
+echo "fallback exact ownership and preexisting protection: PASS"
+
+primary_root="$TEST_ROOT/primary-ownership"
+mkdir -p "$primary_root/project" "$primary_root/baseline"
+printf 'baseline\n' > "$primary_root/project/guarded.asset"
+cp "$primary_root/project/guarded.asset" "$primary_root/baseline/guarded.asset"
+: > "$process_inventory"
+: > "$process_killed"
+PROJECT_PATH_WSL="$primary_root/project"
+PROJECT_PATH_WIN="$PROJECT_PATH_WSL"
+visual_guard_begin \
+    "$primary_root/baseline" \
+    "$primary_root/mutation.log" \
+    "$primary_root/lifecycle.log" \
+    "PrimaryOwnership"
+setsid sleep 300 &
+primary_pid=$!
+VISUAL_GUARD_ACTIVE_CHILD_PID="$primary_pid"
+VISUAL_GUARD_ACTIVE_CHILD_PGID="$primary_pid"
+VISUAL_GUARD_OWNED_CHILD_PID="$primary_pid"
+VISUAL_GUARD_OWNED_CHILD_PGID="$primary_pid"
+visual_guard_finish 0
+if kill -0 "$primary_pid" 2>/dev/null; then
+    echo "ERROR: primary owned child remains: $primary_pid"
+    exit 1
+fi
+assert_equal "0" "$VISUAL_GUARD_FALLBACK_USED" "valid primary metadata skips fallback"
+assert_equal "" "$(cat "$process_killed")" "primary termination does not use candidate killer"
+echo "primary PID/PGID ownership: PASS"
 
 echo "visual runner interruption cleanup checks passed"

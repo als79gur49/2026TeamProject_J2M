@@ -21,13 +21,31 @@ VISUAL_GUARD_TRAP_INSTALLED=0
 VISUAL_GUARD_INTERRUPTED=0
 VISUAL_GUARD_TERMINATION_SIGNAL=""
 VISUAL_GUARD_SIGNAL_STATUS=0
+VISUAL_GUARD_PENDING_SIGNAL_NAME=""
+VISUAL_GUARD_PENDING_SIGNAL_STATUS=0
+VISUAL_GUARD_ORIGINAL_COMMAND_STATUS=0
 VISUAL_GUARD_OBSERVATION_COMPLETED=0
 VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
 VISUAL_GUARD_CLEANUP_STARTED=0
 VISUAL_GUARD_CLEANUP_COMPLETED=0
+VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=0
 VISUAL_GUARD_CLEANUP_STATUS=0
 VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
 VISUAL_GUARD_ACTIVE_CHILD_PID=""
+VISUAL_GUARD_ACTIVE_CHILD_PGID=""
+VISUAL_GUARD_OWNED_CHILD_PID=""
+VISUAL_GUARD_OWNED_CHILD_PGID=""
+VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
+VISUAL_GUARD_FALLBACK_USED=0
+VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
+VISUAL_GUARD_CANDIDATE_SOURCES=()
+VISUAL_GUARD_CANDIDATE_PIDS=()
+VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW=()
+VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL=()
+VISUAL_GUARD_CANDIDATE_PREEXISTING=()
+VISUAL_GUARD_CANDIDATE_MATCHES=()
+VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED=()
+VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
 VISUAL_GUARD_EXITING=0
 
 TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
@@ -776,18 +794,37 @@ visual_guard_reset_state() {
     VISUAL_GUARD_INTERRUPTED=0
     VISUAL_GUARD_TERMINATION_SIGNAL=""
     VISUAL_GUARD_SIGNAL_STATUS=0
+    VISUAL_GUARD_PENDING_SIGNAL_NAME=""
+    VISUAL_GUARD_PENDING_SIGNAL_STATUS=0
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS=0
     VISUAL_GUARD_OBSERVATION_COMPLETED=0
     VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
     VISUAL_GUARD_CLEANUP_STARTED=0
     VISUAL_GUARD_CLEANUP_COMPLETED=0
+    VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=0
     VISUAL_GUARD_CLEANUP_STATUS=0
     VISUAL_GUARD_RESTORE_RESULT="NOT_STARTED"
     VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_ACTIVE_CHILD_PGID=""
+    VISUAL_GUARD_OWNED_CHILD_PID=""
+    VISUAL_GUARD_OWNED_CHILD_PGID=""
+    VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
+    VISUAL_GUARD_FALLBACK_USED=0
+    VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
+    VISUAL_GUARD_CANDIDATE_SOURCES=()
+    VISUAL_GUARD_CANDIDATE_PIDS=()
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW=()
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL=()
+    VISUAL_GUARD_CANDIDATE_PREEXISTING=()
+    VISUAL_GUARD_CANDIDATE_MATCHES=()
+    VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED=()
+    VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
     VISUAL_GUARD_EXITING=0
 }
 
 visual_guard_write_lifecycle_evidence() {
     local final_exit_status="$1"
+    local index
 
     if [ -z "$VISUAL_GUARD_LIFECYCLE_EVIDENCE" ]; then
         return 0
@@ -806,13 +843,35 @@ visual_guard_write_lifecycle_evidence() {
         )"
         echo "termination_signal=$VISUAL_GUARD_TERMINATION_SIGNAL"
         echo "signal_exit_status=$VISUAL_GUARD_SIGNAL_STATUS"
+        echo "pending_signal_name=$VISUAL_GUARD_PENDING_SIGNAL_NAME"
+        echo "pending_signal_status=$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+        echo "original_command_status=$VISUAL_GUARD_ORIGINAL_COMMAND_STATUS"
         echo "observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"
         echo "mutation_observation_completed=$VISUAL_GUARD_OBSERVATION_COMPLETED"
         echo "lane_verdict=$VISUAL_GUARD_LANE_VERDICT"
         echo "cleanup_started=$VISUAL_GUARD_CLEANUP_STARTED"
         echo "cleanup_completed=$VISUAL_GUARD_CLEANUP_COMPLETED"
+        echo "cleanup_effective_count=$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT"
+        echo "cleanup_status=$VISUAL_GUARD_CLEANUP_STATUS"
         echo "restore_result=$VISUAL_GUARD_RESTORE_RESULT"
+        echo "owned_child_pid=$VISUAL_GUARD_OWNED_CHILD_PID"
+        echo "owned_child_pgid=$VISUAL_GUARD_OWNED_CHILD_PGID"
+        echo "fallback_used=$VISUAL_GUARD_FALLBACK_USED"
+        echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
         echo "final_exit_status=$final_exit_status"
+        for index in "${!VISUAL_GUARD_CANDIDATE_PIDS[@]}"; do
+            echo
+            echo "[process-candidate/$index]"
+            echo "candidate_source=${VISUAL_GUARD_CANDIDATE_SOURCES[$index]}"
+            echo "candidate_pid=${VISUAL_GUARD_CANDIDATE_PIDS[$index]}"
+            echo "candidate_project_path_raw=${VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW[$index]}"
+            echo "candidate_project_path_canonical=${VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL[$index]}"
+            echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
+            echo "preexisting=${VISUAL_GUARD_CANDIDATE_PREEXISTING[$index]}"
+            echo "match=${VISUAL_GUARD_CANDIDATE_MATCHES[$index]}"
+            echo "termination_attempted=${VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED[$index]}"
+            echo "termination_result=${VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS[$index]}"
+        done
     } > "$VISUAL_GUARD_LIFECYCLE_EVIDENCE"
 }
 
@@ -831,14 +890,66 @@ visual_guard_prepare_interrupted_mutation_evidence() {
     } > "$VISUAL_GUARD_MUTATION_EVIDENCE"
 }
 
+visual_guard_record_signal() {
+    local signal_name="$1"
+    local signal_status="$2"
+
+    if [ "$VISUAL_GUARD_PENDING_SIGNAL_STATUS" -eq 0 ]; then
+        VISUAL_GUARD_PENDING_SIGNAL_NAME="$signal_name"
+        VISUAL_GUARD_PENDING_SIGNAL_STATUS="$signal_status"
+    fi
+    VISUAL_GUARD_INTERRUPTED=1
+    VISUAL_GUARD_TERMINATION_SIGNAL="$VISUAL_GUARD_PENDING_SIGNAL_NAME"
+    VISUAL_GUARD_SIGNAL_STATUS="$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+    VISUAL_GUARD_LANE_VERDICT="INTERRUPTED"
+}
+
+visual_guard_request_active_child_stop() {
+    if [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PGID" ] &&
+       kill -0 -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null; then
+        kill -TERM -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null || true
+    elif [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PID" ] &&
+         kill -0 "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null; then
+        kill -TERM "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null || true
+    fi
+}
+
+visual_guard_calculate_final_status() {
+    local original_status="$1"
+    local cleanup_status="$2"
+
+    if [ "$VISUAL_GUARD_PENDING_SIGNAL_STATUS" -ne 0 ]; then
+        printf '%s\n' "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+    elif [ "$original_status" -ne 0 ]; then
+        printf '%s\n' "$original_status"
+    elif [ "$cleanup_status" -ne 0 ]; then
+        printf '%s\n' "$cleanup_status"
+    else
+        printf '0\n'
+    fi
+}
+
 visual_guard_stop_active_child() {
     local child_pid="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    local child_pgid="$VISUAL_GUARD_ACTIVE_CHILD_PGID"
     local attempt
+    local primary_live=0
 
-    if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
-        kill -TERM -- "-$child_pid" 2>/dev/null ||
-            kill -TERM "$child_pid" 2>/dev/null ||
-            true
+    if [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; then
+        primary_live=1
+        kill -TERM -- "-$child_pgid" 2>/dev/null || true
+        for attempt in $(seq 1 50); do
+            if ! kill -0 -- "-$child_pgid" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+        done
+        if kill -0 -- "-$child_pgid" 2>/dev/null; then
+            kill -KILL -- "-$child_pgid" 2>/dev/null || true
+        fi
+    elif [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
+        primary_live=1
+        kill -TERM "$child_pid" 2>/dev/null || true
         for attempt in $(seq 1 50); do
             if ! kill -0 "$child_pid" 2>/dev/null; then
                 break
@@ -846,21 +957,19 @@ visual_guard_stop_active_child() {
             sleep 0.1
         done
         if kill -0 "$child_pid" 2>/dev/null; then
-            kill -KILL -- "-$child_pid" 2>/dev/null ||
-                kill -KILL "$child_pid" 2>/dev/null ||
-                true
+            kill -KILL "$child_pid" 2>/dev/null || true
         fi
     fi
     if [ -n "$child_pid" ]; then
         wait "$child_pid" 2>/dev/null || true
     fi
     VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_ACTIVE_CHILD_PGID=""
 
-    if declare -F terminate_current_project_unity_processes >/dev/null; then
-        terminate_current_project_unity_processes
+    if [ "$primary_live" -eq 0 ]; then
+        visual_guard_terminate_fallback_candidates
     fi
-    if declare -F find_current_project_unity_processes >/dev/null &&
-       [ -n "$(find_current_project_unity_processes)" ]; then
+    if [ -n "$(visual_guard_find_owned_remaining_unity_processes)" ]; then
         echo "ERROR: Visual guard left a current-project Unity child running."
         return 1
     fi
@@ -875,12 +984,16 @@ visual_guard_cleanup() {
     fi
 
     VISUAL_GUARD_CLEANUP_STARTED=1
-    trap '' INT TERM
+    VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT + 1))
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
 
     if ! visual_guard_stop_active_child; then
         cleanup_status=1
     fi
 
+    if declare -F visual_guard_cleanup_test_hook >/dev/null; then
+        visual_guard_cleanup_test_hook "before_restore"
+    fi
     if [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ]; then
         visual_guard_prepare_interrupted_mutation_evidence
         if restore_capture_assets_from_baseline \
@@ -894,41 +1007,40 @@ visual_guard_cleanup() {
     else
         VISUAL_GUARD_RESTORE_RESULT="SKIPPED_BASELINE_NOT_READY"
     fi
+    if declare -F visual_guard_cleanup_test_hook >/dev/null; then
+        visual_guard_cleanup_test_hook "after_restore_before_completed"
+    fi
 
     VISUAL_GUARD_CLEANUP_STATUS="$cleanup_status"
     VISUAL_GUARD_CLEANUP_COMPLETED=1
     visual_guard_write_lifecycle_evidence "$original_status"
-    if [ "$VISUAL_GUARD_TRAP_INSTALLED" -eq 1 ] &&
-       [ "$VISUAL_GUARD_EXITING" -eq 0 ]; then
-        trap 'visual_guard_handle_signal INT 130' INT
-        trap 'visual_guard_handle_signal TERM 143' TERM
-    fi
     return "$cleanup_status"
 }
 
 visual_guard_handle_signal() {
-    VISUAL_GUARD_INTERRUPTED=1
-    VISUAL_GUARD_TERMINATION_SIGNAL="$1"
-    VISUAL_GUARD_SIGNAL_STATUS="$2"
-    VISUAL_GUARD_LANE_VERDICT="INTERRUPTED"
-    exit "$2"
+    visual_guard_record_signal "$1" "$2"
+    if [ "$VISUAL_GUARD_CLEANUP_STARTED" -eq 1 ]; then
+        return 0
+    fi
+    visual_guard_request_active_child_stop
+    exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
 }
 
 visual_guard_handle_exit() {
     local original_status="$1"
     local cleanup_status=0
-    local final_status="$original_status"
+    local final_status
 
     VISUAL_GUARD_EXITING=1
-    trap - EXIT INT TERM
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
+    trap - EXIT
     visual_guard_cleanup "$original_status" || cleanup_status=$?
-    if [ "$original_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
-        final_status="$cleanup_status"
-    fi
+    final_status="$(visual_guard_calculate_final_status "$original_status" "$cleanup_status")"
     if [ "$cleanup_status" -ne 0 ]; then
         echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
     fi
     visual_guard_write_lifecycle_evidence "$final_status"
+    trap - INT TERM
     exit "$final_status"
 }
 
@@ -960,6 +1072,8 @@ visual_guard_begin() {
     trap 'visual_guard_handle_signal TERM 143' TERM
     VISUAL_GUARD_TRAP_INSTALLED=1
     visual_guard_write_lifecycle_evidence 0
+    visual_guard_snapshot_preexisting_unity_pids
+    visual_guard_write_lifecycle_evidence 0
 }
 
 visual_guard_run_command() {
@@ -967,12 +1081,17 @@ visual_guard_run_command() {
 
     setsid "$@" &
     VISUAL_GUARD_ACTIVE_CHILD_PID=$!
+    VISUAL_GUARD_ACTIVE_CHILD_PGID="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    VISUAL_GUARD_OWNED_CHILD_PID="$VISUAL_GUARD_ACTIVE_CHILD_PID"
+    VISUAL_GUARD_OWNED_CHILD_PGID="$VISUAL_GUARD_ACTIVE_CHILD_PGID"
+    visual_guard_write_lifecycle_evidence 0
     if wait "$VISUAL_GUARD_ACTIVE_CHILD_PID"; then
         command_status=0
     else
         command_status=$?
     fi
     VISUAL_GUARD_ACTIVE_CHILD_PID=""
+    VISUAL_GUARD_ACTIVE_CHILD_PGID=""
     return "$command_status"
 }
 
@@ -984,12 +1103,11 @@ visual_guard_mark_observation_complete() {
 visual_guard_finish() {
     local original_status="$1"
     local cleanup_status=0
-    local final_status="$original_status"
+    local final_status
 
+    VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
     visual_guard_cleanup "$original_status" || cleanup_status=$?
-    if [ "$original_status" -eq 0 ] && [ "$cleanup_status" -ne 0 ]; then
-        final_status="$cleanup_status"
-    fi
+    final_status="$(visual_guard_calculate_final_status "$original_status" "$cleanup_status")"
     if [ "$cleanup_status" -ne 0 ]; then
         echo "ERROR: Visual guard cleanup failed (original status: $original_status, cleanup status: $cleanup_status)."
     fi
@@ -1261,87 +1379,364 @@ print("  PNG size/SHA-256: verified for all six captures")
 PY
 }
 
-find_current_project_unity_processes() {
-    ps -eo pid,ppid,stat,etime,args |
-        grep -F "$PROJECT_PATH_WIN" |
-        grep -Ei 'Unity(\.exe|Editor)|/Unity\.exe' |
-        grep -v '[g]rep' || true
+extract_project_path_from_argv() {
+    local previous_was_project_path=0
+    local argument
 
-    find_current_project_windows_unity_processes
+    for argument in "$@"; do
+        if [ "$previous_was_project_path" -eq 1 ]; then
+            printf '%s\n' "$argument"
+            return 0
+        fi
+        if [ "${argument,,}" = "-projectpath" ]; then
+            previous_was_project_path=1
+        fi
+    done
+    return 1
+}
+
+canonicalize_visual_project_path() {
+    local raw_path="$1"
+    local normalized_path
+
+    if [ -z "$raw_path" ]; then
+        return 1
+    fi
+    normalized_path="${raw_path//\\//}"
+    if [[ "$normalized_path" =~ ^[A-Za-z]:/ ]]; then
+        if command -v wslpath >/dev/null 2>&1; then
+            normalized_path="$(wslpath -u "$normalized_path" 2>/dev/null || printf '%s' "$normalized_path")"
+        fi
+    fi
+    if [[ "$normalized_path" = /* ]]; then
+        normalized_path="$(realpath -m -- "$normalized_path" 2>/dev/null || printf '%s' "$normalized_path")"
+    else
+        normalized_path="$(realpath -m -- "$PROJECT_PATH_WSL/$normalized_path" 2>/dev/null || printf '%s' "$normalized_path")"
+    fi
+    if [[ "$normalized_path" =~ ^/mnt/[A-Za-z]/ ]]; then
+        normalized_path="${normalized_path,,}"
+    fi
+    if [ "$normalized_path" != "/" ]; then
+        normalized_path="${normalized_path%/}"
+    fi
+    printf '%s\n' "$normalized_path"
+}
+
+visual_project_paths_match() {
+    local candidate_canonical
+    local expected_canonical
+
+    candidate_canonical="$(canonicalize_visual_project_path "$1")" || return 1
+    expected_canonical="$(canonicalize_visual_project_path "$2")" || return 1
+    [ "$candidate_canonical" = "$expected_canonical" ]
+}
+
+visual_guard_iter_wsl_unity_process_records() {
+    local process_dir
+    local pid
+    local ppid
+    local executable_name
+    local project_path_raw
+    local project_path_base64
+    local -a argv
+
+    for process_dir in /proc/[0-9]*; do
+        pid="${process_dir##*/}"
+        if [ ! -r "$process_dir/cmdline" ] || [ ! -r "$process_dir/stat" ]; then
+            continue
+        fi
+        argv=()
+        mapfile -d '' -t argv < "$process_dir/cmdline" 2>/dev/null || true
+        if [ "${#argv[@]}" -eq 0 ]; then
+            continue
+        fi
+        executable_name="${argv[0]##*[\\/]}"
+        case "${executable_name,,}" in
+            unity|unity.exe|unityeditor|unityeditor.exe)
+                ;;
+            *)
+                continue
+                ;;
+        esac
+        ppid="$(awk '{print $4}' "$process_dir/stat" 2>/dev/null || true)"
+        project_path_raw="$(extract_project_path_from_argv "${argv[@]}" || true)"
+        project_path_base64="$(printf '%s' "$project_path_raw" | base64 -w0)"
+        printf 'wsl\t%s\t%s\t%s\n' "$pid" "$ppid" "$project_path_base64"
+    done
+}
+
+visual_guard_iter_windows_unity_process_records() {
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        return 0
+    fi
+
+    powershell.exe -NoProfile -Command '
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class VisualGuardCommandLine {
+    [DllImport("shell32.dll", SetLastError = true)]
+    public static extern IntPtr CommandLineToArgvW(
+        [MarshalAs(UnmanagedType.LPWStr)] string commandLine,
+        out int argumentCount);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr LocalFree(IntPtr memory);
+}
+"@
+        function Split-NativeCommandLine([string]$commandLine) {
+            if ([string]::IsNullOrWhiteSpace($commandLine)) { return @() }
+            $count = 0
+            $pointer = [VisualGuardCommandLine]::CommandLineToArgvW($commandLine, [ref]$count)
+            if ($pointer -eq [IntPtr]::Zero) { return @() }
+            try {
+                $arguments = @()
+                for ($index = 0; $index -lt $count; $index++) {
+                    $item = [Runtime.InteropServices.Marshal]::ReadIntPtr(
+                        $pointer,
+                        $index * [IntPtr]::Size)
+                    $arguments += [Runtime.InteropServices.Marshal]::PtrToStringUni($item)
+                }
+                return $arguments
+            }
+            finally {
+                [void][VisualGuardCommandLine]::LocalFree($pointer)
+            }
+        }
+        Get-CimInstance Win32_Process |
+            Where-Object { $_.Name -ieq "Unity.exe" } |
+            ForEach-Object {
+                $arguments = @(Split-NativeCommandLine $_.CommandLine)
+                $projectPath = ""
+                for ($index = 0; $index -lt $arguments.Count; $index++) {
+                    if ($arguments[$index] -ieq "-projectPath" -and
+                        ($index + 1) -lt $arguments.Count) {
+                        $projectPath = $arguments[$index + 1]
+                        break
+                    }
+                }
+                $encoded = [Convert]::ToBase64String(
+                    [Text.Encoding]::UTF8.GetBytes($projectPath))
+                "windows`t$($_.ProcessId)`t$($_.ParentProcessId)`t$encoded"
+            }
+    ' 2>/dev/null | tr -d '\r' || true
+}
+
+visual_guard_iter_unity_process_records() {
+    visual_guard_iter_wsl_unity_process_records
+    visual_guard_iter_windows_unity_process_records
+}
+
+visual_guard_decode_project_path() {
+    local encoded="$1"
+
+    if [ -z "$encoded" ]; then
+        return 0
+    fi
+    printf '%s' "$encoded" | base64 -d 2>/dev/null || true
+}
+
+visual_guard_is_preexisting_unity_key() {
+    local key="$1"
+
+    if [ -z "$VISUAL_GUARD_PREEXISTING_UNITY_KEYS" ]; then
+        return 1
+    fi
+    printf '%s\n' "$VISUAL_GUARD_PREEXISTING_UNITY_KEYS" | grep -Fx -- "$key" >/dev/null
+}
+
+visual_guard_snapshot_preexisting_unity_pids() {
+    local source
+    local pid
+    local ppid
+    local project_path_base64
+    local key
+
+    VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
+    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+        if [ -z "$source" ] || [ -z "$pid" ]; then
+            continue
+        fi
+        key="$source:$pid"
+        VISUAL_GUARD_PREEXISTING_UNITY_KEYS+="${VISUAL_GUARD_PREEXISTING_UNITY_KEYS:+$'\n'}$key"
+    done < <(visual_guard_iter_unity_process_records)
+    VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL="$(
+        canonicalize_visual_project_path "$PROJECT_PATH_WIN" || true
+    )"
+}
+
+visual_guard_record_process_candidate() {
+    VISUAL_GUARD_CANDIDATE_SOURCES+=("$1")
+    VISUAL_GUARD_CANDIDATE_PIDS+=("$2")
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW+=("$3")
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL+=("$4")
+    VISUAL_GUARD_CANDIDATE_PREEXISTING+=("$5")
+    VISUAL_GUARD_CANDIDATE_MATCHES+=("$6")
+    VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED+=("$7")
+    VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS+=("$8")
+}
+
+visual_guard_terminate_candidate() {
+    local source="$1"
+    local pid="$2"
+    local attempt
+
+    if [ "$source" = "wsl" ]; then
+        if ! kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        kill -TERM "$pid" 2>/dev/null || true
+        for attempt in $(seq 1 20); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+                return 0
+            fi
+            sleep 0.1
+        done
+        kill -KILL "$pid" 2>/dev/null || true
+        ! kill -0 "$pid" 2>/dev/null
+        return
+    fi
+    if [ "$source" = "windows" ] &&
+       command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -Command '
+            param([int]$ProcessId)
+            Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        ' "$pid" >/dev/null 2>&1 || true
+        return 0
+    fi
+    return 1
+}
+
+visual_guard_terminate_fallback_candidates() {
+    local source
+    local pid
+    local ppid
+    local project_path_base64
+    local project_path_raw
+    local project_path_canonical
+    local preexisting
+    local match
+    local attempted
+    local result
+    local key
+
+    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+        if [ -z "$source" ] || [ -z "$pid" ]; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        project_path_canonical="$(
+            canonicalize_visual_project_path "$project_path_raw" || true
+        )"
+        key="$source:$pid"
+        preexisting=0
+        match=0
+        attempted=0
+        result="NOT_ATTEMPTED"
+        if visual_guard_is_preexisting_unity_key "$key"; then
+            preexisting=1
+        fi
+        if [ -n "$project_path_canonical" ] &&
+           [ "$project_path_canonical" = "$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL" ]; then
+            match=1
+        fi
+        if [ "$match" -eq 1 ] && [ "$preexisting" -eq 0 ]; then
+            VISUAL_GUARD_FALLBACK_USED=1
+            attempted=1
+            if visual_guard_terminate_candidate "$source" "$pid"; then
+                result="TERMINATED"
+            else
+                result="FAILED"
+            fi
+        fi
+        visual_guard_record_process_candidate \
+            "$source" \
+            "$pid" \
+            "$project_path_raw" \
+            "$project_path_canonical" \
+            "$preexisting" \
+            "$match" \
+            "$attempted" \
+            "$result"
+    done < <(visual_guard_iter_unity_process_records)
+}
+
+visual_guard_find_owned_remaining_unity_processes() {
+    local source
+    local pid
+    local ppid
+    local project_path_base64
+    local project_path_raw
+    local project_path_canonical
+
+    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+        if [ -z "$source" ] || [ -z "$pid" ] ||
+           visual_guard_is_preexisting_unity_key "$source:$pid"; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        project_path_canonical="$(
+            canonicalize_visual_project_path "$project_path_raw" || true
+        )"
+        if [ -n "$project_path_canonical" ] &&
+           [ "$project_path_canonical" = "$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL" ]; then
+            printf '%s:%s\n' "$source" "$pid"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
+}
+
+find_current_project_unity_processes() {
+    local source
+    local pid
+    local ppid
+    local project_path_base64
+    local project_path_raw
+
+    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
+            printf '%s %s %s projectPath=%s\n' "$pid" "$ppid" "$source" "$project_path_raw"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
 }
 
 find_current_project_windows_unity_processes() {
-    if ! command -v powershell.exe >/dev/null 2>&1; then
-        return 0
-    fi
-
-    powershell.exe -NoProfile -Command '
-        & {
-        param([string]$project)
-        if ([string]::IsNullOrWhiteSpace($project)) { exit 0 }
-        $project = $project.TrimEnd("\").ToLowerInvariant()
-        $processes = Get-CimInstance Win32_Process
-        $roots = $processes | Where-Object {
-            $_.Name -eq "Unity.exe" -and
-            $_.CommandLine -and
-            $_.CommandLine.ToLowerInvariant().Contains($project)
-        }
-        $ids = @($roots | ForEach-Object { [int]$_.ProcessId })
-        do {
-            $added = $false
-            foreach ($process in $processes) {
-                if (($ids -contains [int]$process.ParentProcessId) -and -not ($ids -contains [int]$process.ProcessId)) {
-                    $ids += [int]$process.ProcessId
-                    $added = $true
-                }
-            }
-        } while ($added)
-        foreach ($process in $processes) {
-            if ($ids -contains [int]$process.ProcessId) {
-                "{0} {1} {2} {3}" -f $process.ProcessId, $process.ParentProcessId, $process.Name, $process.CommandLine
-            }
-        }
-        }
-    ' "$PROJECT_PATH_WIN" 2>/dev/null | tr -d '\r' || true
+    find_current_project_unity_processes | awk '$3 == "windows"'
 }
 
 current_project_unity_pids() {
-    ps -eo pid,ppid,stat,etime,args |
-        grep -F "$PROJECT_PATH_WIN" |
-        grep -Ei 'Unity(\.exe|Editor)|/Unity\.exe' |
-        grep -v '[g]rep' |
-        awk '{print $1}' || true
+    local source
+    local pid
+    local ppid
+    local project_path_base64
+    local project_path_raw
+
+    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+        if [ "$source" != "wsl" ]; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
+            printf '%s\n' "$pid"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
 }
 
 current_project_windows_unity_pids() {
-    if ! command -v powershell.exe >/dev/null 2>&1; then
-        return 0
-    fi
+    local source
+    local pid
+    local ppid
+    local project_path_base64
+    local project_path_raw
 
-    powershell.exe -NoProfile -Command '
-        & {
-        param([string]$project)
-        if ([string]::IsNullOrWhiteSpace($project)) { exit 0 }
-        $project = $project.TrimEnd("\").ToLowerInvariant()
-        $processes = Get-CimInstance Win32_Process
-        $roots = $processes | Where-Object {
-            $_.Name -eq "Unity.exe" -and
-            $_.CommandLine -and
-            $_.CommandLine.ToLowerInvariant().Contains($project)
-        }
-        $ids = @($roots | ForEach-Object { [int]$_.ProcessId })
-        do {
-            $added = $false
-            foreach ($process in $processes) {
-                if (($ids -contains [int]$process.ParentProcessId) -and -not ($ids -contains [int]$process.ProcessId)) {
-                    $ids += [int]$process.ProcessId
-                    $added = $true
-                }
-            }
-        } while ($added)
-        $ids | Sort-Object -Descending
-        }
-    ' "$PROJECT_PATH_WIN" 2>/dev/null | tr -d '\r' || true
+    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+        if [ "$source" != "windows" ]; then
+            continue
+        fi
+        project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
+        if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
+            printf '%s\n' "$pid"
+        fi
+    done < <(visual_guard_iter_unity_process_records)
 }
 
 current_project_lock_holders() {
