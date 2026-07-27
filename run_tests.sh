@@ -546,6 +546,7 @@ print_typography_visual_plan() {
         timeout --kill-after=10 600
         "$UNITY_PATH"
         -batchmode
+        -quit
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
         -executeMethod "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD"
@@ -1644,7 +1645,6 @@ run_objective_hud_visual() {
         timeout --kill-after=10 600
         "$UNITY_PATH"
         -batchmode
-        -quit
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$unity_log_win"
         -executeMethod TestRunnerCliBootstrap.RunPlayMode
