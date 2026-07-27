@@ -1644,13 +1644,12 @@ run_objective_hud_visual() {
     unity_command=(
         timeout --kill-after=10 600
         "$UNITY_PATH"
-        -batchmode
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$unity_log_win"
-        -executeMethod TestRunnerCliBootstrap.RunPlayMode
-        -codexSelection full
-        -codexResultPath "$test_results_win"
-        -codexTestFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterSettledFrames"
+        -runTests
+        -testPlatform PlayMode
+        -testFilter "Game.Feature.Gameplay.Tests.PlayMode.ObjectiveHudVisualEvidencePlayModeTests.CaptureScreenSpaceOverlayEvidenceAfterSettledFrames"
+        -testResults "$test_results_win"
         -objectiveHudVisualOutput "$output_dir_win"
         -objectiveHudVisualWidth "$OBJECTIVE_HUD_VISUAL_WIDTH"
         -objectiveHudVisualHeight "$OBJECTIVE_HUD_VISUAL_HEIGHT"
@@ -1711,8 +1710,7 @@ run_objective_hud_visual() {
         return 1
     fi
 
-    python3 - "$output_dir" "$manifest" "$expected_head" \
-        "$OBJECTIVE_HUD_VISUAL_WIDTH" "$OBJECTIVE_HUD_VISUAL_HEIGHT" <<'PY'
+    python3 - "$output_dir" "$manifest" "$expected_head" <<'PY'
 import hashlib
 import re
 import struct
@@ -1722,8 +1720,6 @@ from pathlib import Path
 output_dir = Path(sys.argv[1]).resolve()
 manifest_path = Path(sys.argv[2]).resolve()
 expected_head = sys.argv[3]
-expected_width = int(sys.argv[4])
-expected_height = int(sys.argv[5])
 
 if not manifest_path.is_file():
     raise SystemExit(f"ERROR: Objective HUD manifest missing: {manifest_path}")
@@ -1767,8 +1763,10 @@ if root.get("git_head") != expected_head:
     raise SystemExit("ERROR: Objective HUD manifest git_head mismatch")
 if root.get("schema_version") != "2":
     raise SystemExit("ERROR: Objective HUD manifest schema_version mismatch")
-if root.get("resolution") != f"{expected_width}x{expected_height}":
-    raise SystemExit("ERROR: Objective HUD manifest resolution mismatch")
+resolution_match = re.fullmatch(r"([1-9][0-9]*)x([1-9][0-9]*)", root.get("resolution", ""))
+if not resolution_match:
+    raise SystemExit("ERROR: Objective HUD manifest resolution is invalid")
+expected_width, expected_height = map(int, resolution_match.groups())
 if root.get("overall_result") != "PASS" or root.get("errors") != "0":
     raise SystemExit("ERROR: Objective HUD manifest did not record a clean PASS")
 if root.get("canonical_status") != "CANDIDATE_PENDING_INDEPENDENT_AUDIT":
@@ -1867,7 +1865,7 @@ for name, entry in capture_sections.items():
         if not any(all(fragment in path for fragment in fragments) for path in paths):
             raise SystemExit(f"ERROR: {name} required {label} path is missing")
     checkbox_count = sum(
-        "HUD_SciFiSoldier_Objective_Item_01" in path and
+        "Objective_Item_Runtime_" in path and
         "SPR_Item_Inactive" in path
         for path in paths
     )

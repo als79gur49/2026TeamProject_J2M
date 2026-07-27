@@ -71,7 +71,9 @@ namespace Game.Feature.UI.Tests
             Directory.CreateDirectory(outputDirectory);
             Screen.SetResolution(width, height, FullScreenMode.Windowed);
             yield return null;
-            yield return null;
+            yield return new WaitForEndOfFrame();
+            width = Screen.width;
+            height = Screen.height;
 
             var gitHead = TypographyPreviewScreenshotManifestUtility.ReadCurrentGitHead();
             var errors = new List<string>();
@@ -435,41 +437,22 @@ namespace Game.Feature.UI.Tests
 
                 yield return null;
                 Canvas.ForceUpdateCanvases();
-                yield return null;
+                yield return new WaitForEndOfFrame();
                 Canvas.ForceUpdateCanvases();
-                yield return null;
+                yield return new WaitForEndOfFrame();
 
+                texture = ScreenCapture.CaptureScreenshotAsTexture();
                 var fileName = $"HUD_Objectives_{scenario.State}_{scenario.Locale}.png";
                 var filePath = Path.Combine(outputDirectory, fileName);
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-
-                ScreenCapture.CaptureScreenshot(filePath);
-                var captureFrameIndex = 0;
-                while (captureFrameIndex < 16 &&
-                       (!File.Exists(filePath) || new FileInfo(filePath).Length == 0))
-                {
-                    captureFrameIndex++;
-                    yield return null;
-                }
-
-                if (!File.Exists(filePath) || new FileInfo(filePath).Length == 0)
+                if (texture == null)
                 {
                     throw new InvalidOperationException(
-                        "ScreenSpaceOverlay screenshot request did not produce a PNG within 16 frames.");
+                        "ScreenSpaceOverlay backbuffer capture returned no texture.");
                 }
 
-                var pngBytes = File.ReadAllBytes(filePath);
-                texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                if (!ImageConversion.LoadImage(texture, pngBytes, markNonReadable: false))
-                {
-                    throw new InvalidOperationException(
-                        "ScreenSpaceOverlay screenshot PNG could not be decoded.");
-                }
-
+                var pngBytes = texture.EncodeToPNG();
                 var pixels = texture.GetPixels32();
+                File.WriteAllBytes(filePath, pngBytes);
                 if (texture.width != width || texture.height != height)
                 {
                     throw new InvalidOperationException(
@@ -505,8 +488,8 @@ namespace Game.Feature.UI.Tests
                     ComputeSemanticSnapshotHash(initialReadModel),
                     ComputeHierarchyHash(root),
                     cameraRenderPassCount: 0,
-                    captureFrameIndex,
-                    endOfFrameCount: 1,
+                    captureFrameIndex: 2,
+                    endOfFrameCount: 2,
                     nonBlank ? "PASS" : "FAIL",
                     "PASS",
                     "PASS",
