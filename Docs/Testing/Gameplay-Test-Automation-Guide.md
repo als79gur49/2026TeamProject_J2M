@@ -54,12 +54,14 @@
 - Fallback은 `/proc/uptime` monotonic clock을 기준으로 primary 종료 후 `6000ms` startup grace 전체를 `200ms` 간격으로 관찰한다. Grace 중 empty scan은 조기 종료 조건이 아니며, deadline scan에 나타난 eligible candidate도 종료한다.
 - Startup grace가 완료되고 exact-path candidate가 없는 상태에서만 quiet completion을 판정한다. Quiet period는 마지막 candidate 종료 시점(한 번도 없으면 grace 완료 시점)부터 `400ms`이며, quiet 중 candidate가 나타나면 종료 후 deadline을 다시 계산한다.
 - Fallback hard timeout은 `12000ms`다. Timeout 또는 final inventory에서 post-start exact-path Unity가 남으면 `FAILED_RUNNER_OWNED_PROCESS_REMAINS`로, survivor는 없지만 quiet가 완료되지 않으면 cleanup failure로 처리한 뒤 asset restore를 best effort로 수행한다.
-- cleanup 시작 전이나 진행 중 도착한 첫 `SIGINT`/`SIGTERM`은 pending signal로 보존한다. cleanup 중 signal은 restore를 재진입하거나 중단하지 않으며, restore 완료 후 첫 signal의 `130`/`143`을 반환한다.
+- 단일 `SIGINT`/`SIGTERM`은 handler가 관측한 해당 signal을 보존해 각각 `130`/`143`을 반환한다. 첫 handler latch 완료가 확인된 뒤 두 번째 signal을 전달하는 순차 경우에는 `FIRST_OBSERVED_SIGNAL_WINS`를 적용한다.
+- Bash가 외부 command를 기다리는 동안 non-real-time `INT`와 `TERM`이 함께 pending되면 trap dispatch order는 `CO_PENDING_SIGNAL_ORDER_UNSPECIFIED`다. POSIX가 이 pending signal들의 전달 순서를 보장하지 않으므로 pure Bash runner는 실제 arrival order를 복원한다고 주장하지 않는다. 이 경우 최종 status는 `130` 또는 `143`이며, `0`, 원래 command status, cleanup failure status만 반환하는 false-success/failure masking은 허용하지 않는다.
+- cleanup 중 handler가 관측한 signal은 restore를 재진입하거나 중단하지 않는다. cleanup은 one-shot으로 끝까지 수행되고, 최종 status 우선순위에는 first-observed interruption status가 사용된다.
 - guard phase는 `RUNNING`, `CLEANING`, `FINALIZING`, `DONE`으로 구분한다. `EXIT` cleanup은 진입 직후 재귀가 차단되고 정확히 한 번만 실행되며, `INT`/`TERM` trap은 최종 `exit`까지 유지한다.
-- `FINALIZING`에서 final status snapshot 전후로 signal이 도착하면 handler가 첫 pending signal을 유지한 채 즉시 `130`/`143`으로 종료한다. 이 경로는 process cleanup, mutation observation, asset restore를 다시 실행하지 않는다.
-- 최종 status 우선순위는 pending signal, 원래 command nonzero, cleanup failure, `0` 순서다.
+- `FINALIZING`에서 final status snapshot 전후로 handler가 signal을 관측하면 first-observed status `130`/`143`으로 즉시 종료한다. 이 경로는 process cleanup, mutation observation, asset restore를 다시 실행하지 않는다.
+- 최종 status 우선순위는 first-observed interruption status, 원래 command nonzero, cleanup failure, `0` 순서다.
 - Unity fallback 종료는 lane 시작 후 나타난 non-preexisting process 중 argv에서 정확히 파싱한 `-projectPath`가 canonical current project path와 같은 process에만 적용한다. 부분 문자열, 유사/prefix/suffix path, 다른 argument의 path는 ownership 근거가 아니다.
-- Lifecycle evidence는 각 output directory의 `runner-cleanup-lifecycle.log`에 cleanup status, owned PID/PGID, fallback/candidate exact-match 판정과 startup-grace/quiet/hard-timeout monotonic timestamp 및 completion 상태를 기록한다.
+- Lifecycle evidence는 각 output directory의 `runner-cleanup-lifecycle.log`에 `signal_order_contract=FIRST_OBSERVED_SEQUENTIAL_CO_PENDING_UNSPECIFIED`, first-observed signal/status, INT/TERM observed mask, 보수적인 co-pending 판정(`false` 또는 `unknown`), final interruption status, cleanup status, owned PID/PGID, fallback/candidate exact-match 판정과 startup-grace/quiet/hard-timeout monotonic timestamp 및 completion 상태를 기록한다.
 
 ### English Original
 - `typography-visual` and `typography-hud-visual` install `EXIT`, `INT`, and `TERM` cleanup traps immediately after all eight guarded-path baselines are complete.
@@ -69,12 +71,14 @@
 - Fallback uses the `/proc/uptime` monotonic clock to observe the full `6000ms` startup grace after primary termination at `200ms` intervals. Empty scans during grace never end polling early, and an eligible candidate on the deadline scan is still terminated.
 - Quiet completion is evaluated only after startup grace completes with no exact-path candidate. The `400ms` quiet period starts at the last candidate termination (or at grace completion when none appeared), and a candidate during quiet is terminated and resets its deadline.
 - The fallback hard timeout is `12000ms`. A timeout or a post-start exact-path Unity process in the final inventory fails cleanup as `FAILED_RUNNER_OWNED_PROCESS_REMAINS`; a timeout with no survivor but incomplete quiet also fails cleanup before best-effort asset restore.
-- The first `SIGINT` or `SIGTERM` received before or during cleanup is retained as a pending signal. A cleanup-time signal neither re-enters nor aborts restore; after restore, the runner returns the first signal's `130` or `143`.
+- A single `SIGINT` or `SIGTERM` is retained when its handler observes it and returns `130` or `143`, respectively. When a synchronization barrier confirms that the first handler has latched before the second signal is sent, `FIRST_OBSERVED_SIGNAL_WINS`.
+- If non-real-time `INT` and `TERM` are both pending while Bash waits for an external command, trap dispatch order is `CO_PENDING_SIGNAL_ORDER_UNSPECIFIED`. POSIX does not guarantee delivery order for those pending signals, so the pure Bash runner does not claim to reconstruct actual arrival order. The final status may be `130` or `143`, but never `0`, the original command status, or only a cleanup-failure status.
+- A signal observed during cleanup neither re-enters nor aborts restore. Cleanup remains one-shot and completes before final status selection uses the first-observed interruption status.
 - Guard phases are `RUNNING`, `CLEANING`, `FINALIZING`, and `DONE`. Recursive `EXIT` cleanup is disabled on entry and cleanup runs exactly once, while the `INT` and `TERM` traps remain installed through the final `exit`.
-- A signal arriving before or after the final-status snapshot in `FINALIZING` immediately exits with the first pending signal's `130` or `143`. This path does not repeat process cleanup, mutation observation, or asset restore.
-- Final status precedence is pending signal, original command nonzero, cleanup failure, then `0`.
+- A signal observed before or after the final-status snapshot in `FINALIZING` immediately exits with the first-observed status `130` or `143`. This path does not repeat process cleanup, mutation observation, or asset restore.
+- Final status precedence is first-observed interruption status, original command nonzero, cleanup failure, then `0`.
 - Unity fallback termination is limited to non-preexisting processes first observed after lane start whose exactly parsed `-projectPath` argv token canonically equals the current project path. Substrings, similar/prefix/suffix paths, and paths found in other arguments do not establish ownership.
-- `runner-cleanup-lifecycle.log` records cleanup status, owned PID/PGID, fallback/candidate exact-match decisions, and startup-grace/quiet/hard-timeout monotonic timestamps and completion state in each capture output directory.
+- `runner-cleanup-lifecycle.log` records `signal_order_contract=FIRST_OBSERVED_SEQUENTIAL_CO_PENDING_UNSPECIFIED`, the first-observed signal/status, INT/TERM observed mask, conservative co-pending state (`false` or `unknown`), final interruption status, cleanup status, owned PID/PGID, fallback/candidate exact-match decisions, and startup-grace/quiet/hard-timeout monotonic timestamps and completion state in each capture output directory.
 
 ## 1. Overview / 개요
 ### 한국어

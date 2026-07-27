@@ -21,8 +21,13 @@ VISUAL_GUARD_TRAP_INSTALLED=0
 VISUAL_GUARD_INTERRUPTED=0
 VISUAL_GUARD_TERMINATION_SIGNAL=""
 VISUAL_GUARD_SIGNAL_STATUS=0
-VISUAL_GUARD_PENDING_SIGNAL_NAME=""
-VISUAL_GUARD_PENDING_SIGNAL_STATUS=0
+VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME="none"
+VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS=0
+VISUAL_GUARD_OBSERVED_SIGNAL_MASK=0
+VISUAL_GUARD_OBSERVED_INT=0
+VISUAL_GUARD_OBSERVED_TERM=0
+VISUAL_GUARD_CO_PENDING_DETECTED="false"
+VISUAL_GUARD_SIGNAL_ORDER_CONTRACT="FIRST_OBSERVED_SEQUENTIAL_CO_PENDING_UNSPECIFIED"
 VISUAL_GUARD_ORIGINAL_COMMAND_STATUS=0
 VISUAL_GUARD_OBSERVATION_COMPLETED=0
 VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
@@ -839,8 +844,13 @@ visual_guard_reset_state() {
     VISUAL_GUARD_INTERRUPTED=0
     VISUAL_GUARD_TERMINATION_SIGNAL=""
     VISUAL_GUARD_SIGNAL_STATUS=0
-    VISUAL_GUARD_PENDING_SIGNAL_NAME=""
-    VISUAL_GUARD_PENDING_SIGNAL_STATUS=0
+    VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME="none"
+    VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS=0
+    VISUAL_GUARD_OBSERVED_SIGNAL_MASK=0
+    VISUAL_GUARD_OBSERVED_INT=0
+    VISUAL_GUARD_OBSERVED_TERM=0
+    VISUAL_GUARD_CO_PENDING_DETECTED="false"
+    VISUAL_GUARD_SIGNAL_ORDER_CONTRACT="FIRST_OBSERVED_SEQUENTIAL_CO_PENDING_UNSPECIFIED"
     VISUAL_GUARD_ORIGINAL_COMMAND_STATUS=0
     VISUAL_GUARD_OBSERVATION_COMPLETED=0
     VISUAL_GUARD_LANE_VERDICT="NOT_STARTED"
@@ -908,13 +918,26 @@ visual_guard_reset_state() {
 visual_guard_write_lifecycle_evidence() {
     local final_exit_status="$1"
     local index
+    local observed_signal_mask_name="none"
 
     if [ -z "$VISUAL_GUARD_LIFECYCLE_EVIDENCE" ]; then
         return 0
     fi
 
+    case "$VISUAL_GUARD_OBSERVED_SIGNAL_MASK" in
+        1)
+            observed_signal_mask_name="INT"
+            ;;
+        2)
+            observed_signal_mask_name="TERM"
+            ;;
+        3)
+            observed_signal_mask_name="INT|TERM"
+            ;;
+    esac
+
     {
-        echo "schema_version=3"
+        echo "schema_version=4"
         echo "lane=$VISUAL_GUARD_LANE"
         echo "cleanup_trap_installed=$VISUAL_GUARD_TRAP_INSTALLED"
         echo "interrupted=$(
@@ -926,8 +949,26 @@ visual_guard_write_lifecycle_evidence() {
         )"
         echo "termination_signal=$VISUAL_GUARD_TERMINATION_SIGNAL"
         echo "signal_exit_status=$VISUAL_GUARD_SIGNAL_STATUS"
-        echo "pending_signal_name=$VISUAL_GUARD_PENDING_SIGNAL_NAME"
-        echo "pending_signal_status=$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+        echo "signal_order_contract=$VISUAL_GUARD_SIGNAL_ORDER_CONTRACT"
+        echo "first_observed_signal=$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME"
+        echo "first_observed_status=$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
+        echo "observed_signal_mask=$observed_signal_mask_name"
+        echo "observed_int=$(
+            if [ "$VISUAL_GUARD_OBSERVED_INT" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "observed_term=$(
+            if [ "$VISUAL_GUARD_OBSERVED_TERM" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "co_pending_detected=$VISUAL_GUARD_CO_PENDING_DETECTED"
+        echo "final_interruption_status=$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
         echo "original_command_status=$VISUAL_GUARD_ORIGINAL_COMMAND_STATUS"
         echo "observation_order=ALL_GUARDED_PATHS_BEFORE_ANY_RESTORE"
         echo "mutation_observation_completed=$VISUAL_GUARD_OBSERVATION_COMPLETED"
@@ -1055,15 +1096,36 @@ visual_guard_prepare_interrupted_mutation_evidence() {
 visual_guard_record_signal() {
     local signal_name="$1"
     local signal_status="$2"
+    local first_observation=0
 
-    if [ "$VISUAL_GUARD_PENDING_SIGNAL_STATUS" -eq 0 ]; then
-        VISUAL_GUARD_PENDING_SIGNAL_NAME="$signal_name"
-        VISUAL_GUARD_PENDING_SIGNAL_STATUS="$signal_status"
+    case "$signal_name" in
+        INT)
+            VISUAL_GUARD_OBSERVED_INT=1
+            VISUAL_GUARD_OBSERVED_SIGNAL_MASK=$((VISUAL_GUARD_OBSERVED_SIGNAL_MASK | 1))
+            ;;
+        TERM)
+            VISUAL_GUARD_OBSERVED_TERM=1
+            VISUAL_GUARD_OBSERVED_SIGNAL_MASK=$((VISUAL_GUARD_OBSERVED_SIGNAL_MASK | 2))
+            ;;
+    esac
+    if [ "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" -eq 0 ]; then
+        VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME="$signal_name"
+        VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS="$signal_status"
+        first_observation=1
     fi
+    VISUAL_GUARD_CO_PENDING_DETECTED="unknown"
     VISUAL_GUARD_INTERRUPTED=1
-    VISUAL_GUARD_TERMINATION_SIGNAL="$VISUAL_GUARD_PENDING_SIGNAL_NAME"
-    VISUAL_GUARD_SIGNAL_STATUS="$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+    VISUAL_GUARD_TERMINATION_SIGNAL="$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_NAME"
+    VISUAL_GUARD_SIGNAL_STATUS="$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
     VISUAL_GUARD_LANE_VERDICT="INTERRUPTED"
+    if [ "${RUN_TESTS_LIBRARY_ONLY:-0}" -eq 1 ] &&
+       [ "${VISUAL_GUARD_TEST_HOOKS_ENABLED:-0}" -eq 1 ] &&
+       declare -F visual_guard_signal_observed_test_hook >/dev/null; then
+        visual_guard_signal_observed_test_hook \
+            "$signal_name" \
+            "$signal_status" \
+            "$first_observation"
+    fi
 }
 
 visual_guard_request_active_child_stop() {
@@ -1089,8 +1151,8 @@ visual_guard_calculate_final_status() {
     local original_status="$1"
     local cleanup_status="$2"
 
-    if [ "$VISUAL_GUARD_PENDING_SIGNAL_STATUS" -ne 0 ]; then
-        printf '%s\n' "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+    if [ "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" -ne 0 ]; then
+        printf '%s\n' "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
     elif [ "$original_status" -ne 0 ]; then
         printf '%s\n' "$original_status"
     elif [ "$cleanup_status" -ne 0 ]; then
@@ -1309,18 +1371,18 @@ visual_guard_handle_signal() {
     case "$VISUAL_GUARD_PHASE" in
         RUNNING)
             visual_guard_request_active_child_stop
-            exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+            exit "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
             ;;
         CLEANING)
             return 0
             ;;
         FINALIZING|DONE)
             visual_guard_write_lifecycle_evidence \
-                "$VISUAL_GUARD_PENDING_SIGNAL_STATUS" || true
-            exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+                "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" || true
+            exit "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
             ;;
         *)
-            exit "$VISUAL_GUARD_PENDING_SIGNAL_STATUS"
+            exit "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS"
             ;;
     esac
 }
