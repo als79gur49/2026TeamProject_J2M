@@ -37,9 +37,27 @@ VISUAL_GUARD_OWNED_CHILD_PID=""
 VISUAL_GUARD_OWNED_CHILD_PGID=""
 VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
 VISUAL_GUARD_FALLBACK_USED=0
+VISUAL_GUARD_PRIMARY_WAS_LIVE=0
+VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=0
+VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_ATTEMPTED"
+VISUAL_GUARD_PRIMARY_WAIT_RESULT="NOT_ATTEMPTED"
+VISUAL_GUARD_FALLBACK_SCAN_PERFORMED=0
+VISUAL_GUARD_FALLBACK_SCAN_PASSES=0
+VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=0
+VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=0
+VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+VISUAL_GUARD_FALLBACK_TIMEOUT=0
+VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
+VISUAL_GUARD_FALLBACK_SEEN_KEYS=""
+VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
+VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
+VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
+VISUAL_GUARD_FALLBACK_MAX_PASSES="${VISUAL_GUARD_FALLBACK_MAX_PASSES:-30}"
+VISUAL_GUARD_FALLBACK_POLL_SECONDS="${VISUAL_GUARD_FALLBACK_POLL_SECONDS:-0.2}"
 VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
 VISUAL_GUARD_CANDIDATE_SOURCES=()
 VISUAL_GUARD_CANDIDATE_PIDS=()
+VISUAL_GUARD_CANDIDATE_START_IDENTITIES=()
 VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW=()
 VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL=()
 VISUAL_GUARD_CANDIDATE_PREEXISTING=()
@@ -810,9 +828,25 @@ visual_guard_reset_state() {
     VISUAL_GUARD_OWNED_CHILD_PGID=""
     VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
     VISUAL_GUARD_FALLBACK_USED=0
+    VISUAL_GUARD_PRIMARY_WAS_LIVE=0
+    VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=0
+    VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_ATTEMPTED"
+    VISUAL_GUARD_PRIMARY_WAIT_RESULT="NOT_ATTEMPTED"
+    VISUAL_GUARD_FALLBACK_SCAN_PERFORMED=0
+    VISUAL_GUARD_FALLBACK_SCAN_PASSES=0
+    VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=0
+    VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=0
+    VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+    VISUAL_GUARD_FALLBACK_TIMEOUT=0
+    VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
+    VISUAL_GUARD_FALLBACK_SEEN_KEYS=""
+    VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
+    VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
+    VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
     VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
     VISUAL_GUARD_CANDIDATE_SOURCES=()
     VISUAL_GUARD_CANDIDATE_PIDS=()
+    VISUAL_GUARD_CANDIDATE_START_IDENTITIES=()
     VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW=()
     VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL=()
     VISUAL_GUARD_CANDIDATE_PREEXISTING=()
@@ -831,7 +865,7 @@ visual_guard_write_lifecycle_evidence() {
     fi
 
     {
-        echo "schema_version=1"
+        echo "schema_version=2"
         echo "lane=$VISUAL_GUARD_LANE"
         echo "cleanup_trap_installed=$VISUAL_GUARD_TRAP_INSTALLED"
         echo "interrupted=$(
@@ -857,6 +891,33 @@ visual_guard_write_lifecycle_evidence() {
         echo "owned_child_pid=$VISUAL_GUARD_OWNED_CHILD_PID"
         echo "owned_child_pgid=$VISUAL_GUARD_OWNED_CHILD_PGID"
         echo "fallback_used=$VISUAL_GUARD_FALLBACK_USED"
+        echo "primary_pid=$VISUAL_GUARD_OWNED_CHILD_PID"
+        echo "primary_pgid=$VISUAL_GUARD_OWNED_CHILD_PGID"
+        echo "primary_was_live=$VISUAL_GUARD_PRIMARY_WAS_LIVE"
+        echo "primary_termination_attempted=$VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED"
+        echo "primary_termination_result=$VISUAL_GUARD_PRIMARY_TERMINATION_RESULT"
+        echo "primary_wait_result=$VISUAL_GUARD_PRIMARY_WAIT_RESULT"
+        echo "fallback_scan_performed=$(
+            if [ "$VISUAL_GUARD_FALLBACK_SCAN_PERFORMED" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "fallback_scan_passes=$VISUAL_GUARD_FALLBACK_SCAN_PASSES"
+        echo "fallback_candidate_count=$VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT"
+        echo "fallback_termination_count=$VISUAL_GUARD_FALLBACK_TERMINATION_COUNT"
+        echo "fallback_empty_streak=$VISUAL_GUARD_FALLBACK_EMPTY_STREAK"
+        echo "fallback_timeout=$(
+            if [ "$VISUAL_GUARD_FALLBACK_TIMEOUT" -eq 1 ]; then
+                printf true
+            else
+                printf false
+            fi
+        )"
+        echo "final_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
+        echo "final_survivor_pids=$VISUAL_GUARD_FINAL_SURVIVOR_PIDS"
+        echo "cleanup_process_result=$VISUAL_GUARD_CLEANUP_PROCESS_RESULT"
         echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
         echo "final_exit_status=$final_exit_status"
         for index in "${!VISUAL_GUARD_CANDIDATE_PIDS[@]}"; do
@@ -864,6 +925,7 @@ visual_guard_write_lifecycle_evidence() {
             echo "[process-candidate/$index]"
             echo "candidate_source=${VISUAL_GUARD_CANDIDATE_SOURCES[$index]}"
             echo "candidate_pid=${VISUAL_GUARD_CANDIDATE_PIDS[$index]}"
+            echo "candidate_start_identity=${VISUAL_GUARD_CANDIDATE_START_IDENTITIES[$index]}"
             echo "candidate_project_path_raw=${VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW[$index]}"
             echo "candidate_project_path_canonical=${VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL[$index]}"
             echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
@@ -905,12 +967,21 @@ visual_guard_record_signal() {
 }
 
 visual_guard_request_active_child_stop() {
+    if { [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PID" ] &&
+         kill -0 "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null; } ||
+       { [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PGID" ] &&
+         kill -0 -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null; }; then
+        VISUAL_GUARD_PRIMARY_WAS_LIVE=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="REQUESTED"
+    fi
+    if [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PID" ] &&
+       kill -0 "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null; then
+        kill -TERM "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null || true
+    fi
     if [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PGID" ] &&
        kill -0 -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null; then
         kill -TERM -- "-$VISUAL_GUARD_ACTIVE_CHILD_PGID" 2>/dev/null || true
-    elif [ -n "$VISUAL_GUARD_ACTIVE_CHILD_PID" ] &&
-         kill -0 "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null; then
-        kill -TERM "$VISUAL_GUARD_ACTIVE_CHILD_PID" 2>/dev/null || true
     fi
 }
 
@@ -933,24 +1004,19 @@ visual_guard_stop_active_child() {
     local child_pid="$VISUAL_GUARD_ACTIVE_CHILD_PID"
     local child_pgid="$VISUAL_GUARD_ACTIVE_CHILD_PGID"
     local attempt
-    local primary_live=0
+    local primary_failed=0
+    local fallback_failed=0
 
-    if [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; then
-        primary_live=1
-        kill -TERM -- "-$child_pgid" 2>/dev/null || true
-        for attempt in $(seq 1 50); do
-            if ! kill -0 -- "-$child_pgid" 2>/dev/null; then
-                break
-            fi
-            sleep 0.1
-        done
-        if kill -0 -- "-$child_pgid" 2>/dev/null; then
-            kill -KILL -- "-$child_pgid" 2>/dev/null || true
-        fi
-    elif [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
-        primary_live=1
+    if { [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; } ||
+       { [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; }; then
+        VISUAL_GUARD_PRIMARY_WAS_LIVE=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_ATTEMPTED=1
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="REQUESTED"
+    fi
+
+    if [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; then
         kill -TERM "$child_pid" 2>/dev/null || true
-        for attempt in $(seq 1 50); do
+        for attempt in $(seq 1 20); do
             if ! kill -0 "$child_pid" 2>/dev/null; then
                 break
             fi
@@ -958,21 +1024,67 @@ visual_guard_stop_active_child() {
         done
         if kill -0 "$child_pid" 2>/dev/null; then
             kill -KILL "$child_pid" 2>/dev/null || true
+            for attempt in $(seq 1 20); do
+                if ! kill -0 "$child_pid" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
+        fi
+    fi
+    if [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; then
+        kill -TERM -- "-$child_pgid" 2>/dev/null || true
+        for attempt in $(seq 1 30); do
+            if ! kill -0 -- "-$child_pgid" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+        done
+        if kill -0 -- "-$child_pgid" 2>/dev/null; then
+            kill -KILL -- "-$child_pgid" 2>/dev/null || true
+            for attempt in $(seq 1 20); do
+                if ! kill -0 -- "-$child_pgid" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
         fi
     fi
     if [ -n "$child_pid" ]; then
         wait "$child_pid" 2>/dev/null || true
     fi
+
+    if { [ -n "$child_pid" ] && kill -0 "$child_pid" 2>/dev/null; } ||
+       { [ -n "$child_pgid" ] && kill -0 -- "-$child_pgid" 2>/dev/null; }; then
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="FAILED"
+        VISUAL_GUARD_PRIMARY_WAIT_RESULT="STILL_LIVE"
+        primary_failed=1
+    elif [ "$VISUAL_GUARD_PRIMARY_WAS_LIVE" -eq 1 ]; then
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="TERMINATED"
+        VISUAL_GUARD_PRIMARY_WAIT_RESULT="EXITED"
+    else
+        VISUAL_GUARD_PRIMARY_TERMINATION_RESULT="NOT_NEEDED"
+        VISUAL_GUARD_PRIMARY_WAIT_RESULT="ALREADY_EXITED"
+    fi
     VISUAL_GUARD_ACTIVE_CHILD_PID=""
     VISUAL_GUARD_ACTIVE_CHILD_PGID=""
 
-    if [ "$primary_live" -eq 0 ]; then
-        visual_guard_terminate_fallback_candidates
+    if ! visual_guard_poll_fallback_candidates; then
+        fallback_failed=1
     fi
-    if [ -n "$(visual_guard_find_owned_remaining_unity_processes)" ]; then
-        echo "ERROR: Visual guard left a current-project Unity child running."
-        return 1
+    if [ "$primary_failed" -ne 0 ]; then
+        VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_PRIMARY_TERMINATION"
+        echo "ERROR: Visual guard could not terminate the runner-recorded primary process."
+    elif [ "$fallback_failed" -ne 0 ]; then
+        VISUAL_GUARD_CLEANUP_PROCESS_RESULT="FAILED_RUNNER_OWNED_PROCESS_REMAINS"
+        if [ "$VISUAL_GUARD_INTERRUPTED" -eq 0 ]; then
+            VISUAL_GUARD_LANE_VERDICT="FAILED_RUNNER_OWNED_PROCESS_REMAINS"
+        fi
+        echo "ERROR: Visual guard left an eligible current-project Unity process running."
+    else
+        VISUAL_GUARD_CLEANUP_PROCESS_RESULT="PASS"
     fi
+    [ "$primary_failed" -eq 0 ] && [ "$fallback_failed" -eq 0 ]
 }
 
 visual_guard_cleanup() {
@@ -1435,6 +1547,8 @@ visual_guard_iter_wsl_unity_process_records() {
     local process_dir
     local pid
     local ppid
+    local start_identity
+    local stat_line
     local executable_name
     local project_path_raw
     local project_path_base64
@@ -1458,10 +1572,13 @@ visual_guard_iter_wsl_unity_process_records() {
                 continue
                 ;;
         esac
-        ppid="$(awk '{print $4}' "$process_dir/stat" 2>/dev/null || true)"
+        stat_line="$(sed 's/^[^)]*) //' "$process_dir/stat" 2>/dev/null || true)"
+        ppid="$(printf '%s\n' "$stat_line" | awk '{print $2}')"
+        start_identity="$(printf '%s\n' "$stat_line" | awk '{print $20}')"
         project_path_raw="$(extract_project_path_from_argv "${argv[@]}" || true)"
         project_path_base64="$(printf '%s' "$project_path_raw" | base64 -w0)"
-        printf 'wsl\t%s\t%s\t%s\n' "$pid" "$ppid" "$project_path_base64"
+        printf 'wsl\t%s\t%s\t%s\t%s\n' \
+            "$pid" "$ppid" "$start_identity" "$project_path_base64"
     done
 }
 
@@ -1516,7 +1633,11 @@ public static class VisualGuardCommandLine {
                 }
                 $encoded = [Convert]::ToBase64String(
                     [Text.Encoding]::UTF8.GetBytes($projectPath))
-                "windows`t$($_.ProcessId)`t$($_.ParentProcessId)`t$encoded"
+                $startIdentity = ""
+                if ($_.CreationDate) {
+                    $startIdentity = $_.CreationDate.ToUniversalTime().ToString("o")
+                }
+                "windows`t$($_.ProcessId)`t$($_.ParentProcessId)`t$startIdentity`t$encoded"
             }
     ' 2>/dev/null | tr -d '\r' || true
 }
@@ -1548,15 +1669,16 @@ visual_guard_snapshot_preexisting_unity_pids() {
     local source
     local pid
     local ppid
+    local start_identity
     local project_path_base64
     local key
 
     VISUAL_GUARD_PREEXISTING_UNITY_KEYS=""
-    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         if [ -z "$source" ] || [ -z "$pid" ]; then
             continue
         fi
-        key="$source:$pid"
+        key="$source:$pid:$start_identity"
         VISUAL_GUARD_PREEXISTING_UNITY_KEYS+="${VISUAL_GUARD_PREEXISTING_UNITY_KEYS:+$'\n'}$key"
     done < <(visual_guard_iter_unity_process_records)
     VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL="$(
@@ -1567,12 +1689,13 @@ visual_guard_snapshot_preexisting_unity_pids() {
 visual_guard_record_process_candidate() {
     VISUAL_GUARD_CANDIDATE_SOURCES+=("$1")
     VISUAL_GUARD_CANDIDATE_PIDS+=("$2")
-    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW+=("$3")
-    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL+=("$4")
-    VISUAL_GUARD_CANDIDATE_PREEXISTING+=("$5")
-    VISUAL_GUARD_CANDIDATE_MATCHES+=("$6")
-    VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED+=("$7")
-    VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS+=("$8")
+    VISUAL_GUARD_CANDIDATE_START_IDENTITIES+=("$3")
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_RAW+=("$4")
+    VISUAL_GUARD_CANDIDATE_PROJECT_PATHS_CANONICAL+=("$5")
+    VISUAL_GUARD_CANDIDATE_PREEXISTING+=("$6")
+    VISUAL_GUARD_CANDIDATE_MATCHES+=("$7")
+    VISUAL_GUARD_CANDIDATE_TERMINATION_ATTEMPTED+=("$8")
+    VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS+=("$9")
 }
 
 visual_guard_terminate_candidate() {
@@ -1610,6 +1733,7 @@ visual_guard_terminate_fallback_candidates() {
     local source
     local pid
     local ppid
+    local start_identity
     local project_path_base64
     local project_path_raw
     local project_path_canonical
@@ -1619,7 +1743,10 @@ visual_guard_terminate_fallback_candidates() {
     local result
     local key
 
-    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+    VISUAL_GUARD_FALLBACK_SCAN_PERFORMED=1
+    VISUAL_GUARD_FALLBACK_SCAN_PASSES=$((VISUAL_GUARD_FALLBACK_SCAN_PASSES + 1))
+    VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=0
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         if [ -z "$source" ] || [ -z "$pid" ]; then
             continue
         fi
@@ -1627,7 +1754,7 @@ visual_guard_terminate_fallback_candidates() {
         project_path_canonical="$(
             canonicalize_visual_project_path "$project_path_raw" || true
         )"
-        key="$source:$pid"
+        key="$source:$pid:$start_identity"
         preexisting=0
         match=0
         attempted=0
@@ -1641,9 +1768,21 @@ visual_guard_terminate_fallback_candidates() {
         fi
         if [ "$match" -eq 1 ] && [ "$preexisting" -eq 0 ]; then
             VISUAL_GUARD_FALLBACK_USED=1
+            VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT=$((VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT + 1))
+            if [ -z "$VISUAL_GUARD_FALLBACK_SEEN_KEYS" ] ||
+               ! printf '%s\n' "$VISUAL_GUARD_FALLBACK_SEEN_KEYS" |
+                   grep -Fx -- "$key" >/dev/null; then
+                VISUAL_GUARD_FALLBACK_SEEN_KEYS+="$(
+                    printf '%s%s' \
+                        "${VISUAL_GUARD_FALLBACK_SEEN_KEYS:+$'\n'}" \
+                        "$key"
+                )"
+                VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT=$((VISUAL_GUARD_FALLBACK_CANDIDATE_COUNT + 1))
+            fi
             attempted=1
+            VISUAL_GUARD_FALLBACK_TERMINATION_COUNT=$((VISUAL_GUARD_FALLBACK_TERMINATION_COUNT + 1))
             if visual_guard_terminate_candidate "$source" "$pid"; then
-                result="TERMINATED"
+                result="TERMINATED_OR_ALREADY_EXITED"
             else
                 result="FAILED"
             fi
@@ -1651,6 +1790,7 @@ visual_guard_terminate_fallback_candidates() {
         visual_guard_record_process_candidate \
             "$source" \
             "$pid" \
+            "$start_identity" \
             "$project_path_raw" \
             "$project_path_canonical" \
             "$preexisting" \
@@ -1664,13 +1804,14 @@ visual_guard_find_owned_remaining_unity_processes() {
     local source
     local pid
     local ppid
+    local start_identity
     local project_path_base64
     local project_path_raw
     local project_path_canonical
 
-    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         if [ -z "$source" ] || [ -z "$pid" ] ||
-           visual_guard_is_preexisting_unity_key "$source:$pid"; then
+           visual_guard_is_preexisting_unity_key "$source:$pid:$start_identity"; then
             continue
         fi
         project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
@@ -1679,19 +1820,73 @@ visual_guard_find_owned_remaining_unity_processes() {
         )"
         if [ -n "$project_path_canonical" ] &&
            [ "$project_path_canonical" = "$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL" ]; then
-            printf '%s:%s\n' "$source" "$pid"
+            printf '%s:%s:%s\n' "$source" "$pid" "$start_identity"
         fi
     done < <(visual_guard_iter_unity_process_records)
+}
+
+visual_guard_update_final_survivors() {
+    local survivor
+    local source
+    local pid
+    local start_identity
+
+    VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
+    VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
+    while IFS=: read -r source pid start_identity; do
+        if [ -z "$source" ] || [ -z "$pid" ]; then
+            continue
+        fi
+        VISUAL_GUARD_FINAL_SURVIVOR_COUNT=$((VISUAL_GUARD_FINAL_SURVIVOR_COUNT + 1))
+        survivor="$source:$pid"
+        VISUAL_GUARD_FINAL_SURVIVOR_PIDS+="$(
+            printf '%s%s' \
+                "${VISUAL_GUARD_FINAL_SURVIVOR_PIDS:+,}" \
+                "$survivor"
+        )"
+    done < <(visual_guard_find_owned_remaining_unity_processes)
+}
+
+visual_guard_poll_fallback_candidates() {
+    local pass
+
+    for pass in $(seq 1 "$VISUAL_GUARD_FALLBACK_MAX_PASSES"); do
+        if declare -F visual_guard_fallback_scan_test_hook >/dev/null; then
+            visual_guard_fallback_scan_test_hook "$pass" "before_scan"
+        fi
+        visual_guard_terminate_fallback_candidates
+        if declare -F visual_guard_fallback_scan_test_hook >/dev/null; then
+            visual_guard_fallback_scan_test_hook "$pass" "after_scan"
+        fi
+
+        if [ "$VISUAL_GUARD_FALLBACK_LAST_ELIGIBLE_COUNT" -eq 0 ]; then
+            VISUAL_GUARD_FALLBACK_EMPTY_STREAK=$((VISUAL_GUARD_FALLBACK_EMPTY_STREAK + 1))
+        else
+            VISUAL_GUARD_FALLBACK_EMPTY_STREAK=0
+        fi
+        if [ "$VISUAL_GUARD_FALLBACK_EMPTY_STREAK" -ge 2 ]; then
+            break
+        fi
+        if [ "$pass" -ge "$VISUAL_GUARD_FALLBACK_MAX_PASSES" ]; then
+            VISUAL_GUARD_FALLBACK_TIMEOUT=1
+            break
+        fi
+        sleep "$VISUAL_GUARD_FALLBACK_POLL_SECONDS"
+    done
+
+    visual_guard_update_final_survivors
+    [ "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" -eq 0 ]
 }
 
 find_current_project_unity_processes() {
     local source
     local pid
     local ppid
+    local start_identity
     local project_path_base64
     local project_path_raw
 
-    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         project_path_raw="$(visual_guard_decode_project_path "$project_path_base64")"
         if visual_project_paths_match "$project_path_raw" "$PROJECT_PATH_WIN"; then
             printf '%s %s %s projectPath=%s\n' "$pid" "$ppid" "$source" "$project_path_raw"
@@ -1707,10 +1902,11 @@ current_project_unity_pids() {
     local source
     local pid
     local ppid
+    local start_identity
     local project_path_base64
     local project_path_raw
 
-    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         if [ "$source" != "wsl" ]; then
             continue
         fi
@@ -1725,10 +1921,11 @@ current_project_windows_unity_pids() {
     local source
     local pid
     local ppid
+    local start_identity
     local project_path_base64
     local project_path_raw
 
-    while IFS=$'\t' read -r source pid ppid project_path_base64; do
+    while IFS=$'\t' read -r source pid ppid start_identity project_path_base64; do
         if [ "$source" != "windows" ]; then
             continue
         fi

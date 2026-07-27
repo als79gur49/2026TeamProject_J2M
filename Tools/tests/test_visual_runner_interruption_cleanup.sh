@@ -394,8 +394,9 @@ write_process_record() {
     local pid="$2"
     local project_path="$3"
 
-    printf '%s\t%s\t1\t%s\n' \
+    printf '%s\t%s\t1\tstart-%s\t%s\n' \
         "$source" \
+        "$pid" \
         "$pid" \
         "$(printf '%s' "$project_path" | base64 -w0)"
 }
@@ -404,14 +405,16 @@ visual_guard_iter_unity_process_records() {
     local source
     local pid
     local ppid
+    local start_identity
     local encoded
 
-    while IFS=$'\t' read -r source pid ppid encoded; do
+    while IFS=$'\t' read -r source pid ppid start_identity encoded; do
         if [ -s "$process_killed" ] &&
            grep -Fx -- "$source:$pid" "$process_killed" >/dev/null; then
             continue
         fi
-        printf '%s\t%s\t%s\t%s\n' "$source" "$pid" "$ppid" "$encoded"
+        printf '%s\t%s\t%s\t%s\t%s\n' \
+            "$source" "$pid" "$ppid" "$start_identity" "$encoded"
     done < "$process_inventory"
 }
 
@@ -441,21 +444,27 @@ visual_guard_finish 0
 
 assert_equal "wsl:101" "$(cat "$process_killed")" "only new exact-path process killed"
 assert_equal "1" "$VISUAL_GUARD_FALLBACK_USED" "fallback used for orphan exact candidate"
+assert_equal "true" "$(sed -n 's/^fallback_scan_performed=//p' "$process_root/lifecycle.log")" "fallback scan evidence"
+assert_equal "0" "$(sed -n 's/^final_survivor_count=//p' "$process_root/lifecycle.log")" "fallback final survivors"
 assert_equal "1" "$(
     sed -n '/candidate_pid=100/,/termination_result=/p' "$process_root/lifecycle.log" |
-        sed -n 's/^preexisting=//p'
+        sed -n 's/^preexisting=//p' |
+        sort -u
 )" "same-path preexisting protected"
 assert_equal "0" "$(
     sed -n '/candidate_pid=102/,/termination_result=/p' "$process_root/lifecycle.log" |
-        sed -n 's/^match=//p'
+        sed -n 's/^match=//p' |
+        sort -u
 )" "similar path rejected"
 assert_equal "0" "$(
     sed -n '/candidate_pid=103/,/termination_result=/p' "$process_root/lifecycle.log" |
-        sed -n 's/^match=//p'
+        sed -n 's/^match=//p' |
+        sort -u
 )" "subproject rejected"
 assert_equal "0" "$(
     sed -n '/candidate_pid=104/,/termination_result=/p' "$process_root/lifecycle.log" |
-        sed -n 's/^match=//p'
+        sed -n 's/^match=//p' |
+        sort -u
 )" "missing projectPath rejected"
 echo "fallback exact ownership and preexisting protection: PASS"
 
@@ -483,8 +492,193 @@ if kill -0 "$primary_pid" 2>/dev/null; then
     echo "ERROR: primary owned child remains: $primary_pid"
     exit 1
 fi
-assert_equal "0" "$VISUAL_GUARD_FALLBACK_USED" "valid primary metadata skips fallback"
+assert_equal "0" "$VISUAL_GUARD_FALLBACK_USED" "primary-only cleanup has no fallback candidate"
+assert_equal "1" "$VISUAL_GUARD_FALLBACK_SCAN_PERFORMED" "valid primary metadata still runs fallback"
+assert_equal "2" "$VISUAL_GUARD_FALLBACK_SCAN_PASSES" "primary cleanup reaches two empty fallback scans"
+assert_equal "0" "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" "primary cleanup final survivors"
 assert_equal "" "$(cat "$process_killed")" "primary termination does not use candidate killer"
 echo "primary PID/PGID ownership: PASS"
+
+run_detached_cleanup_scenario() (
+    local name="$1"
+    local primary_mode="$2"
+    local candidate_mode="$3"
+    local signal_timing="$4"
+    local signal_name="$5"
+    local original_status="$6"
+    local expected_status="$7"
+    local expected_survivors="$8"
+    local scenario_root="$TEST_ROOT/detached-$name"
+    local inventory="$scenario_root/inventory.tsv"
+    local killed="$scenario_root/killed.log"
+    local exact_project="$scenario_root/project"
+    local similar_project="$scenario_root/project-copy"
+    local primary_pid=""
+    local scenario_status=0
+
+    mkdir -p "$scenario_root/project" "$scenario_root/baseline"
+    printf 'baseline\n' > "$scenario_root/project/guarded.asset"
+    cp "$scenario_root/project/guarded.asset" "$scenario_root/baseline/guarded.asset"
+    : > "$inventory"
+    : > "$killed"
+
+    PROJECT_PATH_WSL="$exact_project"
+    PROJECT_PATH_WIN="$exact_project"
+    VISUAL_GUARD_FALLBACK_MAX_PASSES=4
+    VISUAL_GUARD_FALLBACK_POLL_SECONDS=0.01
+    capture_guarded_paths() {
+        printf '%s\n' "guarded.asset"
+    }
+    visual_guard_iter_unity_process_records() {
+        local source
+        local pid
+        local ppid
+        local start_identity
+        local encoded
+
+        while IFS=$'\t' read -r source pid ppid start_identity encoded; do
+            if [ -s "$killed" ] &&
+               grep -Fx -- "$source:$pid" "$killed" >/dev/null; then
+                continue
+            fi
+            printf '%s\t%s\t%s\t%s\t%s\n' \
+                "$source" "$pid" "$ppid" "$start_identity" "$encoded"
+        done < "$inventory"
+    }
+    visual_guard_terminate_candidate() {
+        local source="$1"
+        local pid="$2"
+
+        if [ "$candidate_mode" = "refuses" ] && [ "$pid" = "201" ]; then
+            return 1
+        fi
+        if [ "$candidate_mode" = "race" ] && [ "$pid" = "201" ]; then
+            : > "$inventory"
+            return 0
+        fi
+        printf '%s:%s\n' "$source" "$pid" >> "$killed"
+        return 0
+    }
+
+    if [ "$candidate_mode" = "preexisting" ]; then
+        write_process_record wsl 201 "$exact_project" > "$inventory"
+    fi
+    visual_guard_begin \
+        "$scenario_root/baseline" \
+        "$scenario_root/mutation.log" \
+        "$scenario_root/lifecycle.log" \
+        "DetachedSmoke"
+
+    case "$candidate_mode" in
+        exact|race|refuses)
+            write_process_record wsl 201 "$exact_project" > "$inventory"
+            ;;
+        late)
+            : > "$inventory"
+            ;;
+        similar)
+            write_process_record wsl 201 "$similar_project" > "$inventory"
+            ;;
+        preexisting)
+            ;;
+        no-projectPath)
+            write_process_record wsl 201 "" > "$inventory"
+            ;;
+        *)
+            echo "ERROR: unsupported detached candidate mode: $candidate_mode"
+            exit 1
+            ;;
+    esac
+
+    visual_guard_fallback_scan_test_hook() {
+        local pass="$1"
+        local phase="$2"
+
+        if [ "$candidate_mode" = "late" ] &&
+           [ "$pass" -eq 1 ] &&
+           [ "$phase" = "after_scan" ]; then
+            write_process_record wsl 201 "$exact_project" > "$inventory"
+        fi
+        if [ "$signal_timing" = "during" ] &&
+           [ "$pass" -eq 1 ] &&
+           [ "$phase" = "before_scan" ]; then
+            kill "-$signal_name" "$BASHPID"
+        fi
+        return 0
+    }
+
+    if [ "$primary_mode" = "live" ]; then
+        setsid sleep 300 &
+        primary_pid=$!
+        VISUAL_GUARD_ACTIVE_CHILD_PID="$primary_pid"
+        VISUAL_GUARD_ACTIVE_CHILD_PGID="$primary_pid"
+        VISUAL_GUARD_OWNED_CHILD_PID="$primary_pid"
+        VISUAL_GUARD_OWNED_CHILD_PGID="$primary_pid"
+    fi
+    if [ "$signal_timing" = "before" ]; then
+        if [ "$signal_name" = "INT" ]; then
+            visual_guard_record_signal INT 130
+        else
+            visual_guard_record_signal TERM 143
+        fi
+    fi
+
+    observe_capture_assets_before_restore \
+        "$scenario_root/baseline" \
+        "$scenario_root/mutation.log"
+    visual_guard_mark_observation_complete "PASS"
+    if visual_guard_finish "$original_status"; then
+        scenario_status=0
+    else
+        scenario_status=$?
+    fi
+
+    assert_equal "$expected_status" "$scenario_status" "$name final status"
+    assert_equal "baseline" "$(cat "$scenario_root/project/guarded.asset")" "$name restore"
+    assert_equal "1" "$VISUAL_GUARD_FALLBACK_SCAN_PERFORMED" "$name fallback performed"
+    assert_equal "$expected_survivors" "$VISUAL_GUARD_FINAL_SURVIVOR_COUNT" "$name survivors"
+    assert_equal "1" "$VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT" "$name cleanup count"
+    if [ "$primary_mode" = "live" ]; then
+        if kill -0 "$primary_pid" 2>/dev/null; then
+            echo "ERROR: $name primary remains: $primary_pid"
+            exit 1
+        fi
+        assert_equal "1" "$VISUAL_GUARD_PRIMARY_WAS_LIVE" "$name primary was live"
+        assert_equal "TERMINATED" "$VISUAL_GUARD_PRIMARY_TERMINATION_RESULT" "$name primary result"
+    fi
+    case "$candidate_mode" in
+        exact|late)
+            assert_equal "wsl:201" "$(sort -u "$killed")" "$name detached termination"
+            ;;
+        race)
+            assert_equal "" "$(cat "$killed")" "$name already-exited candidate no-op"
+            ;;
+        refuses)
+            assert_equal "" "$(cat "$killed")" "$name refusing candidate survives"
+            assert_equal "true" "$(sed -n 's/^fallback_timeout=//p' "$scenario_root/lifecycle.log")" "$name timeout"
+            assert_equal "FAILED_RUNNER_OWNED_PROCESS_REMAINS" "$VISUAL_GUARD_CLEANUP_PROCESS_RESULT" "$name cleanup result"
+            assert_equal "FAILED_RUNNER_OWNED_PROCESS_REMAINS" "$VISUAL_GUARD_LANE_VERDICT" "$name lane verdict"
+            ;;
+        similar|preexisting|no-projectPath)
+            assert_equal "" "$(cat "$killed")" "$name protected candidate"
+            ;;
+    esac
+    echo "detached cleanup $name: PASS"
+)
+
+run_detached_cleanup_scenario primary-live-exact live exact none "" 0 0 0
+run_detached_cleanup_scenario primary-exited-exact gone exact none "" 0 0 0
+run_detached_cleanup_scenario late-detached gone late none "" 0 0 0
+run_detached_cleanup_scenario primary-live-similar live similar none "" 0 0 0
+run_detached_cleanup_scenario primary-live-preexisting live preexisting none "" 0 0 0
+run_detached_cleanup_scenario primary-live-no-projectPath live no-projectPath none "" 0 0 0
+run_detached_cleanup_scenario inventory-exit-race gone race none "" 0 0 0
+run_detached_cleanup_scenario refusing-detached gone refuses none "" 0 1 1
+run_detached_cleanup_scenario int-before-cleanup live exact before INT 0 130 0
+run_detached_cleanup_scenario term-before-cleanup live exact before TERM 0 143 0
+run_detached_cleanup_scenario int-during-fallback gone exact during INT 0 130 0
+run_detached_cleanup_scenario term-during-fallback gone exact during TERM 0 143 0
+run_detached_cleanup_scenario original-failure-detached gone exact none "" 37 37 0
+echo "detached process polling, protection, and status precedence: PASS"
 
 echo "visual runner interruption cleanup checks passed"

@@ -50,6 +50,8 @@
 - `typography-visual`과 `typography-hud-visual`은 8개 guarded path의 baseline이 완성된 직후 `EXIT`, `INT`, `TERM` cleanup trap을 설치한다.
 - 정상 capture는 모든 guarded path를 restore 전에 관측하고 lane verdict를 확정한 뒤 restore한다.
 - 중단 capture는 `INTERRUPTED`로 기록하며, runner-owned PID/PGID를 우선 종료한 뒤 idempotent cleanup으로 baseline을 복원한다.
+- Primary PID/PGID 종료 결과와 무관하게 exact-projectPath fallback scan을 항상 실행한다. Primary와 fallback은 대체 분기가 아니라 순차 cleanup 단계다.
+- Fallback은 연속 2회 eligible candidate가 없을 때까지 bounded polling하며, restore 직전 final inventory에 post-start exact-path Unity가 남으면 `FAILED_RUNNER_OWNED_PROCESS_REMAINS`로 cleanup을 실패시킨다.
 - cleanup 시작 전이나 진행 중 도착한 첫 `SIGINT`/`SIGTERM`은 pending signal로 보존한다. cleanup 중 signal은 restore를 재진입하거나 중단하지 않으며, restore 완료 후 첫 signal의 `130`/`143`을 반환한다.
 - 최종 status 우선순위는 pending signal, 원래 command nonzero, cleanup failure, `0` 순서다.
 - Unity fallback 종료는 lane 시작 후 나타난 non-preexisting process 중 argv에서 정확히 파싱한 `-projectPath`가 canonical current project path와 같은 process에만 적용한다. 부분 문자열, 유사/prefix/suffix path, 다른 argument의 path는 ownership 근거가 아니다.
@@ -59,6 +61,8 @@
 - `typography-visual` and `typography-hud-visual` install `EXIT`, `INT`, and `TERM` cleanup traps immediately after all eight guarded-path baselines are complete.
 - A normal capture observes every guarded path and fixes the lane verdict before any restore.
 - An interrupted capture records `INTERRUPTED`, terminates the runner-owned PID/PGID first, and restores the baseline through one idempotent cleanup path.
+- The exact-projectPath fallback scan always runs after primary PID/PGID termination, regardless of the primary result. Primary termination and fallback are sequential cleanup stages, not alternative branches.
+- Fallback uses bounded polling until two consecutive scans have no eligible candidate. If the final pre-restore inventory still contains a post-start exact-path Unity process, cleanup fails as `FAILED_RUNNER_OWNED_PROCESS_REMAINS`.
 - The first `SIGINT` or `SIGTERM` received before or during cleanup is retained as a pending signal. A cleanup-time signal neither re-enters nor aborts restore; after restore, the runner returns the first signal's `130` or `143`.
 - Final status precedence is pending signal, original command nonzero, cleanup failure, then `0`.
 - Unity fallback termination is limited to non-preexisting processes first observed after lane start whose exactly parsed `-projectPath` argv token canonically equals the current project path. Substrings, similar/prefix/suffix paths, and paths found in other arguments do not establish ownership.
