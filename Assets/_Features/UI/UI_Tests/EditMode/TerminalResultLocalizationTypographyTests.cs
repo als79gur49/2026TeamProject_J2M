@@ -411,6 +411,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("diagnostic_count="));
             Assert.That(utility, Does.Contain("SettleScreenEnterMotion(viewRoot)"));
             Assert.That(utility, Does.Contain("\"StopRootEnterMotion\""));
+            Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, viewRoot, width, height)"));
+            Assert.That(utility, Does.Contain("title.text != \"Level Clear\""));
             Assert.That(utility, Does.Contain("Game Over"));
         }
 

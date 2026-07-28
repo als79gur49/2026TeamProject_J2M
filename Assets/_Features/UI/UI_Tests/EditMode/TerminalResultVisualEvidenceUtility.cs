@@ -413,13 +413,16 @@ namespace Game.Feature.UI.Tests
                 .Where(text => text.gameObject.activeInHierarchy)
                 .ToArray();
             var expectations = BuildTextExpectations(scenario);
-            if (texts.Length != expectations.Count)
+            var expectedActiveTextCount = expectations.Count +
+                                          (scenario.Screen == ScreenId.StageResult ? 1 : 0);
+            if (texts.Length != expectedActiveTextCount)
             {
                 throw new InvalidOperationException(
-                    $"{scenario.Screen} expected {expectations.Count} active TMP labels, found {texts.Length}.");
+                    $"{scenario.Screen} expected {expectedActiveTextCount} active TMP labels, found {texts.Length}.");
             }
 
             var states = new List<TextState>();
+            var validatedTexts = new HashSet<TMP_Text>();
             foreach (var expectation in expectations)
             {
                 var text = GetField<TMP_Text>(
@@ -433,9 +436,17 @@ namespace Game.Feature.UI.Tests
                     width,
                     height);
                 states.Add(new TextState(text.font, text.fontSharedMaterial));
+                validatedTexts.Add(text);
             }
 
-            var joined = string.Join("\n", states.Select((_, index) => expectations[index].ExpectedText));
+            if (scenario.Screen == ScreenId.StageResult)
+            {
+                var title = texts.Single(text => !validatedTexts.Contains(text));
+                ValidateStageResultTitle(title, viewRoot, width, height);
+                states.Add(new TextState(title.font, title.fontSharedMaterial));
+            }
+
+            var joined = string.Join("\n", texts.Select(text => text.text));
             if (joined.Contains("Game Over", StringComparison.Ordinal) ||
                 expectations.Any(expectation => string.IsNullOrWhiteSpace(expectation.ExpectedText)))
             {
@@ -593,6 +604,61 @@ namespace Game.Feature.UI.Tests
             {
                 throw new InvalidOperationException(
                     "LevelFailed detail must remain size/base 18, wrapped, unclipped, and at most two lines.");
+            }
+        }
+
+        private static void ValidateStageResultTitle(
+            TMP_Text title,
+            GameObject viewRoot,
+            int width,
+            int height)
+        {
+            var authored = UiTestPrefabAssetUtility
+                .LoadScreenPrefab<StageResultScreenView>(
+                    UiTestPrefabAssetUtility.StageResultScreenPrefabPath)
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Single(text => text.text == "Level Clear");
+            if (!title.isActiveAndEnabled ||
+                title.text != "Level Clear" ||
+                title.font != authored.font ||
+                title.fontSharedMaterial != authored.fontSharedMaterial ||
+                title.fontStyle != authored.fontStyle)
+            {
+                throw new InvalidOperationException(
+                    "StageResult title text or authored typography identity mismatch.");
+            }
+            if (title.text.Any(
+                    character => !char.IsControl(character) &&
+                                 !char.IsWhiteSpace(character) &&
+                                 !title.font.HasCharacter(character, false, false)))
+            {
+                throw new InvalidOperationException(
+                    "StageResult title has missing native glyph coverage.");
+            }
+            title.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            if (title.textInfo.characterInfo.Any(
+                    character => character.isVisible && character.fontAsset != title.font))
+            {
+                throw new InvalidOperationException(
+                    "StageResult title used a fallback font.");
+            }
+            if (title.textInfo.characterCount == 0 ||
+                title.textBounds.size.x > title.rectTransform.rect.width + 0.5f ||
+                title.textBounds.size.y > title.rectTransform.rect.height + 0.5f)
+            {
+                throw new InvalidOperationException(
+                    "StageResult title text bounds overflow its authored rect.");
+            }
+            var relativeBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
+                viewRoot.transform,
+                title.rectTransform);
+            if (relativeBounds.min.x < -width ||
+                relativeBounds.max.x > width ||
+                relativeBounds.min.y < -height ||
+                relativeBounds.max.y > height)
+            {
+                throw new InvalidOperationException(
+                    "StageResult title lies outside the capture viewport.");
             }
         }
 
