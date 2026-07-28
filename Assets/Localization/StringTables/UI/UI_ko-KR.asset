@@ -281,6 +281,30 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
+  - m_Id: 4971587610693651
+    m_Localized: "계속"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693652
+    m_Localized: "스테이지 실패"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693653
+    m_Localized: "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693654
+    m_Localized: "스테이지 다시 시작"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693655
+    m_Localized: "메인 메뉴"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693656
+    m_Localized: "게임 클리어"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

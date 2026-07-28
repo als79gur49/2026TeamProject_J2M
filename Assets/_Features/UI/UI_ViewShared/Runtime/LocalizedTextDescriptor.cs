@@ -291,6 +291,133 @@ namespace Game.Feature.UI.ViewShared
         }
     }
 
+    public enum TerminalResultLocalizationEntryId
+    {
+        Continue,
+        LevelFailedTitle,
+        ChancesExhaustedDetail,
+        RestartStage,
+        MainMenu,
+        GameClearTitle,
+    }
+
+    public readonly struct TerminalResultLocalizationContractEntry
+    {
+        public TerminalResultLocalizationContractEntry(
+            TerminalResultLocalizationEntryId id,
+            string key,
+            string english,
+            string korean,
+            LocalizedTextRole role,
+            LocalizedTextWeight weight)
+        {
+            Id = id;
+            Key = key ?? string.Empty;
+            English = english ?? string.Empty;
+            Korean = korean ?? string.Empty;
+            Role = role;
+            Weight = weight;
+        }
+
+        public TerminalResultLocalizationEntryId Id { get; }
+
+        public string Table => TerminalResultLocalizationContract.Table;
+
+        public string Key { get; }
+
+        public string English { get; }
+
+        public string Korean { get; }
+
+        public LocalizedTextRole Role { get; }
+
+        public LocalizedTextWeight Weight { get; }
+
+        public bool IsSmart => false;
+    }
+
+    public static class TerminalResultLocalizationContract
+    {
+        public const string Table = "UI";
+
+        public static class Keys
+        {
+            public const string Continue = "ui.result.action.continue";
+            public const string LevelFailedTitle = "ui.result.level_failed.title";
+            public const string ChancesExhaustedDetail =
+                "ui.result.level_failed.detail.chances_exhausted";
+            public const string RestartStage = "ui.result.action.restart_stage";
+            public const string MainMenu = "ui.result.action.main_menu";
+            public const string GameClearTitle = "ui.result.game_clear.title";
+        }
+
+        private static readonly IReadOnlyList<TerminalResultLocalizationContractEntry> ContractEntries =
+            Array.AsReadOnly(new[]
+            {
+                Entry(
+                    TerminalResultLocalizationEntryId.Continue,
+                    Keys.Continue,
+                    "Continue",
+                    "계속",
+                    LocalizedTextRole.Button,
+                    LocalizedTextWeight.Regular),
+                Entry(
+                    TerminalResultLocalizationEntryId.LevelFailedTitle,
+                    Keys.LevelFailedTitle,
+                    "Stage Failed",
+                    "스테이지 실패",
+                    LocalizedTextRole.Title,
+                    LocalizedTextWeight.Bold),
+                Entry(
+                    TerminalResultLocalizationEntryId.ChancesExhaustedDetail,
+                    Keys.ChancesExhaustedDetail,
+                    "All chances have been used. Restart the stage or return to the main menu.",
+                    "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.",
+                    LocalizedTextRole.Body,
+                    LocalizedTextWeight.Regular),
+                Entry(
+                    TerminalResultLocalizationEntryId.RestartStage,
+                    Keys.RestartStage,
+                    "Restart Stage",
+                    "스테이지 다시 시작",
+                    LocalizedTextRole.Button,
+                    LocalizedTextWeight.Regular),
+                Entry(
+                    TerminalResultLocalizationEntryId.MainMenu,
+                    Keys.MainMenu,
+                    "Main Menu",
+                    "메인 메뉴",
+                    LocalizedTextRole.Button,
+                    LocalizedTextWeight.Regular),
+                Entry(
+                    TerminalResultLocalizationEntryId.GameClearTitle,
+                    Keys.GameClearTitle,
+                    "Game Clear",
+                    "게임 클리어",
+                    LocalizedTextRole.Title,
+                    LocalizedTextWeight.Bold),
+            });
+
+        public static IReadOnlyList<TerminalResultLocalizationContractEntry> Entries => ContractEntries;
+
+        private static TerminalResultLocalizationContractEntry Entry(
+            TerminalResultLocalizationEntryId id,
+            string key,
+            string english,
+            string korean,
+            LocalizedTextRole role,
+            LocalizedTextWeight weight)
+        {
+            return new TerminalResultLocalizationContractEntry(
+                id,
+                key,
+                english,
+                korean,
+                role,
+                weight);
+        }
+    }
+
     public readonly struct LocalizedTextDescriptor : IEquatable<LocalizedTextDescriptor>
     {
         private readonly string _table;
@@ -773,8 +900,45 @@ namespace Game.Feature.UI.ViewShared
                 },
             };
 
+            AddTerminalResultEntries(catalog);
             ValidateSettingsCatalog(catalog);
+            ValidateTerminalResultCatalog(catalog);
             return catalog;
+        }
+
+        private static void AddTerminalResultEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            foreach (var entry in TerminalResultLocalizationContract.Entries)
+            {
+                english.Add(entry.Key, entry.English);
+                korean.Add(entry.Key, entry.Korean);
+            }
+        }
+
+        private static void ValidateTerminalResultCatalog(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            foreach (var localeCode in SupportedLocaleCodes)
+            {
+                if (!catalog.TryGetValue(localeCode, out var localeValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Package-free terminal-result catalog is missing locale '{localeCode}'.");
+                }
+
+                foreach (var entry in TerminalResultLocalizationContract.Entries)
+                {
+                    if (!localeValues.ContainsKey(entry.Key))
+                    {
+                        throw new InvalidOperationException(
+                            $"Package-free terminal-result catalog locale '{localeCode}' " +
+                            $"is missing key '{entry.Key}'.");
+                    }
+                }
+            }
         }
 
         private static void ValidateSettingsCatalog(

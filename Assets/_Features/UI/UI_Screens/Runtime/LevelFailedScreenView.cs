@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
@@ -52,6 +53,32 @@ namespace Game.Feature.UI.Screens
             }
 
             RefreshView();
+        }
+
+        public void ApplyLocalizedTypography(
+            string localeCode,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            TerminalScreenTypographyUtility.Apply(
+                _titleLabel,
+                localeCode,
+                typographyTheme,
+                TypographyStyleTag.HeaderLarge);
+            TerminalScreenTypographyUtility.Apply(
+                _detailLabel,
+                localeCode,
+                typographyTheme,
+                TypographyStyleTag.Body);
+            TerminalScreenTypographyUtility.Apply(
+                _restartLevelButtonLabel,
+                localeCode,
+                typographyTheme,
+                TypographyStyleTag.Button);
+            TerminalScreenTypographyUtility.Apply(
+                _mainButtonLabel,
+                localeCode,
+                typographyTheme,
+                TypographyStyleTag.Button);
         }
 
         public void SetIsCurrent(bool isCurrent)

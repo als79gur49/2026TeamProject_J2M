@@ -149,10 +149,13 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateStageResultRuntime()
         {
-            var presenter = new StageResultScreenPresenter();
+            var presenter = new StageResultScreenPresenter(_localizedTextResolver);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.StageResultPrefab, ScreenId.StageResult);
             view.Bind(presenter.ViewModel);
             view.SetIsCurrent(false);
+            view.ApplyLocalizedTypography(
+                _localizedTextResolver.CurrentLocaleCode,
+                _screenPrefabCatalog.SettingsTypographyTheme);
 
             return new ScreenRuntimeFactoryResult(
                 new ScreenPolicy(
@@ -166,10 +169,13 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateLevelFailedRuntime()
         {
-            var presenter = new LevelFailedScreenPresenter();
+            var presenter = new LevelFailedScreenPresenter(_localizedTextResolver);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.LevelFailedPrefab, ScreenId.LevelFailed);
             view.Bind(presenter.ViewModel);
             view.SetIsCurrent(false);
+            view.ApplyLocalizedTypography(
+                _localizedTextResolver.CurrentLocaleCode,
+                _screenPrefabCatalog.SettingsTypographyTheme);
 
             return new ScreenRuntimeFactoryResult(
                 new ScreenPolicy(
@@ -183,10 +189,13 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateGameClearRuntime()
         {
-            var presenter = new GameClearScreenPresenter();
+            var presenter = new GameClearScreenPresenter(_localizedTextResolver);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.GameClearPrefab, ScreenId.GameClear);
             view.Bind(presenter.ViewModel);
             view.SetIsCurrent(false);
+            view.ApplyLocalizedTypography(
+                _localizedTextResolver.CurrentLocaleCode,
+                _screenPrefabCatalog.SettingsTypographyTheme);
 
             return new ScreenRuntimeFactoryResult(
                 new ScreenPolicy(

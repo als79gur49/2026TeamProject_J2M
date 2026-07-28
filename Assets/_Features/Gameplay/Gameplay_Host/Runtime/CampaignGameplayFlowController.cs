@@ -192,10 +192,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _presentationFeed.PublishLevelFailed(new GameplayLevelFailedReadModel(
-                "Level Failed",
-                "All chances were used. Restart the level or return to main.",
-                "Restart Level",
-                "Main",
+                GameplayLevelFailureReason.ChancesExhausted,
                 new StageNavigationRequest(
                     route.NextStageId,
                     StageNavigationKind.Retry,

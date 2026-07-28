@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.Stages;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -30,52 +31,53 @@ namespace Game.Feature.UI.Application
     public sealed class LevelFailedScreenPayload : IScreenPayload
     {
         public LevelFailedScreenPayload(
-            string titleText,
-            string detailText,
-            string restartLevelLabel,
-            string mainLabel,
+            LocalizedTextDescriptor detailTextDescriptor,
             StageNavigationRequest restartLevelRequest)
         {
-            TitleText = string.IsNullOrWhiteSpace(titleText) ? "Level Failed" : titleText;
-            DetailText = detailText ?? string.Empty;
-            RestartLevelLabel = string.IsNullOrWhiteSpace(restartLevelLabel)
-                ? "Restart Level"
-                : restartLevelLabel;
-            MainLabel = string.IsNullOrWhiteSpace(mainLabel) ? "Main" : mainLabel;
+            TitleTextDescriptor = TerminalResultTextDescriptors.LevelFailedTitle;
+            DetailTextDescriptor = detailTextDescriptor;
+            RestartStageLabelDescriptor = TerminalResultTextDescriptors.RestartStage;
+            MainMenuLabelDescriptor = TerminalResultTextDescriptors.MainMenu;
             RestartLevelRequest = restartLevelRequest;
         }
 
-        public string TitleText { get; }
+        public LocalizedTextDescriptor TitleTextDescriptor { get; }
 
-        public string DetailText { get; }
+        public LocalizedTextDescriptor DetailTextDescriptor { get; }
 
-        public string RestartLevelLabel { get; }
+        public LocalizedTextDescriptor RestartStageLabelDescriptor { get; }
 
-        public string MainLabel { get; }
+        public LocalizedTextDescriptor MainMenuLabelDescriptor { get; }
 
         public StageNavigationRequest RestartLevelRequest { get; }
     }
 
     public sealed class GameClearScreenPayload : IScreenPayload
     {
-        public static readonly GameClearScreenPayload Default = new("Game Clear", "Main");
+        public static readonly GameClearScreenPayload Default = new();
 
-        public GameClearScreenPayload(
-            string titleText,
-            string mainLabel)
+        public GameClearScreenPayload()
         {
-            TitleText = string.IsNullOrWhiteSpace(titleText) ? "Game Clear" : titleText;
-            MainLabel = string.IsNullOrWhiteSpace(mainLabel) ? "Main" : mainLabel;
+            TitleTextDescriptor = TerminalResultTextDescriptors.GameClearTitle;
+            MainMenuLabelDescriptor = TerminalResultTextDescriptors.MainMenu;
         }
 
-        public string TitleText { get; }
+        public LocalizedTextDescriptor TitleTextDescriptor { get; }
 
-        public string MainLabel { get; }
+        public LocalizedTextDescriptor MainMenuLabelDescriptor { get; }
     }
 
     public sealed class StageResultScreenPresenter
     {
-        public StageResultScreenViewModel ViewModel { get; } = new StageResultScreenViewModel();
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+
+        public StageResultScreenPresenter(ILocalizedTextResolver localizedTextResolver)
+        {
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+        }
+
+        public StageResultScreenViewModel ViewModel { get; } = new();
 
         public void Apply(StageResultScreenPayload payload)
         {
@@ -85,13 +87,22 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
+                _localizedTextResolver.Resolve(TerminalResultTextDescriptors.Continue),
                 payload.IsContinueEnabled);
         }
     }
 
     public sealed class LevelFailedScreenPresenter
     {
-        public LevelFailedScreenViewModel ViewModel { get; } = new LevelFailedScreenViewModel();
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+
+        public LevelFailedScreenPresenter(ILocalizedTextResolver localizedTextResolver)
+        {
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+        }
+
+        public LevelFailedScreenViewModel ViewModel { get; } = new();
 
         public void Apply(LevelFailedScreenPayload payload)
         {
@@ -101,16 +112,31 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
-                payload.TitleText,
-                payload.DetailText,
-                payload.RestartLevelLabel,
-                payload.MainLabel);
+                Resolve(payload.TitleTextDescriptor),
+                Resolve(payload.DetailTextDescriptor),
+                Resolve(payload.RestartStageLabelDescriptor),
+                Resolve(payload.MainMenuLabelDescriptor));
+        }
+
+        private string Resolve(LocalizedTextDescriptor descriptor)
+        {
+            return string.IsNullOrEmpty(descriptor.Table) || string.IsNullOrEmpty(descriptor.Key)
+                ? string.Empty
+                : _localizedTextResolver.Resolve(descriptor) ?? string.Empty;
         }
     }
 
     public sealed class GameClearScreenPresenter
     {
-        public GameClearScreenViewModel ViewModel { get; } = new GameClearScreenViewModel();
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+
+        public GameClearScreenPresenter(ILocalizedTextResolver localizedTextResolver)
+        {
+            _localizedTextResolver = localizedTextResolver
+                ?? throw new ArgumentNullException(nameof(localizedTextResolver));
+        }
+
+        public GameClearScreenViewModel ViewModel { get; } = new();
 
         public void Apply(GameClearScreenPayload payload)
         {
@@ -120,8 +146,8 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
-                payload.TitleText,
-                payload.MainLabel);
+                _localizedTextResolver.Resolve(payload.TitleTextDescriptor),
+                _localizedTextResolver.Resolve(payload.MainMenuLabelDescriptor));
         }
     }
 }

@@ -189,6 +189,36 @@ namespace Game.Feature.UI.Screens
         }
     }
 
+    internal static class TerminalScreenTypographyUtility
+    {
+        public static void Apply(
+            TMP_Text target,
+            string localeCode,
+            GameplayUiTypographyTheme typographyTheme,
+            TypographyStyleTag styleTag)
+        {
+            if (target == null || string.Equals(localeCode, "en-US", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (typographyTheme == null)
+            {
+                throw new ArgumentNullException(nameof(typographyTheme));
+            }
+
+            var style = typographyTheme.ResolveOrThrow(localeCode, styleTag);
+            LocalizedTmpTextApplicator.ApplyResolvedTypography(
+                target,
+                style,
+                TmpTypographyAuthoredState.Capture(target),
+                TypographyApplyMask.Font |
+                TypographyApplyMask.Material |
+                TypographyApplyMask.FontStyle,
+                TypographySizingSource.Hybrid);
+        }
+    }
+
     public static class LocalizedTmpTextApplicator
     {
         private static readonly int ScaleRatioAProperty = Shader.PropertyToID("_ScaleRatioA");

@@ -929,8 +929,12 @@ namespace Game.Feature.UI.Application
     {
         public static readonly InvariantSettingsLocalizedTextResolver Instance = new();
 
-        private static readonly IReadOnlyDictionary<string, string> Values = new Dictionary<string, string>
+        private static readonly IReadOnlyDictionary<string, string> Values = CreateValues();
+
+        private static IReadOnlyDictionary<string, string> CreateValues()
         {
+            var values = new Dictionary<string, string>
+            {
             [SettingsLocalizationContract.Keys.Title] = "Settings",
             [SettingsLocalizationContract.Keys.AudioTab] = "Audio",
             [SettingsLocalizationContract.Keys.DisplayTab] = "Display",
@@ -989,7 +993,15 @@ namespace Game.Feature.UI.Application
             ["ui.pause.resume"] = "Resume",
             ["ui.pause.retry"] = "Retry",
             ["ui.pause.main_menu"] = "Main Menu",
-        };
+            };
+
+            foreach (var entry in TerminalResultLocalizationContract.Entries)
+            {
+                values.Add(entry.Key, entry.English);
+            }
+
+            return values;
+        }
 
         private InvariantSettingsLocalizedTextResolver()
         {
