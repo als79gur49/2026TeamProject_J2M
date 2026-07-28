@@ -312,6 +312,38 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void StageResult_KoreanContinueTypography_PreservesInvariantTitleMaterial()
+        {
+            var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            Assert.That(theme, Is.Not.Null);
+            Assert.That(instance, Is.Not.Null);
+            try
+            {
+                var view = instance.GetComponent<StageResultScreenView>();
+                var title = instance
+                    .GetComponentsInChildren<TMP_Text>(true)
+                    .Single(text => text.text == "Level Clear");
+                var authoredMaterial = title.fontSharedMaterial;
+                var authoredMaterialState = EditorJsonUtility.ToJson(authoredMaterial);
+
+                view.ApplyLocalizedTypography("ko-KR", theme);
+
+                Assert.That(title.text, Is.EqualTo("Level Clear"));
+                Assert.That(title.fontSharedMaterial, Is.SameAs(authoredMaterial));
+                Assert.That(
+                    EditorJsonUtility.ToJson(authoredMaterial),
+                    Is.EqualTo(authoredMaterialState));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
         public void TerminalPrefabAuthoring_HasSizedWrappedDetailAndNoStaleGameOver()
         {
             var levelFailed = File.ReadAllText(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);

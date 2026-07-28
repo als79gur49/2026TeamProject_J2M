@@ -208,12 +208,18 @@ namespace Game.Feature.UI.Screens
             }
 
             var style = typographyTheme.ResolveOrThrow(localeCode, styleTag);
+            var authoredState = TmpTypographyAuthoredState.Capture(target);
             LocalizedTmpTextApplicator.ApplyResolvedTypography(
                 target,
                 style,
-                TmpTypographyAuthoredState.Capture(target),
+                authoredState,
                 TypographyApplyMask.Font |
-                TypographyApplyMask.Material |
+                TypographyApplyMask.Material,
+                TypographySizingSource.Hybrid);
+            LocalizedTmpTextApplicator.ApplyResolvedTypography(
+                target,
+                style,
+                authoredState,
                 TypographyApplyMask.FontStyle,
                 TypographySizingSource.Hybrid);
         }
