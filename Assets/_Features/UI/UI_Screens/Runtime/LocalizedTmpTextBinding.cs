@@ -209,6 +209,7 @@ namespace Game.Feature.UI.Screens
 
             var style = typographyTheme.ResolveOrThrow(localeCode, styleTag);
             var authoredState = TmpTypographyAuthoredState.Capture(target);
+            target.fontSharedMaterial = null;
             LocalizedTmpTextApplicator.ApplyResolvedTypography(
                 target,
                 style,
