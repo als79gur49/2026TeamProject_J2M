@@ -412,7 +412,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("SettleScreenEnterMotion(viewRoot)"));
             Assert.That(utility, Does.Contain("\"StopRootEnterMotion\""));
             Assert.That(utility, Does.Contain("SettleNestedPresentationAnimators(viewRoot)"));
-            Assert.That(utility, Does.Contain("animator.Play(\"Idle\", 0, 0f)"));
+            Assert.That(utility, Does.Contain("animator.Play(\"Base Layer.Idle\", 0, 0f)"));
+            Assert.That(utility, Does.Contain("GetCurrentAnimatorStateInfo(0).IsName(\"Base Layer.Idle\")"));
             Assert.That(utility, Does.Contain("animator.enabled = false"));
             Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, viewRoot, width, height)"));
             Assert.That(utility, Does.Contain("title.text != \"Level Clear\""));

@@ -841,8 +841,13 @@ namespace Game.Feature.UI.Tests
                 }
 
                 animator.Rebind();
-                animator.Play("Idle", 0, 0f);
+                animator.Play("Base Layer.Idle", 0, 0f);
                 animator.Update(0f);
+                if (!animator.GetCurrentAnimatorStateInfo(0).IsName("Base Layer.Idle"))
+                {
+                    throw new InvalidOperationException(
+                        $"Unable to settle presentation Animator '{animator.name}' to Idle.");
+                }
                 animator.enabled = false;
             }
         }
