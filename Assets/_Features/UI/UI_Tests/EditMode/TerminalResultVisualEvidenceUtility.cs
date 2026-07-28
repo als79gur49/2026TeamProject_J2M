@@ -347,19 +347,19 @@ namespace Game.Feature.UI.Tests
                             rootView.ScreenLayerView.ContentRoot,
                             worldPositionStays: true);
                     }
-                    stageResultCaptureMaterial = new Material(stageResultCaptureSource)
-                    {
-                        hideFlags = HideFlags.HideAndDontSave,
-                        name = $"{stageResultCaptureSource.name} [{scenario.Locale}]",
-                    };
-                    stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
-                    stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
-                    stageResultTitle.ForceMeshUpdate(
-                        ignoreActiveState: true,
-                        forceTextReparsing: true);
-                    stageResultTitle.UpdateGeometry(stageResultTitle.mesh, 0);
                     if (!reuseStageResult)
                     {
+                        stageResultCaptureMaterial = new Material(stageResultCaptureSource)
+                        {
+                            hideFlags = HideFlags.HideAndDontSave,
+                            name = $"{stageResultCaptureSource.name} [invariant]",
+                        };
+                        stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
+                        stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
+                        stageResultTitle.ForceMeshUpdate(
+                            ignoreActiveState: true,
+                            forceTextReparsing: true);
+                        stageResultTitle.UpdateGeometry(stageResultTitle.mesh, 0);
                         stageResultSession.Adopt(
                             resolver,
                             popupController,
