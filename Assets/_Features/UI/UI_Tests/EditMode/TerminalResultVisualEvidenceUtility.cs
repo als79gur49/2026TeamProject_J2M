@@ -97,6 +97,7 @@ namespace Game.Feature.UI.Tests
             {
                 hideFlags = HideFlags.HideAndDontSave,
             };
+            var stageResultCaptureMaterials = new List<Material>();
             try
             {
                 foreach (var scenario in CanonicalScenarios)
@@ -107,6 +108,7 @@ namespace Game.Feature.UI.Tests
                         width,
                         height,
                         stageResultCaptureSource,
+                        stageResultCaptureMaterials,
                         records,
                         errors);
                 }
@@ -119,12 +121,17 @@ namespace Game.Feature.UI.Tests
                         DiagnosticWidth,
                         DiagnosticHeight,
                         stageResultCaptureSource,
+                        stageResultCaptureMaterials,
                         records,
                         errors);
                 }
             }
             finally
             {
+                foreach (var material in stageResultCaptureMaterials)
+                {
+                    Object.DestroyImmediate(material);
+                }
                 Object.DestroyImmediate(stageResultCaptureSource);
             }
 
@@ -146,6 +153,7 @@ namespace Game.Feature.UI.Tests
             int width,
             int height,
             Material stageResultCaptureSource,
+            ICollection<Material> stageResultCaptureMaterials,
             ICollection<CaptureRecord> records,
             ICollection<string> errors)
         {
@@ -156,7 +164,8 @@ namespace Game.Feature.UI.Tests
                     outputDirectory,
                     width,
                     height,
-                    stageResultCaptureSource));
+                    stageResultCaptureSource,
+                    stageResultCaptureMaterials));
             }
             catch (Exception exception)
             {
@@ -169,7 +178,8 @@ namespace Game.Feature.UI.Tests
             string outputDirectory,
             int width,
             int height,
-            Material stageResultCaptureSource)
+            Material stageResultCaptureSource,
+            ICollection<Material> stageResultCaptureMaterials)
         {
             StencilMaterial.ClearAll();
             var previousScene = SceneManager.GetActiveScene();
@@ -185,6 +195,7 @@ namespace Game.Feature.UI.Tests
             Texture2D texture = null;
             TMP_Text stageResultTitle = null;
             Material stageResultAuthoredMaterial = null;
+            Material stageResultCaptureMaterial = null;
             try
             {
                 if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
@@ -277,7 +288,13 @@ namespace Game.Feature.UI.Tests
                         .GetComponentsInChildren<TMP_Text>(true)
                         .Single(text => text.text == "Level Clear");
                     stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
-                    stageResultTitle.fontSharedMaterial = stageResultCaptureSource;
+                    stageResultCaptureMaterial = new Material(stageResultCaptureSource)
+                    {
+                        hideFlags = HideFlags.HideAndDontSave,
+                        name = $"{stageResultCaptureSource.name} [{scenario.Locale}]",
+                    };
+                    stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
+                    stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
                 }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
