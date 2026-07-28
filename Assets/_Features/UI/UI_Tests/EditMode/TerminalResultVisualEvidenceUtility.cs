@@ -101,6 +101,7 @@ namespace Game.Feature.UI.Tests
             var scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
                 NewSceneMode.Single);
+            var stageResultSession = new StageResultCaptureSession();
             try
             {
                 foreach (var scenario in CanonicalScenarios)
@@ -108,6 +109,7 @@ namespace Game.Feature.UI.Tests
                     TryCapture(
                         scenario,
                         scene,
+                        stageResultSession,
                         outputDirectory,
                         width,
                         height,
@@ -115,6 +117,11 @@ namespace Game.Feature.UI.Tests
                         stageResultCaptureMaterials,
                         records,
                         errors);
+                    if (scenario.Screen == ScreenId.StageResult &&
+                        string.Equals(scenario.Locale, "ko-KR", StringComparison.Ordinal))
+                    {
+                        stageResultSession.Dispose();
+                    }
                 }
 
                 foreach (var scenario in DiagnosticScenarios)
@@ -122,6 +129,7 @@ namespace Game.Feature.UI.Tests
                     TryCapture(
                         scenario,
                         scene,
+                        stageResultSession,
                         diagnosticsDirectory,
                         DiagnosticWidth,
                         DiagnosticHeight,
@@ -133,6 +141,7 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                stageResultSession.Dispose();
                 foreach (var material in stageResultCaptureMaterials)
                 {
                     Object.DestroyImmediate(material);
@@ -155,6 +164,7 @@ namespace Game.Feature.UI.Tests
         private static void TryCapture(
             CaptureScenario scenario,
             Scene scene,
+            StageResultCaptureSession stageResultSession,
             string outputDirectory,
             int width,
             int height,
@@ -168,6 +178,7 @@ namespace Game.Feature.UI.Tests
                 records.Add(CaptureScenarioImage(
                     scenario,
                     scene,
+                    stageResultSession,
                     outputDirectory,
                     width,
                     height,
@@ -183,6 +194,7 @@ namespace Game.Feature.UI.Tests
         private static CaptureRecord CaptureScenarioImage(
             CaptureScenario scenario,
             Scene scene,
+            StageResultCaptureSession stageResultSession,
             string outputDirectory,
             int width,
             int height,
@@ -192,92 +204,117 @@ namespace Game.Feature.UI.Tests
             StencilMaterial.ClearAll();
             EditorSceneManager.SetActiveScene(scene);
 
-            UnityStringTableTextResolver resolver = null;
-            PopupController popupController = null;
-            ScreenController screenController = null;
-            GameObject shell = null;
+            var reuseStageResult = scenario.Screen == ScreenId.StageResult &&
+                                   stageResultSession.IsActive;
+            UnityStringTableTextResolver resolver = reuseStageResult
+                ? stageResultSession.Resolver
+                : null;
+            PopupController popupController = reuseStageResult
+                ? stageResultSession.PopupController
+                : null;
+            ScreenController screenController = reuseStageResult
+                ? stageResultSession.ScreenController
+                : null;
+            GameObject shell = reuseStageResult
+                ? stageResultSession.Shell
+                : null;
             Texture2D texture = null;
             TMP_Text stageResultTitle = null;
             Material stageResultAuthoredMaterial = null;
             Material stageResultCaptureMaterial = null;
             try
             {
-                if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
-                        new MemoryLocalePreferenceStore(scenario.Locale),
-                        out resolver,
-                        out var failureReason))
+                if (reuseStageResult)
                 {
-                    throw new InvalidOperationException(
-                        $"Production String Table resolver initialization failed: {failureReason}");
+                    if (!resolver.TrySetLocale(scenario.Locale))
+                    {
+                        throw new InvalidOperationException(
+                            $"Production resolver rejected locale '{scenario.Locale}'.");
+                    }
                 }
-                if (!resolver.TrySetLocale(scenario.Locale))
+                else
                 {
-                    throw new InvalidOperationException(
-                        $"Production resolver rejected locale '{scenario.Locale}'.");
+                    if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
+                            new MemoryLocalePreferenceStore(scenario.Locale),
+                            out resolver,
+                            out var failureReason))
+                    {
+                        throw new InvalidOperationException(
+                            $"Production String Table resolver initialization failed: {failureReason}");
+                    }
+                    if (!resolver.TrySetLocale(scenario.Locale))
+                    {
+                        throw new InvalidOperationException(
+                            $"Production resolver rejected locale '{scenario.Locale}'.");
+                    }
+
+                    var shellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
+                    if (shellPrefab == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Missing production GameplayUiCanvasRootShell resource: {RootShellResourcePath}");
+                    }
+                    shell = PrefabUtility.InstantiatePrefab(shellPrefab, scene) as GameObject;
+                    if (shell == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Production GameplayUiCanvasRootShell could not be instantiated.");
+                    }
+                    shell.name = $"TerminalResultVisual_{scenario.Screen}_{scenario.Locale}";
+                    var createdRootView = shell.GetComponent<GameplayUiCanvasRootView>();
+                    if (createdRootView == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Production shell is missing GameplayUiCanvasRootView.");
+                    }
+                    createdRootView.EnsureHierarchy();
+                    if (createdRootView.HudView != null)
+                    {
+                        createdRootView.HudView.gameObject.SetActive(false);
+                    }
+
+                    popupController = new PopupController(new GameplayPopupRuntimeFactory(
+                        createdRootView.PopupLayerView,
+                        UiTestPrefabAssetUtility.LoadPopupCatalog(),
+                        localizedTextResolver: resolver));
+                    var timeoutRelay = shell.AddComponent<DisplayPreviewTimeoutRelay>();
+                    var lifecycleRelay = shell.AddComponent<DisplaySettingsLifecycleRelay>();
+                    var previewHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
+                    var factory = new GameplayScreenRuntimeFactory(
+                        createdRootView.ScreenLayerView,
+                        new FakeGameplayQueryFacade(
+                            new GameplaySessionReadModel(1, false, true, false),
+                            FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                            new GameplayObjectiveReadModel(true, true, false, false)),
+                        new ManualGameplayUiPresentationSource(),
+                        new FakeAudioSettingsPort(),
+                        new FakeDisplaySettingsPort(),
+                        NoOpKeyboardBindingSettingsPort.Instance,
+                        new RecordingUiAudioPort(),
+                        previewHost,
+                        lifecycleRelay,
+                        UiTestPrefabAssetUtility.LoadScreenCatalog(),
+                        localizedTextResolver: resolver,
+                        localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance);
+                    screenController = new ScreenController(factory);
+                    var payload = CreatePayload(scenario.Screen);
+                    if (!screenController.Show(new ScreenRequest(
+                            scenario.Screen,
+                            payload,
+                            $"terminal-result-visual-{scenario.Screen}")))
+                    {
+                        throw new InvalidOperationException(
+                            $"ScreenController rejected terminal screen '{scenario.Screen}'.");
+                    }
                 }
 
-                var shellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
-                if (shellPrefab == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Missing production GameplayUiCanvasRootShell resource: {RootShellResourcePath}");
-                }
-                shell = PrefabUtility.InstantiatePrefab(shellPrefab, scene) as GameObject;
-                if (shell == null)
-                {
-                    throw new InvalidOperationException(
-                        "Production GameplayUiCanvasRootShell could not be instantiated.");
-                }
-                shell.name = $"TerminalResultVisual_{scenario.Screen}_{scenario.Locale}";
                 var rootView = shell.GetComponent<GameplayUiCanvasRootView>();
-                if (rootView == null)
-                {
-                    throw new InvalidOperationException(
-                        "Production shell is missing GameplayUiCanvasRootView.");
-                }
-                rootView.EnsureHierarchy();
-                if (rootView.HudView != null)
-                {
-                    rootView.HudView.gameObject.SetActive(false);
-                }
-
-                popupController = new PopupController(new GameplayPopupRuntimeFactory(
-                    rootView.PopupLayerView,
-                    UiTestPrefabAssetUtility.LoadPopupCatalog(),
-                    localizedTextResolver: resolver));
-                var timeoutRelay = shell.AddComponent<DisplayPreviewTimeoutRelay>();
-                var lifecycleRelay = shell.AddComponent<DisplaySettingsLifecycleRelay>();
-                var previewHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
-                var factory = new GameplayScreenRuntimeFactory(
-                    rootView.ScreenLayerView,
-                    new FakeGameplayQueryFacade(
-                        new GameplaySessionReadModel(1, false, true, false),
-                        FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
-                        new GameplayObjectiveReadModel(true, true, false, false)),
-                    new ManualGameplayUiPresentationSource(),
-                    new FakeAudioSettingsPort(),
-                    new FakeDisplaySettingsPort(),
-                    NoOpKeyboardBindingSettingsPort.Instance,
-                    new RecordingUiAudioPort(),
-                    previewHost,
-                    lifecycleRelay,
-                    UiTestPrefabAssetUtility.LoadScreenCatalog(),
-                    localizedTextResolver: resolver,
-                    localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance);
-                screenController = new ScreenController(factory);
-                var payload = CreatePayload(scenario.Screen);
-                if (!screenController.Show(new ScreenRequest(
-                        scenario.Screen,
-                        payload,
-                        $"terminal-result-visual-{scenario.Screen}")))
-                {
-                    throw new InvalidOperationException(
-                        $"ScreenController rejected terminal screen '{scenario.Screen}'.");
-                }
-
                 var viewRoot = ResolveCurrentViewRoot(rootView.ScreenLayerView, scenario.Screen);
-                SettleScreenEnterMotion(viewRoot);
-                SettleNestedPresentationAnimators(viewRoot);
+                if (!reuseStageResult)
+                {
+                    SettleScreenEnterMotion(viewRoot);
+                    SettleNestedPresentationAnimators(viewRoot);
+                }
                 ForceLayoutAndText(shell);
                 var textStates = ValidatePresentation(
                     scenario,
@@ -291,7 +328,9 @@ namespace Game.Feature.UI.Tests
                     stageResultTitle = viewRoot
                         .GetComponentsInChildren<TMP_Text>(true)
                         .Single(text => text.text == "Level Clear");
-                    stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
+                    stageResultAuthoredMaterial = reuseStageResult
+                        ? stageResultSession.AuthoredMaterial
+                        : stageResultTitle.fontSharedMaterial;
                     stageResultCaptureMaterial = new Material(stageResultCaptureSource)
                     {
                         hideFlags = HideFlags.HideAndDontSave,
@@ -299,14 +338,20 @@ namespace Game.Feature.UI.Tests
                     };
                     stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
                     stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
-                    stageResultTitle.enabled = false;
-                    stageResultTitle.enabled = true;
-                    stageResultTitle.SetAllDirty();
-                    Canvas.ForceUpdateCanvases();
                     stageResultTitle.ForceMeshUpdate(
                         ignoreActiveState: true,
                         forceTextReparsing: true);
                     stageResultTitle.UpdateGeometry(stageResultTitle.mesh, 0);
+                    if (!reuseStageResult)
+                    {
+                        stageResultSession.Adopt(
+                            resolver,
+                            popupController,
+                            screenController,
+                            shell,
+                            stageResultTitle,
+                            stageResultAuthoredMaterial);
+                    }
                 }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
@@ -354,30 +399,35 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
-                if (stageResultTitle != null && stageResultAuthoredMaterial != null)
-                {
-                    stageResultTitle.fontSharedMaterial = stageResultAuthoredMaterial;
-                }
                 if (texture != null)
                 {
                     Object.DestroyImmediate(texture);
                 }
-                if (shell != null)
+                var retainedStageResult = scenario.Screen == ScreenId.StageResult &&
+                                          stageResultSession.Owns(shell);
+                if (!retainedStageResult)
                 {
-                    Canvas.ForceUpdateCanvases();
-                    foreach (var text in shell.GetComponentsInChildren<TMP_Text>(true))
+                    if (stageResultTitle != null && stageResultAuthoredMaterial != null)
                     {
-                        TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
+                        stageResultTitle.fontSharedMaterial = stageResultAuthoredMaterial;
                     }
+                    if (shell != null)
+                    {
+                        Canvas.ForceUpdateCanvases();
+                        foreach (var text in shell.GetComponentsInChildren<TMP_Text>(true))
+                        {
+                            TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
+                        }
+                    }
+                    screenController?.Dispose();
+                    popupController?.Dispose();
+                    resolver?.Dispose();
+                    if (shell != null)
+                    {
+                        Object.DestroyImmediate(shell);
+                    }
+                    StencilMaterial.ClearAll();
                 }
-                screenController?.Dispose();
-                popupController?.Dispose();
-                resolver?.Dispose();
-                if (shell != null)
-                {
-                    Object.DestroyImmediate(shell);
-                }
-                StencilMaterial.ClearAll();
             }
         }
 
@@ -1018,6 +1068,68 @@ namespace Game.Feature.UI.Tests
                    parsed > 0
                 ? parsed
                 : fallback;
+        }
+
+        private sealed class StageResultCaptureSession : IDisposable
+        {
+            public UnityStringTableTextResolver Resolver { get; private set; }
+            public PopupController PopupController { get; private set; }
+            public ScreenController ScreenController { get; private set; }
+            public GameObject Shell { get; private set; }
+            public TMP_Text Title { get; private set; }
+            public Material AuthoredMaterial { get; private set; }
+            public bool IsActive => Shell != null;
+
+            public void Adopt(
+                UnityStringTableTextResolver resolver,
+                PopupController popupController,
+                ScreenController screenController,
+                GameObject shell,
+                TMP_Text title,
+                Material authoredMaterial)
+            {
+                Resolver = resolver;
+                PopupController = popupController;
+                ScreenController = screenController;
+                Shell = shell;
+                Title = title;
+                AuthoredMaterial = authoredMaterial;
+            }
+
+            public bool Owns(GameObject shell)
+            {
+                return shell != null && shell == Shell;
+            }
+
+            public void Dispose()
+            {
+                if (Title != null && AuthoredMaterial != null)
+                {
+                    Title.fontSharedMaterial = AuthoredMaterial;
+                }
+                if (Shell != null)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    foreach (var text in Shell.GetComponentsInChildren<TMP_Text>(true))
+                    {
+                        TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
+                    }
+                }
+                ScreenController?.Dispose();
+                PopupController?.Dispose();
+                Resolver?.Dispose();
+                if (Shell != null)
+                {
+                    Object.DestroyImmediate(Shell);
+                }
+                StencilMaterial.ClearAll();
+                Resolver = null;
+                PopupController = null;
+                ScreenController = null;
+                Shell = null;
+                Title = null;
+                AuthoredMaterial = null;
+            }
         }
 
         private enum CaptureClassification
