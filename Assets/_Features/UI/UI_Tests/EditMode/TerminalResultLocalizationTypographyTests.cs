@@ -459,6 +459,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("ValidateRenderedTextVisibility(scenario, viewRoot)"));
             Assert.That(utility, Does.Contain("text.canvasRenderer.cull"));
             Assert.That(utility, Does.Contain("visibleCharacterCount == 0"));
+            Assert.That(utility, Does.Contain("ValidateStageResultTitlePixelProof("));
+            Assert.That(utility, Does.Contain("title.enabled = false"));
+            Assert.That(utility, Does.Contain("title_pixel_proof="));
+            Assert.That(utility, Does.Contain("title_pixel_changed_count="));
+            Assert.That(utility, Does.Not.Contain("StageResultCaptureSession"));
+            Assert.That(utility, Does.Not.Contain("Object.DestroyImmediate(mountedTitle.gameObject)"));
+            Assert.That(utility, Does.Not.Contain("stageResultTitle.transform.SetParent"));
             Assert.That(utility, Does.Contain("Game Over"));
         }
 

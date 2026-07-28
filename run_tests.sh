@@ -3393,12 +3393,18 @@ required = {
     "capture_target_implementation_sha": expected_head,
     "canonical_count": "6",
     "diagnostic_count": "2",
+    "stage_result_title_pixel_proof_count": "2",
+    "stage_result_title_pixel_proof_pass_count": "2",
     "error_count": "0",
 }
 for key, expected in required.items():
     match = re.search(rf"^{re.escape(key)}=(.*)$", text, re.MULTILINE)
     if not match or match.group(1).strip() != expected:
         raise SystemExit(f"ERROR: {key} expected {expected!r}")
+if len(re.findall(r"^title_pixel_proof=PASS$", text, re.MULTILINE)) != 2:
+    raise SystemExit("ERROR: expected two StageResult title pixel proofs")
+if len(re.findall(r"^title_pixel_changed_count=[1-9][0-9]*$", text, re.MULTILINE)) != 2:
+    raise SystemExit("ERROR: StageResult title pixel delta must be non-zero")
 
 canonical = sorted(
     path for path in output_dir.glob("*.png")

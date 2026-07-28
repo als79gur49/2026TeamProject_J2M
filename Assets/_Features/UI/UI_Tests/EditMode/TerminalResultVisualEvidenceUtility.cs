@@ -87,66 +87,31 @@ namespace Game.Feature.UI.Tests
             Directory.CreateDirectory(diagnosticsDirectory);
             var records = new List<CaptureRecord>();
             var errors = new List<string>();
-            var stageResultAuthoredMaterial = UiTestPrefabAssetUtility
-                .LoadScreenPrefab<StageResultScreenView>(
-                    UiTestPrefabAssetUtility.StageResultScreenPrefabPath)
-                .GetComponentsInChildren<TMP_Text>(true)
-                .Single(text => text.text == "Level Clear")
-                .fontSharedMaterial;
-            var stageResultCaptureSource = new Material(stageResultAuthoredMaterial)
-            {
-                hideFlags = HideFlags.HideAndDontSave,
-            };
-            var stageResultCaptureMaterials = new List<Material>();
             var scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
                 NewSceneMode.Single);
-            var stageResultSession = new StageResultCaptureSession();
-            try
+            foreach (var scenario in CanonicalScenarios)
             {
-                foreach (var scenario in CanonicalScenarios)
-                {
-                    TryCapture(
-                        scenario,
-                        scene,
-                        stageResultSession,
-                        outputDirectory,
-                        width,
-                        height,
-                        stageResultCaptureSource,
-                        stageResultCaptureMaterials,
-                        records,
-                        errors);
-                    if (scenario.Screen == ScreenId.StageResult &&
-                        string.Equals(scenario.Locale, "en-US", StringComparison.Ordinal))
-                    {
-                        stageResultSession.Dispose();
-                    }
-                }
-
-                foreach (var scenario in DiagnosticScenarios)
-                {
-                    TryCapture(
-                        scenario,
-                        scene,
-                        stageResultSession,
-                        diagnosticsDirectory,
-                        DiagnosticWidth,
-                        DiagnosticHeight,
-                        stageResultCaptureSource,
-                        stageResultCaptureMaterials,
-                        records,
-                        errors);
-                }
+                TryCapture(
+                    scenario,
+                    scene,
+                    outputDirectory,
+                    width,
+                    height,
+                    records,
+                    errors);
             }
-            finally
+
+            foreach (var scenario in DiagnosticScenarios)
             {
-                stageResultSession.Dispose();
-                foreach (var material in stageResultCaptureMaterials)
-                {
-                    Object.DestroyImmediate(material);
-                }
-                Object.DestroyImmediate(stageResultCaptureSource);
+                TryCapture(
+                    scenario,
+                    scene,
+                    diagnosticsDirectory,
+                    DiagnosticWidth,
+                    DiagnosticHeight,
+                    records,
+                    errors);
             }
 
             ValidateLocaleParity(records, errors);
@@ -164,12 +129,9 @@ namespace Game.Feature.UI.Tests
         private static void TryCapture(
             CaptureScenario scenario,
             Scene scene,
-            StageResultCaptureSession stageResultSession,
             string outputDirectory,
             int width,
             int height,
-            Material stageResultCaptureSource,
-            ICollection<Material> stageResultCaptureMaterials,
             ICollection<CaptureRecord> records,
             ICollection<string> errors)
         {
@@ -178,12 +140,9 @@ namespace Game.Feature.UI.Tests
                 records.Add(CaptureScenarioImage(
                     scenario,
                     scene,
-                    stageResultSession,
                     outputDirectory,
                     width,
-                    height,
-                    stageResultCaptureSource,
-                    stageResultCaptureMaterials));
+                    height));
             }
             catch (Exception exception)
             {
@@ -194,126 +153,94 @@ namespace Game.Feature.UI.Tests
         private static CaptureRecord CaptureScenarioImage(
             CaptureScenario scenario,
             Scene scene,
-            StageResultCaptureSession stageResultSession,
             string outputDirectory,
             int width,
-            int height,
-            Material stageResultCaptureSource,
-            ICollection<Material> stageResultCaptureMaterials)
+            int height)
         {
             StencilMaterial.ClearAll();
             EditorSceneManager.SetActiveScene(scene);
 
-            var reuseStageResult = scenario.Screen == ScreenId.StageResult &&
-                                   stageResultSession.IsActive;
-            UnityStringTableTextResolver resolver = reuseStageResult
-                ? stageResultSession.Resolver
-                : null;
-            PopupController popupController = reuseStageResult
-                ? stageResultSession.PopupController
-                : null;
-            ScreenController screenController = reuseStageResult
-                ? stageResultSession.ScreenController
-                : null;
-            GameObject shell = reuseStageResult
-                ? stageResultSession.Shell
-                : null;
+            UnityStringTableTextResolver resolver = null;
+            PopupController popupController = null;
+            ScreenController screenController = null;
+            GameObject shell = null;
             Texture2D texture = null;
+            Texture2D comparisonTexture = null;
             TMP_Text stageResultTitle = null;
-            Material stageResultAuthoredMaterial = null;
-            Material stageResultCaptureMaterial = null;
+            var titlePixelProof = TitlePixelProof.NotApplicable;
             try
             {
-                if (reuseStageResult)
+                if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
+                        new MemoryLocalePreferenceStore(scenario.Locale),
+                        out resolver,
+                        out var failureReason))
                 {
-                    if (!resolver.TrySetLocale(scenario.Locale))
-                    {
-                        throw new InvalidOperationException(
-                            $"Production resolver rejected locale '{scenario.Locale}'.");
-                    }
-                    if (!screenController.Show(new ScreenRequest(
-                            scenario.Screen,
-                            CreatePayload(scenario.Screen),
-                            $"terminal-result-visual-{scenario.Screen}-{scenario.Locale}")))
-                    {
-                        throw new InvalidOperationException(
-                            $"ScreenController rejected terminal screen '{scenario.Screen}'.");
-                    }
+                    throw new InvalidOperationException(
+                        $"Production String Table resolver initialization failed: {failureReason}");
                 }
-                else
+                if (!resolver.TrySetLocale(scenario.Locale))
                 {
-                    if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
-                            new MemoryLocalePreferenceStore(scenario.Locale),
-                            out resolver,
-                            out var failureReason))
-                    {
-                        throw new InvalidOperationException(
-                            $"Production String Table resolver initialization failed: {failureReason}");
-                    }
-                    if (!resolver.TrySetLocale(scenario.Locale))
-                    {
-                        throw new InvalidOperationException(
-                            $"Production resolver rejected locale '{scenario.Locale}'.");
-                    }
+                    throw new InvalidOperationException(
+                        $"Production resolver rejected locale '{scenario.Locale}'.");
+                }
 
-                    var shellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
-                    if (shellPrefab == null)
-                    {
-                        throw new InvalidOperationException(
-                            $"Missing production GameplayUiCanvasRootShell resource: {RootShellResourcePath}");
-                    }
-                    shell = PrefabUtility.InstantiatePrefab(shellPrefab, scene) as GameObject;
-                    if (shell == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Production GameplayUiCanvasRootShell could not be instantiated.");
-                    }
-                    shell.name = $"TerminalResultVisual_{scenario.Screen}_{scenario.Locale}";
-                    var createdRootView = shell.GetComponent<GameplayUiCanvasRootView>();
-                    if (createdRootView == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Production shell is missing GameplayUiCanvasRootView.");
-                    }
-                    createdRootView.EnsureHierarchy();
-                    if (createdRootView.HudView != null)
-                    {
-                        createdRootView.HudView.gameObject.SetActive(false);
-                    }
+                var shellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
+                if (shellPrefab == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Missing production GameplayUiCanvasRootShell resource: {RootShellResourcePath}");
+                }
+                shell = PrefabUtility.InstantiatePrefab(shellPrefab, scene) as GameObject;
+                if (shell == null)
+                {
+                    throw new InvalidOperationException(
+                        "Production GameplayUiCanvasRootShell could not be instantiated.");
+                }
+                shell.name = $"TerminalResultVisual_{scenario.Screen}_{scenario.Locale}";
+                var createdRootView = shell.GetComponent<GameplayUiCanvasRootView>();
+                if (createdRootView == null)
+                {
+                    throw new InvalidOperationException(
+                        "Production shell is missing GameplayUiCanvasRootView.");
+                }
+                createdRootView.EnsureHierarchy();
+                if (createdRootView.HudView != null)
+                {
+                    createdRootView.HudView.gameObject.SetActive(false);
+                }
 
-                    popupController = new PopupController(new GameplayPopupRuntimeFactory(
-                        createdRootView.PopupLayerView,
-                        UiTestPrefabAssetUtility.LoadPopupCatalog(),
-                        localizedTextResolver: resolver));
-                    var timeoutRelay = shell.AddComponent<DisplayPreviewTimeoutRelay>();
-                    var lifecycleRelay = shell.AddComponent<DisplaySettingsLifecycleRelay>();
-                    var previewHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
-                    var factory = new GameplayScreenRuntimeFactory(
-                        createdRootView.ScreenLayerView,
-                        new FakeGameplayQueryFacade(
-                            new GameplaySessionReadModel(1, false, true, false),
-                            FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
-                            new GameplayObjectiveReadModel(true, true, false, false)),
-                        new ManualGameplayUiPresentationSource(),
-                        new FakeAudioSettingsPort(),
-                        new FakeDisplaySettingsPort(),
-                        NoOpKeyboardBindingSettingsPort.Instance,
-                        new RecordingUiAudioPort(),
-                        previewHost,
-                        lifecycleRelay,
-                        UiTestPrefabAssetUtility.LoadScreenCatalog(),
-                        localizedTextResolver: resolver,
-                        localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance);
-                    screenController = new ScreenController(factory);
-                    var payload = CreatePayload(scenario.Screen);
-                    if (!screenController.Show(new ScreenRequest(
-                            scenario.Screen,
-                            payload,
-                            $"terminal-result-visual-{scenario.Screen}")))
-                    {
-                        throw new InvalidOperationException(
-                            $"ScreenController rejected terminal screen '{scenario.Screen}'.");
-                    }
+                popupController = new PopupController(new GameplayPopupRuntimeFactory(
+                    createdRootView.PopupLayerView,
+                    UiTestPrefabAssetUtility.LoadPopupCatalog(),
+                    localizedTextResolver: resolver));
+                var timeoutRelay = shell.AddComponent<DisplayPreviewTimeoutRelay>();
+                var lifecycleRelay = shell.AddComponent<DisplaySettingsLifecycleRelay>();
+                var previewHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
+                var factory = new GameplayScreenRuntimeFactory(
+                    createdRootView.ScreenLayerView,
+                    new FakeGameplayQueryFacade(
+                        new GameplaySessionReadModel(1, false, true, false),
+                        FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                        new GameplayObjectiveReadModel(true, true, false, false)),
+                    new ManualGameplayUiPresentationSource(),
+                    new FakeAudioSettingsPort(),
+                    new FakeDisplaySettingsPort(),
+                    NoOpKeyboardBindingSettingsPort.Instance,
+                    new RecordingUiAudioPort(),
+                    previewHost,
+                    lifecycleRelay,
+                    UiTestPrefabAssetUtility.LoadScreenCatalog(),
+                    localizedTextResolver: resolver,
+                    localizedTypographyResolver: DefaultLocalizedTypographyResolver.Instance);
+                screenController = new ScreenController(factory);
+                var payload = CreatePayload(scenario.Screen);
+                if (!screenController.Show(new ScreenRequest(
+                        scenario.Screen,
+                        payload,
+                        $"terminal-result-visual-{scenario.Screen}")))
+                {
+                    throw new InvalidOperationException(
+                        $"ScreenController rejected terminal screen '{scenario.Screen}'.");
                 }
 
                 var rootView = shell.GetComponent<GameplayUiCanvasRootView>();
@@ -330,44 +257,9 @@ namespace Game.Feature.UI.Tests
                     height);
                 if (scenario.Screen == ScreenId.StageResult)
                 {
-                    var mountedTitle = viewRoot
+                    stageResultTitle = viewRoot
                         .GetComponentsInChildren<TMP_Text>(true)
                         .Single(text => text.text == "Level Clear");
-                    if (reuseStageResult)
-                    {
-                        Object.DestroyImmediate(mountedTitle.gameObject);
-                        stageResultTitle = stageResultSession.Title;
-                        stageResultAuthoredMaterial = stageResultSession.AuthoredMaterial;
-                    }
-                    else
-                    {
-                        stageResultTitle = mountedTitle;
-                        stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
-                        stageResultTitle.transform.SetParent(
-                            rootView.ScreenLayerView.ContentRoot,
-                            worldPositionStays: true);
-                    }
-                    if (!reuseStageResult)
-                    {
-                        stageResultCaptureMaterial = new Material(stageResultCaptureSource)
-                        {
-                            hideFlags = HideFlags.HideAndDontSave,
-                            name = $"{stageResultCaptureSource.name} [invariant]",
-                        };
-                        stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
-                        stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
-                        stageResultTitle.ForceMeshUpdate(
-                            ignoreActiveState: true,
-                            forceTextReparsing: true);
-                        stageResultTitle.UpdateGeometry(stageResultTitle.mesh, 0);
-                        stageResultSession.Adopt(
-                            resolver,
-                            popupController,
-                            screenController,
-                            shell,
-                            stageResultTitle,
-                            stageResultAuthoredMaterial);
-                    }
                 }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
@@ -383,6 +275,15 @@ namespace Game.Feature.UI.Tests
                     out var renderPassCount,
                     out var captureFrameIndex);
                 ValidateRenderedTextVisibility(scenario, viewRoot);
+                if (scenario.Screen == ScreenId.StageResult)
+                {
+                    titlePixelProof = ValidateStageResultTitlePixelProof(
+                        shell,
+                        stageResultTitle,
+                        texture,
+                        options,
+                        out comparisonTexture);
+                }
                 var pngBytes = texture.EncodeToPNG();
                 var fileName = $"{scenario.Screen}_{scenario.Locale}_{width}x{height}.png";
                 var filePath = Path.Combine(outputDirectory, fileName);
@@ -411,7 +312,8 @@ namespace Game.Feature.UI.Tests
                     fontLocalId,
                     materialLocalId,
                     renderPassCount,
-                    captureFrameIndex);
+                    captureFrameIndex,
+                    titlePixelProof);
             }
             finally
             {
@@ -419,31 +321,26 @@ namespace Game.Feature.UI.Tests
                 {
                     Object.DestroyImmediate(texture);
                 }
-                var retainedStageResult = scenario.Screen == ScreenId.StageResult &&
-                                          stageResultSession.Owns(shell);
-                if (!retainedStageResult)
+                if (comparisonTexture != null)
                 {
-                    if (stageResultTitle != null && stageResultAuthoredMaterial != null)
-                    {
-                        stageResultTitle.fontSharedMaterial = stageResultAuthoredMaterial;
-                    }
-                    if (shell != null)
-                    {
-                        Canvas.ForceUpdateCanvases();
-                        foreach (var text in shell.GetComponentsInChildren<TMP_Text>(true))
-                        {
-                            TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
-                        }
-                    }
-                    screenController?.Dispose();
-                    popupController?.Dispose();
-                    resolver?.Dispose();
-                    if (shell != null)
-                    {
-                        Object.DestroyImmediate(shell);
-                    }
-                    StencilMaterial.ClearAll();
+                    Object.DestroyImmediate(comparisonTexture);
                 }
+                if (shell != null)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    foreach (var text in shell.GetComponentsInChildren<TMP_Text>(true))
+                    {
+                        TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
+                    }
+                }
+                screenController?.Dispose();
+                popupController?.Dispose();
+                resolver?.Dispose();
+                if (shell != null)
+                {
+                    Object.DestroyImmediate(shell);
+                }
+                StencilMaterial.ClearAll();
             }
         }
 
@@ -800,6 +697,113 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        private static TitlePixelProof ValidateStageResultTitlePixelProof(
+            GameObject shell,
+            TMP_Text title,
+            Texture2D visibleTexture,
+            TypographyPreviewScreenshotOptions options,
+            out Texture2D comparisonTexture)
+        {
+            const int pixelDifferenceThreshold = 2;
+            const int minimumChangedPixelCount = 64;
+            const double minimumMeanAbsoluteDifference = 8d;
+            const int minimumMaximumDifference = 32;
+
+            comparisonTexture = null;
+            if (shell == null || title == null || visibleTexture == null || !title.enabled)
+            {
+                throw new InvalidOperationException(
+                    "StageResult title pixel proof requires the enabled production title renderer.");
+            }
+
+            try
+            {
+                title.enabled = false;
+                title.SetAllDirty();
+                ForceLayoutAndText(shell);
+                comparisonTexture = TypographyPreviewScreenshotUtility.CaptureRootForValidation(
+                    shell,
+                    options,
+                    out _,
+                    out _);
+            }
+            finally
+            {
+                title.enabled = true;
+                title.SetAllDirty();
+                ForceLayoutAndText(shell);
+            }
+
+            if (comparisonTexture == null ||
+                comparisonTexture.width != visibleTexture.width ||
+                comparisonTexture.height != visibleTexture.height)
+            {
+                throw new InvalidOperationException(
+                    "StageResult title comparison frame has the wrong resolution.");
+            }
+
+            var visiblePixels = visibleTexture.GetPixels32();
+            var comparisonPixels = comparisonTexture.GetPixels32();
+            var changedPixelCount = 0;
+            var maximumDifference = 0;
+            var absoluteDifferenceSum = 0d;
+            var minimumX = visibleTexture.width;
+            var minimumY = visibleTexture.height;
+            var maximumX = -1;
+            var maximumY = -1;
+            for (var index = 0; index < visiblePixels.Length; index++)
+            {
+                var visible = visiblePixels[index];
+                var comparison = comparisonPixels[index];
+                var red = Math.Abs(visible.r - comparison.r);
+                var green = Math.Abs(visible.g - comparison.g);
+                var blue = Math.Abs(visible.b - comparison.b);
+                var alpha = Math.Abs(visible.a - comparison.a);
+                var pixelMaximumDifference = Math.Max(
+                    Math.Max(red, green),
+                    Math.Max(blue, alpha));
+                if (pixelMaximumDifference <= pixelDifferenceThreshold)
+                {
+                    continue;
+                }
+
+                changedPixelCount++;
+                maximumDifference = Math.Max(maximumDifference, pixelMaximumDifference);
+                absoluteDifferenceSum += (red + green + blue + alpha) / 4d;
+                var x = index % visibleTexture.width;
+                var y = index / visibleTexture.width;
+                minimumX = Math.Min(minimumX, x);
+                minimumY = Math.Min(minimumY, y);
+                maximumX = Math.Max(maximumX, x);
+                maximumY = Math.Max(maximumY, y);
+            }
+
+            var meanAbsoluteDifference = changedPixelCount > 0
+                ? absoluteDifferenceSum / changedPixelCount
+                : 0d;
+            var passed = changedPixelCount >= minimumChangedPixelCount &&
+                         meanAbsoluteDifference >= minimumMeanAbsoluteDifference &&
+                         maximumDifference >= minimumMaximumDifference;
+            if (!passed)
+            {
+                throw new InvalidOperationException(
+                    "StageResult authored title has no meaningful pixel contribution: " +
+                    $"changed={changedPixelCount}, mean={meanAbsoluteDifference:F4}, " +
+                    $"max={maximumDifference}, threshold={pixelDifferenceThreshold}.");
+            }
+
+            return new TitlePixelProof(
+                passed,
+                minimumX,
+                minimumY,
+                maximumX,
+                maximumY,
+                changedPixelCount,
+                meanAbsoluteDifference,
+                maximumDifference,
+                pixelDifferenceThreshold);
+        }
+
         private static void ValidateRenderedTextVisibility(
             CaptureScenario scenario,
             GameObject viewRoot)
@@ -875,6 +879,10 @@ namespace Game.Feature.UI.Tests
             builder.AppendLine("production_composition=GameplayUiCanvasRootShell|ScreenPrefabCatalog|GameplayScreenRuntimeFactory|ScreenController|ProductionStringTableResolver|ProductionTypographyTheme");
             builder.AppendLine($"canonical_count={records.Count(record => record.Classification == CaptureClassification.Canonical)}");
             builder.AppendLine($"diagnostic_count={records.Count(record => record.Classification == CaptureClassification.Diagnostic)}");
+            builder.AppendLine(
+                $"stage_result_title_pixel_proof_count={records.Count(record => record.Screen == ScreenId.StageResult)}");
+            builder.AppendLine(
+                $"stage_result_title_pixel_proof_pass_count={records.Count(record => record.Screen == ScreenId.StageResult && record.TitlePixelProof.Passed)}");
             builder.AppendLine($"string_table_collection={collection?.TableCollectionName ?? string.Empty}");
             builder.AppendLine($"string_table_shared_data_guid={AssetDatabase.AssetPathToGUID(StringTableSharedDataPath)}");
             builder.AppendLine($"error_count={errors.Count}");
@@ -897,6 +905,21 @@ namespace Game.Feature.UI.Tests
                 builder.AppendLine($"text_count={record.TextCount}");
                 builder.AppendLine($"camera_render_pass_count={record.RenderPassCount}");
                 builder.AppendLine($"capture_frame_index={record.CaptureFrameIndex}");
+                if (record.Screen == ScreenId.StageResult)
+                {
+                    builder.AppendLine(
+                        $"title_pixel_proof={(record.TitlePixelProof.Passed ? "PASS" : "FAIL")}");
+                    builder.AppendLine(
+                        $"title_pixel_crop_bounds={record.TitlePixelProof.MinimumX},{record.TitlePixelProof.MinimumY},{record.TitlePixelProof.MaximumX},{record.TitlePixelProof.MaximumY}");
+                    builder.AppendLine(
+                        $"title_pixel_changed_count={record.TitlePixelProof.ChangedPixelCount}");
+                    builder.AppendLine(
+                        $"title_pixel_mean_absolute_difference={record.TitlePixelProof.MeanAbsoluteDifference.ToString("F4", CultureInfo.InvariantCulture)}");
+                    builder.AppendLine(
+                        $"title_pixel_maximum_difference={record.TitlePixelProof.MaximumDifference}");
+                    builder.AppendLine(
+                        $"title_pixel_difference_threshold={record.TitlePixelProof.DifferenceThreshold}");
+                }
             }
             foreach (var error in errors)
             {
@@ -1086,68 +1109,6 @@ namespace Game.Feature.UI.Tests
                 : fallback;
         }
 
-        private sealed class StageResultCaptureSession : IDisposable
-        {
-            public UnityStringTableTextResolver Resolver { get; private set; }
-            public PopupController PopupController { get; private set; }
-            public ScreenController ScreenController { get; private set; }
-            public GameObject Shell { get; private set; }
-            public TMP_Text Title { get; private set; }
-            public Material AuthoredMaterial { get; private set; }
-            public bool IsActive => Shell != null;
-
-            public void Adopt(
-                UnityStringTableTextResolver resolver,
-                PopupController popupController,
-                ScreenController screenController,
-                GameObject shell,
-                TMP_Text title,
-                Material authoredMaterial)
-            {
-                Resolver = resolver;
-                PopupController = popupController;
-                ScreenController = screenController;
-                Shell = shell;
-                Title = title;
-                AuthoredMaterial = authoredMaterial;
-            }
-
-            public bool Owns(GameObject shell)
-            {
-                return shell != null && shell == Shell;
-            }
-
-            public void Dispose()
-            {
-                if (Title != null && AuthoredMaterial != null)
-                {
-                    Title.fontSharedMaterial = AuthoredMaterial;
-                }
-                if (Shell != null)
-                {
-                    Canvas.ForceUpdateCanvases();
-                    foreach (var text in Shell.GetComponentsInChildren<TMP_Text>(true))
-                    {
-                        TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
-                    }
-                }
-                ScreenController?.Dispose();
-                PopupController?.Dispose();
-                Resolver?.Dispose();
-                if (Shell != null)
-                {
-                    Object.DestroyImmediate(Shell);
-                }
-                StencilMaterial.ClearAll();
-                Resolver = null;
-                PopupController = null;
-                ScreenController = null;
-                Shell = null;
-                Title = null;
-                AuthoredMaterial = null;
-            }
-        }
-
         private enum CaptureClassification
         {
             Canonical,
@@ -1206,6 +1167,52 @@ namespace Game.Feature.UI.Tests
             public Material Material { get; }
         }
 
+        private readonly struct TitlePixelProof
+        {
+            public static readonly TitlePixelProof NotApplicable = new(
+                false,
+                -1,
+                -1,
+                -1,
+                -1,
+                0,
+                0d,
+                0,
+                0);
+
+            public TitlePixelProof(
+                bool passed,
+                int minimumX,
+                int minimumY,
+                int maximumX,
+                int maximumY,
+                int changedPixelCount,
+                double meanAbsoluteDifference,
+                int maximumDifference,
+                int differenceThreshold)
+            {
+                Passed = passed;
+                MinimumX = minimumX;
+                MinimumY = minimumY;
+                MaximumX = maximumX;
+                MaximumY = maximumY;
+                ChangedPixelCount = changedPixelCount;
+                MeanAbsoluteDifference = meanAbsoluteDifference;
+                MaximumDifference = maximumDifference;
+                DifferenceThreshold = differenceThreshold;
+            }
+
+            public bool Passed { get; }
+            public int MinimumX { get; }
+            public int MinimumY { get; }
+            public int MaximumX { get; }
+            public int MaximumY { get; }
+            public int ChangedPixelCount { get; }
+            public double MeanAbsoluteDifference { get; }
+            public int MaximumDifference { get; }
+            public int DifferenceThreshold { get; }
+        }
+
         private readonly struct CaptureRecord
         {
             public CaptureRecord(
@@ -1222,7 +1229,8 @@ namespace Game.Feature.UI.Tests
                 long fontLocalId,
                 long materialLocalId,
                 int renderPassCount,
-                int captureFrameIndex)
+                int captureFrameIndex,
+                TitlePixelProof titlePixelProof)
             {
                 Screen = scenario.Screen;
                 Locale = scenario.Locale;
@@ -1240,6 +1248,7 @@ namespace Game.Feature.UI.Tests
                 MaterialLocalId = materialLocalId;
                 RenderPassCount = renderPassCount;
                 CaptureFrameIndex = captureFrameIndex;
+                TitlePixelProof = titlePixelProof;
             }
 
             public ScreenId Screen { get; }
@@ -1258,6 +1267,7 @@ namespace Game.Feature.UI.Tests
             public long MaterialLocalId { get; }
             public int RenderPassCount { get; }
             public int CaptureFrameIndex { get; }
+            public TitlePixelProof TitlePixelProof { get; }
         }
 
         private sealed class MemoryLocalePreferenceStore : IUiLocalePreferenceStore
