@@ -417,6 +417,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("animator.enabled = false"));
             Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, viewRoot, width, height)"));
             Assert.That(utility, Does.Contain("title.text != \"Level Clear\""));
+            Assert.That(utility, Does.Contain("ValidateRenderedTextVisibility(scenario, viewRoot)"));
+            Assert.That(utility, Does.Contain("text.canvasRenderer.cull"));
+            Assert.That(utility, Does.Contain("visibleCharacterCount == 0"));
             Assert.That(utility, Does.Contain("Game Over"));
         }
 

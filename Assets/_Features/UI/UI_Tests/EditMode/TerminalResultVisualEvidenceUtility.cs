@@ -256,6 +256,7 @@ namespace Game.Feature.UI.Tests
                     options,
                     out var renderPassCount,
                     out var captureFrameIndex);
+                ValidateRenderedTextVisibility(scenario, viewRoot);
                 var pngBytes = texture.EncodeToPNG();
                 var fileName = $"{scenario.Screen}_{scenario.Locale}_{width}x{height}.png";
                 var filePath = Path.Combine(outputDirectory, fileName);
@@ -660,6 +661,31 @@ namespace Game.Feature.UI.Tests
             {
                 throw new InvalidOperationException(
                     "StageResult title lies outside the capture viewport.");
+            }
+        }
+
+        private static void ValidateRenderedTextVisibility(
+            CaptureScenario scenario,
+            GameObject viewRoot)
+        {
+            foreach (var text in viewRoot.GetComponentsInChildren<TMP_Text>(true)
+                         .Where(text => text.gameObject.activeInHierarchy))
+            {
+                text.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+                var visibleCharacterCount = text.textInfo.characterInfo.Count(
+                    character => character.isVisible);
+                var vertexCount = text.textInfo.meshInfo.Sum(meshInfo => meshInfo.vertexCount);
+                if (text.canvasRenderer.cull ||
+                    text.canvasRenderer.GetAlpha() <= 0f ||
+                    text.color.a <= 0f ||
+                    visibleCharacterCount == 0 ||
+                    vertexCount == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{scenario.Screen}/{scenario.Locale} rendered TMP '{text.name}' is not visible: " +
+                        $"cull={text.canvasRenderer.cull}, rendererAlpha={text.canvasRenderer.GetAlpha()}, " +
+                        $"colorAlpha={text.color.a}, visibleCharacters={visibleCharacterCount}, vertices={vertexCount}.");
+                }
             }
         }
 
