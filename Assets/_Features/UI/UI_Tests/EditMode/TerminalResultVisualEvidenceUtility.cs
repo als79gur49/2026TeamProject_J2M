@@ -87,27 +87,45 @@ namespace Game.Feature.UI.Tests
             Directory.CreateDirectory(diagnosticsDirectory);
             var records = new List<CaptureRecord>();
             var errors = new List<string>();
-
-            foreach (var scenario in CanonicalScenarios)
+            var stageResultAuthoredMaterial = UiTestPrefabAssetUtility
+                .LoadScreenPrefab<StageResultScreenView>(
+                    UiTestPrefabAssetUtility.StageResultScreenPrefabPath)
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Single(text => text.text == "Level Clear")
+                .fontSharedMaterial;
+            var stageResultCaptureSource = new Material(stageResultAuthoredMaterial)
             {
-                TryCapture(
-                    scenario,
-                    outputDirectory,
-                    width,
-                    height,
-                    records,
-                    errors);
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            try
+            {
+                foreach (var scenario in CanonicalScenarios)
+                {
+                    TryCapture(
+                        scenario,
+                        outputDirectory,
+                        width,
+                        height,
+                        stageResultCaptureSource,
+                        records,
+                        errors);
+                }
+
+                foreach (var scenario in DiagnosticScenarios)
+                {
+                    TryCapture(
+                        scenario,
+                        diagnosticsDirectory,
+                        DiagnosticWidth,
+                        DiagnosticHeight,
+                        stageResultCaptureSource,
+                        records,
+                        errors);
+                }
             }
-
-            foreach (var scenario in DiagnosticScenarios)
+            finally
             {
-                TryCapture(
-                    scenario,
-                    diagnosticsDirectory,
-                    DiagnosticWidth,
-                    DiagnosticHeight,
-                    records,
-                    errors);
+                Object.DestroyImmediate(stageResultCaptureSource);
             }
 
             ValidateLocaleParity(records, errors);
@@ -127,12 +145,18 @@ namespace Game.Feature.UI.Tests
             string outputDirectory,
             int width,
             int height,
+            Material stageResultCaptureSource,
             ICollection<CaptureRecord> records,
             ICollection<string> errors)
         {
             try
             {
-                records.Add(CaptureScenarioImage(scenario, outputDirectory, width, height));
+                records.Add(CaptureScenarioImage(
+                    scenario,
+                    outputDirectory,
+                    width,
+                    height,
+                    stageResultCaptureSource));
             }
             catch (Exception exception)
             {
@@ -144,7 +168,8 @@ namespace Game.Feature.UI.Tests
             CaptureScenario scenario,
             string outputDirectory,
             int width,
-            int height)
+            int height,
+            Material stageResultCaptureSource)
         {
             StencilMaterial.ClearAll();
             var previousScene = SceneManager.GetActiveScene();
@@ -253,7 +278,7 @@ namespace Game.Feature.UI.Tests
                         .GetComponentsInChildren<TMP_Text>(true)
                         .Single(text => text.text == "Level Clear");
                     stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
-                    stageResultCaptureMaterial = new Material(stageResultAuthoredMaterial)
+                    stageResultCaptureMaterial = new Material(stageResultCaptureSource)
                     {
                         hideFlags = HideFlags.HideAndDontSave,
                     };
