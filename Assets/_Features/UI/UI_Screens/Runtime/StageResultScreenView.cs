@@ -11,7 +11,6 @@ namespace Game.Feature.UI.Screens
     public sealed class StageResultScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private Button _continueButton;
         [SerializeField] private TMP_Text _continueButtonLabel;
         [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
@@ -58,11 +57,6 @@ namespace Game.Feature.UI.Screens
             string localeCode,
             GameplayUiTypographyTheme typographyTheme)
         {
-            TerminalScreenTypographyUtility.Apply(
-                _titleLabel,
-                localeCode,
-                typographyTheme,
-                TypographyStyleTag.HeaderLarge);
             TerminalScreenTypographyUtility.Apply(
                 _continueButtonLabel,
                 localeCode,
@@ -133,7 +127,6 @@ namespace Game.Feature.UI.Screens
         private void OnValidate()
         {
             ValidateSerializedReference(_root, nameof(_root));
-            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_continueButton, nameof(_continueButton));
             ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
         }
