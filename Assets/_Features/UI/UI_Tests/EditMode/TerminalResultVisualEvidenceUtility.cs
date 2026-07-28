@@ -239,6 +239,12 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"ScreenController rejected terminal screen '{scenario.Screen}'.");
                     }
+                    shell.GetComponent<GameplayUiCanvasRootView>()
+                        .ScreenLayerView
+                        .FindScreenView<StageResultScreenView>()
+                        .ApplyLocalizedTypography(
+                            scenario.Locale,
+                            UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme);
                 }
                 else
                 {
