@@ -333,11 +333,8 @@ namespace Game.Feature.UI.Tests
 
                 var rootView = shell.GetComponent<GameplayUiCanvasRootView>();
                 var viewRoot = ResolveCurrentViewRoot(rootView.ScreenLayerView, scenario.Screen);
-                if (!reuseStageResult)
-                {
-                    SettleScreenEnterMotion(viewRoot);
-                    SettleNestedPresentationAnimators(viewRoot);
-                }
+                SettleScreenEnterMotion(viewRoot);
+                SettleNestedPresentationAnimators(viewRoot);
                 ForceLayoutAndText(shell);
                 var textStates = ValidatePresentation(
                     scenario,
