@@ -350,6 +350,14 @@ namespace Game.Feature.UI.Tests
                 {
                     Object.DestroyImmediate(texture);
                 }
+                if (shell != null)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    foreach (var text in shell.GetComponentsInChildren<TMP_Text>(true))
+                    {
+                        TMP_UpdateManager.UnRegisterTextElementForRebuild(text);
+                    }
+                }
                 screenController?.Dispose();
                 popupController?.Dispose();
                 resolver?.Dispose();
