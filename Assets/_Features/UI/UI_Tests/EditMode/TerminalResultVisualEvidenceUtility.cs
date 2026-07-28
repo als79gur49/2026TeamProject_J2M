@@ -232,8 +232,9 @@ namespace Game.Feature.UI.Tests
                         $"ScreenController rejected terminal screen '{scenario.Screen}'.");
                 }
 
-                ForceLayoutAndText(shell);
                 var viewRoot = ResolveCurrentViewRoot(rootView.ScreenLayerView, scenario.Screen);
+                SettleScreenEnterMotion(viewRoot);
+                ForceLayoutAndText(shell);
                 var textStates = ValidatePresentation(
                     scenario,
                     rootView,
@@ -749,6 +750,17 @@ namespace Game.Feature.UI.Tests
             foreach (var text in root.GetComponentsInChildren<TMP_Text>(true))
             {
                 text.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
+            }
+        }
+
+        private static void SettleScreenEnterMotion(GameObject viewRoot)
+        {
+            foreach (var component in viewRoot.GetComponents<MonoBehaviour>())
+            {
+                var stopMethod = component.GetType().GetMethod(
+                    "StopRootEnterMotion",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                stopMethod?.Invoke(component, null);
             }
         }
 

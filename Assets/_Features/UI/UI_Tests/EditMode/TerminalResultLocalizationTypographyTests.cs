@@ -409,6 +409,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("DiagnosticHeight = 540"));
             Assert.That(utility, Does.Contain("canonical_count="));
             Assert.That(utility, Does.Contain("diagnostic_count="));
+            Assert.That(utility, Does.Contain("SettleScreenEnterMotion(viewRoot)"));
+            Assert.That(utility, Does.Contain("\"StopRootEnterMotion\""));
             Assert.That(utility, Does.Contain("Game Over"));
         }
 
