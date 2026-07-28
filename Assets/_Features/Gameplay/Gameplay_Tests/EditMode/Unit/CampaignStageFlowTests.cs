@@ -1404,7 +1404,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(54) });
 
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(
+                    presentationFeed.CurrentLevelFailed.Reason,
+                    Is.EqualTo(GameplayLevelFailureReason.ChancesExhausted));
                 Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(
+                    presentationFeed.CurrentLevelFailed.RestartLevelRequest.NavigationKind,
+                    Is.EqualTo(StageNavigationKind.Retry));
+                Assert.That(
+                    presentationFeed.CurrentLevelFailed.RestartLevelRequest.TransitionHint.Kind,
+                    Is.EqualTo(StageTransitionKind.LevelFailedRestart));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
                 presentationFeed.Dispose();
             }

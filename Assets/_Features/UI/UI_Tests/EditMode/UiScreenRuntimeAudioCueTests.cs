@@ -115,10 +115,7 @@ namespace Game.Feature.UI.Tests
             using var harness = UiAudioHarness.Create();
             var request = CreateStageNavigationRequest(StageNavigationKind.Retry);
             var payload = new LevelFailedScreenPayload(
-                "Fail",
-                "Detail",
-                "Restart",
-                "Main",
+                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 request);
 
             Assert.That(
@@ -138,10 +135,7 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = UiAudioHarness.Create();
             var payload = new LevelFailedScreenPayload(
-                "Fail",
-                "Detail",
-                "Restart",
-                "Main",
+                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 CreateStageNavigationRequest(StageNavigationKind.Retry));
 
             Assert.That(

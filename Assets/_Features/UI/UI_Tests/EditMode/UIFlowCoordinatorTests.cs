@@ -661,8 +661,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenController.CurrentEntry.HasValue, Is.True);
             Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<GameClearScreenPayload>());
             var gameClearPayload = screenController.CurrentEntry.Value.Payload as GameClearScreenPayload;
-            Assert.That(gameClearPayload.TitleText, Is.EqualTo("Game Clear"));
-            Assert.That(gameClearPayload.MainLabel, Is.EqualTo("Main"));
+            Assert.That(
+                gameClearPayload.TitleTextDescriptor,
+                Is.EqualTo(TerminalResultTextDescriptors.GameClearTitle));
+            Assert.That(
+                gameClearPayload.MainMenuLabelDescriptor,
+                Is.EqualTo(TerminalResultTextDescriptors.MainMenu));
             Assert.That(popupController.TopPopup.HasValue, Is.False);
             Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection remains result-screen-only; do not extract or change this policy in PR-1.");
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Is.Empty);
@@ -703,10 +707,7 @@ namespace Game.Feature.UI.Tests
                 StageNavigationKind.Retry,
                 "level-failed-restart-level");
             var payload = new LevelFailedScreenPayload(
-                "Level Failed",
-                "All chances were used.",
-                "Restart Level",
-                "Main",
+                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 restartRequest);
 
             presentationSource.PublishLevelFailed(payload);
@@ -751,10 +752,7 @@ namespace Game.Feature.UI.Tests
                 StageNavigationKind.Retry,
                 "level-failed-restart-level");
             presentationSource.PublishLevelFailed(new LevelFailedScreenPayload(
-                "Level Failed",
-                "All chances were used.",
-                "Restart Level",
-                "Main",
+                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 restartRequest));
             var levelFailedRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.LevelFailed);
 
