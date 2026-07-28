@@ -231,20 +231,29 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"Production resolver rejected locale '{scenario.Locale}'.");
                     }
-                    shell.GetComponent<GameplayUiCanvasRootView>()
-                        .ScreenLayerView
-                        .FindScreenView<StageResultScreenView>()
-                        .ApplyLocalizedTypography(
-                            scenario.Locale,
-                            UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme);
+                    stageResultSession.Title.fontSharedMaterial =
+                        stageResultSession.AuthoredMaterial;
+                    stageResultSession.Title.gameObject.SetActive(false);
+                    stageResultSession.Title.transform.SetParent(shell.transform, false);
                     if (!screenController.Show(new ScreenRequest(
                             scenario.Screen,
                             CreatePayload(scenario.Screen),
-                            $"terminal-result-visual-{scenario.Screen}")))
+                            $"terminal-result-visual-{scenario.Screen}-{scenario.Locale}")))
                     {
                         throw new InvalidOperationException(
                             $"ScreenController rejected terminal screen '{scenario.Screen}'.");
                     }
+                    var replacementTitle = shell.GetComponent<GameplayUiCanvasRootView>()
+                        .ScreenLayerView
+                        .FindScreenView<StageResultScreenView>()
+                        .GetComponentsInChildren<TMP_Text>(true)
+                        .Single(text => text.text == "Level Clear");
+                    var titleParent = replacementTitle.transform.parent;
+                    var titleSiblingIndex = replacementTitle.transform.GetSiblingIndex();
+                    Object.DestroyImmediate(replacementTitle.gameObject);
+                    stageResultSession.Title.transform.SetParent(titleParent, false);
+                    stageResultSession.Title.transform.SetSiblingIndex(titleSiblingIndex);
+                    stageResultSession.Title.gameObject.SetActive(true);
                 }
                 else
                 {
