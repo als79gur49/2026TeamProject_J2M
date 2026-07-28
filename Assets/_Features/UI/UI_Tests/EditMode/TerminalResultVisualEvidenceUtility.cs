@@ -98,12 +98,16 @@ namespace Game.Feature.UI.Tests
                 hideFlags = HideFlags.HideAndDontSave,
             };
             var stageResultCaptureMaterials = new List<Material>();
+            var scene = EditorSceneManager.NewScene(
+                NewSceneSetup.EmptyScene,
+                NewSceneMode.Single);
             try
             {
                 foreach (var scenario in CanonicalScenarios)
                 {
                     TryCapture(
                         scenario,
+                        scene,
                         outputDirectory,
                         width,
                         height,
@@ -117,6 +121,7 @@ namespace Game.Feature.UI.Tests
                 {
                     TryCapture(
                         scenario,
+                        scene,
                         diagnosticsDirectory,
                         DiagnosticWidth,
                         DiagnosticHeight,
@@ -149,6 +154,7 @@ namespace Game.Feature.UI.Tests
 
         private static void TryCapture(
             CaptureScenario scenario,
+            Scene scene,
             string outputDirectory,
             int width,
             int height,
@@ -161,6 +167,7 @@ namespace Game.Feature.UI.Tests
             {
                 records.Add(CaptureScenarioImage(
                     scenario,
+                    scene,
                     outputDirectory,
                     width,
                     height,
@@ -175,6 +182,7 @@ namespace Game.Feature.UI.Tests
 
         private static CaptureRecord CaptureScenarioImage(
             CaptureScenario scenario,
+            Scene scene,
             string outputDirectory,
             int width,
             int height,
@@ -182,10 +190,6 @@ namespace Game.Feature.UI.Tests
             ICollection<Material> stageResultCaptureMaterials)
         {
             StencilMaterial.ClearAll();
-            var previousScene = SceneManager.GetActiveScene();
-            var scene = EditorSceneManager.NewScene(
-                NewSceneSetup.EmptyScene,
-                NewSceneMode.Additive);
             EditorSceneManager.SetActiveScene(scene);
 
             UnityStringTableTextResolver resolver = null;
@@ -370,14 +374,6 @@ namespace Game.Feature.UI.Tests
                     Object.DestroyImmediate(shell);
                 }
                 StencilMaterial.ClearAll();
-                if (scene.IsValid() && scene.isLoaded)
-                {
-                    if (previousScene.IsValid() && previousScene.isLoaded)
-                    {
-                        EditorSceneManager.SetActiveScene(previousScene);
-                    }
-                    EditorSceneManager.CloseScene(scene, true);
-                }
             }
         }
 
