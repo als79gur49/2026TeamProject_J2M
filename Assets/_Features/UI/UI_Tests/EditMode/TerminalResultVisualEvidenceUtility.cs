@@ -158,6 +158,9 @@ namespace Game.Feature.UI.Tests
             ScreenController screenController = null;
             GameObject shell = null;
             Texture2D texture = null;
+            TMP_Text stageResultTitle = null;
+            Material stageResultAuthoredMaterial = null;
+            Material stageResultCaptureMaterial = null;
             try
             {
                 if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
@@ -244,6 +247,18 @@ namespace Game.Feature.UI.Tests
                     viewRoot,
                     width,
                     height);
+                if (scenario.Screen == ScreenId.StageResult)
+                {
+                    stageResultTitle = viewRoot
+                        .GetComponentsInChildren<TMP_Text>(true)
+                        .Single(text => text.text == "Level Clear");
+                    stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
+                    stageResultCaptureMaterial = new Material(stageResultAuthoredMaterial)
+                    {
+                        hideFlags = HideFlags.HideAndDontSave,
+                    };
+                    stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
+                }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
                 var options = new TypographyPreviewScreenshotOptions
@@ -290,6 +305,14 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                if (stageResultTitle != null && stageResultAuthoredMaterial != null)
+                {
+                    stageResultTitle.fontSharedMaterial = stageResultAuthoredMaterial;
+                }
+                if (stageResultCaptureMaterial != null)
+                {
+                    Object.DestroyImmediate(stageResultCaptureMaterial);
+                }
                 if (texture != null)
                 {
                     Object.DestroyImmediate(texture);
