@@ -295,6 +295,10 @@ namespace Game.Feature.UI.Tests
                     };
                     stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
                     stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
+                    stageResultTitle.ForceMeshUpdate(
+                        ignoreActiveState: true,
+                        forceTextReparsing: true);
+                    stageResultTitle.UpdateGeometry(stageResultTitle.mesh, 0);
                 }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
