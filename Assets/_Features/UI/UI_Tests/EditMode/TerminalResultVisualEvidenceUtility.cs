@@ -231,10 +231,6 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"Production resolver rejected locale '{scenario.Locale}'.");
                     }
-                    stageResultSession.Title.fontSharedMaterial =
-                        stageResultSession.AuthoredMaterial;
-                    stageResultSession.Title.gameObject.SetActive(false);
-                    stageResultSession.Title.transform.SetParent(shell.transform, false);
                     if (!screenController.Show(new ScreenRequest(
                             scenario.Screen,
                             CreatePayload(scenario.Screen),
@@ -243,17 +239,6 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"ScreenController rejected terminal screen '{scenario.Screen}'.");
                     }
-                    var replacementTitle = shell.GetComponent<GameplayUiCanvasRootView>()
-                        .ScreenLayerView
-                        .FindScreenView<StageResultScreenView>()
-                        .GetComponentsInChildren<TMP_Text>(true)
-                        .Single(text => text.text == "Level Clear");
-                    var titleParent = replacementTitle.transform.parent;
-                    var titleSiblingIndex = replacementTitle.transform.GetSiblingIndex();
-                    Object.DestroyImmediate(replacementTitle.gameObject);
-                    stageResultSession.Title.transform.SetParent(titleParent, false);
-                    stageResultSession.Title.transform.SetSiblingIndex(titleSiblingIndex);
-                    stageResultSession.Title.gameObject.SetActive(true);
                 }
                 else
                 {
@@ -345,12 +330,23 @@ namespace Game.Feature.UI.Tests
                     height);
                 if (scenario.Screen == ScreenId.StageResult)
                 {
-                    stageResultTitle = viewRoot
+                    var mountedTitle = viewRoot
                         .GetComponentsInChildren<TMP_Text>(true)
                         .Single(text => text.text == "Level Clear");
-                    stageResultAuthoredMaterial = reuseStageResult
-                        ? stageResultSession.AuthoredMaterial
-                        : stageResultTitle.fontSharedMaterial;
+                    if (reuseStageResult)
+                    {
+                        Object.DestroyImmediate(mountedTitle.gameObject);
+                        stageResultTitle = stageResultSession.Title;
+                        stageResultAuthoredMaterial = stageResultSession.AuthoredMaterial;
+                    }
+                    else
+                    {
+                        stageResultTitle = mountedTitle;
+                        stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
+                        stageResultTitle.transform.SetParent(
+                            rootView.ScreenLayerView.ContentRoot,
+                            worldPositionStays: true);
+                    }
                     stageResultCaptureMaterial = new Material(stageResultCaptureSource)
                     {
                         hideFlags = HideFlags.HideAndDontSave,
