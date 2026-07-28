@@ -452,6 +452,7 @@ WSL CLI
 ```bash
 ./run_tests.sh core
 ./run_tests.sh ui
+./run_tests.sh climate-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh full
 ./run_tests.sh --print-config
@@ -480,6 +481,10 @@ WSL CLI
   - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
   - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
+- `./run_tests.sh climate-glyph-update`
+  - committed Climate/Nanum source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus의 실제 missing glyph만 canonical TMP asset에 추가한다.
+  - Climate runtime font와 retained Nanum validation font를 source TTF에서 갱신하며 missing/fallback 0을 강제한다.
+  - 테스트 lane이 아니며 filter를 받지 않는다.
 - `./run_tests.sh typography-visual`
   - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
   - current worktree/Unity path, 동일 프로젝트 process, revision gate, Nanum 전후 hash, manifest PASS fields, Settings 38 및 localized 22/22, 6개 PNG byte size/SHA-256을 검증한다.
@@ -511,6 +516,7 @@ WSL CLI
 ```bash
 ./run_tests.sh core
 ./run_tests.sh ui
+./run_tests.sh climate-glyph-update
 ./run_tests.sh typography-visual
 ./run_tests.sh full
 ./run_tests.sh --print-config
@@ -539,6 +545,10 @@ WSL CLI
   - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
   - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.
+- `./run_tests.sh climate-glyph-update`
+  - Preflights committed Climate/Nanum source identity, then adds only actually missing glyphs from the managed ko-KR String Table corpus to the canonical TMP assets.
+  - Updates the Climate runtime font and retained Nanum validation font from their source TTFs, enforcing zero missing glyphs and zero fallback dependency.
+  - This is an asset-generation lane, not a test lane, and it does not accept filters.
 - `./run_tests.sh typography-visual`
   - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
   - Validates the current worktree/Unity path, same-project process exclusion, revision gate, before/after Nanum hashes, manifest PASS fields, exact Settings 38 and localized 22/22 counts, and all six PNG byte sizes/SHA-256 hashes.

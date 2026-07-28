@@ -4,11 +4,11 @@
 
 Localization is implemented to a substantial production baseline. The current project has the Unity Localization package baseline, local/default Addressables settings, `en-US` and `ko-KR` Locale assets, `UI` and `Stage` String Tables, the `UnityStringTableTextResolver` production path, removal of the package-free production fallback, Settings / Pause / Main Menu static localization, the Stage display-name key/table/descriptor/locale-rebind path, selected locale persistence, and Settings Smart String dynamic text. The production Localization Settings asset now loads with a valid SmartFormat source/formatter graph, and the Settings audio/display static shell is descriptor-backed in both locales.
 
-Typography foundation and production wiring are implemented for Settings, Pause, and Main Menu.
+Typography foundation and production wiring are implemented for Settings, Pause, Main Menu, and the StageResult/LevelFailed/GameClear terminal result family.
 
 The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and `ClimateCrisisKR-2000 SDF` glyph coverage generated from Korean String Tables.
 
-Typography is not globally applied to every future UI surface. The current production wiring is scoped to Settings, Pause, and Main Menu. HUD/objective/save slot/inventory/audio/voice localization remains outside this migration.
+Typography is not globally applied to every future UI surface. The current production wiring is scoped to established governed surfaces and the terminal result family. Save slot/inventory/audio/voice localization remains outside this migration.
 
 ### 2026-07-26 Climate PR2 current-state override
 
@@ -26,7 +26,7 @@ historical baseline/decision sequence, not current runtime mapping.
 - Pause title width is `160` with visual center preserved; Settings audio value
   effective width is `140`.
 - Nanum assets remain tracked, but no current Climate role resolves to Nanum.
-- Managed ko-KR String Tables require 116/116 native Climate glyphs and zero
+- Managed ko-KR String Tables require 127/127 native Climate glyphs and zero
   fallback dependency.
 - Climate committed source identity is a pre-Unity `HEAD` Git-blob contract.
   Unity-loaded font/material/glyph/fallback/render behavior is a separate
@@ -114,7 +114,7 @@ Current baseline captured for this cleanup pass:
 | Pause / Main Menu typography migration | Done | Pause uses its existing semantic rules. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR resolves through the all-role Climate policy, and generic en-US `Button` remains SciFiSoldier. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
 | Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, Nanum preservation, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
-| Climate glyph coverage | Done | Managed ko-KR tables resolve 116/116 distinct non-ASCII codepoints natively in `ClimateCrisisKR-2000 SDF` with fallback dependency 0. |
+| Climate glyph coverage | Done | Managed ko-KR tables resolve 127/127 distinct non-ASCII codepoints natively in `ClimateCrisisKR-2000 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
 

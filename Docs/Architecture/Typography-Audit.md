@@ -15,7 +15,7 @@ questions, and “next implementation” wording retained later in this audit.
   width `140`.
 - en-US identities remain base-authored; Generic Button stays SciFiSoldier and
   MainMenuCommand stays Orbitron.
-- Managed ko-KR glyph coverage is 116/116 with no fallback dependency.
+- Managed ko-KR glyph coverage is 127/127 with no fallback dependency.
 - Nanum TTF/SDF/SyntheticBold assets remain tracked for retention/history but
   are not used by current Climate runtime role mapping.
 
