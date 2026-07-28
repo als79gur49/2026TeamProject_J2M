@@ -666,10 +666,12 @@ namespace Game.Feature.UI.Tests
             var relativeBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(
                 viewRoot.transform,
                 title.rectTransform);
-            if (relativeBounds.min.x < -width ||
-                relativeBounds.max.x > width ||
-                relativeBounds.min.y < -height ||
-                relativeBounds.max.y > height)
+            var rootRect = viewRoot.transform as RectTransform;
+            if (rootRect == null ||
+                relativeBounds.min.x < rootRect.rect.xMin - 0.5f ||
+                relativeBounds.max.x > rootRect.rect.xMax + 0.5f ||
+                relativeBounds.min.y < rootRect.rect.yMin - 0.5f ||
+                relativeBounds.max.y > rootRect.rect.yMax + 0.5f)
             {
                 throw new InvalidOperationException(
                     "StageResult title lies outside the capture viewport.");

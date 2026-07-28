@@ -272,6 +272,13 @@ namespace Game.Feature.UI.Tests
                 TypographyStyleTag.Button,
                 theme,
                 climate);
+            var stageResultPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            var stageResultTitle = GetField<TMP_Text>(
+                stageResultPrefab.GetComponent<StageResultScreenView>(),
+                "_titleLabel");
+            Assert.That(stageResultTitle.margin.x, Is.GreaterThanOrEqualTo(20f));
+            Assert.That(stageResultTitle.margin.z, Is.GreaterThanOrEqualTo(20f));
             AssertTypography(
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
                 "_titleLabel",
