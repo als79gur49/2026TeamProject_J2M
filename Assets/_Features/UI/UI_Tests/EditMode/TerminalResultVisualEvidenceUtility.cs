@@ -231,6 +231,12 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"Production resolver rejected locale '{scenario.Locale}'.");
                     }
+                    shell.GetComponent<GameplayUiCanvasRootView>()
+                        .ScreenLayerView
+                        .FindScreenView<StageResultScreenView>()
+                        .ApplyLocalizedTypography(
+                            scenario.Locale,
+                            UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme);
                     if (!screenController.Show(new ScreenRequest(
                             scenario.Screen,
                             CreatePayload(scenario.Screen),
@@ -239,12 +245,6 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"ScreenController rejected terminal screen '{scenario.Screen}'.");
                     }
-                    shell.GetComponent<GameplayUiCanvasRootView>()
-                        .ScreenLayerView
-                        .FindScreenView<StageResultScreenView>()
-                        .ApplyLocalizedTypography(
-                            scenario.Locale,
-                            UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme);
                 }
                 else
                 {
