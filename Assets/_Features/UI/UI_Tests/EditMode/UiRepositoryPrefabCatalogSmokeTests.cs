@@ -354,7 +354,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(serialized.FindProperty("_summaryLabel"), Is.Null);
             Assert.That(serialized.FindProperty("_detailLabel"), Is.Null);
             AssertRequiredObjectReference(serialized, "_continueButton", nameof(StageResultScreenView));
-            Assert.That(serialized.FindProperty("_continueButtonLabel"), Is.Null);
+            AssertRequiredObjectReference(serialized, "_continueButtonLabel", nameof(StageResultScreenView));
 
             Assert.That(FindChildByName(stageResult.transform, "Title"), Is.Null);
             Assert.That(FindChildByName(stageResult.transform, "ResultSummary"), Is.Null);

@@ -278,6 +278,31 @@ MonoBehaviour:
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344
+  - m_Id: 4971587610693651
+    m_Localized: Continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693652
+    m_Localized: Stage Failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693653
+    m_Localized: All chances have been used. Restart the stage or return to the main
+      menu.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693654
+    m_Localized: Restart Stage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693655
+    m_Localized: Main Menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693656
+    m_Localized: Game Clear
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

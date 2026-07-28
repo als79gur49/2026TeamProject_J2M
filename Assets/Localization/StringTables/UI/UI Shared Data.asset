@@ -259,6 +259,30 @@ MonoBehaviour:
     m_Key: ui.hud.objective.reach_zone
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693651
+    m_Key: ui.result.action.continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693652
+    m_Key: ui.result.level_failed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693653
+    m_Key: ui.result.level_failed.detail.chances_exhausted
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693654
+    m_Key: ui.result.action.restart_stage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693655
+    m_Key: ui.result.action.main_menu
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693656
+    m_Key: ui.result.game_clear.title
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

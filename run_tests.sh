@@ -77,6 +77,8 @@ VISUAL_GUARD_CURRENT_SCAN_AT_MS=""
 VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
 VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
 VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
+VISUAL_GUARD_PROCESS_CLEANUP_STATUS=0
+VISUAL_GUARD_RESTORE_ON_SUCCESS=1
 UNITY_DETACHED_STARTUP_GRACE_MS="${UNITY_DETACHED_STARTUP_GRACE_MS:-6000}"
 UNITY_DETACHED_POLL_INTERVAL_MS="${UNITY_DETACHED_POLL_INTERVAL_MS:-200}"
 UNITY_DETACHED_QUIET_PERIOD_MS="${UNITY_DETACHED_QUIET_PERIOD_MS:-400}"
@@ -94,6 +96,7 @@ VISUAL_GUARD_CANDIDATE_TERMINATION_RESULTS=()
 VISUAL_GUARD_EXITING=0
 VISUAL_GUARD_PHASE="DONE"
 VISUAL_GUARD_FINAL_STATUS_SNAPSHOT=0
+CAPTURE_GUARD_PROFILE="visual"
 
 TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
 TYPOGRAPHY_VISUAL_OUTPUT_DIR=""
@@ -111,23 +114,38 @@ NANUM_SDF_META="$NANUM_SDF_ASSET.meta"
 NANUM_SYNTHETIC_BOLD_ASSET="Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat"
 NANUM_SYNTHETIC_BOLD_META="$NANUM_SYNTHETIC_BOLD_ASSET.meta"
 NANUM_SOURCE_TTF_GUID="9efe96b63470e314280dc43c0aa565db"
+NANUM_SOURCE_TTF_SHA256="48a28e97b34fc8e5b157657633670cd1b7de126cfc414da65ce9c3d5bc8be733"
 NANUM_SDF_GUID="4662feb1d501d1f479b757a82e304069"
+NANUM_MATERIAL_LOCAL_ID="2769584723452840789"
+NANUM_ATLAS_LOCAL_ID="3176292610376301967"
 NANUM_SYNTHETIC_BOLD_GUID="2a2e67f1c1d143dc9f2d4af986ba7f21"
 OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/ObjectiveHudVisualQA"
 OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
 OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
 OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+CLIMATE_GLYPH_UPDATE_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.ClimateCrisisKrGlyphUpdateUtility.GenerateFromCommandLine"
 CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
 CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
 CLIMATE_SDF_ASSET="$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET"
 CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
-CLIMATE_COMMITTED_SDF_SHA256="c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5"
+CLIMATE_COMMITTED_SDF_SHA256="d7c5f8586ef25dee65232c0054deb249d2937622b99e8f85773935a9a1432188"
 CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
 CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
 CLIMATE_MATERIAL_LOCAL_ID="1352911973252649374"
+CLIMATE_ATLAS_LOCAL_ID="-2536001923755311345"
+GLYPH_STRING_TABLE_INPUT="Assets/Localization/StringTables/UI/UI Shared Data.asset"
+GLYPH_STRING_TABLE_INPUT_META="$GLYPH_STRING_TABLE_INPUT.meta"
+GLYPH_STRING_TABLE_INPUT_GUID="1139bb803b655c2488dd6dca46c97cf5"
 RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
+CLIMATE_GLYPH_UPDATE_LOG="$RESULT_DIR/wsl-climate-glyph-update.log"
+CLIMATE_GLYPH_UPDATE_EVIDENCE="$RESULT_DIR/wsl-climate-glyph-update-evidence.log"
+CLIMATE_GLYPH_UPDATE_LIFECYCLE="$RESULT_DIR/wsl-climate-glyph-update-cleanup.log"
+TERMINAL_RESULT_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TerminalResultVisualQA"
+TERMINAL_RESULT_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.TerminalResultVisualEvidenceUtility.CaptureFromCommandLine"
+TERMINAL_RESULT_VISUAL_WIDTH=1920
+TERMINAL_RESULT_VISUAL_HEIGHT=1080
 METRICS_DIR="$RESULT_DIR/.metrics"
 
 STRATIFICATION_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_test_stratification.py"
@@ -338,6 +356,7 @@ require_worktree_file_text() {
 verify_climate_worktree_source_integrity() {
     local candidate_sdf_hash
     local candidate_ttf_hash
+    local candidate_nanum_ttf_hash
     local retained_path
     local -a retained_nanum_paths=(
         "$NANUM_SOURCE_TTF_ASSET"
@@ -354,16 +373,19 @@ verify_climate_worktree_source_integrity() {
     candidate_ttf_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
-    if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
-        echo "ERROR: Candidate worktree Climate SDF mismatch."
-        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
-        echo "  actual:   $candidate_sdf_hash"
-        return 1
-    fi
+    candidate_nanum_ttf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$NANUM_SOURCE_TTF_ASSET" | awk '{print $1}'
+    )"
     if [ "$candidate_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
         echo "ERROR: Candidate worktree Climate source TTF mismatch."
         echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
         echo "  actual:   $candidate_ttf_hash"
+        return 1
+    fi
+    if [ "$candidate_nanum_ttf_hash" != "$NANUM_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Nanum source TTF mismatch."
+        echo "  expected: $NANUM_SOURCE_TTF_SHA256"
+        echo "  actual:   $candidate_nanum_ttf_hash"
         return 1
     fi
 
@@ -379,6 +401,10 @@ verify_climate_worktree_source_integrity() {
         "$CLIMATE_SDF_ASSET" \
         "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
         "material localID"
+    require_worktree_file_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!28 &$CLIMATE_ATLAS_LOCAL_ID" \
+        "atlas texture localID"
 
     for retained_path in "${retained_nanum_paths[@]}"; do
         if [ ! -f "$PROJECT_PATH_WSL/$retained_path" ]; then
@@ -403,12 +429,25 @@ verify_climate_worktree_source_integrity() {
         "m_SourceFontFileGUID: $NANUM_SOURCE_TTF_GUID" \
         "Nanum SDF source TTF reference"
     require_worktree_file_text \
+        "$NANUM_SDF_ASSET" \
+        "--- !u!21 &$NANUM_MATERIAL_LOCAL_ID" \
+        "Nanum material localID"
+    require_worktree_file_text \
+        "$NANUM_SDF_ASSET" \
+        "--- !u!28 &$NANUM_ATLAS_LOCAL_ID" \
+        "Nanum atlas texture localID"
+    require_worktree_file_text \
         "$NANUM_SYNTHETIC_BOLD_ASSET" \
         "guid: $NANUM_SDF_GUID" \
         "Nanum synthetic-bold atlas reference"
+    require_worktree_file_text \
+        "$GLYPH_STRING_TABLE_INPUT_META" \
+        "guid: $GLYPH_STRING_TABLE_INPUT_GUID" \
+        "glyph String Table input GUID"
 
     echo "Climate/Nanum candidate worktree integrity: PASS"
-    echo "  Climate SDF SHA-256: $candidate_sdf_hash"
+    echo "  Climate candidate SHA-256 (record only): $candidate_sdf_hash"
+    echo "  Candidate output hash is not a pre-update acceptance condition."
     echo "  Nanum body/meta:     6/6 present"
 }
 
@@ -424,6 +463,10 @@ diagnose_climate_file_state() {
     hash="$(sha256sum "$candidate" | awk '{print $1}')"
     echo "Climate working-state diagnostic [$label]:"
     echo "  SHA-256: $hash"
+    if [ "$hash" = "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+        echo "  Classification: CANDIDATE_SOURCE_SHAPE"
+        return 0
+    fi
     python3 - "$candidate" "$CLIMATE_SDF_ASSET" <<'PY'
 import subprocess
 import sys
@@ -649,7 +692,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|typography-visual|typography-hud-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-result-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -668,6 +711,13 @@ prepare_typography_visual_paths() {
 }
 
 capture_guarded_paths() {
+    if [ "${CAPTURE_GUARD_PROFILE:-visual}" = "glyph-update" ]; then
+        printf '%s\n' \
+            "$CLIMATE_SDF_ASSET" \
+            "$NANUM_SDF_ASSET"
+        return 0
+    fi
+
     printf '%s\n' \
         "$CLIMATE_SDF_ASSET" \
         "$NANUM_SDF_ASSET" \
@@ -834,6 +884,22 @@ restore_capture_assets_from_baseline() {
     return "$restore_exit"
 }
 
+discard_capture_asset_baseline() {
+    local baseline_root="$1"
+
+    if [ -z "$baseline_root" ] ||
+       [ "$baseline_root" = "/" ] ||
+       [ "$baseline_root" = "$PROJECT_PATH_WSL" ]; then
+        echo "ERROR: Refusing to discard an unsafe asset baseline path: $baseline_root"
+        return 1
+    fi
+    rm -rf -- "$baseline_root"
+    if [ -e "$baseline_root" ]; then
+        echo "ERROR: Asset baseline snapshot was not discarded: $baseline_root"
+        return 1
+    fi
+}
+
 visual_guard_reset_state() {
     VISUAL_GUARD_BASELINE_ROOT=""
     VISUAL_GUARD_MUTATION_EVIDENCE=""
@@ -900,6 +966,8 @@ visual_guard_reset_state() {
     VISUAL_GUARD_FINAL_SURVIVOR_COUNT=0
     VISUAL_GUARD_FINAL_SURVIVOR_PIDS=""
     VISUAL_GUARD_CLEANUP_PROCESS_RESULT="NOT_STARTED"
+    VISUAL_GUARD_PROCESS_CLEANUP_STATUS=0
+    VISUAL_GUARD_RESTORE_ON_SUCCESS=1
     VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL=""
     VISUAL_GUARD_CANDIDATE_SOURCES=()
     VISUAL_GUARD_CANDIDATE_PIDS=()
@@ -1058,6 +1126,8 @@ visual_guard_write_lifecycle_evidence() {
         echo "final_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
         echo "final_survivor_pids=$VISUAL_GUARD_FINAL_SURVIVOR_PIDS"
         echo "cleanup_process_result=$VISUAL_GUARD_CLEANUP_PROCESS_RESULT"
+        echo "process_cleanup_status=$VISUAL_GUARD_PROCESS_CLEANUP_STATUS"
+        echo "restore_on_success=$VISUAL_GUARD_RESTORE_ON_SUCCESS"
         echo "expected_project_path_canonical=$VISUAL_GUARD_EXPECTED_PROJECT_PATH_CANONICAL"
         echo "final_exit_status=$final_exit_status"
         for index in "${!VISUAL_GUARD_CANDIDATE_PIDS[@]}"; do
@@ -1319,6 +1389,20 @@ visual_guard_stop_active_child() {
     [ "$primary_failed" -eq 0 ] && [ "$fallback_failed" -eq 0 ]
 }
 
+visual_guard_cleanup_process_once() {
+    if [ "$VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT" -ne 0 ]; then
+        return "$VISUAL_GUARD_PROCESS_CLEANUP_STATUS"
+    fi
+
+    VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=1
+    if visual_guard_stop_active_child; then
+        VISUAL_GUARD_PROCESS_CLEANUP_STATUS=0
+    else
+        VISUAL_GUARD_PROCESS_CLEANUP_STATUS=1
+    fi
+    return "$VISUAL_GUARD_PROCESS_CLEANUP_STATUS"
+}
+
 visual_guard_cleanup() {
     local original_status="${1:-0}"
     local cleanup_status=0
@@ -1332,15 +1416,27 @@ visual_guard_cleanup() {
     VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_CLEANUP_EFFECTIVE_COUNT + 1))
     VISUAL_GUARD_ORIGINAL_COMMAND_STATUS="$original_status"
 
-    VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT=$((VISUAL_GUARD_PROCESS_CLEANUP_EFFECTIVE_COUNT + 1))
-    if ! visual_guard_stop_active_child; then
+    if ! visual_guard_cleanup_process_once; then
         cleanup_status=1
     fi
 
     if declare -F visual_guard_cleanup_test_hook >/dev/null; then
         visual_guard_cleanup_test_hook "before_restore"
     fi
-    if [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ]; then
+    if [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ] &&
+       [ "$VISUAL_GUARD_RESTORE_ON_SUCCESS" -eq 0 ] &&
+       [ "$original_status" -eq 0 ] &&
+       [ "$cleanup_status" -eq 0 ] &&
+       [ "$VISUAL_GUARD_FIRST_OBSERVED_SIGNAL_STATUS" -eq 0 ] &&
+       [ "$VISUAL_GUARD_OBSERVATION_COMPLETED" -eq 1 ] &&
+       [ "$VISUAL_GUARD_LANE_VERDICT" = "PASS" ]; then
+        if discard_capture_asset_baseline "$VISUAL_GUARD_BASELINE_ROOT"; then
+            VISUAL_GUARD_RESTORE_RESULT="COMMITTED_SUCCESS_SNAPSHOT_DISCARDED"
+        else
+            VISUAL_GUARD_RESTORE_RESULT="SNAPSHOT_DISCARD_FAILED"
+            cleanup_status=1
+        fi
+    elif [ "$VISUAL_GUARD_BASELINE_READY" -eq 1 ]; then
         visual_guard_prepare_interrupted_mutation_evidence
         VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT=$((VISUAL_GUARD_ASSET_RESTORE_EFFECTIVE_COUNT + 1))
         if restore_capture_assets_from_baseline \
@@ -2856,6 +2952,155 @@ run_dotnet_integration() {
     run_dotnet_build "$log_path" Game.Feature.Gameplay.Tests.csproj -c Debug
 }
 
+normalize_glyph_serialized_output() {
+    local asset_path
+
+    for asset_path in "$CLIMATE_SDF_ASSET" "$NANUM_SDF_ASSET"; do
+        if ! perl -pi -e 's/[ \t]+(?=\r?$)//' -- \
+            "$PROJECT_PATH_WSL/$asset_path"; then
+            echo "ERROR: Failed to normalize serialized whitespace: $asset_path"
+            return 1
+        fi
+    done
+}
+
+run_climate_glyph_update() {
+    local log_path_win
+    local baseline_root
+    local climate_before_hash
+    local climate_after_hash
+    local nanum_before_hash
+    local nanum_after_hash
+    local command_status=0
+    local validation_status=0
+    local process_cleanup_status=0
+    local -a unity_command
+
+    log_path_win="$(wslpath -w "$CLIMATE_GLYPH_UPDATE_LOG")"
+    unity_command=(
+        timeout --kill-after=10 300
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$log_path_win"
+        -executeMethod "$CLIMATE_GLYPH_UPDATE_EXECUTE_METHOD"
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would atomically update the canonical Climate and retained Nanum managed glyph corpus:"
+        echo "  preflight: immutable source/GUID/localID/String Table/projectPath identity"
+        echo "  snapshot:  $CLIMATE_SDF_ASSET"
+        echo "  snapshot:  $NANUM_SDF_ASSET"
+        echo "  restore:   command failure, timeout, INT, TERM, process cleanup failure, validation failure"
+        print_shell_command "${unity_command[@]}"
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    CAPTURE_GUARD_PROFILE="glyph-update"
+    baseline_root="$(mktemp -d "$RESULT_DIR/.glyph-update-baseline.XXXXXX")"
+    prepare_capture_asset_baseline "$baseline_root"
+    climate_before_hash="$(
+        sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
+    )"
+    nanum_before_hash="$(
+        sha256sum "$baseline_root/$NANUM_SDF_ASSET" | awk '{print $1}'
+    )"
+    rm -f "$CLIMATE_GLYPH_UPDATE_LOG" \
+        "$CLIMATE_GLYPH_UPDATE_EVIDENCE" \
+        "$CLIMATE_GLYPH_UPDATE_LIFECYCLE"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$CLIMATE_GLYPH_UPDATE_EVIDENCE" \
+        "$CLIMATE_GLYPH_UPDATE_LIFECYCLE" \
+        "ClimateGlyphUpdate"
+
+    echo "Running atomic Climate/Nanum managed glyph update..."
+    if visual_guard_run_command "${unity_command[@]}"; then
+        command_status=0
+    else
+        command_status=$?
+    fi
+    if visual_guard_cleanup_process_once; then
+        process_cleanup_status=0
+    else
+        process_cleanup_status=$?
+    fi
+    if [ "$command_status" -ne 0 ]; then
+        echo "ERROR: Unity glyph update failed with exit code $command_status; restoring both font assets."
+        visual_guard_mark_observation_complete "FAIL"
+        visual_guard_finish "$command_status"
+        return 0
+    fi
+    if [ "$process_cleanup_status" -ne 0 ]; then
+        echo "ERROR: Unity glyph update process cleanup failed; restoring both font assets."
+        visual_guard_mark_observation_complete "FAIL"
+        visual_guard_finish 1
+        return 0
+    fi
+    if ! normalize_glyph_serialized_output; then
+        validation_status=1
+    fi
+
+    climate_after_hash="$(climate_working_sha256)"
+    nanum_after_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}'
+    )"
+    require_worktree_file_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!21 &$CLIMATE_MATERIAL_LOCAL_ID" \
+        "material localID after glyph update" || validation_status=1
+    require_worktree_file_text \
+        "$CLIMATE_SDF_ASSET" \
+        "--- !u!28 &$CLIMATE_ATLAS_LOCAL_ID" \
+        "atlas localID after glyph update" || validation_status=1
+    require_worktree_file_text \
+        "$NANUM_SDF_ASSET" \
+        "--- !u!21 &$NANUM_MATERIAL_LOCAL_ID" \
+        "Nanum material localID after glyph update" || validation_status=1
+    require_worktree_file_text \
+        "$NANUM_SDF_ASSET" \
+        "--- !u!28 &$NANUM_ATLAS_LOCAL_ID" \
+        "Nanum atlas localID after glyph update" || validation_status=1
+    if ! grep -F \
+        "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 glyph_remap=0 atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS" \
+        "$CLIMATE_GLYPH_UPDATE_LOG" >/dev/null; then
+        echo "ERROR: Unity glyph update log is missing the complete post-update validation marker."
+        validation_status=1
+    fi
+    {
+        echo "snapshot_target_climate=$CLIMATE_SDF_ASSET"
+        echo "snapshot_target_nanum=$NANUM_SDF_ASSET"
+        echo "climate_before_sha256=$climate_before_hash"
+        echo "climate_after_sha256=$climate_after_hash"
+        echo "nanum_before_sha256=$nanum_before_hash"
+        echo "nanum_after_sha256=$nanum_after_hash"
+        echo "missing=0"
+        echo "fallback=0"
+        echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
+    } > "$CLIMATE_GLYPH_UPDATE_EVIDENCE"
+
+    if [ "$validation_status" -ne 0 ]; then
+        echo "ERROR: Glyph output validation failed; restoring both font assets."
+        visual_guard_mark_observation_complete "FAIL"
+        visual_guard_finish 1
+        return 0
+    fi
+
+    VISUAL_GUARD_RESTORE_ON_SUCCESS=0
+    visual_guard_mark_observation_complete "PASS"
+    echo "Climate/Nanum managed glyph update: PASS"
+    echo "  Climate before: $climate_before_hash"
+    echo "  Climate after:  $climate_after_hash"
+    echo "  Nanum before:   $nanum_before_hash"
+    echo "  Nanum after:    $nanum_after_hash"
+    echo "  missing: 0"
+    echo "  fallback: 0"
+    visual_guard_finish 0
+}
+
 run_unity_core() {
     run_unity_stage "core" "core-editmode" "core (EditMode)" "EditMode" "$UNITY_CORE_EDITMODE_LOG" "$UNITY_CORE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Core.Tests" ""
     run_unity_stage "core" "core-playmode" "core (PlayMode)" "PlayMode" "$UNITY_CORE_PLAYMODE_LOG" "$UNITY_CORE_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "Game.Feature.Gameplay.PlayModeTests" "Core"
@@ -3124,6 +3369,215 @@ run_typography_visual() {
     echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Nanum hash/diff: preserved"
+    visual_guard_finish 0
+}
+
+verify_terminal_result_visual_manifest() {
+    local output_dir="$1"
+    local manifest="$2"
+    local expected_head="$3"
+
+    python3 - "$output_dir" "$manifest" "$expected_head" <<'PY'
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1])
+manifest = Path(sys.argv[2])
+expected_head = sys.argv[3]
+if not manifest.is_file():
+    raise SystemExit(f"ERROR: Missing terminal-result manifest: {manifest}")
+text = manifest.read_text(encoding="utf-8")
+required = {
+    "capture_target_implementation_sha": expected_head,
+    "canonical_count": "6",
+    "diagnostic_count": "2",
+    "stage_result_title_pixel_proof_count": "2",
+    "stage_result_title_pixel_proof_pass_count": "2",
+    "error_count": "0",
+}
+for key, expected in required.items():
+    match = re.search(rf"^{re.escape(key)}=(.*)$", text, re.MULTILINE)
+    if not match or match.group(1).strip() != expected:
+        raise SystemExit(f"ERROR: {key} expected {expected!r}")
+if len(re.findall(r"^title_pixel_proof=PASS$", text, re.MULTILINE)) != 2:
+    raise SystemExit("ERROR: expected two StageResult title pixel proofs")
+if len(re.findall(r"^title_pixel_changed_count=[1-9][0-9]*$", text, re.MULTILINE)) != 2:
+    raise SystemExit("ERROR: StageResult title pixel delta must be non-zero")
+
+canonical = sorted(
+    path for path in output_dir.glob("*.png")
+    if path.is_file()
+)
+diagnostic = sorted(
+    path for path in (output_dir / "Diagnostics").glob("*.png")
+    if path.is_file()
+)
+if len(canonical) != 6 or len(diagnostic) != 2:
+    raise SystemExit(
+        f"ERROR: terminal-result PNG count mismatch: canonical={len(canonical)} diagnostic={len(diagnostic)}"
+    )
+for path in canonical + diagnostic:
+    data = path.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    if f"png_sha256={digest}" not in text or f"png_byte_count={len(data)}" not in text:
+        raise SystemExit(f"ERROR: manifest identity mismatch for {path}")
+print("Terminal result visual manifest validation: PASS")
+PY
+}
+
+run_terminal_result_visual() {
+    local timestamp
+    local output_dir
+    local output_dir_win
+    local unity_log
+    local unity_log_win
+    local manifest
+    local baseline_root
+    local runner_mutation_evidence
+    local runner_lifecycle_evidence
+    local expected_head
+    local climate_before
+    local climate_observed
+    local climate_restored
+    local nanum_before
+    local nanum_observed
+    local nanum_restored
+    local command_status=0
+    local process_cleanup_status=0
+    local capture_guard_status=0
+    local restore_status=0
+    local manifest_status=0
+    local -a unity_command
+
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    output_dir="$TERMINAL_RESULT_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    unity_log="$output_dir/terminal-result-unity.log"
+    unity_log_win="$(wslpath -w "$unity_log")"
+    manifest="$output_dir/terminal-result-capture.log"
+    baseline_root="$output_dir/pre-capture-assets"
+    runner_mutation_evidence="$output_dir/runner-asset-mutation.log"
+    runner_lifecycle_evidence="$output_dir/runner-cleanup-lifecycle.log"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -batchmode
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$unity_log_win"
+        -executeMethod "$TERMINAL_RESULT_VISUAL_EXECUTE_METHOD"
+        -terminalResultVisualOutput "$output_dir_win"
+        -terminalResultVisualWidth "$TERMINAL_RESULT_VISUAL_WIDTH"
+        -terminalResultVisualHeight "$TERMINAL_RESULT_VISUAL_HEIGHT"
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would capture terminal-result production composition:"
+        echo "  canonical: StageResult/LevelFailed/GameClear x en-US/ko-KR at 1920x1080"
+        echo "  diagnostic: LevelFailed x en-US/ko-KR at 960x540 under Diagnostics/"
+        echo "  manifest: canonical and diagnostic classifications remain separate"
+        print_shell_command "${unity_command[@]}"
+        return 0
+    fi
+
+    verify_typography_visual_revision_gate
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$TERMINAL_RESULT_VISUAL_OUTPUT_ROOT"
+    if ! mkdir "$output_dir"; then
+        echo "ERROR: Terminal result visual output directory already exists: $output_dir"
+        return 1
+    fi
+
+    expected_head="$(git rev-parse HEAD)"
+    CAPTURE_GUARD_PROFILE="visual"
+    prepare_capture_asset_baseline "$baseline_root"
+    climate_before="$(sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}')"
+    nanum_before="$(sha256sum "$baseline_root/$NANUM_SDF_ASSET" | awk '{print $1}')"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$runner_mutation_evidence" \
+        "$runner_lifecycle_evidence" \
+        "TerminalResultVisual"
+
+    echo "Running terminal result visual evidence capture..."
+    if visual_guard_run_command "${unity_command[@]}"; then
+        command_status=0
+    else
+        command_status=$?
+    fi
+    if visual_guard_cleanup_process_once; then
+        process_cleanup_status=0
+    else
+        process_cleanup_status=$?
+    fi
+    climate_observed="$(climate_working_sha256)"
+    nanum_observed="$(sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}')"
+    if ! observe_capture_assets_before_restore \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        capture_guard_status=1
+    fi
+    if [ "$command_status" -eq 0 ] &&
+       [ "$process_cleanup_status" -eq 0 ] &&
+       [ "$capture_guard_status" -eq 0 ]; then
+        visual_guard_mark_observation_complete "PASS"
+    else
+        visual_guard_mark_observation_complete "FAIL"
+    fi
+    if ! visual_guard_cleanup "$command_status"; then
+        restore_status=1
+    fi
+    climate_restored="$(climate_working_sha256)"
+    nanum_restored="$(sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}')"
+    if [ "$climate_restored" != "$climate_before" ] ||
+       [ "$nanum_restored" != "$nanum_before" ]; then
+        echo "ERROR: Terminal result visual runner did not restore guarded font assets."
+        restore_status=1
+    fi
+    if [ "$command_status" -eq 0 ] &&
+       [ "$process_cleanup_status" -eq 0 ] &&
+       [ "$capture_guard_status" -eq 0 ] &&
+       [ "$restore_status" -eq 0 ]; then
+        verify_terminal_result_visual_manifest \
+            "$output_dir" \
+            "$manifest" \
+            "$expected_head" || manifest_status=1
+    fi
+    if [ -f "$manifest" ]; then
+        {
+            echo
+            echo "[runner-safety]"
+            echo "guarded_climate_before_sha256=$climate_before"
+            echo "guarded_climate_after_capture_sha256=$climate_observed"
+            echo "guarded_climate_restored_sha256=$climate_restored"
+            echo "guarded_nanum_before_sha256=$nanum_before"
+            echo "guarded_nanum_after_capture_sha256=$nanum_observed"
+            echo "guarded_nanum_restored_sha256=$nanum_restored"
+            echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
+            echo "runner_cleanup_lifecycle=runner-cleanup-lifecycle.log"
+        } >> "$manifest"
+    fi
+
+    if [ "$command_status" -ne 0 ]; then
+        echo "ERROR: Terminal result visual Unity capture failed with exit code $command_status."
+        visual_guard_finish "$command_status"
+        return 0
+    fi
+    if [ "$process_cleanup_status" -ne 0 ] ||
+       [ "$capture_guard_status" -ne 0 ] ||
+       [ "$restore_status" -ne 0 ] ||
+       [ "$manifest_status" -ne 0 ]; then
+        echo "ERROR: Terminal result visual runner safety or manifest validation failed."
+        visual_guard_finish 1
+        return 0
+    fi
+
+    echo "Terminal result visual evidence capture: PASS"
+    echo "  output directory: $output_dir"
+    echo "  manifest:         $manifest"
     visual_guard_finish 0
 }
 
@@ -3583,9 +4037,12 @@ parse_arguments() {
         esac
     done
 
-    if { [ "$RUN_MODE" = "typography-visual" ] || [ "$RUN_MODE" = "typography-hud-visual" ]; } &&
+    if { [ "$RUN_MODE" = "climate-glyph-update" ] ||
+         [ "$RUN_MODE" = "typography-visual" ] ||
+         [ "$RUN_MODE" = "typography-hud-visual" ] ||
+         [ "$RUN_MODE" = "typography-result-visual" ]; } &&
        [ -n "$TEST_FILTER" ]; then
-        echo "ERROR: visual evidence lanes do not accept test filters."
+        echo "ERROR: asset generation and visual evidence lanes do not accept test filters."
         print_usage
         exit 1
     fi
@@ -3623,14 +4080,19 @@ main() {
         require_command python3
         require_file "$UNITY_PATH" "Unity executable"
         if [ "$mode" = "ui" ] ||
+           [ "$mode" = "climate-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
-           [ "$mode" = "typography-hud-visual" ]; then
+           [ "$mode" = "typography-hud-visual" ] ||
+           [ "$mode" = "typography-result-visual" ]; then
             require_command git
             require_command sha256sum
             verify_climate_committed_source_integrity
             verify_climate_worktree_source_integrity
         fi
-        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
+        if [ "$mode" = "climate-glyph-update" ] ||
+           [ "$mode" = "typography-visual" ] ||
+           [ "$mode" = "typography-hud-visual" ] ||
+           [ "$mode" = "typography-result-visual" ]; then
             require_command setsid
             ensure_result_dirs
         else
@@ -3645,8 +4107,11 @@ main() {
             run_action_plan_correlation_check
         fi
     else
-        if [ "$mode" = "typography-visual" ] || [ "$mode" = "typography-hud-visual" ]; then
-            echo "Dry run: revision gate and Unity typography capture will not execute."
+        if [ "$mode" = "climate-glyph-update" ] ||
+           [ "$mode" = "typography-visual" ] ||
+           [ "$mode" = "typography-hud-visual" ] ||
+           [ "$mode" = "typography-result-visual" ]; then
+            echo "Dry run: asset generation or revision-gated capture will not execute."
         else
             echo "Dry run: governance checks, dotnet builds, and Unity stages will not execute."
         fi
@@ -3665,11 +4130,17 @@ main() {
             run_dotnet_ui
             run_unity_ui
             ;;
+        climate-glyph-update)
+            run_climate_glyph_update
+            ;;
         typography-visual)
             run_typography_visual
             ;;
         typography-hud-visual)
             run_objective_hud_visual
+            ;;
+        typography-result-visual)
+            run_terminal_result_visual
             ;;
         full)
             run_dotnet_full
@@ -3696,8 +4167,10 @@ main() {
     require_filtered_tests_if_needed
 
     if [ "$DRY_RUN" -eq 0 ] &&
+       [ "$mode" != "climate-glyph-update" ] &&
        [ "$mode" != "typography-visual" ] &&
-       [ "$mode" != "typography-hud-visual" ]; then
+       [ "$mode" != "typography-hud-visual" ] &&
+       [ "$mode" != "typography-result-visual" ]; then
         echo "ALL TESTS PASSED"
     fi
 }

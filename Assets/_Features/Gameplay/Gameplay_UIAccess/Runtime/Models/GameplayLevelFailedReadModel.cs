@@ -3,13 +3,16 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.UIAccess.Models
 {
+    public enum GameplayLevelFailureReason
+    {
+        None = 0,
+        ChancesExhausted = 1,
+    }
+
     public sealed class GameplayLevelFailedReadModel
     {
         public GameplayLevelFailedReadModel(
-            string titleText,
-            string detailText,
-            string restartLevelLabel,
-            string mainLabel,
+            GameplayLevelFailureReason reason,
             StageNavigationRequest restartLevelRequest)
         {
             if (!restartLevelRequest.IsValid)
@@ -19,22 +22,11 @@ namespace Game.Feature.Gameplay.UIAccess.Models
                     nameof(restartLevelRequest));
             }
 
-            TitleText = string.IsNullOrWhiteSpace(titleText) ? "Level Failed" : titleText;
-            DetailText = detailText ?? string.Empty;
-            RestartLevelLabel = string.IsNullOrWhiteSpace(restartLevelLabel)
-                ? "Restart Level"
-                : restartLevelLabel;
-            MainLabel = string.IsNullOrWhiteSpace(mainLabel) ? "Main" : mainLabel;
+            Reason = reason;
             RestartLevelRequest = restartLevelRequest;
         }
 
-        public string TitleText { get; }
-
-        public string DetailText { get; }
-
-        public string RestartLevelLabel { get; }
-
-        public string MainLabel { get; }
+        public GameplayLevelFailureReason Reason { get; }
 
         public StageNavigationRequest RestartLevelRequest { get; }
     }

@@ -14,10 +14,7 @@ namespace Game.Feature.UI.Application
             }
 
             return new LevelFailedScreenPayload(
-                readModel.TitleText,
-                readModel.DetailText,
-                readModel.RestartLevelLabel,
-                readModel.MainLabel,
+                TerminalResultTextDescriptors.DetailFor(readModel.Reason),
                 readModel.RestartLevelRequest);
         }
     }

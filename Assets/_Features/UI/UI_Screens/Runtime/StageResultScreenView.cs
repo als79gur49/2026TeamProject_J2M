@@ -1,6 +1,8 @@
 using System;
 using DG.Tweening;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.ViewShared;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,6 +12,7 @@ namespace Game.Feature.UI.Screens
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Button _continueButton;
+        [SerializeField] private TMP_Text _continueButtonLabel;
         [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private StageResultScreenViewModel _viewModel;
@@ -48,6 +51,17 @@ namespace Game.Feature.UI.Screens
             }
 
             RefreshView();
+        }
+
+        public void ApplyLocalizedTypography(
+            string localeCode,
+            GameplayUiTypographyTheme typographyTheme)
+        {
+            TerminalScreenTypographyUtility.Apply(
+                _continueButtonLabel,
+                localeCode,
+                typographyTheme,
+                TypographyStyleTag.Button);
         }
 
         public void SetIsCurrent(bool isCurrent)
@@ -114,6 +128,7 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_continueButton, nameof(_continueButton));
+            ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
         }
 #endif
 
@@ -143,6 +158,11 @@ namespace Game.Feature.UI.Screens
             if (_continueButton != null)
             {
                 _continueButton.interactable = _viewModel.IsContinueEnabled;
+            }
+
+            if (_continueButtonLabel != null)
+            {
+                _continueButtonLabel.text = _viewModel.ContinueLabel;
             }
         }
 

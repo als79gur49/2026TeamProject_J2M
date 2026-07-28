@@ -1257,6 +1257,12 @@ namespace Game.Feature.UI.Composition.Editor
         {
             foreach (var graphic in root.GetComponentsInChildren<Graphic>(true))
             {
+                if (graphic is MaskableGraphic maskableGraphic)
+                {
+                    maskableGraphic.RecalculateClipping();
+                    maskableGraphic.RecalculateMasking();
+                }
+
                 graphic.SetAllDirty();
             }
 

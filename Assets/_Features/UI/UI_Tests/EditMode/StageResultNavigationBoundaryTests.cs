@@ -80,32 +80,33 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResult_DoesNotExposeInvisibleTitleOrDetailTextPath()
+        public void StageResult_DoesNotRestoreRemovedResultSchema_AndKeepsStaticContinueBinding()
         {
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenPayload),
                 "TitleText",
+                "SummaryText",
                 "DetailText",
                 "ContinueLabel");
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenViewModel),
                 "TitleText",
-                "DetailText",
-                "ContinueLabel");
+                "SummaryText",
+                "DetailText");
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenView),
                 "_titleLabel",
-                "_detailLabel",
-                "_continueButtonLabel");
+                "_summaryLabel",
+                "_detailLabel");
 
             var prefab = File.ReadAllText(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
             Assert.That(prefab, Does.Not.Contain("_titleLabel"));
+            Assert.That(prefab, Does.Not.Contain("_summaryLabel"));
             Assert.That(prefab, Does.Not.Contain("_detailLabel"));
-            Assert.That(prefab, Does.Not.Contain("_continueButtonLabel"));
             Assert.That(prefab, Does.Not.Contain("m_Name: Title"));
             Assert.That(prefab, Does.Not.Contain("m_Name: Detail"));
             Assert.That(prefab, Does.Contain("_continueButton:"));
-            Assert.That(prefab, Does.Contain("m_text: Continue"));
+            Assert.That(prefab, Does.Contain("_continueButtonLabel:"));
         }
 
         [Test]

@@ -77,6 +77,15 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.pause.resume", "Resume", "계속하기", false),
             ("ui.pause.retry", "Retry", "다시 시도", false),
             ("ui.pause.main_menu", "Main Menu", "메인 메뉴", false),
+            (TerminalResultLocalizationContract.Keys.Continue, "Continue", "계속", false),
+            (TerminalResultLocalizationContract.Keys.LevelFailedTitle, "Stage Failed", "스테이지 실패", false),
+            (TerminalResultLocalizationContract.Keys.ChancesExhaustedDetail,
+                "All chances have been used. Restart the stage or return to the main menu.",
+                "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.",
+                false),
+            (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "스테이지 다시 시작", false),
+            (TerminalResultLocalizationContract.Keys.MainMenu, "Main Menu", "메인 메뉴", false),
+            (TerminalResultLocalizationContract.Keys.GameClearTitle, "Game Clear", "게임 클리어", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()
