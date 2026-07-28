@@ -146,6 +146,7 @@ namespace Game.Feature.UI.Tests
             int width,
             int height)
         {
+            StencilMaterial.ClearAll();
             var previousScene = SceneManager.GetActiveScene();
             var scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
@@ -300,6 +301,7 @@ namespace Game.Feature.UI.Tests
                 {
                     Object.DestroyImmediate(shell);
                 }
+                StencilMaterial.ClearAll();
                 if (!UnityEngine.Application.isBatchMode &&
                     scene.IsValid() &&
                     scene.isLoaded)
