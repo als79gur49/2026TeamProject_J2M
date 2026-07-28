@@ -45,8 +45,8 @@ namespace Game.Feature.UI.Tests
 
         private static readonly CaptureScenario[] CanonicalScenarios =
         {
-            new(ScreenId.StageResult, "ko-KR", CaptureClassification.Canonical),
             new(ScreenId.StageResult, "en-US", CaptureClassification.Canonical),
+            new(ScreenId.StageResult, "ko-KR", CaptureClassification.Canonical),
             new(ScreenId.LevelFailed, "en-US", CaptureClassification.Canonical),
             new(ScreenId.LevelFailed, "ko-KR", CaptureClassification.Canonical),
             new(ScreenId.GameClear, "en-US", CaptureClassification.Canonical),
