@@ -299,6 +299,10 @@ namespace Game.Feature.UI.Tests
                     };
                     stageResultCaptureMaterials.Add(stageResultCaptureMaterial);
                     stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
+                    stageResultTitle.enabled = false;
+                    stageResultTitle.enabled = true;
+                    stageResultTitle.SetAllDirty();
+                    Canvas.ForceUpdateCanvases();
                     stageResultTitle.ForceMeshUpdate(
                         ignoreActiveState: true,
                         forceTextReparsing: true);
