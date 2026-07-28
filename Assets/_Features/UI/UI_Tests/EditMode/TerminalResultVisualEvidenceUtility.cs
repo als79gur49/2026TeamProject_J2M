@@ -231,6 +231,14 @@ namespace Game.Feature.UI.Tests
                         throw new InvalidOperationException(
                             $"Production resolver rejected locale '{scenario.Locale}'.");
                     }
+                    if (!screenController.Show(new ScreenRequest(
+                            scenario.Screen,
+                            CreatePayload(scenario.Screen),
+                            $"terminal-result-visual-{scenario.Screen}")))
+                    {
+                        throw new InvalidOperationException(
+                            $"ScreenController rejected terminal screen '{scenario.Screen}'.");
+                    }
                 }
                 else
                 {
