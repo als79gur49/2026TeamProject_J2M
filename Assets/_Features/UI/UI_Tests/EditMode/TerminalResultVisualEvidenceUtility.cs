@@ -234,6 +234,7 @@ namespace Game.Feature.UI.Tests
 
                 var viewRoot = ResolveCurrentViewRoot(rootView.ScreenLayerView, scenario.Screen);
                 SettleScreenEnterMotion(viewRoot);
+                SettleNestedPresentationAnimators(viewRoot);
                 ForceLayoutAndText(shell);
                 var textStates = ValidatePresentation(
                     scenario,
@@ -827,6 +828,22 @@ namespace Game.Feature.UI.Tests
                     "StopRootEnterMotion",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 stopMethod?.Invoke(component, null);
+            }
+        }
+
+        private static void SettleNestedPresentationAnimators(GameObject viewRoot)
+        {
+            foreach (var animator in viewRoot.GetComponentsInChildren<Animator>(true))
+            {
+                if (animator.runtimeAnimatorController == null)
+                {
+                    continue;
+                }
+
+                animator.Rebind();
+                animator.Play("Idle", 0, 0f);
+                animator.Update(0f);
+                animator.enabled = false;
             }
         }
 
