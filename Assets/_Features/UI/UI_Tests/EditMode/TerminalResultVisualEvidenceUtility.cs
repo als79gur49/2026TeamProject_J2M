@@ -185,7 +185,7 @@ namespace Game.Feature.UI.Tests
             var previousScene = SceneManager.GetActiveScene();
             var scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
-                UnityEngine.Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
+                NewSceneMode.Additive);
             EditorSceneManager.SetActiveScene(scene);
 
             UnityStringTableTextResolver resolver = null;
@@ -370,9 +370,7 @@ namespace Game.Feature.UI.Tests
                     Object.DestroyImmediate(shell);
                 }
                 StencilMaterial.ClearAll();
-                if (!UnityEngine.Application.isBatchMode &&
-                    scene.IsValid() &&
-                    scene.isLoaded)
+                if (scene.IsValid() && scene.isLoaded)
                 {
                     if (previousScene.IsValid() && previousScene.isLoaded)
                     {
