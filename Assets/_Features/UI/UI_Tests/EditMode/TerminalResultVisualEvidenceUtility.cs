@@ -185,7 +185,6 @@ namespace Game.Feature.UI.Tests
             Texture2D texture = null;
             TMP_Text stageResultTitle = null;
             Material stageResultAuthoredMaterial = null;
-            Material stageResultCaptureMaterial = null;
             try
             {
                 if (!UnityStringTableTextResolver.TryCreateSettingsDefault(
@@ -278,11 +277,7 @@ namespace Game.Feature.UI.Tests
                         .GetComponentsInChildren<TMP_Text>(true)
                         .Single(text => text.text == "Level Clear");
                     stageResultAuthoredMaterial = stageResultTitle.fontSharedMaterial;
-                    stageResultCaptureMaterial = new Material(stageResultCaptureSource)
-                    {
-                        hideFlags = HideFlags.HideAndDontSave,
-                    };
-                    stageResultTitle.fontSharedMaterial = stageResultCaptureMaterial;
+                    stageResultTitle.fontSharedMaterial = stageResultCaptureSource;
                 }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
@@ -333,10 +328,6 @@ namespace Game.Feature.UI.Tests
                 if (stageResultTitle != null && stageResultAuthoredMaterial != null)
                 {
                     stageResultTitle.fontSharedMaterial = stageResultAuthoredMaterial;
-                }
-                if (stageResultCaptureMaterial != null)
-                {
-                    Object.DestroyImmediate(stageResultCaptureMaterial);
                 }
                 if (texture != null)
                 {
