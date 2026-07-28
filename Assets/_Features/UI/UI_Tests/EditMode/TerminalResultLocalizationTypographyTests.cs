@@ -262,6 +262,12 @@ namespace Game.Feature.UI.Tests
 
             AssertTypography(
                 UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
+                "_titleLabel",
+                TypographyStyleTag.HeaderLarge,
+                theme,
+                climate);
+            AssertTypography(
+                UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
                 "_continueButtonLabel",
                 TypographyStyleTag.Button,
                 theme,
@@ -415,7 +421,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("animator.Play(\"Base Layer.Idle\", 0, 0f)"));
             Assert.That(utility, Does.Contain("GetCurrentAnimatorStateInfo(0).IsName(\"Base Layer.Idle\")"));
             Assert.That(utility, Does.Contain("animator.enabled = false"));
-            Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, viewRoot, width, height)"));
+            Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, scenario.Locale, viewRoot, width, height)"));
             Assert.That(utility, Does.Contain("title.text != \"Level Clear\""));
             Assert.That(utility, Does.Contain("ValidateRenderedTextVisibility(scenario, viewRoot)"));
             Assert.That(utility, Does.Contain("text.canvasRenderer.cull"));

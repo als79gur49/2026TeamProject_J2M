@@ -444,7 +444,7 @@ namespace Game.Feature.UI.Tests
             if (scenario.Screen == ScreenId.StageResult)
             {
                 var title = texts.Single(text => !validatedTexts.Contains(text));
-                ValidateStageResultTitle(title, viewRoot, width, height);
+                ValidateStageResultTitle(title, scenario.Locale, viewRoot, width, height);
                 states.Add(new TextState(title.font, title.fontSharedMaterial));
             }
 
@@ -611,6 +611,7 @@ namespace Game.Feature.UI.Tests
 
         private static void ValidateStageResultTitle(
             TMP_Text title,
+            string locale,
             GameObject viewRoot,
             int width,
             int height)
@@ -620,11 +621,22 @@ namespace Game.Feature.UI.Tests
                     UiTestPrefabAssetUtility.StageResultScreenPrefabPath)
                 .GetComponentsInChildren<TMP_Text>(true)
                 .Single(text => text.text == "Level Clear");
+            var theme = UiTestPrefabAssetUtility.LoadScreenCatalog().SettingsTypographyTheme;
+            var expectedFont = authored.font;
+            var expectedMaterial = authored.fontSharedMaterial;
+            var expectedFontStyle = authored.fontStyle;
+            if (!string.Equals(locale, "en-US", StringComparison.Ordinal))
+            {
+                var expectedStyle = theme.ResolveOrThrow(locale, TypographyStyleTag.HeaderLarge);
+                expectedFont = expectedStyle.FontAsset;
+                expectedMaterial = expectedStyle.MaterialPreset;
+                expectedFontStyle = expectedStyle.FontStyle;
+            }
             if (!title.isActiveAndEnabled ||
                 title.text != "Level Clear" ||
-                title.font != authored.font ||
-                title.fontSharedMaterial != authored.fontSharedMaterial ||
-                title.fontStyle != authored.fontStyle)
+                title.font != expectedFont ||
+                title.fontSharedMaterial != expectedMaterial ||
+                title.fontStyle != expectedFontStyle)
             {
                 throw new InvalidOperationException(
                     "StageResult title text or authored typography identity mismatch.");
