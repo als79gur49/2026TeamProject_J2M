@@ -86,13 +86,14 @@ namespace Game.Feature.UI.Composition.Editor
                 (string.Equals(localeCode, "ko-KR", StringComparison.Ordinal) &&
                  string.Equals(targetName, "MainMenu", StringComparison.Ordinal)))
             {
-                var m1bResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
-                    TypographyPreviewScreenshotUtility.M1bDiagnosticTargets,
+                var saveSlotDiagnosticResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                    TypographyPreviewScreenshotUtility.M1bDiagnosticTargets
+                        .Concat(TypographyPreviewScreenshotUtility.M2aDiagnosticTargets),
                     new[] { localeCode },
                     System.IO.Path.Combine(outputDirectory, "Diagnostics"),
                     options);
-                LogResult(m1bResult);
-                m1bResult.ThrowIfFailed();
+                LogResult(saveSlotDiagnosticResult);
+                saveSlotDiagnosticResult.ThrowIfFailed();
             }
 
             if (!string.Equals(localeCode, "ko-KR", StringComparison.Ordinal))

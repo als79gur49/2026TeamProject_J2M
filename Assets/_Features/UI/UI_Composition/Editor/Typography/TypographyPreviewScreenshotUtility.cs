@@ -228,6 +228,26 @@ namespace Game.Feature.UI.Composition.Editor
                 "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
         };
 
+        public static readonly TypographyPreviewScreenshotTarget[] M2aDiagnosticTargets =
+        {
+            new(
+                "Main Menu Corrupt Save",
+                "M2ACorrupt",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Save Permission Failure",
+                "M2APermission",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Save Load Failure",
+                "M2ALoadFailed",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Save Needs Repair",
+                "M2ANeedsRepair",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+        };
+
         public static readonly string[] DirtyGuardAssetPaths =
         {
             NanumGothicFontAssetPath,
@@ -410,6 +430,12 @@ namespace Game.Feature.UI.Composition.Editor
                 case "M1BOverwriteConfirmation":
                 case "M1BQuitConfirmation":
                     return 5;
+
+                case "M2ACorrupt":
+                case "M2APermission":
+                case "M2ALoadFailed":
+                case "M2ANeedsRepair":
+                    return 9;
 
                 default:
                     return 0;
@@ -940,6 +966,61 @@ namespace Game.Feature.UI.Composition.Editor
                 });
             }
 
+            if (TryGetM2aCampaignSaveStatus(target.FileStem, out var campaignSaveStatus))
+            {
+                var view = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: MainMenuScreenView was not found.");
+                    return scope;
+                }
+
+                const string diagnosticReason =
+                    "UnauthorizedAccessException: C:\\Users\\Player\\Saves\\profile.json";
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+                view.SaveSlotPanel.Bind(MainMenuSlotViewModelMapper.MapCampaignAccessBlocked(
+                    new CampaignSaveLoadReport(
+                        campaignSaveStatus,
+                        diagnosticReason,
+                        "CampaignProfileDocument"),
+                    resolver));
+                view.SetVisible(true);
+                view.ShowSection(MainMenuSectionId.SaveSlots);
+
+                var localizedTargets = view.SaveSlotPanel
+                    .CreateTypographyTargets()
+                    .Where(text => text != null &&
+                                   text.gameObject.activeInHierarchy &&
+                                   !string.IsNullOrWhiteSpace(text.text))
+                    .ToArray();
+                RecordM1bLocalizedTargets(target, capture, localizedTargets);
+                if (localizedTargets.Any(text =>
+                        text.text.Contains(diagnosticReason, StringComparison.Ordinal) ||
+                        text.text.Contains("C:\\Users\\", StringComparison.Ordinal)))
+                {
+                    capture.AddError(
+                        $"{target.Name}: raw diagnostic reason or file path reached player-facing text.");
+                }
+
+                var cards = view.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true);
+                if (cards.Any(card => card.HasAnyFocusableAction))
+                {
+                    capture.AddError(
+                        $"{target.Name}: campaign-blocking failure exposed an unsupported action.");
+                }
+
+                return new DisposableAction(() =>
+                {
+                    view.SaveSlotPanel.Bind(null);
+                    view.UnbindStaticLocalization();
+                    scope.Dispose();
+                });
+            }
+
             if (TryGetM1bConfirmationKind(target.FileStem, out var confirmationKind))
             {
                 var view = prefabRoot.GetComponentInChildren<ConfirmPopupView>(true);
@@ -1072,10 +1153,35 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
+        private static bool TryGetM2aCampaignSaveStatus(
+            string fileStem,
+            out CampaignSaveLoadStatus status)
+        {
+            switch (fileStem)
+            {
+                case "M2ACorrupt":
+                    status = CampaignSaveLoadStatus.CorruptRepairRequired;
+                    return true;
+                case "M2APermission":
+                    status = CampaignSaveLoadStatus.Unauthorized;
+                    return true;
+                case "M2ALoadFailed":
+                    status = CampaignSaveLoadStatus.IoFailed;
+                    return true;
+                case "M2ANeedsRepair":
+                    status = CampaignSaveLoadStatus.SchemaInvalidRepairRequired;
+                    return true;
+                default:
+                    status = default;
+                    return false;
+            }
+        }
+
         private static bool IsM1bDiagnosticTarget(string fileStem)
         {
             return string.Equals(fileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
-                   TryGetM1bConfirmationKind(fileStem, out _);
+                   TryGetM1bConfirmationKind(fileStem, out _) ||
+                   TryGetM2aCampaignSaveStatus(fileStem, out _);
         }
 
         private static void ValidateM1bRenderedTargets(
@@ -1092,7 +1198,8 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             TMP_Text[] targets;
-            if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal))
+            if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+                TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
             {
                 var panel = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true)?.SaveSlotPanel;
                 targets = panel == null
