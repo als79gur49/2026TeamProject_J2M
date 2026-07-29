@@ -56,17 +56,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ConfirmPopupPrefab_HasFourSemanticTypographyBindingsWithAuthoredLayout()
+        public void ConfirmPopupPrefab_HasFiveSemanticTypographyBindingsWithAuthoredLayout()
         {
             var prefab = LoadConfirmPrefab();
             var required = GetConfirmRequiredBindings(prefab);
 
-            Assert.That(prefab.GetComponentsInChildren<TypographyBinding>(true), Has.Length.EqualTo(4));
+            Assert.That(prefab.GetComponentsInChildren<TypographyBinding>(true), Has.Length.EqualTo(5));
             AssertRequiredBindings(required);
             AssertConfirmTarget(required[0].Text, "Title", 1859700045196034169, Vector2.zero);
             AssertConfirmTarget(required[1].Text, "Body", 786007152345686790, Vector2.zero);
-            AssertConfirmTarget(required[2].Text, "Buttons/ConfirmButton/Label", 5809623355355838332, Vector2.zero);
-            AssertConfirmTarget(required[3].Text, "Buttons/CancelButton/Label", 5096854244621539299, Vector2.zero);
+            AssertConfirmTarget(required[2].Text, "Warning", 990004, Vector2.zero);
+            AssertConfirmTarget(required[3].Text, "Buttons/ConfirmButton/Label", 5809623355355838332, Vector2.zero);
+            AssertConfirmTarget(required[4].Text, "Buttons/CancelButton/Label", 5096854244621539299, Vector2.zero);
         }
 
         [Test]
@@ -538,6 +539,7 @@ namespace Game.Feature.UI.Tests
             {
                 ("Confirm title", GetField<TMP_Text>(prefab, "_titleLabel"), TypographyStyleTag.HeaderLarge),
                 ("Confirm body", GetField<TMP_Text>(prefab, "_bodyLabel"), TypographyStyleTag.PopupBody),
+                ("Confirm warning", GetField<TMP_Text>(prefab, "_warningLabel"), TypographyStyleTag.PopupBody),
                 ("Confirm action", GetField<TMP_Text>(prefab, "_confirmButtonLabel"), TypographyStyleTag.PopupAction),
                 ("Cancel action", GetField<TMP_Text>(prefab, "_cancelButtonLabel"), TypographyStyleTag.PopupAction),
             };

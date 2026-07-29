@@ -819,8 +819,9 @@ namespace Game.Feature.UI.Tests
             var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
             SetPrivateField(card, "_primaryButton", primaryButton);
             SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
-            var deleteButton = CreateActionButton("DeleteButton", actionRow, out _);
+            var deleteButton = CreateActionButton("DeleteButton", actionRow, out var deleteButtonLabel);
             SetPrivateField(card, "_deleteButton", deleteButton);
+            SetPrivateField(card, "_deleteButtonLabel", deleteButtonLabel);
             SetPrivateField(card, "_primarySelectionFrame", CreateSelectionFrame("PrimarySelectionFrame", primaryButton.transform));
             SetPrivateField(card, "_deleteSelectionFrame", CreateSelectionFrame("DeleteSelectionFrame", deleteButton.transform));
             SetPrivateField(card, "_selectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());

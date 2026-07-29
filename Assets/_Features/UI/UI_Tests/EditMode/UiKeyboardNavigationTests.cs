@@ -2300,6 +2300,7 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(card, "_primaryButtonLabel", CreateLabel("Label", primaryButton.transform));
             var deleteButton = CreateButton("DeleteButton", actionRow);
             SetPrivateField(card, "_deleteButton", deleteButton);
+            SetPrivateField(card, "_deleteButtonLabel", CreateLabel("Label", deleteButton.transform));
             SetPrivateField(card, "_primarySelectionFrame", CreateNamedFrame("PrimarySelectionFrame", primaryButton.transform));
             SetPrivateField(card, "_deleteSelectionFrame", CreateNamedFrame("DeleteSelectionFrame", deleteButton.transform));
             SetPrivateField(card, "_selectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());

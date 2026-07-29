@@ -46,7 +46,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewModel.SlotCards[0].PrimaryActionText, Is.EqualTo("New Game"));
             Assert.That(viewModel.SlotCards[1].State, Is.EqualTo(SaveSlotCardState.Existing));
             Assert.That(viewModel.SlotCards[1].PrimaryActionText, Is.EqualTo("Continue"));
-            Assert.That(viewModel.SlotCards[1].StageText, Is.EqualTo("Stage 2-2"));
+            Assert.That(viewModel.SlotCards[1].StageText, Is.EqualTo("Stage Ward[A]-02"));
             Assert.That(viewModel.SlotCards[2].State, Is.EqualTo(SaveSlotCardState.Completed));
             Assert.That(viewModel.SlotCards[2].PrimaryActionText, Is.EqualTo("Restart"));
             Assert.That(viewModel.SlotCards[2].ShowDelete, Is.True);
