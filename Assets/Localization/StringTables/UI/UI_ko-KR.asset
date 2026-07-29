@@ -305,6 +305,26 @@ MonoBehaviour:
     m_Localized: "게임 클리어"
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693657
+    m_Localized: "\uC77C\uC2DC \uC815\uC9C0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693658
+    m_Localized: "\uAE30\uD68C"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693659
+    m_Localized: "\uC774\uB3D9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693660
+    m_Localized: "\uBC00\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693661
+    m_Localized: "\uB4A4\uC9D1\uAE30"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

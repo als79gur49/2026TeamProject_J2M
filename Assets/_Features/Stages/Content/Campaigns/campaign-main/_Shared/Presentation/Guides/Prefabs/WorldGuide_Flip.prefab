@@ -203,7 +203,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Flip
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b8aa923455f5a64468504293db7cef18, type: 2}
   m_sharedMaterial: {fileID: -6429523705279460953, guid: b8aa923455f5a64468504293db7cef18, type: 2}
@@ -370,10 +370,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.WorldGuideInstructionView
   canvas: {fileID: 7972884152886359308}
-  bindingKind: 3
+  instructionKind: 3
   wasdDisplayRoot: {fileID: 0}
   arrowDisplayRoot: {fileID: 0}
   actionKeyLabel: {fileID: 232376844261516766}
+  actionTextLabel: {fileID: 6904770613647013977}
 --- !u!1 &4298529684450755660
 GameObject:
   m_ObjectHideFlags: 0

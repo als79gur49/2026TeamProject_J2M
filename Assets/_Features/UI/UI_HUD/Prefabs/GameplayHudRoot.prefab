@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 224100}
   - component: {fileID: 225100}
   - component: {fileID: 114100}
+  - component: {fileID: 7100000000000000001}
   m_Layer: 0
   m_Name: GameplayHudRoot
   m_TagString: Untagged
@@ -83,6 +84,21 @@ MonoBehaviour:
   _chancePanelView: {fileID: 4181765288761667435}
   _surfaceBeltIndicatorView: {fileID: 4324238594058743956}
   _playerStatusView: {fileID: 114110}
+--- !u!114 &7100000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91c795f3f1e27132ba176dda959578e1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayHudLocalizationBinding
+  _theme: {fileID: 11400000, guid: e414ca8f5dbd4575ad144ce41643de05, type: 2}
+  _pauseText: {fileID: 114104}
+  _chancesText: {fileID: 2976350271432765329}
 --- !u!1 &100102
 GameObject:
   m_ObjectHideFlags: 0

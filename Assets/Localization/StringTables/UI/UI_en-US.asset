@@ -303,6 +303,26 @@ MonoBehaviour:
     m_Localized: Game Clear
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693657
+    m_Localized: Pause
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693658
+    m_Localized: CHANCES
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693659
+    m_Localized: Move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693660
+    m_Localized: Push
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693661
+    m_Localized: Flip
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

@@ -47,6 +47,8 @@ namespace Game.Shared.Input
         private KeyboardBindableAction? _rebindingAction;
         private KeyboardMovementScheme _movementScheme = KeyboardMovementScheme.Wasd;
 
+        public static event Action<KeyboardBindingSettingsSnapshot> BindingsChanged;
+
         public static string MoveActionPath => GameplayInputActionPaths.PlayerMove;
 
         public static string NavigateActionPath => GameplayInputActionPaths.UiNavigate;
@@ -109,6 +111,7 @@ namespace Game.Shared.Input
             _movementScheme = scheme;
             _store.SaveMovementScheme(scheme);
             _store.Save();
+            BindingsChanged?.Invoke(Read());
             return KeyboardBindingValidationStatus.Success;
         }
 
@@ -176,7 +179,9 @@ namespace Game.Shared.Input
             _store.SaveMovementScheme(_movementScheme);
             _store.ClearBindingOverridesJson();
             _store.Save();
-            return Read();
+            var snapshot = Read();
+            BindingsChanged?.Invoke(snapshot);
+            return snapshot;
         }
 
         public void LoadAndApplySavedSettings()
@@ -264,7 +269,13 @@ namespace Game.Shared.Input
             }
 
             _mapWasEnabledBeforeRebind = false;
-            completed?.Invoke(new KeyboardRebindResult(action, status, Read()));
+            var snapshot = Read();
+            if (status == KeyboardBindingValidationStatus.Success)
+            {
+                BindingsChanged?.Invoke(snapshot);
+            }
+
+            completed?.Invoke(new KeyboardRebindResult(action, status, snapshot));
         }
 
         private KeyboardBindingValidationStatus ValidateMovementSchemeChange(KeyboardMovementScheme scheme)

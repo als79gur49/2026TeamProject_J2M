@@ -4,6 +4,15 @@ using System.Globalization;
 
 namespace Game.Feature.UI.ViewShared
 {
+    public static class HudWorldGuideLocalizationKeys
+    {
+        public const string Pause = "ui.hud.pause";
+        public const string Chances = "ui.hud.chances";
+        public const string Movement = "ui.world_guide.move";
+        public const string Push = "ui.world_guide.push";
+        public const string Flip = "ui.world_guide.flip";
+    }
+
     public enum LocalizedTextRole
     {
         Title,

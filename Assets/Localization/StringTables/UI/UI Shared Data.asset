@@ -283,6 +283,26 @@ MonoBehaviour:
     m_Key: ui.result.game_clear.title
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693657
+    m_Key: ui.hud.pause
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693658
+    m_Key: ui.hud.chances
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693659
+    m_Key: ui.world_guide.move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693660
+    m_Key: ui.world_guide.push
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693661
+    m_Key: ui.world_guide.flip
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

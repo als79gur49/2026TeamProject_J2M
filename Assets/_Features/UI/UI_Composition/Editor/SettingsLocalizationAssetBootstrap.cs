@@ -86,6 +86,11 @@ namespace Game.Feature.UI.Composition.Editor
             (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "스테이지 다시 시작", false),
             (TerminalResultLocalizationContract.Keys.MainMenu, "Main Menu", "메인 메뉴", false),
             (TerminalResultLocalizationContract.Keys.GameClearTitle, "Game Clear", "게임 클리어", false),
+            (HudWorldGuideLocalizationKeys.Pause, "Pause", "일시 정지", false),
+            (HudWorldGuideLocalizationKeys.Chances, "CHANCES", "기회", false),
+            (HudWorldGuideLocalizationKeys.Movement, "Move", "이동", false),
+            (HudWorldGuideLocalizationKeys.Push, "Push", "밀기", false),
+            (HudWorldGuideLocalizationKeys.Flip, "Flip", "뒤집기", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()
