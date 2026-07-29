@@ -921,13 +921,17 @@ namespace Game.Feature.UI.Tests
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<MainMenuScreenView>(
                 UiTestPrefabAssetUtility.MainMenuScreenPrefabPath);
             var view = UnityEngine.Object.Instantiate(prefab);
+            var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
+                TypographyThemeValidator.ThemeAssetPath);
+            Assert.That(theme, Is.Not.Null);
 
             try
             {
                 view.BindStaticLocalization(
                     MainMenuStaticTextPayload.Default,
                     resolver,
-                    DefaultLocalizedTypographyResolver.Instance);
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
 
                 AssertMainMenuLabels(view, "Start", "Settings", "Quit");
 
