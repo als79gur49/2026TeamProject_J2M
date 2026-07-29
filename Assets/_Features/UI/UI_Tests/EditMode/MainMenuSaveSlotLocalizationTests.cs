@@ -21,7 +21,7 @@ namespace Game.Feature.UI.Tests
         public void MainMenuContract_IsUniqueCompleteAndMatchesTablesBootstrapAndFallbacks()
         {
             var entries = MainMenuLocalizationContract.Entries;
-            Assert.That(entries, Has.Count.EqualTo(27));
+            Assert.That(entries, Has.Count.EqualTo(37));
             Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(entries.Count));
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.English)), Is.True);
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Korean)), Is.True);
@@ -114,6 +114,31 @@ namespace Game.Feature.UI.Tests
 
     public sealed class MainMenuSaveSlotLocalizationTests
     {
+        [TestCase(SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.", "지원하지 않는 저장 데이터", "지원하지 않는 버전에서 생성된 저장 데이터입니다.")]
+        [TestCase(SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.", "저장 데이터 손상", "저장 데이터를 읽을 수 없습니다.")]
+        [TestCase(SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.", "저장 데이터 접근 실패", "저장 데이터에 접근할 수 없습니다. 파일 권한을 확인하세요.")]
+        [TestCase(SaveSlotFailurePresentationKind.LoadFailed, "Save Load Failed", "The save data could not be loaded.", "저장 불러오기 실패", "저장 데이터를 불러올 수 없습니다.")]
+        [TestCase(SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.", "저장 데이터 사용 불가", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.")]
+        public void FailureDescriptors_ResolveEnglishAndKoreanWithoutBlankText(
+            SaveSlotFailurePresentationKind kind,
+            string englishTitle,
+            string englishDetail,
+            string koreanTitle,
+            string koreanDetail)
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var descriptor = MainMenuLocalization.FailureDescriptor(kind);
+
+            Assert.That(resolver.Resolve(descriptor.Title), Is.EqualTo(englishTitle));
+            Assert.That(resolver.Resolve(descriptor.Detail), Is.EqualTo(englishDetail));
+
+            resolver.SetLocale("ko-KR");
+            Assert.That(resolver.Resolve(descriptor.Title), Is.EqualTo(koreanTitle));
+            Assert.That(resolver.Resolve(descriptor.Detail), Is.EqualTo(koreanDetail));
+            Assert.That(koreanTitle, Is.Not.Empty);
+            Assert.That(koreanDetail, Is.Not.Empty);
+        }
+
         [Test]
         public void SlotMapper_ResolvesEmptyInProgressAndCompletedCardsInEnglishAndKorean()
         {
@@ -307,6 +332,66 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void VisibleErrorCardsRefreshEnKoEnAndStopAfterControllerDispose()
+        {
+            var resolver = new TrackingResolver();
+            const string diagnostic =
+                "IOException: C:\\Users\\Player\\Saves\\profile.json is locked.";
+            var store = new InMemorySaveStore(
+                new[]
+                {
+                    SaveSlotData.CreateEmpty(1),
+                    SaveSlotData.CreateEmpty(2),
+                    SaveSlotData.CreateEmpty(3),
+                },
+                new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.IoFailed,
+                    diagnostic,
+                    "CampaignProfileDocument"));
+            var controller = new MainMenuController(
+                store,
+                new NoOpHandoffStore(),
+                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                new NoOpLaunchRouter(),
+                new RecordingConfirmPort(),
+                localizedTextResolver: resolver);
+            SaveSlotPanelViewModel refreshed = null;
+            var refreshCount = 0;
+            controller.ViewModelChanged += viewModel =>
+            {
+                refreshed = viewModel;
+                refreshCount++;
+            };
+
+            var english = controller.BuildViewModel().SlotCards[0];
+            Assert.That(english.TitleText, Is.EqualTo("Slot 1"));
+            Assert.That(english.StatusText, Is.EqualTo("Save Load Failed"));
+            Assert.That(english.StageText, Is.EqualTo("The save data could not be loaded."));
+            Assert.That(english.StageText, Does.Not.Contain(diagnostic));
+            Assert.That(english.PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.None));
+            Assert.That(english.ShowDelete, Is.False);
+            Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
+
+            resolver.SetLocale("ko-KR");
+            Assert.That(refreshCount, Is.EqualTo(1));
+            Assert.That(refreshed.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
+            Assert.That(refreshed.SlotCards[0].StatusText, Is.EqualTo("저장 불러오기 실패"));
+            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("저장 데이터를 불러올 수 없습니다."));
+            Assert.That(refreshed.SlotCards[0].PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.None));
+            Assert.That(refreshed.SlotCards[0].ShowDelete, Is.False);
+
+            resolver.SetLocale("en-US");
+            Assert.That(refreshCount, Is.EqualTo(2));
+            Assert.That(refreshed.SlotCards[0].StatusText, Is.EqualTo("Save Load Failed"));
+            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("The save data could not be loaded."));
+
+            controller.Dispose();
+            Assert.That(resolver.SubscriberCount, Is.Zero);
+            resolver.SetLocale("ko-KR");
+            Assert.That(refreshCount, Is.EqualTo(2));
+        }
+
+        [Test]
         public void OpenConfirmationRefreshesAllCopyWithoutReplacingPayloadAndStopsAfterDispose()
         {
             var resolver = new TrackingResolver();
@@ -344,6 +429,10 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuHubController.cs");
             var mapper = File.ReadAllText(
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs");
+            var view = File.ReadAllText(
+                "Assets/_Features/UI/UI_Screens/Runtime/SaveSlotCardView.cs");
+            var domain = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Campaign/ICampaignSaveSlotStore.cs");
 
             foreach (var forbidden in new[]
                      {
@@ -372,6 +461,12 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(mapper, Does.Contain("StageDisplayNameTextDescriptors.ForStage"));
             Assert.That(mapper, Does.Not.Contain("sequenceResolver.GetDisplayName"));
+            Assert.That(mapper, Does.Not.Contain("report.Reason"));
+            Assert.That(mapper, Does.Not.Contain("Reason.Contains"));
+            Assert.That(mapper, Does.Not.Contain("Reason.StartsWith"));
+            Assert.That(domain, Does.Not.Contain("ui.main_menu"));
+            Assert.That(view, Does.Not.Contain("ko-KR"));
+            Assert.That(view, Does.Not.Contain("en-US"));
             Assert.That(controller, Does.Contain("_localizedTextResolver.LocaleChanged += HandleLocaleChanged"));
             Assert.That(controller, Does.Contain("_localizedTextResolver.LocaleChanged -= HandleLocaleChanged"));
         }
@@ -408,16 +503,19 @@ namespace Game.Feature.UI.Tests
     internal sealed class InMemorySaveStore : ICampaignSaveSlotStore
     {
         private readonly SaveSlotData[] _slots;
+        private readonly CampaignSaveLoadReport _report;
 
-        public InMemorySaveStore(SaveSlotData[] slots)
+        public InMemorySaveStore(
+            SaveSlotData[] slots,
+            CampaignSaveLoadReport? report = null)
         {
             _slots = slots;
+            _report = report ?? CampaignSaveLoadReport.Loaded("test", string.Empty);
         }
 
         public string DiagnosticsKey => "m1b-test";
 
-        public CampaignSaveLoadReport LastCampaignLoadReport =>
-            CampaignSaveLoadReport.Loaded("test", string.Empty);
+        public CampaignSaveLoadReport LastCampaignLoadReport => _report;
 
         public SaveSlotData[] LoadAll() => _slots.Select(slot => slot.Clone()).ToArray();
 
