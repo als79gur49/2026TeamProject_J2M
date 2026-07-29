@@ -40,7 +40,7 @@ namespace Game.Feature.UI.Application
             _confirmPopupPort = confirmPopupPort ?? throw new ArgumentNullException(nameof(confirmPopupPort));
             _saveSlotValidationService = saveSlotValidationService;
             _localizedTextResolver = localizedTextResolver ??
-                PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+                InvariantSettingsLocalizedTextResolver.Instance;
             _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
         }
 

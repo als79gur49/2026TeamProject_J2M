@@ -16,7 +16,7 @@ namespace Game.Feature.UI.Application
                 slots,
                 sequenceResolver,
                 validationService: null,
-                PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotPanelViewModel Map(
@@ -28,7 +28,7 @@ namespace Game.Feature.UI.Application
                 slots,
                 sequenceResolver,
                 validationService,
-                PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotPanelViewModel Map(
@@ -68,7 +68,7 @@ namespace Game.Feature.UI.Application
         {
             return MapCampaignAccessBlocked(
                 report,
-                PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotPanelViewModel MapCampaignAccessBlocked(
@@ -116,7 +116,7 @@ namespace Game.Feature.UI.Application
                 slot,
                 sequenceResolver,
                 null,
-                PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotCardViewModel MapSlot(
@@ -128,7 +128,7 @@ namespace Game.Feature.UI.Application
                 slot,
                 sequenceResolver,
                 validationResult,
-                PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotCardViewModel MapSlot(

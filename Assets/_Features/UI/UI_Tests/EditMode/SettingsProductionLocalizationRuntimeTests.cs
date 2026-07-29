@@ -198,7 +198,7 @@ namespace Game.Feature.UI.Tests
 
             harness.OpenConfirm(new ConfirmPopupPayload("Title", "Body", "Yes", "No", false));
 
-            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 5));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 6));
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
 
             harness.OpenConfirm(new ConfirmPopupPayload("Second", "Independent", "Yes", "No", false));
-            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 5));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 6));
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
             harness.CloseConfirm();
             Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
