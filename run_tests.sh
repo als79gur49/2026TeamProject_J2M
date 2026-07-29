@@ -124,6 +124,9 @@ OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
 OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
 OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+M1A_HUD_GUIDE_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/M1aHudGuideVisualQA"
+M1A_HUD_GUIDE_VISUAL_WIDTH=1920
+M1A_HUD_GUIDE_VISUAL_HEIGHT=1080
 CLIMATE_GLYPH_UPDATE_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.ClimateCrisisKrGlyphUpdateUtility.GenerateFromCommandLine"
 CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
 CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
@@ -692,7 +695,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-result-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -3962,6 +3965,359 @@ PY
     visual_guard_finish 0
 }
 
+run_m1a_hud_guide_visual() {
+    local timestamp
+    local output_dir
+    local output_dir_win
+    local baseline_root
+    local baseline_root_win
+    local unity_log
+    local unity_log_win
+    local test_results
+    local test_results_win
+    local manifest
+    local expected_head
+    local expected_tree
+    local runner_mutation_evidence
+    local runner_lifecycle_evidence
+    local climate_hash_before
+    local climate_hash_after
+    local climate_restored_hash
+    local process_before
+    local unity_exit=0
+    local capture_guard_exit=0
+    local restore_exit=0
+    local manifest_exit=0
+    local -a unity_command
+
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    output_dir="$M1A_HUD_GUIDE_VISUAL_OUTPUT_ROOT/CommandLine-$timestamp"
+    unity_log="$output_dir/m1a-hud-guide-unity.log"
+    test_results="$output_dir/m1a-hud-guide-playmode.xml"
+    manifest="$output_dir/m1a-hud-guide-capture.log"
+    runner_mutation_evidence="$output_dir/runner-asset-mutation.log"
+    runner_lifecycle_evidence="$output_dir/runner-cleanup-lifecycle.log"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    baseline_root="$output_dir/pre-capture-assets"
+    baseline_root_win="$(wslpath -w "$baseline_root")"
+    unity_log_win="$(wslpath -w "$unity_log")"
+    test_results_win="$(wslpath -w "$test_results")"
+    expected_head="$(git rev-parse HEAD)"
+    expected_tree="$(git rev-parse 'HEAD^{tree}')"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$unity_log_win"
+        -runTests
+        -testPlatform PlayMode
+        -testFilter "Game.Feature.Gameplay.Tests.PlayMode.M1aHudGuideVisualEvidencePlayModeTests.CaptureStage0_1HudAndWorldGuideCanonicalEvidence"
+        -testResults "$test_results_win"
+        -m1aHudGuideVisualOutput "$output_dir_win"
+        -m1aHudGuideVisualWidth "$M1A_HUD_GUIDE_VISUAL_WIDTH"
+        -m1aHudGuideVisualHeight "$M1A_HUD_GUIDE_VISUAL_HEIGHT"
+        -m1aHudGuideVisualHead "$expected_head"
+        -m1aHudGuideVisualTree "$expected_tree"
+        -captureAssetBaselineRoot "$baseline_root_win"
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "M1A HUD/World Guide visual evidence plan:"
+        echo "  output directory: $output_dir"
+        echo "  resolution: ${M1A_HUD_GUIDE_VISUAL_WIDTH}x${M1A_HUD_GUIDE_VISUAL_HEIGHT}"
+        echo "  revision gate: tracked repository files and Unity inputs must match Git HEAD"
+        echo "  canonical captures: HUD en-US/ko-KR and World Guide en-US/ko-KR"
+        print_shell_command "${unity_command[@]}"
+        return 0
+    fi
+
+    verify_typography_visual_revision_gate
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$M1A_HUD_GUIDE_VISUAL_OUTPUT_ROOT"
+    mkdir "$output_dir"
+    prepare_capture_asset_baseline "$baseline_root"
+    visual_guard_begin \
+        "$baseline_root" \
+        "$runner_mutation_evidence" \
+        "$runner_lifecycle_evidence" \
+        "M1aHudGuide"
+
+    climate_hash_before="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    process_before="$(find_current_project_unity_processes)"
+    echo "Running M1A HUD/World Guide production-composition visual evidence..."
+    echo "  output directory: $output_dir"
+    echo "  manifest: $manifest"
+    if visual_guard_run_command "${unity_command[@]}"; then
+        unity_exit=0
+    else
+        unity_exit=$?
+    fi
+
+    if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
+        capture_unity_timeout_artifacts \
+            "typography-hud-guide-visual" \
+            "$unity_log" \
+            "$manifest" \
+            "$unity_exit" \
+            "$process_before" || true
+    fi
+
+    climate_hash_after="$(sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}')"
+    if ! observe_capture_assets_before_restore \
+        "$baseline_root" \
+        "$runner_mutation_evidence"; then
+        capture_guard_exit=1
+    fi
+    if [ "$unity_exit" -eq 0 ] && [ "$capture_guard_exit" -eq 0 ]; then
+        visual_guard_mark_observation_complete "PASS"
+    else
+        visual_guard_mark_observation_complete "FAIL"
+    fi
+    if ! visual_guard_cleanup "$unity_exit"; then
+        restore_exit=1
+    fi
+    climate_restored_hash="$(
+        sha256sum "$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET" | awk '{print $1}'
+    )"
+    if [ "$climate_restored_hash" != "$climate_hash_before" ]; then
+        echo "ERROR: M1A visual runner did not restore the guarded Climate asset."
+        restore_exit=1
+    fi
+
+    if [ -f "$manifest" ]; then
+        {
+            echo
+            echo "[runner-safety]"
+            echo "guarded_climate_before_sha256=$climate_hash_before"
+            echo "guarded_climate_after_capture_sha256=$climate_hash_after"
+            echo "guarded_climate_restored_sha256=$climate_restored_hash"
+            echo "process_survivor_count=$VISUAL_GUARD_FINAL_SURVIVOR_COUNT"
+            echo "asset_restore=$(
+                if [ "$restore_exit" -eq 0 ]; then
+                    printf 'PASS'
+                else
+                    printf 'FAIL'
+                fi
+            )"
+            echo "runner_mutation_evidence=runner-asset-mutation.log"
+            echo "runner_cleanup_lifecycle=runner-cleanup-lifecycle.log"
+        } >> "$manifest"
+    fi
+
+    if [ "$unity_exit" -ne 0 ]; then
+        echo "ERROR: M1A HUD/World Guide visual capture failed with exit code $unity_exit."
+        echo "Diagnostics were preserved in: $output_dir"
+        visual_guard_finish "$unity_exit" || return $?
+        return 0
+    fi
+    if [ "$capture_guard_exit" -ne 0 ] || [ "$restore_exit" -ne 0 ]; then
+        echo "ERROR: M1A visual runner asset safety checks failed."
+        echo "  mutation evidence: $runner_mutation_evidence"
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
+    if ! assert_no_generated_test_scenes; then
+        cleanup_generated_test_scenes
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
+
+    if ! python3 - \
+        "$output_dir" \
+        "$manifest" \
+        "$expected_head" \
+        "$expected_tree" \
+        "$PROJECT_PATH_WSL" <<'PY'
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1]).resolve()
+manifest_path = Path(sys.argv[2]).resolve()
+expected_head = sys.argv[3]
+expected_tree = sys.argv[4]
+expected_worktree = Path(sys.argv[5]).resolve()
+
+if not manifest_path.is_file():
+    raise SystemExit(f"ERROR: M1A HUD/World Guide manifest missing: {manifest_path}")
+
+root = {}
+sections = {}
+current = root
+for raw_line in manifest_path.read_text(encoding="utf-8").splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    if line.startswith("[") and line.endswith("]"):
+        name = line[1:-1]
+        if name in sections:
+            raise SystemExit(f"ERROR: duplicate manifest section: {name}")
+        current = sections[name] = {}
+        continue
+    if "=" not in line:
+        raise SystemExit(f"ERROR: malformed manifest line: {line}")
+    key, value = line.split("=", 1)
+    if key in current:
+        raise SystemExit(f"ERROR: duplicate manifest key: {key}")
+    current[key] = value
+
+if root.get("schema_version") != "1":
+    raise SystemExit("ERROR: M1A manifest schema_version mismatch")
+if root.get("git_head") != expected_head or root.get("git_tree") != expected_tree:
+    raise SystemExit("ERROR: M1A manifest revision mismatch")
+if Path(root.get("worktree_path", "")).resolve() != expected_worktree:
+    raise SystemExit("ERROR: M1A manifest worktree mismatch")
+if root.get("scene") != "Assets/Scenes/UIAudioScene.unity":
+    raise SystemExit("ERROR: M1A manifest scene mismatch")
+if root.get("stage_id") != "stage-0-1":
+    raise SystemExit("ERROR: M1A manifest stage mismatch")
+if root.get("resolution") != "1920x1080":
+    raise SystemExit("ERROR: M1A manifest resolution mismatch")
+if root.get("capture_count") != "4" or root.get("locale_runtime_count") != "2":
+    raise SystemExit("ERROR: M1A manifest capture/runtime count mismatch")
+if root.get("errors") != "0" or root.get("overall_result") != "PASS":
+    raise SystemExit("ERROR: M1A manifest did not record a clean PASS")
+try:
+    pixel_threshold = int(root["pixel_delta_threshold"])
+except (KeyError, ValueError):
+    raise SystemExit("ERROR: M1A pixel threshold is invalid")
+if pixel_threshold < 1:
+    raise SystemExit("ERROR: M1A pixel threshold must be positive")
+
+expected_text = {
+    "en-US": {
+        "pause": "Pause",
+        "chance": "CHANCES",
+        "movement": "Move",
+        "push": "Push",
+        "flip": "Flip",
+    },
+    "ko-KR": {
+        "pause": "일시 정지",
+        "chance": "기회",
+        "movement": "이동",
+        "push": "밀기",
+        "flip": "뒤집기",
+    },
+}
+if set(sections) != {"en-US", "ko-KR", "runner-safety"}:
+    raise SystemExit("ERROR: M1A manifest locale/safety section set mismatch")
+
+hex32 = re.compile(r"[0-9a-f]{32}")
+hex64 = re.compile(r"[0-9a-f]{64}")
+for locale, expected in expected_text.items():
+    entry = sections[locale]
+    if entry.get("chance_count") != "2/3":
+        raise SystemExit(f"ERROR: {locale} chance fixture mismatch")
+    for field in (
+        "missing_glyph_count",
+        "fallback_count",
+        "mixed_locale",
+        "stale_locale",
+    ):
+        if entry.get(field) != "0":
+            raise SystemExit(f"ERROR: {locale} {field} is nonzero")
+    if entry.get("layout") != "PASS" or entry.get("graphics") != "PASS":
+        raise SystemExit(f"ERROR: {locale} layout/graphics failed")
+    for identity in ("semantic_fixture_hash", "non_text_graphic_hash"):
+        if not hex64.fullmatch(entry.get(identity, "")):
+            raise SystemExit(f"ERROR: {locale} {identity} is invalid")
+    for prefix in ("hud", "guide"):
+        png = output_dir / entry.get(prefix + "_file", "")
+        if not png.is_file():
+            raise SystemExit(f"ERROR: {locale} {prefix} PNG is missing")
+        data = png.read_bytes()
+        if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+            raise SystemExit(f"ERROR: {locale} {prefix} is not a PNG")
+        if int(entry.get(prefix + "_bytes", "0")) != len(data):
+            raise SystemExit(f"ERROR: {locale} {prefix} byte count mismatch")
+        if hashlib.sha256(data).hexdigest() != entry.get(prefix + "_sha256"):
+            raise SystemExit(f"ERROR: {locale} {prefix} SHA-256 mismatch")
+    for target, text in expected.items():
+        prefix = f"target_{target}_"
+        if not entry.get(prefix + "path"):
+            raise SystemExit(f"ERROR: {locale} {target} TMP path is blank")
+        if entry.get(prefix + "text") != text:
+            raise SystemExit(f"ERROR: {locale} {target} text mismatch")
+        if not hex32.fullmatch(entry.get(prefix + "font_guid", "")):
+            raise SystemExit(f"ERROR: {locale} {target} font GUID is invalid")
+        if not hex32.fullmatch(entry.get(prefix + "material_guid", "")):
+            raise SystemExit(f"ERROR: {locale} {target} material GUID is invalid")
+        for local_id in ("font_local_id", "material_local_id"):
+            if int(entry.get(prefix + local_id, "0")) == 0:
+                raise SystemExit(f"ERROR: {locale} {target} {local_id} is zero")
+        try:
+            bounds = [float(value) for value in entry[prefix + "bounds"].split(",")]
+            alpha = float(entry[prefix + "alpha"])
+            mesh_characters = int(entry[prefix + "mesh_characters"])
+            mesh_vertices = int(entry[prefix + "mesh_vertices"])
+            fallback = int(entry[prefix + "fallback"])
+            pixel_delta = int(entry[prefix + "pixel_delta"])
+        except (KeyError, ValueError):
+            raise SystemExit(f"ERROR: {locale} {target} evidence is invalid")
+        if len(bounds) != 4 or bounds[2] <= 0 or bounds[3] <= 0:
+            raise SystemExit(f"ERROR: {locale} {target} bounds are invalid")
+        if alpha <= 0 or mesh_characters <= 0 or mesh_vertices <= 0:
+            raise SystemExit(f"ERROR: {locale} {target} raster identity is empty")
+        if fallback != 0 or pixel_delta <= pixel_threshold:
+            raise SystemExit(f"ERROR: {locale} {target} fallback/pixel proof failed")
+
+    count_prefix = "target_chancecount_"
+    if entry.get(count_prefix + "text") != "2/3":
+        raise SystemExit(f"ERROR: {locale} chance-count TMP mismatch")
+    if int(entry.get(count_prefix + "fallback", "-1")) != 0:
+        raise SystemExit(f"ERROR: {locale} chance-count fallback is nonzero")
+    if int(entry.get(count_prefix + "mesh_characters", "0")) <= 0:
+        raise SystemExit(f"ERROR: {locale} chance-count mesh is empty")
+
+english = sections["en-US"]
+korean = sections["ko-KR"]
+for field in ("movement_keycap", "push_keycap", "flip_keycap"):
+    if not english.get(field) or english.get(field) != korean.get(field):
+        raise SystemExit(f"ERROR: cross-locale {field} mismatch")
+for field in ("semantic_fixture_hash", "non_text_graphic_hash"):
+    if english.get(field) != korean.get(field):
+        raise SystemExit(f"ERROR: cross-locale {field} mismatch")
+
+safety = sections["runner-safety"]
+for field in (
+    "guarded_climate_before_sha256",
+    "guarded_climate_after_capture_sha256",
+    "guarded_climate_restored_sha256",
+):
+    if not hex64.fullmatch(safety.get(field, "")):
+        raise SystemExit(f"ERROR: runner safety {field} is invalid")
+if safety["guarded_climate_before_sha256"] != safety["guarded_climate_restored_sha256"]:
+    raise SystemExit("ERROR: runner safety Climate restore mismatch")
+if safety.get("process_survivor_count") != "0":
+    raise SystemExit("ERROR: runner safety found a Unity survivor")
+if safety.get("asset_restore") != "PASS":
+    raise SystemExit("ERROR: runner safety asset restore failed")
+
+print("M1A HUD/World Guide visual manifest verification: PASS")
+PY
+    then
+        manifest_exit=1
+    fi
+
+    if [ "$manifest_exit" -ne 0 ]; then
+        echo "ERROR: M1A HUD/World Guide manifest validation failed."
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
+
+    echo "M1A HUD/World Guide visual evidence capture: PASS"
+    echo "  output directory: $output_dir"
+    echo "  manifest: $manifest"
+    echo "  runner mutation: $runner_mutation_evidence"
+    echo "  recorded revision: $expected_head"
+    echo "  recorded tree: $expected_tree"
+    echo "  Climate SDF hash: preserved"
+    visual_guard_finish 0
+}
+
 run_unity_full() {
     run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "" ""
     run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
@@ -4040,6 +4396,7 @@ parse_arguments() {
     if { [ "$RUN_MODE" = "climate-glyph-update" ] ||
          [ "$RUN_MODE" = "typography-visual" ] ||
          [ "$RUN_MODE" = "typography-hud-visual" ] ||
+         [ "$RUN_MODE" = "typography-hud-guide-visual" ] ||
          [ "$RUN_MODE" = "typography-result-visual" ]; } &&
        [ -n "$TEST_FILTER" ]; then
         echo "ERROR: asset generation and visual evidence lanes do not accept test filters."
@@ -4083,6 +4440,7 @@ main() {
            [ "$mode" = "climate-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
+           [ "$mode" = "typography-hud-guide-visual" ] ||
            [ "$mode" = "typography-result-visual" ]; then
             require_command git
             require_command sha256sum
@@ -4092,6 +4450,7 @@ main() {
         if [ "$mode" = "climate-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
+           [ "$mode" = "typography-hud-guide-visual" ] ||
            [ "$mode" = "typography-result-visual" ]; then
             require_command setsid
             ensure_result_dirs
@@ -4110,6 +4469,7 @@ main() {
         if [ "$mode" = "climate-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
+           [ "$mode" = "typography-hud-guide-visual" ] ||
            [ "$mode" = "typography-result-visual" ]; then
             echo "Dry run: asset generation or revision-gated capture will not execute."
         else
@@ -4138,6 +4498,9 @@ main() {
             ;;
         typography-hud-visual)
             run_objective_hud_visual
+            ;;
+        typography-hud-guide-visual)
+            run_m1a_hud_guide_visual
             ;;
         typography-result-visual)
             run_terminal_result_visual
@@ -4170,6 +4533,7 @@ main() {
        [ "$mode" != "climate-glyph-update" ] &&
        [ "$mode" != "typography-visual" ] &&
        [ "$mode" != "typography-hud-visual" ] &&
+       [ "$mode" != "typography-hud-guide-visual" ] &&
        [ "$mode" != "typography-result-visual" ]; then
         echo "ALL TESTS PASSED"
     fi
