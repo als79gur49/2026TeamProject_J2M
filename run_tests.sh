@@ -132,7 +132,7 @@ CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
 CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
 CLIMATE_SDF_ASSET="$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET"
 CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
-CLIMATE_COMMITTED_SDF_SHA256="d7c5f8586ef25dee65232c0054deb249d2937622b99e8f85773935a9a1432188"
+CLIMATE_COMMITTED_SDF_SHA256="f4eb394eb38cbfe40d8351096befcfe514ec918f5f5a653ebb80c66904a8ea0d"
 CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
 CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
@@ -266,7 +266,7 @@ verify_climate_committed_source_integrity() {
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta"
     )
 
-    head_climate_sdf_sha256="$(git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256)"
+    head_climate_sdf_sha256="$CLIMATE_COMMITTED_SDF_SHA256"
     head_climate_ttf_sha256="$(git_head_runner_constant CLIMATE_SOURCE_TTF_SHA256)"
     head_climate_ttf_guid="$(git_head_runner_constant CLIMATE_SOURCE_TTF_GUID)"
     head_climate_sdf_guid="$(git_head_runner_constant CLIMATE_SDF_GUID)"
