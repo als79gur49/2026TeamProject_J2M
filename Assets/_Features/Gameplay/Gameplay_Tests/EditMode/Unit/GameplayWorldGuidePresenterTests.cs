@@ -7,6 +7,7 @@ using Game.Shared.Input;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests
@@ -19,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests
         {
             var root = new GameObject("PresenterRoot");
             var parent = new GameObject("GuideParent").transform;
-            var prefab = CreateGuidePrefab(WorldGuideBindingKind.Push);
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Push);
             var catalog = CreateCatalog(CreateEntry("push", prefab));
             var presenter = root.AddComponent<GameplayWorldGuidePresenter>();
 
@@ -62,7 +63,7 @@ namespace Game.Feature.Gameplay.Tests
         {
             var root = new GameObject("PresenterRoot");
             var parent = new GameObject("GuideParent").transform;
-            var prefab = CreateGuidePrefab(WorldGuideBindingKind.Movement);
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Movement);
             var catalog = CreateCatalog(CreateEntry("movement", prefab));
             var presenter = root.AddComponent<GameplayWorldGuidePresenter>();
 
@@ -100,7 +101,7 @@ namespace Game.Feature.Gameplay.Tests
         {
             var root = new GameObject("PresenterRoot");
             var parent = new GameObject("GuideParent").transform;
-            var prefab = CreateGuidePrefab(WorldGuideBindingKind.Movement);
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Movement);
             var catalog = CreateCatalog(CreateEntry("movement", prefab));
             var presenter = root.AddComponent<GameplayWorldGuidePresenter>();
 
@@ -138,7 +139,7 @@ namespace Game.Feature.Gameplay.Tests
         {
             var root = new GameObject("PresenterRoot");
             var parent = new GameObject("GuideParent").transform;
-            var prefab = CreateGuidePrefab(WorldGuideBindingKind.Movement);
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Movement);
             var catalog = CreateCatalog(CreateEntry("movement", prefab));
             var presenter = root.AddComponent<GameplayWorldGuidePresenter>();
 
@@ -177,7 +178,7 @@ namespace Game.Feature.Gameplay.Tests
         {
             var root = new GameObject("PresenterRoot");
             var parent = new GameObject("GuideParent").transform;
-            var prefab = CreateGuidePrefab(WorldGuideBindingKind.Push);
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Push);
             var catalog = CreateCatalog(CreateEntry("push", prefab));
             var presenter = root.AddComponent<GameplayWorldGuidePresenter>();
 
@@ -214,7 +215,7 @@ namespace Game.Feature.Gameplay.Tests
         [Test]
         public void WorldGuideInstructionView_MovementBinding_TogglesAuthoredInputRoots()
         {
-            var prefab = CreateGuidePrefab(WorldGuideBindingKind.Movement);
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Movement);
 
             try
             {
@@ -250,6 +251,55 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
+        [Test]
+        public void GameplayWorldGuidePresenter_BindingChange_RefreshesOnlyKeycapDisplay()
+        {
+            var root = new GameObject("PresenterRoot");
+            var parent = new GameObject("GuideParent").transform;
+            var prefab = CreateGuidePrefab(WorldGuideInstructionKind.Movement);
+            var catalog = CreateCatalog(CreateEntry("movement", prefab));
+            var presenter = root.AddComponent<GameplayWorldGuidePresenter>();
+            var actions = CreateInputActions();
+            var store = new FakeKeyboardBindingStore();
+
+            try
+            {
+                presenter.Initialize(
+                    catalog,
+                    new[]
+                    {
+                        new StageWorldGuideInstructionResolved(
+                            "movement",
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            Vector3.zero,
+                            0.25f,
+                            StageWorldGuideFacingMode.SurfaceAligned,
+                            hideWhenFaceInactive: false),
+                    },
+                    boardSurfaceRenderer: null,
+                    poseResolver: new FixedPoseResolver(),
+                    viewCamera: null,
+                    parent,
+                    actions,
+                    store);
+                var view = parent.GetComponentInChildren<WorldGuideInstructionView>(includeInactive: true);
+                view.ApplyActionText("localized-action");
+
+                using var settings = new KeyboardBindingSettingsService(actions, store);
+                var result = settings.SetMovementScheme(KeyboardMovementScheme.ArrowKeys);
+
+                Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
+                Assert.That(view.WasdDisplayRoot.activeSelf, Is.False);
+                Assert.That(view.ArrowDisplayRoot.activeSelf, Is.True);
+                Assert.That(view.ActionTextLabel.text, Is.EqualTo("localized-action"));
+            }
+            finally
+            {
+                presenter.Cleanup();
+                DestroyObjects(root, parent.gameObject, prefab, catalog, actions);
+            }
+        }
+
         private sealed class FixedPoseResolver : ISurfaceCellPresentationPoseResolver
         {
             private readonly float _surfaceOutwardOffset;
@@ -270,7 +320,7 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        private static GameObject CreateGuidePrefab(WorldGuideBindingKind bindingKind)
+        private static GameObject CreateGuidePrefab(WorldGuideInstructionKind instructionKind)
         {
             var root = new GameObject("WorldGuidePrefab", typeof(RectTransform), typeof(Canvas));
             var view = root.AddComponent<WorldGuideInstructionView>();
@@ -281,12 +331,19 @@ namespace Game.Feature.Gameplay.Tests
             arrowObject.transform.SetParent(root.transform, worldPositionStays: false);
             var textObject = new GameObject("ActionKey", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(root.transform, worldPositionStays: false);
+            var actionTextObject = new GameObject(
+                "ActionText",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(TextMeshProUGUI));
+            actionTextObject.transform.SetParent(root.transform, worldPositionStays: false);
 
             SetPrivateField(view, "canvas", root.GetComponent<Canvas>());
-            SetPrivateField(view, "bindingKind", bindingKind);
+            SetPrivateField(view, "instructionKind", instructionKind);
             SetPrivateField(view, "wasdDisplayRoot", wasdObject);
             SetPrivateField(view, "arrowDisplayRoot", arrowObject);
             SetPrivateField(view, "actionKeyLabel", textObject.GetComponent<TMP_Text>());
+            SetPrivateField(view, "actionTextLabel", actionTextObject.GetComponent<TMP_Text>());
             return root;
         }
 
@@ -303,6 +360,82 @@ namespace Game.Feature.Gameplay.Tests
             var catalog = ScriptableObject.CreateInstance<StageWorldGuideCatalog>();
             SetPrivateField(catalog, "entries", entries ?? Array.Empty<StageWorldGuideCatalogEntry>());
             return catalog;
+        }
+
+        private static InputActionAsset CreateInputActions()
+        {
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var player = new InputActionMap(GameplayInputActionPaths.PlayerActionMap);
+            var move = player.AddAction(GameplayInputActionPaths.MoveAction, InputActionType.Value);
+            move.AddCompositeBinding("Dpad")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+            move.AddCompositeBinding("Dpad")
+                .With("Up", "<Keyboard>/upArrow")
+                .With("Down", "<Keyboard>/downArrow")
+                .With("Left", "<Keyboard>/leftArrow")
+                .With("Right", "<Keyboard>/rightArrow");
+            player.AddAction(GameplayInputActionPaths.PushAction, InputActionType.Button)
+                .AddBinding("<Keyboard>/e")
+                .WithGroup("Keyboard&Mouse");
+            player.AddAction(GameplayInputActionPaths.FlipAction, InputActionType.Button)
+                .AddBinding("<Keyboard>/q")
+                .WithGroup("Keyboard&Mouse");
+            actions.AddActionMap(player);
+
+            var ui = new InputActionMap(GameplayInputActionPaths.UiActionMap);
+            var navigate = ui.AddAction(GameplayInputActionPaths.NavigateAction, InputActionType.PassThrough);
+            navigate.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+            navigate.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/upArrow")
+                .With("Down", "<Keyboard>/downArrow")
+                .With("Left", "<Keyboard>/leftArrow")
+                .With("Right", "<Keyboard>/rightArrow");
+            actions.AddActionMap(ui);
+            return actions;
+        }
+
+        private sealed class FakeKeyboardBindingStore : IKeyboardBindingStore
+        {
+            private KeyboardMovementScheme? _movementScheme;
+            private string _overrides;
+
+            public bool TryLoadMovementScheme(out KeyboardMovementScheme scheme)
+            {
+                scheme = _movementScheme ?? KeyboardMovementScheme.Wasd;
+                return _movementScheme.HasValue;
+            }
+
+            public void SaveMovementScheme(KeyboardMovementScheme scheme)
+            {
+                _movementScheme = scheme;
+            }
+
+            public bool TryLoadBindingOverridesJson(out string json)
+            {
+                json = _overrides;
+                return !string.IsNullOrWhiteSpace(json);
+            }
+
+            public void SaveBindingOverridesJson(string json)
+            {
+                _overrides = json;
+            }
+
+            public void ClearBindingOverridesJson()
+            {
+                _overrides = null;
+            }
+
+            public void Save()
+            {
+            }
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)
