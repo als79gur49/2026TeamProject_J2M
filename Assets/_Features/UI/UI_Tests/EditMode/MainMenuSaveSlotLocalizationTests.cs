@@ -116,7 +116,7 @@ namespace Game.Feature.UI.Tests
     {
         [TestCase(SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.", "지원하지 않는 저장 데이터", "지원하지 않는 버전에서 생성된 저장 데이터입니다.")]
         [TestCase(SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.", "저장 데이터 손상", "저장 데이터를 읽을 수 없습니다.")]
-        [TestCase(SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.", "저장 데이터 접근 실패", "저장 데이터에 접근할 수 없습니다. 파일 권한을 확인하세요.")]
+        [TestCase(SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.", "저장 데이터 접근 실패", "저장 데이터 접근 권한을 확인하세요.")]
         [TestCase(SaveSlotFailurePresentationKind.LoadFailed, "Save Load Failed", "The save data could not be loaded.", "저장 불러오기 실패", "저장 데이터를 불러올 수 없습니다.")]
         [TestCase(SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.", "저장 데이터 사용 불가", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.")]
         public void FailureDescriptors_ResolveEnglishAndKoreanWithoutBlankText(

@@ -123,7 +123,7 @@ namespace Game.Feature.UI.Composition.Editor
             (MainMenuLocalizationContract.Keys.SlotErrorCorruptTitle, "Save Data Damaged", "저장 데이터 손상", false),
             (MainMenuLocalizationContract.Keys.SlotErrorCorruptDetail, "This save data could not be read.", "저장 데이터를 읽을 수 없습니다.", false),
             (MainMenuLocalizationContract.Keys.SlotErrorPermissionTitle, "Save Access Failed", "저장 데이터 접근 실패", false),
-            (MainMenuLocalizationContract.Keys.SlotErrorPermissionDetail, "The save data could not be accessed. Check file permissions.", "저장 데이터에 접근할 수 없습니다. 파일 권한을 확인하세요.", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorPermissionDetail, "The save data could not be accessed. Check file permissions.", "저장 데이터 접근 권한을 확인하세요.", false),
             (MainMenuLocalizationContract.Keys.SlotErrorLoadFailedTitle, "Save Load Failed", "저장 불러오기 실패", false),
             (MainMenuLocalizationContract.Keys.SlotErrorLoadFailedDetail, "The save data could not be loaded.", "저장 데이터를 불러올 수 없습니다.", false),
             (MainMenuLocalizationContract.Keys.SlotErrorNeedsRepairTitle, "Save Data Unavailable", "저장 데이터 사용 불가", false),
