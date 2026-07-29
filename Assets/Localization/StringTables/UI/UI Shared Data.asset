@@ -411,6 +411,46 @@ MonoBehaviour:
     m_Key: ui.main_menu.quit_confirm.confirm
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693689
+    m_Key: ui.main_menu.slot.error.unsupported.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693690
+    m_Key: ui.main_menu.slot.error.unsupported.detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693691
+    m_Key: ui.main_menu.slot.error.corrupt.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693692
+    m_Key: ui.main_menu.slot.error.corrupt.detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693693
+    m_Key: ui.main_menu.slot.error.permission.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693694
+    m_Key: ui.main_menu.slot.error.permission.detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693695
+    m_Key: ui.main_menu.slot.error.load_failed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693696
+    m_Key: ui.main_menu.slot.error.load_failed.detail
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693697
+    m_Key: ui.main_menu.slot.error.needs_repair.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693698
+    m_Key: ui.main_menu.slot.error.needs_repair.detail
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -277,14 +277,23 @@ namespace Game.Feature.UI.Screens
             if (_primaryButton != null)
             {
                 var hasPrimaryIntent = _viewModel != null && _viewModel.PrimaryIntentKind != SaveSlotIntentKind.None;
-                _primaryButton.gameObject.SetActive(true);
+                var hideUnavailableFailureAction =
+                    _viewModel != null &&
+                    _viewModel.FailureKind != SaveSlotFailurePresentationKind.None &&
+                    !hasPrimaryIntent;
+                _primaryButton.gameObject.SetActive(!hideUnavailableFailureAction);
                 _primaryButton.interactable = hasPrimaryIntent;
             }
 
             if (_deleteButton != null)
             {
-                _deleteButton.gameObject.SetActive(true);
-                _deleteButton.interactable = _viewModel != null && _viewModel.ShowDelete;
+                var showDelete = _viewModel != null && _viewModel.ShowDelete;
+                var hideUnavailableFailureAction =
+                    _viewModel != null &&
+                    _viewModel.FailureKind != SaveSlotFailurePresentationKind.None &&
+                    !showDelete;
+                _deleteButton.gameObject.SetActive(!hideUnavailableFailureAction);
+                _deleteButton.interactable = showDelete;
             }
 
             if (_deleteButtonLabel != null)

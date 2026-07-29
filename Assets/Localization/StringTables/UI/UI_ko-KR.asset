@@ -441,6 +441,46 @@ MonoBehaviour:
     m_Localized: 종료
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693689
+    m_Localized: 지원하지 않는 저장 데이터
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693690
+    m_Localized: 지원하지 않는 버전에서 생성된 저장 데이터입니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693691
+    m_Localized: 저장 데이터 손상
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693692
+    m_Localized: 저장 데이터를 읽을 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693693
+    m_Localized: 저장 데이터 접근 실패
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693694
+    m_Localized: 저장 데이터에 접근할 수 없습니다. 파일 권한을 확인하세요.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693695
+    m_Localized: 저장 불러오기 실패
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693696
+    m_Localized: 저장 데이터를 불러올 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693697
+    m_Localized: 저장 데이터 사용 불가
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693698
+    m_Localized: 현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

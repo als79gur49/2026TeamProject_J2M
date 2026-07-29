@@ -20,6 +20,7 @@ namespace Game.Feature.UI.Application
         private readonly SaveSlotValidationService _saveSlotValidationService;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly IMainMenuSaveDiagnosticPort _saveDiagnosticPort;
         private LaunchConfirmationOperation _currentLaunchConfirmation;
         private bool _isDisposed;
 
@@ -30,7 +31,8 @@ namespace Game.Feature.UI.Application
             IStageLaunchRouter stageLaunchRouter,
             IConfirmPopupPort confirmPopupPort,
             SaveSlotValidationService saveSlotValidationService = null,
-            ILocalizedTextResolver localizedTextResolver = null)
+            ILocalizedTextResolver localizedTextResolver = null,
+            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _launchHandoffStore = launchHandoffStore ??
@@ -41,6 +43,8 @@ namespace Game.Feature.UI.Application
             _saveSlotValidationService = saveSlotValidationService;
             _localizedTextResolver = localizedTextResolver ??
                 InvariantSettingsLocalizedTextResolver.Instance;
+            _saveDiagnosticPort = saveDiagnosticPort ??
+                NoOpMainMenuSaveDiagnosticPort.Instance;
             _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
         }
 
@@ -51,6 +55,12 @@ namespace Game.Feature.UI.Application
             var loadResult = _saveSlotStore.LoadAllWithReport();
             if (loadResult.Report.BlocksCampaignAccess)
             {
+                _saveDiagnosticPort.Report(new SaveSlotFailureDiagnostic(
+                    MainMenuSlotViewModelMapper.MapFailureKind(loadResult.Report.Status),
+                    loadResult.Report.Status,
+                    loadResult.Report.Reason,
+                    slotNumber: 0,
+                    operation: SaveSlotRepositoryOperation.LoadAllWithReport));
                 return MainMenuSlotViewModelMapper.MapCampaignAccessBlocked(
                     loadResult.Report,
                     _localizedTextResolver);

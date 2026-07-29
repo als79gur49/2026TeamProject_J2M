@@ -80,24 +80,36 @@ namespace Game.Feature.UI.Application
                 throw new ArgumentNullException(nameof(localizedTextResolver));
             }
 
+            var failureKind = MapFailureKind(report.Status);
+            if (failureKind == SaveSlotFailurePresentationKind.None)
+            {
+                failureKind = SaveSlotFailurePresentationKind.NeedsRepair;
+            }
+
+            var failureText = MainMenuLocalization.FailureDescriptor(failureKind);
+            var failureTitle = localizedTextResolver.Resolve(failureText.Title);
+            var failureDetail = localizedTextResolver.Resolve(failureText.Detail);
             var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
             for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
             {
                 cards.Add(new SaveSlotCardViewModel(
                     slotNumber,
-                    SaveSlotCardState.Corrupted,
+                    failureKind == SaveSlotFailurePresentationKind.UnsupportedVersion
+                        ? SaveSlotCardState.Unsupported
+                        : SaveSlotCardState.Corrupted,
                     MainMenuLocalization.Resolve(
                         localizedTextResolver,
                         MainMenuLocalizationEntryId.SlotLabel,
                         slotNumber),
-                    ResolveBlockedStatusText(report.Status),
-                    ResolveBlockedDetailText(report),
+                    failureTitle,
+                    failureDetail,
                     string.Empty,
                     string.Empty,
                     string.Empty,
                     string.Empty,
                     SaveSlotIntentKind.None,
-                    showDelete: false));
+                    showDelete: false,
+                    failureKind: failureKind));
             }
 
             return new SaveSlotPanelViewModel(cards);
@@ -199,20 +211,29 @@ namespace Game.Feature.UI.Application
 
             if (!validation.CanContinue)
             {
-                var isUnsupported = validation.Status == SaveSlotValidationStatus.UnsupportedVersion;
+                var failureKind = MapFailureKind(validation.Status);
+                if (failureKind == SaveSlotFailurePresentationKind.None)
+                {
+                    failureKind = SaveSlotFailurePresentationKind.NeedsRepair;
+                }
+
+                var failureText = MainMenuLocalization.FailureDescriptor(failureKind);
                 return new SaveSlotCardViewModel(
                     slot.SlotNumber,
-                    isUnsupported ? SaveSlotCardState.Unsupported : SaveSlotCardState.Corrupted,
+                    failureKind == SaveSlotFailurePresentationKind.UnsupportedVersion
+                        ? SaveSlotCardState.Unsupported
+                        : SaveSlotCardState.Corrupted,
                     title,
-                    isUnsupported ? "Unsupported" : "Needs Repair",
-                    ResolveInvalidStageText(slot, displayStage, validation.Status),
+                    localizedTextResolver.Resolve(failureText.Title),
+                    localizedTextResolver.Resolve(failureText.Detail),
                     string.Empty,
-                    $"Deaths {slot.TotalDeaths}",
-                    FormatLastPlayedText(slot.LastPlayedAt, localizedTextResolver),
-                    "Restart",
+                    string.Empty,
+                    string.Empty,
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotRestart),
                     SaveSlotIntentKind.Restart,
                     showDelete: true,
-                    deleteActionText: deleteAction);
+                    deleteActionText: deleteAction,
+                    failureKind: failureKind);
             }
 
             return new SaveSlotCardViewModel(
@@ -260,61 +281,38 @@ namespace Game.Feature.UI.Application
                 formattedDate);
         }
 
-        private static string ResolveInvalidStageText(
-            SaveSlotData slot,
-            string displayStage,
-            SaveSlotValidationStatus status)
-        {
-            if (!slot.CurrentStageId.IsValid)
-            {
-                return "Invalid stage";
-            }
-
-            if (!string.IsNullOrWhiteSpace(displayStage))
-            {
-                return $"Stage {displayStage}";
-            }
-
-            return status == SaveSlotValidationStatus.StageMissingFromCatalog ||
-                   status == SaveSlotValidationStatus.StageMissingFromSequence
-                ? $"Stage {slot.CurrentStageId.Value}"
-                : "Invalid stage";
-        }
-
-        private static string ResolveBlockedStatusText(CampaignSaveLoadStatus status)
+        public static SaveSlotFailurePresentationKind MapFailureKind(
+            CampaignSaveLoadStatus status)
         {
             switch (status)
             {
-                case CampaignSaveLoadStatus.IoFailed:
-                    return "Load Blocked";
-                case CampaignSaveLoadStatus.Unauthorized:
-                    return "Permission Denied";
                 case CampaignSaveLoadStatus.CorruptRepairRequired:
+                    return SaveSlotFailurePresentationKind.CorruptedData;
                 case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
-                    return "Needs Repair";
+                    return SaveSlotFailurePresentationKind.NeedsRepair;
+                case CampaignSaveLoadStatus.Unauthorized:
+                    return SaveSlotFailurePresentationKind.PermissionDenied;
+                case CampaignSaveLoadStatus.IoFailed:
+                    return SaveSlotFailurePresentationKind.LoadFailed;
                 default:
-                    return "Unavailable";
+                    return SaveSlotFailurePresentationKind.None;
             }
         }
 
-        private static string ResolveBlockedDetailText(CampaignSaveLoadReport report)
+        public static SaveSlotFailurePresentationKind MapFailureKind(
+            SaveSlotValidationStatus status)
         {
-            if (!string.IsNullOrWhiteSpace(report.Reason))
+            switch (status)
             {
-                return report.Reason;
-            }
-
-            switch (report.Status)
-            {
-                case CampaignSaveLoadStatus.IoFailed:
-                    return "Save data cannot be loaded";
-                case CampaignSaveLoadStatus.Unauthorized:
-                    return "Save data permission denied";
-                case CampaignSaveLoadStatus.CorruptRepairRequired:
-                case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
-                    return "Save data needs repair";
+                case SaveSlotValidationStatus.UnsupportedVersion:
+                    return SaveSlotFailurePresentationKind.UnsupportedVersion;
+                case SaveSlotValidationStatus.Corrupted:
+                    return SaveSlotFailurePresentationKind.CorruptedData;
+                case SaveSlotValidationStatus.StageMissingFromSequence:
+                case SaveSlotValidationStatus.StageMissingFromCatalog:
+                    return SaveSlotFailurePresentationKind.NeedsRepair;
                 default:
-                    return "Campaign save unavailable";
+                    return SaveSlotFailurePresentationKind.None;
             }
         }
 

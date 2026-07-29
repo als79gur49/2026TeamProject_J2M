@@ -2,10 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
+    public readonly struct SaveSlotFailureLocalizationDescriptor
+    {
+        public SaveSlotFailureLocalizationDescriptor(
+            LocalizedTextDescriptor title,
+            LocalizedTextDescriptor detail)
+        {
+            Title = title;
+            Detail = detail;
+        }
+
+        public LocalizedTextDescriptor Title { get; }
+
+        public LocalizedTextDescriptor Detail { get; }
+    }
+
     public enum MainMenuConfirmationKind
     {
         DeleteSlot,
@@ -43,6 +59,36 @@ namespace Game.Feature.UI.Application
             }
 
             return resolver.Resolve(Descriptor(id, arguments));
+        }
+
+        public static SaveSlotFailureLocalizationDescriptor FailureDescriptor(
+            SaveSlotFailurePresentationKind kind)
+        {
+            switch (kind)
+            {
+                case SaveSlotFailurePresentationKind.UnsupportedVersion:
+                    return Failure(
+                        MainMenuLocalizationEntryId.SlotErrorUnsupportedTitle,
+                        MainMenuLocalizationEntryId.SlotErrorUnsupportedDetail);
+                case SaveSlotFailurePresentationKind.CorruptedData:
+                    return Failure(
+                        MainMenuLocalizationEntryId.SlotErrorCorruptTitle,
+                        MainMenuLocalizationEntryId.SlotErrorCorruptDetail);
+                case SaveSlotFailurePresentationKind.PermissionDenied:
+                    return Failure(
+                        MainMenuLocalizationEntryId.SlotErrorPermissionTitle,
+                        MainMenuLocalizationEntryId.SlotErrorPermissionDetail);
+                case SaveSlotFailurePresentationKind.LoadFailed:
+                    return Failure(
+                        MainMenuLocalizationEntryId.SlotErrorLoadFailedTitle,
+                        MainMenuLocalizationEntryId.SlotErrorLoadFailedDetail);
+                case SaveSlotFailurePresentationKind.NeedsRepair:
+                    return Failure(
+                        MainMenuLocalizationEntryId.SlotErrorNeedsRepairTitle,
+                        MainMenuLocalizationEntryId.SlotErrorNeedsRepairDetail);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
+            }
         }
 
         public static string FormatPlayedDate(string lastPlayedAt, string localeCode)
@@ -144,6 +190,15 @@ namespace Game.Feature.UI.Application
                 Descriptor(confirm),
                 cancel,
                 isDestructive);
+        }
+
+        private static SaveSlotFailureLocalizationDescriptor Failure(
+            MainMenuLocalizationEntryId title,
+            MainMenuLocalizationEntryId detail)
+        {
+            return new SaveSlotFailureLocalizationDescriptor(
+                Descriptor(title),
+                Descriptor(detail));
         }
     }
 }

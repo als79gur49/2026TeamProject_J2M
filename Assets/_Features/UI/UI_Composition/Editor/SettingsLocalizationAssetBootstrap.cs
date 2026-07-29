@@ -118,6 +118,16 @@ namespace Game.Feature.UI.Composition.Editor
             (MainMenuLocalizationContract.Keys.QuitBody, "Quit to desktop?", "데스크톱으로 종료할까요?", false),
             (MainMenuLocalizationContract.Keys.QuitWarning, "Unsaved progress may be lost.", "저장되지 않은 진행 상황은 사라질 수 있습니다.", false),
             (MainMenuLocalizationContract.Keys.QuitConfirm, "Quit", "종료", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorUnsupportedTitle, "Unsupported Save", "지원하지 않는 저장 데이터", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorUnsupportedDetail, "This save was created by an unsupported version.", "지원하지 않는 버전에서 생성된 저장 데이터입니다.", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorCorruptTitle, "Save Data Damaged", "저장 데이터 손상", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorCorruptDetail, "This save data could not be read.", "저장 데이터를 읽을 수 없습니다.", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorPermissionTitle, "Save Access Failed", "저장 데이터 접근 실패", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorPermissionDetail, "The save data could not be accessed. Check file permissions.", "저장 데이터에 접근할 수 없습니다. 파일 권한을 확인하세요.", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorLoadFailedTitle, "Save Load Failed", "저장 불러오기 실패", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorLoadFailedDetail, "The save data could not be loaded.", "저장 데이터를 불러올 수 없습니다.", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorNeedsRepairTitle, "Save Data Unavailable", "저장 데이터 사용 불가", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorNeedsRepairDetail, "This save cannot be used in its current state.", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()

@@ -439,6 +439,46 @@ MonoBehaviour:
     m_Localized: Quit
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693689
+    m_Localized: Unsupported Save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693690
+    m_Localized: This save was created by an unsupported version.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693691
+    m_Localized: Save Data Damaged
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693692
+    m_Localized: This save data could not be read.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693693
+    m_Localized: Save Access Failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693694
+    m_Localized: The save data could not be accessed. Check file permissions.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693695
+    m_Localized: Save Load Failed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693696
+    m_Localized: The save data could not be loaded.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693697
+    m_Localized: Save Data Unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693698
+    m_Localized: This save cannot be used in its current state.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

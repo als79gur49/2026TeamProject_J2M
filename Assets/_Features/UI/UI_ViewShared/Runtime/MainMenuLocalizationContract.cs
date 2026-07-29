@@ -32,6 +32,16 @@ namespace Game.Feature.UI.ViewShared
         QuitBody,
         QuitWarning,
         QuitConfirm,
+        SlotErrorUnsupportedTitle,
+        SlotErrorUnsupportedDetail,
+        SlotErrorCorruptTitle,
+        SlotErrorCorruptDetail,
+        SlotErrorPermissionTitle,
+        SlotErrorPermissionDetail,
+        SlotErrorLoadFailedTitle,
+        SlotErrorLoadFailedDetail,
+        SlotErrorNeedsRepairTitle,
+        SlotErrorNeedsRepairDetail,
     }
 
     public readonly struct MainMenuLocalizationContractEntry
@@ -104,6 +114,16 @@ namespace Game.Feature.UI.ViewShared
             public const string QuitBody = "ui.main_menu.quit_confirm.body";
             public const string QuitWarning = "ui.main_menu.quit_confirm.warning";
             public const string QuitConfirm = "ui.main_menu.quit_confirm.confirm";
+            public const string SlotErrorUnsupportedTitle = "ui.main_menu.slot.error.unsupported.title";
+            public const string SlotErrorUnsupportedDetail = "ui.main_menu.slot.error.unsupported.detail";
+            public const string SlotErrorCorruptTitle = "ui.main_menu.slot.error.corrupt.title";
+            public const string SlotErrorCorruptDetail = "ui.main_menu.slot.error.corrupt.detail";
+            public const string SlotErrorPermissionTitle = "ui.main_menu.slot.error.permission.title";
+            public const string SlotErrorPermissionDetail = "ui.main_menu.slot.error.permission.detail";
+            public const string SlotErrorLoadFailedTitle = "ui.main_menu.slot.error.load_failed.title";
+            public const string SlotErrorLoadFailedDetail = "ui.main_menu.slot.error.load_failed.detail";
+            public const string SlotErrorNeedsRepairTitle = "ui.main_menu.slot.error.needs_repair.title";
+            public const string SlotErrorNeedsRepairDetail = "ui.main_menu.slot.error.needs_repair.detail";
             public const string Cancel = "ui.common.cancel";
         }
 
@@ -137,6 +157,16 @@ namespace Game.Feature.UI.ViewShared
                 Entry(MainMenuLocalizationEntryId.QuitBody, Keys.QuitBody, "Quit to desktop?", "데스크톱으로 종료할까요?", LocalizedTextRole.Body),
                 Entry(MainMenuLocalizationEntryId.QuitWarning, Keys.QuitWarning, "Unsaved progress may be lost.", "저장되지 않은 진행 상황은 사라질 수 있습니다.", LocalizedTextRole.Body),
                 Entry(MainMenuLocalizationEntryId.QuitConfirm, Keys.QuitConfirm, "Quit", "종료", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.SlotErrorUnsupportedTitle, Keys.SlotErrorUnsupportedTitle, "Unsupported Save", "지원하지 않는 저장 데이터", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SlotErrorUnsupportedDetail, Keys.SlotErrorUnsupportedDetail, "This save was created by an unsupported version.", "지원하지 않는 버전에서 생성된 저장 데이터입니다.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SlotErrorCorruptTitle, Keys.SlotErrorCorruptTitle, "Save Data Damaged", "저장 데이터 손상", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SlotErrorCorruptDetail, Keys.SlotErrorCorruptDetail, "This save data could not be read.", "저장 데이터를 읽을 수 없습니다.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SlotErrorPermissionTitle, Keys.SlotErrorPermissionTitle, "Save Access Failed", "저장 데이터 접근 실패", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SlotErrorPermissionDetail, Keys.SlotErrorPermissionDetail, "The save data could not be accessed. Check file permissions.", "저장 데이터에 접근할 수 없습니다. 파일 권한을 확인하세요.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SlotErrorLoadFailedTitle, Keys.SlotErrorLoadFailedTitle, "Save Load Failed", "저장 불러오기 실패", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SlotErrorLoadFailedDetail, Keys.SlotErrorLoadFailedDetail, "The save data could not be loaded.", "저장 데이터를 불러올 수 없습니다.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SlotErrorNeedsRepairTitle, Keys.SlotErrorNeedsRepairTitle, "Save Data Unavailable", "저장 데이터 사용 불가", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SlotErrorNeedsRepairDetail, Keys.SlotErrorNeedsRepairDetail, "This save cannot be used in its current state.", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.", LocalizedTextRole.Body),
             });
 
         public static IReadOnlyList<MainMenuLocalizationContractEntry> Entries => ContractEntries;
