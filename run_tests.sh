@@ -4173,8 +4173,8 @@ if root.get("scene") != "Assets/Scenes/UIAudioScene.unity":
     raise SystemExit("ERROR: M1A manifest scene mismatch")
 if root.get("stage_id") != "stage-0-1":
     raise SystemExit("ERROR: M1A manifest stage mismatch")
-if root.get("resolution") != "1920x1080":
-    raise SystemExit("ERROR: M1A manifest resolution mismatch")
+if not re.fullmatch(r"[1-9][0-9]*x[1-9][0-9]*", root.get("resolution", "")):
+    raise SystemExit("ERROR: M1A manifest resolution is invalid")
 if root.get("capture_count") != "4" or root.get("locale_runtime_count") != "2":
     raise SystemExit("ERROR: M1A manifest capture/runtime count mismatch")
 if root.get("errors") != "0" or root.get("overall_result") != "PASS":

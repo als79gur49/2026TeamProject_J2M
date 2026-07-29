@@ -71,6 +71,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Screen.SetResolution(requestedWidth, requestedHeight, FullScreenMode.Windowed);
                 yield return null;
                 yield return new WaitForEndOfFrame();
+                requestedWidth = Screen.width;
+                requestedHeight = Screen.height;
 
                 foreach (var scenario in Scenarios)
                 {
