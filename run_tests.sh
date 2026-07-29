@@ -4264,14 +4264,6 @@ for locale, expected in expected_text.items():
         if fallback != 0 or pixel_delta <= pixel_threshold:
             raise SystemExit(f"ERROR: {locale} {target} fallback/pixel proof failed")
 
-    count_prefix = "target_chancecount_"
-    if entry.get(count_prefix + "text") != "2/3":
-        raise SystemExit(f"ERROR: {locale} chance-count TMP mismatch")
-    if int(entry.get(count_prefix + "fallback", "-1")) != 0:
-        raise SystemExit(f"ERROR: {locale} chance-count fallback is nonzero")
-    if int(entry.get(count_prefix + "mesh_characters", "0")) <= 0:
-        raise SystemExit(f"ERROR: {locale} chance-count mesh is empty")
-
 english = sections["en-US"]
 korean = sections["ko-KR"]
 for field in ("movement_keycap", "push_keycap", "flip_keycap"):

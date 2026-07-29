@@ -236,7 +236,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 var chanceView = installer.HudView.ChancePanelView;
-                var chanceCount = ReadPrivateField<TMP_Text>(chanceView, "_countText");
                 var chanceRoot = ReadPrivateField<GameObject>(chanceView, "_root");
                 var pauseButton = hudBinding.PauseText.GetComponentInParent<Button>(includeInactive: true);
                 if (pauseButton == null)
@@ -260,7 +259,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 RequireGuide(guides, WorldGuideInstructionKind.Push);
                 RequireGuide(guides, WorldGuideInstructionKind.Flip);
 
-                ValidateChanceFixture(chanceView, chanceCount);
+                var chanceSlotBounds = ValidateChanceFixture(chanceView);
                 Time.timeScale = 0f;
                 ForceLayoutAndText();
                 yield return null;
@@ -279,7 +278,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     ["Movement"] = guides[WorldGuideInstructionKind.Movement].ActionTextLabel,
                     ["Push"] = guides[WorldGuideInstructionKind.Push].ActionTextLabel,
                     ["Flip"] = guides[WorldGuideInstructionKind.Flip].ActionTextLabel,
-                    ["ChanceCount"] = chanceCount,
                 };
                 var expectedTexts = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -288,16 +286,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     ["Movement"] = scenario.Movement,
                     ["Push"] = scenario.Push,
                     ["Flip"] = scenario.Flip,
-                    ["ChanceCount"] = $"{ExpectedRemainingChances}/{ExpectedMaxChances}",
                 };
 
                 var evidence = new Dictionary<string, TargetEvidence>(StringComparer.Ordinal);
                 foreach (var pair in targets)
                 {
-                    var localizedTarget = !string.Equals(
-                        pair.Key,
-                        "ChanceCount",
-                        StringComparison.Ordinal);
                     evidence.Add(
                         pair.Key,
                         ValidateTextTarget(
@@ -306,7 +299,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                             expectedTexts[pair.Key],
                             scenario.Locale,
                             climate,
-                            localizedTarget,
+                            localizedTarget: true,
                             requestedWidth,
                             requestedHeight));
                 }
@@ -315,7 +308,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pauseButton.GetComponent<RectTransform>(),
                     evidence["Pause"].ScreenBounds,
                     evidence["Chance"].ScreenBounds,
-                    evidence["ChanceCount"].ScreenBounds);
+                    chanceSlotBounds);
                 var keycaps = ValidateWorldGuideLayoutAndKeycaps(
                     guides,
                     evidence,
@@ -440,9 +433,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             PlayerPrefs.Save();
         }
 
-        private static void ValidateChanceFixture(
-            ChancePanelView chanceView,
-            TMP_Text chanceCount)
+        private static Rect ValidateChanceFixture(ChancePanelView chanceView)
         {
             var model = chanceView.ViewModel;
             if (model == null ||
@@ -454,16 +445,67 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     "Production chance presenter did not expose the canonical 2/3 fixture.");
             }
 
-            if (!chanceView.gameObject.activeInHierarchy ||
-                chanceCount == null ||
-                !string.Equals(
-                    chanceCount.text,
-                    $"{ExpectedRemainingChances}/{ExpectedMaxChances}",
-                    StringComparison.Ordinal))
+            if (!chanceView.gameObject.activeInHierarchy)
             {
                 throw new InvalidOperationException(
-                    "Chance panel/count is not visible with canonical state.");
+                    "Chance panel is not visible with canonical state.");
             }
+
+            var slots = chanceView.SlotViews;
+            if (slots.Count != ExpectedMaxChances || model.Slots.Count != ExpectedMaxChances)
+            {
+                throw new InvalidOperationException(
+                    $"Chance slot count is {slots.Count}/{model.Slots.Count}; expected {ExpectedMaxChances}.");
+            }
+
+            var filledCount = 0;
+            var emptyCount = 0;
+            var visibleBounds = new List<Rect>();
+            for (var index = 0; index < slots.Count; index++)
+            {
+                var slot = slots[index];
+                var filled = ReadPrivateField<Image>(slot, "_filledIcon");
+                var empty = ReadPrivateField<Image>(slot, "_emptyIcon");
+                var expectedFilled = model.Slots[index].IsFilled;
+                var visible = expectedFilled ? filled : empty;
+                var hidden = expectedFilled ? empty : filled;
+                if (!slot.gameObject.activeInHierarchy ||
+                    !visible.gameObject.activeInHierarchy ||
+                    !visible.isActiveAndEnabled ||
+                    visible.canvasRenderer.cull ||
+                    visible.color.a * visible.canvasRenderer.GetAlpha() <= 0.001f ||
+                    hidden.gameObject.activeInHierarchy)
+                {
+                    throw new InvalidOperationException(
+                        $"Chance slot {index} does not rasterize the expected {(expectedFilled ? "filled" : "empty")} state.");
+                }
+
+                var bounds = ScreenBounds(visible.rectTransform);
+                if (!HasPositiveViewportIntersection(bounds, Screen.width, Screen.height))
+                {
+                    throw new InvalidOperationException(
+                        $"Chance slot {index} does not intersect the viewport.");
+                }
+
+                visibleBounds.Add(bounds);
+                if (expectedFilled)
+                {
+                    filledCount++;
+                }
+                else
+                {
+                    emptyCount++;
+                }
+            }
+
+            if (filledCount != ExpectedRemainingChances ||
+                emptyCount != ExpectedMaxChances - ExpectedRemainingChances)
+            {
+                throw new InvalidOperationException(
+                    $"Chance slot graphic state is {filledCount} filled/{emptyCount} empty; expected 2/1.");
+            }
+
+            return Union(visibleBounds.ToArray());
         }
 
         private static TargetEvidence ValidateTextTarget(
@@ -610,7 +652,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             RectTransform pauseButton,
             Rect pauseText,
             Rect chanceHeader,
-            Rect chanceCount)
+            Rect chanceSlots)
         {
             var buttonBounds = ScreenBounds(pauseButton);
             if (!Contains(buttonBounds, pauseText, 1f))
@@ -619,10 +661,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     "Pause localized text escapes the production Button bounds.");
             }
 
-            if (chanceHeader.Overlaps(chanceCount))
+            if (chanceHeader.Overlaps(chanceSlots))
             {
                 throw new InvalidOperationException(
-                    "Chance localized header overlaps the chance count.");
+                    "Chance localized header overlaps the chance slot count graphics.");
             }
         }
 
@@ -933,13 +975,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 errors.Add("Semantic/chance/binding fixture differs across locales.");
             }
 
-            if (!string.Equals(
-                    english.Targets["ChanceCount"].Text,
-                    korean.Targets["ChanceCount"].Text,
-                    StringComparison.Ordinal))
-            {
-                errors.Add("Chance count differs across locales.");
-            }
         }
 
         private static string WriteManifest(
@@ -979,7 +1014,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Append(builder, "guide_file", capture.GuideFile);
                 Append(builder, "guide_bytes", capture.GuideBytes.ToString(CultureInfo.InvariantCulture));
                 Append(builder, "guide_sha256", capture.GuideSha256);
-                Append(builder, "chance_count", capture.Targets["ChanceCount"].Text);
+                Append(
+                    builder,
+                    "chance_count",
+                    $"{ExpectedRemainingChances}/{ExpectedMaxChances}");
                 Append(builder, "movement_keycap", capture.Keycaps.Movement);
                 Append(builder, "push_keycap", capture.Keycaps.Push);
                 Append(builder, "flip_keycap", capture.Keycaps.Flip);
