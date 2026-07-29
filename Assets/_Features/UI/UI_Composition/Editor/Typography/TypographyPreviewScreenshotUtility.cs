@@ -4,7 +4,12 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
+using ConfirmPopupPresenter = Game.Feature.UI.Application.ConfirmPopupPresenter;
+using MainMenuConfirmationKind = Game.Feature.UI.Application.MainMenuConfirmationKind;
+using MainMenuLocalization = Game.Feature.UI.Application.MainMenuLocalization;
+using MainMenuSlotViewModelMapper = Game.Feature.UI.Application.MainMenuSlotViewModelMapper;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -85,6 +90,10 @@ namespace Game.Feature.UI.Composition.Editor
         public string NonBlankValidationResult { get; set; } = "NOT_RUN";
 
         public string GlyphTofuValidationResult { get; set; } = "NOT_RUN";
+
+        public int M1bPixelProofCount { get; set; }
+
+        public int M1bPixelProofPassCount { get; set; }
 
         public IReadOnlyList<string> Errors => errors;
 
@@ -192,6 +201,30 @@ namespace Game.Feature.UI.Composition.Editor
             new(
                 "Confirm Popup",
                 "ConfirmPopup",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+        };
+
+        public static readonly TypographyPreviewScreenshotTarget[] M1bDiagnosticTargets =
+        {
+            new(
+                "Main Menu Save Slots",
+                "M1BSaveSlots",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Delete Slot Confirmation",
+                "M1BDeleteConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+            new(
+                "Restart Slot Confirmation",
+                "M1BRestartConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+            new(
+                "Overwrite Slot Confirmation",
+                "M1BOverwriteConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+            new(
+                "Quit Confirmation",
+                "M1BQuitConfirmation",
                 "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
         };
 
@@ -369,6 +402,15 @@ namespace Game.Feature.UI.Composition.Editor
                 case "ConfirmPopup":
                     return 4;
 
+                case "M1BSaveSlots":
+                    return 20;
+
+                case "M1BDeleteConfirmation":
+                case "M1BRestartConfirmation":
+                case "M1BOverwriteConfirmation":
+                case "M1BQuitConfirmation":
+                    return 5;
+
                 default:
                     return 0;
             }
@@ -488,8 +530,8 @@ namespace Game.Feature.UI.Composition.Editor
                 assetMutationGuard?.IncludeFontAssets(prefabAsset);
                 previewScene = EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,
-                    Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
-                shouldClosePreviewScene = !Application.isBatchMode;
+                    UnityEngine.Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
+                shouldClosePreviewScene = !UnityEngine.Application.isBatchMode;
                 EditorSceneManager.SetActiveScene(previewScene);
                 prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
                 if (prefabRoot == null)
@@ -556,6 +598,14 @@ namespace Game.Feature.UI.Composition.Editor
                         {
                             capture.AddError($"{filePath}: Captured PNG is blank or single-color.");
                         }
+
+                        ValidateM1bRenderedTargets(
+                            prefabRoot,
+                            capture,
+                            camera,
+                            renderTexture,
+                            options,
+                            pixels);
                     }
 
                     File.WriteAllBytes(filePath, texture.EncodeToPNG());
@@ -830,6 +880,100 @@ namespace Game.Feature.UI.Composition.Editor
                 });
             }
 
+            if (string.Equals(target.FileStem, "M1BSaveSlots", StringComparison.Ordinal))
+            {
+                var view = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: MainMenuScreenView was not found.");
+                    return scope;
+                }
+
+                var sequenceDefinition = CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+                var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
+                var slots = new[]
+                {
+                    SaveSlotData.CreateEmpty(1),
+                    new SaveSlotData
+                    {
+                        SlotNumber = 2,
+                        CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                        CurrentLevelGroupId = "level-2",
+                        RemainingChances = 2,
+                        TotalDeaths = 3,
+                        LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                    },
+                    new SaveSlotData
+                    {
+                        SlotNumber = 3,
+                        CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
+                        CurrentLevelGroupId = "level-4",
+                        RemainingChances = 1,
+                        TotalDeaths = 5,
+                        LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                        CampaignCompleted = true,
+                    },
+                };
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+                view.SaveSlotPanel.Bind(
+                    MainMenuSlotViewModelMapper.Map(slots, sequenceResolver, null, resolver));
+                view.SetVisible(true);
+                view.ShowSection(MainMenuSectionId.SaveSlots);
+
+                var localizedTargets = view.SaveSlotPanel
+                    .CreateTypographyTargets()
+                    .Where(text => text != null &&
+                                   text.gameObject.activeInHierarchy &&
+                                   !string.IsNullOrWhiteSpace(text.text))
+                    .ToArray();
+                RecordM1bLocalizedTargets(target, capture, localizedTargets);
+                return new DisposableAction(() =>
+                {
+                    view.SaveSlotPanel.Bind(null);
+                    view.UnbindStaticLocalization();
+                    UnityEngine.Object.DestroyImmediate(sequenceDefinition);
+                    scope.Dispose();
+                });
+            }
+
+            if (TryGetM1bConfirmationKind(target.FileStem, out var confirmationKind))
+            {
+                var view = prefabRoot.GetComponentInChildren<ConfirmPopupView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: ConfirmPopupView was not found.");
+                    return scope;
+                }
+
+                var presenter = new ConfirmPopupPresenter(resolver);
+                presenter.Apply(MainMenuLocalization.CreateConfirmationPayload(
+                    confirmationKind,
+                    confirmationKind == MainMenuConfirmationKind.QuitGame ? null : 2));
+                view.Bind(presenter.ViewModel);
+                var productionTypographyScope = ConfirmPopupProductionLocalizationComposer.Bind(
+                    view,
+                    resolver,
+                    theme);
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                view.enabled = false;
+                RecordM1bLocalizedTargets(
+                    target,
+                    capture,
+                    view.CreateTypographyTargets().Where(text => text != null).ToArray());
+                return new DisposableAction(() =>
+                {
+                    productionTypographyScope.Dispose();
+                    view.Bind(null);
+                    presenter.Dispose();
+                    scope.Dispose();
+                });
+            }
+
             if (string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal))
             {
                 var view = prefabRoot.GetComponentInChildren<ConfirmPopupView>(true);
@@ -882,6 +1026,247 @@ namespace Game.Feature.UI.Composition.Editor
 
             capture.AddError($"{target.Name}: No localized preview applicator exists for screenshot target '{target.FileStem}'.");
             return scope;
+        }
+
+        private static void RecordM1bLocalizedTargets(
+            TypographyPreviewScreenshotTarget target,
+            TypographyPreviewScreenshotCaptureResult capture,
+            IReadOnlyList<TMP_Text> localizedTargets)
+        {
+            capture.ExpectedLocalizedTextCount = GetExpectedLocalizedTextCount(target.FileStem);
+            capture.LocalizedTextAppliedCount = localizedTargets.Count;
+            foreach (var localizedTarget in localizedTargets)
+            {
+                capture.AddLocalizedText(localizedTarget.text);
+            }
+
+            if (capture.LocalizedTextAppliedCount != capture.ExpectedLocalizedTextCount)
+            {
+                capture.AddError(
+                    $"{target.Name}: expected {capture.ExpectedLocalizedTextCount} active localized targets, " +
+                    $"found {capture.LocalizedTextAppliedCount}.");
+            }
+        }
+
+        private static bool TryGetM1bConfirmationKind(
+            string fileStem,
+            out MainMenuConfirmationKind kind)
+        {
+            switch (fileStem)
+            {
+                case "M1BDeleteConfirmation":
+                    kind = MainMenuConfirmationKind.DeleteSlot;
+                    return true;
+                case "M1BRestartConfirmation":
+                    kind = MainMenuConfirmationKind.RestartSlot;
+                    return true;
+                case "M1BOverwriteConfirmation":
+                    kind = MainMenuConfirmationKind.OverwriteSlot;
+                    return true;
+                case "M1BQuitConfirmation":
+                    kind = MainMenuConfirmationKind.QuitGame;
+                    return true;
+                default:
+                    kind = default;
+                    return false;
+            }
+        }
+
+        private static bool IsM1bDiagnosticTarget(string fileStem)
+        {
+            return string.Equals(fileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+                   TryGetM1bConfirmationKind(fileStem, out _);
+        }
+
+        private static void ValidateM1bRenderedTargets(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotCaptureResult capture,
+            Camera camera,
+            RenderTexture renderTexture,
+            TypographyPreviewScreenshotOptions options,
+            IReadOnlyList<Color32> enabledPixels)
+        {
+            if (!IsM1bDiagnosticTarget(capture.Target.FileStem))
+            {
+                return;
+            }
+
+            TMP_Text[] targets;
+            if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal))
+            {
+                var panel = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true)?.SaveSlotPanel;
+                targets = panel == null
+                    ? Array.Empty<TMP_Text>()
+                    : panel.CreateTypographyTargets()
+                        .Where(text => text != null &&
+                                       text.gameObject.activeInHierarchy &&
+                                       !string.IsNullOrWhiteSpace(text.text))
+                        .ToArray();
+            }
+            else
+            {
+                targets = prefabRoot
+                    .GetComponentInChildren<ConfirmPopupView>(true)
+                    ?.CreateTypographyTargets()
+                    .Where(text => text != null &&
+                                   text.gameObject.activeInHierarchy &&
+                                   !string.IsNullOrWhiteSpace(text.text))
+                    .ToArray()
+                    ?? Array.Empty<TMP_Text>();
+            }
+
+            var expectedCount = GetExpectedLocalizedTextCount(capture.Target.FileStem);
+            if (targets.Length != expectedCount)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: expected {expectedCount} rendered targets, " +
+                    $"found {targets.Length}.");
+                return;
+            }
+
+            foreach (var target in targets)
+            {
+                target.ForceMeshUpdate();
+                if (!target.isActiveAndEnabled ||
+                    target.canvasRenderer.cull ||
+                    target.color.a <= 0f ||
+                    target.font == null ||
+                    target.fontSharedMaterial == null)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        "is not an active production text renderer with font/material.");
+                    continue;
+                }
+
+                if (target.textInfo == null ||
+                    target.textInfo.characterCount == 0 ||
+                    target.textInfo.meshInfo == null ||
+                    target.textInfo.meshInfo.All(mesh => mesh.vertices == null || mesh.vertices.Length == 0))
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        "has no generated text mesh.");
+                    continue;
+                }
+
+                if (target.isTextOverflowing)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"overflows its authored bounds with text '{target.text}'.");
+                }
+
+                var corners = new Vector3[4];
+                target.rectTransform.GetWorldCorners(corners);
+                var screenCorners = corners
+                    .Select(corner => RectTransformUtility.WorldToScreenPoint(camera, corner))
+                    .ToArray();
+                var minX = screenCorners.Min(point => point.x);
+                var maxX = screenCorners.Max(point => point.x);
+                var minY = screenCorners.Min(point => point.y);
+                var maxY = screenCorners.Max(point => point.y);
+                if (minX < -0.5f ||
+                    minY < -0.5f ||
+                    maxX > options.Width + 0.5f ||
+                    maxY > options.Height + 0.5f ||
+                    maxX <= minX ||
+                    maxY <= minY)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"is outside screen bounds ({minX:F1},{minY:F1})-({maxX:F1},{maxY:F1}).");
+                }
+
+                foreach (var character in target.text)
+                {
+                    if (char.IsControl(character) ||
+                        char.IsWhiteSpace(character) ||
+                        target.font.HasCharacter(character, searchFallbacks: false, tryAddCharacter: false))
+                    {
+                        continue;
+                    }
+
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"requires fallback for '{character}' U+{(int)character:X4}.");
+                }
+
+                target.enabled = false;
+                ForceGraphicUpdates(prefabRoot);
+                camera.Render();
+                var diagnostic = new Texture2D(
+                    options.Width,
+                    options.Height,
+                    TextureFormat.RGBA32,
+                    mipChain: false);
+                var previous = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = renderTexture;
+                    diagnostic.ReadPixels(
+                        new Rect(0f, 0f, options.Width, options.Height),
+                        0,
+                        0,
+                        recalculateMipMaps: false);
+                    diagnostic.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                    target.enabled = true;
+                }
+
+                var disabledPixels = diagnostic.GetPixels32();
+                UnityEngine.Object.DestroyImmediate(diagnostic);
+                var pixelDelta = 0;
+                for (var i = 0; i < enabledPixels.Count && i < disabledPixels.Length; i++)
+                {
+                    if (!enabledPixels[i].Equals(disabledPixels[i]))
+                    {
+                        pixelDelta++;
+                    }
+                }
+
+                capture.M1bPixelProofCount++;
+                if (pixelDelta > 4)
+                {
+                    capture.M1bPixelProofPassCount++;
+                }
+                else
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"pixel proof failed with delta={pixelDelta}.");
+                }
+
+                Debug.Log(
+                    "M1B_PIXEL_PROOF " +
+                    $"target={capture.Target.FileStem} " +
+                    $"locale={capture.LocaleCode} " +
+                    $"renderer={BuildHierarchyPath(target.transform)} " +
+                    $"text={target.text} " +
+                    $"pixel_delta={pixelDelta} " +
+                    $"result={(pixelDelta > 4 ? "PASS" : "FAIL")}");
+            }
+
+            if (capture.M1bPixelProofPassCount != capture.M1bPixelProofCount)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: pixel proofs passed " +
+                    $"{capture.M1bPixelProofPassCount}/{capture.M1bPixelProofCount}.");
+            }
+        }
+
+        private static string BuildHierarchyPath(Transform transform)
+        {
+            var parts = new Stack<string>();
+            for (var current = transform; current != null; current = current.parent)
+            {
+                parts.Push(current.name);
+            }
+
+            return string.Join("/", parts);
         }
 
         private static void ValidatePauseRenderedTargets(

@@ -3,9 +3,11 @@
   "rootNamespace": "Game.Feature.UI.Composition.Editor",
   "references": [
     "Game.Feature.UI.Composition",
+    "Game.Feature.UI.Application",
     "Game.Feature.UI.Screens",
     "Game.Feature.UI.Popups",
     "Game.Feature.UI.ViewShared",
+    "Game.Feature.Stages",
     "Unity.TextMeshPro",
     "Unity.Localization",
     "Unity.Localization.Editor",
