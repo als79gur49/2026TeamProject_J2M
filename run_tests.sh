@@ -4128,7 +4128,7 @@ run_m1a_hud_guide_visual() {
         "$manifest" \
         "$expected_head" \
         "$expected_tree" \
-        "$PROJECT_PATH_WSL" <<'PY'
+        "$PROJECT_PATH_WIN" <<'PY'
 import hashlib
 import re
 import sys
@@ -4138,7 +4138,7 @@ output_dir = Path(sys.argv[1]).resolve()
 manifest_path = Path(sys.argv[2]).resolve()
 expected_head = sys.argv[3]
 expected_tree = sys.argv[4]
-expected_worktree = Path(sys.argv[5]).resolve()
+expected_worktree = sys.argv[5].replace("\\", "/").rstrip("/").lower()
 
 if not manifest_path.is_file():
     raise SystemExit(f"ERROR: M1A HUD/World Guide manifest missing: {manifest_path}")
@@ -4167,7 +4167,8 @@ if root.get("schema_version") != "1":
     raise SystemExit("ERROR: M1A manifest schema_version mismatch")
 if root.get("git_head") != expected_head or root.get("git_tree") != expected_tree:
     raise SystemExit("ERROR: M1A manifest revision mismatch")
-if Path(root.get("worktree_path", "")).resolve() != expected_worktree:
+recorded_worktree = root.get("worktree_path", "").replace("\\", "/").rstrip("/").lower()
+if recorded_worktree != expected_worktree:
     raise SystemExit("ERROR: M1A manifest worktree mismatch")
 if root.get("scene") != "Assets/Scenes/UIAudioScene.unity":
     raise SystemExit("ERROR: M1A manifest scene mismatch")
