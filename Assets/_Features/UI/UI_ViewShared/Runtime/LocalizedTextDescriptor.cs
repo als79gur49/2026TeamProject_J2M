@@ -649,7 +649,8 @@ namespace Game.Feature.UI.ViewShared
             out string value)
         {
             value = null;
-            return string.Equals(descriptor.Table, SettingsLocalizationContract.Table, StringComparison.Ordinal) &&
+            return (string.Equals(descriptor.Table, SettingsLocalizationContract.Table, StringComparison.Ordinal) ||
+                    string.Equals(descriptor.Table, "Stage", StringComparison.Ordinal)) &&
                    _catalog.TryGetValue(localeCode, out var localeValues) &&
                    localeValues.TryGetValue(descriptor.Key, out value);
         }
@@ -700,6 +701,16 @@ namespace Game.Feature.UI.ViewShared
                     .Replace(
                         "{2}",
                         Convert.ToString(descriptor.Arguments[2], CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            if (descriptor.Key.StartsWith("ui.main_menu.", StringComparison.Ordinal))
+            {
+                for (var i = 0; i < descriptor.Arguments.Count; i++)
+                {
+                    value = value.Replace(
+                        $"{{{i}}}",
+                        Convert.ToString(descriptor.Arguments[i], CultureInfo.InvariantCulture) ?? string.Empty);
+                }
             }
 
             return value;
@@ -910,9 +921,49 @@ namespace Game.Feature.UI.ViewShared
             };
 
             AddTerminalResultEntries(catalog);
+            AddMainMenuEntries(catalog);
+            AddStageEntries(catalog);
             ValidateSettingsCatalog(catalog);
             ValidateTerminalResultCatalog(catalog);
+            ValidateMainMenuCatalog(catalog);
             return catalog;
+        }
+
+        private static void AddMainMenuEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            foreach (var entry in MainMenuLocalizationContract.Entries)
+            {
+                english.Add(entry.Key, entry.English);
+                korean.Add(entry.Key, entry.Korean);
+            }
+        }
+
+        private static void AddStageEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            var stageEntries = new[]
+            {
+                new KeyValuePair<string, string>("stage.stage-0-1.display_name", "Lab-01"),
+                new KeyValuePair<string, string>("stage.stage-0-2.display_name", "Lab-02"),
+                new KeyValuePair<string, string>("stage.stage-1-1.display_name", "Lobby-01"),
+                new KeyValuePair<string, string>("stage.stage-2-1.display_name", "Ward[A]-01"),
+                new KeyValuePair<string, string>("stage.stage-2-2.display_name", "Ward[A]-02"),
+                new KeyValuePair<string, string>("stage.stage-3-1.display_name", "Ward[B]-01"),
+                new KeyValuePair<string, string>("stage.stage-3-2.display_name", "Ward[B]-02"),
+                new KeyValuePair<string, string>("stage.stage-4-1.display_name", "Morgue-01"),
+                new KeyValuePair<string, string>("stage.stage-4-2.display_name", "Morgue-02"),
+            };
+
+            for (var i = 0; i < stageEntries.Length; i++)
+            {
+                english.Add(stageEntries[i].Key, stageEntries[i].Value);
+                korean.Add(stageEntries[i].Key, stageEntries[i].Value);
+            }
         }
 
         private static void AddTerminalResultEntries(
@@ -944,6 +995,29 @@ namespace Game.Feature.UI.ViewShared
                     {
                         throw new InvalidOperationException(
                             $"Package-free terminal-result catalog locale '{localeCode}' " +
+                            $"is missing key '{entry.Key}'.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidateMainMenuCatalog(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            foreach (var localeCode in SupportedLocaleCodes)
+            {
+                if (!catalog.TryGetValue(localeCode, out var localeValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Package-free Main Menu catalog is missing locale '{localeCode}'.");
+                }
+
+                foreach (var entry in MainMenuLocalizationContract.Entries)
+                {
+                    if (!localeValues.ContainsKey(entry.Key))
+                    {
+                        throw new InvalidOperationException(
+                            $"Package-free Main Menu catalog locale '{localeCode}' " +
                             $"is missing key '{entry.Key}'.");
                     }
                 }

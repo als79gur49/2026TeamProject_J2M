@@ -323,6 +323,122 @@ MonoBehaviour:
     m_Localized: Flip
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693662
+    m_Localized: Slot {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693663
+    m_Localized: Empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693664
+    m_Localized: New Game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693665
+    m_Localized: Completed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693666
+    m_Localized: Stage {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693667
+    m_Localized: Chances {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693668
+    m_Localized: Deaths {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693669
+    m_Localized: Played {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693670
+    m_Localized: Restart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693671
+    m_Localized: Continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693672
+    m_Localized: Delete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693673
+    m_Localized: Delete Slot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693674
+    m_Localized: Delete slot {0}?
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693675
+    m_Localized: This action cannot be undone.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693676
+    m_Localized: Delete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693677
+    m_Localized: Restart Slot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693678
+    m_Localized: Restart slot {0} from the beginning?
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693679
+    m_Localized: Existing progress will be replaced.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693680
+    m_Localized: Restart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693681
+    m_Localized: Overwrite Slot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693682
+    m_Localized: Start a new game in slot {0}?
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693683
+    m_Localized: Existing progress will be overwritten.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693684
+    m_Localized: New Game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693685
+    m_Localized: Quit Game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693686
+    m_Localized: Quit to desktop?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693687
+    m_Localized: Unsaved progress may be lost.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693688
+    m_Localized: Quit
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -342,3 +458,11 @@ MonoBehaviour:
         - id: 4971587610693648
         - id: 4971587610693649
         - id: 4971587610693650
+        - id: 4971587610693662
+        - id: 4971587610693666
+        - id: 4971587610693667
+        - id: 4971587610693668
+        - id: 4971587610693669
+        - id: 4971587610693674
+        - id: 4971587610693678
+        - id: 4971587610693682

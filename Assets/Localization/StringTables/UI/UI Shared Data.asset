@@ -303,6 +303,114 @@ MonoBehaviour:
     m_Key: ui.world_guide.flip
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693662
+    m_Key: ui.main_menu.slot.label
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693663
+    m_Key: ui.main_menu.slot.empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693664
+    m_Key: ui.main_menu.slot.new_game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693665
+    m_Key: ui.main_menu.slot.completed
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693666
+    m_Key: ui.main_menu.slot.stage
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693667
+    m_Key: ui.main_menu.slot.chances
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693668
+    m_Key: ui.main_menu.slot.deaths
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693669
+    m_Key: ui.main_menu.slot.played
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693670
+    m_Key: ui.main_menu.slot.action.restart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693671
+    m_Key: ui.main_menu.slot.action.continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693672
+    m_Key: ui.main_menu.slot.action.delete
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693673
+    m_Key: ui.main_menu.slot.confirm.delete.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693674
+    m_Key: ui.main_menu.slot.confirm.delete.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693675
+    m_Key: ui.main_menu.slot.confirm.delete.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693676
+    m_Key: ui.main_menu.slot.confirm.delete.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693677
+    m_Key: ui.main_menu.slot.confirm.restart.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693678
+    m_Key: ui.main_menu.slot.confirm.restart.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693679
+    m_Key: ui.main_menu.slot.confirm.restart.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693680
+    m_Key: ui.main_menu.slot.confirm.restart.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693681
+    m_Key: ui.main_menu.slot.confirm.overwrite.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693682
+    m_Key: ui.main_menu.slot.confirm.overwrite.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693683
+    m_Key: ui.main_menu.slot.confirm.overwrite.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693684
+    m_Key: ui.main_menu.slot.confirm.overwrite.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693685
+    m_Key: ui.main_menu.quit_confirm.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693686
+    m_Key: ui.main_menu.quit_confirm.body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693687
+    m_Key: ui.main_menu.quit_confirm.warning
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693688
+    m_Key: ui.main_menu.quit_confirm.confirm
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

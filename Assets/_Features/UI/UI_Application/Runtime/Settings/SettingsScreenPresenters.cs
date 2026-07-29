@@ -1000,6 +1000,21 @@ namespace Game.Feature.UI.Application
                 values.Add(entry.Key, entry.English);
             }
 
+            foreach (var entry in MainMenuLocalizationContract.Entries)
+            {
+                values.Add(entry.Key, entry.English);
+            }
+
+            values.Add("stage.stage-0-1.display_name", "Lab-01");
+            values.Add("stage.stage-0-2.display_name", "Lab-02");
+            values.Add("stage.stage-1-1.display_name", "Lobby-01");
+            values.Add("stage.stage-2-1.display_name", "Ward[A]-01");
+            values.Add("stage.stage-2-2.display_name", "Ward[A]-02");
+            values.Add("stage.stage-3-1.display_name", "Ward[B]-01");
+            values.Add("stage.stage-3-2.display_name", "Ward[B]-02");
+            values.Add("stage.stage-4-1.display_name", "Morgue-01");
+            values.Add("stage.stage-4-2.display_name", "Morgue-02");
+
             return values;
         }
 
@@ -1017,7 +1032,8 @@ namespace Game.Feature.UI.Application
 
         public string Resolve(LocalizedTextDescriptor descriptor)
         {
-            if (string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) &&
+            if ((string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Table, "Stage", StringComparison.Ordinal)) &&
                 Values.TryGetValue(descriptor.Key, out var value))
             {
                 return FormatKnownDynamicText(descriptor, value);
@@ -1080,6 +1096,18 @@ namespace Game.Feature.UI.Application
                         Convert.ToString(
                             descriptor.Arguments[2],
                             System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            if (descriptor.Key.StartsWith("ui.main_menu.", StringComparison.Ordinal))
+            {
+                for (var i = 0; i < descriptor.Arguments.Count; i++)
+                {
+                    value = value.Replace(
+                        $"{{{i}}}",
+                        Convert.ToString(
+                            descriptor.Arguments[i],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+                }
             }
 
             return value;

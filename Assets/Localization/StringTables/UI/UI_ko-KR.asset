@@ -325,6 +325,122 @@ MonoBehaviour:
     m_Localized: "\uB4A4\uC9D1\uAE30"
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693662
+    m_Localized: 슬롯 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693663
+    m_Localized: 비어 있음
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693664
+    m_Localized: 새 게임
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693665
+    m_Localized: 완료
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693666
+    m_Localized: 스테이지 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693667
+    m_Localized: 기회 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693668
+    m_Localized: 사망 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693669
+    m_Localized: 최근 플레이 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693670
+    m_Localized: 다시 시작
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693671
+    m_Localized: 계속
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693672
+    m_Localized: 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693673
+    m_Localized: 슬롯 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693674
+    m_Localized: "{0}번 슬롯을 삭제할까요?"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693675
+    m_Localized: 이 작업은 되돌릴 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693676
+    m_Localized: 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693677
+    m_Localized: 슬롯 다시 시작
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693678
+    m_Localized: "{0}번 슬롯을 처음부터 다시 시작할까요?"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693679
+    m_Localized: 기존 진행 상황은 교체됩니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693680
+    m_Localized: 다시 시작
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693681
+    m_Localized: 슬롯 덮어쓰기
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693682
+    m_Localized: "{0}번 슬롯에서 새 게임을 시작할까요?"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693683
+    m_Localized: 기존 진행 상황은 덮어씌워집니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693684
+    m_Localized: 새 게임
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693685
+    m_Localized: 게임 종료
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693686
+    m_Localized: 데스크톱으로 종료할까요?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693687
+    m_Localized: 저장되지 않은 진행 상황은 사라질 수 있습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693688
+    m_Localized: 종료
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -344,3 +460,11 @@ MonoBehaviour:
         - id: 4971587610693648
         - id: 4971587610693649
         - id: 4971587610693650
+        - id: 4971587610693662
+        - id: 4971587610693666
+        - id: 4971587610693667
+        - id: 4971587610693668
+        - id: 4971587610693669
+        - id: 4971587610693674
+        - id: 4971587610693678
+        - id: 4971587610693682

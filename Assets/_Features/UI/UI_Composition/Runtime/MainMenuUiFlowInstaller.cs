@@ -259,7 +259,8 @@ namespace Game.Feature.UI.Composition
                 sequenceResolver,
                 stageLaunchRouter,
                 _confirmPopupPort,
-                validationService);
+                validationService,
+                _localizedTextResolver);
 
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
@@ -395,6 +396,7 @@ namespace Game.Feature.UI.Composition
 
             _settingsOverlayController?.Dispose();
             _audioSettingsLifecycleRelay?.FlushNow();
+            Controller?.Dispose();
             PopupController?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
         }

@@ -140,7 +140,8 @@ namespace Game.Feature.UI.Screens
             string lastPlayedText,
             string primaryActionText,
             SaveSlotIntentKind primaryIntentKind,
-            bool showDelete)
+            bool showDelete,
+            string deleteActionText = "")
         {
             SlotNumber = slotNumber;
             State = state;
@@ -153,6 +154,7 @@ namespace Game.Feature.UI.Screens
             PrimaryActionText = primaryActionText ?? string.Empty;
             PrimaryIntentKind = primaryIntentKind;
             ShowDelete = showDelete;
+            DeleteActionText = deleteActionText ?? string.Empty;
         }
 
         public int SlotNumber { get; }
@@ -176,6 +178,8 @@ namespace Game.Feature.UI.Screens
         public SaveSlotIntentKind PrimaryIntentKind { get; }
 
         public bool ShowDelete { get; }
+
+        public string DeleteActionText { get; }
     }
 
     public sealed class SaveSlotPanelViewModel

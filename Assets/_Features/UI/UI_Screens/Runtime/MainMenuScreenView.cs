@@ -43,6 +43,7 @@ namespace Game.Feature.UI.Screens
 
         private MainMenuFocusDomain _activeFocusDomain = MainMenuFocusDomain.Commands;
         private List<LocalizedTmpTextBinding> _localizedStaticBindings;
+        private List<LocalizedTmpTypographyBinding> _localizedSlotTypographyBindings;
         private bool _navigationFocusVisible;
         private bool _pendingEnterSaveSlotNavigation;
 
@@ -106,6 +107,41 @@ namespace Game.Feature.UI.Screens
                     fontResolver,
                     typographyTheme),
             };
+
+            var slotTargets = _saveSlotPanel != null
+                ? _saveSlotPanel.CreateTypographyTargets()
+                : Array.Empty<TMP_Text>();
+            _localizedSlotTypographyBindings = new List<LocalizedTmpTypographyBinding>(slotTargets.Count);
+            for (var i = 0; i < slotTargets.Count; i++)
+            {
+                _localizedSlotTypographyBindings.Add(new LocalizedTmpTypographyBinding(
+                    slotTargets[i],
+                    textResolver,
+                    typographyTheme,
+                    ResolveSlotTypographyStyle(i)));
+            }
+        }
+
+        private static TypographyStyleTag ResolveSlotTypographyStyle(int targetIndex)
+        {
+            switch (targetIndex % 8)
+            {
+                case 0:
+                    return TypographyStyleTag.HeaderSmall;
+                case 1:
+                    return TypographyStyleTag.Status;
+                case 2:
+                    return TypographyStyleTag.Label;
+                case 3:
+                case 4:
+                case 5:
+                    return TypographyStyleTag.BodySmall;
+                case 6:
+                case 7:
+                    return TypographyStyleTag.Button;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(targetIndex), targetIndex, null);
+            }
         }
 
         public void UnbindStaticLocalization()
@@ -122,6 +158,19 @@ namespace Game.Feature.UI.Screens
 
             _localizedStaticBindings.Clear();
             _localizedStaticBindings = null;
+
+            if (_localizedSlotTypographyBindings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _localizedSlotTypographyBindings.Count; i++)
+            {
+                _localizedSlotTypographyBindings[i]?.Dispose();
+            }
+
+            _localizedSlotTypographyBindings.Clear();
+            _localizedSlotTypographyBindings = null;
         }
 
         public void ValidateAuthoredStructureOrThrow()
