@@ -648,6 +648,7 @@ namespace Game.Feature.UI.Composition.Editor
                     out _);
                 try
                 {
+                    var encodedPng = texture.EncodeToPNG();
                     ValidatePauseRenderedTargets(prefabRoot, capture);
                     ValidateLocaleInvariantPreview(prefabRoot, capture);
                     capture.OrientationValidationResult = "PASS_PIPELINE_CONTRACT";
@@ -676,7 +677,7 @@ namespace Game.Feature.UI.Composition.Editor
                             pixels);
                     }
 
-                    File.WriteAllBytes(filePath, texture.EncodeToPNG());
+                    File.WriteAllBytes(filePath, encodedPng);
                 }
                 finally
                 {
