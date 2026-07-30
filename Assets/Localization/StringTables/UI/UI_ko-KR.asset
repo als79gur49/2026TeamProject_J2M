@@ -128,7 +128,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 283195222745088
-    m_Localized: "\uD0A4 \uBCC0\uACBD \uCDE8\uC18C\uB428"
+    m_Localized: 키 재지정을 취소했습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195264688128
@@ -136,15 +136,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195306631168
-    m_Localized: "\uC774 \uD0A4\uB294 \uC608\uC57D\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4."
+    m_Localized: 이 키는 사용할 수 없습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195348574208
-    m_Localized: "\uC774 \uD0A4\uB294 \uC774\uB3D9 \uD0A4\uC640 \uCDA9\uB3CC\uD569\uB2C8\uB2E4."
+    m_Localized: 이동 키는 서로 중복될 수 없습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195390517248
-    m_Localized: "\uD0A4 \uBCC0\uACBD\uC774 \uC774\uBBF8 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4."
+    m_Localized: 다른 키를 이미 재지정하고 있습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
@@ -481,6 +481,15 @@ MonoBehaviour:
     m_Localized: 현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693699
+    m_Localized: 이 키는 이미 {0}에 사용 중입니다.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693700
+    m_Localized: 이 키는 사용할 수 없습니다.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -508,3 +517,4 @@ MonoBehaviour:
         - id: 4971587610693674
         - id: 4971587610693678
         - id: 4971587610693682
+        - id: 4971587610693699

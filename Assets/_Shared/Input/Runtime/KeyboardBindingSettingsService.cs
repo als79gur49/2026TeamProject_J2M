@@ -275,7 +275,12 @@ namespace Game.Shared.Input
                 BindingsChanged?.Invoke(snapshot);
             }
 
-            completed?.Invoke(new KeyboardRebindResult(action, status, snapshot));
+            var conflictingAction = status == KeyboardBindingValidationStatus.DuplicateAction
+                ? (KeyboardBindableAction?)(action == KeyboardBindableAction.Push
+                    ? KeyboardBindableAction.Flip
+                    : KeyboardBindableAction.Push)
+                : null;
+            completed?.Invoke(new KeyboardRebindResult(action, status, snapshot, conflictingAction));
         }
 
         private KeyboardBindingValidationStatus ValidateMovementSchemeChange(KeyboardMovementScheme scheme)

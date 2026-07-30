@@ -451,6 +451,14 @@ MonoBehaviour:
     m_Key: ui.main_menu.slot.error.needs_repair.detail
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693699
+    m_Key: ui.settings.input.action_conflict
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693700
+    m_Key: ui.settings.input.unsupported_key
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

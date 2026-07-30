@@ -128,7 +128,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873344
   - m_Id: 283195222745088
-    m_Localized: Rebind canceled.
+    m_Localized: Key reassignment cancelled.
     m_Metadata:
       m_Items: []
   - m_Id: 283195264688128
@@ -136,15 +136,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195306631168
-    m_Localized: This key is reserved.
+    m_Localized: This key cannot be used.
     m_Metadata:
       m_Items: []
   - m_Id: 283195348574208
-    m_Localized: This key conflicts with movement keys.
+    m_Localized: Movement keys cannot overlap.
     m_Metadata:
       m_Items: []
   - m_Id: 283195390517248
-    m_Localized: Rebind already in progress.
+    m_Localized: Another key is already being reassigned.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
@@ -479,6 +479,15 @@ MonoBehaviour:
     m_Localized: This save cannot be used in its current state.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693699
+    m_Localized: This key is already used by {0}.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873344
+  - m_Id: 4971587610693700
+    m_Localized: This key cannot be used.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -506,3 +515,4 @@ MonoBehaviour:
         - id: 4971587610693674
         - id: 4971587610693678
         - id: 4971587610693682
+        - id: 4971587610693699
