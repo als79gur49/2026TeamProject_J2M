@@ -75,23 +75,23 @@ namespace Game.Feature.UI.Tests
                 .Cast<SettingsLocalizationEntryId>()
                 .ToArray();
 
-            Assert.That(entries, Has.Count.EqualTo(48));
+            Assert.That(entries, Has.Count.EqualTo(50));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor)),
                 Is.EqualTo(31));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor)),
-                Is.EqualTo(17));
-            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(7));
+                Is.EqualTo(19));
+            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(8));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PercentArgument),
                 Is.EqualTo(2));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PositionalArgument),
-                Is.EqualTo(5));
+                Is.EqualTo(6));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.None),
-                Is.EqualTo(41));
+                Is.EqualTo(42));
             Assert.That(
                 entries.Select(entry => entry.Id).ToArray(),
                 Is.EquivalentTo(declaredIds),
@@ -149,6 +149,7 @@ namespace Game.Feature.UI.Tests
                     SettingsLocalizationContract.Keys.DisplayResolutionValue,
                     SettingsLocalizationContract.Keys.DisplayPreviewCountdown,
                     SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody,
                 }),
@@ -240,7 +241,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(109));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(111));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -353,20 +354,24 @@ namespace Game.Feature.UI.Tests
 
             AssertInputDynamicEntries(
                 collection.GetTable("en-US") as StringTable,
-                "Rebind canceled.",
+                "Key reassignment cancelled.",
                 "Input settings reset.",
-                "This key is reserved.",
-                "This key conflicts with movement keys.",
-                "Rebind already in progress.",
+                "This key cannot be used.",
+                "Movement keys cannot overlap.",
+                "Another key is already being reassigned.",
+                "This key is already used by {0}.",
+                "This key cannot be used.",
                 "Press a key for Push...",
                 "Press a key for Flip...");
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
-                "키 변경 취소됨",
+                "키 재지정을 취소했습니다.",
                 "입력 설정이 초기화되었습니다.",
-                "이 키는 예약되어 있습니다.",
-                "이 키는 이동 키와 충돌합니다.",
-                "키 변경이 이미 진행 중입니다.",
+                "이 키는 사용할 수 없습니다.",
+                "이동 키는 서로 중복될 수 없습니다.",
+                "다른 키를 이미 재지정하고 있습니다.",
+                "이 키는 이미 {0}에 사용 중입니다.",
+                "이 키는 사용할 수 없습니다.",
                 "밀기 키 입력하세요...",
                 "뒤집기 키 입력하세요...");
         }
@@ -731,19 +736,26 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
-                Is.EqualTo("Rebind canceled."));
+                Is.EqualTo("Key reassignment cancelled."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("Input settings reset."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
-                Is.EqualTo("This key is reserved."));
+                Is.EqualTo("This key cannot be used."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
-                Is.EqualTo("This key conflicts with movement keys."));
+                Is.EqualTo("Movement keys cannot overlap."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("Rebind already in progress."));
+                Is.EqualTo("Another key is already being reassigned."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
+                    SettingsStaticTextDescriptors.Flip)),
+                Is.EqualTo("This key is already used by Flip."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputUnsupportedKey()),
+                Is.EqualTo("This key cannot be used."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
                 Is.EqualTo("Press a key for Push..."));
@@ -755,19 +767,26 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
-                Is.EqualTo("키 변경 취소됨"));
+                Is.EqualTo("키 재지정을 취소했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("입력 설정이 초기화되었습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
-                Is.EqualTo("이 키는 예약되어 있습니다."));
+                Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
-                Is.EqualTo("이 키는 이동 키와 충돌합니다."));
+                Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("키 변경이 이미 진행 중입니다."));
+                Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
+                    SettingsStaticTextDescriptors.Flip)),
+                Is.EqualTo("이 키는 이미 뒤집기에 사용 중입니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputUnsupportedKey()),
+                Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
                 Is.EqualTo("밀기 키 입력하세요..."));
@@ -1168,6 +1187,13 @@ namespace Game.Feature.UI.Tests
                             argumentSets.Add(arguments);
                         }
                     }
+                    else if (parameter.ParameterType == typeof(LocalizedTextDescriptor))
+                    {
+                        foreach (var arguments in argumentSets)
+                        {
+                            arguments[parameterIndex] = SettingsStaticTextDescriptors.Flip;
+                        }
+                    }
                     else
                     {
                         throw new InvalidOperationException(
@@ -1188,6 +1214,17 @@ namespace Game.Feature.UI.Tests
         private static LocalizedTextDescriptor CreateRepresentativeDescriptor(
             SettingsLocalizationContractEntry entry)
         {
+            if (string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
+                    StringComparison.Ordinal))
+            {
+                return new LocalizedTextDescriptor(
+                    entry.Table,
+                    entry.Key,
+                    arguments: new object[] { SettingsStaticTextDescriptors.Flip });
+            }
+
             if (string.Equals(
                     entry.Key,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
@@ -1215,6 +1252,14 @@ namespace Game.Feature.UI.Tests
             SettingsLocalizationContractEntry entry,
             string value)
         {
+            if (string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
+                    StringComparison.Ordinal))
+            {
+                return value.Replace("{0}", "Flip");
+            }
+
             if (string.Equals(
                     entry.Key,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
@@ -1317,6 +1362,8 @@ namespace Game.Feature.UI.Tests
             string reservedKeyValue,
             string movementConflictValue,
             string alreadyRebindingValue,
+            string actionConflictValue,
+            string unsupportedKeyValue,
             string rebindPushPromptValue,
             string rebindFlipPromptValue)
         {
@@ -1350,6 +1397,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(alreadyRebindingValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputActionConflictKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputActionConflictKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(actionConflictValue));
+            Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
+            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.InputActionConflictKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputUnsupportedKeyKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputUnsupportedKeyKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(unsupportedKeyValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputUnsupportedKeyKey);
 
             entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
             Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
