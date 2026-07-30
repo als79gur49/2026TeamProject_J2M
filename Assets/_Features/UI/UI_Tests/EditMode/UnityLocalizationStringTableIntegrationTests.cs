@@ -464,15 +464,46 @@ namespace Game.Feature.UI.Tests
             var collection = LocalizationEditorSettings.GetStringTableCollection("Stage");
             Assert.That(collection, Is.Not.Null);
             var activeStageEntries = LoadActiveStageDisplayNameEntries();
+            var englishTable = collection.GetTable("en-US") as StringTable;
+            var koreanTable = collection.GetTable("ko-KR") as StringTable;
 
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).ToArray(),
                 Is.EquivalentTo(StageDisplayNameEntries.Select(entry => entry.Key).ToArray()));
+            Assert.That(activeStageEntries, Has.Length.EqualTo(9));
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(),
                 Is.EqualTo(activeStageEntries.Length));
-            AssertStageTable(collection.GetTable("en-US") as StringTable, activeStageEntries);
-            AssertStageTable(collection.GetTable("ko-KR") as StringTable, activeStageEntries);
+            AssertStageTable(englishTable, StageDisplayNameEntries, useKoreanValues: false);
+            AssertStageTable(koreanTable, StageDisplayNameEntries, useKoreanValues: true);
+
+            foreach (var entry in StageDisplayNameEntries)
+            {
+                var english = englishTable.GetEntry(entry.Key);
+                var korean = koreanTable.GetEntry(entry.Key);
+                var shared = collection.SharedData.Entries.Single(candidate =>
+                    string.Equals(candidate.Key, entry.Key, StringComparison.Ordinal));
+                Assert.That(english.KeyId, Is.EqualTo(shared.Id), entry.Key);
+                Assert.That(english.KeyId, Is.EqualTo(korean.KeyId), entry.Key);
+                Assert.That(
+                    ExtractPlaceholderTokens(korean.LocalizedValue),
+                    Is.EqualTo(ExtractPlaceholderTokens(english.LocalizedValue)),
+                    entry.Key);
+            }
+
+            var legacyEnglish = englishTable.GetEntry(LegacyStageDisplayNameKey);
+            var legacyKorean = koreanTable.GetEntry(LegacyStageDisplayNameKey);
+            var legacyShared = collection.SharedData.Entries.Single(candidate =>
+                string.Equals(candidate.Key, LegacyStageDisplayNameKey, StringComparison.Ordinal));
+            Assert.That(legacyEnglish, Is.Not.Null);
+            Assert.That(legacyKorean, Is.Not.Null);
+            Assert.That(legacyEnglish.KeyId, Is.EqualTo(legacyShared.Id));
+            Assert.That(legacyEnglish.KeyId, Is.EqualTo(legacyKorean.KeyId));
+            Assert.That(legacyEnglish.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameValue));
+            Assert.That(legacyKorean.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameValue));
+            Assert.That(
+                activeStageEntries.Select(entry => entry.Key),
+                Does.Not.Contain(LegacyStageDisplayNameKey));
         }
 
         [Test]
@@ -653,12 +684,28 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Quit), Is.EqualTo("종료"));
             Assert.That(
                 resolver.Resolve(StageDisplayNameTextDescriptors.Create("stage.stage-0-1.display_name")),
-                Is.EqualTo("Lab-01"));
+                Is.EqualTo("연구실-01"));
             Assert.That(eventCount, Is.EqualTo(1));
 
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")), Is.EqualTo("[UI:ui.settings.missing]"));
+        }
+
+        [Test]
+        public void StageDisplayNameDescriptors_ResolveAllOfficialNamesAcrossLocaleRoundTrip()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            AssertStageDescriptorsResolve(resolver, useKoreanValues: false);
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            AssertStageDescriptorsResolve(resolver, useKoreanValues: true);
+            Assert.That(resolver.TrySetLocale("en-US"), Is.True);
+            AssertStageDescriptorsResolve(resolver, useKoreanValues: false);
+
+            Assert.That(
+                resolver.Resolve(StageDisplayNameTextDescriptors.Create(LegacyStageDisplayNameKey)),
+                Is.EqualTo(LegacyStageDisplayNameValue));
         }
 
         [Test]
@@ -1524,7 +1571,8 @@ namespace Game.Feature.UI.Tests
 
         private static void AssertStageTable(
             StringTable table,
-            IReadOnlyList<(string StageId, string Key, string Value)> expectedEntries)
+            IReadOnlyList<(string StageId, string Key, string English, string Korean)> expectedEntries,
+            bool useKoreanValues)
         {
             Assert.That(table, Is.Not.Null);
             var stageDisplayNameKeys = table.SharedData.Entries
@@ -1540,33 +1588,86 @@ namespace Game.Feature.UI.Tests
             {
                 var tableEntry = table.GetEntry(entry.Key);
                 Assert.That(tableEntry, Is.Not.Null, entry.Key);
-                Assert.That(tableEntry.LocalizedValue, Is.EqualTo(entry.Value), entry.StageId);
-                Assert.That(tableEntry.LocalizedValue, Is.Not.Empty);
+                Assert.That(
+                    tableEntry.LocalizedValue,
+                    Is.EqualTo(useKoreanValues ? entry.Korean : entry.English),
+                    entry.StageId);
+                Assert.That(tableEntry.LocalizedValue, Is.Not.Empty, entry.StageId);
             }
         }
 
-        private static (string StageId, string Key, string Value)[] LoadActiveStageDisplayNameEntries()
+        private static void AssertStageDescriptorsResolve(
+            ILocalizedTextResolver resolver,
+            bool useKoreanValues)
         {
-            var expectedValues = StageDisplayNameEntries.ToDictionary(
+            foreach (var entry in StageDisplayNameEntries)
+            {
+                var stageId = StageId.CreateOrThrow(entry.StageId);
+                var descriptor = StageDisplayNameTextDescriptors.ForStage(stageId);
+                Assert.That(descriptor.Key, Is.EqualTo(entry.Key), entry.StageId);
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(useKoreanValues ? entry.Korean : entry.English),
+                    entry.StageId);
+            }
+        }
+
+        private static string[] ExtractPlaceholderTokens(string value)
+        {
+            var tokens = new List<string>();
+            for (var index = 0; index < value.Length; index++)
+            {
+                if (value[index] != '{')
+                {
+                    continue;
+                }
+
+                var closeIndex = value.IndexOf('}', index + 1);
+                if (closeIndex < 0)
+                {
+                    tokens.Add(value.Substring(index));
+                    break;
+                }
+
+                tokens.Add(value.Substring(index, closeIndex - index + 1));
+                index = closeIndex;
+            }
+
+            return tokens.ToArray();
+        }
+
+        private static (string StageId, string Key)[] LoadActiveStageDisplayNameEntries()
+        {
+            var expectedEntries = StageDisplayNameEntries.ToDictionary(
                 entry => entry.Key,
-                entry => entry.Value,
+                entry => entry.StageId,
                 StringComparer.Ordinal);
-            var entries = AssetDatabase
+            var contentEntries = AssetDatabase
                 .FindAssets($"t:{nameof(StageContentEntry)}", new[] { StageContentPaths.CampaignLevel01StagesRoot })
                 .Select(guid => AssetDatabase.LoadAssetAtPath<StageContentEntry>(AssetDatabase.GUIDToAssetPath(guid)))
                 .Where(entry => entry != null && entry.StageId.IsValid)
-                .OrderBy(entry => entry.StageId.Value, StringComparer.Ordinal)
-                .Select(entry =>
+                .ToDictionary(entry => entry.StageId.Value, StringComparer.Ordinal);
+            var sequence = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                StageContentPaths.CampaignStageSequenceAssetPath);
+            Assert.That(sequence, Is.Not.Null);
+            Assert.That(sequence.Entries.Count, Is.EqualTo(9));
+
+            var entries = sequence.Entries
+                .Select(sequenceEntry =>
                 {
+                    Assert.That(
+                        contentEntries.TryGetValue(sequenceEntry.StageId.Value, out var entry),
+                        Is.True,
+                        sequenceEntry.StageId.Value);
                     Assert.That(entry.PresentationDefinition, Is.Not.Null, entry.StageId.Value);
                     var key = entry.PresentationDefinition.DisplayNameKey;
                     Assert.That(key, Is.EqualTo(StageDisplayNameKeys.ForStage(entry.StageId)), entry.StageId.Value);
-                    Assert.That(expectedValues.TryGetValue(key, out var value), Is.True, entry.StageId.Value);
-                    return (entry.StageId.Value, key, value);
+                    Assert.That(expectedEntries.TryGetValue(key, out var expectedStageId), Is.True, entry.StageId.Value);
+                    Assert.That(expectedStageId, Is.EqualTo(entry.StageId.Value), entry.StageId.Value);
+                    return (entry.StageId.Value, key);
                 })
                 .ToArray();
 
-            Assert.That(entries, Is.Not.Empty);
             return entries;
         }
 
@@ -1577,19 +1678,22 @@ namespace Game.Feature.UI.Tests
                 Does.Not.Contain(referenceName));
         }
 
-        private static readonly (string Key, string Value)[] StageDisplayNameEntries =
+        private static readonly (string StageId, string Key, string English, string Korean)[] StageDisplayNameEntries =
         {
-            ("stage.stage-0-1.display_name", "Lab-01"),
-            ("stage.stage-0-2.display_name", "Lab-02"),
-            ("stage.stage-1-1.display_name", "Lobby-01"),
-            ("stage.stage-2-1.display_name", "Ward[A]-01"),
-            ("stage.stage-2-2.display_name", "Ward[A]-02"),
-            ("stage.stage-3-1.display_name", "Ward[B]-01"),
-            ("stage.stage-3-2.display_name", "Ward[B]-02"),
-            ("stage.stage-4-1.display_name", "Morgue-01"),
-            ("stage.stage-4-2.display_name", "Morgue-02"),
-            ("stage.legacy-stage-5-1.display_name", "Legacy 5-1"),
+            ("stage-0-1", "stage.stage-0-1.display_name", "Lab-01", "연구실-01"),
+            ("stage-0-2", "stage.stage-0-2.display_name", "Lab-02", "연구실-02"),
+            ("stage-1-1", "stage.stage-1-1.display_name", "Lobby-01", "로비-01"),
+            ("stage-2-1", "stage.stage-2-1.display_name", "Ward[A]-01", "병동[A]-01"),
+            ("stage-2-2", "stage.stage-2-2.display_name", "Ward[A]-02", "병동[A]-02"),
+            ("stage-3-1", "stage.stage-3-1.display_name", "Ward[B]-01", "병동[B]-01"),
+            ("stage-3-2", "stage.stage-3-2.display_name", "Ward[B]-02", "병동[B]-02"),
+            ("stage-4-1", "stage.stage-4-1.display_name", "Morgue-01", "영안실-01"),
+            ("stage-4-2", "stage.stage-4-2.display_name", "Morgue-02", "영안실-02"),
         };
+
+        private const string LegacyStageDisplayNameKey =
+            "stage.legacy-stage-5-1.display_name";
+        private const string LegacyStageDisplayNameValue = "Legacy 5-1";
 
         private static TMP_Text GetText(object target, string fieldName)
         {

@@ -5,12 +5,15 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using UnityEditor.Localization;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.Tables;
 
 namespace Game.Feature.UI.Tests
@@ -114,6 +117,23 @@ namespace Game.Feature.UI.Tests
 
     public sealed class MainMenuSaveSlotLocalizationTests
     {
+        private Locale _selectedLocaleBeforeTest;
+
+        [SetUp]
+        public void PreserveSelectedLocale()
+        {
+            _selectedLocaleBeforeTest = LocalizationSettings.SelectedLocale;
+        }
+
+        [TearDown]
+        public void RestoreSelectedLocale()
+        {
+            if (LocalizationSettings.HasSettings)
+            {
+                LocalizationSettings.SelectedLocale = _selectedLocaleBeforeTest;
+            }
+        }
+
         [TestCase(SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.", "지원하지 않는 저장 데이터", "지원하지 않는 버전에서 생성된 저장 데이터입니다.")]
         [TestCase(SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.", "저장 데이터 손상", "저장 데이터를 읽을 수 없습니다.")]
         [TestCase(SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.", "저장 데이터 접근 실패", "저장 데이터 접근 권한을 확인하세요.")]
@@ -167,7 +187,7 @@ namespace Game.Feature.UI.Tests
                     CampaignCompleted = true,
                 },
             };
-            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var resolver = CreateUnityResolver();
 
             var english = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
             Assert.That(english.SlotCards[0].TitleText, Is.EqualTo("Slot 1"));
@@ -182,19 +202,56 @@ namespace Game.Feature.UI.Tests
             Assert.That(english.SlotCards[2].StatusText, Is.EqualTo("Completed"));
             Assert.That(english.SlotCards[2].PrimaryActionText, Is.EqualTo("Restart"));
 
-            resolver.SetLocale("ko-KR");
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
             var korean = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
             Assert.That(korean.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
             Assert.That(korean.SlotCards[0].StatusText, Is.EqualTo("비어 있음"));
             Assert.That(korean.SlotCards[0].PrimaryActionText, Is.EqualTo("새 게임"));
             Assert.That(korean.SlotCards[1].StatusText, Is.EqualTo("계속"));
-            Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 Ward[A]-02"));
+            Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 병동[A]-02"));
             Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("기회 2"));
             Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 3"));
             Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("최근 플레이 2026. 7. 29."));
             Assert.That(korean.SlotCards[1].DeleteActionText, Is.EqualTo("삭제"));
             Assert.That(korean.SlotCards[2].StatusText, Is.EqualTo("완료"));
             Assert.That(korean.SlotCards[2].PrimaryActionText, Is.EqualTo("다시 시작"));
+        }
+
+        [Test]
+        public void SlotMapper_ResolvesRepresentativeOfficialStageNamesWithoutChangingSlotFacts()
+        {
+            var sequence = new CampaignStageSequenceResolver(
+                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var slots = new[]
+            {
+                CreateInProgressSlot(1, "stage-0-1", 3, 1),
+                CreateInProgressSlot(2, "stage-2-1", 2, 3),
+                CreateInProgressSlot(3, "stage-4-1", 1, 5),
+            };
+            using var resolver = CreateUnityResolver();
+
+            var english = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
+            Assert.That(
+                english.SlotCards.Select(card => card.StageText).ToArray(),
+                Is.EqualTo(new[] { "Stage Lab-01", "Stage Ward[A]-01", "Stage Morgue-01" }));
+
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            var korean = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
+            Assert.That(
+                korean.SlotCards.Select(card => card.StageText).ToArray(),
+                Is.EqualTo(new[] { "스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01" }));
+            Assert.That(
+                korean.SlotCards.Select(card => card.SlotNumber).ToArray(),
+                Is.EqualTo(new[] { 1, 2, 3 }));
+            Assert.That(
+                korean.SlotCards.Select(card => card.ChancesText).ToArray(),
+                Is.EqualTo(new[] { "기회 3", "기회 2", "기회 1" }));
+            Assert.That(
+                korean.SlotCards.Select(card => card.DeathsText).ToArray(),
+                Is.EqualTo(new[] { "사망 1", "사망 3", "사망 5" }));
+            Assert.That(
+                korean.SlotCards.All(card => card.State == SaveSlotCardState.Existing),
+                Is.True);
         }
 
         [Test]
@@ -224,6 +281,35 @@ namespace Game.Feature.UI.Tests
             {
                 UnityEngine.Object.DestroyImmediate(definition);
             }
+        }
+
+        private static UnityStringTableTextResolver CreateUnityResolver()
+        {
+            Assert.That(
+                UnityStringTableTextResolver.TryCreateSettingsDefault(
+                    new FixedEnglishLocalePreferenceStore(),
+                    out var resolver,
+                    out var failureReason),
+                Is.True,
+                failureReason);
+            return resolver;
+        }
+
+        private static SaveSlotData CreateInProgressSlot(
+            int slotNumber,
+            string stageId,
+            int remainingChances,
+            int totalDeaths)
+        {
+            return new SaveSlotData
+            {
+                SlotNumber = slotNumber,
+                CurrentStageId = StageId.CreateOrThrow(stageId),
+                CurrentLevelGroupId = $"level-{slotNumber}",
+                RemainingChances = remainingChances,
+                TotalDeaths = totalDeaths,
+                LastPlayedAt = "2026-07-29T12:34:00+09:00",
+            };
         }
     }
 
@@ -319,7 +405,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
             Assert.That(refreshCount, Is.EqualTo(1));
             Assert.That(refreshed.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
-            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("스테이지 Lab-01"));
+            Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("스테이지 연구실-01"));
 
             resolver.SetLocale("en-US");
             Assert.That(refreshCount, Is.EqualTo(2));
@@ -490,6 +576,14 @@ namespace Game.Feature.UI.Tests
 
         public string Resolve(LocalizedTextDescriptor descriptor)
         {
+            if (string.Equals(descriptor.Table, StageDisplayNameKeys.Table, StringComparison.Ordinal) &&
+                string.Equals(descriptor.Key, "stage.stage-0-1.display_name", StringComparison.Ordinal))
+            {
+                return string.Equals(CurrentLocaleCode, "ko-KR", StringComparison.Ordinal)
+                    ? "연구실-01"
+                    : "Lab-01";
+            }
+
             return _inner.Resolve(descriptor);
         }
 
@@ -497,6 +591,19 @@ namespace Game.Feature.UI.Tests
         {
             _inner.SetLocale(localeCode);
             _localeChanged?.Invoke();
+        }
+    }
+
+    internal sealed class FixedEnglishLocalePreferenceStore : IUiLocalePreferenceStore
+    {
+        public bool TryLoad(out string localeCode)
+        {
+            localeCode = "en-US";
+            return true;
+        }
+
+        public void Save(string localeCode)
+        {
         }
     }
 
