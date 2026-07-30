@@ -81,6 +81,9 @@ namespace Game.Feature.UI.Tests
                     maxChances: 3,
                     isInitialBind: true,
                     ChanceChangeAnimationHint.None);
+                binding.StageNameText.text = "Lab-01";
+                var englishStageNameFont = binding.StageNameText.font;
+                var englishStageNameMaterial = binding.StageNameText.fontSharedMaterial;
                 var englishPauseFont = binding.PauseText.font;
                 var englishPauseMaterial = binding.PauseText.fontSharedMaterial;
                 var englishChanceFont = binding.ChancesText.font;
@@ -90,22 +93,32 @@ namespace Game.Feature.UI.Tests
                 Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
                 Assert.That(binding.PauseText.text, Is.EqualTo("Pause"));
                 Assert.That(binding.ChancesText.text, Is.EqualTo("CHANCES"));
+                Assert.That(binding.StageNameText.text, Is.EqualTo("Lab-01"));
                 AssertChanceState(chanceModel, 2, 3);
 
                 instance.SetActive(false);
+                binding.StageNameText.text = "연구실-01";
                 resolver.SetLocale("ko-KR");
                 instance.SetActive(true);
 
+                Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
                 Assert.That(binding.PauseText.text, Is.EqualTo("일시 정지"));
                 Assert.That(binding.ChancesText.text, Is.EqualTo("기회"));
                 AssertChanceState(chanceModel, 2, 3);
+                Assert.That(binding.StageNameText.font, Is.SameAs(climate));
                 Assert.That(binding.PauseText.font, Is.SameAs(climate));
                 Assert.That(binding.ChancesText.font, Is.SameAs(climate));
 
+                binding.StageNameText.text = "Lab-01";
                 resolver.SetLocale("en-US");
 
+                Assert.That(binding.StageNameText.text, Is.EqualTo("Lab-01"));
                 Assert.That(binding.PauseText.text, Is.EqualTo("Pause"));
                 Assert.That(binding.ChancesText.text, Is.EqualTo("CHANCES"));
+                Assert.That(binding.StageNameText.font, Is.SameAs(englishStageNameFont));
+                Assert.That(
+                    binding.StageNameText.fontSharedMaterial,
+                    Is.SameAs(englishStageNameMaterial));
                 Assert.That(binding.PauseText.font, Is.SameAs(englishPauseFont));
                 Assert.That(binding.PauseText.fontSharedMaterial, Is.SameAs(englishPauseMaterial));
                 Assert.That(binding.ChancesText.font, Is.SameAs(englishChanceFont));
@@ -114,7 +127,10 @@ namespace Game.Feature.UI.Tests
 
                 binding.Dispose();
                 Assert.That(resolver.SubscriberCount, Is.Zero);
+                binding.StageNameText.text = "연구실-01";
                 resolver.SetLocale("ko-KR");
+                Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
+                Assert.That(binding.StageNameText.font, Is.SameAs(englishStageNameFont));
                 Assert.That(binding.PauseText.text, Is.EqualTo("Pause"));
                 Assert.That(binding.ChancesText.text, Is.EqualTo("CHANCES"));
             }

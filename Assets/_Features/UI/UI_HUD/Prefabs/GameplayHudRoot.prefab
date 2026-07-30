@@ -97,6 +97,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayHudLocalizationBinding
   _theme: {fileID: 11400000, guid: e414ca8f5dbd4575ad144ce41643de05, type: 2}
+  _stageNameText: {fileID: 8334920515211009974}
   _pauseText: {fileID: 114104}
   _chancesText: {fileID: 2976350271432765329}
 --- !u!1 &100102

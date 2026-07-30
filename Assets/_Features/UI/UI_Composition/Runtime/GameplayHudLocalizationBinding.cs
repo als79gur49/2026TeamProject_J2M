@@ -13,9 +13,11 @@ namespace Game.Feature.UI.Composition
     public sealed class GameplayHudLocalizationBinding : MonoBehaviour, IDisposable
     {
         [SerializeField] private GameplayUiTypographyTheme _theme;
+        [SerializeField] private TMP_Text _stageNameText;
         [SerializeField] private TMP_Text _pauseText;
         [SerializeField] private TMP_Text _chancesText;
 
+        private TmpTypographyAuthoredState _stageNameAuthoredState;
         private TmpTypographyAuthoredState _pauseAuthoredState;
         private TmpTypographyAuthoredState _chancesAuthoredState;
         private ILocalizedTextResolver _textResolver;
@@ -23,6 +25,8 @@ namespace Game.Feature.UI.Composition
         private bool _isInitialized;
 
         public GameplayUiTypographyTheme Theme => _theme;
+
+        public TMP_Text StageNameText => _stageNameText;
 
         public TMP_Text PauseText => _pauseText;
 
@@ -38,6 +42,7 @@ namespace Game.Feature.UI.Composition
 
             ValidateAuthoredStructureOrThrow();
             _textResolver = textResolver ?? throw new ArgumentNullException(nameof(textResolver));
+            _stageNameAuthoredState = TmpTypographyAuthoredState.Capture(_stageNameText);
             _pauseAuthoredState = TmpTypographyAuthoredState.Capture(_pauseText);
             _chancesAuthoredState = TmpTypographyAuthoredState.Capture(_chancesText);
             _textResolver.LocaleChanged += HandleLocaleChanged;
@@ -53,6 +58,12 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            ApplyTypography(
+                _stageNameText,
+                _theme,
+                _textResolver.CurrentLocaleCode,
+                TypographyStyleTag.HeaderSmall,
+                _stageNameAuthoredState);
             Apply(
                 _pauseText,
                 HudWorldGuideLocalization.PauseDescriptor,
@@ -73,10 +84,10 @@ namespace Game.Feature.UI.Composition
                     $"{nameof(GameplayHudLocalizationBinding)} is missing the production typography theme.");
             }
 
-            if (_pauseText == null || _chancesText == null)
+            if (_stageNameText == null || _pauseText == null || _chancesText == null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(GameplayHudLocalizationBinding)} requires Pause and Chances TMP targets.");
+                    $"{nameof(GameplayHudLocalizationBinding)} requires Stage name, Pause, and Chances TMP targets.");
             }
         }
 
