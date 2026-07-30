@@ -1433,6 +1433,15 @@ namespace Game.Feature.UI.Composition.Editor
                         $"is outside screen bounds ({minX:F1},{minY:F1})-({maxX:F1},{maxY:F1}).");
                 }
 
+                var rasterTextPixels = CountBrightPixels(
+                    enabledPixels,
+                    options.Width,
+                    options.Height,
+                    minX,
+                    minY,
+                    maxX,
+                    maxY);
+
                 foreach (var character in target.text)
                 {
                     if (char.IsControl(character) ||
@@ -1484,7 +1493,8 @@ namespace Game.Feature.UI.Composition.Editor
                 }
 
                 capture.M1bPixelProofCount++;
-                if (pixelDelta > 4)
+                var pixelProofPassed = pixelDelta > 4 && rasterTextPixels > 4;
+                if (pixelProofPassed)
                 {
                     capture.M1bPixelProofPassCount++;
                 }
@@ -1492,7 +1502,8 @@ namespace Game.Feature.UI.Composition.Editor
                 {
                     capture.AddError(
                         $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
-                        $"pixel proof failed with delta={pixelDelta}.");
+                        $"pixel proof failed with delta={pixelDelta}, " +
+                        $"raster_text_pixels={rasterTextPixels}.");
                 }
 
                 Debug.Log(
@@ -1502,7 +1513,8 @@ namespace Game.Feature.UI.Composition.Editor
                     $"renderer={BuildHierarchyPath(target.transform)} " +
                     $"text={target.text} " +
                     $"pixel_delta={pixelDelta} " +
-                    $"result={(pixelDelta > 4 ? "PASS" : "FAIL")}");
+                    $"raster_text_pixels={rasterTextPixels} " +
+                    $"result={(pixelProofPassed ? "PASS" : "FAIL")}");
             }
 
             if (capture.M1bPixelProofPassCount != capture.M1bPixelProofCount)
@@ -1511,6 +1523,46 @@ namespace Game.Feature.UI.Composition.Editor
                     $"{capture.Target.Name} {capture.LocaleCode}: pixel proofs passed " +
                     $"{capture.M1bPixelProofPassCount}/{capture.M1bPixelProofCount}.");
             }
+        }
+
+        private static int CountBrightPixels(
+            IReadOnlyList<Color32> pixels,
+            int width,
+            int height,
+            float minX,
+            float minY,
+            float maxX,
+            float maxY)
+        {
+            const byte alphaThreshold = 64;
+            const byte colorThreshold = 128;
+            var startX = Mathf.Clamp(Mathf.FloorToInt(minX), 0, width - 1);
+            var endX = Mathf.Clamp(Mathf.CeilToInt(maxX), 0, width);
+            var startY = Mathf.Clamp(Mathf.FloorToInt(minY), 0, height - 1);
+            var endY = Mathf.Clamp(Mathf.CeilToInt(maxY), 0, height);
+            var count = 0;
+            for (var y = startY; y < endY; y++)
+            {
+                for (var x = startX; x < endX; x++)
+                {
+                    var index = y * width + x;
+                    if (index < 0 || index >= pixels.Count)
+                    {
+                        continue;
+                    }
+
+                    var pixel = pixels[index];
+                    if (pixel.a >= alphaThreshold &&
+                        pixel.r >= colorThreshold &&
+                        pixel.g >= colorThreshold &&
+                        pixel.b >= colorThreshold)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
         }
 
         private static void ValidateM2bRenderedState(

@@ -1937,7 +1937,8 @@ for locale in locales:
         proofs = re.findall(
             rf"TYPOGRAPHY_PIXEL_PROOF target={re.escape(target)} "
             rf"locale={re.escape(locale)} renderer=(.*?) text=(.*?) "
-            r"pixel_delta=([1-9][0-9]*) result=PASS",
+            r"pixel_delta=([1-9][0-9]*) "
+            r"raster_text_pixels=([1-9][0-9]*) result=PASS",
             text,
         )
         if len(proofs) != 4:
@@ -1980,6 +1981,7 @@ for locale in locales:
                 f"png_byte_count={len(data)}",
                 f"status_text={status_proof[1]}",
                 f"status_pixel_delta={status_proof[2]}",
+                f"status_raster_text_pixels={status_proof[3]}",
                 "status_pixel_proof=PASS",
                 "full_frame_pixel_proofs=4/4",
                 "localized_texts=23/23",
@@ -3301,6 +3303,8 @@ run_typography_visual() {
     local slice
     local slice_name
     local m2b_slice
+    local m2b_attempt
+    local m2b_capture_succeeded
     local current_unity_log
     local expected_head
     local runner_mutation_evidence
@@ -3443,11 +3447,18 @@ run_typography_visual() {
                 -typographyScreenshotTarget "$target"
                 -captureAssetBaselineRoot "$baseline_root_win"
             )
-            echo "  M2B capture slice: ${locale}-${target}"
-            if visual_guard_run_command "${unity_command[@]}"; then
-                unity_exit=0
-            else
-                unity_exit=$?
+            m2b_capture_succeeded=0
+            for m2b_attempt in 1 2 3 4 5; do
+                echo "  M2B capture slice: ${locale}-${target} (attempt ${m2b_attempt}/5)"
+                if visual_guard_run_command "${unity_command[@]}"; then
+                    unity_exit=0
+                    m2b_capture_succeeded=1
+                    break
+                else
+                    unity_exit=$?
+                fi
+            done
+            if [ "$m2b_capture_succeeded" -ne 1 ]; then
                 break
             fi
         done
