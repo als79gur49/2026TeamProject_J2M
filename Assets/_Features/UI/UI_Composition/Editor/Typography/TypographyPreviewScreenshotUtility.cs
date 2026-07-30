@@ -1315,13 +1315,27 @@ namespace Game.Feature.UI.Composition.Editor
                 var expectedStatus = GetM2bStatusDescriptor(m2bState);
                 var inputView = prefabRoot.GetComponentInChildren<SettingsInputView>(true);
                 var expectedText = capture.LocalizedTexts.LastOrDefault();
-                targets = prefabRoot
+                var activeTexts = prefabRoot
                     .GetComponentsInChildren<TMP_Text>(true)
                     .Where(text =>
                         text != null &&
-                        text.gameObject.activeInHierarchy &&
-                        string.Equals(text.text, expectedText, StringComparison.Ordinal))
+                        text.gameObject.activeInHierarchy)
                     .ToArray();
+                var statusTarget = activeTexts
+                    .SingleOrDefault(text =>
+                        string.Equals(text.text, expectedText, StringComparison.Ordinal));
+                var frameProofTargets = activeTexts
+                    .Where(text =>
+                        string.Equals(text.gameObject.name, "Title", StringComparison.Ordinal) ||
+                        string.Equals(text.gameObject.name, "EKey", StringComparison.Ordinal) ||
+                        string.Equals(text.gameObject.name, "QKey", StringComparison.Ordinal))
+                    .ToArray();
+                targets = statusTarget == null
+                    ? frameProofTargets
+                    : new[] { statusTarget }
+                        .Concat(frameProofTargets)
+                        .Distinct()
+                        .ToArray();
                 ValidateM2bRenderedState(
                     prefabRoot,
                     capture,
@@ -1355,7 +1369,7 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             var expectedCount = isM2bTarget
-                ? 1
+                ? 4
                 : GetExpectedLocalizedTextCount(capture.Target.FileStem);
             if (targets.Length != expectedCount)
             {
@@ -2074,7 +2088,7 @@ namespace Game.Feature.UI.Composition.Editor
             out int captureFrameIndex)
         {
             const int maximumRenderPasses = 8;
-            renderTexture = new RenderTexture(options.Width, options.Height, 0, RenderTextureFormat.ARGB32)
+            renderTexture = new RenderTexture(options.Width, options.Height, 24, RenderTextureFormat.ARGB32)
             {
                 name = "TypographyPreviewScreenshotRT",
                 antiAliasing = 1,

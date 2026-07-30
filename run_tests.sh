@@ -1934,15 +1934,41 @@ for locale in locales:
                 f"ERROR: unexpected M2B PNG dimensions for {png}: {width}x{height}"
             )
         text = log.read_text(encoding="utf-8", errors="replace")
-        proof = re.search(
+        proofs = re.findall(
             rf"TYPOGRAPHY_PIXEL_PROOF target={re.escape(target)} "
-            rf"locale={re.escape(locale)} .*? text=(.*?) "
+            rf"locale={re.escape(locale)} renderer=(.*?) text=(.*?) "
             r"pixel_delta=([1-9][0-9]*) result=PASS",
             text,
         )
-        if not proof:
-            raise SystemExit(f"ERROR: missing PASS pixel proof for {target}/{locale}")
-        if "PixelProof=1/1" not in text or "| True |" not in text:
+        if len(proofs) != 4:
+            raise SystemExit(
+                f"ERROR: expected four PASS pixel proofs for {target}/{locale}, "
+                f"found {len(proofs)}"
+            )
+        status_proof = proofs[0]
+        expected_frame_proofs = (
+            ("/Title", None, None),
+            ("/EKey", "/PushKeyDisplay/", "E"),
+            ("/QKey", "/FlipKeyDisplay/", "Q"),
+        )
+        for renderer_suffix, required_parent, expected_text in expected_frame_proofs:
+            candidates = [
+                proof
+                for proof in proofs
+                if proof[0].endswith(renderer_suffix)
+                and (required_parent is None or required_parent in proof[0])
+            ]
+            if len(candidates) != 1:
+                raise SystemExit(
+                    f"ERROR: missing unique frame pixel proof {renderer_suffix} "
+                    f"for {target}/{locale}"
+                )
+            if expected_text is not None and candidates[0][1] != expected_text:
+                raise SystemExit(
+                    f"ERROR: unexpected keycap text for {renderer_suffix}: "
+                    f"{candidates[0][1]!r}"
+                )
+        if "PixelProof=4/4" not in text or "| True |" not in text:
             raise SystemExit(f"ERROR: capture summary is incomplete for {target}/{locale}")
         lines.extend(
             (
@@ -1951,9 +1977,10 @@ for locale in locales:
                 f"png={png.relative_to(output_dir).as_posix()}",
                 f"png_sha256={hashlib.sha256(data).hexdigest()}",
                 f"png_byte_count={len(data)}",
-                f"status_text={proof.group(1)}",
-                f"status_pixel_delta={proof.group(2)}",
+                f"status_text={status_proof[1]}",
+                f"status_pixel_delta={status_proof[2]}",
                 "status_pixel_proof=PASS",
+                "full_frame_pixel_proofs=4/4",
                 "localized_texts=23/23",
                 "typography_bindings=38",
                 "keycaps=E,Q",
