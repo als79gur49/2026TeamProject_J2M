@@ -1367,6 +1367,7 @@ namespace Game.Feature.UI.Composition.Editor
                     expectedStatus,
                     expectedText,
                     m2bState);
+                ValidateM2bFrameAnchors(capture, enabledPixels, options);
             }
             else if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
                 TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
@@ -1546,6 +1547,54 @@ namespace Game.Feature.UI.Composition.Editor
                 capture.AddError(
                     $"{capture.Target.Name} {capture.LocaleCode}: pixel proofs passed " +
                     $"{capture.M1bPixelProofPassCount}/{capture.M1bPixelProofCount}.");
+            }
+        }
+
+        private static void ValidateM2bFrameAnchors(
+            TypographyPreviewScreenshotCaptureResult capture,
+            IReadOnlyList<Color32> pixels,
+            TypographyPreviewScreenshotOptions options)
+        {
+            var titlePixels = CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                options.Width * 0.43f,
+                options.Height * 0.79f,
+                options.Width * 0.56f,
+                options.Height * 0.87f);
+            var pushKeyPixels = CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                options.Width * 0.35f,
+                options.Height * 0.53f,
+                options.Width * 0.39f,
+                options.Height * 0.61f);
+            var flipKeyPixels = CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                options.Width * 0.35f,
+                options.Height * 0.46f,
+                options.Width * 0.39f,
+                options.Height * 0.54f);
+            var passed = titlePixels > 100 &&
+                pushKeyPixels > 20 &&
+                flipKeyPixels > 20;
+            Debug.Log(
+                "M2B_FRAME_ANCHOR " +
+                $"target={capture.Target.FileStem} " +
+                $"locale={capture.LocaleCode} " +
+                $"title_pixels={titlePixels} " +
+                $"push_key_pixels={pushKeyPixels} " +
+                $"flip_key_pixels={flipKeyPixels} " +
+                $"result={(passed ? "PASS" : "FAIL")}");
+            if (!passed)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: saved PNG frame anchors were incomplete " +
+                    $"(title={titlePixels}, push={pushKeyPixels}, flip={flipKeyPixels}).");
             }
         }
 

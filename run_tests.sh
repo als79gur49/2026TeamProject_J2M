@@ -1972,6 +1972,16 @@ for locale in locales:
                 )
         if "PixelProof=4/4" not in text or "| True |" not in text:
             raise SystemExit(f"ERROR: capture summary is incomplete for {target}/{locale}")
+        frame_anchor = re.search(
+            rf"M2B_FRAME_ANCHOR target={re.escape(target)} "
+            rf"locale={re.escape(locale)} "
+            r"title_pixels=([1-9][0-9]*) "
+            r"push_key_pixels=([1-9][0-9]*) "
+            r"flip_key_pixels=([1-9][0-9]*) result=PASS",
+            text,
+        )
+        if not frame_anchor:
+            raise SystemExit(f"ERROR: missing PASS frame-anchor proof for {target}/{locale}")
         lines.extend(
             (
                 "",
@@ -1984,6 +1994,8 @@ for locale in locales:
                 f"status_raster_text_pixels={status_proof[3]}",
                 "status_pixel_proof=PASS",
                 "full_frame_pixel_proofs=4/4",
+                f"frame_anchor_pixels={','.join(frame_anchor.groups())}",
+                "frame_anchor_proof=PASS",
                 "localized_texts=23/23",
                 "typography_bindings=38",
                 "keycaps=E,Q",
