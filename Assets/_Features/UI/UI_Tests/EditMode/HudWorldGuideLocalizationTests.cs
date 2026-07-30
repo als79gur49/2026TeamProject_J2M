@@ -74,6 +74,15 @@ namespace Game.Feature.UI.Tests
                 var binding = instance.GetComponent<GameplayHudLocalizationBinding>();
                 var chanceView = instance.GetComponent<HUDRootView>().ChancePanelView;
                 var chanceModel = new ChancePanelViewModel();
+                Assert.That(
+                    binding.StageNameText.rectTransform.offsetMax.x,
+                    Is.LessThanOrEqualTo(-160f),
+                    "Stage name must reserve the authored Pause control lane.");
+                Assert.That(binding.StageNameText.enableAutoSizing, Is.True);
+                Assert.That(
+                    binding.StageNameText.overflowMode,
+                    Is.EqualTo(TextOverflowModes.Overflow),
+                    "Stage names must fit without ellipsis.");
                 chanceView.Bind(chanceModel);
                 chanceModel.SetState(
                     hasChances: true,

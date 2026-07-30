@@ -588,13 +588,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var hudBinding = installer.HudView.GetComponent<GameplayHudLocalizationBinding>();
                 var pauseButton = hudBinding?.PauseText?.GetComponentInParent<Button>(includeInactive: true);
-                var cropBounds = stageEvidence.ScreenBounds;
-                if (pauseButton != null)
+                if (pauseButton == null)
                 {
-                    cropBounds = Union(
-                        cropBounds,
-                        ScreenBounds(pauseButton.GetComponent<RectTransform>()));
+                    throw new InvalidOperationException(
+                        "Ward Stage HUD has no production Pause button.");
                 }
+
+                var pauseBounds = ScreenBounds(pauseButton.GetComponent<RectTransform>());
+                if (stageEvidence.ScreenBounds.Overlaps(pauseBounds))
+                {
+                    throw new InvalidOperationException(
+                        "Ward Stage name overlaps the production Pause control.");
+                }
+
+                var cropBounds = stageEvidence.ScreenBounds;
+                cropBounds = Union(cropBounds, pauseBounds);
 
                 var hudFile = $"M3_StageHUD_{WardStageIdValue}_{scenario.Locale}.png";
                 var hudPath = Path.Combine(outputDirectory, hudFile);
@@ -904,6 +912,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             var buttonBounds = ScreenBounds(pauseButton);
+            if (stageName.Overlaps(buttonBounds))
+            {
+                throw new InvalidOperationException(
+                    "Stage name overlaps the production Pause control.");
+            }
+
             if (!Contains(buttonBounds, pauseText, 1f))
             {
                 throw new InvalidOperationException(
