@@ -29,7 +29,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     public sealed class M1aHudGuideVisualEvidencePlayModeTests
     {
         private const string ScenePath = "Assets/Scenes/UIAudioScene.unity";
-        private const string StageIdValue = "stage-0-1";
+        private const string LabStageIdValue = "stage-0-1";
+        private const string WardStageIdValue = "stage-2-1";
         private const string LocalePreferenceKey = "ui.selected_locale";
         private const string ClimateFontPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
@@ -40,8 +41,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static readonly LocaleScenario[] Scenarios =
         {
-            new("en-US", "Pause", "CHANCES", "Move", "Push", "Flip"),
-            new("ko-KR", "일시 정지", "기회", "이동", "밀기", "뒤집기"),
+            new("en-US", "Lab-01", "Pause", "CHANCES", "Move", "Push", "Flip"),
+            new("ko-KR", "연구실-01", "일시 정지", "기회", "이동", "밀기", "뒤집기"),
+        };
+
+        private static readonly StageHudScenario[] WardScenarios =
+        {
+            new("en-US", "Ward[A]-01"),
+            new("ko-KR", "병동[A]-01"),
         };
 
         [Category("Full")]
@@ -65,6 +72,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
             var errors = new List<string>();
             var captures = new List<LocaleCapture>();
+            var wardCaptures = new List<StageHudCapture>();
 
             try
             {
@@ -138,6 +146,70 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 ValidateCrossLocaleParity(captures, errors);
+
+                foreach (var scenario in WardScenarios)
+                {
+                    StageHudCapture captured = null;
+                    Exception failure = null;
+                    var routine = CaptureStageHudLocale(
+                        scenario,
+                        outputDirectory,
+                        requestedWidth,
+                        requestedHeight,
+                        value => captured = value);
+                    try
+                    {
+                        while (true)
+                        {
+                            bool moved;
+                            object current = null;
+                            try
+                            {
+                                moved = routine.MoveNext();
+                                if (moved)
+                                {
+                                    current = routine.Current;
+                                }
+                            }
+                            catch (Exception exception)
+                            {
+                                moved = false;
+                                failure = exception;
+                            }
+
+                            if (!moved)
+                            {
+                                break;
+                            }
+
+                            yield return current;
+                        }
+                    }
+                    finally
+                    {
+                        (routine as IDisposable)?.Dispose();
+                    }
+
+                    var cleanup = CleanupSceneRuntime();
+                    while (cleanup.MoveNext())
+                    {
+                        yield return cleanup.Current;
+                    }
+
+                    if (failure != null)
+                    {
+                        errors.Add($"{WardStageIdValue}/{scenario.Locale}: {failure}");
+                    }
+                    else if (captured == null)
+                    {
+                        errors.Add(
+                            $"{WardStageIdValue}/{scenario.Locale}: capture returned no evidence.");
+                    }
+                    else
+                    {
+                        wardCaptures.Add(captured);
+                    }
+                }
             }
             finally
             {
@@ -160,6 +232,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 requestedWidth,
                 requestedHeight,
                 captures,
+                wardCaptures,
                 errors);
             UnityEngine.Debug.Log($"M1A HUD/World Guide visual manifest: {manifestPath}");
             Assert.That(
@@ -167,6 +240,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.Empty,
                 $"M1A HUD/World Guide visual evidence failed. See {manifestPath}");
             Assert.That(captures, Has.Count.EqualTo(Scenarios.Length));
+            Assert.That(wardCaptures, Has.Count.EqualTo(WardScenarios.Length));
         }
 
         private static IEnumerator CaptureLocale(
@@ -177,7 +251,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Action<LocaleCapture> onCaptured)
         {
             var previousTimeScale = Time.timeScale;
-            var stageId = StageId.CreateOrThrow(StageIdValue);
+            var stageId = StageId.CreateOrThrow(LabStageIdValue);
             Texture2D canonicalFrame = null;
             try
             {
@@ -237,6 +311,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var chanceView = installer.HudView.ChancePanelView;
                 var chanceRoot = ReadPrivateField<GameObject>(chanceView, "_root");
+                var stageNameLabel = ReadPrivateField<TMP_Text>(installer.HudView, "_stageNameLabel");
                 var pauseButton = hudBinding.PauseText.GetComponentInParent<Button>(includeInactive: true);
                 if (pauseButton == null)
                 {
@@ -273,6 +348,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var targets = new Dictionary<string, TMP_Text>(StringComparer.Ordinal)
                 {
+                    ["StageName"] = stageNameLabel,
                     ["Pause"] = hudBinding.PauseText,
                     ["Chance"] = hudBinding.ChancesText,
                     ["Movement"] = guides[WorldGuideInstructionKind.Movement].ActionTextLabel,
@@ -281,6 +357,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 };
                 var expectedTexts = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
+                    ["StageName"] = scenario.StageName,
                     ["Pause"] = scenario.Pause,
                     ["Chance"] = scenario.Chance,
                     ["Movement"] = scenario.Movement,
@@ -305,6 +382,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 ValidateHudLayout(
+                    installer.HudView,
+                    evidence["StageName"].ScreenBounds,
                     pauseButton.GetComponent<RectTransform>(),
                     evidence["Pause"].ScreenBounds,
                     evidence["Chance"].ScreenBounds,
@@ -334,6 +413,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 var hudBounds = Union(
+                    evidence["StageName"].ScreenBounds,
                     ScreenBounds(pauseButton.GetComponent<RectTransform>()),
                     ScreenBounds(chanceRoot.GetComponent<RectTransform>()));
                 var guideBounds = Union(
@@ -350,7 +430,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 WriteCrop(canonicalFrame, hudBounds, 48, hudPath);
                 WriteCrop(canonicalFrame, guideBounds, 72, guidePath);
 
-                foreach (var key in new[] { "Pause", "Chance", "Movement", "Push", "Flip" })
+                foreach (var key in new[] { "StageName", "Pause", "Chance", "Movement", "Push", "Flip" })
                 {
                     var delta = -1L;
                     var proof = CapturePixelProof(
@@ -377,7 +457,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     guides.Values.Select(view => ((Component)view).gameObject));
                 var semanticFixture = ComputeSha256(
                     Encoding.UTF8.GetBytes(
-                        $"{StageIdValue}|{ExpectedRemainingChances}/{ExpectedMaxChances}|" +
+                        $"{LabStageIdValue}|{ExpectedRemainingChances}/{ExpectedMaxChances}|" +
                         $"{keycaps.Movement}|{keycaps.Push}|{keycaps.Flip}"));
                 onCaptured(new LocaleCapture(
                     scenario.Locale,
@@ -391,6 +471,160 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     keycaps,
                     graphicIdentity,
                     semanticFixture));
+            }
+            finally
+            {
+                Time.timeScale = previousTimeScale;
+                if (canonicalFrame != null)
+                {
+                    Object.DestroyImmediate(canonicalFrame);
+                }
+            }
+        }
+
+        private static IEnumerator CaptureStageHudLocale(
+            StageHudScenario scenario,
+            string outputDirectory,
+            int requestedWidth,
+            int requestedHeight,
+            Action<StageHudCapture> onCaptured)
+        {
+            var previousTimeScale = Time.timeScale;
+            var stageId = StageId.CreateOrThrow(WardStageIdValue);
+            Texture2D canonicalFrame = null;
+            try
+            {
+                PrepareFreshRuntime(stageId, scenario.Locale);
+                var load = EditorSceneManager.LoadSceneAsyncInPlayMode(
+                    ScenePath,
+                    new LoadSceneParameters(LoadSceneMode.Single));
+                if (load == null)
+                {
+                    throw new InvalidOperationException($"Failed to load {ScenePath}.");
+                }
+
+                while (!load.isDone)
+                {
+                    yield return null;
+                }
+
+                yield return null;
+                yield return new WaitForSecondsRealtime(2f);
+                for (var frame = 0; frame < 12; frame++)
+                {
+                    ForceLayoutAndText();
+                    yield return null;
+                    yield return new WaitForEndOfFrame();
+                }
+
+                if (Screen.width != requestedWidth || Screen.height != requestedHeight)
+                {
+                    throw new InvalidOperationException(
+                        $"Game view is {Screen.width}x{Screen.height}; expected {requestedWidth}x{requestedHeight}.");
+                }
+
+                if (!StageLaunchContextStore.TryGetCurrent(out var currentStageId) ||
+                    !currentStageId.Equals(stageId))
+                {
+                    throw new InvalidOperationException(
+                        $"Production runtime Stage identity is '{currentStageId.Value}', expected '{stageId.Value}'.");
+                }
+
+                var installer = FindExactlyOne<GameplayUiFlowInstaller>("GameplayUiFlowInstaller");
+                if (installer.HudView == null ||
+                    installer.HudView.StageInfoViewModel == null ||
+                    !string.Equals(
+                        installer.HudView.StageInfoViewModel.StageName,
+                        scenario.StageName,
+                        StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Production StageInfoViewModel did not resolve '{scenario.StageName}'.");
+                }
+
+                var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
+                if (climate == null)
+                {
+                    throw new InvalidOperationException($"Climate font missing at {ClimateFontPath}.");
+                }
+
+                Time.timeScale = 0f;
+                ForceLayoutAndText();
+                yield return null;
+                yield return new WaitForEndOfFrame();
+
+                var stageNameLabel = ReadPrivateField<TMP_Text>(
+                    installer.HudView,
+                    "_stageNameLabel");
+                var stageEvidence = ValidateTextTarget(
+                    "StageName",
+                    stageNameLabel,
+                    scenario.StageName,
+                    scenario.Locale,
+                    climate,
+                    localizedTarget: true,
+                    requestedWidth,
+                    requestedHeight);
+                var authoredRoot = ReadPrivateField<GameObject>(installer.HudView, "_root");
+                if (authoredRoot == null ||
+                    !Contains(
+                        ScreenBounds(authoredRoot.GetComponent<RectTransform>()),
+                        stageEvidence.ScreenBounds,
+                        1f))
+                {
+                    throw new InvalidOperationException(
+                        "Ward Stage name escapes the production HUD bounds.");
+                }
+
+                canonicalFrame = ScreenCapture.CaptureScreenshotAsTexture();
+                if (canonicalFrame == null ||
+                    canonicalFrame.width != requestedWidth ||
+                    canonicalFrame.height != requestedHeight ||
+                    !HasPixelVariation(canonicalFrame))
+                {
+                    throw new InvalidOperationException(
+                        "Ward canonical frame is blank or has the wrong resolution.");
+                }
+
+                var hudBinding = installer.HudView.GetComponent<GameplayHudLocalizationBinding>();
+                var pauseButton = hudBinding?.PauseText?.GetComponentInParent<Button>(includeInactive: true);
+                var cropBounds = stageEvidence.ScreenBounds;
+                if (pauseButton != null)
+                {
+                    cropBounds = Union(
+                        cropBounds,
+                        ScreenBounds(pauseButton.GetComponent<RectTransform>()));
+                }
+
+                var hudFile = $"M3_StageHUD_{WardStageIdValue}_{scenario.Locale}.png";
+                var hudPath = Path.Combine(outputDirectory, hudFile);
+                WriteCrop(canonicalFrame, cropBounds, 72, hudPath);
+
+                var delta = -1L;
+                var proof = CapturePixelProof(
+                    canonicalFrame,
+                    stageNameLabel,
+                    stageEvidence.ScreenBounds,
+                    value => delta = value);
+                while (proof.MoveNext())
+                {
+                    yield return proof.Current;
+                }
+
+                if (delta <= PixelDeltaThreshold)
+                {
+                    throw new InvalidOperationException(
+                        $"Ward StageName pixel delta {delta} did not exceed {PixelDeltaThreshold}.");
+                }
+
+                stageEvidence.PixelDelta = delta;
+                onCaptured(new StageHudCapture(
+                    WardStageIdValue,
+                    scenario.Locale,
+                    hudFile,
+                    FileLength(hudPath),
+                    FileSha256(hudPath),
+                    stageEvidence));
             }
             finally
             {
@@ -600,10 +834,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
             }
 
-            if (visibleCharacters <= 0 || vertexCount <= 0 || fallbackCount != 0)
+            var expectedVisibleCharacters = expectedText.Count(character =>
+                !char.IsControl(character) && !char.IsWhiteSpace(character));
+            if (visibleCharacters != expectedVisibleCharacters ||
+                vertexCount != expectedVisibleCharacters * 4 ||
+                fallbackCount != 0)
             {
                 throw new InvalidOperationException(
-                    $"{name} mesh/fallback invalid: chars={visibleCharacters}, vertices={vertexCount}, fallback={fallbackCount}.");
+                    $"{name} mesh/fallback invalid: chars={visibleCharacters}/{expectedVisibleCharacters}, " +
+                    $"vertices={vertexCount}/{expectedVisibleCharacters * 4}, fallback={fallbackCount}.");
             }
 
             if (target.isTextOverflowing)
@@ -649,11 +888,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         private static void ValidateHudLayout(
+            HUDRootView hudView,
+            Rect stageName,
             RectTransform pauseButton,
             Rect pauseText,
             Rect chanceHeader,
             Rect chanceSlots)
         {
+            var authoredRoot = ReadPrivateField<GameObject>(hudView, "_root");
+            if (authoredRoot == null ||
+                !Contains(ScreenBounds(authoredRoot.GetComponent<RectTransform>()), stageName, 1f))
+            {
+                throw new InvalidOperationException(
+                    "Stage name escapes the production HUD bounds.");
+            }
+
             var buttonBounds = ScreenBounds(pauseButton);
             if (!Contains(buttonBounds, pauseText, 1f))
             {
@@ -984,6 +1233,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             int width,
             int height,
             IReadOnlyList<LocaleCapture> captures,
+            IReadOnlyList<StageHudCapture> wardCaptures,
             IReadOnlyCollection<string> errors)
         {
             var builder = new StringBuilder();
@@ -992,13 +1242,24 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Append(builder, "git_tree", expectedTree);
             Append(builder, "worktree_path", Path.GetFullPath(Path.Combine(Application.dataPath, "..")));
             Append(builder, "scene", ScenePath);
-            Append(builder, "stage_id", StageIdValue);
+            Append(builder, "stage_id", $"{LabStageIdValue},{WardStageIdValue}");
             Append(builder, "resolution", $"{width}x{height}");
-            Append(builder, "capture_count", (captures.Count * 2).ToString(CultureInfo.InvariantCulture));
-            Append(builder, "locale_runtime_count", captures.Count.ToString(CultureInfo.InvariantCulture));
+            Append(
+                builder,
+                "capture_count",
+                (captures.Count * 2 + wardCaptures.Count).ToString(CultureInfo.InvariantCulture));
+            Append(
+                builder,
+                "locale_runtime_count",
+                (captures.Count + wardCaptures.Count).ToString(CultureInfo.InvariantCulture));
             Append(builder, "pixel_delta_threshold", PixelDeltaThreshold.ToString(CultureInfo.InvariantCulture));
             Append(builder, "errors", errors.Count.ToString(CultureInfo.InvariantCulture));
-            Append(builder, "overall_result", errors.Count == 0 && captures.Count == 2 ? "PASS" : "FAIL");
+            Append(
+                builder,
+                "overall_result",
+                errors.Count == 0 && captures.Count == 2 && wardCaptures.Count == 2
+                    ? "PASS"
+                    : "FAIL");
             for (var index = 0; index < errors.Count; index++)
             {
                 Append(builder, $"error_{index:000}", Sanitize(errors.ElementAt(index)));
@@ -1049,6 +1310,43 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Append(builder, prefix + "fallback", target.FallbackCount.ToString(CultureInfo.InvariantCulture));
                     Append(builder, prefix + "pixel_delta", target.PixelDelta.ToString(CultureInfo.InvariantCulture));
                 }
+            }
+
+            foreach (var capture in wardCaptures.OrderBy(value => value.Locale, StringComparer.Ordinal))
+            {
+                builder.AppendLine();
+                builder.Append('[')
+                    .Append(capture.StageId)
+                    .Append('/')
+                    .Append(capture.Locale)
+                    .AppendLine("]");
+                Append(builder, "stage_id", capture.StageId);
+                Append(builder, "hud_file", capture.HudFile);
+                Append(builder, "hud_bytes", capture.HudBytes.ToString(CultureInfo.InvariantCulture));
+                Append(builder, "hud_sha256", capture.HudSha256);
+                Append(builder, "missing_glyph_count", "0");
+                Append(builder, "fallback_count", "0");
+                Append(builder, "layout", "PASS");
+                Append(builder, "mixed_locale", "0");
+                Append(builder, "stale_locale", "0");
+                Append(builder, "stage_identity", "PASS");
+
+                const string prefix = "target_stage_name_";
+                var target = capture.StageName;
+                Append(builder, prefix + "path", target.ObjectPath);
+                Append(builder, prefix + "text", target.Text);
+                Append(builder, prefix + "font", target.FontName);
+                Append(builder, prefix + "font_guid", target.FontGuid);
+                Append(builder, prefix + "font_local_id", target.FontLocalId.ToString(CultureInfo.InvariantCulture));
+                Append(builder, prefix + "material", target.MaterialName);
+                Append(builder, prefix + "material_guid", target.MaterialGuid);
+                Append(builder, prefix + "material_local_id", target.MaterialLocalId.ToString(CultureInfo.InvariantCulture));
+                Append(builder, prefix + "bounds", FormatRect(target.ScreenBounds));
+                Append(builder, prefix + "alpha", target.InheritedAlpha.ToString("R", CultureInfo.InvariantCulture));
+                Append(builder, prefix + "mesh_characters", target.VisibleCharacters.ToString(CultureInfo.InvariantCulture));
+                Append(builder, prefix + "mesh_vertices", target.VertexCount.ToString(CultureInfo.InvariantCulture));
+                Append(builder, prefix + "fallback", target.FallbackCount.ToString(CultureInfo.InvariantCulture));
+                Append(builder, prefix + "pixel_delta", target.PixelDelta.ToString(CultureInfo.InvariantCulture));
             }
 
             var manifestPath = Path.Combine(outputDirectory, ManifestFileName);
@@ -1396,6 +1694,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             public LocaleScenario(
                 string locale,
+                string stageName,
                 string pause,
                 string chance,
                 string movement,
@@ -1403,6 +1702,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 string flip)
             {
                 Locale = locale;
+                StageName = stageName;
                 Pause = pause;
                 Chance = chance;
                 Movement = movement;
@@ -1411,11 +1711,24 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             public string Locale { get; }
+            public string StageName { get; }
             public string Pause { get; }
             public string Chance { get; }
             public string Movement { get; }
             public string Push { get; }
             public string Flip { get; }
+        }
+
+        private sealed class StageHudScenario
+        {
+            public StageHudScenario(string locale, string stageName)
+            {
+                Locale = locale;
+                StageName = stageName;
+            }
+
+            public string Locale { get; }
+            public string StageName { get; }
         }
 
         private sealed class TargetEvidence
@@ -1531,6 +1844,32 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             public KeycapEvidence Keycaps { get; }
             public string GraphicIdentityHash { get; }
             public string SemanticFixtureHash { get; }
+        }
+
+        private sealed class StageHudCapture
+        {
+            public StageHudCapture(
+                string stageId,
+                string locale,
+                string hudFile,
+                long hudBytes,
+                string hudSha256,
+                TargetEvidence stageName)
+            {
+                StageId = stageId;
+                Locale = locale;
+                HudFile = hudFile;
+                HudBytes = hudBytes;
+                HudSha256 = hudSha256;
+                StageName = stageName;
+            }
+
+            public string StageId { get; }
+            public string Locale { get; }
+            public string HudFile { get; }
+            public long HudBytes { get; }
+            public string HudSha256 { get; }
+            public TargetEvidence StageName { get; }
         }
 
         private readonly struct PlayerPrefsBackup

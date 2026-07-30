@@ -217,6 +217,10 @@ namespace Game.Feature.UI.Composition.Editor
                 "M1BSaveSlots",
                 "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
             new(
+                "Main Menu Lobby Stage Save Slot",
+                "M3StageLobby",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
                 "Delete Slot Confirmation",
                 "M1BDeleteConfirmation",
                 "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
@@ -457,7 +461,10 @@ namespace Game.Feature.UI.Composition.Editor
                     return 4;
 
                 case "M1BSaveSlots":
-                    return 20;
+                    return 24;
+
+                case "M3StageLobby":
+                    return 16;
 
                 case "M1BDeleteConfirmation":
                 case "M1BRestartConfirmation":
@@ -951,7 +958,7 @@ namespace Game.Feature.UI.Composition.Editor
                 });
             }
 
-            if (string.Equals(target.FileStem, "M1BSaveSlots", StringComparison.Ordinal))
+            if (IsStageSaveSlotTarget(target.FileStem))
             {
                 var view = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true);
                 if (view == null)
@@ -962,29 +969,7 @@ namespace Game.Feature.UI.Composition.Editor
 
                 var sequenceDefinition = CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
                 var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
-                var slots = new[]
-                {
-                    SaveSlotData.CreateEmpty(1),
-                    new SaveSlotData
-                    {
-                        SlotNumber = 2,
-                        CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
-                        CurrentLevelGroupId = "level-2",
-                        RemainingChances = 2,
-                        TotalDeaths = 3,
-                        LastPlayedAt = "2026-07-29T12:34:00+09:00",
-                    },
-                    new SaveSlotData
-                    {
-                        SlotNumber = 3,
-                        CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
-                        CurrentLevelGroupId = "level-4",
-                        RemainingChances = 1,
-                        TotalDeaths = 5,
-                        LastPlayedAt = "2026-07-29T12:34:00+09:00",
-                        CampaignCompleted = true,
-                    },
-                };
+                var slots = CreateStageVisualSaveSlots(target.FileStem);
                 view.BindStaticLocalization(
                     MainMenuStaticTextPayload.Default,
                     resolver,
@@ -1002,6 +987,7 @@ namespace Game.Feature.UI.Composition.Editor
                                    !string.IsNullOrWhiteSpace(text.text))
                     .ToArray();
                 RecordM1bLocalizedTargets(target, capture, localizedTargets);
+                ValidateStageSaveSlotCopy(target, capture, localizedTargets);
                 return new DisposableAction(() =>
                 {
                     view.SaveSlotPanel.Bind(null);
@@ -1174,6 +1160,85 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
+        private static SaveSlotData[] CreateStageVisualSaveSlots(string fileStem)
+        {
+            if (string.Equals(fileStem, "M3StageLobby", StringComparison.Ordinal))
+            {
+                return new[]
+                {
+                    new SaveSlotData
+                    {
+                        SlotNumber = 1,
+                        CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                        CurrentLevelGroupId = "level-1",
+                        RemainingChances = 3,
+                        TotalDeaths = 1,
+                        LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                    },
+                    SaveSlotData.CreateEmpty(2),
+                    SaveSlotData.CreateEmpty(3),
+                };
+            }
+
+            return new[]
+            {
+                new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
+                    CurrentLevelGroupId = "level-0",
+                    RemainingChances = 3,
+                    TotalDeaths = 1,
+                    LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                },
+                new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                    TotalDeaths = 3,
+                    LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                },
+                new SaveSlotData
+                {
+                    SlotNumber = 3,
+                    CurrentStageId = StageId.CreateOrThrow("stage-4-1"),
+                    CurrentLevelGroupId = "level-4",
+                    RemainingChances = 1,
+                    TotalDeaths = 5,
+                    LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                    CampaignCompleted = true,
+                },
+            };
+        }
+
+        private static void ValidateStageSaveSlotCopy(
+            TypographyPreviewScreenshotTarget target,
+            TypographyPreviewScreenshotCaptureResult capture,
+            IReadOnlyList<TMP_Text> localizedTargets)
+        {
+            var expectedStageNames = string.Equals(target.FileStem, "M3StageLobby", StringComparison.Ordinal)
+                ? string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
+                    ? new[] { "로비-01" }
+                    : new[] { "Lobby-01" }
+                : string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
+                    ? new[] { "연구실-01", "병동[A]-01", "영안실-01" }
+                    : new[] { "Lab-01", "Ward[A]-01", "Morgue-01" };
+
+            foreach (var expectedStageName in expectedStageNames)
+            {
+                var matches = localizedTargets.Count(text =>
+                    string.Equals(text.text, expectedStageName, StringComparison.Ordinal));
+                if (matches != 1)
+                {
+                    capture.AddError(
+                        $"{target.Name} {capture.LocaleCode}: expected one production TMP with " +
+                        $"Stage name '{expectedStageName}', found {matches}.");
+                }
+            }
+        }
+
         private static bool TryGetM1bConfirmationKind(
             string fileStem,
             out MainMenuConfirmationKind kind)
@@ -1224,9 +1289,15 @@ namespace Game.Feature.UI.Composition.Editor
 
         private static bool IsM1bDiagnosticTarget(string fileStem)
         {
-            return string.Equals(fileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+            return IsStageSaveSlotTarget(fileStem) ||
                    TryGetM1bConfirmationKind(fileStem, out _) ||
                    TryGetM2aCampaignSaveStatus(fileStem, out _);
+        }
+
+        private static bool IsStageSaveSlotTarget(string fileStem)
+        {
+            return string.Equals(fileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+                   string.Equals(fileStem, "M3StageLobby", StringComparison.Ordinal);
         }
 
         private static bool TryGetM2bVisualState(
@@ -1369,7 +1440,7 @@ namespace Game.Feature.UI.Composition.Editor
                     m2bState);
                 ValidateM2bFrameAnchors(capture, enabledPixels, options);
             }
-            else if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+            else if (IsStageSaveSlotTarget(capture.Target.FileStem) ||
                 TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
             {
                 var panel = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true)?.SaveSlotPanel;

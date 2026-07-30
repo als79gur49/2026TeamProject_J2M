@@ -2012,6 +2012,145 @@ print(f"  captures: {len(targets) * len(locales)}")
 PY
 }
 
+write_and_verify_m3_stage_visual_manifest() {
+    local expected_head="$1"
+    local expected_tree
+    local manifest="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/m3-stage-capture.log"
+
+    expected_tree="$(git rev-parse HEAD^{tree})"
+    python3 - \
+        "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" \
+        "$manifest" \
+        "$expected_head" \
+        "$expected_tree" \
+        "$TYPOGRAPHY_VISUAL_WIDTH" \
+        "$TYPOGRAPHY_VISUAL_HEIGHT" <<'PY'
+import hashlib
+import re
+import struct
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1])
+manifest = Path(sys.argv[2])
+expected_head = sys.argv[3]
+expected_tree = sys.argv[4]
+expected_width = int(sys.argv[5])
+expected_height = int(sys.argv[6])
+scenarios = (
+    (
+        "M1BSaveSlots",
+        "en-US",
+        ("Lab-01", "Ward[A]-01", "Morgue-01"),
+        24,
+        "capture-en-US.log",
+    ),
+    (
+        "M1BSaveSlots",
+        "ko-KR",
+        ("연구실-01", "병동[A]-01", "영안실-01"),
+        24,
+        "capture-ko-KR-MainMenu.log",
+    ),
+    (
+        "M3StageLobby",
+        "en-US",
+        ("Lobby-01",),
+        16,
+        "capture-en-US.log",
+    ),
+    (
+        "M3StageLobby",
+        "ko-KR",
+        ("로비-01",),
+        16,
+        "capture-ko-KR-MainMenu.log",
+    ),
+)
+lines = [
+    "schema_version=1",
+    f"git_head={expected_head}",
+    f"git_tree={expected_tree}",
+    f"resolution={expected_width}x{expected_height}",
+    f"capture_count={len(scenarios)}",
+    "consumer=MainMenuScreenView/SaveSlotPanel/MainMenuSlotViewModelMapper",
+]
+
+for target, locale, expected_names, expected_proof_count, log_name in scenarios:
+    png = output_dir / "Diagnostics" / f"{target}_{locale}.png"
+    log = output_dir / log_name
+    if not png.is_file() or png.stat().st_size <= 0:
+        raise SystemExit(f"ERROR: missing Stage save-slot visual PNG: {png}")
+    if not log.is_file() or log.stat().st_size <= 0:
+        raise SystemExit(f"ERROR: missing Stage save-slot visual log: {log}")
+    data = png.read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"ERROR: invalid Stage save-slot PNG signature: {png}")
+    width, height = struct.unpack(">II", data[16:24])
+    if (width, height) != (expected_width, expected_height):
+        raise SystemExit(
+            f"ERROR: unexpected Stage save-slot PNG dimensions for {png}: {width}x{height}"
+        )
+    log_text = log.read_text(encoding="utf-8", errors="replace")
+    proofs = re.findall(
+        rf"TYPOGRAPHY_PIXEL_PROOF target={re.escape(target)} "
+        rf"locale={re.escape(locale)} renderer=(.*?) text=(.*?) "
+        r"pixel_delta=([1-9][0-9]*) "
+        r"raster_text_pixels=([1-9][0-9]*) result=PASS",
+        log_text,
+    )
+    if len(proofs) != expected_proof_count:
+        raise SystemExit(
+            f"ERROR: expected {expected_proof_count} Stage save-slot pixel proofs "
+            f"for {target}/{locale}, found {len(proofs)}"
+        )
+    stage_proofs = []
+    for expected_name in expected_names:
+        matches = [proof for proof in proofs if proof[1] == expected_name]
+        if len(matches) != 1:
+            raise SystemExit(
+                f"ERROR: expected one Stage name pixel proof for "
+                f"{target}/{locale}/{expected_name}, found {len(matches)}"
+            )
+        stage_proofs.append(matches[0])
+    lines.extend(
+        (
+            "",
+            f"[{target}/{locale}]",
+            f"png={png.relative_to(output_dir).as_posix()}",
+            f"png_sha256={hashlib.sha256(data).hexdigest()}",
+            f"png_byte_count={len(data)}",
+            f"expected_stage_names={','.join(expected_names)}",
+            f"stage_name_pixel_deltas={','.join(proof[2] for proof in stage_proofs)}",
+            f"stage_name_raster_pixels={','.join(proof[3] for proof in stage_proofs)}",
+            f"full_frame_pixel_proofs={len(proofs)}/{expected_proof_count}",
+            "font_glyph=PASS",
+            "screen_bounds=PASS",
+            "overflow=0",
+            "fallback=0",
+            "mixed_locale=0",
+            "stale_locale=0",
+            "capture_result=PASS",
+        )
+    )
+
+lines.extend(
+    (
+        "",
+        "[contract]",
+        "families=Lab,Lobby,Ward,Morgue",
+        "bracket_suffix=Ward[A]-01,병동[A]-01",
+        "hyphen_suffix=PASS",
+        "overall_result=PASS",
+    )
+)
+manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+print("M3 Stage visual manifest verification: PASS")
+print(f"  manifest: {manifest}")
+print(f"  captures: {len(scenarios)}")
+PY
+}
+
 extract_project_path_from_argv() {
     local previous_was_project_path=0
     local argument
@@ -3583,10 +3722,16 @@ run_typography_visual() {
         visual_guard_finish 1 || return $?
         return 0
     fi
+    if ! write_and_verify_m3_stage_visual_manifest "$expected_head"; then
+        echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
     echo "Typography visual evidence capture: PASS"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
     echo "  M2B manifest:     $TYPOGRAPHY_VISUAL_OUTPUT_DIR/m2b-capture.log"
+    echo "  M3 Stage manifest: $TYPOGRAPHY_VISUAL_OUTPUT_DIR/m3-stage-capture.log"
     echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Nanum hash/diff: preserved"
@@ -4244,7 +4389,7 @@ run_m1a_hud_guide_visual() {
         echo "  output directory: $output_dir"
         echo "  resolution: ${M1A_HUD_GUIDE_VISUAL_WIDTH}x${M1A_HUD_GUIDE_VISUAL_HEIGHT}"
         echo "  revision gate: tracked repository files and Unity inputs must match Git HEAD"
-        echo "  canonical captures: HUD en-US/ko-KR and World Guide en-US/ko-KR"
+        echo "  canonical captures: Lab HUD/World Guide en-US/ko-KR and Ward[A] HUD en-US/ko-KR"
         print_shell_command "${unity_command[@]}"
         return 0
     fi
@@ -4390,11 +4535,11 @@ if recorded_worktree != expected_worktree:
     raise SystemExit("ERROR: M1A manifest worktree mismatch")
 if root.get("scene") != "Assets/Scenes/UIAudioScene.unity":
     raise SystemExit("ERROR: M1A manifest scene mismatch")
-if root.get("stage_id") != "stage-0-1":
+if root.get("stage_id") != "stage-0-1,stage-2-1":
     raise SystemExit("ERROR: M1A manifest stage mismatch")
 if not re.fullmatch(r"[1-9][0-9]*x[1-9][0-9]*", root.get("resolution", "")):
     raise SystemExit("ERROR: M1A manifest resolution is invalid")
-if root.get("capture_count") != "4" or root.get("locale_runtime_count") != "2":
+if root.get("capture_count") != "6" or root.get("locale_runtime_count") != "4":
     raise SystemExit("ERROR: M1A manifest capture/runtime count mismatch")
 if root.get("errors") != "0" or root.get("overall_result") != "PASS":
     raise SystemExit("ERROR: M1A manifest did not record a clean PASS")
@@ -4407,6 +4552,7 @@ if pixel_threshold < 1:
 
 expected_text = {
     "en-US": {
+        "stagename": "Lab-01",
         "pause": "Pause",
         "chance": "CHANCES",
         "movement": "Move",
@@ -4414,6 +4560,7 @@ expected_text = {
         "flip": "Flip",
     },
     "ko-KR": {
+        "stagename": "연구실-01",
         "pause": "일시 정지",
         "chance": "기회",
         "movement": "이동",
@@ -4421,7 +4568,13 @@ expected_text = {
         "flip": "뒤집기",
     },
 }
-if set(sections) != {"en-US", "ko-KR", "runner-safety"}:
+if set(sections) != {
+    "en-US",
+    "ko-KR",
+    "stage-2-1/en-US",
+    "stage-2-1/ko-KR",
+    "runner-safety",
+}:
     raise SystemExit("ERROR: M1A manifest locale/safety section set mismatch")
 
 hex32 = re.compile(r"[0-9a-f]{32}")
@@ -4491,6 +4644,59 @@ for field in ("movement_keycap", "push_keycap", "flip_keycap"):
 for field in ("semantic_fixture_hash", "non_text_graphic_hash"):
     if english.get(field) != korean.get(field):
         raise SystemExit(f"ERROR: cross-locale {field} mismatch")
+
+ward_expected = {
+    "stage-2-1/en-US": "Ward[A]-01",
+    "stage-2-1/ko-KR": "병동[A]-01",
+}
+for section, expected_stage_name in ward_expected.items():
+    entry = sections[section]
+    if entry.get("stage_id") != "stage-2-1":
+        raise SystemExit(f"ERROR: {section} Stage identity mismatch")
+    for field in (
+        "missing_glyph_count",
+        "fallback_count",
+        "mixed_locale",
+        "stale_locale",
+    ):
+        if entry.get(field) != "0":
+            raise SystemExit(f"ERROR: {section} {field} is nonzero")
+    if entry.get("layout") != "PASS" or entry.get("stage_identity") != "PASS":
+        raise SystemExit(f"ERROR: {section} layout/identity failed")
+    png = output_dir / entry.get("hud_file", "")
+    if not png.is_file():
+        raise SystemExit(f"ERROR: {section} HUD PNG is missing")
+    data = png.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"ERROR: {section} HUD is not a PNG")
+    if int(entry.get("hud_bytes", "0")) != len(data):
+        raise SystemExit(f"ERROR: {section} HUD byte count mismatch")
+    if hashlib.sha256(data).hexdigest() != entry.get("hud_sha256"):
+        raise SystemExit(f"ERROR: {section} HUD SHA-256 mismatch")
+    prefix = "target_stage_name_"
+    if entry.get(prefix + "text") != expected_stage_name:
+        raise SystemExit(f"ERROR: {section} Stage name text mismatch")
+    if not entry.get(prefix + "path"):
+        raise SystemExit(f"ERROR: {section} Stage name TMP path is blank")
+    if not hex32.fullmatch(entry.get(prefix + "font_guid", "")):
+        raise SystemExit(f"ERROR: {section} Stage name font GUID is invalid")
+    if not hex32.fullmatch(entry.get(prefix + "material_guid", "")):
+        raise SystemExit(f"ERROR: {section} Stage name material GUID is invalid")
+    try:
+        bounds = [float(value) for value in entry[prefix + "bounds"].split(",")]
+        alpha = float(entry[prefix + "alpha"])
+        mesh_characters = int(entry[prefix + "mesh_characters"])
+        mesh_vertices = int(entry[prefix + "mesh_vertices"])
+        fallback = int(entry[prefix + "fallback"])
+        pixel_delta = int(entry[prefix + "pixel_delta"])
+    except (KeyError, ValueError):
+        raise SystemExit(f"ERROR: {section} Stage name evidence is invalid")
+    if len(bounds) != 4 or bounds[2] <= 0 or bounds[3] <= 0:
+        raise SystemExit(f"ERROR: {section} Stage name bounds are invalid")
+    if alpha <= 0 or mesh_characters <= 0 or mesh_vertices <= 0:
+        raise SystemExit(f"ERROR: {section} Stage name raster identity is empty")
+    if fallback != 0 or pixel_delta <= pixel_threshold:
+        raise SystemExit(f"ERROR: {section} Stage name fallback/pixel proof failed")
 
 safety = sections["runner-safety"]
 for field in (
