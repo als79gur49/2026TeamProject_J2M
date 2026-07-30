@@ -10,6 +10,12 @@ using ConfirmPopupPresenter = Game.Feature.UI.Application.ConfirmPopupPresenter;
 using MainMenuConfirmationKind = Game.Feature.UI.Application.MainMenuConfirmationKind;
 using MainMenuLocalization = Game.Feature.UI.Application.MainMenuLocalization;
 using MainMenuSlotViewModelMapper = Game.Feature.UI.Application.MainMenuSlotViewModelMapper;
+using IKeyboardBindingSettingsPort = Game.Feature.UI.Application.IKeyboardBindingSettingsPort;
+using KeyboardBindingSettingsSnapshot = Game.Feature.UI.Application.KeyboardBindingSettingsSnapshot;
+using KeyboardRebindResult = Game.Feature.UI.Application.KeyboardRebindResult;
+using KeyboardRebindStartResult = Game.Feature.UI.Application.KeyboardRebindStartResult;
+using SettingsInputPresenter = Game.Feature.UI.Application.SettingsInputPresenter;
+using SettingsInputPresenterInput = Game.Feature.UI.Application.SettingsInputPresenterInput;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -248,6 +254,34 @@ namespace Game.Feature.UI.Composition.Editor
                 "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
         };
 
+        public static readonly TypographyPreviewScreenshotTarget[] M2bDiagnosticTargets =
+        {
+            new(
+                "Settings Reserved Key",
+                "M2BReserved",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Action Conflict Flip",
+                "M2BActionConflictFlip",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Action Conflict Push",
+                "M2BActionConflictPush",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Movement Conflict",
+                "M2BMovementConflict",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Already Rebinding",
+                "M2BAlreadyRebinding",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Rebinding Prompt",
+                "M2BRebindingPrompt",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+        };
+
         public static readonly string[] DirtyGuardAssetPaths =
         {
             NanumGothicFontAssetPath,
@@ -436,6 +470,14 @@ namespace Game.Feature.UI.Composition.Editor
                 case "M2ALoadFailed":
                 case "M2ANeedsRepair":
                     return 9;
+
+                case "M2BReserved":
+                case "M2BActionConflictFlip":
+                case "M2BActionConflictPush":
+                case "M2BMovementConflict":
+                case "M2BAlreadyRebinding":
+                case "M2BRebindingPrompt":
+                    return 23;
 
                 default:
                     return 0;
@@ -800,7 +842,8 @@ namespace Game.Feature.UI.Composition.Editor
             IDisposable scope = resolver;
             if (string.Equals(target.FileStem, "Settings", StringComparison.Ordinal) ||
                 string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal) ||
-                string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
+                string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal) ||
+                TryGetM2bVisualState(target.FileStem, out _))
             {
                 var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
                 if (view == null)
@@ -829,7 +872,8 @@ namespace Game.Feature.UI.Composition.Editor
                     target,
                     resolver,
                     capture,
-                    GetSettingsDescriptors(SettingsScreenPayload.Default),
+                    GetSettingsDescriptors(SettingsScreenPayload.Default)
+                        .Concat(GetM2bStatusDescriptors(target.FileStem)),
                     prefabRoot);
                 return new DisposableAction(() =>
                 {
@@ -1184,6 +1228,71 @@ namespace Game.Feature.UI.Composition.Editor
                    TryGetM2aCampaignSaveStatus(fileStem, out _);
         }
 
+        private static bool TryGetM2bVisualState(
+            string fileStem,
+            out M2bRebindVisualState state)
+        {
+            switch (fileStem)
+            {
+                case "M2BReserved":
+                    state = M2bRebindVisualState.Reserved;
+                    return true;
+                case "M2BActionConflictFlip":
+                    state = M2bRebindVisualState.ActionConflictFlip;
+                    return true;
+                case "M2BActionConflictPush":
+                    state = M2bRebindVisualState.ActionConflictPush;
+                    return true;
+                case "M2BMovementConflict":
+                    state = M2bRebindVisualState.MovementConflict;
+                    return true;
+                case "M2BAlreadyRebinding":
+                    state = M2bRebindVisualState.AlreadyRebinding;
+                    return true;
+                case "M2BRebindingPrompt":
+                    state = M2bRebindVisualState.RebindingPrompt;
+                    return true;
+                default:
+                    state = default;
+                    return false;
+            }
+        }
+
+        private static IEnumerable<LocalizedTextDescriptor> GetM2bStatusDescriptors(
+            string fileStem)
+        {
+            if (!TryGetM2bVisualState(fileStem, out var state))
+            {
+                return Array.Empty<LocalizedTextDescriptor>();
+            }
+
+            return new[] { GetM2bStatusDescriptor(state) };
+        }
+
+        private static LocalizedTextDescriptor GetM2bStatusDescriptor(M2bRebindVisualState state)
+        {
+            switch (state)
+            {
+                case M2bRebindVisualState.Reserved:
+                    return SettingsDynamicTextDescriptors.InputReservedKey();
+                case M2bRebindVisualState.ActionConflictFlip:
+                    return SettingsDynamicTextDescriptors.InputActionConflict(
+                        SettingsStaticTextDescriptors.Flip);
+                case M2bRebindVisualState.ActionConflictPush:
+                    return SettingsDynamicTextDescriptors.InputActionConflict(
+                        SettingsStaticTextDescriptors.Push);
+                case M2bRebindVisualState.MovementConflict:
+                    return SettingsDynamicTextDescriptors.InputMovementConflict();
+                case M2bRebindVisualState.AlreadyRebinding:
+                    return SettingsDynamicTextDescriptors.InputAlreadyRebinding();
+                case M2bRebindVisualState.RebindingPrompt:
+                    return SettingsDynamicTextDescriptors.InputRebindPrompt(
+                        KeyboardBindableAction.Push);
+                default:
+                    return SettingsDynamicTextDescriptors.InputUnsupportedKey();
+            }
+        }
+
         private static void ValidateM1bRenderedTargets(
             GameObject prefabRoot,
             TypographyPreviewScreenshotCaptureResult capture,
@@ -1192,13 +1301,36 @@ namespace Game.Feature.UI.Composition.Editor
             TypographyPreviewScreenshotOptions options,
             IReadOnlyList<Color32> enabledPixels)
         {
-            if (!IsM1bDiagnosticTarget(capture.Target.FileStem))
+            var isM2bTarget = TryGetM2bVisualState(
+                capture.Target.FileStem,
+                out var m2bState);
+            if (!IsM1bDiagnosticTarget(capture.Target.FileStem) && !isM2bTarget)
             {
                 return;
             }
 
             TMP_Text[] targets;
-            if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+            if (isM2bTarget)
+            {
+                var expectedStatus = GetM2bStatusDescriptor(m2bState);
+                var inputView = prefabRoot.GetComponentInChildren<SettingsInputView>(true);
+                var expectedText = capture.LocalizedTexts.LastOrDefault();
+                targets = prefabRoot
+                    .GetComponentsInChildren<TMP_Text>(true)
+                    .Where(text =>
+                        text != null &&
+                        text.gameObject.activeInHierarchy &&
+                        string.Equals(text.text, expectedText, StringComparison.Ordinal))
+                    .ToArray();
+                ValidateM2bRenderedState(
+                    prefabRoot,
+                    capture,
+                    inputView,
+                    expectedStatus,
+                    expectedText,
+                    m2bState);
+            }
+            else if (string.Equals(capture.Target.FileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
                 TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
             {
                 var panel = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true)?.SaveSlotPanel;
@@ -1222,7 +1354,9 @@ namespace Game.Feature.UI.Composition.Editor
                     ?? Array.Empty<TMP_Text>();
             }
 
-            var expectedCount = GetExpectedLocalizedTextCount(capture.Target.FileStem);
+            var expectedCount = isM2bTarget
+                ? 1
+                : GetExpectedLocalizedTextCount(capture.Target.FileStem);
             if (targets.Length != expectedCount)
             {
                 capture.AddError(
@@ -1348,7 +1482,7 @@ namespace Game.Feature.UI.Composition.Editor
                 }
 
                 Debug.Log(
-                    "M1B_PIXEL_PROOF " +
+                    "TYPOGRAPHY_PIXEL_PROOF " +
                     $"target={capture.Target.FileStem} " +
                     $"locale={capture.LocaleCode} " +
                     $"renderer={BuildHierarchyPath(target.transform)} " +
@@ -1362,6 +1496,73 @@ namespace Game.Feature.UI.Composition.Editor
                 capture.AddError(
                     $"{capture.Target.Name} {capture.LocaleCode}: pixel proofs passed " +
                     $"{capture.M1bPixelProofPassCount}/{capture.M1bPixelProofCount}.");
+            }
+        }
+
+        private static void ValidateM2bRenderedState(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotCaptureResult capture,
+            SettingsInputView inputView,
+            LocalizedTextDescriptor expectedStatus,
+            string expectedText,
+            M2bRebindVisualState state)
+        {
+            if (inputView == null)
+            {
+                capture.AddError($"{capture.Target.Name}: SettingsInputView was not found.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(expectedText) ||
+                !string.Equals(inputView.StatusText, expectedText, StringComparison.Ordinal))
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: production status target does not contain " +
+                    $"the resolved {expectedStatus.Table}:{expectedStatus.Key} copy.");
+            }
+
+            var expectsActiveRebind =
+                state == M2bRebindVisualState.AlreadyRebinding ||
+                state == M2bRebindVisualState.RebindingPrompt;
+            if (inputView.IsRebindingActive != expectsActiveRebind)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: active rebind state was " +
+                    $"{inputView.IsRebindingActive}, expected {expectsActiveRebind}.");
+            }
+
+            var activeTexts = prefabRoot
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Where(text => text != null && text.gameObject.activeInHierarchy)
+                .ToArray();
+            if (!activeTexts.Any(text => string.Equals(text.text, "E", StringComparison.Ordinal)) ||
+                !activeTexts.Any(text => string.Equals(text.text, "Q", StringComparison.Ordinal)))
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: invariant E/Q keycaps were not rendered.");
+            }
+
+            var forbiddenFragments = new[]
+            {
+                "KeyboardBindableAction",
+                "DuplicateAction",
+                "ReservedKey",
+                "MovementConflict",
+                "AlreadyRebinding",
+                "InvalidKey",
+                "MissingBinding",
+                "Exception:",
+                "[UI:",
+            };
+            foreach (var text in activeTexts)
+            {
+                if (forbiddenFragments.Any(fragment =>
+                        text.text.Contains(fragment, StringComparison.Ordinal)))
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: internal identifier or diagnostic " +
+                        $"reached '{BuildHierarchyPath(text.transform)}'.");
+                }
             }
         }
 
@@ -1478,6 +1679,26 @@ namespace Game.Feature.UI.Composition.Editor
                     selectedResolutionWidth: 1920,
                     selectedResolutionHeight: 1080);
                 view.DisplayView.Bind(displayViewModel);
+                return;
+            }
+
+            if (TryGetM2bVisualState(target.FileStem, out var m2bState))
+            {
+                var port = new M2bKeyboardBindingSettingsPort(m2bState);
+                var presenter = new SettingsInputPresenter(port, resolver);
+                presenter.Apply(new SettingsInputPresenterInput(
+                    SettingsStaticTextDescriptors.MovementKeys,
+                    SettingsStaticTextDescriptors.UseArrowKeys,
+                    SettingsStaticTextDescriptors.Push,
+                    SettingsStaticTextDescriptors.Flip,
+                    SettingsStaticTextDescriptors.Change,
+                    SettingsStaticTextDescriptors.ResetInput));
+                var requestedAction = m2bState == M2bRebindVisualState.ActionConflictPush
+                    ? KeyboardBindableAction.Flip
+                    : KeyboardBindableAction.Push;
+                presenter.StartRebind(requestedAction);
+                port.CompleteConflictIfNeeded(requestedAction);
+                view.InputView.Bind(presenter.ViewModel);
                 return;
             }
 
@@ -2064,7 +2285,7 @@ namespace Game.Feature.UI.Composition.Editor
             {
             }
 
-            private static bool TryResolve(Locale locale, LocalizedTextDescriptor descriptor, out string value)
+            private bool TryResolve(Locale locale, LocalizedTextDescriptor descriptor, out string value)
             {
                 value = null;
                 var table = LocalizationSettings.StringDatabase.GetTable(descriptor.Table, locale);
@@ -2078,7 +2299,7 @@ namespace Game.Feature.UI.Composition.Editor
                 return !string.IsNullOrEmpty(value);
             }
 
-            private static string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
+            private string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
             {
                 if (descriptor.Arguments.Count == 0)
                 {
@@ -2088,10 +2309,129 @@ namespace Game.Feature.UI.Composition.Editor
                 var arguments = new object[descriptor.Arguments.Count];
                 for (var i = 0; i < descriptor.Arguments.Count; i++)
                 {
-                    arguments[i] = descriptor.Arguments[i];
+                    arguments[i] = descriptor.Arguments[i] is LocalizedTextDescriptor nestedDescriptor
+                        ? Resolve(nestedDescriptor)
+                        : descriptor.Arguments[i];
                 }
 
                 return entry.GetLocalizedString(arguments);
+            }
+        }
+
+        private enum M2bRebindVisualState
+        {
+            Reserved = 0,
+            ActionConflictFlip = 1,
+            ActionConflictPush = 2,
+            MovementConflict = 3,
+            AlreadyRebinding = 4,
+            RebindingPrompt = 5,
+        }
+
+        private sealed class M2bKeyboardBindingSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private readonly M2bRebindVisualState state;
+            private Action<KeyboardRebindResult> completed;
+            private KeyboardBindingSettingsSnapshot snapshot;
+
+            public M2bKeyboardBindingSettingsPort(M2bRebindVisualState state)
+            {
+                this.state = state;
+                snapshot = CreateSnapshot(
+                    isRebinding: state == M2bRebindVisualState.AlreadyRebinding,
+                    rebindingAction: state == M2bRebindVisualState.AlreadyRebinding
+                        ? KeyboardBindableAction.Flip
+                        : null);
+            }
+
+            public bool IsRebinding => snapshot.IsRebinding;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return snapshot;
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(
+                KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                this.completed = completed;
+                switch (state)
+                {
+                    case M2bRebindVisualState.Reserved:
+                        return Reject(KeyboardBindingValidationResult.ReservedKey);
+                    case M2bRebindVisualState.MovementConflict:
+                        return Reject(KeyboardBindingValidationResult.MovementConflict);
+                    case M2bRebindVisualState.AlreadyRebinding:
+                        return Reject(KeyboardBindingValidationResult.AlreadyRebinding);
+                    default:
+                        snapshot = CreateSnapshot(isRebinding: true, rebindingAction: action);
+                        return new KeyboardRebindStartResult(
+                            true,
+                            KeyboardBindingValidationResult.Success,
+                            snapshot);
+                }
+            }
+
+            public void CompleteConflictIfNeeded(KeyboardBindableAction requestedAction)
+            {
+                KeyboardBindableAction? conflictingAction = null;
+                if (state == M2bRebindVisualState.ActionConflictFlip)
+                {
+                    conflictingAction = KeyboardBindableAction.Flip;
+                }
+                else if (state == M2bRebindVisualState.ActionConflictPush)
+                {
+                    conflictingAction = KeyboardBindableAction.Push;
+                }
+
+                if (!conflictingAction.HasValue)
+                {
+                    return;
+                }
+
+                snapshot = CreateSnapshot(isRebinding: false, rebindingAction: null);
+                completed?.Invoke(new KeyboardRebindResult(
+                    requestedAction,
+                    KeyboardBindingValidationResult.DuplicateAction,
+                    snapshot,
+                    conflictingAction));
+            }
+
+            public void CancelRebind()
+            {
+                snapshot = CreateSnapshot(isRebinding: false, rebindingAction: null);
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                snapshot = CreateSnapshot(isRebinding: false, rebindingAction: null);
+                return snapshot;
+            }
+
+            private KeyboardRebindStartResult Reject(
+                KeyboardBindingValidationResult validationResult)
+            {
+                return new KeyboardRebindStartResult(false, validationResult, snapshot);
+            }
+
+            private static KeyboardBindingSettingsSnapshot CreateSnapshot(
+                bool isRebinding,
+                KeyboardBindableAction? rebindingAction)
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    isRebinding,
+                    rebindingAction);
             }
         }
 

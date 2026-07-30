@@ -88,7 +88,8 @@ namespace Game.Feature.UI.Composition.Editor
             {
                 var saveSlotDiagnosticResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
                     TypographyPreviewScreenshotUtility.M1bDiagnosticTargets
-                        .Concat(TypographyPreviewScreenshotUtility.M2aDiagnosticTargets),
+                        .Concat(TypographyPreviewScreenshotUtility.M2aDiagnosticTargets)
+                        .Concat(TypographyPreviewScreenshotUtility.M2bDiagnosticTargets),
                     new[] { localeCode },
                     System.IO.Path.Combine(outputDirectory, "Diagnostics"),
                     options);
