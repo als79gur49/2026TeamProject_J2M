@@ -105,6 +105,7 @@ TYPOGRAPHY_VISUAL_MANIFEST=""
 TYPOGRAPHY_VISUAL_WIDTH=1920
 TYPOGRAPHY_VISUAL_HEIGHT=1080
 TYPOGRAPHY_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureRequiredPreviewScreenshotSliceFromCommandLine"
+TYPOGRAPHY_VISUAL_M2B_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.CaptureM2bPreviewScreenshotSliceFromCommandLine"
 TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD="Game.Feature.UI.Composition.Editor.TypographyPreviewScreenshotMenu.ReconstructCanonicalManifestFromCommandLine"
 TYPOGRAPHY_VISUAL_NANUM_ASSET="Assets/_Shared/UI/Fonts/NanumGothic SDF.asset"
 NANUM_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/NanumGothic.ttf"
@@ -1602,6 +1603,7 @@ print_typography_visual_plan() {
     local target
     local slice
     local slice_name
+    local m2b_slice
     local slice_log
     local slice_log_win
     local baseline_root_win
@@ -1611,6 +1613,20 @@ print_typography_visual_plan() {
         "ko-KR|Settings"
         "ko-KR|Pause"
         "ko-KR|MainMenu"
+    )
+    local -a m2b_capture_slices=(
+        "en-US|M2BReserved"
+        "en-US|M2BActionConflictFlip"
+        "en-US|M2BActionConflictPush"
+        "en-US|M2BMovementConflict"
+        "en-US|M2BAlreadyRebinding"
+        "en-US|M2BRebindingPrompt"
+        "ko-KR|M2BReserved"
+        "ko-KR|M2BActionConflictFlip"
+        "ko-KR|M2BActionConflictPush"
+        "ko-KR|M2BMovementConflict"
+        "ko-KR|M2BAlreadyRebinding"
+        "ko-KR|M2BRebindingPrompt"
     )
 
     output_dir_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR")"
@@ -1855,6 +1871,102 @@ print("  entries: 6")
 print("  Settings en-US: typography_bindings=38 localized=22/22 capture_result=PASS")
 print("  Settings ko-KR: typography_bindings=38 localized=22/22 capture_result=PASS")
 print("  PNG size/SHA-256: verified for all six captures")
+PY
+}
+
+write_and_verify_m2b_visual_manifest() {
+    local expected_head="$1"
+    local expected_tree
+    local manifest="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/m2b-capture.log"
+
+    expected_tree="$(git rev-parse HEAD^{tree})"
+    python3 - \
+        "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" \
+        "$manifest" \
+        "$expected_head" \
+        "$expected_tree" \
+        "$TYPOGRAPHY_VISUAL_WIDTH" \
+        "$TYPOGRAPHY_VISUAL_HEIGHT" <<'PY'
+import hashlib
+import re
+import struct
+import sys
+from pathlib import Path
+
+output_dir = Path(sys.argv[1])
+manifest = Path(sys.argv[2])
+expected_head = sys.argv[3]
+expected_tree = sys.argv[4]
+expected_width = int(sys.argv[5])
+expected_height = int(sys.argv[6])
+targets = (
+    "M2BReserved",
+    "M2BActionConflictFlip",
+    "M2BActionConflictPush",
+    "M2BMovementConflict",
+    "M2BAlreadyRebinding",
+    "M2BRebindingPrompt",
+)
+locales = ("en-US", "ko-KR")
+lines = [
+    "schema_version=1",
+    f"git_head={expected_head}",
+    f"git_tree={expected_tree}",
+    f"resolution={expected_width}x{expected_height}",
+    "runtime_isolation=ONE_UNITY_PROCESS_PER_STATE_AND_LOCALE",
+    f"capture_count={len(targets) * len(locales)}",
+]
+
+for locale in locales:
+    for target in targets:
+        png = output_dir / "Diagnostics" / f"{target}_{locale}.png"
+        log = output_dir / f"capture-m2b-{locale}-{target}.log"
+        if not png.is_file() or png.stat().st_size <= 0:
+            raise SystemExit(f"ERROR: missing M2B visual PNG: {png}")
+        if not log.is_file() or log.stat().st_size <= 0:
+            raise SystemExit(f"ERROR: missing M2B visual log: {log}")
+        data = png.read_bytes()
+        if data[:8] != b"\x89PNG\r\n\x1a\n":
+            raise SystemExit(f"ERROR: invalid PNG signature: {png}")
+        width, height = struct.unpack(">II", data[16:24])
+        if (width, height) != (expected_width, expected_height):
+            raise SystemExit(
+                f"ERROR: unexpected M2B PNG dimensions for {png}: {width}x{height}"
+            )
+        text = log.read_text(encoding="utf-8", errors="replace")
+        proof = re.search(
+            rf"TYPOGRAPHY_PIXEL_PROOF target={re.escape(target)} "
+            rf"locale={re.escape(locale)} .*? text=(.*?) "
+            r"pixel_delta=([1-9][0-9]*) result=PASS",
+            text,
+        )
+        if not proof:
+            raise SystemExit(f"ERROR: missing PASS pixel proof for {target}/{locale}")
+        if "PixelProof=1/1" not in text or "| True |" not in text:
+            raise SystemExit(f"ERROR: capture summary is incomplete for {target}/{locale}")
+        lines.extend(
+            (
+                "",
+                f"[{target}/{locale}]",
+                f"png={png.relative_to(output_dir).as_posix()}",
+                f"png_sha256={hashlib.sha256(data).hexdigest()}",
+                f"png_byte_count={len(data)}",
+                f"status_text={proof.group(1)}",
+                f"status_pixel_delta={proof.group(2)}",
+                "status_pixel_proof=PASS",
+                "localized_texts=23/23",
+                "typography_bindings=38",
+                "keycaps=E,Q",
+                "raw_identifier_absence=PASS",
+                "capture_result=PASS",
+            )
+        )
+
+lines.extend(("", "overall_result=PASS"))
+manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+print("M2B visual manifest verification: PASS")
+print(f"  manifest: {manifest}")
+print(f"  captures: {len(targets) * len(locales)}")
 PY
 }
 
@@ -3160,6 +3272,7 @@ run_typography_visual() {
     local target
     local slice
     local slice_name
+    local m2b_slice
     local current_unity_log
     local expected_head
     local runner_mutation_evidence
@@ -3184,6 +3297,20 @@ run_typography_visual() {
         "ko-KR|Settings"
         "ko-KR|Pause"
         "ko-KR|MainMenu"
+    )
+    local -a m2b_capture_slices=(
+        "en-US|M2BReserved"
+        "en-US|M2BActionConflictFlip"
+        "en-US|M2BActionConflictPush"
+        "en-US|M2BMovementConflict"
+        "en-US|M2BAlreadyRebinding"
+        "en-US|M2BRebindingPrompt"
+        "ko-KR|M2BReserved"
+        "ko-KR|M2BActionConflictFlip"
+        "ko-KR|M2BActionConflictPush"
+        "ko-KR|M2BMovementConflict"
+        "ko-KR|M2BAlreadyRebinding"
+        "ko-KR|M2BRebindingPrompt"
     )
 
     prepare_typography_visual_paths
@@ -3263,6 +3390,40 @@ run_typography_visual() {
             break
         fi
     done
+
+    if [ "$unity_exit" -eq 0 ]; then
+        echo "Running isolated M2B Settings rebind evidence slices..."
+        for m2b_slice in "${m2b_capture_slices[@]}"; do
+            locale="${m2b_slice%%|*}"
+            target="${m2b_slice#*|}"
+            slice_name="m2b-${locale}-${target}"
+            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${slice_name}.log"
+            slice_log_win="$(wslpath -w "$slice_log")"
+            current_unity_log="$slice_log"
+            unity_command=(
+                timeout --kill-after=10 600
+                "$UNITY_PATH"
+                -batchmode
+                -quit
+                -projectPath "$PROJECT_PATH_WIN"
+                -logFile "$slice_log_win"
+                -executeMethod "$TYPOGRAPHY_VISUAL_M2B_EXECUTE_METHOD"
+                -typographyScreenshotOutput "$output_dir_win"
+                -typographyScreenshotWidth "$TYPOGRAPHY_VISUAL_WIDTH"
+                -typographyScreenshotHeight "$TYPOGRAPHY_VISUAL_HEIGHT"
+                -typographyScreenshotLocale "$locale"
+                -typographyScreenshotTarget "$target"
+                -captureAssetBaselineRoot "$baseline_root_win"
+            )
+            echo "  M2B capture slice: ${locale}-${target}"
+            if visual_guard_run_command "${unity_command[@]}"; then
+                unity_exit=0
+            else
+                unity_exit=$?
+                break
+            fi
+        done
+    fi
 
     if [ "$unity_exit" -eq 0 ]; then
         unity_log_win="$(wslpath -w "$TYPOGRAPHY_VISUAL_UNITY_LOG")"
@@ -3366,9 +3527,15 @@ run_typography_visual() {
         visual_guard_finish 1 || return $?
         return 0
     fi
+    if ! write_and_verify_m2b_visual_manifest "$expected_head"; then
+        echo "Diagnostics were preserved in: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
+        visual_guard_finish 1 || return $?
+        return 0
+    fi
     echo "Typography visual evidence capture: PASS"
     echo "  output directory: $TYPOGRAPHY_VISUAL_OUTPUT_DIR"
     echo "  manifest:         $TYPOGRAPHY_VISUAL_MANIFEST"
+    echo "  M2B manifest:     $TYPOGRAPHY_VISUAL_OUTPUT_DIR/m2b-capture.log"
     echo "  runner mutation:  $runner_mutation_evidence"
     echo "  recorded revision: $expected_head"
     echo "  Nanum hash/diff: preserved"

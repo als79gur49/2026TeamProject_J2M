@@ -75,6 +75,37 @@ namespace Game.Feature.UI.Composition.Editor
             result.ThrowIfFailed();
         }
 
+        public static void CaptureM2bPreviewScreenshotSliceFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
+            var targetName = ReadArg(args, "-typographyScreenshotTarget");
+            var localeCode = ReadArg(args, "-typographyScreenshotLocale");
+            var target = TypographyPreviewScreenshotUtility.M2bDiagnosticTargets.SingleOrDefault(
+                candidate => string.Equals(candidate.FileStem, targetName, StringComparison.Ordinal));
+            if (string.IsNullOrWhiteSpace(target.FileStem))
+            {
+                throw new InvalidOperationException(
+                    $"-typographyScreenshotTarget must be one of: " +
+                    $"{string.Join(", ", TypographyPreviewScreenshotUtility.M2bDiagnosticTargets.Select(candidate => candidate.FileStem))}.");
+            }
+
+            if (!TypographyThemeValidator.RequiredLocaleCodes.Contains(localeCode, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"-typographyScreenshotLocale must be one of: " +
+                    $"{string.Join(", ", TypographyThemeValidator.RequiredLocaleCodes)}.");
+            }
+
+            var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                new[] { target },
+                new[] { localeCode },
+                System.IO.Path.Combine(outputDirectory, "Diagnostics"),
+                ReadOptions(args));
+            LogResult(result);
+            result.ThrowIfFailed();
+        }
+
         private static void CaptureClimateDiagnosticsForSlice(
             string targetName,
             string localeCode,
@@ -88,8 +119,7 @@ namespace Game.Feature.UI.Composition.Editor
             {
                 var saveSlotDiagnosticResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
                     TypographyPreviewScreenshotUtility.M1bDiagnosticTargets
-                        .Concat(TypographyPreviewScreenshotUtility.M2aDiagnosticTargets)
-                        .Concat(TypographyPreviewScreenshotUtility.M2bDiagnosticTargets),
+                        .Concat(TypographyPreviewScreenshotUtility.M2aDiagnosticTargets),
                     new[] { localeCode },
                     System.IO.Path.Combine(outputDirectory, "Diagnostics"),
                     options);
