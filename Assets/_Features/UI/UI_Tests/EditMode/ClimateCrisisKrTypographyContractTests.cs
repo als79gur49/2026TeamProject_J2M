@@ -146,7 +146,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(values, Does.Contain("뒤집기 키 입력하세요..."));
             Assert.That(values, Does.Contain("기회"));
             Assert.That(values, Does.Contain("이동"));
-            Assert.That(codepoints, Has.Length.EqualTo(167));
+            Assert.That(values, Does.Contain("연구실-01"));
+            Assert.That(values, Does.Contain("로비-01"));
+            Assert.That(values, Does.Contain("병동[A]-01"));
+            Assert.That(values, Does.Contain("영안실-01"));
+            Assert.That(codepoints, Has.Length.EqualTo(171));
             Assert.That(missing, Is.Empty, FormatCharacters(missing));
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
             Assert.That(TMP_Settings.fallbackFontAssets, Is.Empty);
