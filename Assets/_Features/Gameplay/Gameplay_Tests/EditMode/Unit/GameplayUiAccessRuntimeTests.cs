@@ -174,9 +174,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostObjectiveQuery_DoesNotExposeAuthoredDisplayCopy()
+        public void GameplayHostObjectiveQuery_DoesNotExposeAuthoringLabel()
         {
-            var hostObject = new GameObject("GameplayHostObjectiveQuery_ReturnsObjectiveTitleSummary");
+            var hostObject = new GameObject("GameplayHostObjectiveQuery_DoesNotExposeAuthoringLabel");
 
             try
             {
@@ -193,6 +193,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.Null);
                 Assert.That(
                     typeof(GameplayObjectiveConditionReadModel).GetProperty("TitleText"),
+                    Is.Null);
+                Assert.That(
+                    typeof(GameplayObjectiveConditionReadModel).GetProperty("AuthoringLabel"),
                     Is.Null);
             }
             finally
@@ -238,9 +241,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostObjectiveQuery_DoesNotExposeRawDetailsOrDisplayText()
+        public void GameplayHostObjectiveQuery_DoesNotExposeRawDetailsOrAuthoringLabel()
         {
-            var hostObject = new GameObject("GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsDisplayText");
+            var hostObject = new GameObject("GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsAuthoringLabel");
 
             try
             {

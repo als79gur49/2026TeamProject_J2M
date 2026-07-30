@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Objectives;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Feature.Stages
 {
@@ -57,7 +58,8 @@ namespace Game.Feature.Stages
         public bool Required;
         public StageObjectiveConditionRole Role;
         public string StableConditionId;
-        public string DisplayText;
+        [FormerlySerializedAs("DisplayText")]
+        public string AuthoringLabel;
         public int SortOrder;
     }
 }

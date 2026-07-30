@@ -318,14 +318,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void ObjectiveConditionEntry_MissingDisplayText_WarnsOrErrors()
+        public void ObjectiveConditionEntry_MissingAuthoringLabel_WarnsOrErrors()
         {
             var entry = CreateEntry("stage-2-2");
             var condition = CreatePlayerAtExitCondition();
             AssignExitObjective(
                 entry.GameplayDefinition,
                 condition,
-                displayText: string.Empty);
+                authoringLabel: string.Empty);
 
             var report = new StageCatalogValidator().ValidateEntries(
                 new[] { entry },
@@ -335,7 +335,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Timing = StageValidationTiming.TestOrCi,
                 });
 
-            Assert.That(report.Issues.Any(issue => issue.Code == "objective.display-text-missing"), Is.True);
+            Assert.That(report.Issues.Any(issue => issue.Code == "objective.authoring-label-missing"), Is.True);
+
+            UnityEngine.Object.DestroyImmediate(condition);
+        }
+
+        [Test]
+        public void ObjectiveConditionEntry_ValidAuthoringLabel_DoesNotReportMissingLabel()
+        {
+            var entry = CreateEntry("stage-2-2");
+            var condition = CreatePlayerAtExitCondition();
+            AssignExitObjective(
+                entry.GameplayDefinition,
+                condition,
+                authoringLabel: "Reach the exit zone");
+
+            var report = new StageCatalogValidator().ValidateEntries(
+                new[] { entry },
+                aliasTable: null,
+                new StageCatalogValidationOptions
+                {
+                    Timing = StageValidationTiming.TestOrCi,
+                });
+
+            Assert.That(
+                report.Issues.Any(issue => issue.Code == "objective.authoring-label-missing"),
+                Is.False);
 
             UnityEngine.Object.DestroyImmediate(condition);
         }
@@ -348,7 +373,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssignExitObjective(
                 entry.GameplayDefinition,
                 condition,
-                displayText: "Reach the exit zone",
+                authoringLabel: "Reach the exit zone",
                 duplicateStableId: true);
 
             var report = new StageCatalogValidator().ValidateEntries(
@@ -586,7 +611,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssignExitObjective(
             StageDefinition stage,
             StageConditionAsset condition,
-            string displayText,
+            string authoringLabel,
             bool duplicateStableId = false)
         {
             SetPrivateField(
@@ -612,12 +637,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entries = duplicateStableId
                 ? new[]
                 {
-                    CreateObjectiveConditionEntry(condition, displayText),
-                    CreateObjectiveConditionEntry(condition, displayText),
+                    CreateObjectiveConditionEntry(condition, authoringLabel),
+                    CreateObjectiveConditionEntry(condition, authoringLabel),
                 }
                 : new[]
                 {
-                    CreateObjectiveConditionEntry(condition, displayText),
+                    CreateObjectiveConditionEntry(condition, authoringLabel),
                 };
             SetPrivateField(
                 stage,
@@ -633,7 +658,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static StageObjectiveConditionEntry CreateObjectiveConditionEntry(
             StageConditionAsset condition,
-            string displayText)
+            string authoringLabel)
         {
             return new StageObjectiveConditionEntry
             {
@@ -641,7 +666,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Required = true,
                 Role = StageObjectiveConditionRole.PrimaryGoal,
                 StableConditionId = "primary-goal",
-                DisplayText = displayText,
+                AuthoringLabel = authoringLabel,
                 SortOrder = 0,
             };
         }

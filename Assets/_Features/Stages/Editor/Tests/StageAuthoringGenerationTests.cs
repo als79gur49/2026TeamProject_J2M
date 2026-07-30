@@ -209,7 +209,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GeneratedStageDefinitionPreservesObjectiveConditionDisplayFields()
+        public void GeneratedStageDefinitionPreservesObjectiveConditionAuthoringFields()
         {
             var fixture = CreateFixture(
                 Placement("player", StageAuthoringEntityKind.Player, 0, 0),
@@ -244,7 +244,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             Required = true,
                             Role = StageObjectiveConditionRole.SecondaryGoal,
                             StableConditionId = "button-100",
-                            DisplayText = "Place a push box on the button",
+                            AuthoringLabel = "Place a push box on the button",
                             SortOrder = 10,
                         },
                     },
@@ -256,7 +256,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(fixture.Gameplay.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = fixture.Gameplay.Objective.ConditionEntries.Single();
                 Assert.That(entry.StableConditionId, Is.EqualTo("button-100"));
-                Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+                Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
                 Assert.That(entry.SortOrder, Is.EqualTo(10));
             }
             finally
@@ -267,7 +267,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringDefinitionObjective_PreservesDisplayMetadataAndDefaultsPrimaryGoalDisplayText()
+        public void StageAuthoringDefinitionObjective_PreservesAuthoringMetadataAndDefaultsPrimaryGoalAuthoringLabel()
         {
             var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
             try
@@ -284,7 +284,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             Required = true,
                             Role = StageObjectiveConditionRole.PrimaryGoal,
                             StableConditionId = "primary-goal",
-                            DisplayText = string.Empty,
+                            AuthoringLabel = string.Empty,
                             SortOrder = 0,
                         },
                     },
@@ -294,7 +294,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
                 Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
-                Assert.That(objective.ConditionEntries.Single().DisplayText, Is.EqualTo("Reach the Exit Zone"));
+                Assert.That(objective.ConditionEntries.Single().AuthoringLabel, Is.EqualTo("Reach the Exit Zone"));
             }
             finally
             {
@@ -303,7 +303,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GeneratedAssetWriterPreservesObjectiveTitleSummaryDisplayTextAndSortOrder()
+        public void GeneratedAssetWriterPreservesObjectiveTitleSummaryAuthoringLabelAndSortOrder()
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
             var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
@@ -328,7 +328,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             Required = true,
                             Role = StageObjectiveConditionRole.SecondaryGoal,
                             StableConditionId = "button-100",
-                            DisplayText = "Place a push box on the button",
+                            AuthoringLabel = "Place a push box on the button",
                             SortOrder = 10,
                         },
                     },
@@ -342,7 +342,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(stage.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
                 Assert.That(stage.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = stage.Objective.ConditionEntries.Single();
-                Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+                Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
                 Assert.That(entry.SortOrder, Is.EqualTo(10));
             }
             finally

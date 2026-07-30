@@ -288,7 +288,7 @@ namespace Game.Feature.Stages
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].Required", expectedCondition.Required, actualCondition.Required);
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].Role", expectedCondition.Role, actualCondition.Role);
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].StableConditionId", expectedCondition.StableConditionId, actualCondition.StableConditionId);
-                AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].DisplayText", expectedCondition.DisplayText, actualCondition.DisplayText);
+                AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].AuthoringLabel", expectedCondition.AuthoringLabel, actualCondition.AuthoringLabel);
                 AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", $"Objective.ConditionEntries[{i}].SortOrder", expectedCondition.SortOrder, actualCondition.SortOrder);
             }
         }

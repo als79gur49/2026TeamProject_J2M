@@ -3039,7 +3039,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool required,
             StageObjectiveConditionRole role,
             string stableConditionId = "",
-            string displayText = "",
+            string authoringLabel = "",
             int sortOrder = 0)
         {
             return new StageObjectiveConditionEntry
@@ -3048,7 +3048,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Required = required,
                 Role = role,
                 StableConditionId = stableConditionId,
-                DisplayText = displayText,
+                AuthoringLabel = authoringLabel,
                 SortOrder = sortOrder,
             };
         }

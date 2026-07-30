@@ -8,7 +8,7 @@ namespace Game.Feature.Stages
     public sealed class StageAuthoringDefinition : StageCompanionDefinitionBase
     {
         public const int CurrentSchemaVersion = 1;
-        private const string DefaultPrimaryGoalDisplayText = "Reach the Exit Zone";
+        private const string DefaultPrimaryGoalAuthoringLabel = "Reach the Exit Zone";
 
         [SerializeField] private int schemaVersion = CurrentSchemaVersion;
         [SerializeField] private StageDefinition generatedGameplayDefinition;
@@ -123,21 +123,21 @@ namespace Game.Feature.Stages
             {
                 normalized[i] = entries[i];
                 normalized[i].StableConditionId = entries[i].StableConditionId ?? string.Empty;
-                normalized[i].DisplayText = NormalizeConditionDisplayText(entries[i]);
+                normalized[i].AuthoringLabel = NormalizeConditionAuthoringLabel(entries[i]);
             }
 
             return normalized;
         }
 
-        private static string NormalizeConditionDisplayText(StageObjectiveConditionEntry entry)
+        private static string NormalizeConditionAuthoringLabel(StageObjectiveConditionEntry entry)
         {
-            if (!string.IsNullOrWhiteSpace(entry.DisplayText))
+            if (!string.IsNullOrWhiteSpace(entry.AuthoringLabel))
             {
-                return entry.DisplayText;
+                return entry.AuthoringLabel;
             }
 
             return entry.Role == Game.Feature.Gameplay.Objectives.StageObjectiveConditionRole.PrimaryGoal
-                ? DefaultPrimaryGoalDisplayText
+                ? DefaultPrimaryGoalAuthoringLabel
                 : string.Empty;
         }
     }

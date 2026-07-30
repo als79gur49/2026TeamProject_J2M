@@ -2462,7 +2462,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Required = true,
                 Role = StageObjectiveConditionRole.None,
                 StableConditionId = stableConditionId,
-                DisplayText = string.Empty,
+                AuthoringLabel = string.Empty,
                 SortOrder = 0,
             };
         }
@@ -2479,7 +2479,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Required = required,
                 Role = role,
                 StableConditionId = stableConditionId,
-                DisplayText = string.Empty,
+                AuthoringLabel = string.Empty,
                 SortOrder = 0,
             };
         }

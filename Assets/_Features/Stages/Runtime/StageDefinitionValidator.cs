@@ -693,7 +693,7 @@ namespace Game.Feature.Stages
                     Required = entry.Required,
                     Role = entry.Role,
                     StableConditionId = stableConditionId,
-                    DisplayText = entry.DisplayText?.Trim() ?? string.Empty,
+                    AuthoringLabel = entry.AuthoringLabel?.Trim() ?? string.Empty,
                     SortOrder = entry.SortOrder,
                 };
             }
