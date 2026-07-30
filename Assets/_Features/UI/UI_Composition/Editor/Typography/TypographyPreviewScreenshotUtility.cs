@@ -658,7 +658,7 @@ namespace Game.Feature.UI.Composition.Editor
                     }
                     else
                     {
-                        var pixels = texture.GetPixels32();
+                        var pixels = DecodePngPixels(encodedPng, options);
                         capture.NonBlankValidationResult =
                             pixels.Length > 0 && pixels.Any(pixel => !pixel.Equals(pixels[0]))
                                 ? "PASS"
@@ -1291,6 +1291,29 @@ namespace Game.Feature.UI.Composition.Editor
                         KeyboardBindableAction.Push);
                 default:
                     return SettingsDynamicTextDescriptors.InputUnsupportedKey();
+            }
+        }
+
+        private static Color32[] DecodePngPixels(
+            byte[] encodedPng,
+            TypographyPreviewScreenshotOptions options)
+        {
+            var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!ImageConversion.LoadImage(decoded, encodedPng, markNonReadable: false) ||
+                    decoded.width != options.Width ||
+                    decoded.height != options.Height)
+                {
+                    throw new InvalidOperationException(
+                        "Encoded screenshot could not be decoded at the requested resolution.");
+                }
+
+                return decoded.GetPixels32();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(decoded);
             }
         }
 
