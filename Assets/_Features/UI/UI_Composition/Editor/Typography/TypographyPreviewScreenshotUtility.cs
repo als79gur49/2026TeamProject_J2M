@@ -1220,11 +1220,11 @@ namespace Game.Feature.UI.Composition.Editor
         {
             var expectedStageNames = string.Equals(target.FileStem, "M3StageLobby", StringComparison.Ordinal)
                 ? string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
-                    ? new[] { "로비-01" }
-                    : new[] { "Lobby-01" }
+                    ? new[] { "스테이지 로비-01" }
+                    : new[] { "Stage Lobby-01" }
                 : string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
-                    ? new[] { "연구실-01", "병동[A]-01", "영안실-01" }
-                    : new[] { "Lab-01", "Ward[A]-01", "Morgue-01" };
+                    ? new[] { "스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01" }
+                    : new[] { "Stage Lab-01", "Stage Ward[A]-01", "Stage Morgue-01" };
 
             foreach (var expectedStageName in expectedStageNames)
             {
