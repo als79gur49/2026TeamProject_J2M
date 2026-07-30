@@ -209,8 +209,6 @@ namespace Game.Feature.UI.Tests
             view.Bind(new SceneTransitionOverlayModel(
                 StageTransitionKind.DeathRetryChanceLost,
                 TransitionOverlayKind.ChanceLost,
-                "Chance Lost",
-                "Retrying.",
                 blockInput: true,
                 showProgress: true,
                 progress01: 0.25f,
@@ -276,8 +274,6 @@ namespace Game.Feature.UI.Tests
             view.Bind(new SceneTransitionOverlayModel(
                 StageTransitionKind.DeathRetryChanceLost,
                 TransitionOverlayKind.ChanceLost,
-                "Chance Lost",
-                "Retrying.",
                 blockInput: true,
                 showProgress: true,
                 progress01: 0.25f,
@@ -321,8 +317,6 @@ namespace Game.Feature.UI.Tests
             return new SceneTransitionOverlayModel(
                 transitionKind,
                 overlayKind,
-                "Title",
-                "Message",
                 blockInput: true,
                 showProgress: true,
                 progress01: 0f,

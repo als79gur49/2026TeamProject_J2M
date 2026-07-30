@@ -16,10 +16,11 @@
 - Current PR-T3 transition content base contract rerun: green on 2026-06-12 KST
 - Current PR-T5 ChanceLost slot root explicit binding rerun: green on 2026-06-12 KST
 - Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
+- Current transition Title/Message payload decommission rerun: green on 2026-07-31 KST
 - Current Climate Crisis KR PR2 typography contract rerun: green on 2026-07-26 KST with code-head `CommandLine-20260726-052954`, Settings 38 applied / 13 skipped, six canonical PNGs, and three separate Climate diagnostic PNGs
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1074 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1074 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1150 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1150 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -53,6 +54,7 @@
   - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
   - PR-T2 transition content guards proving common semantic ids share `GenericLoadingOverlayContent`, `ChanceLostOverlayContent` remains dedicated, stale LevelFailed-only transition message/text residue is removed, and deleted duplicate content prefab GUID references are absent
   - PR-T3 transition content base contract guards proving base content requires only root group and progress text bindings, while retired title/message/progress bar/animator base bindings stay absent from source and prefabs
+  - transition payload decommission guard proving chance-loss payload and overlay model no longer expose generic `Title` / `Message`, the coordinator owns no display-copy resolvers, and typed progress/chance-loss plus canonical content routing remain intact
   - PR-T5 ChanceLost slot root binding guards proving `_chanceSlotRoots` remains the explicit inspector binding contract, current prefab slots are bound in `ChanceSlotView 0/1/2` order, and fallback name lookup is safety-only
   - canonical UI navigation resolver guards proving `UiNavigationInputRouter` exposes only the `IUiNavigationTargetResolver` setup path and does not reassemble popup/menu concrete targets
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
@@ -60,9 +62,11 @@
   - PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary
   - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, `ResultContinueLabel`, StageResult text payload members, hidden title/detail prefab labels, and production YAML residue are absent
 - Test count delta:
-  - previous documented current UI EditMode result: `1060 total / 0 failed`
-  - current rerun: `1074 total / 0 failed`
-  - observed delta since that documented result: `+14` tests across ObjectiveHud localization/visual-contract coverage, the separated Climate source/import guard, and current-main governance coverage
+  - previous documented current UI EditMode result: `1074 total / 0 failed`
+  - pre-slice exact-head expectation: `1149 total / 0 failed` or higher
+  - current rerun: `1150 total / 0 failed`
+  - slice-local delta against the exact-head expectation: `+1` transition payload decommission guard
+  - observed delta against the previously documented result: `+76`; the remaining `+75` predates this slice on the current branch
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -151,6 +155,7 @@
 - scene transition overlay runtime uses the canonical shell asset and authored content catalog only; missing shell/catalog setup is surfaced as a defect instead of rebuilding UI at runtime
 - scene transition semantic ids are preserved while physical content is shared: `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` use `GenericLoadingOverlayContent`; `ChanceLost` remains dedicated as slot/effect-driven `ChanceLostOverlayContent` with no dynamic previous/current/total/death chance text binding contract, explicit inspector-bound slot roots for current authored slots, and `ChanceSlotView*` name fallback only as a safety net
 - scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract
+- scene transition payload/model composition carries semantic identity, input/progress state, and typed chance-loss numeric state only; generic `Title` / `Message` members and coordinator display-copy resolvers are retired because no transition renderer consumes them
 - `LevelFailedRestart` has no current dedicated transition content message/text contract; the old LevelFailed-only message field was removed as stale residue
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
