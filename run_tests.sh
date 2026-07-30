@@ -1920,7 +1920,7 @@ lines = [
 for locale in locales:
     for target in targets:
         png = output_dir / "Diagnostics" / f"{target}_{locale}.png"
-        log = output_dir / f"capture-m2b-{locale}-{target}.log"
+        log = output_dir / f"diagnostic-m2b-{locale}-{target}.log"
         if not png.is_file() or png.stat().st_size <= 0:
             raise SystemExit(f"ERROR: missing M2B visual PNG: {png}")
         if not log.is_file() or log.stat().st_size <= 0:
@@ -3397,7 +3397,7 @@ run_typography_visual() {
             locale="${m2b_slice%%|*}"
             target="${m2b_slice#*|}"
             slice_name="m2b-${locale}-${target}"
-            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/capture-${slice_name}.log"
+            slice_log="$TYPOGRAPHY_VISUAL_OUTPUT_DIR/diagnostic-${slice_name}.log"
             slice_log_win="$(wslpath -w "$slice_log")"
             current_unity_log="$slice_log"
             unity_command=(
