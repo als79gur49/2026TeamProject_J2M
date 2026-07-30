@@ -3272,43 +3272,43 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the exit zone
+      AuthoringLabel: Reach the exit zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 42bc816ce4056454986584468bde13b3, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-18
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 10
     - Condition: {fileID: 11400000, guid: f1e56b7a4fba6ae4ab11b2ecf997146e, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-19
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 20
     - Condition: {fileID: 11400000, guid: e5b5f857c2947f04bb76c5d96d4fcb1f, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-32
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 30
     - Condition: {fileID: 11400000, guid: 2d419c73419370048974fe6ff19c70d1, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-33
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 40
     - Condition: {fileID: 11400000, guid: d9ed14322ff42c3468d383691a72e3a0, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-36
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 50
     - Condition: {fileID: 11400000, guid: 23a506f2f768221428471daf4d0a6124, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-56
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 60
   entityIdMappings:
   - StableGuid: stage-3-2:Player:10
