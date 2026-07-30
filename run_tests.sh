@@ -1948,15 +1948,16 @@ for locale in locales:
         status_proof = proofs[0]
         expected_frame_proofs = (
             ("/Title", None, None),
-            ("/EKey", "/PushKeyDisplay/", "E"),
-            ("/QKey", "/FlipKeyDisplay/", "Q"),
+            (None, "/PushKeyDisplay/", "E"),
+            (None, "/FlipKeyDisplay/", "Q"),
         )
         for renderer_suffix, required_parent, expected_text in expected_frame_proofs:
             candidates = [
                 proof
                 for proof in proofs
-                if proof[0].endswith(renderer_suffix)
+                if (renderer_suffix is None or proof[0].endswith(renderer_suffix))
                 and (required_parent is None or required_parent in proof[0])
+                and (expected_text is None or proof[1] == expected_text)
             ]
             if len(candidates) != 1:
                 raise SystemExit(

@@ -1327,8 +1327,8 @@ namespace Game.Feature.UI.Composition.Editor
                 var frameProofTargets = activeTexts
                     .Where(text =>
                         string.Equals(text.gameObject.name, "Title", StringComparison.Ordinal) ||
-                        string.Equals(text.gameObject.name, "EKey", StringComparison.Ordinal) ||
-                        string.Equals(text.gameObject.name, "QKey", StringComparison.Ordinal))
+                        string.Equals(text.text, "E", StringComparison.Ordinal) ||
+                        string.Equals(text.text, "Q", StringComparison.Ordinal))
                     .ToArray();
                 targets = statusTarget == null
                     ? frameProofTargets
