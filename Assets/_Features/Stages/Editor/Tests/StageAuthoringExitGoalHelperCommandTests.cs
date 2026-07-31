@@ -845,7 +845,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 Required = required,
                 Role = role,
                 StableConditionId = stableId,
-                AuthoringLabel = string.Empty,
+                AuthoringLabel = role == StageObjectiveConditionRole.PrimaryGoal
+                    ? "Reach the Exit Zone"
+                    : stableId,
                 SortOrder = 0,
             };
         }
