@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,10 +11,18 @@ namespace Game.Feature.Stages.Editor
             SerializedObject serializedAuthoring,
             StageAuthoringDefinition authoring,
             StageObjectiveConditionEditorSelection selection,
+            StageObjectiveConditionEditorFeedback feedback,
+            string contextWarning,
             ref Vector2 listScroll)
         {
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Objective Conditions", EditorStyles.boldLabel);
+            feedback ??= StageObjectiveConditionEditorFeedback.Unresolved;
+            DrawStatusSummary(feedback);
+            if (!string.IsNullOrEmpty(contextWarning))
+            {
+                EditorGUILayout.HelpBox(contextWarning, MessageType.Warning);
+            }
 
             var rows = StageObjectiveConditionEditorResolver.BuildRows(serializedAuthoring, authoring);
             if (rows.Count == 0)
@@ -23,11 +30,6 @@ namespace Game.Feature.Stages.Editor
                 EditorGUILayout.HelpBox("The current Stage has no Objective condition entries.", MessageType.Info);
                 DrawGeneratedStageReference(authoring);
                 return false;
-            }
-
-            if (!selection.HasSelection)
-            {
-                selection.Select(rows[0]);
             }
 
             var changed = false;
@@ -44,7 +46,7 @@ namespace Game.Feature.Stages.Editor
                         GUILayout.Height(listHeight));
                     for (var i = 0; i < rows.Count; i++)
                     {
-                        DrawRow(rows[i], selection);
+                        DrawRow(rows[i], selection, feedback);
                     }
 
                     EditorGUILayout.EndScrollView();
@@ -52,47 +54,22 @@ namespace Game.Feature.Stages.Editor
 
                 using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                 {
-                    changed = DrawSelectedDetail(serializedAuthoring, authoring, rows, selection);
+                    changed = DrawSelectedDetail(
+                        serializedAuthoring,
+                        authoring,
+                        rows,
+                        selection,
+                        feedback);
                 }
             }
 
             return changed;
         }
 
-        public static bool HasObjectiveGeneratedDrift(StageAuthoringDefinition authoring)
-        {
-            if (authoring == null || authoring.GeneratedGameplayDefinition == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                var allocationPlan = StageAuthoringProjection.BuildAllocationPlan(authoring);
-                var issues = StageAuthoringDriftComparer.CompareGameplay(
-                    StageAuthoringProjection.ProjectExpectedGameplay(authoring, allocationPlan),
-                    StageAuthoringProjection.ProjectActualGameplay(authoring.GeneratedGameplayDefinition),
-                    new StageAuthoringDriftContext(
-                        StageValidationSeverity.Warning,
-                        StageValidationTiming.EditorAuthoring,
-                        authoring,
-                        AssetDatabase.GetAssetPath(authoring),
-                        authoring.name,
-                        authoring.name,
-                        authoring.GeneratedGameplayDefinition.name));
-                return issues.Any(issue =>
-                    issue.Code == "GameplayDrift.ObjectiveMismatch" ||
-                    issue.FieldName.StartsWith("Objective.", StringComparison.Ordinal));
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
         private static void DrawRow(
             StageObjectiveConditionEditorRow row,
-            StageObjectiveConditionEditorSelection selection)
+            StageObjectiveConditionEditorSelection selection,
+            StageObjectiveConditionEditorFeedback feedback)
         {
             var prefix = row.Category switch
             {
@@ -132,6 +109,7 @@ namespace Game.Feature.Stages.Editor
                 EditorGUILayout.LabelField(
                     $"{row.ConditionTypeName}  |  {row.Role}  |  Required: {row.Required}  |  Sort: {row.SortOrder}",
                     EditorStyles.miniLabel);
+                EditorGUILayout.LabelField($"Status: {feedback.StatusLabel}", EditorStyles.miniLabel);
             }
         }
 
@@ -139,7 +117,8 @@ namespace Game.Feature.Stages.Editor
             SerializedObject serializedAuthoring,
             StageAuthoringDefinition authoring,
             IReadOnlyList<StageObjectiveConditionEditorRow> rows,
-            StageObjectiveConditionEditorSelection selection)
+            StageObjectiveConditionEditorSelection selection,
+            StageObjectiveConditionEditorFeedback feedback)
         {
             EditorGUILayout.LabelField("Selected Condition", EditorStyles.miniBoldLabel);
             var resolution = selection.Resolve(rows, out var row);
@@ -159,6 +138,11 @@ namespace Game.Feature.Stages.Editor
                 DrawGeneratedStageReference(authoring);
                 return false;
             }
+
+            EditorGUILayout.LabelField("Status", feedback.StatusLabel, EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                feedback.GetRowMessage(row),
+                ToMessageType(feedback.Status));
 
             EditorGUI.BeginChangeCheck();
             var nextLabel = EditorGUILayout.TextField("Authoring Label", row.AuthoringLabel);
@@ -219,14 +203,42 @@ namespace Game.Feature.Stages.Editor
             }
 
             DrawGeneratedStageReference(authoring);
-            if (HasObjectiveGeneratedDrift(authoring))
-            {
-                EditorGUILayout.HelpBox(
-                    "Generate required: Objective condition authoring differs from the generated StageDefinition.",
-                    MessageType.Warning);
-            }
 
             return changed;
+        }
+
+        private static void DrawStatusSummary(StageObjectiveConditionEditorFeedback feedback)
+        {
+            EditorGUILayout.LabelField("Status", feedback.StatusLabel, EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(feedback.Message, ToMessageType(feedback.Status));
+            for (var i = 0; i < feedback.ValidationIssues.Count; i++)
+            {
+                var issue = feedback.ValidationIssues[i];
+                EditorGUILayout.HelpBox(
+                    $"{issue.Code}: {issue.Message}",
+                    issue.Severity == StageValidationSeverity.Error
+                        ? MessageType.Error
+                        : MessageType.Warning);
+            }
+
+            if (feedback.HasAdditionalValidationIssues)
+            {
+                EditorGUILayout.HelpBox(
+                    "Stage has additional validation issues. Use the Stage validation report below for details.",
+                    MessageType.Info);
+            }
+        }
+
+        private static MessageType ToMessageType(StageObjectiveConditionEditorStatus status)
+        {
+            return status switch
+            {
+                StageObjectiveConditionEditorStatus.InSync => MessageType.Info,
+                StageObjectiveConditionEditorStatus.GenerateRequired => MessageType.Warning,
+                StageObjectiveConditionEditorStatus.InvalidAuthoring => MessageType.Error,
+                StageObjectiveConditionEditorStatus.GeneratedOutputMissing => MessageType.Warning,
+                _ => MessageType.Warning,
+            };
         }
 
         private static void DrawConditionAsset(StageObjectiveConditionEditorRow row)
