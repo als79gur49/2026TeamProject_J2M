@@ -583,7 +583,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(window.EnableSelectedExitObjectiveForTests(out var enableError), Is.True, enableError);
                 Assert.That(window.CreateSelectedExitPrimaryGoalConditionForTests(out var createError), Is.True, createError);
 
-                Assert.That(fixture.Authoring.Objective.ConditionEntries.Single().Condition, Is.TypeOf<PlayerAtAnyZoneConditionAsset>());
+                var entry = fixture.Authoring.Objective.ConditionEntries.Single();
+                Assert.That(entry.Condition, Is.TypeOf<PlayerAtAnyZoneConditionAsset>());
+                var selected = window.GetSelectedObjectiveConditionRowForTests();
+                Assert.That(selected, Is.Not.Null);
+                Assert.That(selected.StableConditionId, Is.EqualTo("primary-goal"));
+                Assert.That(selected.Condition, Is.SameAs(entry.Condition));
+                Assert.That(selected.Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
             }
             finally
             {
@@ -655,9 +661,17 @@ namespace Game.Feature.Stages.Editor.Tests
                     window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
                     window.SelectTileFeatureByIdForTests(1);
 
+                    var selectedBefore = window.GetSelectedObjectiveConditionRowForTests();
+                    Assert.That(selectedBefore, Is.Not.Null);
+                    Assert.That(selectedBefore.StableConditionId, Is.EqualTo("primary-goal"));
+
                     Assert.That(window.GetSelectedExitGoalZoneStatusForTests().Kind, Is.EqualTo(ExitGoalZoneStatusKind.ReferencedZoneMissing));
                     Assert.That(window.SyncSelectedExitGoalZoneForTests(out var error), Is.True, error);
                     Assert.That(window.GetSelectedExitGoalZoneStatusForTests().Kind, Is.EqualTo(ExitGoalZoneStatusKind.Valid));
+                    var selectedAfter = window.GetSelectedObjectiveConditionRowForTests();
+                    Assert.That(selectedAfter, Is.Not.Null);
+                    Assert.That(selectedAfter.StableConditionId, Is.EqualTo("primary-goal"));
+                    Assert.That(selectedAfter.Condition, Is.SameAs(selectedBefore.Condition));
                 });
             }
             finally

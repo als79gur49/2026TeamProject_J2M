@@ -239,6 +239,187 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ObjectiveConditionContext_PrimaryExitSelectsCanonicalRow()
+        {
+            var authoring = LoadAuthoring("stage-0-2");
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                window.BindForTests(authoring);
+                var exit = authoring.TileFeatures.Single(feature => feature.Kind == TileFeatureKind.Exit);
+                window.SelectTileFeatureByIdForTests(exit.TileId);
+
+                var selected = window.GetSelectedObjectiveConditionRowForTests();
+                var expected = authoring.Objective.ConditionEntries.Single(entry =>
+                    entry.StableConditionId == "primary-goal");
+                Assert.That(selected, Is.Not.Null);
+                Assert.That(selected.StableConditionId, Is.EqualTo("primary-goal"));
+                Assert.That(selected.Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
+                Assert.That(selected.Condition, Is.TypeOf<PlayerAtAnyZoneConditionAsset>());
+                Assert.That(selected.Condition, Is.SameAs(expected.Condition));
+                Assert.That(window.ObjectiveContextWarningForTests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
+        public void ObjectiveConditionContext_ButtonTileFiveSelectsCanonicalRowAndHighlight()
+        {
+            var authoring = LoadAuthoring("stage-0-1");
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                window.BindForTests(authoring);
+                var feature = authoring.TileFeatures.Single(candidate => candidate.TileId == 5);
+                window.SelectTileFeatureByIdForTests(feature.TileId);
+
+                var selected = window.GetSelectedObjectiveConditionRowForTests();
+                Assert.That(selected, Is.Not.Null);
+                Assert.That(selected.StableConditionId, Is.EqualTo("button-5"));
+                Assert.That(selected.Condition, Is.TypeOf<ButtonActivatedConditionAsset>());
+                Assert.That(((ButtonActivatedConditionAsset)selected.Condition).TileId, Is.EqualTo(5));
+                Assert.That(selected.Condition, Is.SameAs(
+                    authoring.Objective.ConditionEntries.Single(entry =>
+                        entry.StableConditionId == "button-5").Condition));
+                Assert.That(selected.TileCell, Is.EqualTo(feature.Cell));
+                Assert.That(selected.BoxSelector, Is.EqualTo(feature.BoxSelector));
+                Assert.That(window.ObjectiveHighlightCellForTests, Is.EqualTo(feature.Cell));
+                Assert.That(window.ObjectiveContextWarningForTests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
+        public void ObjectiveConditionContext_StableIdAndButtonTileMismatchClearsSelectionWithoutMutation()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var condition = CreateButtonActivatedCondition(6);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 5,
+                        Kind = TileFeatureKind.Button,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                authoring.SetObjective(Objective(
+                    Entry(condition, "button-5", "Mismatch", StageObjectiveConditionRole.SecondaryGoal, 10)));
+                var before = EditorJsonUtility.ToJson(authoring);
+                window.BindForTests(authoring);
+
+                window.SelectTileFeatureByIdForTests(5);
+
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.ResolveObjectiveConditionSelectionForTests(),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+                Assert.That(window.ObjectiveContextWarningForTests,
+                    Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(EditorJsonUtility.ToJson(authoring), Is.EqualTo(before));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(condition);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void ObjectiveConditionValidation_ValidCampaignHasNoObjectiveIssues()
+        {
+            var rowCount = 0;
+            for (var i = 0; i < ObjectiveStageNames.Length; i++)
+            {
+                var authoring = LoadAuthoring(ObjectiveStageNames[i]);
+                var feedback = StageObjectiveConditionEditorFeedbackBuilder.Build(
+                    authoring,
+                    StageObjectiveConditionEditorFeedbackBuilder.ResolveCatalogEntry(authoring));
+                rowCount += authoring.Objective.GetConditionEntriesOrEmpty().Length;
+
+                Assert.That(feedback.Status, Is.EqualTo(StageObjectiveConditionEditorStatus.InSync),
+                    ObjectiveStageNames[i] + ": " + feedback.Message);
+                Assert.That(feedback.ValidationIssues, Is.Empty, ObjectiveStageNames[i]);
+            }
+
+            Assert.That(rowCount, Is.EqualTo(54));
+        }
+
+        [Test]
+        public void ObjectiveConditionDrift_ValidAuthoringWithoutGeneratedOutputReportsMissing()
+        {
+            var source = LoadAuthoring("stage-0-2");
+            var authoring = UnityEngine.Object.Instantiate(source);
+            try
+            {
+                authoring.AssignGeneratedDefinitions(null, source.GeneratedPresentationDefinition);
+
+                var feedback = StageObjectiveConditionEditorFeedbackBuilder.Build(authoring);
+
+                Assert.That(
+                    feedback.Status,
+                    Is.EqualTo(StageObjectiveConditionEditorStatus.GeneratedOutputMissing));
+                Assert.That(feedback.ValidationIssues, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [TestCase("duplicate-stable-id")]
+        [TestCase("duplicate-button-tile")]
+        [TestCase("invalid-primary-structure")]
+        public void ObjectiveConditionValidation_InvalidStructuresUseExistingValidator(string scenario)
+        {
+            using var fixture = CampaignPairFixture.Create(
+                scenario == "invalid-primary-structure" ? "stage-0-2" : "stage-0-1");
+            var entries = fixture.Authoring.Objective.ConditionEntries.ToList();
+            var source = scenario == "invalid-primary-structure"
+                ? entries.Single(entry => entry.Role == StageObjectiveConditionRole.PrimaryGoal)
+                : entries.First(entry => entry.Condition is ButtonActivatedConditionAsset);
+            entries.Add(new StageObjectiveConditionEntry
+            {
+                Condition = source.Condition,
+                Required = true,
+                Role = scenario == "invalid-primary-structure"
+                    ? StageObjectiveConditionRole.PrimaryGoal
+                    : StageObjectiveConditionRole.SecondaryGoal,
+                StableConditionId = scenario == "duplicate-stable-id"
+                    ? source.StableConditionId
+                    : scenario == "duplicate-button-tile"
+                    ? "button-duplicate"
+                    : "primary-duplicate",
+                AuthoringLabel = "Duplicate validation entry",
+                SortOrder = source.SortOrder + 100,
+            });
+            fixture.Authoring.SetObjective(new StageObjectiveAuthoring
+            {
+                CompletionPolicy = fixture.Authoring.Objective.CompletionPolicy,
+                ObjectiveTitle = fixture.Authoring.Objective.ObjectiveTitle,
+                ObjectiveSummary = fixture.Authoring.Objective.ObjectiveSummary,
+                ConditionEntries = entries.ToArray(),
+            });
+
+            var feedback = fixture.Window.GetObjectiveConditionFeedbackForTests();
+
+            Assert.That(feedback.Status, Is.EqualTo(StageObjectiveConditionEditorStatus.InvalidAuthoring));
+            Assert.That(feedback.ValidationIssues.Any(issue =>
+                issue.Code == "authoring.generated-gameplay.invalid"), Is.True, feedback.Message);
+        }
+
+        [Test]
         public void SaveReimport_RebuildsRowsAndRestoresSelectionByStableIdentity()
         {
             var folderPath = $"Assets/__ObjectiveConditionEditorM1_{Guid.NewGuid():N}";
@@ -339,6 +520,14 @@ namespace Game.Feature.Stages.Editor.Tests
                     .AuthoringLabel,
                 Is.EqualTo("   "),
                 "The authoring getter must not silently restore a default label.");
+            var invalidFeedback = fixture.Window.GetObjectiveConditionFeedbackForTests();
+            Assert.That(
+                invalidFeedback.Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InvalidAuthoring));
+            Assert.That(
+                invalidFeedback.ValidationIssues.Any(issue =>
+                    issue.Code == StageObjectiveAuthoringMetadataPolicy.AuthoringLabelMissingCode),
+                Is.True);
 
             fixture.Window.GenerateForTests();
 
@@ -360,6 +549,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Assets/_Features/Stages/Editor/Authoring/StageObjectiveConditionEditorRenderer.cs"));
             var windowSource = File.ReadAllText(ToAbsoluteProjectPath(
                 "Assets/_Features/Stages/Editor/Authoring/StageAuthoringGridWindow.cs"));
+            var navigatorSource = File.ReadAllText(ToAbsoluteProjectPath(
+                "Assets/_Features/Stages/Editor/Authoring/StageObjectiveConditionContextNavigator.cs"));
+            var feedbackSource = File.ReadAllText(ToAbsoluteProjectPath(
+                "Assets/_Features/Stages/Editor/Authoring/StageObjectiveConditionEditorFeedback.cs"));
 
             Assert.That(mutationSource, Does.Contain("labelProperty.stringValue = nextValue;"));
             Assert.That(mutationSource, Does.Not.Contain(".objectReferenceValue ="));
@@ -373,6 +566,14 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(windowSource, Does.Contain("StageObjectiveConditionEditorRenderer.Draw"));
             Assert.That(rendererSource, Does.Contain("\"Generated Stage Definition\""));
             Assert.That(rendererSource, Does.Not.Contain("GeneratedGameplayDefinition.Set"));
+            Assert.That(navigatorSource, Does.Not.Contain("SerializedObject"));
+            Assert.That(navigatorSource, Does.Not.Contain("SetObjective("));
+            Assert.That(navigatorSource, Does.Not.Contain("AuthoringLabel"));
+            Assert.That(feedbackSource, Does.Contain("StageAuthoringDriftComparer.CompareGameplay"));
+            Assert.That(feedbackSource, Does.Contain("StageAuthoringGenerator.Generate"));
+            Assert.That(feedbackSource, Does.Contain("new StageCatalogValidator().ValidateEntries"));
+            Assert.That(feedbackSource, Does.Not.Contain("GeneratedGameplayDefinition.Set"));
+            Assert.That(feedbackSource, Does.Not.Contain("AssetDatabase.SaveAssets("));
         }
 
         [Test]
@@ -511,6 +712,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Undo.ClearAll();
 
             Assert.That(
+                fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InSync));
+
+            Assert.That(
                 fixture.Window.SelectObjectiveConditionForTests(row.StableConditionId, row.Condition),
                 Is.True);
             Assert.That(
@@ -532,6 +737,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(fixture.ReadAuthoringBytes(), Is.EqualTo(authoringDiskBefore));
             Assert.That(fixture.ReadGameplayBytes(), Is.EqualTo(generatedDiskBefore));
             Assert.That(fixture.Window.HasObjectiveGeneratedDriftForTests(), Is.True);
+            var editedFeedback = fixture.Window.GetObjectiveConditionFeedbackForTests();
+            Assert.That(
+                editedFeedback.Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+            Assert.That(editedFeedback.ValidationIssues, Is.Empty);
             Assert.That(
                 fixture.Window.ResolveObjectiveConditionSelectionForTests(),
                 Is.EqualTo(StageObjectiveConditionSelectionResolution.Resolved));
@@ -540,10 +750,16 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 fixture.Authoring.Objective.ConditionEntries[row.EntryIndex].AuthoringLabel,
                 Is.EqualTo(originalEntry.AuthoringLabel));
+            Assert.That(
+                fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InSync));
             Undo.PerformRedo();
             Assert.That(
                 fixture.Authoring.Objective.ConditionEntries[row.EntryIndex].AuthoringLabel,
                 Is.EqualTo(temporaryLabel));
+            Assert.That(
+                fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
 
             fixture.DirtySentinel();
 
@@ -574,6 +790,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(EditorUtility.IsDirty(fixture.Sentinel), Is.True);
             AssertPairParity(fixture.Authoring, fixture.Gameplay);
             Assert.That(fixture.Window.HasObjectiveGeneratedDriftForTests(), Is.False);
+            Assert.That(
+                fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InSync));
 
             var generatedAfterFirstGenerate = EditorJsonUtility.ToJson(fixture.Gameplay);
             var authoringDiskAfterFirstGenerate = fixture.ReadAuthoringBytes();
@@ -593,6 +812,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(fixture.ReadSentinelBytes(), Is.EqualTo(sentinelDiskBefore));
             Assert.That(EditorUtility.IsDirty(fixture.Sentinel), Is.True);
             AssertPairParity(fixture.Authoring, fixture.Gameplay);
+            Assert.That(
+                fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InSync));
         }
 
         private static void AssertOnlySelectedAuthoringLabelChanged(
@@ -683,6 +905,15 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.Fail($"Missing objective condition '{stableConditionId}'.");
+        }
+
+        private static ButtonActivatedConditionAsset CreateButtonActivatedCondition(int tileId)
+        {
+            var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
+            var serialized = new SerializedObject(condition);
+            serialized.FindProperty("tileId").intValue = tileId;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return condition;
         }
 
         private static byte[] ReadAssetBytes(string assetPath)

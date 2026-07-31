@@ -269,6 +269,19 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(window.AddSelectedButtonRequiredSecondaryGoalForTests(out var error), Is.True, error);
                 Assert.That(window.GetSelectedButtonObjectiveLinkStatusForTests().State,
                     Is.EqualTo(ButtonObjectiveLinkState.Linked));
+                var selected = window.GetSelectedObjectiveConditionRowForTests();
+                Assert.That(selected, Is.Not.Null);
+                Assert.That(selected.StableConditionId, Is.EqualTo("button-901"));
+                Assert.That(selected.Condition, Is.SameAs(
+                    fixture.Authoring.Objective.ConditionEntries.Single().Condition));
+                Assert.That(selected.ButtonTileId, Is.EqualTo(901));
+
+                window.PingSelectedButtonConditionAssetForTests();
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests().Condition, Is.SameAs(selected.Condition));
+
+                Assert.That(window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out error), Is.True, error);
+                Assert.That(window.ResolveObjectiveConditionSelectionForTests(),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
             }
             finally
             {
