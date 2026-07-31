@@ -23,6 +23,8 @@ namespace Game.Feature.Stages.Editor
         private StageAuthoringGridSelectionState selection = new();
         private StageAuthoringGenerationReport lastReport;
         private Vector2 scroll;
+        private Vector2 objectiveConditionListScroll;
+        private StageObjectiveConditionEditorSelection objectiveConditionSelection = new();
         private bool presentationPreviewFoldout = true;
         private bool generatedPreviewFoldout = true;
         private bool validationIssuesFoldout = true;
@@ -132,6 +134,8 @@ namespace Game.Feature.Stages.Editor
             authoring = definition;
             serializedAuthoring = authoring != null ? new SerializedObject(authoring) : null;
             selection = new StageAuthoringGridSelectionState();
+            objectiveConditionSelection = new StageObjectiveConditionEditorSelection();
+            objectiveConditionListScroll = Vector2.zero;
             lastReport = null;
             focusedGridKind = null;
             editMode = StageAuthoringGridEditMode.EntityPlacement;
@@ -170,6 +174,47 @@ namespace Game.Feature.Stages.Editor
         internal void ValidateForTests()
         {
             ValidateAndStoreReport();
+        }
+
+        internal IReadOnlyList<StageObjectiveConditionEditorRow> GetObjectiveConditionRowsForTests()
+        {
+            serializedAuthoring.Update();
+            return StageObjectiveConditionEditorResolver.BuildRows(serializedAuthoring, authoring);
+        }
+
+        internal bool SelectObjectiveConditionForTests(
+            string stableConditionId,
+            StageConditionAsset condition)
+        {
+            serializedAuthoring.Update();
+            objectiveConditionSelection.Select(stableConditionId, condition);
+            var rows = StageObjectiveConditionEditorResolver.BuildRows(serializedAuthoring, authoring);
+            return objectiveConditionSelection.Resolve(rows, out _) ==
+                   StageObjectiveConditionSelectionResolution.Resolved;
+        }
+
+        internal bool SetSelectedObjectiveAuthoringLabelForTests(
+            string authoringLabel,
+            out string error)
+        {
+            return StageObjectiveConditionEditorMutation.TrySetAuthoringLabel(
+                serializedAuthoring,
+                authoring,
+                objectiveConditionSelection,
+                authoringLabel,
+                out error);
+        }
+
+        internal StageObjectiveConditionSelectionResolution ResolveObjectiveConditionSelectionForTests()
+        {
+            serializedAuthoring.Update();
+            var rows = StageObjectiveConditionEditorResolver.BuildRows(serializedAuthoring, authoring);
+            return objectiveConditionSelection.Resolve(rows, out _);
+        }
+
+        internal bool HasObjectiveGeneratedDriftForTests()
+        {
+            return StageObjectiveConditionEditorRenderer.HasObjectiveGeneratedDrift(authoring);
         }
 
         internal void SelectCellForTests(FaceId face, Vector2Int cell)
@@ -598,6 +643,15 @@ namespace Game.Feature.Stages.Editor
             else if (editMode == StageAuthoringGridEditMode.ZoneEditing)
             {
                 DrawSelectedZoneInspector();
+            }
+
+            if (StageObjectiveConditionEditorRenderer.Draw(
+                    serializedAuthoring,
+                    authoring,
+                    objectiveConditionSelection,
+                    ref objectiveConditionListScroll))
+            {
+                Repaint();
             }
 
             StageAuthoringGridToolbarRenderer.DrawReport(lastReport);
