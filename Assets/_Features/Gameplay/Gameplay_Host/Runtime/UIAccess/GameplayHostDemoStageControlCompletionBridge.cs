@@ -26,8 +26,14 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             try
             {
                 var readModel = _presentationFeed.ForceClearCurrentStage();
+                if (readModel == null)
+                {
+                    return DemoStageControlResult.Fail(
+                        "Forced clear was rejected by the active terminal-session authority.");
+                }
+
                 return DemoStageControlResult.Ok(
-                    readModel != null && readModel.StageId.IsValid
+                    readModel.StageId.IsValid
                         ? $"Forced clear committed for '{readModel.StageId.Value}'."
                         : "Forced clear committed.");
             }

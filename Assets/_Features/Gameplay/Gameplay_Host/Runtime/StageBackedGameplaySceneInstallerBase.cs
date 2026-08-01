@@ -44,6 +44,8 @@ namespace Game.Feature.Gameplay.Host
 
         internal bool HasCampaignFlowController => _campaignFlowController != null;
 
+        internal bool TerminalOutcomesEnabled => _campaignRuntimeActive;
+
         public bool TryCreateDemoStageControlContext(out DemoStageControlGameplayContext context)
         {
             EnsureCampaignStores();
@@ -124,6 +126,10 @@ namespace Game.Feature.Gameplay.Host
             StageLaunchContext capturedContext = null;
             try
             {
+                configuration.TerminalSessionReadModel =
+                    ResolveTerminalSessionReadModel(gameObject);
+                configuration.SceneEntryPresentationReadModel =
+                    SceneEntryPresentationRegistry.ReadModel;
                 EnsureCampaignStores();
                 var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
                 var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -225,6 +231,32 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private static ITerminalSessionReadModel ResolveTerminalSessionReadModel(
+            GameObject owner)
+        {
+            if (owner != null)
+            {
+                var behaviours = owner.GetComponents<MonoBehaviour>();
+                for (var i = 0; i < behaviours.Length; i++)
+                {
+                    if (behaviours[i] is ITerminalSessionAuthorityProvider provider &&
+                        provider.TryGetTerminalSessionAuthority(
+                            out var readModel,
+                            out var authority) &&
+                        readModel != null &&
+                        authority != null &&
+                        ReferenceEquals(readModel, authority))
+                    {
+                        return readModel;
+                    }
+                }
+            }
+
+            throw new System.InvalidOperationException(
+                "Production stage-backed bootstrap requires a co-located " +
+                "ITerminalSessionAuthorityProvider backed by the persistent terminal authority.");
+        }
+
         protected override void ConfigureObjectiveRuntimeDefinition(
             GameplaySceneHostConfiguration configuration,
             in InitialGameplayState initialState)
@@ -253,9 +285,19 @@ namespace Game.Feature.Gameplay.Host
                 _resolvedAudioData,
                 globalAudioFlowBootstrap.GetRequestRouterOrThrow());
             AttachBackgroundWallSurfaceTintPresenter(host);
+            var terminalTransitionPort = CreateTerminalTransitionPort(gameObject);
 
             if (!_campaignRuntimeActive)
             {
+                if (host.UiAccess?.PresentationFeed is not GameplayHostPresentationFeed presentationFeed)
+                {
+                    throw new System.InvalidOperationException(
+                        "Stage-backed noncampaign bootstrap requires the production gameplay presentation feed.");
+                }
+
+                // Explicit policy B: direct-play/noncampaign scenes keep global respawn
+                // semantics and publish no terminal StageCleared/LevelFailed destination.
+                presentationFeed.DisableTerminalOutcomes();
                 return;
             }
 
@@ -274,7 +316,8 @@ namespace Game.Feature.Gameplay.Host
                 _runningSlotContext,
                 sequenceResolver,
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
-                _campaignChanceDisplayOverride);
+                _campaignChanceDisplayOverride,
+                terminalTransitionPort);
             _campaignFlowController.Bind();
         }
 
@@ -296,7 +339,33 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            return new SceneNameStageLaunchRouter(currentSceneName);
+            throw new System.InvalidOperationException(
+                "Production campaign bootstrap requires an IStageLaunchRouterProvider; " +
+                $"direct scene load fallback is forbidden for scene '{currentSceneName}'.");
+        }
+
+        private static ITerminalTransitionPort CreateTerminalTransitionPort(GameObject owner)
+        {
+            if (owner == null)
+            {
+                throw new System.InvalidOperationException(
+                    "Production campaign bootstrap requires an owner with an ITerminalTransitionPortProvider.");
+            }
+
+            var behaviours = owner.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ITerminalTransitionPortProvider provider &&
+                    provider.TryGetTerminalTransitionPort(out var port) &&
+                    port != null)
+                {
+                    return port;
+                }
+            }
+
+            throw new System.InvalidOperationException(
+                "Production campaign bootstrap requires a co-located ITerminalTransitionPortProvider. " +
+                "Install GameplayUiFlowInstaller or an explicit deterministic test port provider.");
         }
 
         private void OnDestroy()

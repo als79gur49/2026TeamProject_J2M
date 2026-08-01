@@ -9,5 +9,6 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         NoControllableActor = 4,
         InvalidRequest = 5,
         Other = 6,
+        TerminalSession = 7,
     }
 }

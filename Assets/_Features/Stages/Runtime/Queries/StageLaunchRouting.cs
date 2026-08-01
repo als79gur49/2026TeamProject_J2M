@@ -12,13 +12,19 @@ namespace Game.Feature.Stages
 
     public readonly struct StageNavigationRequest
     {
-        public static readonly StageNavigationRequest None = new(StageId.None, StageNavigationKind.None, string.Empty);
+        public static readonly StageNavigationRequest None = new(
+            StageId.None,
+            StageNavigationKind.None,
+            string.Empty,
+            default,
+            SceneTransitionIntent.Unknown);
 
         public StageNavigationRequest(
             StageId stageId,
             StageNavigationKind navigationKind,
             string source,
-            StageTransitionHint transitionHint = default)
+            StageTransitionHint transitionHint = default,
+            SceneTransitionIntent transitionIntent = SceneTransitionIntent.Unknown)
         {
             if (navigationKind != StageNavigationKind.None && !stageId.IsValid)
             {
@@ -29,6 +35,7 @@ namespace Game.Feature.Stages
             NavigationKind = navigationKind;
             Source = source ?? string.Empty;
             TransitionHint = transitionHint;
+            TransitionIntent = transitionIntent;
         }
 
         public StageId StageId { get; }
@@ -39,11 +46,36 @@ namespace Game.Feature.Stages
 
         public StageTransitionHint TransitionHint { get; }
 
+        public SceneTransitionIntent TransitionIntent { get; }
+
         public bool IsValid => StageId.IsValid && NavigationKind != StageNavigationKind.None;
 
         public StageNavigationRequest WithTransitionHint(StageTransitionHint transitionHint)
         {
-            return new StageNavigationRequest(StageId, NavigationKind, Source, transitionHint);
+            return new StageNavigationRequest(
+                StageId,
+                NavigationKind,
+                Source,
+                transitionHint,
+                TransitionIntent);
+        }
+
+        public StageNavigationRequest WithTransitionIntent(SceneTransitionIntent transitionIntent)
+        {
+            if (transitionIntent == SceneTransitionIntent.Unknown)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(transitionIntent),
+                    transitionIntent,
+                    "A scene-changing route requires an explicit semantic transition intent.");
+            }
+
+            return new StageNavigationRequest(
+                StageId,
+                NavigationKind,
+                Source,
+                TransitionHint,
+                transitionIntent);
         }
     }
 
@@ -62,7 +94,8 @@ namespace Game.Feature.Stages
                     return string.Equals(request.Source, "stage-result-retry", StringComparison.Ordinal) ||
                            string.Equals(request.Source, "pause-retry", StringComparison.Ordinal) ||
                            string.Equals(request.Source, "campaign-death-retry", StringComparison.Ordinal) ||
-                           string.Equals(request.Source, "level-failed-restart-level", StringComparison.Ordinal);
+                           string.Equals(request.Source, "level-failed-restart-level", StringComparison.Ordinal) ||
+                           string.Equals(request.Source, "demo-stage-control-start-stage", StringComparison.Ordinal);
                 case StageNavigationKind.NextStage:
                     return string.Equals(request.Source, "campaign-auto-next", StringComparison.Ordinal);
                 default:

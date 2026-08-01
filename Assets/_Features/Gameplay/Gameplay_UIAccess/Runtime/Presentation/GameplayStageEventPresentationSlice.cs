@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.UIAccess.Presentation
 {
@@ -10,7 +11,9 @@ namespace Game.Feature.Gameplay.UIAccess.Presentation
 
     public readonly struct GameplayStageEventPresentationSlice
     {
-        public GameplayStageEventPresentationSlice(GameplayStageEventKind eventKind)
+        public GameplayStageEventPresentationSlice(
+            GameplayStageEventKind eventKind,
+            TerminalSessionToken terminalToken = default)
         {
             if (eventKind == GameplayStageEventKind.None)
             {
@@ -18,8 +21,26 @@ namespace Game.Feature.Gameplay.UIAccess.Presentation
             }
 
             EventKind = eventKind;
+            TerminalToken = terminalToken;
         }
 
         public GameplayStageEventKind EventKind { get; }
+
+        public TerminalSessionToken TerminalToken { get; }
+
+        public long TerminalClaimId => TerminalToken.Sequence;
+
+        public GameplayStageEventPresentationSlice(
+            GameplayStageEventKind eventKind,
+            long terminalClaimId)
+            : this(
+                eventKind,
+                terminalClaimId > 0
+                    ? new TerminalSessionToken(
+                        TerminalSessionRegistry.Authority.AuthorityGeneration,
+                        terminalClaimId)
+                    : default)
+        {
+        }
     }
 }

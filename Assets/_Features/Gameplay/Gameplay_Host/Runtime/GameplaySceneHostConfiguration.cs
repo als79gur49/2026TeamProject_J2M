@@ -183,6 +183,8 @@ namespace Game.Feature.Gameplay.Host
         public Texture2D BoardSurfaceTexture;
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
+        public ITerminalSessionReadModel TerminalSessionReadModel = TerminalSessionRegistry.ReadModel;
+        public ISceneEntryPresentationReadModel SceneEntryPresentationReadModel = SceneEntryPresentationRegistry.ReadModel;
         public GameplayPresentationAudioConfig GameplayPresentationAudioConfig;
         public ICampaignChancesReadSource CampaignChancesReadSource;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();

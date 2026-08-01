@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Host
             WorldState worldState,
             StageObjectiveRuntimeDefinition objectiveDefinition,
             Camera viewCamera,
+            Camera outputCamera,
             GameplayCameraRig viewCameraRig,
             IReadOnlyList<EntityState> presentedInitialEntities,
             GameplayHostUiAccessContext uiAccess,
@@ -42,6 +43,7 @@ namespace Game.Feature.Gameplay.Host
             WorldState = worldState;
             ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             ViewCamera = viewCamera;
+            OutputCamera = outputCamera;
             ViewCameraRig = viewCameraRig;
             PresentedInitialEntities = presentedInitialEntities;
             UiAccess = uiAccess;
@@ -66,6 +68,8 @@ namespace Game.Feature.Gameplay.Host
         public TickRunner TickRunner { get; }
 
         public Camera ViewCamera { get; }
+
+        public Camera OutputCamera { get; }
 
         public GameplayCameraRig ViewCameraRig { get; }
 

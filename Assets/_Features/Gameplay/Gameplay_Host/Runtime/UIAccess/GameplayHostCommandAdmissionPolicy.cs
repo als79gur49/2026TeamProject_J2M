@@ -3,6 +3,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -55,6 +56,15 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             if (_pauseService != null && _pauseService.IsPaused)
             {
                 rejectionReason = GameplayCommandRejectionReason.Paused;
+                return false;
+            }
+
+            if (_inputHost.IsTerminalHoldActive ||
+                TerminalSessionRegistry.ReadModel.IsActive ||
+                SceneEntryPresentationRegistry.IsActive ||
+                MainMenuEntryPresentationRegistry.IsActive)
+            {
+                rejectionReason = GameplayCommandRejectionReason.TerminalSession;
                 return false;
             }
 

@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Stages;
 using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -25,6 +26,8 @@ namespace Game.Feature.Gameplay.Host
         private bool _isSimulationPaused;
         private bool _isTerminalHoldActive;
         private TickInputBuffer _inputBuffer;
+        private ITerminalSessionReadModel _terminalSession;
+        private ISceneEntryPresentationReadModel _sceneEntrySession;
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
         private InputAction _moveAction;
@@ -43,8 +46,6 @@ namespace Game.Feature.Gameplay.Host
 
         public event Action<StageObjectiveTickResult> ObjectiveResultUpdated;
 
-        public event Action StageCleared;
-
         internal int PlayerEntityId => _playerEntityId;
 
         public InputActionAsset Actions => _actions;
@@ -62,7 +63,9 @@ namespace Game.Feature.Gameplay.Host
             int playerEntityId,
             float moveDeadzone,
             bool directionChangeConsumesDelay,
-            bool autoAdvanceTicks)
+            bool autoAdvanceTicks,
+            ITerminalSessionReadModel terminalSession,
+            ISceneEntryPresentationReadModel sceneEntrySession = null)
         {
             if (inputBuffer == null)
             {
@@ -89,10 +92,21 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(playerEntityId), "GameplayInputHost requires a positive player entity ID.");
             }
 
+            if (terminalSession == null)
+            {
+                throw new ArgumentNullException(
+                    nameof(terminalSession),
+                    "GameplayInputHost requires the persistent terminal-session read model.");
+            }
+
             UnbindActions();
+            UnsubscribeTerminalSession();
+            UnsubscribeSceneEntrySession();
 
             _inputBuffer = inputBuffer;
             _runner = runner;
+            _terminalSession = terminalSession;
+            _sceneEntrySession = sceneEntrySession ?? SceneEntryPresentationRegistry.ReadModel;
             _presenter = presenter;
             _actions = actions;
             _playerEntityId = playerEntityId;
@@ -112,7 +126,16 @@ namespace Game.Feature.Gameplay.Host
             _isPlayerRespawnDelayInputBlocked = false;
             _isInitialized = true;
 
-            BindActions();
+            SubscribeTerminalSession();
+            SubscribeSceneEntrySession();
+            if (_terminalSession.IsActive || _sceneEntrySession.IsActive)
+            {
+                ClearAllPendingInputForTerminalSession();
+            }
+            else
+            {
+                BindActions();
+            }
         }
 
         public int AdvanceTime(float deltaTime)
@@ -124,7 +147,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (_isSimulationPaused || _isTerminalHoldActive)
+            if (_isSimulationPaused || IsTerminalAdmissionBlocked())
             {
                 return 0;
             }
@@ -170,7 +193,7 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
-            if (_isSimulationPaused || _isTerminalHoldActive || IsPresentationLocked())
+            if (_isSimulationPaused || IsTerminalAdmissionBlocked() || IsPresentationLocked())
             {
                 return null;
             }
@@ -192,11 +215,6 @@ namespace Game.Feature.Gameplay.Host
             _presenter.Present(result);
             TickCompleted?.Invoke(result);
             ObjectiveResultUpdated?.Invoke(result.ObjectiveResult);
-
-            if (result.ObjectiveResult.ClearedThisTick)
-            {
-                StageCleared?.Invoke();
-            }
 
             return result;
         }
@@ -229,7 +247,8 @@ namespace Game.Feature.Gameplay.Host
 
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
-            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
+            EnsureInitialized();
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
             {
                 _sampledMoveInput = Vector2.zero;
                 _moveIntentBuffer?.Reset();
@@ -246,7 +265,7 @@ namespace Game.Feature.Gameplay.Host
         public void BufferFlip()
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -257,7 +276,7 @@ namespace Game.Feature.Gameplay.Host
         public void BufferPush()
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -268,7 +287,7 @@ namespace Game.Feature.Gameplay.Host
         internal void SetUiHeldMoveDirection(Direction direction)
         {
             EnsureInitialized();
-            if (_isTerminalHoldActive || _isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
             {
                 return;
             }
@@ -297,7 +316,7 @@ namespace Game.Feature.Gameplay.Host
         {
             EnsureInitialized();
 
-            if (_isPlayerRespawnDelayInputBlocked)
+            if (IsTerminalAdmissionBlocked() || _isPlayerRespawnDelayInputBlocked)
             {
                 return Direction.None;
             }
@@ -324,7 +343,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnEnable()
         {
-            if (_isInitialized)
+            if (_isInitialized && !IsTerminalAdmissionBlocked())
             {
                 BindActions();
             }
@@ -338,16 +357,17 @@ namespace Game.Feature.Gameplay.Host
         private void OnDestroy()
         {
             UnbindActions();
+            UnsubscribeTerminalSession();
+            UnsubscribeSceneEntrySession();
         }
 
         private void BindActions()
         {
-            if (_actions == null || _areActionsBound)
+            if (_actions == null || _areActionsBound || IsTerminalAdmissionBlocked())
             {
                 return;
             }
 
-            _actions.Enable();
             _moveAction = _actions.FindAction(GameplayInputActionPaths.PlayerMove, throwIfNotFound: false);
             if (_moveAction == null)
             {
@@ -371,6 +391,9 @@ namespace Game.Feature.Gameplay.Host
             _pushAction.started += OnPushStarted;
             _flipAction.started += OnFlipStarted;
             _flipAction.performed += OnFlipPerformed;
+            _moveAction.Enable();
+            _flipAction.Enable();
+            _pushAction.Enable();
 
             _areActionsBound = true;
             RebuildKeyboardMoveOrderTracker();
@@ -383,6 +406,96 @@ namespace Game.Feature.Gameplay.Host
             {
                 throw new InvalidOperationException("GameplayInputHost must be initialized before use.");
             }
+        }
+
+        private bool IsTerminalAdmissionBlocked()
+        {
+            return _isTerminalHoldActive ||
+                   (_terminalSession?.IsActive ?? false) ||
+                   (_sceneEntrySession?.IsActive ?? false) ||
+                   MainMenuEntryPresentationRegistry.IsActive;
+        }
+
+        private void SubscribeTerminalSession()
+        {
+            if (_terminalSession != null)
+            {
+                _terminalSession.Changed += HandleTerminalSessionChanged;
+            }
+        }
+
+        private void UnsubscribeTerminalSession()
+        {
+            if (_terminalSession != null)
+            {
+                _terminalSession.Changed -= HandleTerminalSessionChanged;
+            }
+        }
+
+        private void HandleTerminalSessionChanged(TerminalSessionSnapshot snapshot)
+        {
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            if (snapshot.IsActive)
+            {
+                UnbindActions();
+                ClearAllPendingInputForTerminalSession();
+                return;
+            }
+
+            if (isActiveAndEnabled && !(_sceneEntrySession?.IsActive ?? false))
+            {
+                BindActions();
+            }
+        }
+
+        private void SubscribeSceneEntrySession()
+        {
+            if (_sceneEntrySession != null)
+            {
+                _sceneEntrySession.Changed += HandleSceneEntrySessionChanged;
+            }
+        }
+
+        private void UnsubscribeSceneEntrySession()
+        {
+            if (_sceneEntrySession != null)
+            {
+                _sceneEntrySession.Changed -= HandleSceneEntrySessionChanged;
+            }
+        }
+
+        private void HandleSceneEntrySessionChanged(SceneEntryPresentationSnapshot snapshot)
+        {
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            if (snapshot.IsActive)
+            {
+                UnbindActions();
+                ClearAllPendingInputForTerminalSession();
+                return;
+            }
+
+            if (isActiveAndEnabled && !(_terminalSession?.IsActive ?? false))
+            {
+                ClearAllPendingInputForTerminalSession();
+                BindActions();
+            }
+        }
+
+        private void ClearAllPendingInputForTerminalSession()
+        {
+            ClearPendingPlayerInput();
+            ClearPendingUiInput();
+            _sampledMoveInput = Vector2.zero;
+            _keyboardMoveOrderTracker?.Reset();
+            _accumulatedTime = 0f;
         }
 
         private void OnMoveCanceled(InputAction.CallbackContext context)
@@ -418,6 +531,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 _moveAction.performed -= OnMovePerformed;
                 _moveAction.canceled -= OnMoveCanceled;
+                _moveAction.Disable();
                 _moveAction = null;
             }
 
@@ -428,18 +542,15 @@ namespace Game.Feature.Gameplay.Host
             {
                 _flipAction.started -= OnFlipStarted;
                 _flipAction.performed -= OnFlipPerformed;
+                _flipAction.Disable();
                 _flipAction = null;
             }
 
             if (_pushAction != null)
             {
                 _pushAction.started -= OnPushStarted;
+                _pushAction.Disable();
                 _pushAction = null;
-            }
-
-            if (_actions != null)
-            {
-                _actions.Disable();
             }
 
             _areActionsBound = false;

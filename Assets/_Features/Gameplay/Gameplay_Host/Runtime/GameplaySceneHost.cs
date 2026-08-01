@@ -12,6 +12,10 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayInputHost InputHost => _runtime?.InputHost;
 
+        public int PlayerEntityId => _runtime?.InputHost != null
+            ? _runtime.InputHost.PlayerEntityId
+            : 0;
+
         public TickInputBuffer InputBuffer => _runtime?.InputBuffer;
 
         public GameplayTickViewPresenter Presenter => _runtime?.Presenter;
@@ -30,9 +34,20 @@ namespace Game.Feature.Gameplay.Host
 
         public Transform ViewCameraTarget => _runtime?.ViewCameraTarget;
 
+        public Camera ViewCamera => _runtime?.ViewCamera;
+
+        public Camera OutputCamera => _runtime?.OutputCamera;
+
         public WorldState WorldState => _runtime?.WorldState;
 
         public GameplayHostUiAccessContext UiAccess => _runtime?.UiAccess;
+
+        public bool HasStrongGameplayEntryRuntime =>
+            _runtime?.WorldState != null &&
+            _runtime.TickRunner != null &&
+            _runtime.InputHost != null &&
+            _runtime.ViewRegistry != null &&
+            _runtime.InputHost.PlayerEntityId > 0;
 
         public StageObjectiveRuntimeDefinition ObjectiveDefinition => _runtime?.ObjectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
 

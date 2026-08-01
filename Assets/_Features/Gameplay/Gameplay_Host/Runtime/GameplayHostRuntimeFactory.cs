@@ -54,6 +54,22 @@ namespace Game.Feature.Gameplay.Host
                     "GameplaySceneHost requires bounded InitialBoardBounds. Unbounded boards are not supported by runtime scene hosts.");
             }
 
+            if (configuration.TerminalSessionReadModel == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplaySceneHost requires the persistent terminal-session read model.");
+            }
+
+            if (configuration.SceneEntryPresentationReadModel == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplaySceneHost requires the persistent scene-entry presentation read model.");
+            }
+
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                host.gameObject.scene.handle,
+                host.gameObject.scene.name);
+
             var hostObject = host.gameObject;
             var hostTransform = host.transform;
             var inputHost = hostObject.GetComponent<GameplayInputHost>() ?? hostObject.AddComponent<GameplayInputHost>();
@@ -237,7 +253,9 @@ namespace Game.Feature.Gameplay.Host
                 configuration.PlayerEntityId,
                 configuration.MoveDeadzone,
                 configuration.DirectionChangeConsumesDelay,
-                configuration.AutoAdvanceTicks);
+                configuration.AutoAdvanceTicks,
+                configuration.TerminalSessionReadModel,
+                configuration.SceneEntryPresentationReadModel);
             var pauseService = new GameplayHostPauseService(inputHost, presenter);
             var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
             var presentationBarrierTracker = new GameplayPresentationBarrierTracker();
@@ -278,6 +296,7 @@ namespace Game.Feature.Gameplay.Host
                 worldState,
                 configuration.ObjectiveRuntimeDefinition,
                 viewCamera,
+                startupPlan.OutputCamera,
                 viewCameraRig,
                 presentedInitialEntities,
                 uiAccess,

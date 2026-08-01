@@ -121,10 +121,10 @@ namespace Game.Feature.DemoStageControl
                 stageId,
                 StageNavigationKind.Retry,
                 "demo-stage-control-start-stage",
-                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.DemoStageRelaunch);
             try
             {
-                StageLaunchContextStore.SetCurrent(stageId);
                 _stageLaunchRouter.Launch(request);
                 return DemoStageControlResult.Ok($"Loading stage '{stageId.Value}'.");
             }
