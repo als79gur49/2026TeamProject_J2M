@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Objectives;
@@ -171,6 +172,62 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ObjectiveConditionSortOrder_ButtonHelper_MaxSecondaryOverflow_FailsBeforeAnyMutation()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var boundaryEntry = Condition(
+                null,
+                true,
+                StageObjectiveConditionRole.SecondaryGoal,
+                "existing-secondary");
+            boundaryEntry.SortOrder = int.MaxValue;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                boundaryEntry));
+            EditorUtility.SetDirty(fixture.Authoring);
+            AssetDatabase.SaveAssetIfDirty(fixture.Authoring);
+            var authoringBefore = EditorJsonUtility.ToJson(fixture.Authoring);
+            var assetPath = AssetDatabase.GetAssetPath(fixture.Authoring);
+            var diskBefore = File.ReadAllBytes(ToAbsoluteProjectPath(assetPath));
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryAddRequiredSecondaryGoal(
+                fixture.Authoring,
+                fixture.Button,
+                fixture.Entry.StageId.Value);
+
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Message, Is.EqualTo("No additional automatic Sort Order can be allocated."));
+            Assert.That(EditorJsonUtility.ToJson(fixture.Authoring), Is.EqualTo(authoringBefore));
+            Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(assetPath)), Is.EqualTo(diskBefore));
+            Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(fixture.ExpectedButtonConditionPath), Is.Null);
+        }
+
+        [Test]
+        public void ObjectiveConditionSortOrder_ButtonHelper_ExactAllocationBoundary_UsesIntMaxValue()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var boundaryEntry = Condition(
+                null,
+                true,
+                StageObjectiveConditionRole.SecondaryGoal,
+                "existing-secondary");
+            boundaryEntry.SortOrder = int.MaxValue - 10;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                boundaryEntry));
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryAddRequiredSecondaryGoal(
+                fixture.Authoring,
+                fixture.Button,
+                fixture.Entry.StageId.Value);
+
+            Assert.That(result.Succeeded, Is.True, result.Message);
+            Assert.That(fixture.Authoring.Objective.ConditionEntries, Has.Length.EqualTo(2));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries[0].SortOrder, Is.EqualTo(int.MaxValue - 10));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries[1].SortOrder, Is.EqualTo(int.MaxValue));
+        }
+
+        [Test]
         public void TryRemoveRequiredSecondaryGoal_LinkedButton_RemovesEntryButKeepsAsset()
         {
             using var fixture = TempStageContentFixture.Create();
@@ -335,6 +392,11 @@ namespace Game.Feature.Stages.Editor.Tests
         private static SurfaceCell Cell(int x, int y)
         {
             return new SurfaceCell(FaceId.Floor, x, y);
+        }
+
+        private static string ToAbsoluteProjectPath(string assetPath)
+        {
+            return Path.GetFullPath(Path.Combine(Application.dataPath, "..", assetPath));
         }
 
         private static StageObjectiveAuthoring Objective(

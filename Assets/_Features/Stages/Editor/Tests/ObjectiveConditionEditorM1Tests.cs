@@ -541,7 +541,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void UnifiedEditorMutationSource_WritesOnlyAuthoringLabelAndKeepsSelectionTransient()
+        public void UnifiedEditorMutationSource_WritesOnlyAuthorizedMetadataAndKeepsSelectionTransient()
         {
             var mutationSource = File.ReadAllText(ToAbsoluteProjectPath(
                 "Assets/_Features/Stages/Editor/Authoring/StageObjectiveConditionEditorSelection.cs"));
@@ -555,9 +555,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Assets/_Features/Stages/Editor/Authoring/StageObjectiveConditionEditorFeedback.cs"));
 
             Assert.That(mutationSource, Does.Contain("labelProperty.stringValue = nextValue;"));
+            Assert.That(mutationSource, Does.Contain("sortOrderProperty.intValue = sortOrder;"));
             Assert.That(mutationSource, Does.Not.Contain(".objectReferenceValue ="));
             Assert.That(mutationSource, Does.Not.Contain(".boolValue ="));
-            Assert.That(mutationSource, Does.Not.Contain(".intValue ="));
+            Assert.That(
+                mutationSource.Split(new[] { ".intValue = " }, StringSplitOptions.None).Length - 1,
+                Is.EqualTo(1));
+            Assert.That(mutationSource, Does.Not.Contain(".arraySize ="));
+            Assert.That(mutationSource, Does.Not.Contain("MoveArrayElement"));
             Assert.That(mutationSource, Does.Not.Contain("Undo.RecordObject"));
             Assert.That(mutationSource, Does.Not.Contain("[SerializeField]"));
             Assert.That(rendererSource, Does.Not.Contain("EditorGUILayout.PropertyField"));
