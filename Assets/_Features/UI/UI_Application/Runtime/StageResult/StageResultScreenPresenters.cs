@@ -32,13 +32,29 @@ namespace Game.Feature.UI.Application
     {
         public LevelFailedScreenPayload(
             LocalizedTextDescriptor detailTextDescriptor,
-            StageNavigationRequest restartLevelRequest)
+            StageNavigationRequest restartLevelRequest,
+            TerminalSessionToken terminalToken = default)
         {
             TitleTextDescriptor = TerminalResultTextDescriptors.LevelFailedTitle;
             DetailTextDescriptor = detailTextDescriptor;
             RestartStageLabelDescriptor = TerminalResultTextDescriptors.RestartStage;
             MainMenuLabelDescriptor = TerminalResultTextDescriptors.MainMenu;
             RestartLevelRequest = restartLevelRequest;
+            TerminalToken = terminalToken;
+        }
+
+        public LevelFailedScreenPayload(
+            string titleText,
+            string detailText,
+            string restartLevelLabel,
+            string mainLabel,
+            StageNavigationRequest restartLevelRequest,
+            TerminalSessionToken terminalToken = default)
+            : this(
+                TerminalResultTextDescriptors.ChancesExhaustedDetail,
+                restartLevelRequest,
+                terminalToken)
+        {
         }
 
         public LocalizedTextDescriptor TitleTextDescriptor { get; }
@@ -50,6 +66,31 @@ namespace Game.Feature.UI.Application
         public LocalizedTextDescriptor MainMenuLabelDescriptor { get; }
 
         public StageNavigationRequest RestartLevelRequest { get; }
+
+        public TerminalSessionToken TerminalToken { get; }
+
+        public long TerminalClaimId => TerminalToken.Sequence;
+
+        public LevelFailedScreenPayload(
+            string titleText,
+            string detailText,
+            string restartLevelLabel,
+            string mainLabel,
+            StageNavigationRequest restartLevelRequest,
+            long terminalClaimId)
+            : this(
+                titleText,
+                detailText,
+                restartLevelLabel,
+                mainLabel,
+                restartLevelRequest,
+                terminalClaimId > 0
+                    ? new TerminalSessionToken(
+                        TerminalSessionRegistry.Authority.AuthorityGeneration,
+                        terminalClaimId)
+                    : default)
+        {
+        }
     }
 
     public sealed class GameClearScreenPayload : IScreenPayload

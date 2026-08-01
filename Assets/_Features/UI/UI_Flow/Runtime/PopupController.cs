@@ -247,6 +247,22 @@ namespace Game.Feature.UI.Flow
 
         private void HandleRuntimeCompletionRequested(PopupInstanceId instanceId, PopupCompletionKind completionKind)
         {
+            var index = FindIndex(instanceId);
+            if (index >= 0 &&
+                (completionKind == PopupCompletionKind.RetryRequested ||
+                 completionKind == PopupCompletionKind.MainMenuRequested))
+            {
+                var retainedRecord = _stack[index];
+                retainedRecord.Runtime.CompletionRequested -= retainedRecord.CompletionHandler;
+                retainedRecord.Runtime.SetIsTopmost(false);
+                StateChanged?.Invoke();
+                NotifyCompletion(
+                    retainedRecord.Entry,
+                    completionKind,
+                    PopupCloseReason.UserAction);
+                return;
+            }
+
             Close(instanceId, PopupCloseReason.UserAction, completionKind);
         }
 

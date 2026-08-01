@@ -6,6 +6,21 @@ using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Flow
 {
+    internal readonly struct ResultContentEntranceMilestone
+    {
+        internal ResultContentEntranceMilestone(
+            TerminalSessionToken terminalToken,
+            TerminalDestinationKind destinationKind)
+        {
+            TerminalToken = terminalToken;
+            DestinationKind = destinationKind;
+        }
+
+        internal TerminalSessionToken TerminalToken { get; }
+
+        internal TerminalDestinationKind DestinationKind { get; }
+    }
+
     public sealed class UIFlowCoordinator : IDisposable, IUiFlowAudioIntentBoundary
     {
         private static readonly Lazy<CampaignStageSequenceResolver> CanonicalCampaignResolver =
@@ -28,6 +43,8 @@ namespace Game.Feature.UI.Flow
         private UiFlowAudioTransaction _activeAudioTransaction;
         private PopupController.PopupCompletionDispatchEvent? _activePopupCompletionDispatch;
         private UITickEventKey? _lastStageClearedEventKey;
+        private TerminalSessionToken _lastResultContentEntranceAudioToken;
+        private TerminalDestinationKind _lastResultContentEntranceAudioDestination;
         private PauseReturnMode _pauseReturnMode;
 
         public UIFlowCoordinator(
@@ -59,6 +76,7 @@ namespace Game.Feature.UI.Flow
             _popupController.PopupCompletionDispatched += HandlePopupCompletionDispatched;
             _presentationSource.TickEventsApplied += HandleTickEventsApplied;
             _presentationSource.LevelFailedCommitted += HandleLevelFailedCommitted;
+            TerminalSessionRegistry.Changed += HandleTerminalSessionChanged;
         }
 
         public UIBlockSnapshot CurrentBlockSnapshot { get; private set; }
@@ -108,6 +126,39 @@ namespace Game.Feature.UI.Flow
             return ExecuteIntent(UiFlowAudioIntentKind.Back, HandlePopupBackdropClickedCore);
         }
 
+        internal bool NotifyResultContentEntranceStarted(
+            ResultContentEntranceMilestone milestone)
+        {
+            var session = TerminalSessionRegistry.Current;
+            if (!milestone.TerminalToken.IsValid ||
+                !session.IsActive ||
+                session.Token != milestone.TerminalToken ||
+                session.TerminalKind != TerminalTransitionKind.Victory ||
+                session.DestinationKind != milestone.DestinationKind ||
+                session.Phase != TerminalSessionPhase.WaitingResultInteraction)
+            {
+                return false;
+            }
+
+            if (_lastResultContentEntranceAudioToken == milestone.TerminalToken &&
+                _lastResultContentEntranceAudioDestination == milestone.DestinationKind)
+            {
+                return false;
+            }
+
+            var cue = milestone.DestinationKind switch
+            {
+                TerminalDestinationKind.SameSceneStageResult => UiAudioCueId.StageClear,
+                TerminalDestinationKind.SameSceneGameClear => UiAudioCueId.GameClear,
+                _ => throw new InvalidOperationException(
+                    $"Unsupported Result content entrance destination {milestone.DestinationKind}."),
+            };
+            _lastResultContentEntranceAudioToken = milestone.TerminalToken;
+            _lastResultContentEntranceAudioDestination = milestone.DestinationKind;
+            _uiAudioPort.Play(cue);
+            return true;
+        }
+
         public void Dispose()
         {
             AbortActiveTransaction(UiFlowAudioSilenceReason.Cleanup);
@@ -122,6 +173,7 @@ namespace Game.Feature.UI.Flow
             _popupController.PopupCompletionDispatched -= HandlePopupCompletionDispatched;
             _presentationSource.TickEventsApplied -= HandleTickEventsApplied;
             _presentationSource.LevelFailedCommitted -= HandleLevelFailedCommitted;
+            TerminalSessionRegistry.Changed -= HandleTerminalSessionChanged;
         }
 
         bool IUiFlowAudioIntentBoundary.ExecuteOpenForwardBoundary(Func<bool> action)
@@ -135,7 +187,19 @@ namespace Game.Feature.UI.Flow
                 new UIFlowStateSnapshot(
                     _screenController.CurrentEntry,
                     _popupController.TopPopup,
-                    _popupController.PopupCount));
+                    _popupController.PopupCount,
+                    TerminalSessionRegistry.IsActive));
+        }
+
+        private void HandleTerminalSessionChanged(TerminalSessionSnapshot snapshot)
+        {
+            if (snapshot.IsActive)
+            {
+                ClearPauseReturnMode();
+                ClosePopupsForScreenTransition();
+            }
+
+            RefreshBlockSnapshot();
         }
 
         private void ClosePopupsForScreenTransition()
@@ -181,7 +245,6 @@ namespace Game.Feature.UI.Flow
 
                 case PopupCompletionKind.MainMenuRequested:
                     ClearPauseReturnMode();
-                    _pauseService.Resume();
                     ReturnToMainMenu();
                     break;
             }
@@ -281,6 +344,13 @@ namespace Game.Feature.UI.Flow
             if (action == null)
             {
                 throw new ArgumentNullException(nameof(action));
+            }
+
+            if ((TerminalSessionRegistry.IsActive ||
+                 MainMenuEntryPresentationRegistry.IsActive) &&
+                intent != UiFlowAudioIntentKind.SystemPresentation)
+            {
+                return false;
             }
 
             var createdRoot = BeginTransaction(intent);
@@ -493,21 +563,71 @@ namespace Game.Feature.UI.Flow
             return _screenController.Replace(request);
         }
 
-        private void LaunchStage(StageNavigationRequest request)
+        public bool TryLaunchStage(StageNavigationRequest request)
         {
             if (!request.IsValid)
             {
                 throw new InvalidOperationException("Stage launch actions require a valid StageNavigationRequest.");
             }
 
-            ClosePopupsForScreenTransition();
+            var routePolicy = SceneTransitionRoutePolicyCatalog.RequireDestination(
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent),
+                SceneTransitionDestinationKind.Gameplay);
+            if (TerminalSessionRegistry.ReadModel.IsActive)
+            {
+                return false;
+            }
+
+            if (SceneEntryPresentationRegistry.IsActive)
+            {
+                return false;
+            }
+
+            if (MainMenuEntryPresentationRegistry.IsActive)
+            {
+                return false;
+            }
+
+            if (IsCanonicalGameplayEntrySessionRoute(routePolicy) &&
+                !SceneEntryPresentationRegistry.TryClaim(
+                    routePolicy.Intent,
+                    request.StageId,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    out _))
+            {
+                return false;
+            }
+
+            if (routePolicy.Intent != SceneTransitionIntent.ManualRetry)
+            {
+                ClosePopupsForScreenTransition();
+            }
+
             _stageLaunchRouter.Launch(request);
+            return true;
+        }
+
+        public bool TryReturnToMainMenu()
+        {
+            if (TerminalSessionRegistry.ReadModel.IsActive ||
+                SceneEntryPresentationRegistry.IsActive ||
+                MainMenuEntryPresentationRegistry.IsActive)
+            {
+                return false;
+            }
+
+            _mainMenuReturnRouter.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
+            return true;
+        }
+
+        private void LaunchStage(StageNavigationRequest request)
+        {
+            TryLaunchStage(request);
         }
 
         private void ReturnToMainMenu()
         {
-            ClosePopupsForScreenTransition();
-            _mainMenuReturnRouter.ReturnToMainMenu();
+            TryReturnToMainMenu();
         }
 
         private void HandleTickEventsApplied(UITickEventBatch batch)
@@ -525,6 +645,13 @@ namespace Game.Feature.UI.Flow
                     continue;
                 }
 
+                if (!TryCreateSameSceneDestinationSignal(
+                        tickEvent.TerminalToken,
+                        out var readinessSignal))
+                {
+                    return;
+                }
+
                 if (_lastStageClearedEventKey.HasValue && _lastStageClearedEventKey.Value.Equals(tickEvent.Key))
                 {
                     return;
@@ -532,11 +659,26 @@ namespace Game.Feature.UI.Flow
 
                 ExecuteIntent(UiFlowAudioIntentKind.SystemPresentation, () =>
                 {
+                    TerminalRuntimeTrace.Record(
+                        TerminalSessionRegistry.Current,
+                        TerminalTraceEvent.DestinationMutationAdmitted);
                     _lastStageClearedEventKey = tickEvent.Key;
                     ClearPauseReturnMode();
                     ClosePopupsForScreenTransition();
                     _screenController.Clear();
                     OpenStageCompletionFlow();
+                    TerminalRuntimeTrace.Record(
+                        TerminalSessionRegistry.Current,
+                        TerminalTraceEvent.StageResultCreated);
+                    TerminalRuntimeTrace.Record(
+                        TerminalSessionRegistry.Current,
+                        TerminalTraceEvent.PayloadBound);
+                    if (!TerminalDestinationReadiness.Signal(readinessSignal))
+                    {
+                        throw new InvalidOperationException(
+                            $"Stage completion destination readiness rejected terminal token {tickEvent.TerminalToken}.");
+                    }
+
                     return true;
                 });
                 return;
@@ -546,6 +688,14 @@ namespace Game.Feature.UI.Flow
         private void HandleLevelFailedCommitted(LevelFailedScreenPayload payload)
         {
             if (payload == null)
+            {
+                return;
+            }
+
+            if (!TryCreateSameSceneDestinationSignal(
+                    payload.TerminalToken,
+                    out var readinessSignal) ||
+                readinessSignal.DestinationKind != TerminalDestinationKind.SameSceneLevelFailed)
             {
                 return;
             }
@@ -565,8 +715,51 @@ namespace Game.Feature.UI.Flow
                     payload,
                     ScreenId.LevelFailed.ToString()));
                 RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.LevelFailed));
+                if (!TerminalDestinationReadiness.Signal(readinessSignal))
+                {
+                    throw new InvalidOperationException(
+                        $"LevelFailed destination readiness rejected terminal token {payload.TerminalToken}.");
+                }
+
                 return true;
             });
+        }
+
+        private static bool TryCreateSameSceneDestinationSignal(
+            TerminalSessionToken token,
+            out DestinationReadinessSignal signal)
+        {
+            var readModel = TerminalSessionRegistry.ReadModel;
+            var session = readModel.Current;
+            if (!token.IsValid ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.Phase != TerminalSessionPhase.WaitingSameSceneDestination)
+            {
+                signal = default;
+                return false;
+            }
+
+            var provenance = session.DestinationKind switch
+            {
+                TerminalDestinationKind.SameSceneStageResult =>
+                    TerminalDestinationProvenance.SameSceneStageResult,
+                TerminalDestinationKind.SameSceneGameClear =>
+                    TerminalDestinationProvenance.SameSceneGameClear,
+                TerminalDestinationKind.SameSceneLevelFailed =>
+                    TerminalDestinationProvenance.SameSceneLevelFailed,
+                _ => TerminalDestinationProvenance.None,
+            };
+            signal = new DestinationReadinessSignal(
+                token,
+                transitionId: 0,
+                session.SourceSceneGeneration,
+                session.SourceSceneGeneration,
+                session.DestinationKind,
+                TerminalSessionPhase.WaitingSameSceneDestination,
+                provenance,
+                DestinationReadinessOutcome.Ready);
+            return readModel.CanAcceptDestinationEvent(signal);
         }
 
         private void OpenStageCompletionFlow()
@@ -584,7 +777,6 @@ namespace Game.Feature.UI.Flow
                     ScreenId.GameClear,
                     GameClearScreenPayload.Default,
                     ScreenId.GameClear.ToString()));
-                RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.GameClear));
                 return;
             }
 
@@ -592,12 +784,22 @@ namespace Game.Feature.UI.Flow
                 ScreenId.StageResult,
                 StageCompletionStageResultPayloadMapper.Map(readModel),
                 ScreenId.StageResult.ToString()));
-            RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.StageResult));
         }
 
         private static bool IsCanonicalCampaignFinalStage(StageId stageId)
         {
             return stageId.IsValid && CanonicalCampaignResolver.Value.IsFinal(stageId);
+        }
+
+        private static bool IsCanonicalGameplayEntrySessionRoute(
+            SceneTransitionRoutePolicy routePolicy)
+        {
+            return routePolicy.ImplementsSceneTransitionSession &&
+                   (routePolicy.Intent == SceneTransitionIntent.StageAdvance ||
+                    routePolicy.Intent == SceneTransitionIntent.DeathRetry ||
+                    routePolicy.Intent == SceneTransitionIntent.ManualRetry ||
+                    routePolicy.Intent == SceneTransitionIntent.GameplayEntry ||
+                    routePolicy.Intent == SceneTransitionIntent.DemoStageRelaunch);
         }
 
         private UiFlowAudioIntentKind ResolveBackIntent()
@@ -696,7 +898,8 @@ namespace Game.Feature.UI.Flow
                 stageId,
                 StageNavigationKind.Retry,
                 "pause-retry",
-                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry);
         }
     }
 }

@@ -34,6 +34,15 @@ namespace Game.Feature.UI.Composition
 
         public void Launch(StageNavigationRequest request)
         {
+            var routePolicy = SceneTransitionRoutePolicyCatalog.RequireDestination(
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent),
+                SceneTransitionDestinationKind.Gameplay);
+            if (routePolicy.Intent != SceneTransitionIntent.GameplayEntry)
+            {
+                throw new InvalidOperationException(
+                    $"Cinematic stage launch accepts GameplayEntry, not {routePolicy.Intent}.");
+            }
+
             if (!_launchHandoffStore.TryPeek(out var handoff))
             {
                 throw new InvalidOperationException(
@@ -53,6 +62,20 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            if (!SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    request.StageId,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    handoff.Source,
+                    handoff.SlotNumber,
+                    handoff.Token,
+                    out var entryToken))
+            {
+                TryClearCurrentHandoff(handoff);
+                throw new InvalidOperationException(
+                    "Intro cinematic could not claim the CinematicToGameplay destination session.");
+            }
+
             var terminalClaimed = 0;
             try
             {
@@ -60,6 +83,7 @@ namespace Game.Feature.UI.Composition
                 {
                     if (Volatile.Read(ref terminalClaimed) != 0 ||
                         !IsCurrentHandoff(handoff) ||
+                        !IsCurrentEntrySession(entryToken, request.StageId) ||
                         Interlocked.CompareExchange(ref terminalClaimed, 1, 0) != 0)
                     {
                         return;
@@ -69,7 +93,9 @@ namespace Game.Feature.UI.Composition
                     {
                         case CinematicPlaybackCompletionKind.Completed:
                         case CinematicPlaybackCompletionKind.Skipped:
-                            LaunchOrClear(request, handoff);
+                            LaunchOrClear(
+                                request.WithTransitionIntent(SceneTransitionIntent.CinematicToGameplay),
+                                handoff);
                             _progressStore.MarkIntroPlayed(handoff.SlotNumber);
                             return;
 
@@ -77,12 +103,26 @@ namespace Game.Feature.UI.Composition
                         case CinematicPlaybackCompletionKind.Cancelled:
                         default:
                             TryClearCurrentHandoff(handoff);
+                            if (result.Kind == CinematicPlaybackCompletionKind.Cancelled)
+                            {
+                                SceneEntryPresentationRegistry.TryCancelClaim(entryToken);
+                            }
+                            else
+                            {
+                                SceneEntryPresentationRegistry.TryFailHoldingCover(
+                                    entryToken,
+                                    string.IsNullOrWhiteSpace(result.Message)
+                                        ? "Intro cinematic failed while holding its opaque owner."
+                                        : result.Message);
+                            }
+
                             return;
                     }
                 });
             }
             catch
             {
+                SceneEntryPresentationRegistry.TryCancelClaim(entryToken);
                 TryClearCurrentHandoff(handoff);
                 throw;
             }
@@ -121,6 +161,19 @@ namespace Game.Feature.UI.Composition
             {
                 _launchHandoffStore.TryClear(expected.Token);
             }
+        }
+
+        private static bool IsCurrentEntrySession(
+            SceneEntrySessionToken token,
+            StageId destinationStageId)
+        {
+            var current = SceneEntryPresentationRegistry.Current;
+            return current.IsActive &&
+                   current.Token == token &&
+                   current.TransitionIntent ==
+                   SceneTransitionIntent.CinematicToGameplay &&
+                   current.DestinationStageId.Equals(destinationStageId) &&
+                   current.Phase == SceneEntryPresentationPhase.Claimed;
         }
     }
 }

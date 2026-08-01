@@ -1334,6 +1334,7 @@ MonoBehaviour:
   _crackShardFadeDelaySeconds: 0.2
   _crackShardRotationDegrees: 120
   _useUnscaledTime: 1
+  _postShatterSettleDurationSeconds: 0.15
 --- !u!114 &9177025413810036314
 MonoBehaviour:
   m_ObjectHideFlags: 0

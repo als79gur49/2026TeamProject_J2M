@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Game.Feature.Stages;
 using Game.Feature.UI.Flow;
 
@@ -36,32 +37,78 @@ namespace Game.Feature.UI.Composition
             _isFinalClearMainReturn = isFinalClearMainReturn ?? (() => false);
         }
 
-        public void ReturnToMainMenu()
+        public void ReturnToMainMenu(SceneTransitionIntent transitionIntent)
         {
+            var routePolicy = SceneTransitionRoutePolicyCatalog.RequireDestination(
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(transitionIntent),
+                SceneTransitionDestinationKind.MainMenu);
+            if (routePolicy.Intent != SceneTransitionIntent.ReturnToMainMenu)
+            {
+                throw new InvalidOperationException(
+                    $"Cinematic main-menu return accepts ReturnToMainMenu, not {routePolicy.Intent}.");
+            }
+
             if (!_isFinalClearMainReturn() ||
                 !_activeSlotProvider.TryGetActiveSlotNumber(out var slotNumber) ||
                 !_player.HasOutroClip ||
                 _progressStore.IsOutroPlayed(slotNumber))
             {
-                _inner.ReturnToMainMenu();
+                _inner.ReturnToMainMenu(transitionIntent);
                 return;
             }
 
-            _player.PlayOutro(result =>
+            if (!MainMenuEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToMainMenu,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    "game-clear-outro",
+                    out var entryToken))
             {
-                if (result.Kind == CinematicPlaybackCompletionKind.Cancelled)
-                {
-                    return;
-                }
+                throw new InvalidOperationException(
+                    "Outro cinematic could not claim the CinematicToMainMenu destination session.");
+            }
 
-                if (result.Kind == CinematicPlaybackCompletionKind.Completed ||
-                    result.Kind == CinematicPlaybackCompletionKind.Skipped)
+            var terminalClaimed = 0;
+            try
+            {
+                _player.PlayOutro(result =>
                 {
+                    var current = MainMenuEntryPresentationRegistry.Current;
+                    if (Volatile.Read(ref terminalClaimed) != 0 ||
+                        !current.IsActive ||
+                        current.Token != entryToken ||
+                        current.TransitionIntent !=
+                        SceneTransitionIntent.CinematicToMainMenu ||
+                        current.Phase != SceneEntryPresentationPhase.Claimed ||
+                        Interlocked.CompareExchange(ref terminalClaimed, 1, 0) != 0)
+                    {
+                        return;
+                    }
+
+                    if (result.Kind == CinematicPlaybackCompletionKind.Cancelled)
+                    {
+                        MainMenuEntryPresentationRegistry.TryCancelClaim(entryToken);
+                        return;
+                    }
+
+                    if (result.Kind == CinematicPlaybackCompletionKind.Failed)
+                    {
+                        MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                            entryToken,
+                            string.IsNullOrWhiteSpace(result.Message)
+                                ? "Outro cinematic failed while holding its opaque owner."
+                                : result.Message);
+                        return;
+                    }
+
                     _progressStore.MarkOutroPlayed(slotNumber);
-                }
-
-                _inner.ReturnToMainMenu();
-            });
+                    _inner.ReturnToMainMenu(SceneTransitionIntent.CinematicToMainMenu);
+                });
+            }
+            catch
+            {
+                MainMenuEntryPresentationRegistry.TryCancelClaim(entryToken);
+                throw;
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -152,6 +153,7 @@ namespace Game.Feature.UI.Composition
             var presenter = new StageResultScreenPresenter(_localizedTextResolver);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.StageResultPrefab, ScreenId.StageResult);
             view.Bind(presenter.ViewModel);
+            ConfigureResultTransition(view, TerminalDestinationKind.SameSceneStageResult);
             view.SetIsCurrent(false);
             view.ApplyLocalizedTypography(
                 _localizedTextResolver.CurrentLocaleCode,
@@ -192,6 +194,7 @@ namespace Game.Feature.UI.Composition
             var presenter = new GameClearScreenPresenter(_localizedTextResolver);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.GameClearPrefab, ScreenId.GameClear);
             view.Bind(presenter.ViewModel);
+            ConfigureResultTransition(view, TerminalDestinationKind.SameSceneGameClear);
             view.SetIsCurrent(false);
             view.ApplyLocalizedTypography(
                 _localizedTextResolver.CurrentLocaleCode,
@@ -237,6 +240,52 @@ namespace Game.Feature.UI.Composition
             }
 
             return view;
+        }
+
+        private void ConfigureResultTransition(
+            IResultTransitionScreenView view,
+            TerminalDestinationKind destinationKind)
+        {
+            var style = _screenPrefabCatalog.ResultTransitionStyle;
+            if (style == null)
+            {
+                throw new InvalidOperationException(
+                    "Gameplay screen prefab catalog requires the canonical ResultTransitionVisualStyle.");
+            }
+
+            var session = TerminalSessionRegistry.Current;
+            var prepareForHandoff =
+                session.IsActive &&
+                session.TerminalKind == TerminalTransitionKind.Victory &&
+                session.DestinationKind == destinationKind &&
+                session.Phase == TerminalSessionPhase.WaitingSameSceneDestination;
+            ResultTransitionVisualPlaybackSnapshot playbackSnapshot;
+            if (prepareForHandoff)
+            {
+                if (!ResultTransitionVisualSnapshotRegistry.TryGet(
+                        session.Token,
+                        out playbackSnapshot))
+                {
+                    throw new InvalidOperationException(
+                        $"Result screen {destinationKind} requires the immutable visual snapshot captured for terminal token {session.Token}.");
+                }
+            }
+            else
+            {
+                style.ValidateOrThrow();
+                playbackSnapshot = new ResultTransitionVisualPlaybackSnapshot(
+                    new TerminalSessionToken(1, 1),
+                    style.CreateDimSnapshot(),
+                    style.CreateRuntimeSnapshot());
+            }
+
+            view.ConfigureDimSnapshot(
+                playbackSnapshot.Dim,
+                playbackSnapshot.RuntimeStyle);
+            if (prepareForHandoff)
+            {
+                view.PrepareOpaqueHandoff();
+            }
         }
 
         private static TPayload ExpectPayload<TPayload>(IScreenPayload payload) where TPayload : class, IScreenPayload

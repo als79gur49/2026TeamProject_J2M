@@ -9,7 +9,12 @@ namespace Game.Feature.UI.Composition
         private readonly GameplayStageLaunchRouteConfig _routeConfig;
         private readonly ISceneLoadPort _sceneLoadPort;
 
-        public ConfiguredGameplayStageLaunchRouter(
+        public ConfiguredGameplayStageLaunchRouter(GameplayStageLaunchRouteConfig routeConfig)
+            : this(routeConfig, null)
+        {
+        }
+
+        internal ConfiguredGameplayStageLaunchRouter(
             GameplayStageLaunchRouteConfig routeConfig,
             ISceneLoadPort sceneLoadPort = null)
         {
@@ -22,6 +27,17 @@ namespace Game.Feature.UI.Composition
             if (!request.IsValid)
             {
                 throw new ArgumentException("Configured gameplay launch requires a valid stage navigation request.", nameof(request));
+            }
+
+            if (request.TransitionIntent != SceneTransitionIntent.Unknown)
+            {
+                SceneTransitionRoutePolicyCatalog.RequireDestination(
+                    SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent),
+                    SceneTransitionDestinationKind.Gameplay);
+            }
+            else if (_sceneLoadPort == null)
+            {
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent);
             }
 
             if (!_routeConfig.HasValidGameplayShellScene)
@@ -58,6 +74,9 @@ namespace Game.Feature.UI.Composition
 
             if (_sceneLoadPort != null)
             {
+                SceneTransitionRoutePolicyCatalog.ResolveException(
+                    SceneTransitionIntent.TestInjectedSceneLoad,
+                    SceneTransitionRouteClassification.TestOnly);
                 CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
                 {
                     SceneName = _routeConfig.GameplayShellSceneName,
@@ -112,13 +131,7 @@ namespace Game.Feature.UI.Composition
             if (UnityEngine.Application.isPlaying)
             {
                 var accepted = SceneTransitionCoordinator.Instance.TryStartStageTransition(
-                    request.TransitionHint.HasExplicitKind
-                        ? request
-                        : new StageNavigationRequest(
-                            request.StageId,
-                            request.NavigationKind,
-                            request.Source,
-                            StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)),
+                    request,
                     _routeConfig.GameplayShellSceneName,
                     launchHandoff?.Token);
                 if (!accepted)
@@ -130,6 +143,9 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            SceneTransitionRoutePolicyCatalog.ResolveException(
+                SceneTransitionIntent.EditorDirectSceneLoad,
+                SceneTransitionRouteClassification.EditorOnly);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.StageLaunch)
             {
                 SceneName = _routeConfig.GameplayShellSceneName,

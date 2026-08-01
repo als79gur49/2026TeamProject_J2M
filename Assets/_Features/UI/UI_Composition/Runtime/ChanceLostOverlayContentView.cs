@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
@@ -5,7 +6,9 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
 {
-    internal sealed class ChanceLostOverlayContentView : SceneTransitionOverlayContentView
+    internal sealed class ChanceLostOverlayContentView :
+        SceneTransitionOverlayContentView,
+        ITransitionContentPlaybackProvider
     {
         private const string ChanceSlotNamePrefix = "ChanceSlotView";
         private const string TweenRootName = "LostChanceTweenRoot";
@@ -207,6 +210,10 @@ namespace Game.Feature.UI.Composition
         [Tooltip("Uses unscaled DOTween update for ChanceLost animation so overlay timing can ignore gameplay time scale.")]
         [SerializeField] private bool _useUnscaledTime = true;
 
+        [Tooltip("Authored quiet interval after every lost slot and its final shard have completed.")]
+        [Min(0f)]
+        [SerializeField] private float _postShatterSettleDurationSeconds = 0.15f;
+
         private readonly List<SlotState> _slotStates = new();
         private readonly List<RectTransform> _resolvedSlots = new();
         private Sequence _lostChanceSequence;
@@ -214,10 +221,28 @@ namespace Game.Feature.UI.Composition
         private Shader _allIn1UiMaskShader;
         private bool _hasBoundModel;
         private bool _hasResolvedAllIn1UiMaskShader;
+        private bool _playbackStarted;
+        private TransitionContentPlaybackHandle _playback = new();
+        private int _playbackGeneration;
+
+        public event Action Completed;
+
+        public event Action Cancelled;
+
+        public event Action Failed;
+
+        public bool IsCompleted => _playback.IsCompleted;
+
+        public bool IsCancelled => _playback.IsCancelled;
+
+        public bool IsFailed => _playback.IsFailed;
+
+        public ITransitionContentPlayback Playback => _playback;
 
         public override void Bind(SceneTransitionOverlayModel model)
         {
-            KillLostChanceAnimation();
+            ResetPlayback(cancelActive: true);
+            BeginNewPlayback();
             RestoreChanceSlots();
             base.Bind(model);
             _boundModel = model;
@@ -235,19 +260,25 @@ namespace Game.Feature.UI.Composition
         public override void Show()
         {
             base.Show();
+            if (_playbackStarted)
+            {
+                return;
+            }
+
             PlayLostChanceAnimation();
         }
 
         public override void Hide()
         {
-            KillLostChanceAnimation();
+            KillLostChanceAnimation(signalCancellation: true);
             RestoreChanceSlots();
             base.Hide();
         }
 
         public override void ResetView()
         {
-            KillLostChanceAnimation();
+            ResetPlayback(cancelActive: true);
+            BeginNewPlayback();
             RestoreChanceSlots();
             _hasBoundModel = false;
             base.ResetView();
@@ -290,13 +321,13 @@ namespace Game.Feature.UI.Composition
 
         private void OnDisable()
         {
-            KillLostChanceAnimation();
+            KillLostChanceAnimation(signalCancellation: true);
             RestoreChanceSlots();
         }
 
         private void OnDestroy()
         {
-            KillLostChanceAnimation();
+            KillLostChanceAnimation(signalCancellation: true);
             RestoreChanceSlots();
         }
 
@@ -307,6 +338,22 @@ namespace Game.Feature.UI.Composition
         internal IReadOnlyList<RectTransform> ResolvedChanceSlotsForTests => ResolveChanceSlots();
 
         internal Color CrackShardVisibleColorForTests(float shardDelaySeconds) => EvaluateCrackShardVisibleColor(shardDelaySeconds);
+
+        internal int CrackShardCountPerLostSlotForTests => CrackShardSpecs.Length;
+
+        internal float PostShatterSettleDurationSecondsForTests =>
+            Mathf.Max(0f, _postShatterSettleDurationSeconds);
+
+        internal float RootSequenceDurationSecondsForTests =>
+            _lostChanceSequence != null ? _lostChanceSequence.Duration(false) : 0f;
+
+        internal float RootSequencePositionSecondsForTests =>
+            _lostChanceSequence != null ? _lostChanceSequence.Elapsed(false) : 0f;
+
+        internal void GotoRootSequenceForTests(float positionSeconds)
+        {
+            _lostChanceSequence?.Goto(Mathf.Max(0f, positionSeconds), andPlay: false);
+        }
 
         private void ApplyChanceSlotState(SceneTransitionOverlayModel model)
         {
@@ -334,15 +381,27 @@ namespace Game.Feature.UI.Composition
 
         private void PlayLostChanceAnimation()
         {
-            KillLostChanceAnimation();
+            if (_playbackStarted)
+            {
+                return;
+            }
+
+            _playbackStarted = true;
+            var generation = ++_playbackGeneration;
             if (!_hasBoundModel || !_boundModel.HasChanceLost)
             {
+                CompletePlayback(generation);
                 return;
             }
 
             var slots = ResolveChanceSlots();
             if (slots.Count == 0)
             {
+                Debug.LogError(
+                    "Chance Lost payload expected exactly one lost slot, but no authored chance slots were resolved. " +
+                    "Completing content to avoid a transition deadlock.",
+                    this);
+                CompletePlayback(generation);
                 return;
             }
 
@@ -351,7 +410,22 @@ namespace Game.Feature.UI.Composition
             var lostEndExclusive = Mathf.Clamp(_boundModel.PreviousRemainingChances, lostStart, slots.Count);
             if (lostEndExclusive <= lostStart)
             {
+                Debug.LogError(
+                    $"Chance Lost payload expected exactly one lost slot, but resolved 0 " +
+                    $"(previous={_boundModel.PreviousRemainingChances}, current={_boundModel.CurrentRemainingChances}). " +
+                    "Completing content to avoid a transition deadlock.",
+                    this);
+                CompletePlayback(generation);
                 return;
+            }
+
+            var lostSlotCount = lostEndExclusive - lostStart;
+            if (lostSlotCount > 1)
+            {
+                Debug.LogWarning(
+                    $"Chance Lost campaign payload expected exactly one lost slot, but resolved {lostSlotCount}. " +
+                    "All lost slots will complete as one aggregate playback.",
+                    this);
             }
 
             _lostChanceSequence = DOTween.Sequence()
@@ -399,6 +473,10 @@ namespace Game.Feature.UI.Composition
 
                 _lostChanceSequence.Join(slotSequence);
             }
+
+            _lostChanceSequence
+                .AppendInterval(Mathf.Max(0f, _postShatterSettleDurationSeconds))
+                .OnComplete(() => CompletePlayback(generation));
         }
 
         private void InsertSurvivorPulseTweens(int survivorEndExclusive)
@@ -928,15 +1006,56 @@ namespace Game.Feature.UI.Composition
             state.Rect.gameObject.SetActive(state.ActiveSelf);
         }
 
-        private void KillLostChanceAnimation()
+        private void ResetPlayback(bool cancelActive)
         {
-            if (_lostChanceSequence == null)
+            KillLostChanceAnimation(cancelActive);
+            _playbackStarted = false;
+            _playbackGeneration++;
+        }
+
+        private void BeginNewPlayback()
+        {
+            _playback = new TransitionContentPlaybackHandle();
+            _playback.Completed += () => Completed?.Invoke();
+            _playback.Cancelled += () => Cancelled?.Invoke();
+            _playback.Failed += () => Failed?.Invoke();
+        }
+
+        private void KillLostChanceAnimation(bool signalCancellation)
+        {
+            if (_lostChanceSequence != null)
+            {
+                _lostChanceSequence.Kill(false);
+                _lostChanceSequence = null;
+            }
+
+            if (signalCancellation)
+            {
+                CancelPlayback(_playbackGeneration);
+            }
+        }
+
+        private void CompletePlayback(int generation)
+        {
+            if (generation != _playbackGeneration ||
+                !_playbackStarted)
             {
                 return;
             }
 
-            _lostChanceSequence.Kill(false);
             _lostChanceSequence = null;
+            _playback.TryComplete();
+        }
+
+        private void CancelPlayback(int generation)
+        {
+            if (generation != _playbackGeneration ||
+                !_playbackStarted)
+            {
+                return;
+            }
+
+            _playback.TryCancel();
         }
 
         private static int CompareChanceSlotNames(RectTransform left, RectTransform right)

@@ -12,13 +12,18 @@ using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using Game.Shared.Audio;
 using Game.Shared.Input;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayUiFlowInstaller : MonoBehaviour, IStageLaunchRouterProvider
+    public sealed class GameplayUiFlowInstaller : MonoBehaviour,
+        IStageLaunchRouterProvider,
+        ITerminalTransitionPortProvider,
+        ITerminalSessionAuthorityProvider
     {
         private const string MissingAudioInstallerMessage =
             "GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls.";
@@ -28,6 +33,14 @@ namespace Game.Feature.UI.Composition
             "GameplayUiFlowInstaller requires a serialized UiAudioCueMap on the canonical bootstrap root for UI SFX v1.";
         private const string RootShellObjectName = "GameplayUiCanvasRoot";
         private const string RootShellPrefabResourcePath = "UI/GameplayUiCanvasRootShell";
+        private static readonly FieldInfo TmpDropdownLiveListField =
+            typeof(TMP_Dropdown).GetField(
+                "m_Dropdown",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo TmpDropdownBlockerField =
+            typeof(TMP_Dropdown).GetField(
+                "m_Blocker",
+                BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly InputSystemKeyboardBridge KeyboardBridge = new();
 
         [SerializeField] private GameplaySceneHost _sceneHost;
@@ -60,6 +73,22 @@ namespace Game.Feature.UI.Composition
         private IDemoStageControlCommandPort _demoStageControlCommandPort;
         private IDemoGameplayOverrideCommandPort _demoGameplayOverrideCommandPort;
         private bool _isDisposed;
+        private GameplayTerminalTransitionPort _terminalTransitionPort;
+        private TerminalIrisMotionProfileResolver _terminalIrisMotionResolver;
+        private GameplaySceneHost _installedSceneHost;
+        private bool _terminalSessionSubscribed;
+        private bool _entryIrisClosedPrepared;
+        private float _entryOpeningElapsed;
+        private float _entryOpeningRadius;
+        private Vector2 _entryFocusCenter;
+        private TerminalIrisRuntimeOpenPreset? _entryOpenPreset;
+        private SceneEntrySessionToken _preparedEntryToken;
+        private TerminalTransitionPlayback _gameplayEntrySourceClosePlayback;
+        private SceneEntrySessionToken _gameplayEntrySourceCloseToken;
+        private bool _gameplayEntrySourceCloseRenderRequested;
+        private TerminalTransitionPlayback _mainMenuReturnSourceClosePlayback;
+        private MainMenuEntrySessionToken _mainMenuReturnSourceCloseToken;
+        private bool _mainMenuReturnSourceCloseRenderRequested;
 
         public GameplayUiFlowPorts Ports { get; private set; }
 
@@ -87,6 +116,255 @@ namespace Game.Feature.UI.Composition
 
         public StageResultScreenView StageResultScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<StageResultScreenView>() : null;
 
+        public GameClearScreenView GameClearScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<GameClearScreenView>() : null;
+
+        internal Vector2 EntryFocusCenterForTests => _entryFocusCenter;
+
+        internal bool IsInstalledForDiagnostics => _isInstalled;
+
+        internal bool TryBeginGameplayEntrySourceClose(
+            SceneEntrySessionToken token,
+            GameplayEntryTransitionVisualSnapshot visual,
+            out TerminalTransitionPlayback playback)
+        {
+            playback = _gameplayEntrySourceClosePlayback;
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!_isInstalled ||
+                _rootView == null ||
+                _installedSceneHost == null ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.TransitionIntent != visual.Intent ||
+                session.Phase != SceneEntryPresentationPhase.PersistentCoverRequested ||
+                visual.SourceCloseVisualKind != GameplayEntrySourceCloseVisualKind.RetryIris ||
+                (_terminalTransitionPort?.CurrentPlayback is { IsTerminal: false }) ||
+                (_gameplayEntrySourceClosePlayback != null &&
+                 !_gameplayEntrySourceClosePlayback.IsTerminal))
+            {
+                return false;
+            }
+
+            _terminalIrisMotionResolver ??=
+                _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
+            var preset = _terminalIrisMotionResolver.ResolveRetryClose(visual.Intent);
+            var focus = new TerminalFocusTarget(
+                preset.FallbackCenter,
+                preset.FallbackRadius,
+                isFallback: true);
+            var focusSource = new GameplayTerminalFocusTargetSource(
+                _installedSceneHost.ViewRegistry,
+                _installedSceneHost.OutputCamera);
+            if (focusSource.TryCapture(_installedSceneHost.PlayerEntityId, out var captured))
+            {
+                focus = captured;
+            }
+
+            var irisView = _rootView.TerminalIrisOverlayView;
+            irisView.ConfigureTransitionColor(visual.SourceCloseColor);
+            var candidate = new TerminalTransitionPlayback(preset);
+            var fullyRevealedRadius = Mathf.Max(
+                irisView.CalculateFullyRevealedRadius(preset.FallbackCenter, 0f),
+                irisView.CalculateFullyRevealedRadius(focus.NormalizedCenter, 0f));
+            candidate.ConfigureFullyRevealedRadii(
+                fullyRevealedRadius,
+                fullyRevealedRadius);
+            var visualOnlyToken = new TerminalSessionToken(
+                TerminalSessionRegistry.Authority.AuthorityGeneration,
+                token.Value);
+            if (!candidate.TryBegin(
+                    new TerminalTransitionRequest(
+                        TerminalTransitionKind.Defeat,
+                        _installedSceneHost.PlayerEntityId,
+                        visualOnlyToken,
+                        TerminalTransitionDestinationMode.SceneHandoff),
+                    focus))
+            {
+                candidate.Dispose();
+                return false;
+            }
+
+            _gameplayEntrySourceClosePlayback?.Dispose();
+            _gameplayEntrySourceClosePlayback = candidate;
+            _gameplayEntrySourceCloseToken = token;
+            _gameplayEntrySourceCloseRenderRequested = false;
+            irisView.Show();
+            irisView.Apply(candidate);
+            playback = candidate;
+            return true;
+        }
+
+        internal bool TickGameplayEntrySourceClose(
+            SceneEntrySessionToken token,
+            TerminalTransitionPlayback playback,
+            float unscaledDeltaTime)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (playback == null ||
+                !ReferenceEquals(playback, _gameplayEntrySourceClosePlayback) ||
+                token != _gameplayEntrySourceCloseToken ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.Phase != SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return false;
+            }
+
+            if (playback.State != TerminalTransitionState.Black)
+            {
+                playback.Advance(Mathf.Max(0f, unscaledDeltaTime));
+                _rootView.TerminalIrisOverlayView.Apply(playback);
+            }
+
+            if (playback.State == TerminalTransitionState.Black &&
+                !_gameplayEntrySourceCloseRenderRequested)
+            {
+                _rootView.TerminalIrisOverlayView.RequestClosedRenderAcknowledgement();
+                _gameplayEntrySourceCloseRenderRequested = true;
+            }
+
+            return playback.State == TerminalTransitionState.Black &&
+                   _rootView.TerminalIrisOverlayView.HasRenderedEntryClosedFrame;
+        }
+
+        internal bool CompleteGameplayEntrySourceClose(
+            SceneEntrySessionToken token,
+            TerminalTransitionPlayback playback)
+        {
+            if (!ReferenceEquals(playback, _gameplayEntrySourceClosePlayback) ||
+                token != _gameplayEntrySourceCloseToken ||
+                playback.State != TerminalTransitionState.Black ||
+                !_rootView.TerminalIrisOverlayView.HasRenderedEntryClosedFrame)
+            {
+                return false;
+            }
+
+            _rootView.TerminalIrisOverlayView.Hide();
+            playback.Dispose();
+            _gameplayEntrySourceClosePlayback = null;
+            _gameplayEntrySourceCloseToken = default;
+            _gameplayEntrySourceCloseRenderRequested = false;
+            return true;
+        }
+
+        internal bool TryBeginMainMenuReturnSourceClose(
+            MainMenuEntrySessionToken token,
+            MainMenuTransitionVisualSnapshot visual,
+            out TerminalTransitionPlayback playback)
+        {
+            playback = _mainMenuReturnSourceClosePlayback;
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (!_isInstalled ||
+                _rootView == null ||
+                _installedSceneHost == null ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.TransitionIntent != SceneTransitionIntent.ReturnToMainMenu ||
+                session.TransitionIntent != visual.Intent ||
+                session.Phase != SceneEntryPresentationPhase.PersistentCoverRequested ||
+                visual.SourceCloseVisualKind !=
+                MainMenuSourceCloseVisualKind.GameplayScreenCenterIris ||
+                (_terminalTransitionPort?.CurrentPlayback is { IsTerminal: false }) ||
+                (_mainMenuReturnSourceClosePlayback != null &&
+                 !_mainMenuReturnSourceClosePlayback.IsTerminal))
+            {
+                return false;
+            }
+
+            _terminalIrisMotionResolver ??=
+                _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
+            var preset = _terminalIrisMotionResolver.ResolveGameplayEntrySourceClose(
+                visual.Intent);
+            var focus = new TerminalFocusTarget(
+                preset.FallbackCenter,
+                preset.FallbackRadius,
+                isFallback: true);
+            var irisView = _rootView.TerminalIrisOverlayView;
+            irisView.ConfigureTransitionColor(visual.SourceCloseColor);
+            var candidate = new TerminalTransitionPlayback(preset);
+            var fullyRevealedRadius =
+                irisView.CalculateFullyRevealedRadius(preset.FallbackCenter, 0f);
+            candidate.ConfigureFullyRevealedRadii(
+                fullyRevealedRadius,
+                fullyRevealedRadius);
+            var visualOnlyToken = new TerminalSessionToken(
+                TerminalSessionRegistry.Authority.AuthorityGeneration,
+                token.Value);
+            if (!candidate.TryBegin(
+                    new TerminalTransitionRequest(
+                        TerminalTransitionKind.Defeat,
+                        _installedSceneHost.PlayerEntityId,
+                        visualOnlyToken,
+                        TerminalTransitionDestinationMode.SceneHandoff),
+                    focus))
+            {
+                candidate.Dispose();
+                return false;
+            }
+
+            _mainMenuReturnSourceClosePlayback?.Dispose();
+            _mainMenuReturnSourceClosePlayback = candidate;
+            _mainMenuReturnSourceCloseToken = token;
+            _mainMenuReturnSourceCloseRenderRequested = false;
+            irisView.Show();
+            irisView.Apply(candidate);
+            playback = candidate;
+            return true;
+        }
+
+        internal bool TickMainMenuReturnSourceClose(
+            MainMenuEntrySessionToken token,
+            TerminalTransitionPlayback playback,
+            float unscaledDeltaTime)
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (playback == null ||
+                !ReferenceEquals(playback, _mainMenuReturnSourceClosePlayback) ||
+                token != _mainMenuReturnSourceCloseToken ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.Phase != SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return false;
+            }
+
+            var irisView = _rootView.TerminalIrisOverlayView;
+            if (playback.State != TerminalTransitionState.Black)
+            {
+                playback.Advance(Mathf.Max(0f, unscaledDeltaTime));
+                irisView.Apply(playback);
+            }
+
+            if (playback.State == TerminalTransitionState.Black &&
+                !_mainMenuReturnSourceCloseRenderRequested)
+            {
+                irisView.RequestClosedRenderAcknowledgement();
+                _mainMenuReturnSourceCloseRenderRequested = true;
+            }
+
+            return playback.State == TerminalTransitionState.Black &&
+                   irisView.HasRenderedEntryClosedFrame;
+        }
+
+        internal bool CompleteMainMenuReturnSourceClose(
+            MainMenuEntrySessionToken token,
+            TerminalTransitionPlayback playback)
+        {
+            if (!ReferenceEquals(playback, _mainMenuReturnSourceClosePlayback) ||
+                token != _mainMenuReturnSourceCloseToken ||
+                playback.State != TerminalTransitionState.Black ||
+                !_rootView.TerminalIrisOverlayView.HasRenderedEntryClosedFrame)
+            {
+                return false;
+            }
+
+            _rootView.TerminalIrisOverlayView.Hide();
+            playback.Dispose();
+            _mainMenuReturnSourceClosePlayback = null;
+            _mainMenuReturnSourceCloseToken = default;
+            _mainMenuReturnSourceCloseRenderRequested = false;
+            return true;
+        }
+
         public LevelFailedScreenView LevelFailedScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<LevelFailedScreenView>() : null;
 
         public PopupLayerView PopupLayerView => _rootView != null ? _rootView.PopupLayerView : null;
@@ -101,6 +379,40 @@ namespace Game.Feature.UI.Composition
             return true;
         }
 
+        public bool TryGetTerminalTransitionPort(out ITerminalTransitionPort port)
+        {
+            if (_terminalTransitionPort == null && _sceneHost != null)
+            {
+                EnsureTerminalTransitionPort(_sceneHost);
+            }
+
+            port = _terminalTransitionPort;
+            return port != null;
+        }
+
+        public bool TryGetTerminalSessionAuthority(
+            out ITerminalSessionReadModel readModel,
+            out ITerminalSessionAuthority authority)
+        {
+            var persistentAuthority = TerminalSessionRegistry.Authority;
+            readModel = persistentAuthority;
+            authority = persistentAuthority;
+            return true;
+        }
+
+        internal bool TryForceClearCurrentStageForDiagnostics(out string message)
+        {
+            if (_demoStageControlCommandPort == null)
+            {
+                message = "Production Demo Stage Control command port is unavailable.";
+                return false;
+            }
+
+            var result = _demoStageControlCommandPort.ForceClearCurrentStage();
+            message = result.Message;
+            return result.Success;
+        }
+
         private void Start()
         {
             if (_installOnStart && _sceneHost != null)
@@ -109,14 +421,33 @@ namespace Game.Feature.UI.Composition
             }
         }
 
+        private void OnEnable()
+        {
+            SubscribeTerminalSession();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeTerminalSession();
+        }
+
         private void Update()
         {
+            _terminalTransitionPort?.Tick(Time.unscaledDeltaTime);
+            TickSceneEntryPresentation(Time.unscaledDeltaTime);
+            TickVictoryResultHandoff(Time.unscaledDeltaTime);
+
             if (_isInstalled)
             {
                 _stageResultAutoNextDriver?.Tick(Time.unscaledDeltaTime);
             }
 
             if (!_isInstalled || _rootView == null)
+            {
+                return;
+            }
+
+            if (_terminalTransitionPort?.CurrentPlayback is { IsTerminal: false })
             {
                 return;
             }
@@ -144,18 +475,78 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
-            _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
-            _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
-            Install(new GameplayUiFlowPorts(
-                sceneHost.UiAccess.CommandGateway,
-                sceneHost.UiAccess.QueryFacade,
-                new GameplayUiPresentationSource(
+            try
+            {
+                EnsureTerminalTransitionPort(sceneHost);
+                _installedSceneHost = sceneHost;
+                RegisterSceneEntryDestinationIfApplicable();
+                _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
+                _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
+                Install(new GameplayUiFlowPorts(
+                    sceneHost.UiAccess.CommandGateway,
                     sceneHost.UiAccess.QueryFacade,
-                    sceneHost.UiAccess.PresentationFeed,
-                    sceneHost.UiAccess.PauseService),
-                sceneHost.UiAccess.PauseService));
+                    new GameplayUiPresentationSource(
+                        sceneHost.UiAccess.QueryFacade,
+                        sceneHost.UiAccess.PresentationFeed,
+                        sceneHost.UiAccess.PauseService),
+                    sceneHost.UiAccess.PauseService));
 
-            _sceneHost = null;
+                SignalTerminalDestinationReadyIfApplicable(sceneHost);
+                _sceneHost = null;
+            }
+            catch (Exception exception)
+            {
+                ReportDestinationFailureIfOwned(
+                    DestinationReadinessOutcome.Failed,
+                    "DESTINATION_INSTALL_FAILED",
+                    exception.Message);
+                throw;
+            }
+        }
+        private void SignalTerminalDestinationReadyIfApplicable(GameplaySceneHost sceneHost)
+        {
+            var session = TerminalSessionRegistry.Current;
+            if (!session.IsActive ||
+                session.TerminalKind != TerminalTransitionKind.Defeat ||
+                session.Phase != TerminalSessionPhase.WaitingDestinationReady)
+            {
+                return;
+            }
+
+            if (sceneHost.UiAccess == null ||
+                _rootView == null ||
+                !_rootView.gameObject.activeInHierarchy ||
+                Coordinator == null ||
+                ScreenController == null ||
+                PopupController == null ||
+                HudController == null)
+            {
+                throw new InvalidOperationException(
+                    $"Terminal destination {session.Token} cannot become ready before gameplay host, UI roots, and controllers are installed.");
+            }
+
+            var provenance = session.DestinationKind switch
+            {
+                TerminalDestinationKind.ReloadedGameplay =>
+                    TerminalDestinationProvenance.ReloadedGameplayBootstrap,
+                TerminalDestinationKind.MainMenu =>
+                    TerminalDestinationProvenance.MainMenuBootstrap,
+                _ => TerminalDestinationProvenance.None,
+            };
+            var signal = new DestinationReadinessSignal(
+                session.Token,
+                session.TransitionId,
+                session.SourceSceneGeneration,
+                session.DestinationSceneGeneration,
+                session.DestinationKind,
+                TerminalSessionPhase.WaitingDestinationReady,
+                provenance,
+                DestinationReadinessOutcome.Ready);
+            if (!TerminalDestinationReadiness.Signal(signal))
+            {
+                throw new InvalidOperationException(
+                    $"Terminal destination readiness for token {session.Token} was rejected.");
+            }
         }
 
         public void Install(GameplayUiFlowPorts ports)
@@ -263,13 +654,14 @@ namespace Game.Feature.UI.Composition
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
-                new CurrentSceneStageLaunchRouter(gameObject.scene.name));
+                Coordinator.TryLaunchStage);
             displayPreviewSessionHost.BindAudioIntentBoundary(Coordinator);
 
             HudController.AttachView(_rootView.HudView);
             WireViewEvents();
             WireControllerEvents();
             Coordinator.Initialize();
+            SubscribeTerminalSession();
             EnsureNavigationInputRouter();
             SyncViews();
             _isInstalled = true;
@@ -286,9 +678,19 @@ namespace Game.Feature.UI.Composition
             // Dispose the persistent HUD presenter before any view/controller teardown can
             // encounter a partially destroyed hidden HUD hierarchy.
             HudRootPresenter?.Dispose();
+            _mainMenuReturnSourceClosePlayback?.Dispose();
+            _mainMenuReturnSourceClosePlayback = null;
+            ReportSceneEntryFailureIfOwned(
+                "DESTINATION_ENTRY_INSTALLER_DESTROYED",
+                "Gameplay destination UI installer was destroyed before Entry Iris opening completed.");
+            ReportDestinationFailureIfOwned(
+                DestinationReadinessOutcome.Cancelled,
+                "DESTINATION_INSTALLER_DESTROYED",
+                "Destination UI installer was destroyed before readiness completed.");
             UnwireViewEvents();
             UnwireControllerEvents();
             _audioSettingsLifecycleRelay?.FlushNow();
+            UnsubscribeTerminalSession();
             Coordinator?.Dispose();
             _stageResultAutoNextDriver?.Dispose();
             _gameplayPauseAudioBridge?.Dispose();
@@ -296,9 +698,52 @@ namespace Game.Feature.UI.Composition
             PopupController?.Dispose();
             HudController?.Dispose();
             _hudUiAudioFeedbackController?.Dispose();
+            _terminalTransitionPort?.Dispose();
+            _terminalTransitionPort = null;
+            _gameplayEntrySourceClosePlayback?.Dispose();
+            _gameplayEntrySourceClosePlayback = null;
+            _installedSceneHost = null;
             (PresentationSource as IDisposable)?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
             _localizedTextResolver = null;
+        }
+
+        private static void ReportDestinationFailureIfOwned(
+            DestinationReadinessOutcome outcome,
+            string code,
+            string message)
+        {
+            var authority = TerminalSessionRegistry.Authority;
+            var session = authority.Current;
+            if (!session.IsActive ||
+                session.TerminalKind != TerminalTransitionKind.Defeat ||
+                session.DestinationKind != TerminalDestinationKind.ReloadedGameplay ||
+                session.DestinationSceneGeneration <= 0 ||
+                authority.CurrentSceneGeneration != session.DestinationSceneGeneration ||
+                session.Phase == TerminalSessionPhase.Revealing ||
+                session.Phase == TerminalSessionPhase.Completed ||
+                session.Phase == TerminalSessionPhase.FailedHoldingCover)
+            {
+                return;
+            }
+
+            var failure = new TerminalFailure(code, message);
+            if (session.Phase == TerminalSessionPhase.WaitingDestinationReady)
+            {
+                TerminalDestinationReadiness.Signal(new DestinationReadinessSignal(
+                    session.Token,
+                    session.TransitionId,
+                    session.SourceSceneGeneration,
+                    session.DestinationSceneGeneration,
+                    session.DestinationKind,
+                    TerminalSessionPhase.WaitingDestinationReady,
+                    TerminalDestinationProvenance.ReloadedGameplayBootstrap,
+                    outcome,
+                    failure.Message));
+                return;
+            }
+
+            authority.TryFail(session.Token, failure);
         }
 
         private void EnsureRootView()
@@ -323,6 +768,29 @@ namespace Game.Feature.UI.Composition
 
             _rootView.EnsureHierarchy();
             EnsureHudView();
+        }
+
+        private void EnsureTerminalTransitionPort(GameplaySceneHost sceneHost)
+        {
+            if (_terminalTransitionPort != null)
+            {
+                return;
+            }
+
+            if (sceneHost == null)
+            {
+                throw new ArgumentNullException(nameof(sceneHost));
+            }
+
+            EnsureRootView();
+            _terminalIrisMotionResolver ??=
+                _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
+            _terminalTransitionPort = new GameplayTerminalTransitionPort(
+                _rootView.TerminalIrisOverlayView,
+                _terminalIrisMotionResolver,
+                new GameplayTerminalFocusTargetSource(
+                    sceneHost.ViewRegistry,
+                    sceneHost.OutputCamera));
         }
 
         private void EnsureHudView()
@@ -484,7 +952,10 @@ namespace Game.Feature.UI.Composition
                 ResolveUiInputActions(),
                 resolver,
                 () => Coordinator != null && Coordinator.HandleBackRequested(),
-                () => _cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying,
+                () => (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying) ||
+                      TerminalSessionRegistry.IsActive ||
+                      SceneEntryPresentationRegistry.IsActive ||
+                      MainMenuEntryPresentationRegistry.IsActive,
                 _uiAudioPort);
         }
 
@@ -546,6 +1017,466 @@ namespace Game.Feature.UI.Composition
         private void HandlePopupBackdropClicked()
         {
             Coordinator.HandlePopupBackdropClicked();
+        }
+
+        private void HandleTerminalSessionChanged(TerminalSessionSnapshot snapshot)
+        {
+            if (snapshot.IsActive &&
+                snapshot.Phase == TerminalSessionPhase.WaitingDestinationReady &&
+                _installedSceneHost != null)
+            {
+                SignalTerminalDestinationReadyIfApplicable(_installedSceneHost);
+            }
+
+            if (snapshot.IsActive)
+            {
+                var dropdowns = FindObjectsByType<TMP_Dropdown>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+                for (var i = 0; i < dropdowns.Length; i++)
+                {
+                    ForceCloseTransientDropdown(dropdowns[i]);
+                }
+
+                _navigationInputRouter?.ClearNavigationFocus();
+                SyncViews();
+                var eventSystems = FindObjectsByType<EventSystem>(
+                    FindObjectsInactive.Include,
+                    FindObjectsSortMode.None);
+                for (var i = 0; i < eventSystems.Length; i++)
+                {
+                    eventSystems[i]?.SetSelectedGameObject(null);
+                }
+
+                return;
+            }
+
+            SyncViews();
+            _navigationInputRouter?.RestoreNavigationFocus();
+        }
+
+        private void TickVictoryResultHandoff(float unscaledDeltaTime)
+        {
+            var session = TerminalSessionRegistry.Current;
+            if (!_isInstalled ||
+                !session.IsActive ||
+                session.TerminalKind != TerminalTransitionKind.Victory)
+            {
+                return;
+            }
+
+            var resultView = ResolveActiveResultTransitionView(session.DestinationKind);
+            if (resultView == null)
+            {
+                return;
+            }
+
+            if (session.Phase == TerminalSessionPhase.WaitingSameSceneDestination)
+            {
+                if (!TerminalDestinationReadiness.IsReady(session.Token) ||
+                    !resultView.IsHandoffCoverRendered)
+                {
+                    return;
+                }
+
+                TerminalRuntimeTrace.Record(session, TerminalTraceEvent.ResultBackdropReady);
+                if (_terminalTransitionPort == null ||
+                    !_terminalTransitionPort.CompleteToResultBackdrop(session.Token))
+                {
+                    throw new InvalidOperationException(
+                        $"Victory result backdrop handoff rejected terminal token {session.Token}.");
+                }
+
+                if (!resultView.BeginHandoffFade())
+                {
+                    throw new InvalidOperationException(
+                        $"Victory ResultHandoffCover fade rejected terminal token {session.Token}.");
+                }
+
+                if (!TerminalSessionRegistry.TryAdvance(
+                        session.Token,
+                        TerminalSessionPhase.WaitingResultInteraction))
+                {
+                    throw new InvalidOperationException(
+                        $"Victory result interaction wait rejected terminal token {session.Token}.");
+                }
+
+                return;
+            }
+
+            if (session.Phase != TerminalSessionPhase.WaitingResultInteraction)
+            {
+                return;
+            }
+
+            resultView.AdvanceResultTransition(Mathf.Max(0f, unscaledDeltaTime));
+            if (resultView.CanBeginContentEntrance)
+            {
+                if (!resultView.BeginContentEntrance())
+                {
+                    throw new InvalidOperationException(
+                        $"Victory result content entrance rejected terminal token {session.Token}.");
+                }
+
+                TerminalRuntimeTrace.Record(
+                    TerminalSessionRegistry.Current,
+                    TerminalTraceEvent.ResultContentEntranceStarted);
+                if (Coordinator == null ||
+                    !Coordinator.NotifyResultContentEntranceStarted(
+                        new ResultContentEntranceMilestone(
+                            session.Token,
+                            session.DestinationKind)))
+                {
+                    throw new InvalidOperationException(
+                        $"Victory result content entrance audio milestone rejected terminal token {session.Token}.");
+                }
+            }
+
+            if (!resultView.IsInteractionReady)
+            {
+                return;
+            }
+
+            TerminalRuntimeTrace.Record(
+                TerminalSessionRegistry.Current,
+                TerminalTraceEvent.ResultInteractionReady);
+            if (!TerminalSessionRegistry.TryComplete(session.Token))
+            {
+                throw new InvalidOperationException(
+                    $"Victory result interaction-ready completion rejected terminal token {session.Token}.");
+            }
+        }
+
+        private void RegisterSceneEntryDestinationIfApplicable()
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!session.IsActive || session.Phase != SceneEntryPresentationPhase.Loading)
+            {
+                return;
+            }
+
+            var destinationGeneration =
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration;
+            if (!SceneEntryPresentationRegistry.TryRegisterDestinationScene(
+                    session.Token,
+                    destinationGeneration))
+            {
+                SceneEntryPresentationRegistry.TryFailHoldingCover(
+                    session.Token,
+                    "Destination gameplay scene generation could not be correlated.");
+                throw new InvalidOperationException(
+                    $"Scene entry session {session.Token} rejected destination generation {destinationGeneration}.");
+            }
+        }
+
+        private void TickSceneEntryPresentation(float unscaledDeltaTime)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                !_isInstalled ||
+                _rootView == null ||
+                _installedSceneHost == null)
+            {
+                return;
+            }
+
+            var irisView = _rootView.TerminalIrisOverlayView;
+            if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
+                !_entryIrisClosedPrepared)
+            {
+                if (!IsStrongGameplayDestinationReady(
+                        session,
+                        out var focus,
+                        out var readinessFailure))
+                {
+                    SceneEntryPresentationRegistry.TryFailHoldingCover(
+                        session.Token,
+                        readinessFailure);
+                    return;
+                }
+
+                var ready = new SceneEntryRuntimeReady(
+                    session.Token,
+                    session.TransitionId,
+                    session.DestinationSceneGeneration,
+                    _installedSceneHost.PlayerEntityId,
+                    _installedSceneHost.OutputCamera,
+                    SceneEntryRuntimeReadyProvenance.ProductionGameplayBootstrap);
+                if (!SceneEntryPresentationRegistry.CanAcceptRuntimeReady(ready))
+                {
+                    SceneEntryPresentationRegistry.TryFailHoldingCover(
+                        session.Token,
+                        "SceneEntryRuntimeReady token, transition, generation, player, camera, or provenance was invalid.");
+                    return;
+                }
+
+                _terminalIrisMotionResolver ??=
+                    _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
+                var entryOpenPreset =
+                    _terminalIrisMotionResolver.ResolveStageEntryOpen();
+                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                    session.Token,
+                    session.TransitionIntent);
+                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
+                irisView.Show();
+                irisView.ApplyClosedEntry(focus.NormalizedCenter, entryOpenPreset);
+                _entryFocusCenter = focus.NormalizedCenter;
+                _entryOpeningRadius = irisView.CalculateFullyRevealedRadius(
+                    focus.NormalizedCenter,
+                    entryOpenPreset.FullOpenMargin);
+                _entryOpeningElapsed = 0f;
+                _entryOpenPreset = entryOpenPreset;
+                _preparedEntryToken = session.Token;
+                _entryIrisClosedPrepared = true;
+                return;
+            }
+
+            if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
+                _entryIrisClosedPrepared)
+            {
+                if (_preparedEntryToken != session.Token)
+                {
+                    return;
+                }
+
+                if (!irisView.HasRenderedEntryClosedFrame)
+                {
+                    return;
+                }
+
+                if (!SceneEntryPresentationRegistry.TryAdvance(
+                        session.Token,
+                        SceneEntryPresentationPhase.EntryIrisClosed) ||
+                    !SceneTransitionCoordinator.ReleaseSceneEntryCover(session.Token) ||
+                    !SceneEntryPresentationRegistry.TryAdvance(
+                        session.Token,
+                        SceneEntryPresentationPhase.Opening))
+                {
+                    SceneEntryPresentationRegistry.TryFailHoldingCover(
+                        session.Token,
+                        "Closed Entry Iris could not acquire the persistent-cover handoff.");
+                }
+
+                return;
+            }
+
+            if (session.Phase != SceneEntryPresentationPhase.Opening)
+            {
+                return;
+            }
+
+            if (!_entryOpenPreset.HasValue || _preparedEntryToken != session.Token)
+            {
+                throw new InvalidOperationException(
+                    $"Scene entry opening token {session.Token} has no captured motion preset.");
+            }
+
+            var openPreset = _entryOpenPreset.Value;
+            _entryOpeningElapsed += Mathf.Max(0f, unscaledDeltaTime);
+            var openingElapsed = Mathf.Max(
+                0f,
+                _entryOpeningElapsed - openPreset.PreOpenHoldDuration);
+            var progress = Mathf.Clamp01(openingElapsed / openPreset.OpeningDuration);
+            var openingEasing = TerminalIrisEasingUtility.Evaluate(
+                openPreset.OpeningEasing,
+                progress);
+            irisView.ApplyEntryRadius(
+                Mathf.Lerp(
+                    0f,
+                    _entryOpeningRadius,
+                    openingEasing),
+                Mathf.Lerp(
+                    openPreset.FinalClosedOvershootPixels,
+                    0f,
+                    openingEasing));
+            if (progress < 1f)
+            {
+                return;
+            }
+
+            irisView.Hide();
+            _entryIrisClosedPrepared = false;
+            _entryOpenPreset = null;
+            _preparedEntryToken = default;
+            if (!SceneEntryPresentationRegistry.TryComplete(session.Token))
+            {
+                throw new InvalidOperationException(
+                    $"Scene entry opening completion rejected token {session.Token}.");
+            }
+
+            GameplayEntryTransitionVisualSnapshotRegistry.Clear(session.Token);
+        }
+
+        private bool IsStrongGameplayDestinationReady(
+            SceneEntryPresentationSnapshot session,
+            out TerminalFocusTarget focus,
+            out string failureReason)
+        {
+            focus = default;
+            if (!_installedSceneHost.HasStrongGameplayEntryRuntime)
+            {
+                failureReason =
+                    "Strong gameplay readiness requires the built gameplay runtime, input host, view registry, and player entity.";
+                return false;
+            }
+
+            var outputCamera = _installedSceneHost.OutputCamera;
+            if (outputCamera == null ||
+                !outputCamera.isActiveAndEnabled ||
+                !outputCamera.gameObject.activeInHierarchy)
+            {
+                failureReason =
+                    "Strong gameplay readiness requires an active output camera.";
+                return false;
+            }
+
+            if (!_rootView.gameObject.activeInHierarchy ||
+                _rootView.TerminalIrisOverlayView == null ||
+                Coordinator == null ||
+                ScreenController == null ||
+                PopupController == null ||
+                HudController == null)
+            {
+                failureReason =
+                    "Strong gameplay readiness requires installed UI flow and an Entry Iris render surface.";
+                return false;
+            }
+
+            var focusSource = new GameplayTerminalFocusTargetSource(
+                _installedSceneHost.ViewRegistry,
+                outputCamera);
+            if (!focusSource.TryCapture(
+                    _installedSceneHost.PlayerEntityId,
+                    out focus) ||
+                focus.IsFallback)
+            {
+                failureReason =
+                    $"Strong gameplay readiness player projection failed: {focusSource.LastCaptureDiagnostics.FailureReason}.";
+                return false;
+            }
+
+            if (session.DestinationSceneGeneration !=
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration)
+            {
+                failureReason =
+                    "Strong gameplay readiness rejected a stale destination scene generation.";
+                return false;
+            }
+
+            failureReason = string.Empty;
+            return true;
+        }
+
+        private static void ReportSceneEntryFailureIfOwned(
+            string code,
+            string message)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                session.DestinationSceneGeneration <= 0 ||
+                session.DestinationSceneGeneration !=
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration ||
+                session.Phase == SceneEntryPresentationPhase.Completed ||
+                session.Phase == SceneEntryPresentationPhase.FailedHoldingCover)
+            {
+                return;
+            }
+
+            SceneEntryPresentationRegistry.TryFailHoldingCover(
+                session.Token,
+                $"{code}: {message}");
+        }
+
+        private IResultTransitionScreenView ResolveActiveResultTransitionView(
+            TerminalDestinationKind destinationKind)
+        {
+            return destinationKind switch
+            {
+                TerminalDestinationKind.SameSceneStageResult
+                    when ScreenController?.CurrentScreenId == ScreenId.StageResult =>
+                    StageResultScreenView,
+                TerminalDestinationKind.SameSceneGameClear
+                    when ScreenController?.CurrentScreenId == ScreenId.GameClear =>
+                    GameClearScreenView,
+                _ => null,
+            };
+        }
+
+        private void SubscribeTerminalSession()
+        {
+            if (_terminalSessionSubscribed)
+            {
+                return;
+            }
+
+            TerminalSessionRegistry.Changed += HandleTerminalSessionChanged;
+            _terminalSessionSubscribed = true;
+        }
+
+        private void UnsubscribeTerminalSession()
+        {
+            if (!_terminalSessionSubscribed)
+            {
+                return;
+            }
+
+            TerminalSessionRegistry.Changed -= HandleTerminalSessionChanged;
+            _terminalSessionSubscribed = false;
+        }
+
+        private static void ForceCloseTransientDropdown(TMP_Dropdown dropdown)
+        {
+            if (dropdown == null)
+            {
+                return;
+            }
+
+            if (TmpDropdownLiveListField == null || TmpDropdownBlockerField == null)
+            {
+                throw new InvalidOperationException(
+                    "Terminal input ownership requires the pinned TMP_Dropdown live-list lifecycle fields.");
+            }
+
+            var liveList = TmpDropdownLiveListField.GetValue(dropdown) as GameObject;
+            var blocker = TmpDropdownBlockerField.GetValue(dropdown) as GameObject;
+            liveList?.SetActive(false);
+            blocker?.SetActive(false);
+
+            if (!UnityEngine.Application.isPlaying)
+            {
+                TmpDropdownLiveListField.SetValue(dropdown, null);
+                TmpDropdownBlockerField.SetValue(dropdown, null);
+                if (liveList != null)
+                {
+                    DestroyImmediate(liveList);
+                }
+
+                if (blocker != null)
+                {
+                    DestroyImmediate(blocker);
+                }
+
+                return;
+            }
+
+            if (dropdown.enabled && dropdown.gameObject.activeInHierarchy)
+            {
+                dropdown.enabled = false;
+                dropdown.enabled = true;
+                return;
+            }
+
+            TmpDropdownLiveListField.SetValue(dropdown, null);
+            TmpDropdownBlockerField.SetValue(dropdown, null);
+            if (liveList != null)
+            {
+                Destroy(liveList);
+            }
+
+            if (blocker != null)
+            {
+                Destroy(blocker);
+            }
         }
 
         private bool TryToggleDemoStageControlPanel()

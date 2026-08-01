@@ -16,6 +16,8 @@ namespace Game.Feature.UI.Composition
     [DisallowMultipleComponent]
     public sealed class MainMenuUiFlowInstaller : MonoBehaviour
     {
+        private const string GameplayUiRootShellResourcePath =
+            "UI/GameplayUiCanvasRootShell";
         private const string MissingRouteConfigMessage =
             "MainMenuUiFlowInstaller requires a GameplayStageLaunchRouteConfig reference.";
         private const string MissingStageCatalogProviderMessage =
@@ -65,6 +67,20 @@ namespace Game.Feature.UI.Composition
         private IMainMenuSettingsPort _settingsPort;
         private IUiAudioPort _uiAudioPort;
         private MainMenuUiAudioFeedbackController _uiAudioFeedbackController;
+        private GameplayUiCanvasRootView _gameplayEntrySourceRoot;
+        private TerminalIrisMotionProfileResolver _gameplayEntryMotionResolver;
+        private TerminalTransitionPlayback _gameplayEntrySourcePlayback;
+        private SceneEntrySessionToken _gameplayEntrySourceToken;
+        private bool _gameplayEntrySourceRenderRequested;
+        private long _sourceSceneGeneration;
+        private GameplayUiCanvasRootView _mainMenuDestinationRoot;
+        private TerminalIrisMotionProfileResolver _mainMenuDestinationMotionResolver;
+        private TerminalIrisRuntimeOpenPreset? _mainMenuDestinationOpenPreset;
+        private MainMenuEntrySessionToken _preparedMainMenuEntryToken;
+        private bool _mainMenuDestinationClosedPrepared;
+        private float _mainMenuDestinationOpeningElapsed;
+        private float _mainMenuDestinationOpeningRadius;
+        private Vector2 _mainMenuDestinationCenter;
 
         public MainMenuController Controller { get; private set; }
 
@@ -74,16 +90,161 @@ namespace Game.Feature.UI.Composition
 
         public PopupController PopupController { get; private set; }
 
+        internal bool IsGameplayEntryInteractionBlocked { get; private set; }
+
+        internal long SourceSceneGenerationForTests => _sourceSceneGeneration;
+
+        internal void RequireGameplayEntrySourceReady()
+        {
+            if (!_isInstalled || _mainMenuScreenView == null)
+            {
+                throw new InvalidOperationException(
+                    "Main Menu GameplayEntry source requires the installed production Main Menu UI.");
+            }
+
+            EnsureGameplayEntrySourceRoot();
+        }
+
+        internal bool TryBeginGameplayEntrySourceClose(
+            SceneEntrySessionToken token,
+            GameplayEntryTransitionVisualSnapshot visual,
+            out TerminalTransitionPlayback playback)
+        {
+            playback = _gameplayEntrySourcePlayback;
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!_isInstalled ||
+                _mainMenuScreenView == null ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.TransitionIntent != SceneTransitionIntent.GameplayEntry ||
+                session.TransitionIntent != visual.Intent ||
+                session.Phase != SceneEntryPresentationPhase.PersistentCoverRequested ||
+                visual.SourceCloseVisualKind != GameplayEntrySourceCloseVisualKind.MainMenuIris ||
+                (_gameplayEntrySourcePlayback != null &&
+                 !_gameplayEntrySourcePlayback.IsTerminal))
+            {
+                return false;
+            }
+
+            var sourceRoot = EnsureGameplayEntrySourceRoot();
+            _gameplayEntryMotionResolver ??=
+                sourceRoot.RequireTerminalIrisMotionProfile().CreateResolver();
+            var preset = _gameplayEntryMotionResolver.ResolveGameplayEntrySourceClose(
+                visual.Intent);
+            var focus = new TerminalFocusTarget(
+                preset.FallbackCenter,
+                preset.FallbackRadius,
+                isFallback: true);
+            var irisView = sourceRoot.TerminalIrisOverlayView;
+            irisView.ConfigureTransitionColor(visual.SourceCloseColor);
+            var candidate = new TerminalTransitionPlayback(preset);
+            var fullyRevealedRadius =
+                irisView.CalculateFullyRevealedRadius(preset.FallbackCenter, 0f);
+            candidate.ConfigureFullyRevealedRadii(
+                fullyRevealedRadius,
+                fullyRevealedRadius);
+            var visualOnlyToken = new TerminalSessionToken(
+                TerminalSessionRegistry.Authority.AuthorityGeneration,
+                token.Value);
+            if (!candidate.TryBegin(
+                    new TerminalTransitionRequest(
+                        TerminalTransitionKind.Defeat,
+                        focusEntityId: 1,
+                        visualOnlyToken,
+                        TerminalTransitionDestinationMode.SceneHandoff),
+                    focus))
+            {
+                candidate.Dispose();
+                return false;
+            }
+
+            SetGameplayEntryInteractionBlocked(true);
+            _gameplayEntrySourcePlayback?.Dispose();
+            _gameplayEntrySourcePlayback = candidate;
+            _gameplayEntrySourceToken = token;
+            _gameplayEntrySourceRenderRequested = false;
+            irisView.Show();
+            irisView.Apply(candidate);
+            playback = candidate;
+            return true;
+        }
+
+        internal bool TickGameplayEntrySourceClose(
+            SceneEntrySessionToken token,
+            TerminalTransitionPlayback playback,
+            float unscaledDeltaTime)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (playback == null ||
+                !ReferenceEquals(playback, _gameplayEntrySourcePlayback) ||
+                token != _gameplayEntrySourceToken ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.Phase != SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return false;
+            }
+
+            var irisView = _gameplayEntrySourceRoot.TerminalIrisOverlayView;
+            if (playback.State != TerminalTransitionState.Black)
+            {
+                playback.Advance(Mathf.Max(0f, unscaledDeltaTime));
+                irisView.Apply(playback);
+            }
+
+            if (playback.State == TerminalTransitionState.Black &&
+                !_gameplayEntrySourceRenderRequested)
+            {
+                irisView.RequestClosedRenderAcknowledgement();
+                _gameplayEntrySourceRenderRequested = true;
+            }
+
+            return playback.State == TerminalTransitionState.Black &&
+                   irisView.HasRenderedEntryClosedFrame;
+        }
+
+        internal bool CompleteGameplayEntrySourceClose(
+            SceneEntrySessionToken token,
+            TerminalTransitionPlayback playback)
+        {
+            if (!ReferenceEquals(playback, _gameplayEntrySourcePlayback) ||
+                token != _gameplayEntrySourceToken ||
+                playback.State != TerminalTransitionState.Black ||
+                _gameplayEntrySourceRoot == null ||
+                !_gameplayEntrySourceRoot.TerminalIrisOverlayView
+                    .HasRenderedEntryClosedFrame)
+            {
+                return false;
+            }
+
+            _gameplayEntrySourceRoot.TerminalIrisOverlayView.Hide();
+            playback.Dispose();
+            _gameplayEntrySourcePlayback = null;
+            _gameplayEntrySourceToken = default;
+            _gameplayEntrySourceRenderRequested = false;
+            return true;
+        }
+
         private void Start()
         {
             if (_installOnStart)
             {
-                Install();
+                try
+                {
+                    Install();
+                }
+                catch (Exception exception)
+                {
+                    ReportMainMenuEntryFailureIfOwned(
+                        $"MAIN_MENU_DESTINATION_INSTALL_FAILED: {exception.Message}");
+                    throw;
+                }
             }
         }
 
         private void Update()
         {
+            TickMainMenuEntryPresentation(Time.unscaledDeltaTime);
             if (!_isInstalled)
             {
                 return;
@@ -114,6 +275,10 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException(MissingPopupPrefabCatalogMessage);
             }
 
+            _sourceSceneGeneration =
+                TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                    gameObject.scene.handle,
+                    gameObject.scene.name);
             EnsureCanvasRoot();
             EnsureEventSystem();
             EnsureMainMenuScreenView();
@@ -137,10 +302,24 @@ namespace Game.Feature.UI.Composition
             _mainMenuScreenView.SetVisible(true);
             _popupLayerView.SetState(false, false, false, PopupBackdropMode.None);
             _isInstalled = true;
+            RegisterMainMenuEntryDestinationIfApplicable();
+            if (MainMenuEntryPresentationRegistry.IsActive)
+            {
+                SetGameplayEntryInteractionBlocked(true);
+            }
         }
 
         public bool TryHandleBackRequested()
         {
+            if (IsGameplayEntryInteractionBlocked ||
+                MainMenuEntryPresentationRegistry.IsActive ||
+                (SceneEntryPresentationRegistry.IsActive &&
+                 SceneEntryPresentationRegistry.Current.TransitionIntent ==
+                 SceneTransitionIntent.GameplayEntry))
+            {
+                return true;
+            }
+
             if (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying)
             {
                 _cinematicFlowCoordinator.RequestSkip();
@@ -356,12 +535,17 @@ namespace Game.Feature.UI.Composition
                 TryHandleBackRequested,
                 () => IsKeyboardBindingRebinding() ||
                       _wasKeyboardBindingRebinding ||
-                      (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying),
+                      (_cinematicFlowCoordinator != null && _cinematicFlowCoordinator.IsPlaying) ||
+                      MainMenuEntryPresentationRegistry.IsActive,
                 EnsureUiAudioPort());
         }
 
         private void OnDestroy()
         {
+            _gameplayEntrySourcePlayback?.Dispose();
+            _gameplayEntrySourcePlayback = null;
+            ReportMainMenuEntryFailureIfOwned(
+                "MAIN_MENU_DESTINATION_INSTALLER_DESTROYED: Main Menu installer was destroyed before opening completed.");
             _uiAudioFeedbackController?.Dispose();
             _uiAudioFeedbackController = null;
             _cameraPresentationController?.Detach();
@@ -397,6 +581,257 @@ namespace Game.Feature.UI.Composition
             _audioSettingsLifecycleRelay?.FlushNow();
             PopupController?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
+        }
+
+        private void RegisterMainMenuEntryDestinationIfApplicable()
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                session.Phase != SceneEntryPresentationPhase.Loading)
+            {
+                return;
+            }
+
+            if (!MainMenuEntryPresentationRegistry.TryRegisterDestinationScene(
+                    session.Token,
+                    _sourceSceneGeneration))
+            {
+                MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                    session.Token,
+                    "Main Menu destination scene generation could not be correlated.");
+                throw new InvalidOperationException(
+                    $"Main Menu entry session {session.Token} rejected destination generation {_sourceSceneGeneration}.");
+            }
+        }
+
+        private void TickMainMenuEntryPresentation(float unscaledDeltaTime)
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (!session.IsActive || !_isInstalled)
+            {
+                return;
+            }
+
+            if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
+                !_mainMenuDestinationClosedPrepared)
+            {
+                if (!IsStrongMainMenuDestinationReady(session))
+                {
+                    return;
+                }
+
+                var ready = new MainMenuDestinationReady(
+                    session.Token,
+                    session.TransitionId,
+                    session.DestinationSceneGeneration,
+                    MainMenuDestinationReadyProvenance.ProductionMainMenuComposition);
+                if (!MainMenuEntryPresentationRegistry.CanAcceptRuntimeReady(ready))
+                {
+                    MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                        session.Token,
+                        "Main Menu destination readiness token, transition, generation, or provenance was invalid.");
+                    return;
+                }
+
+                var destinationRoot = EnsureMainMenuDestinationRoot();
+                _mainMenuDestinationMotionResolver ??=
+                    destinationRoot.RequireTerminalIrisMotionProfile().CreateResolver();
+                var closePreset =
+                    _mainMenuDestinationMotionResolver.ResolveGameplayEntryClose();
+                var preparedOpenPreset =
+                    _mainMenuDestinationMotionResolver.ResolveStageEntryOpen();
+                var visual = MainMenuTransitionVisualPolicy.Require(
+                    session.Token,
+                    session.TransitionIntent);
+                var irisView = destinationRoot.TerminalIrisOverlayView;
+                _mainMenuDestinationCenter = closePreset.FallbackCenter;
+                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
+                irisView.Show();
+                irisView.ApplyClosedEntry(
+                    _mainMenuDestinationCenter,
+                    preparedOpenPreset);
+                _mainMenuDestinationOpeningRadius =
+                    irisView.CalculateFullyRevealedRadius(
+                        _mainMenuDestinationCenter,
+                        preparedOpenPreset.FullOpenMargin);
+                _mainMenuDestinationOpeningElapsed = 0f;
+                _mainMenuDestinationOpenPreset = preparedOpenPreset;
+                _preparedMainMenuEntryToken = session.Token;
+                _mainMenuDestinationClosedPrepared = true;
+                return;
+            }
+
+            if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
+                _mainMenuDestinationClosedPrepared)
+            {
+                if (_preparedMainMenuEntryToken != session.Token ||
+                    !_mainMenuDestinationRoot.TerminalIrisOverlayView
+                        .HasRenderedEntryClosedFrame)
+                {
+                    return;
+                }
+
+                if (!MainMenuEntryPresentationRegistry.TryAdvance(
+                        session.Token,
+                        SceneEntryPresentationPhase.EntryIrisClosed) ||
+                    !SceneTransitionCoordinator.ReleaseMainMenuEntryCover(
+                        session.Token) ||
+                    !MainMenuEntryPresentationRegistry.TryAdvance(
+                        session.Token,
+                        SceneEntryPresentationPhase.Opening))
+                {
+                    MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                        session.Token,
+                        "Rendered closed Main Menu Iris could not acquire the persistent-cover handoff.");
+                }
+
+                return;
+            }
+
+            if (session.Phase != SceneEntryPresentationPhase.Opening)
+            {
+                return;
+            }
+
+            if (!_mainMenuDestinationOpenPreset.HasValue ||
+                _preparedMainMenuEntryToken != session.Token)
+            {
+                MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                    session.Token,
+                    "Main Menu opening has no correlated authored motion preset.");
+                return;
+            }
+
+            var openPreset = _mainMenuDestinationOpenPreset.Value;
+            _mainMenuDestinationOpeningElapsed +=
+                Mathf.Max(0f, unscaledDeltaTime);
+            var openingElapsed = Mathf.Max(
+                0f,
+                _mainMenuDestinationOpeningElapsed -
+                openPreset.PreOpenHoldDuration);
+            var progress = Mathf.Clamp01(
+                openingElapsed / openPreset.OpeningDuration);
+            var easing = TerminalIrisEasingUtility.Evaluate(
+                openPreset.OpeningEasing,
+                progress);
+            _mainMenuDestinationRoot.TerminalIrisOverlayView.ApplyEntryRadius(
+                Mathf.Lerp(0f, _mainMenuDestinationOpeningRadius, easing),
+                Mathf.Lerp(
+                    openPreset.FinalClosedOvershootPixels,
+                    0f,
+                    easing));
+            if (progress < 1f)
+            {
+                return;
+            }
+
+            _mainMenuDestinationRoot.TerminalIrisOverlayView.Hide();
+            _mainMenuDestinationClosedPrepared = false;
+            _mainMenuDestinationOpenPreset = null;
+            _preparedMainMenuEntryToken = default;
+            if (!MainMenuEntryPresentationRegistry.TryComplete(session.Token))
+            {
+                throw new InvalidOperationException(
+                    $"Main Menu opening completion rejected token {session.Token}.");
+            }
+
+            MainMenuTransitionVisualPolicy.Clear(session.Token);
+            Time.timeScale = 1f;
+            SetGameplayEntryInteractionBlocked(false);
+        }
+
+        private bool IsStrongMainMenuDestinationReady(
+            MainMenuEntryPresentationSnapshot session)
+        {
+            var canvas = GetComponentInParent<Canvas>();
+            var eventSystem = EventSystem.current != null
+                ? EventSystem.current
+                : UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            return session.DestinationSceneGeneration == _sourceSceneGeneration &&
+                   _sourceSceneGeneration ==
+                   TerminalSessionRegistry.Authority.CurrentSceneGeneration &&
+                   _mainMenuScreenView != null &&
+                   _mainMenuScreenView.isActiveAndEnabled &&
+                   _mainMenuScreenView.gameObject.activeInHierarchy &&
+                   _mainMenuScreenView.SaveSlotPanel != null &&
+                   Controller != null &&
+                   HubController != null &&
+                   PopupController != null &&
+                   _localizedTextResolver != null &&
+                   _navigationInputRouter != null &&
+                   canvas != null &&
+                   canvas.isActiveAndEnabled &&
+                   canvas.gameObject.activeInHierarchy &&
+                   eventSystem != null &&
+                   eventSystem.isActiveAndEnabled &&
+                   eventSystem.currentInputModule != null &&
+                   EnsureMainMenuDestinationRoot() != null;
+        }
+
+        private GameplayUiCanvasRootView EnsureMainMenuDestinationRoot()
+        {
+            if (_mainMenuDestinationRoot != null)
+            {
+                return _mainMenuDestinationRoot;
+            }
+
+            var prefab = Resources.Load<GameplayUiCanvasRootView>(
+                GameplayUiRootShellResourcePath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Main Menu destination Iris requires Resources/{GameplayUiRootShellResourcePath}.");
+            }
+
+            _mainMenuDestinationRoot = Instantiate(prefab, transform, false);
+            _mainMenuDestinationRoot.name = "MainMenuDestinationIris";
+            _mainMenuDestinationRoot.PrepareTransitionOnlyPresentation();
+            _mainMenuDestinationRoot.transform.SetAsLastSibling();
+            return _mainMenuDestinationRoot;
+        }
+
+        private static void ReportMainMenuEntryFailureIfOwned(string failureReason)
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (session.IsActive &&
+                session.Phase != SceneEntryPresentationPhase.FailedHoldingCover)
+            {
+                MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                    session.Token,
+                    failureReason);
+            }
+        }
+
+        private GameplayUiCanvasRootView EnsureGameplayEntrySourceRoot()
+        {
+            if (_gameplayEntrySourceRoot != null)
+            {
+                return _gameplayEntrySourceRoot;
+            }
+
+            var prefab = Resources.Load<GameplayUiCanvasRootView>(
+                GameplayUiRootShellResourcePath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException(
+                    $"Main Menu GameplayEntry source Iris requires Resources/{GameplayUiRootShellResourcePath}.");
+            }
+
+            _gameplayEntrySourceRoot = Instantiate(prefab, transform, false);
+            _gameplayEntrySourceRoot.name = "MainMenuGameplayEntryIrisSource";
+            _gameplayEntrySourceRoot.PrepareTransitionOnlyPresentation();
+            _gameplayEntrySourceRoot.transform.SetAsLastSibling();
+            return _gameplayEntrySourceRoot;
+        }
+
+        private void SetGameplayEntryInteractionBlocked(bool blocked)
+        {
+            IsGameplayEntryInteractionBlocked = blocked;
+            _mainMenuScreenView?.SetLaunchInteractionBlocked(blocked);
+            if (blocked)
+            {
+                _navigationInputRouter?.ClearNavigationFocus();
+            }
         }
 
         private void HandleControllerViewModelChanged(SaveSlotPanelViewModel viewModel)

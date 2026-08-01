@@ -45,6 +45,7 @@ namespace Game.Feature.UI.Screens
         private List<LocalizedTmpTextBinding> _localizedStaticBindings;
         private bool _navigationFocusVisible;
         private bool _pendingEnterSaveSlotNavigation;
+        private bool _launchInteractionBlocked;
 
         public event Action<MainMenuCommandIntent> CommandRequested;
 
@@ -56,7 +57,10 @@ namespace Game.Feature.UI.Screens
 
         public MainMenuSectionId ActiveSection { get; private set; } = MainMenuSectionId.SaveSlots;
 
-        public bool CanHandleUiNavigation => isActiveAndEnabled && (_root == null || _root.activeInHierarchy);
+        public bool CanHandleUiNavigation =>
+            !_launchInteractionBlocked &&
+            isActiveAndEnabled &&
+            (_root == null || _root.activeInHierarchy);
 
         public int SelectedCommandIndex => _commandNavigationGroup != null ? _commandNavigationGroup.SelectedIndex : 0;
 
@@ -66,6 +70,17 @@ namespace Game.Feature.UI.Screens
             if (_root != null)
             {
                 _root.SetActive(visible);
+            }
+        }
+
+        public void SetLaunchInteractionBlocked(bool blocked)
+        {
+            _launchInteractionBlocked = blocked;
+            _saveSlotPanel?.SetInteractionBlocked(blocked);
+            ApplyCommandButtonsInteractable(!blocked && ActiveSection != MainMenuSectionId.SaveSlots);
+            if (blocked)
+            {
+                OnNavigationFocusLost();
             }
         }
 
@@ -256,6 +271,11 @@ namespace Game.Feature.UI.Screens
 
         public bool HandleCancel()
         {
+            if (_launchInteractionBlocked)
+            {
+                return true;
+            }
+
             if (_activeFocusDomain == MainMenuFocusDomain.SaveSlots)
             {
                 CloseSaveSlotPanelAndReturnToStart();
@@ -288,6 +308,11 @@ namespace Game.Feature.UI.Screens
 
         public void ShowSection(MainMenuSectionId sectionId)
         {
+            if (_launchInteractionBlocked)
+            {
+                return;
+            }
+
             var previousSection = ActiveSection;
             ActiveSection = sectionId;
             var showSaveSlots = sectionId == MainMenuSectionId.SaveSlots;
@@ -339,6 +364,11 @@ namespace Game.Feature.UI.Screens
 
         public void RequestSection(MainMenuSectionId sectionId)
         {
+            if (_launchInteractionBlocked)
+            {
+                return;
+            }
+
             NavigationRequested?.Invoke(new MainMenuNavigationIntent(sectionId));
         }
 
@@ -349,11 +379,21 @@ namespace Game.Feature.UI.Screens
 
         public void ClickSettings()
         {
+            if (_launchInteractionBlocked)
+            {
+                return;
+            }
+
             CommandRequested?.Invoke(new MainMenuCommandIntent(MainMenuCommandKind.OpenSettings));
         }
 
         public void ClickQuit()
         {
+            if (_launchInteractionBlocked)
+            {
+                return;
+            }
+
             CommandRequested?.Invoke(new MainMenuCommandIntent(MainMenuCommandKind.Quit));
         }
 
@@ -417,7 +457,7 @@ namespace Game.Feature.UI.Screens
         private void ApplySaveSlotModalState(bool showSaveSlots)
         {
             ApplySaveSlotBlockerState(showSaveSlots);
-            ApplyCommandButtonsInteractable(!showSaveSlots);
+            ApplyCommandButtonsInteractable(!_launchInteractionBlocked && !showSaveSlots);
         }
 
         private void ApplySaveSlotOverlayState(bool showSaveSlots)

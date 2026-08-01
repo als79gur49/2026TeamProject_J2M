@@ -33,6 +33,7 @@ namespace Game.Feature.UI.Screens
         private SaveSlotCardViewModel _viewModel;
         private SaveSlotActionSelection _currentSelection;
         private bool _navigationFrameVisible;
+        private bool _interactionBlocked;
 
         public event Action<SaveSlotIntent> IntentRequested;
 
@@ -54,6 +55,13 @@ namespace Game.Feature.UI.Screens
         {
             _viewModel = viewModel;
             ValidateAuthoredStructureOrThrow();
+            Refresh();
+            RefreshNavigationVisuals();
+        }
+
+        public void SetInteractionBlocked(bool blocked)
+        {
+            _interactionBlocked = blocked;
             Refresh();
             RefreshNavigationVisuals();
         }
@@ -107,7 +115,9 @@ namespace Game.Feature.UI.Screens
 
         private void HandlePrimaryClicked()
         {
-            if (_viewModel == null || _viewModel.PrimaryIntentKind == SaveSlotIntentKind.None)
+            if (_interactionBlocked ||
+                _viewModel == null ||
+                _viewModel.PrimaryIntentKind == SaveSlotIntentKind.None)
             {
                 return;
             }
@@ -117,7 +127,7 @@ namespace Game.Feature.UI.Screens
 
         private void HandleDeleteClicked()
         {
-            if (_viewModel == null || !_viewModel.ShowDelete)
+            if (_interactionBlocked || _viewModel == null || !_viewModel.ShowDelete)
             {
                 return;
             }
@@ -259,13 +269,14 @@ namespace Game.Feature.UI.Screens
             {
                 var hasPrimaryIntent = _viewModel != null && _viewModel.PrimaryIntentKind != SaveSlotIntentKind.None;
                 _primaryButton.gameObject.SetActive(true);
-                _primaryButton.interactable = hasPrimaryIntent;
+                _primaryButton.interactable = !_interactionBlocked && hasPrimaryIntent;
             }
 
             if (_deleteButton != null)
             {
                 _deleteButton.gameObject.SetActive(true);
-                _deleteButton.interactable = _viewModel != null && _viewModel.ShowDelete;
+                _deleteButton.interactable =
+                    !_interactionBlocked && _viewModel != null && _viewModel.ShowDelete;
             }
         }
 

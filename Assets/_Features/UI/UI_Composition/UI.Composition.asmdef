@@ -2,6 +2,7 @@
   "name": "Game.Feature.UI.Composition",
   "rootNamespace": "Game.Feature.UI.Composition",
   "references": [
+    "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.DemoStageControl.Runtime",

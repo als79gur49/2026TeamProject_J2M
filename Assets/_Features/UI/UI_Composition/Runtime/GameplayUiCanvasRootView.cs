@@ -4,6 +4,7 @@ using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
@@ -15,9 +16,12 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private RectTransform _hudLayer;
         [SerializeField] private RectTransform _screenLayer;
         [SerializeField] private RectTransform _popupLayer;
+        [SerializeField] private RectTransform _transitionLayer;
         [SerializeField] private HUDRootView _hudView;
         [SerializeField] private ScreenLayerView _screenLayerView;
         [SerializeField] private PopupLayerView _popupLayerView;
+        [SerializeField] private TerminalIrisOverlayView _terminalIrisOverlayView;
+        [SerializeField] private TerminalIrisMotionProfile _terminalIrisMotionProfile;
 
         public HUDRootView HudView => _hudView;
 
@@ -27,9 +31,24 @@ namespace Game.Feature.UI.Composition
 
         internal RectTransform PopupLayer => _popupLayer;
 
+        internal RectTransform TransitionLayer => _transitionLayer;
+
         public ScreenLayerView ScreenLayerView => _screenLayerView;
 
         public PopupLayerView PopupLayerView => _popupLayerView;
+
+        internal TerminalIrisOverlayView TerminalIrisOverlayView => _terminalIrisOverlayView;
+
+        internal TerminalIrisMotionProfile RequireTerminalIrisMotionProfile()
+        {
+            if (_terminalIrisMotionProfile == null)
+            {
+                throw new InvalidOperationException(
+                    "Canonical UI root shell requires a serialized TerminalIrisMotionProfile.");
+            }
+
+            return _terminalIrisMotionProfile;
+        }
 
         public void EnsureHierarchy()
         {
@@ -47,6 +66,25 @@ namespace Game.Feature.UI.Composition
             {
                 _popupLayerView = CreatePopupLayerView(_popupLayer);
             }
+
+            if (_terminalIrisOverlayView == null)
+            {
+                throw new InvalidOperationException(
+                    "Canonical UI root shell prefab is missing its authored TerminalIrisOverlayView. " +
+                    "Runtime construction is forbidden because the serialized material reference is a Player build dependency.");
+            }
+
+            RequireTerminalIrisMotionProfile().ValidateOrThrow();
+        }
+
+        internal void PrepareTransitionOnlyPresentation()
+        {
+            EnsureHierarchy();
+            _hudLayer.gameObject.SetActive(false);
+            _screenLayer.gameObject.SetActive(false);
+            _popupLayer.gameObject.SetActive(false);
+            _transitionLayer.gameObject.SetActive(true);
+            _transitionLayer.SetAsLastSibling();
         }
 
         internal void AttachHudView(HUDRootView hudView)
@@ -74,12 +112,37 @@ namespace Game.Feature.UI.Composition
             _canvas = UiOverlayCanvasConfigurator.ConfigureOverlayCanvas(gameObject);
         }
 
-        private static void EnsureEventSystem()
+        private void EnsureEventSystem()
         {
-            var eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            EventSystem eventSystem = null;
+            var eventSystems = UnityEngine.Object.FindObjectsByType<EventSystem>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (var i = 0; i < eventSystems.Length; i++)
+            {
+                var candidate = eventSystems[i];
+                if (candidate != null && candidate.gameObject.scene == gameObject.scene)
+                {
+                    eventSystem = candidate;
+                    break;
+                }
+            }
+
             if (eventSystem == null)
             {
+                var previousCurrent = EventSystem.current;
+                if (previousCurrent != null &&
+                    previousCurrent.gameObject.scene != gameObject.scene)
+                {
+                    previousCurrent.enabled = false;
+                }
+
                 var eventSystemObject = new GameObject("EventSystem");
+                if (gameObject.scene.IsValid() && gameObject.scene.isLoaded)
+                {
+                    SceneManager.MoveGameObjectToScene(eventSystemObject, gameObject.scene);
+                }
+
                 eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
@@ -111,6 +174,9 @@ namespace Game.Feature.UI.Composition
             _hudLayer = ResolveLayer(_hudLayer, GameplayUiRootShellValidator.HudLayerName);
             _screenLayer = ResolveLayer(_screenLayer, GameplayUiRootShellValidator.ScreenLayerName);
             _popupLayer = ResolveLayer(_popupLayer, GameplayUiRootShellValidator.PopupLayerName);
+            _transitionLayer = ResolveLayer(
+                _transitionLayer,
+                GameplayUiRootShellValidator.TransitionLayerName);
 
             if (_hudView == null && _hudLayer != null)
             {
@@ -125,6 +191,12 @@ namespace Game.Feature.UI.Composition
             if (_popupLayerView == null && _popupLayer != null)
             {
                 _popupLayerView = _popupLayer.GetComponentInChildren<PopupLayerView>(true);
+            }
+
+            if (_terminalIrisOverlayView == null && _transitionLayer != null)
+            {
+                _terminalIrisOverlayView =
+                    _transitionLayer.GetComponentInChildren<TerminalIrisOverlayView>(true);
             }
 
         }

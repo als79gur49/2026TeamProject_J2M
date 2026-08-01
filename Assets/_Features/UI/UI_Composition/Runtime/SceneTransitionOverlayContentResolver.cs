@@ -14,13 +14,7 @@ namespace Game.Feature.UI.Composition
                 return transitionMatch;
             }
 
-            var overlayMatch = FindByOverlayKind(catalog, model.OverlayKind);
-            if (overlayMatch != null)
-            {
-                return overlayMatch;
-            }
-
-            return catalog?.GenericFallbackPrefab;
+            return null;
         }
 
         private static SceneTransitionOverlayContentView FindByTransitionKind(
@@ -47,28 +41,5 @@ namespace Game.Feature.UI.Composition
             return null;
         }
 
-        private static SceneTransitionOverlayContentView FindByOverlayKind(
-            SceneTransitionOverlayContentCatalog catalog,
-            TransitionOverlayKind overlayKind)
-        {
-            if (catalog == null || overlayKind == TransitionOverlayKind.None)
-            {
-                return null;
-            }
-
-            foreach (var entry in catalog.Entries)
-            {
-                if (entry == null ||
-                    entry.ContentPrefab == null ||
-                    entry.FallbackOverlayKind != overlayKind)
-                {
-                    continue;
-                }
-
-                return entry.ContentPrefab;
-            }
-
-            return null;
-        }
     }
 }

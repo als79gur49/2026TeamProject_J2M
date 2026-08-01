@@ -1,0 +1,120 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94b773d899424a548ef9869bdca80ec8, type: 3}
+  m_Name: TerminalIrisMotionProfile
+  m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.TerminalIrisMotionProfile
+  _victoryClose:
+    _focusDuration: 0.2
+    _holdDuration: 0.6
+    _closeDuration: 0.28
+    _fallbackCenter: {x: 0.5, y: 0.5}
+    _fallbackRadius: 0.22
+    _minimumFocusRadius: 0.12
+    _focusPadding: 0.035
+    _finalClosedOvershootPixels: 4
+    _edge:
+      _edgeAntiAliasScale: 0.82
+      _minimumAAPixels: 0.82
+      _artisticFeatherHalfWidthPixels: 1.25
+      _rimWidthPixels: 0
+      _rimSoftnessPixels: 0.85
+      _rimFadeOutPixels: 3
+      _rimColor: {r: 1, g: 0.84, b: 0.28, a: 0}
+    _focusEasing: 1
+    _closeEasing: 2
+  _defeatClose:
+    _focusDuration: 0.16
+    _holdDuration: 0.45
+    _closeDuration: 0.26
+    _fallbackCenter: {x: 0.5, y: 0.5}
+    _fallbackRadius: 0.2
+    _minimumFocusRadius: 0.11
+    _focusPadding: 0.035
+    _finalClosedOvershootPixels: 4
+    _edge:
+      _edgeAntiAliasScale: 0.82
+      _minimumAAPixels: 0.82
+      _artisticFeatherHalfWidthPixels: 1
+      _rimWidthPixels: 0
+      _rimSoftnessPixels: 0.85
+      _rimFadeOutPixels: 3
+      _rimColor: {r: 0.86, g: 0.12, b: 0.1, a: 0}
+    _focusEasing: 1
+    _closeEasing: 2
+  _retryClose:
+    _focusDuration: 0.12
+    _holdDuration: 0.03
+    _closeDuration: 0.2
+    _fallbackCenter: {x: 0.5, y: 0.5}
+    _fallbackRadius: 0.2
+    _minimumFocusRadius: 0.11
+    _focusPadding: 0.035
+    _finalClosedOvershootPixels: 4
+    _edge:
+      _edgeAntiAliasScale: 0.82
+      _minimumAAPixels: 0.82
+      _artisticFeatherHalfWidthPixels: 1
+      _rimWidthPixels: 0
+      _rimSoftnessPixels: 0.85
+      _rimFadeOutPixels: 3
+      _rimColor: {r: 0.86, g: 0.12, b: 0.1, a: 0}
+    _focusEasing: 1
+    _closeEasing: 2
+  _gameplayEntryClose:
+    _focusDuration: 0.12
+    _holdDuration: 0.03
+    _closeDuration: 0.2
+    _fallbackCenter: {x: 0.5, y: 0.5}
+    _fallbackRadius: 0.2
+    _minimumFocusRadius: 0.11
+    _focusPadding: 0.035
+    _finalClosedOvershootPixels: 4
+    _edge:
+      _edgeAntiAliasScale: 0.82
+      _minimumAAPixels: 0.82
+      _artisticFeatherHalfWidthPixels: 1
+      _rimWidthPixels: 0
+      _rimSoftnessPixels: 0.85
+      _rimFadeOutPixels: 3
+      _rimColor: {r: 0, g: 0.25133762, b: 0.4811321, a: 0}
+    _focusEasing: 1
+    _closeEasing: 2
+  _defeatReveal:
+    _preOpenHoldDuration: 0
+    _openingDuration: 0.4
+    _fullOpenMargin: 0.01
+    _finalClosedOvershootPixels: 4
+    _edge:
+      _edgeAntiAliasScale: 0.82
+      _minimumAAPixels: 0.82
+      _artisticFeatherHalfWidthPixels: 1
+      _rimWidthPixels: 0
+      _rimSoftnessPixels: 0.85
+      _rimFadeOutPixels: 3
+      _rimColor: {r: 0.86, g: 0.12, b: 0.1, a: 0}
+    _openingEasing: 1
+  _stageEntryOpen:
+    _preOpenHoldDuration: 0
+    _openingDuration: 0.34
+    _fullOpenMargin: 0.012
+    _finalClosedOvershootPixels: 3.5
+    _edge:
+      _edgeAntiAliasScale: 0.82
+      _minimumAAPixels: 0.95
+      _artisticFeatherHalfWidthPixels: 0.5
+      _rimWidthPixels: 0
+      _rimSoftnessPixels: 0.85
+      _rimFadeOutPixels: 3
+      _rimColor: {r: 0, g: 0, b: 0, a: 0}
+    _openingEasing: 1
+  _retryTransitionColor: {r: 0, g: 0, b: 0, a: 1}
+  _gameplayEntryTransitionColor: {r: 0, g: 0.25133762, b: 0.4811321, a: 1}
