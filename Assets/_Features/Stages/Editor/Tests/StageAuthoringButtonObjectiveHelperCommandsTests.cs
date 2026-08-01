@@ -238,9 +238,16 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(addResult.Succeeded, Is.True, addResult.Message);
             var condition = AssetDatabase.LoadAssetAtPath<ButtonActivatedConditionAsset>(fixture.ExpectedButtonConditionPath);
 
-            var removeResult = StageAuthoringButtonObjectiveHelperCommands.TryRemoveRequiredSecondaryGoal(
+            var serializedAuthoring = new SerializedObject(fixture.Authoring);
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                serializedAuthoring,
                 fixture.Authoring,
                 fixture.Button);
+            var removeResult = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serializedAuthoring,
+                fixture.Authoring,
+                fixture.Button,
+                plan);
 
             Assert.That(removeResult.Succeeded, Is.True, removeResult.Message);
             Assert.That(fixture.Authoring.Objective.ConditionEntries, Is.Empty);
@@ -336,6 +343,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 window.PingSelectedButtonConditionAssetForTests();
                 Assert.That(window.GetSelectedObjectiveConditionRowForTests().Condition, Is.SameAs(selected.Condition));
 
+                window.SetButtonObjectiveRemovalConfirmationForTests(new FixedRemovalConfirmation(true));
                 Assert.That(window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out error), Is.True, error);
                 Assert.That(window.ResolveObjectiveConditionSelectionForTests(),
                     Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
@@ -366,6 +374,461 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [Test]
+        public void ObjectiveConditionRemoval_CanonicalEntry_ClassifiesSingleCanonical()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var condition = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(condition, "button-901", "Canonical button", 30)));
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring),
+                fixture.Authoring,
+                fixture.Button);
+
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.SingleCanonical));
+            Assert.That(plan.Candidates.Count, Is.EqualTo(1));
+            Assert.That(plan.Candidates[0].MatchReason,
+                Is.EqualTo(StageButtonObjectiveRemovalMatchReason.StableAndTileMatch));
+            Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.True);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_ConflictVariants_ClassifyConflictRepair()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var duplicateStable = CreateButtonActivatedCondition(902);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Canonical", 10),
+                ButtonEntry(duplicateStable, "button-901", "Stable conflict", 20),
+                ButtonEntry(canonical, "custom-button", "Tile conflict", 30)));
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring),
+                fixture.Authoring,
+                fixture.Button);
+
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            Assert.That(plan.Candidates.Count, Is.EqualTo(3));
+            Assert.That(plan.Candidates.Select(candidate => candidate.MatchReason), Is.EquivalentTo(new[]
+            {
+                StageButtonObjectiveRemovalMatchReason.StableAndTileMatch,
+                StageButtonObjectiveRemovalMatchReason.StableIdMatch,
+                StageButtonObjectiveRemovalMatchReason.TileIdMatch,
+            }));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_SingleIdentityMismatch_ClassifiesConflictRepair()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(CreateButtonActivatedCondition(902), "button-901", "Mismatched", 40)));
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring),
+                fixture.Authoring,
+                fixture.Button);
+
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            Assert.That(plan.Candidates.Count, Is.EqualTo(1));
+            Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.False);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_NoCandidate_ClassifiesUnavailable()
+        {
+            using var fixture = TempStageContentFixture.Create();
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring),
+                fixture.Authoring,
+                fixture.Button);
+
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.Unavailable));
+            Assert.That(plan.Candidates, Is.Empty);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_SingleCancel_PreservesBytesSelectionAndConditionAsset()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var condition = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(condition, "button-901", "Canonical button", 30)));
+            EditorUtility.SetDirty(fixture.Authoring);
+            AssetDatabase.SaveAssetIfDirty(fixture.Authoring);
+            var authoringPath = AssetDatabase.GetAssetPath(fixture.Authoring);
+            var authoringBefore = File.ReadAllBytes(ToAbsoluteProjectPath(authoringPath));
+            var conditionBefore = File.ReadAllBytes(ToAbsoluteProjectPath(fixture.ExpectedButtonConditionPath));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                window.BindForTests(fixture.Authoring);
+                window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                window.SelectTileFeatureByIdForTests(901);
+                Assert.That(window.SelectObjectiveConditionForTests("button-901", condition), Is.True);
+                window.SetButtonObjectiveRemovalConfirmationForTests(new FixedRemovalConfirmation(false));
+
+                Assert.That(window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error), Is.False);
+
+                Assert.That(error, Does.Contain("cancelled"));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(authoringPath)), Is.EqualTo(authoringBefore));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(fixture.ExpectedButtonConditionPath)),
+                    Is.EqualTo(conditionBefore));
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+                Assert.That(EditorUtility.IsDirty(fixture.Authoring), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_SingleConfirm_RemovesExactlyOneAndClearsSelection()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var condition = fixture.CreateExpectedButtonCondition(901);
+            var survivor = Condition(CreatePlayerAtAnyZone("goal"), true,
+                StageObjectiveConditionRole.PrimaryGoal, "primary-goal");
+            survivor.AuthoringLabel = "Primary";
+            survivor.SortOrder = 0;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                survivor,
+                ButtonEntry(condition, "button-901", "Canonical button", 30)));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                window.BindForTests(fixture.Authoring);
+                window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                window.SelectTileFeatureByIdForTests(901);
+                Assert.That(window.SelectObjectiveConditionForTests("button-901", condition), Is.True);
+                window.SetButtonObjectiveRemovalConfirmationForTests(new FixedRemovalConfirmation(true));
+
+                Assert.That(window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error), Is.True, error);
+
+                Assert.That(fixture.Authoring.Objective.ConditionEntries, Has.Length.EqualTo(1));
+                Assert.That(fixture.Authoring.Objective.ConditionEntries[0].StableConditionId,
+                    Is.EqualTo("primary-goal"));
+                Assert.That(fixture.Authoring.Objective.ConditionEntries[0].SortOrder, Is.Zero);
+                Assert.That(window.ResolveObjectiveConditionSelectionForTests(),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+                Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(901));
+                Assert.That(AssetDatabase.LoadAssetAtPath<ButtonActivatedConditionAsset>(
+                    fixture.ExpectedButtonConditionPath), Is.SameAs(condition));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_RepairCancel_PreservesCandidateSetAndSelection()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Canonical", 20),
+                ButtonEntry(canonical, "tile-match", "Conflict", 40)));
+            EditorUtility.SetDirty(fixture.Authoring);
+            AssetDatabase.SaveAssetIfDirty(fixture.Authoring);
+            var authoringBefore = File.ReadAllBytes(ToAbsoluteProjectPath(
+                AssetDatabase.GetAssetPath(fixture.Authoring)));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                window.BindForTests(fixture.Authoring);
+                window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+                window.SelectTileFeatureByIdForTests(901);
+                Assert.That(window.SelectObjectiveConditionForTests("button-901", canonical), Is.True);
+                Assert.That(window.GetSelectedButtonObjectiveRemovalPlanForTests().Mode,
+                    Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                window.SetButtonObjectiveRemovalConfirmationForTests(new FixedRemovalConfirmation(false));
+
+                Assert.That(window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out _), Is.False);
+
+                Assert.That(fixture.Authoring.Objective.ConditionEntries, Has.Length.EqualTo(2));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(
+                    AssetDatabase.GetAssetPath(fixture.Authoring))), Is.EqualTo(authoringBefore));
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+                Assert.That(EditorUtility.IsDirty(fixture.Authoring), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_RepairConfirm_RemovesConfirmedSetAndPreservesSurvivorOrder()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var mismatch = CreateButtonActivatedCondition(902);
+            var before = Condition(CreatePlayerAtAnyZone("before"), true,
+                StageObjectiveConditionRole.PrimaryGoal, "before");
+            before.SortOrder = 0;
+            var after = Condition(CreatePlayerAtAnyZone("after"), false,
+                StageObjectiveConditionRole.Challenge, "after");
+            after.SortOrder = 70;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                before,
+                ButtonEntry(canonical, "button-901", "Canonical", 20),
+                ButtonEntry(mismatch, "button-901", "Stable conflict", 40),
+                after,
+                ButtonEntry(canonical, "custom-button", "Tile conflict", 60)));
+            var serialized = new SerializedObject(fixture.Authoring);
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serialized, fixture.Authoring, fixture.Button);
+
+            var result = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serialized,
+                fixture.Authoring,
+                fixture.Button,
+                plan);
+
+            Assert.That(result.Succeeded, Is.True, result.Message);
+            Assert.That(result.RemovedCount, Is.EqualTo(3));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.StableConditionId),
+                Is.EqualTo(new[] { "before", "after" }));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.SortOrder),
+                Is.EqualTo(new[] { 0, 70 }));
+            Assert.That(AssetDatabase.Contains(canonical), Is.True);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_ChangedDisplayedField_BlocksStalePlanWithoutRemoval()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Before", 30)));
+            var serialized = new SerializedObject(fixture.Authoring);
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serialized, fixture.Authoring, fixture.Button);
+            var objective = fixture.Authoring.Objective;
+            var entries = objective.ConditionEntries;
+            entries[0].AuthoringLabel = "Changed after dialog";
+            objective.ConditionEntries = entries;
+            fixture.Authoring.SetObjective(objective);
+            var afterExternalChange = EditorJsonUtility.ToJson(fixture.Authoring);
+
+            var result = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serialized,
+                fixture.Authoring,
+                fixture.Button,
+                plan);
+
+            Assert.That(result.Code,
+                Is.EqualTo(StageButtonObjectiveRemovalResultCode.ButtonObjectiveRemovalTargetChanged));
+            Assert.That(EditorJsonUtility.ToJson(fixture.Authoring), Is.EqualTo(afterExternalChange));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries, Has.Length.EqualTo(1));
+        }
+
+        [TestCase("candidate-added")]
+        [TestCase("candidate-removed")]
+        [TestCase("stable-id")]
+        [TestCase("condition-reference")]
+        [TestCase("condition-tile-id")]
+        [TestCase("role")]
+        [TestCase("sort-order")]
+        [TestCase("authoring-label")]
+        public void ObjectiveConditionRemoval_ConfirmedPlanFieldChanged_BlocksAllMutation(string mutation)
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Before", 30)));
+            var serialized = new SerializedObject(fixture.Authoring);
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serialized, fixture.Authoring, fixture.Button);
+            var objective = fixture.Authoring.Objective;
+            var entries = objective.ConditionEntries.ToList();
+            switch (mutation)
+            {
+                case "candidate-added":
+                    entries.Add(ButtonEntry(canonical, "tile-match", "Added", 40));
+                    break;
+                case "candidate-removed":
+                    entries.Clear();
+                    break;
+                case "stable-id":
+                    entries[0] = WithStableId(entries[0], "custom-stable");
+                    break;
+                case "condition-reference":
+                    entries[0] = WithCondition(entries[0], CreateButtonActivatedCondition(901));
+                    break;
+                case "condition-tile-id":
+                    SetButtonConditionTileId(canonical, 902);
+                    break;
+                case "role":
+                    entries[0] = WithRole(entries[0], StageObjectiveConditionRole.Challenge);
+                    break;
+                case "sort-order":
+                    entries[0] = WithSortOrder(entries[0], 31);
+                    break;
+                case "authoring-label":
+                    entries[0] = WithAuthoringLabel(entries[0], "After");
+                    break;
+            }
+
+            objective.ConditionEntries = entries.ToArray();
+            fixture.Authoring.SetObjective(objective);
+            var expectedAfterExternalChange = EditorJsonUtility.ToJson(fixture.Authoring);
+
+            var result = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serialized,
+                fixture.Authoring,
+                fixture.Button,
+                plan);
+
+            Assert.That(result.Code,
+                Is.EqualTo(StageButtonObjectiveRemovalResultCode.ButtonObjectiveRemovalTargetChanged));
+            Assert.That(EditorJsonUtility.ToJson(fixture.Authoring), Is.EqualTo(expectedAfterExternalChange));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_CandidateArrayMovement_WithSameIdentitySet_IsAllowed()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var first = ButtonEntry(canonical, "button-901", "Stable and tile", 20);
+            var second = ButtonEntry(canonical, "tile-match", "Tile only", 40);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                first,
+                second));
+            var serialized = new SerializedObject(fixture.Authoring);
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serialized, fixture.Authoring, fixture.Button);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                second,
+                first));
+
+            var result = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serialized,
+                fixture.Authoring,
+                fixture.Button,
+                plan);
+
+            Assert.That(result.Succeeded, Is.True, result.Message);
+            Assert.That(result.RemovedCount, Is.EqualTo(2));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries, Is.Empty);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_StaticArchitectureGuards_KeepRemovalEditorOnlyAndBounded()
+        {
+            var removalSource = File.ReadAllText(ToAbsoluteProjectPath(
+                "Assets/_Features/Stages/Editor/Authoring/StageButtonObjectiveRemoval.cs"));
+            var gridSource = File.ReadAllText(ToAbsoluteProjectPath(
+                "Assets/_Features/Stages/Editor/Authoring/StageAuthoringGridWindow.cs"));
+            var helperSource = File.ReadAllText(ToAbsoluteProjectPath(
+                "Assets/_Features/Stages/Editor/Authoring/StageAuthoringButtonObjectiveHelperCommands.cs"));
+
+            Assert.That(removalSource, Does.Contain("SingleCanonical"));
+            Assert.That(removalSource, Does.Contain("ConflictRepair"));
+            Assert.That(removalSource, Does.Contain("BUTTON_OBJECTIVE_REMOVAL_TARGET_CHANGED"));
+            Assert.That(removalSource, Does.Contain("OrderByDescending"));
+            Assert.That(removalSource, Does.Not.Contain("AssetDatabase.DeleteAsset"));
+            Assert.That(removalSource, Does.Not.Contain("AssetDatabase.SaveAssets"));
+            Assert.That(removalSource, Does.Not.Contain("StageAuthoringGenerator.Generate"));
+            Assert.That(gridSource, Does.Contain("buttonObjectiveRemovalConfirmation.Confirm(plan)"));
+            Assert.That(gridSource, Does.Contain("StageButtonObjectiveRemovalExecutor.TryExecute"));
+            Assert.That(gridSource, Does.Not.Contain("TryRemoveRequiredSecondaryGoal"));
+            Assert.That(helperSource, Does.Contain("CollectButtonObjectiveRepairCandidateIndices"));
+            Assert.That(helperSource, Does.Not.Contain("TryRemoveRequiredSecondaryGoal"));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_RepairUndoRedo_RestoresAllMetadataAndRelativePositions()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var mismatch = CreateButtonActivatedCondition(902);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Canonical", 20),
+                ButtonEntry(mismatch, "button-901", "Mismatch", 40)));
+            var expectedBefore = EditorJsonUtility.ToJson(fixture.Authoring);
+            var serialized = new SerializedObject(fixture.Authoring);
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serialized, fixture.Authoring, fixture.Button);
+            Undo.ClearUndo(fixture.Authoring);
+
+            var result = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serialized,
+                fixture.Authoring,
+                fixture.Button,
+                plan);
+            Assert.That(result.Succeeded, Is.True, result.Message);
+            Assert.That(fixture.Authoring.Objective.ConditionEntries, Is.Empty);
+
+            Undo.PerformUndo();
+            serialized.Update();
+            Assert.That(EditorJsonUtility.ToJson(fixture.Authoring), Is.EqualTo(expectedBefore));
+
+            Undo.PerformRedo();
+            serialized.Update();
+            Assert.That(fixture.Authoring.Objective.ConditionEntries, Is.Empty);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_RepairMessage_ListsEveryCandidateAndRetentionWarnings()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Canonical", 20),
+                ButtonEntry(canonical, "custom", "Tile conflict", 40)));
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring), fixture.Authoring, fixture.Button);
+
+            var message = StageButtonObjectiveRemovalConfirmationMessage.BuildRepair(plan);
+
+            Assert.That(message, Does.Contain("Remove 2 conflicting"));
+            Assert.That(message, Does.Contain("button-901"));
+            Assert.That(message, Does.Contain("custom"));
+            Assert.That(message, Does.Contain("Match: Stable ID + Tile ID"));
+            Assert.That(message, Does.Contain("Match: Tile ID"));
+            Assert.That(message, Does.Contain("condition assets will be retained"));
+            Assert.That(message, Does.Contain("will not change until Generate"));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_SingleMessage_ListsExactTargetAndLifecycleWarnings()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Canonical", 30)));
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring), fixture.Authoring, fixture.Button);
+
+            var message = StageButtonObjectiveRemovalConfirmationMessage.BuildSingle(plan);
+
+            Assert.That(message, Does.Contain("Remove this Button Objective"));
+            Assert.That(message, Does.Contain("Canonical"));
+            Assert.That(message, Does.Contain("button-901"));
+            Assert.That(message, Does.Contain("TileId 901"));
+            Assert.That(message, Does.Contain("Any Pushable Box"));
+            Assert.That(message, Does.Contain("Sort Order:\n  30"));
+            Assert.That(message, Does.Contain("condition asset will be retained"));
+            Assert.That(message, Does.Contain("will not change until Generate"));
+        }
+
         private static StageTileFeatureDefinition TileFeature(
             int tileId,
             TileFeatureKind kind,
@@ -387,6 +850,21 @@ namespace Game.Feature.Stages.Editor.Tests
                 BoundEntityId = 0,
                 PresentationKey = string.Empty,
             };
+        }
+
+        private sealed class FixedRemovalConfirmation : IStageButtonObjectiveRemovalConfirmation
+        {
+            private readonly bool result;
+
+            public FixedRemovalConfirmation(bool result)
+            {
+                this.result = result;
+            }
+
+            public bool Confirm(StageButtonObjectiveRemovalPlan plan)
+            {
+                return result;
+            }
         }
 
         private static SurfaceCell Cell(int x, int y)
@@ -427,6 +905,62 @@ namespace Game.Feature.Stages.Editor.Tests
                 AuthoringLabel = string.Empty,
                 SortOrder = 0,
             };
+        }
+
+        private static StageObjectiveConditionEntry ButtonEntry(
+            StageConditionAsset condition,
+            string stableId,
+            string label,
+            int sortOrder)
+        {
+            var entry = Condition(
+                condition,
+                true,
+                StageObjectiveConditionRole.SecondaryGoal,
+                stableId);
+            entry.AuthoringLabel = label;
+            entry.SortOrder = sortOrder;
+            return entry;
+        }
+
+        private static StageObjectiveConditionEntry WithStableId(
+            StageObjectiveConditionEntry entry,
+            string stableId)
+        {
+            entry.StableConditionId = stableId;
+            return entry;
+        }
+
+        private static StageObjectiveConditionEntry WithCondition(
+            StageObjectiveConditionEntry entry,
+            StageConditionAsset condition)
+        {
+            entry.Condition = condition;
+            return entry;
+        }
+
+        private static StageObjectiveConditionEntry WithRole(
+            StageObjectiveConditionEntry entry,
+            StageObjectiveConditionRole role)
+        {
+            entry.Role = role;
+            return entry;
+        }
+
+        private static StageObjectiveConditionEntry WithSortOrder(
+            StageObjectiveConditionEntry entry,
+            int sortOrder)
+        {
+            entry.SortOrder = sortOrder;
+            return entry;
+        }
+
+        private static StageObjectiveConditionEntry WithAuthoringLabel(
+            StageObjectiveConditionEntry entry,
+            string authoringLabel)
+        {
+            entry.AuthoringLabel = authoringLabel;
+            return entry;
         }
 
         private static StageZoneDefinition Zone(string zoneId, SurfaceCell cell)

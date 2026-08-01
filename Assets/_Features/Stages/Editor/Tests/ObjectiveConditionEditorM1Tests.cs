@@ -541,6 +541,242 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ObjectiveConditionRemoval_CanonicalLifecycle_UndoRedoGenerateAndSecondGenerateAreExact()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-0-1");
+            var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 5);
+            var condition = fixture.Authoring.Objective.ConditionEntries
+                .Single(entry => entry.StableConditionId == "button-5").Condition;
+            var conditionPath = AssetDatabase.GetAssetPath(condition);
+            var conditionBytesBefore = ReadAssetBytes(conditionPath);
+            var generatedBefore = fixture.ReadGameplayBytes();
+            fixture.Window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+            fixture.Window.SelectTileFeatureByIdForTests(button.TileId);
+            Assert.That(fixture.Window.SelectObjectiveConditionForTests("button-5", condition), Is.True);
+            var plan = fixture.Window.GetSelectedButtonObjectiveRemovalPlanForTests();
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.SingleCanonical));
+            fixture.Window.SetButtonObjectiveRemovalConfirmationForTests(
+                new FixedRemovalConfirmation(true));
+            Undo.ClearAll();
+
+            Assert.That(
+                fixture.Window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error),
+                Is.True,
+                error);
+            Undo.FlushUndoRecordObjects();
+
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+            Assert.That(fixture.ReadGameplayBytes(), Is.EqualTo(generatedBefore));
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+            Assert.That(fixture.Window.ResolveObjectiveConditionSelectionForTests(),
+                Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+
+            Undo.PerformUndo();
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.True);
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InSync));
+
+            Undo.PerformRedo();
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            AssertPairParity(fixture.Authoring, fixture.Gameplay);
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InSync));
+            var authoringAfterGenerate = fixture.ReadAuthoringBytes();
+            var gameplayAfterGenerate = fixture.ReadGameplayBytes();
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            Assert.That(fixture.ReadAuthoringBytes(), Is.EqualTo(authoringAfterGenerate));
+            Assert.That(fixture.ReadGameplayBytes(), Is.EqualTo(gameplayAfterGenerate));
+            Assert.That(ReadAssetBytes(conditionPath), Is.EqualTo(conditionBytesBefore));
+            Assert.That(AssetDatabase.Contains(condition), Is.True);
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_SingleRemoveGenerateUndo_RestoresAuthoringOnly()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-0-1");
+            var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 5);
+            fixture.Window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+            fixture.Window.SelectTileFeatureByIdForTests(button.TileId);
+            fixture.Window.SetButtonObjectiveRemovalConfirmationForTests(
+                new FixedRemovalConfirmation(true));
+            Undo.ClearAll();
+
+            Assert.That(
+                fixture.Window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error),
+                Is.True,
+                error);
+            Undo.FlushUndoRecordObjects();
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            Assert.That(fixture.Gameplay.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+
+            Undo.PerformUndo();
+
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.True);
+            Assert.That(fixture.Gameplay.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_RepairLifecycle_GenerateParityUndoAndInvalidGenerateBlock()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-0-1");
+            var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 5);
+            var objective = fixture.Authoring.Objective;
+            var canonical = objective.ConditionEntries.Single(entry =>
+                entry.StableConditionId == "button-5");
+            var conditionPath = AssetDatabase.GetAssetPath(canonical.Condition);
+            var conditionBytesBefore = ReadAssetBytes(conditionPath);
+            var entries = objective.ConditionEntries.ToList();
+            var duplicate = canonical;
+            duplicate.AuthoringLabel = "Conflict duplicate";
+            duplicate.SortOrder += 10;
+            entries.Insert(entries.Count - 1, duplicate);
+            objective.ConditionEntries = entries.ToArray();
+            fixture.Authoring.SetObjective(objective);
+            EditorUtility.SetDirty(fixture.Authoring);
+            fixture.Window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+            fixture.Window.SelectTileFeatureByIdForTests(button.TileId);
+            var plan = fixture.Window.GetSelectedButtonObjectiveRemovalPlanForTests();
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            Assert.That(plan.Candidates.Count, Is.EqualTo(2));
+            fixture.Window.SetButtonObjectiveRemovalConfirmationForTests(
+                new FixedRemovalConfirmation(true));
+            Undo.ClearAll();
+
+            Assert.That(
+                fixture.Window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error),
+                Is.True,
+                error);
+            Undo.FlushUndoRecordObjects();
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+            Assert.That(fixture.Gameplay.Objective.ConditionEntries.Count(entry =>
+                entry.StableConditionId == "button-5"), Is.EqualTo(1));
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            AssertPairParity(fixture.Authoring, fixture.Gameplay);
+            var gameplayAfterGenerate = fixture.ReadGameplayBytes();
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.ReadGameplayBytes(), Is.EqualTo(gameplayAfterGenerate));
+
+            Undo.PerformUndo();
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Count(entry =>
+                entry.StableConditionId == "button-5"), Is.EqualTo(2));
+            Assert.That(fixture.Gameplay.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+            Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
+                Is.EqualTo(StageObjectiveConditionEditorStatus.InvalidAuthoring));
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.True);
+            Assert.That(fixture.ReadGameplayBytes(), Is.EqualTo(gameplayAfterGenerate));
+            Assert.That(ReadAssetBytes(conditionPath), Is.EqualTo(conditionBytesBefore));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_StageThreeOne_RemovesMiddleButtonWithoutRenumberingGroupOrder()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-3-1");
+            var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 8);
+            var before = fixture.Authoring.Objective.ConditionEntries.ToArray();
+            var removed = before.Single(entry => entry.StableConditionId == "button-8");
+            var expected = before.Where(entry => entry.StableConditionId != "button-8").ToArray();
+            var runtimeBefore = StageRuntimeBuilder.Build(fixture.Gameplay)
+                .ObjectiveRuntimeDefinition
+                .ConditionEntries;
+            var removedRuntime = runtimeBefore.Single(entry => entry.StableConditionId == "button-8");
+            fixture.Window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+            fixture.Window.SelectTileFeatureByIdForTests(button.TileId);
+            fixture.Window.SetButtonObjectiveRemovalConfirmationForTests(
+                new FixedRemovalConfirmation(true));
+
+            Assert.That(
+                fixture.Window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error),
+                Is.True,
+                error);
+
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.StableConditionId),
+                Is.EqualTo(expected.Select(entry => entry.StableConditionId)));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.SortOrder),
+                Is.EqualTo(expected.Select(entry => entry.SortOrder)));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.SortOrder == removed.SortOrder), Is.False);
+
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            var runtimeAfter = StageRuntimeBuilder.Build(fixture.Gameplay)
+                .ObjectiveRuntimeDefinition
+                .ConditionEntries;
+            Assert.That(runtimeAfter.Select(entry => entry.StableConditionId),
+                Is.EqualTo(expected.Select(entry => entry.StableConditionId)));
+            Assert.That(runtimeAfter
+                    .Where(entry => entry.StableGroupKey == removedRuntime.StableGroupKey)
+                    .Min(entry => entry.SortOrder),
+                Is.EqualTo(10));
+        }
+
+        [Test]
+        public void ObjectiveConditionRemoval_StageFourTwo_KeepsPrimaryArrayLastAndRuntimeFirst()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-4-2");
+            var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 13);
+            var before = fixture.Authoring.Objective.ConditionEntries.ToArray();
+            var expected = before.Where(entry => entry.StableConditionId != "button-13").ToArray();
+            fixture.Window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+            fixture.Window.SelectTileFeatureByIdForTests(button.TileId);
+            fixture.Window.SetButtonObjectiveRemovalConfirmationForTests(
+                new FixedRemovalConfirmation(true));
+
+            Assert.That(
+                fixture.Window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error),
+                Is.True,
+                error);
+
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.StableConditionId),
+                Is.EqualTo(expected.Select(entry => entry.StableConditionId)));
+            var primary = fixture.Authoring.Objective.ConditionEntries[^1];
+            Assert.That(primary.Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
+            Assert.That(primary.SortOrder, Is.Zero);
+
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            var runtime = StageRuntimeBuilder.Build(fixture.Gameplay)
+                .ObjectiveRuntimeDefinition
+                .ConditionEntries;
+            var runtimePrimary = runtime.Single(entry => entry.Role == StageObjectiveConditionRole.PrimaryGoal);
+            Assert.That(runtimePrimary.AuthoringOrder, Is.EqualTo(runtime.Count - 1));
+            Assert.That(runtimePrimary.SortOrder, Is.Zero);
+            Assert.That(runtime
+                    .OrderBy(entry => entry.SortOrder)
+                    .ThenBy(entry => entry.AuthoringOrder)
+                    .First(),
+                Is.SameAs(runtimePrimary));
+        }
+
+        [Test]
         public void UnifiedEditorMutationSource_WritesOnlyAuthorizedMetadataAndKeepsSelectionTransient()
         {
             var mutationSource = File.ReadAllText(ToAbsoluteProjectPath(
@@ -970,6 +1206,21 @@ namespace Game.Feature.Stages.Editor.Tests
         private static string ToAbsoluteProjectPath(string assetPath)
         {
             return Path.GetFullPath(Path.Combine(Application.dataPath, "..", assetPath));
+        }
+
+        private sealed class FixedRemovalConfirmation : IStageButtonObjectiveRemovalConfirmation
+        {
+            private readonly bool result;
+
+            public FixedRemovalConfirmation(bool result)
+            {
+                this.result = result;
+            }
+
+            public bool Confirm(StageButtonObjectiveRemovalPlan plan)
+            {
+                return result;
+            }
         }
 
         private sealed class CampaignPairFixture : IDisposable
