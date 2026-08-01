@@ -55,6 +55,7 @@ SOURCE_PATHS = [
     "Tools/TerminalIrisEvidenceIntegrity/verify_bundle.py",
     "Tools/TerminalIrisEvidenceIntegrity/run_negative_tests.py",
     "Tools/TerminalIrisEvidenceIntegrity/test_verify_bundle.py",
+    "Tools/TerminalIrisEvidenceIntegrity/test_produce_bundle.py",
     "Tools/TerminalIrisEvidenceIntegrity/evidence-contract-v1.json",
     "Tools/TerminalIrisEvidenceIntegrity/README.md",
     "ProjectSettings/ProjectVersion.txt",
@@ -64,6 +65,10 @@ SOURCE_PATHS = [
     "Assets/Settings/PC_RPAsset.asset",
     "Assets/Settings/Mobile_RPAsset.asset",
 ]
+
+KNOWN_UNITY_IMPORT_DRIFT_PATH = (
+    "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+)
 
 
 @dataclass(frozen=True)
@@ -644,6 +649,34 @@ def manifest_entries(bundle_root: Path) -> list[tuple[str, str]]:
     return entries
 
 
+def can_restore_known_unity_import_drift(
+    initial_modified: set[str], current_modified: set[str]
+) -> bool:
+    return (
+        KNOWN_UNITY_IMPORT_DRIFT_PATH not in initial_modified
+        and current_modified - initial_modified == {KNOWN_UNITY_IMPORT_DRIFT_PATH}
+        and initial_modified - current_modified == set()
+    )
+
+
+def restore_known_unity_import_drift(
+    initial_baseline: dict[str, object], initial_bytes: bytes
+) -> bool:
+    initial_modified = set(initial_baseline["trackedModified"])
+    current_modified = set(run_git("diff", "--name-only").splitlines())
+    if not can_restore_known_unity_import_drift(
+        initial_modified, current_modified
+    ):
+        return False
+    path = PROJECT_ROOT / KNOWN_UNITY_IMPORT_DRIFT_PATH
+    path.write_bytes(initial_bytes)
+    print(
+        "Restored documented Unity import-derived drift: "
+        f"{KNOWN_UNITY_IMPORT_DRIFT_PATH}"
+    )
+    return True
+
+
 def main() -> int:
     if sys.argv[1:] != ["--produce"]:
         print("usage: produce_bundle.py --produce", file=sys.stderr)
@@ -673,6 +706,9 @@ def main() -> int:
     (bundle_root / "02-lanes").mkdir()
 
     initial_baseline = baseline()
+    known_import_drift_initial_bytes = (
+        PROJECT_ROOT / KNOWN_UNITY_IMPORT_DRIFT_PATH
+    ).read_bytes()
     inventory = source_inventory()
     source_freeze_basis = json.dumps(
         inventory, sort_keys=True, separators=(",", ":")
@@ -717,6 +753,9 @@ def main() -> int:
         print(f"\n[{lane.command_id}] {lane.lane_id}")
         run_lane(bundle_root, bundle_id, source_freeze_id, lane)
 
+    restore_known_unity_import_drift(
+        initial_baseline, known_import_drift_initial_bytes
+    )
     current_inventory = source_inventory()
     current_diff = diff_hash()
     current_cached = diff_hash(cached=True)

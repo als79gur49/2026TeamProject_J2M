@@ -29,6 +29,7 @@
     "Tools/TerminalIrisEvidenceIntegrity/verify_bundle.py",
     "Tools/TerminalIrisEvidenceIntegrity/run_negative_tests.py",
     "Tools/TerminalIrisEvidenceIntegrity/test_verify_bundle.py",
+    "Tools/TerminalIrisEvidenceIntegrity/test_produce_bundle.py",
     "Tools/TerminalIrisEvidenceIntegrity/evidence-contract-v1.json",
     "Tools/TerminalIrisEvidenceIntegrity/README.md",
     "ProjectSettings/ProjectVersion.txt",

@@ -63,6 +63,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static readonly float[] FullContourRadii = { 0.30f, 0.05f, 0.01f };
 
+        private static readonly string[] FullContourProfiles =
+        {
+            "victory",
+            "defeat",
+            "retry",
+            "gameplay-entry",
+            "entry",
+        };
+
         [UnityTest]
         [Category("Full")]
         public IEnumerator TerminalIrisLegacyAnalyzerRegression_OffcenterPixelsReproduceFalseCenter()
@@ -1725,8 +1734,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static void AssertFullContourAcceptance(
             IReadOnlyCollection<FullContourRecord> records)
         {
+            Assert.That(
+                records.Select(record => record.Profile).Distinct(),
+                Is.EquivalentTo(FullContourProfiles));
             Assert.That(records, Has.Count.EqualTo(
-                FullContourResolutions.Length * FullContourRadii.Length * 3));
+                FullContourResolutions.Length *
+                FullContourRadii.Length *
+                FullContourProfiles.Length));
             foreach (var record in records)
             {
                 var smallRadius = record.AuthoredRadius <= 0.01f;
@@ -1764,7 +1778,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static void AssertAAResponsibilityAcceptance(
             IReadOnlyCollection<AAResponsibilityRecord> records)
         {
-            Assert.That(records, Has.Count.EqualTo(FullContourResolutions.Length * 3));
+            Assert.That(
+                records.Select(record => record.Profile).Distinct(),
+                Is.EquivalentTo(FullContourProfiles));
+            Assert.That(
+                records,
+                Has.Count.EqualTo(FullContourResolutions.Length * FullContourProfiles.Length));
             foreach (var record in records)
             {
                 Assert.That(
