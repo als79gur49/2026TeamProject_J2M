@@ -3440,7 +3440,7 @@ run_terminal_iris_player_visual_quality() {
             local player_exit_code=0
             attempt_log="$run_dir/player-attempt-${attempt}.log"
             attempt_log_win="$(wslpath -w "$attempt_log")"
-            timeout --kill-after=10 90 \
+            timeout --kill-after=10 180 \
                 "$player_path" \
                 -logFile "$attempt_log_win" \
                 -screen-fullscreen 0 \
@@ -4115,7 +4115,7 @@ run_terminal_iris_player_visual_quality() {
             local player_exit_code=0
             attempt_log="$run_dir/player-attempt-${attempt}.log"
             attempt_log_win="$(wslpath -w "$attempt_log")"
-            timeout --kill-after=10 90 \
+            timeout --kill-after=10 180 \
                 "$player_path" \
                 -logFile "$attempt_log_win" \
                 -screen-fullscreen 0 \

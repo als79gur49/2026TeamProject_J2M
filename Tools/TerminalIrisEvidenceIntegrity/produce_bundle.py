@@ -649,6 +649,40 @@ def manifest_entries(bundle_root: Path) -> list[tuple[str, str]]:
     return entries
 
 
+def lane_closure_failures(
+    records: list[dict[str, object]],
+    lane_contracts: dict[str, dict[str, object]],
+) -> list[str]:
+    failures: list[str] = []
+    expected_ids = set(lane_contracts)
+    actual_ids = [str(record.get("laneId", "")) for record in records]
+    if set(actual_ids) != expected_ids or len(actual_ids) != len(expected_ids):
+        failures.append("lane exact set is incomplete, unknown, or duplicated")
+    for record in records:
+        lane_id = str(record.get("laneId", ""))
+        lane_contract = lane_contracts.get(lane_id)
+        if lane_contract is None:
+            continue
+        exit_code = int(record.get("commandExitCode", -1))
+        allowed = {int(value) for value in lane_contract["allowedExitCodes"]}
+        if exit_code not in allowed:
+            failures.append(f"{lane_id}: exit {exit_code} is not allowed")
+        missing = list(record.get("missingOrStaleOrigins", []))
+        if missing:
+            failures.append(f"{lane_id}: missing or stale result artifacts")
+        expected_status = (
+            "PASS"
+            if lane_contract.get("kind") == "player-visual"
+            else "COMPLETED"
+        )
+        if record.get("resultStatus") != expected_status:
+            failures.append(
+                f"{lane_id}: result status {record.get('resultStatus')} "
+                f"is not {expected_status}"
+            )
+    return failures
+
+
 def can_restore_known_unity_import_drift(
     initial_modified: set[str], current_modified: set[str]
 ) -> bool:
@@ -772,6 +806,31 @@ def main() -> int:
             f"source drift detected; bundle remains unclosed: {bundle_root}",
             file=sys.stderr,
         )
+        return 1
+
+    lane_records = [
+        json.loads(
+            (
+                bundle_root / "02-lanes" / lane.lane_id / "lane-result.json"
+            ).read_text(encoding="utf-8")
+        )
+        for lane in LANES
+    ]
+    lane_failures = lane_closure_failures(
+        lane_records, contract["laneResultContracts"]
+    )
+    if lane_failures:
+        write_json(
+            bundle_root / "BUNDLE_ABORTED_LANE_FAILURES",
+            {"failures": lane_failures},
+        )
+        print(
+            "lane closure gate failed; bundle remains unclosed: "
+            f"{bundle_root}",
+            file=sys.stderr,
+        )
+        for failure in lane_failures:
+            print(f"- {failure}", file=sys.stderr)
         return 1
 
     entries = manifest_entries(bundle_root)
