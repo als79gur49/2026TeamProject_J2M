@@ -605,8 +605,11 @@ namespace Game.Feature.UI.Tests
     {
         public int ReturnCallCount { get; private set; }
 
-        public void ReturnToMainMenu()
+        public SceneTransitionIntent LastTransitionIntent { get; private set; }
+
+        public void ReturnToMainMenu(SceneTransitionIntent transitionIntent)
         {
+            LastTransitionIntent = transitionIntent;
             ReturnCallCount++;
         }
     }

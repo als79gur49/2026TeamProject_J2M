@@ -111,50 +111,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_WithoutLegacyOverlayPath()
+        public void GameplayInputHost_HasNoUncorrelatedPublicStageClearedEvent()
         {
-            var hostObject = new GameObject("GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_WithoutLegacyOverlayPath");
-            StageContentEntry stageContentEntry = null;
-
-            try
-            {
-                stageContentEntry = CreateStageContentEntry("stage-test-clear");
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(
-                    new GameplaySceneHostConfiguration
-                    {
-                        AutoAdvanceTicks = false,
-                        AutoCreateViews = false,
-                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                        InitialEntities = new[]
-                        {
-                            CreatePlayerEntity(),
-                        },
-                        InitialTopology = new CubeTopologyState(FaceId.Floor),
-                        StageContentEntry = stageContentEntry,
-                        ObjectiveRuntimeDefinition = CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0)),
-                        PlayerEntityId = 10,
-                    });
-
-                var stageClearedCallCount = 0;
-                host.InputHost.StageCleared += () => stageClearedCallCount++;
-
-                var result = host.InputHost.RunSingleTick();
-                Assert.That(result, Is.Not.Null);
-                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
-                Assert.That(stageClearedCallCount, Is.EqualTo(1));
-                Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
-                Assert.That(hostObject.GetComponent<GameplayStageClearOverlay>(), Is.Null);
-            }
-            finally
-            {
-                if (stageContentEntry != null)
-                {
-                    UnityEngine.Object.DestroyImmediate(stageContentEntry);
-                }
-
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
+            Assert.That(
+                typeof(GameplayInputHost).GetEvent("StageCleared"),
+                Is.Null,
+                "StageCleared must only leave the host through an accepted-token presentation carrier.");
         }
 
         [Test]
@@ -1290,15 +1252,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostPresentationFeed_StageClearVictoryDelay_DefersStageClearedFrame()
+        public void GameplayHostPresentationFeed_TerminalGateIgnoresVictoryClipAndReleasesOnlyAtBlackReached()
         {
-            var rootObject = new GameObject("GameplayHostPresentationFeed_StageClearVictoryDelay_DefersStageClearedFrame");
+            var rootObject = new GameObject("GameplayHostPresentationFeed_TerminalGate");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayHostPresentationFeed_Victory_PlayerPrefab");
             StageContentEntry stageContentEntry = null;
+            StagePresentationDefinition presentationDefinition = null;
 
             try
             {
                 stageContentEntry = CreateStageContentEntry("stage-clear-victory-delay-test");
+                presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+                SetPrivateField(
+                    presentationDefinition,
+                    "displayNameKey",
+                    StageDisplayNameKeys.ForStage(stageContentEntry.StageId));
+                stageContentEntry.AssignPresentationDefinition(presentationDefinition);
                 var authoring = playerViewPrefab.GetComponent<PlayerAnimationTimingAuthoring>();
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 0.5f);
 
@@ -1323,6 +1292,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(new[] { CreatePlayerEntity() }, topology);
 
                 var feed = new GameplayHostPresentationFeed(inputHost, presenter, stageContentEntry);
+                feed.ConfigureTerminalArbiter(new TerminalArbitrationOwner());
+                TerminalSessionToken acceptedToken = default;
+                feed.TerminalClaimAccepted += (_, _, claim) => acceptedToken = claim.Token;
                 var frames = new List<GameplayPresentationFrame>();
                 feed.FramePublished += frames.Add;
                 var result = CreateStageClearVictoryTickResult(tickIndex: 7);
@@ -1338,7 +1310,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(feed.HasPendingStageClearPresentation, Is.True);
                 Assert.That(frames, Has.Count.EqualTo(1));
 
-                presenter.UpdatePresentation(0.3f);
+                presenter.UpdatePresentation(10f);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.True);
+                Assert.That(frames, Has.Count.EqualTo(1));
+
+                Assert.That(acceptedToken.IsValid, Is.True);
+                Assert.That(feed.ReleaseStageClearTerminalGate(acceptedToken), Is.True);
                 Assert.That(feed.HasPendingStageClearPresentation, Is.False);
                 Assert.That(frames, Has.Count.EqualTo(2));
                 Assert.That(frames[1].StageEvent.HasValue, Is.True);
@@ -1347,8 +1324,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(presentationDefinition);
                 UnityEngine.Object.DestroyImmediate(stageContentEntry);
                 UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayHostPresentationFeed_SameTickDeathAndClear_AcceptsOnlyDefeatAndNeverPublishesStageCleared()
+        {
+            var rootObject = new GameObject("GameplayHostPresentationFeed_SameTickDeathAndClear");
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var inputHost = rootObject.AddComponent<GameplayInputHost>();
+                SetPrivateField(inputHost, "_playerEntityId", 10);
+                var feed = new GameplayHostPresentationFeed(inputHost, presenter);
+                feed.ConfigureTerminalArbiter(new TerminalArbitrationOwner());
+                var accepted = new List<TerminalClaimResult>();
+                var rejected = new List<TerminalClaimResult>();
+                var frames = new List<GameplayPresentationFrame>();
+                feed.TerminalClaimAccepted += (_, _, claim) => accepted.Add(claim);
+                feed.TerminalClaimRejected += claim => rejected.Add(claim);
+                feed.FramePublished += frames.Add;
+
+                InvokePresentationFeedTickCompleted(
+                    feed,
+                    CreateSameTickDeathAndClearTickResult(tickIndex: 11));
+
+                Assert.That(accepted, Has.Count.EqualTo(1));
+                Assert.That(accepted[0].Accepted, Is.True);
+                Assert.That(accepted[0].TerminalKind, Is.EqualTo(TerminalTransitionKind.Defeat));
+                Assert.That(rejected, Has.Count.EqualTo(1));
+                Assert.That(rejected[0].TerminalKind, Is.EqualTo(TerminalTransitionKind.Victory));
+                Assert.That(
+                    rejected[0].RejectionReason,
+                    Is.EqualTo(TerminalClaimRejectionReason.LowerPrioritySameTick));
+                Assert.That(frames, Has.Count.EqualTo(1));
+                Assert.That(frames[0].StageEvent.HasValue, Is.False);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(
+                    feed.ReleaseStageClearTerminalGate(accepted[0].Token),
+                    Is.False);
+                feed.Dispose();
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -4617,6 +4641,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<TickEnemyActionPresentationSignal>(),
                     Array.Empty<TickEnemyJumpPresentationSignal>(),
                     Array.Empty<TickEntityExitPresentationSignal>(),
+                    playerOutcomeSignals: new[]
+                    {
+                        new TickPlayerOutcomePresentationSignal(
+                            10,
+                            TickPlayerOutcomePresentationKind.StageClearVictory,
+                            sourceTileId: 100,
+                            new SurfaceCell(FaceId.Floor, 1, 1)),
+                    }),
+                string.Empty,
+                TickTrace.Empty,
+                new StageObjectiveTickResult(
+                    hasObjective: true,
+                    goalReached: true,
+                    allConditionsSatisfied: true,
+                    clearedThisTick: true,
+                    isCleared: true,
+                    Array.Empty<StageConditionStatus>()));
+        }
+
+        private static TickResult CreateSameTickDeathAndClearTickResult(int tickIndex)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { CreatePlayerEntity() },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    new[]
+                    {
+                        new TickPlayerDeathPresentationSignal(
+                            10,
+                            didDieThisTick: true,
+                            sourceEntityId: 0,
+                            fallbackFacing: Direction.Right,
+                            resolvedDamageSourceAvailable: false,
+                            damageAmountAtFatalHit: 1,
+                            deathDirectionHintKind: DeathDirectionHintKind.FacingReverse),
+                    },
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
                     playerOutcomeSignals: new[]
                     {
                         new TickPlayerOutcomePresentationSignal(

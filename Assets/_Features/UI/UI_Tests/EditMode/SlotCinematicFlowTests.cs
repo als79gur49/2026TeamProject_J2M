@@ -14,6 +14,27 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SlotCinematicFlowTests
     {
+        [SetUp]
+        public void ResetTransitionSessions()
+        {
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+            CinematicOpaqueHandoffRegistry.ResetForTests();
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                9204,
+                "SlotCinematicFlowTests");
+        }
+
+        [TearDown]
+        public void ClearTransitionSessions()
+        {
+            CinematicOpaqueHandoffRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+        }
+
         [Test]
         public void CinematicStageLaunchRouter_UsesHandoffSlot_ForIntroFlag()
         {
@@ -31,7 +52,8 @@ namespace Game.Feature.UI.Tests
                     stageId,
                     StageNavigationKind.Continue,
                     "main-menu-new-game",
-                    StageTransitionHint.ForKindWithMinimum(StageTransitionKind.MainToGameplay, 0.25f));
+                    StageTransitionHint.ForKindWithMinimum(StageTransitionKind.MainToGameplay, 0.25f),
+                    SceneTransitionIntent.GameplayEntry);
                 handoffStore.TryBegin(
                     2,
                     request.StageId,
@@ -56,12 +78,18 @@ namespace Game.Feature.UI.Tests
                 Assert.That(saveStore.LoadSlot(2).IntroPlayed, Is.True);
                 Assert.That(inner.Requests, Has.Count.EqualTo(1));
                 AssertRequestsEqual(request, inner.Requests[0]);
+                Assert.That(
+                    inner.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.CinematicToGameplay));
 
                 router.Launch(request);
 
                 Assert.That(player.PlayIntroCallCount, Is.EqualTo(1));
                 Assert.That(inner.Requests, Has.Count.EqualTo(2));
                 AssertRequestsEqual(request, inner.Requests[1]);
+                Assert.That(
+                    inner.Requests[1].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -83,7 +111,11 @@ namespace Game.Feature.UI.Tests
                 var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
-                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "handoff");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "handoff",
+                    transitionIntent: SceneTransitionIntent.GameplayEntry);
                 handoffStore.TryBegin(
                     3,
                     request.StageId,
@@ -126,7 +158,11 @@ namespace Game.Feature.UI.Tests
                 var handoffStore = new RecordingCampaignLaunchHandoffStore();
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = false };
-                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "test",
+                    transitionIntent: SceneTransitionIntent.GameplayEntry);
                 handoffStore.TryBegin(
                     1,
                     request.StageId,
@@ -141,6 +177,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.False);
                 Assert.That(inner.Requests, Has.Count.EqualTo(1));
                 AssertRequestsEqual(request, inner.Requests[0]);
+                Assert.That(
+                    inner.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -161,7 +200,11 @@ namespace Game.Feature.UI.Tests
                 var inner = new RecordingStageLaunchRouter();
                 var player = new ManualSlotCinematicPlayer { HasIntroClipValue = true };
                 var router = new CinematicStageLaunchRouter(inner, saveStore, handoffStore, player);
-                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "missing-pending-slot");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "missing-pending-slot",
+                    transitionIntent: SceneTransitionIntent.GameplayEntry);
 
                 Assert.Throws<InvalidOperationException>(() => router.Launch(request));
 
@@ -193,7 +236,8 @@ namespace Game.Feature.UI.Tests
                 var request = new StageNavigationRequest(
                     stageId,
                     StageNavigationKind.Continue,
-                    "cinematic-failure");
+                    "cinematic-failure",
+                    transitionIntent: SceneTransitionIntent.GameplayEntry);
                 handoffStore.TryBegin(
                     1,
                     request.StageId,
@@ -523,7 +567,7 @@ namespace Game.Feature.UI.Tests
                     player,
                     () => true);
 
-                router.ReturnToMainMenu();
+                router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
                 Assert.That(player.PlayOutroCallCount, Is.EqualTo(1));
                 Assert.That(inner.ReturnCallCount, Is.Zero);
@@ -532,8 +576,11 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(saveStore.LoadSlot(1).OutroPlayed, Is.True);
                 Assert.That(inner.ReturnCallCount, Is.EqualTo(1));
+                Assert.That(
+                    inner.LastTransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.CinematicToMainMenu));
 
-                router.ReturnToMainMenu();
+                router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
                 Assert.That(player.PlayOutroCallCount, Is.EqualTo(1));
                 Assert.That(inner.ReturnCallCount, Is.EqualTo(2));
@@ -563,11 +610,14 @@ namespace Game.Feature.UI.Tests
                     player,
                     () => false);
 
-                router.ReturnToMainMenu();
+                router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
                 Assert.That(player.PlayOutroCallCount, Is.Zero);
                 Assert.That(saveStore.LoadSlot(1).OutroPlayed, Is.False);
                 Assert.That(inner.ReturnCallCount, Is.EqualTo(1));
+                Assert.That(
+                    inner.LastTransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.ReturnToMainMenu));
             }
             finally
             {
@@ -879,7 +929,11 @@ namespace Game.Feature.UI.Tests
                 var view = root.AddComponent<CinematicVideoOverlayView>();
                 var audioFocus = root.AddComponent<CinematicAudioFocusController>();
                 var player = new CinematicFlowCoordinator(definition, view, audioFocus);
-                var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "test");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "test",
+                    transitionIntent: SceneTransitionIntent.GameplayEntry);
                 handoffStore.TryBegin(
                     1,
                     request.StageId,
@@ -901,6 +955,7 @@ namespace Game.Feature.UI.Tests
 
                 view.AdvanceFadeForTesting(0.3f);
 
+                Assert.That(view.AcknowledgeOpaqueRenderForTesting(), Is.True);
                 Assert.That(saveStore.LoadSlot(1).IntroPlayed, Is.True);
                 Assert.That(inner.Requests, Has.Count.EqualTo(1));
             }
@@ -1481,6 +1536,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.Route.AttemptCount, Is.EqualTo(1));
             Assert.That(harness.Route.Requests, Has.Count.EqualTo(1));
             AssertRequestsEqual(harness.Request, harness.Route.Requests[0]);
+            Assert.That(
+                harness.Route.Requests[0].TransitionIntent,
+                Is.EqualTo(SceneTransitionIntent.CinematicToGameplay),
+                "Normal intro completion and skip must share the M4 cinematic handoff intent.");
             Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.EqualTo(1));
             Assert.That(
                 harness.ProgressStore.UpdatedSlotNumbers,
@@ -1860,7 +1919,8 @@ namespace Game.Feature.UI.Tests
                     StageId.CreateOrThrow("stage-0-1"),
                     StageNavigationKind.Continue,
                     "main-menu-new-game",
-                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay));
+                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay),
+                    SceneTransitionIntent.GameplayEntry);
                 SaveStore.SaveSlot(CreateSlot(1, Request.StageId));
                 Assert.That(
                     HandoffStore.TryBegin(
@@ -2055,8 +2115,11 @@ namespace Game.Feature.UI.Tests
         {
             public int ReturnCallCount { get; private set; }
 
-            public void ReturnToMainMenu()
+            public SceneTransitionIntent LastTransitionIntent { get; private set; }
+
+            public void ReturnToMainMenu(SceneTransitionIntent transitionIntent)
             {
+                LastTransitionIntent = transitionIntent;
                 ReturnCallCount++;
             }
         }

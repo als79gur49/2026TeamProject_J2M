@@ -13,6 +13,7 @@ public static class PlayerProfilerCaptureCli
 {
     private const string CaptureBuildPathArg = "-captureBuildPath";
     private const string CaptureScenesArg = "-captureScenes";
+    private const string CaptureSupplementalScenesArg = "-captureSupplementalScenes";
     private const string CaptureBackendArg = "-captureBackend";
     private const string CaptureGameplayShellSceneArg = "-captureGameplayShellScene";
     private const string RouteConfigPath =
@@ -92,7 +93,11 @@ public static class PlayerProfilerCaptureCli
 
             Debug.Log(
                 $"PlayerProfilerCaptureCli resolved capture stage '{stageId.Value}' to gameplay shell scene '{shellScenePath}'.");
-            return new[] { shellScenePath };
+            return new[] { shellScenePath }
+                .Concat(ReadSceneList(args, CaptureSupplementalScenesArg))
+                .Where(scene => !string.IsNullOrWhiteSpace(scene))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
         }
 
         var scenes = ReadSceneList(args);
@@ -150,7 +155,14 @@ public static class PlayerProfilerCaptureCli
 
     private static string[] ReadSceneList(IReadOnlyList<string> args)
     {
-        var rawScenes = ReadArgument(args, CaptureScenesArg, string.Empty);
+        return ReadSceneList(args, CaptureScenesArg);
+    }
+
+    private static string[] ReadSceneList(
+        IReadOnlyList<string> args,
+        string argumentName)
+    {
+        var rawScenes = ReadArgument(args, argumentName, string.Empty);
         if (string.IsNullOrWhiteSpace(rawScenes))
         {
             return Array.Empty<string>();

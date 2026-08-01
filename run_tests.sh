@@ -11,7 +11,28 @@ PROJECT_PATH_WIN="${PROJECT_PATH_WIN:-}"
 DRY_RUN=0
 TEST_FILTER=""
 FILTERED_TOTAL=0
-
+UNITY_GRAPHICS="${UNITY_GRAPHICS:-0}"
+TERMINAL_IRIS_CAPTURE_BEFORE=0
+CODEX_VALIDATION_ROOT="${CODEX_VALIDATION_ROOT:-}"
+if [ -n "$CODEX_VALIDATION_ROOT" ]; then
+    DEFAULT_TEST_RESULTS_ROOT="$CODEX_VALIDATION_ROOT/test-results"
+    DEFAULT_TEST_LOG_ROOT="$CODEX_VALIDATION_ROOT/test-logs"
+    DEFAULT_CAPTURE_ROOT="$CODEX_VALIDATION_ROOT/captures"
+    DEFAULT_PLAYER_BUILD_ROOT="$CODEX_VALIDATION_ROOT/player-builds"
+else
+    DEFAULT_TEST_RESULTS_ROOT="$PROJECT_PATH_WSL/TestResults"
+    DEFAULT_TEST_LOG_ROOT="$PROJECT_PATH_WSL/TestLogs"
+    DEFAULT_CAPTURE_ROOT="$PROJECT_PATH_WSL/TestLogs"
+    DEFAULT_PLAYER_BUILD_ROOT="$PROJECT_PATH_WSL/TestResults/TerminalIrisPlayerBuild"
+fi
+RESULT_DIR="${TEST_RESULTS_ROOT:-$DEFAULT_TEST_RESULTS_ROOT}"
+TEST_LOG_OUTPUT_ROOT="${TEST_LOG_ROOT:-$DEFAULT_TEST_LOG_ROOT}"
+CAPTURE_OUTPUT_ROOT="${CAPTURE_ROOT:-$DEFAULT_CAPTURE_ROOT}"
+TERMINAL_IRIS_QUALITY_OUTPUT_ROOT="${TERMINAL_IRIS_QUALITY_OUTPUT_ROOT:-$CAPTURE_OUTPUT_ROOT/TerminalIrisQuality}"
+TERMINAL_IRIS_QUALITY_OUTPUT_DIR=""
+TERMINAL_IRIS_QUALITY_PHASE="after"
+TERMINAL_IRIS_EVIDENCE_BUNDLE_ID="${TERMINAL_IRIS_EVIDENCE_BUNDLE_ID:-}"
+TERMINAL_IRIS_EVIDENCE_RUN_ID="${TERMINAL_IRIS_EVIDENCE_RUN_ID:-}"
 VISUAL_GUARD_BASELINE_ROOT=""
 VISUAL_GUARD_MUTATION_EVIDENCE=""
 VISUAL_GUARD_LIFECYCLE_EVIDENCE=""
@@ -98,7 +119,7 @@ VISUAL_GUARD_PHASE="DONE"
 VISUAL_GUARD_FINAL_STATUS_SNAPSHOT=0
 CAPTURE_GUARD_PROFILE="visual"
 
-TYPOGRAPHY_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TypographyVisualQA"
+TYPOGRAPHY_VISUAL_OUTPUT_ROOT="${TYPOGRAPHY_VISUAL_OUTPUT_ROOT:-$CAPTURE_OUTPUT_ROOT/TypographyVisualQA}"
 TYPOGRAPHY_VISUAL_OUTPUT_DIR=""
 TYPOGRAPHY_VISUAL_UNITY_LOG=""
 TYPOGRAPHY_VISUAL_MANIFEST=""
@@ -119,7 +140,7 @@ NANUM_SDF_GUID="4662feb1d501d1f479b757a82e304069"
 NANUM_MATERIAL_LOCAL_ID="2769584723452840789"
 NANUM_ATLAS_LOCAL_ID="3176292610376301967"
 NANUM_SYNTHETIC_BOLD_GUID="2a2e67f1c1d143dc9f2d4af986ba7f21"
-OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/ObjectiveHudVisualQA"
+OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="${OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT:-$CAPTURE_OUTPUT_ROOT/ObjectiveHudVisualQA}"
 OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
 OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
@@ -138,11 +159,10 @@ CLIMATE_ATLAS_LOCAL_ID="-2536001923755311345"
 GLYPH_STRING_TABLE_INPUT="Assets/Localization/StringTables/UI/UI Shared Data.asset"
 GLYPH_STRING_TABLE_INPUT_META="$GLYPH_STRING_TABLE_INPUT.meta"
 GLYPH_STRING_TABLE_INPUT_GUID="1139bb803b655c2488dd6dca46c97cf5"
-RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 CLIMATE_GLYPH_UPDATE_LOG="$RESULT_DIR/wsl-climate-glyph-update.log"
 CLIMATE_GLYPH_UPDATE_EVIDENCE="$RESULT_DIR/wsl-climate-glyph-update-evidence.log"
 CLIMATE_GLYPH_UPDATE_LIFECYCLE="$RESULT_DIR/wsl-climate-glyph-update-cleanup.log"
-TERMINAL_RESULT_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/TerminalResultVisualQA"
+TERMINAL_RESULT_VISUAL_OUTPUT_ROOT="${TERMINAL_RESULT_VISUAL_OUTPUT_ROOT:-$CAPTURE_OUTPUT_ROOT/TerminalResultVisualQA}"
 TERMINAL_RESULT_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.TerminalResultVisualEvidenceUtility.CaptureFromCommandLine"
 TERMINAL_RESULT_VISUAL_WIDTH=1920
 TERMINAL_RESULT_VISUAL_HEIGHT=1080
@@ -173,6 +193,11 @@ UNITY_FULL_EDITMODE_LOG="$RESULT_DIR/wsl-unity-full-editmode.log"
 UNITY_FULL_EDITMODE_XML="$RESULT_DIR/wsl-unity-full-editmode.xml"
 UNITY_FULL_PLAYMODE_LOG="$RESULT_DIR/wsl-unity-full-playmode.log"
 UNITY_FULL_PLAYMODE_XML="$RESULT_DIR/wsl-unity-full-playmode.xml"
+UNITY_TERMINAL_PLAYER_BUILD_LOG="$RESULT_DIR/wsl-unity-terminal-player-build.log"
+TERMINAL_PLAYER_BUILD_ROOT="${PLAYER_BUILD_ROOT:-$DEFAULT_PLAYER_BUILD_ROOT}"
+TERMINAL_PLAYER_SMOKE_WIDTH="${TERMINAL_PLAYER_SMOKE_WIDTH:-1920}"
+TERMINAL_PLAYER_SMOKE_HEIGHT="${TERMINAL_PLAYER_SMOKE_HEIGHT:-1080}"
+TERMINAL_PLAYER_SMOKE_PROFILE="${TERMINAL_PLAYER_SMOKE_PROFILE:-standard}"
 
 UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-simulation-editmode.log"
 UNITY_INTEGRATION_SIMULATION_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-simulation-editmode.xml"
@@ -208,6 +233,53 @@ require_command() {
         echo "Missing required command: $command_name"
         exit 1
     fi
+}
+
+terminal_player_windows_pids() {
+    local player_path_win="$1"
+    local player_path_base64
+
+    player_path_base64="$(printf '%s' "$player_path_win" | base64 -w0)"
+    powershell.exe -NoProfile -Command "
+        \$target = [Text.Encoding]::UTF8.GetString(
+            [Convert]::FromBase64String('$player_path_base64'))
+        Get-CimInstance Win32_Process |
+            Where-Object { \$_.ExecutablePath -ieq \$target } |
+            ForEach-Object { \$_.ProcessId }
+    " 2>/dev/null | tr -d '\r' || true
+}
+
+wait_for_terminal_player_exit() {
+    local player_path_win="$1"
+    local deadline=$((SECONDS + 10))
+    local pids
+
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        pids="$(terminal_player_windows_pids "$player_path_win")"
+        if [ -z "$pids" ]; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    pids="$(terminal_player_windows_pids "$player_path_win")"
+    if [ -n "$pids" ]; then
+        echo "ERROR: Terminal Player process did not exit: $pids"
+        return 1
+    fi
+}
+
+terminate_terminal_player_processes() {
+    local player_path_win="$1"
+    local pid
+    local pids
+
+    pids="$(terminal_player_windows_pids "$player_path_win")"
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        cmd.exe /c taskkill /PID "$pid" /T /F >/dev/null 2>&1 || true
+    done <<< "$pids"
+    wait_for_terminal_player_exit "$player_path_win"
 }
 
 git_head_blob_sha256() {
@@ -680,6 +752,7 @@ print_environment_summary() {
     echo "  PROJECT_PATH_WIN: $PROJECT_PATH_WIN"
     echo "  UNITY_PATH:       $UNITY_PATH"
     echo "  DOTNET_PATH:      $DOTNET_PATH"
+    echo "  UNITY_GRAPHICS:   $UNITY_GRAPHICS"
     echo "  RESULT_DIR:       $RESULT_DIR"
 }
 
@@ -688,11 +761,12 @@ print_config() {
     echo "PROJECT_PATH_WIN=$PROJECT_PATH_WIN"
     echo "UNITY_PATH=$UNITY_PATH"
     echo "DOTNET_PATH=$DOTNET_PATH"
+    echo "UNITY_GRAPHICS=$UNITY_GRAPHICS"
     echo "RESULT_DIR=$RESULT_DIR"
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-result-visual|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-result-visual|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -2843,7 +2917,11 @@ run_unity_stage() {
         timeout --kill-after=10 300
         "$UNITY_PATH"
         -batchmode
-        -nographics
+    )
+    if [ "$UNITY_GRAPHICS" != "1" ]; then
+        unity_command+=(-nographics)
+    fi
+    unity_command+=(
         -projectPath "$PROJECT_PATH_WIN"
         -logFile "$log_path_win"
         -executeMethod "$execute_method"
@@ -2853,6 +2931,22 @@ run_unity_stage() {
 
     if [ -n "$TEST_FILTER" ]; then
         unity_command+=(-codexTestFilter "$TEST_FILTER")
+    fi
+    if [ -n "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
+        unity_command+=(
+            -terminalIrisQualityOutput "$(wslpath -w "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR")"
+            -terminalIrisQualityPhase "$TERMINAL_IRIS_QUALITY_PHASE"
+        )
+    fi
+    if [ -n "$TERMINAL_IRIS_EVIDENCE_BUNDLE_ID" ]; then
+        unity_command+=(
+            -terminalIrisEvidenceBundleId "$TERMINAL_IRIS_EVIDENCE_BUNDLE_ID"
+        )
+    fi
+    if [ -n "$TERMINAL_IRIS_EVIDENCE_RUN_ID" ]; then
+        unity_command+=(
+            -terminalIrisEvidenceRunId "$TERMINAL_IRIS_EVIDENCE_RUN_ID"
+        )
     fi
 
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -3144,6 +3238,1372 @@ run_unity_ui() {
     fi
     rm -f -- "$climate_before_snapshot"
     return "$unity_status"
+}
+
+run_terminal_production_playmode() {
+    local stage_key="$1"
+    local stage_label="$2"
+    local default_filter="$3"
+
+    if [ -z "$TEST_FILTER" ]; then
+        TEST_FILTER="$default_filter"
+    fi
+
+    run_dotnet_core
+    run_unity_stage \
+        "full" \
+        "$stage_key" \
+        "$stage_label" \
+        "PlayMode" \
+        "$UNITY_CORE_PLAYMODE_LOG" \
+        "$UNITY_CORE_PLAYMODE_XML" \
+        "TestRunnerCliBootstrap.RunPlayMode" \
+        "Game.Feature.Gameplay.PlayModeTests" \
+        "Full"
+}
+
+prepare_terminal_iris_quality_output() {
+    local timestamp
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    if [ "$TERMINAL_IRIS_CAPTURE_BEFORE" -eq 1 ]; then
+        TERMINAL_IRIS_QUALITY_PHASE="before"
+        TERMINAL_IRIS_QUALITY_OUTPUT_DIR="$TERMINAL_IRIS_QUALITY_OUTPUT_ROOT/Before-$timestamp"
+    else
+        TERMINAL_IRIS_QUALITY_PHASE="after"
+        TERMINAL_IRIS_QUALITY_OUTPUT_DIR="$TERMINAL_IRIS_QUALITY_OUTPUT_ROOT/After-$timestamp"
+    fi
+    mkdir -p "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+}
+
+write_terminal_iris_quality_manifest() {
+    local aggregate_diff_hash
+    local untracked_hash
+    aggregate_diff_hash="$(git diff --binary | sha256sum | awk '{print $1}')"
+    untracked_hash="$(
+        git ls-files --others --exclude-standard -z |
+        sha256sum |
+        awk '{print $1}'
+    )"
+    {
+        echo "SchemaVersion=2"
+        echo "Phase=$TERMINAL_IRIS_QUALITY_PHASE"
+        echo "UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "Branch=$(git branch --show-current)"
+        echo "HEAD=$(git rev-parse HEAD)"
+        echo "TrackedDiffSHA256=$aggregate_diff_hash"
+        echo "UntrackedPathListSHA256=$untracked_hash"
+        echo "EvidenceBundleId=$TERMINAL_IRIS_EVIDENCE_BUNDLE_ID"
+        echo "EvidenceRunId=$TERMINAL_IRIS_EVIDENCE_RUN_ID"
+        echo "ShaderSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIris.shader" | awk '{print $1}')"
+        echo "MaterialSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIrisOverlay.mat" | awk '{print $1}')"
+        echo "ProfileSourceSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisMotionProfile.cs" | awk '{print $1}')"
+        echo "ProfileAssetSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/TerminalIrisMotionProfile.asset" | awk '{print $1}')"
+        echo "PrefabSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/GameplayUiCanvasRootShell.prefab" | awk '{print $1}')"
+        echo "GraphicsMode=enabled"
+        echo "RenderTextureMatrix=1280x720,1920x1080,1920x1200,2560x1080,2560x1440,3440x1440,3840x2160"
+        echo "BeforeRenderTextureMatrix=1920x1080,3440x1440"
+        echo "PlayerBuildHash=not-run"
+    } > "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/manifest.txt"
+}
+
+run_terminal_iris_quality_lane() {
+    local stage_key="$1"
+    local stage_label="$2"
+    local default_filter="$3"
+    if [ -z "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
+        prepare_terminal_iris_quality_output
+    fi
+    TEST_FILTER="${TEST_FILTER:-$default_filter}"
+    run_dotnet_core
+    UNITY_GRAPHICS=1 run_unity_stage \
+        "full" \
+        "$stage_key" \
+        "$stage_label" \
+        "PlayMode" \
+        "$UNITY_CORE_PLAYMODE_LOG" \
+        "$UNITY_CORE_PLAYMODE_XML" \
+        "TestRunnerCliBootstrap.RunPlayMode" \
+        "Game.Feature.Gameplay.PlayModeTests" \
+        "Full"
+    write_terminal_iris_quality_manifest
+    echo "Terminal Iris quality evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+}
+
+run_terminal_iris_player_visual_quality() {
+    local build_dir
+    local build_dir_win
+    local player_path
+    local player_path_win
+    local build_log
+    local build_log_win
+    local width
+    local height
+    local fps
+    local focus
+    local run_dir
+    local run_dir_win
+    local runtime_log
+    local runtime_log_win
+    local exit_attempts_path
+    local attempt
+    local max_attempts=3
+    local pass_marker
+    local artifact_hash
+    local player_result_path
+    local player_exit_aggregate=0
+    local -a build_command
+    local -a run_matrix
+    local -a performance_args
+
+    if [ -z "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
+        prepare_terminal_iris_quality_output
+    fi
+    build_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/PlayerBuild"
+    player_path="$build_dir/VectorQuake-TerminalIrisVisualQuality.exe"
+    build_log="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-build.log"
+    build_dir_win="$(wslpath -w "$build_dir")"
+    player_path_win="$(wslpath -w "$player_path")"
+    build_log_win="$(wslpath -w "$build_log")"
+    build_command=(
+        timeout --kill-after=20 900
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -buildTarget StandaloneWindows64
+        -logFile "$build_log_win"
+        -executeMethod PlayerProfilerCaptureCli.BuildWindowsDevelopmentPlayer
+        -captureBuildPath "$player_path_win"
+        -captureBackend Mono
+        --capture-stage stage-1-1
+        --capture-campaign-temp-slot
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would build and run a graphics-enabled Windows Terminal Iris visual-quality Player."
+        print_shell_command "${build_command[@]}"
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$build_dir"
+    echo "Building Windows Terminal Iris visual-quality Development Player..."
+    "${build_command[@]}"
+    require_file "$player_path" "Terminal Iris visual-quality Player"
+
+    if [ "$TERMINAL_IRIS_CAPTURE_BEFORE" -eq 1 ]; then
+        run_matrix=(
+            "1920 1080 60 center"
+            "1920 1080 60 offcenter"
+            "3440 1440 60 center"
+            "3440 1440 60 offcenter"
+        )
+    else
+        run_matrix=(
+            "1920 1080 30 center"
+            "1920 1080 30 offcenter"
+            "1920 1080 60 center"
+            "1920 1080 60 offcenter"
+            "1920 1080 120 center"
+            "1920 1080 120 offcenter"
+            "3440 1440 30 center"
+            "3440 1440 30 offcenter"
+            "3440 1440 60 center"
+            "3440 1440 60 offcenter"
+            "3440 1440 120 center"
+            "3440 1440 120 offcenter"
+        )
+    fi
+
+    exit_attempts_path="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-exit-attempts.csv"
+    printf 'width,height,frameRate,focus,attempt,exitCode,passMarker\n' \
+        > "$exit_attempts_path"
+    for row in "${run_matrix[@]}"; do
+        read -r width height fps focus <<< "$row"
+        run_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/Player-${width}x${height}-${fps}fps-${focus}"
+        runtime_log="$run_dir/player.log"
+        mkdir -p "$run_dir"
+        run_dir_win="$(wslpath -w "$run_dir")"
+        performance_args=()
+        if [ "$TERMINAL_IRIS_CAPTURE_BEFORE" -eq 0 ] &&
+           [ "$width" -eq 1920 ] &&
+           [ "$height" -eq 1080 ] &&
+           [ "$fps" -eq 60 ] &&
+           [ "$focus" = "center" ]; then
+            performance_args=(--terminal-iris-performance)
+        fi
+        echo "Running graphics Player ${width}x${height} ${fps}fps ${focus}..."
+        attempt=1
+        while [ "$attempt" -le "$max_attempts" ]; do
+            local player_exit_code=0
+            attempt_log="$run_dir/player-attempt-${attempt}.log"
+            attempt_log_win="$(wslpath -w "$attempt_log")"
+            timeout --kill-after=10 90 \
+                "$player_path" \
+                -logFile "$attempt_log_win" \
+                -screen-fullscreen 0 \
+                -screen-width "$width" \
+                -screen-height "$height" \
+                -force-d3d12 \
+                --capture-stage stage-1-1 \
+                --capture-campaign-temp-slot \
+                --terminal-iris-player-visual-quality \
+                --terminal-iris-player-visual-output "$run_dir_win" \
+                --terminal-iris-player-visual-focus "$focus" \
+                --terminal-iris-player-visual-fps "$fps" \
+                "${performance_args[@]}" ||
+                player_exit_code=$?
+            if [ "$player_exit_code" -eq 124 ]; then
+                cmd.exe /c taskkill \
+                    /IM VectorQuake-TerminalIrisVisualQuality.exe \
+                    /T /F >/dev/null 2>&1 || true
+                sleep 2
+            fi
+            pass_marker=0
+            if [ -f "$attempt_log" ] &&
+               rg -q "TERMINAL_IRIS_PLAYER_VISUAL_QUALITY:PASS" "$attempt_log"; then
+                pass_marker=1
+            fi
+            printf '%s,%s,%s,%s,%s,%s,%s\n' \
+                "$width" "$height" "$fps" "$focus" "$attempt" \
+                "$player_exit_code" "$pass_marker" >> "$exit_attempts_path"
+            if [ "$player_exit_code" -eq 0 ] && [ "$pass_marker" -eq 1 ]; then
+                copy_try=1
+                while ! cp "$attempt_log" "$runtime_log"; do
+                    if [ "$copy_try" -ge 3 ]; then
+                        echo "ERROR: Could not preserve the canonical Player log."
+                        return 1
+                    fi
+                    copy_try=$((copy_try + 1))
+                    sleep 1
+                done
+                break
+            fi
+            if [ ! -f "$attempt_log" ]; then
+                : > "$run_dir/player-attempt-${attempt}-exit-${player_exit_code}-missing.log"
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+                echo "ERROR: Player did not produce exit 0 with a PASS marker after $max_attempts attempts."
+                tail -n 160 "$attempt_log" || true
+                player_exit_aggregate="$player_exit_code"
+                return 1
+            fi
+            echo "WARNING: Player attempt returned exit=$player_exit_code passMarker=$pass_marker; retrying canonical cell."
+            attempt=$((attempt + 1))
+            sleep 2
+        done
+        require_file "$run_dir/player-visual-manifest.json" "Player visual-quality manifest"
+        if ! rg -q "TERMINAL_IRIS_PLAYER_VISUAL_QUALITY:PASS" "$runtime_log"; then
+            echo "ERROR: Graphics Player did not emit the visual-quality success marker."
+            tail -n 160 "$runtime_log" || true
+            return 1
+        fi
+    done
+
+    artifact_hash="$(
+        find "$build_dir" -type f -print0 |
+        sort -z |
+        xargs -0 sha256sum |
+        sha256sum |
+        awk '{print $1}'
+    )"
+    write_terminal_iris_quality_manifest
+    {
+        echo "PlayerArtifactSHA256=$artifact_hash"
+        echo "PlayerExecutable=$player_path"
+        echo "PlayerGraphicsRuns=${#run_matrix[@]}"
+    } >> "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/manifest.txt"
+    player_result_path="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-visual-result.json"
+    TICEI_PLAYER_RESULT_PATH="$player_result_path" \
+    TICEI_PLAYER_OUTPUT_ROOT="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" \
+    TICEI_PLAYER_BUILD_LOG="$build_log" \
+    TICEI_PLAYER_EXIT_ATTEMPTS="$exit_attempts_path" \
+    TICEI_PLAYER_EXIT_CODE="$player_exit_aggregate" \
+    TICEI_PLAYER_BUNDLE_ID="${TERMINAL_IRIS_EVIDENCE_BUNDLE_ID:-}" \
+    TICEI_PLAYER_SOURCE_FREEZE_ID="${TERMINAL_IRIS_SOURCE_FREEZE_ID:-}" \
+    python3 - <<'PY'
+import csv
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+
+root = Path(os.environ["TICEI_PLAYER_OUTPUT_ROOT"]).resolve()
+result_path = Path(os.environ["TICEI_PLAYER_RESULT_PATH"]).resolve()
+attempts_path = Path(os.environ["TICEI_PLAYER_EXIT_ATTEMPTS"]).resolve()
+with attempts_path.open(newline="", encoding="utf-8") as handle:
+    exit_attempts = [
+        {
+            "width": int(row["width"]),
+            "height": int(row["height"]),
+            "frameRate": int(row["frameRate"]),
+            "focus": row["focus"],
+            "attempt": int(row["attempt"]),
+            "exitCode": int(row["exitCode"]),
+            "passMarker": row["passMarker"] == "1",
+        }
+        for row in csv.DictReader(handle)
+    ]
+manifests = sorted(root.glob("Player-*/player-visual-manifest.json"))
+matrix = []
+captures = []
+player_logs = []
+gpu = ""
+graphics_api = ""
+driver = ""
+for manifest_path in manifests:
+    payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    run_root = manifest_path.parent
+    resolution = payload.get("resolution", [])
+    focus = run_root.name.rsplit("-", 1)[-1]
+    fps = int(payload.get("targetFrameRate", 0))
+    cell_attempts = [
+        row
+        for row in exit_attempts
+        if row["width"] == int(resolution[0])
+        and row["height"] == int(resolution[1])
+        and row["frameRate"] == fps
+        and row["focus"] == focus
+    ]
+    matrix.append(
+        {
+            "width": int(resolution[0]),
+            "height": int(resolution[1]),
+            "frameRate": fps,
+            "focus": focus,
+            "attemptCount": len(cell_attempts),
+            "finalExitCode": (
+                cell_attempts[-1]["exitCode"] if cell_attempts else None
+            ),
+        }
+    )
+    gpu = gpu or str(payload.get("graphicsDeviceName", ""))
+    graphics_api = graphics_api or str(payload.get("graphicsDeviceType", ""))
+    player_log = run_root / "player.log"
+    player_logs.append(player_log.relative_to(root).as_posix())
+    if not driver and player_log.is_file():
+        match = re.search(
+            r"^\s*Driver:\s*(.+?)\s*$",
+            player_log.read_text(encoding="utf-8", errors="replace"),
+            re.MULTILINE,
+        )
+        if match:
+            driver = match.group(1)
+    for capture in payload.get("captures", []):
+        path = run_root / f"{capture['label']}.png"
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        captures.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "sha256": digest,
+                "width": int(resolution[0]),
+                "height": int(resolution[1]),
+                "frameRate": fps,
+                "focus": focus,
+                "label": capture["label"],
+            }
+        )
+
+expected_matrix_count = 12
+expected_capture_count = 192
+player_exit_code = int(os.environ["TICEI_PLAYER_EXIT_CODE"])
+result = (
+    "PASS"
+    if len(matrix) == expected_matrix_count
+    and len(captures) == expected_capture_count
+    and player_exit_code == 0
+    and all(row["finalExitCode"] == 0 for row in matrix)
+    else "FAIL"
+)
+result_path.write_text(
+    json.dumps(
+        {
+            "schemaVersion": 1,
+            "bundleId": os.environ.get("TICEI_PLAYER_BUNDLE_ID", ""),
+            "sourceFreezeId": os.environ.get("TICEI_PLAYER_SOURCE_FREEZE_ID", ""),
+            "laneId": "player-visual-quality",
+            "buildExitCode": 0,
+            "playerExitCode": player_exit_code,
+            "captureCount": len(captures),
+            "expectedCaptureCount": expected_capture_count,
+            "matrix": matrix,
+            "exitAttempts": exit_attempts,
+            "GPU": gpu,
+            "graphicsAPI": graphics_api,
+            "driver": driver,
+            "resolutions": sorted(
+                {f"{row['width']}x{row['height']}" for row in matrix}
+            ),
+            "frameRates": sorted({row["frameRate"] for row in matrix}),
+            "captureManifest": captures,
+            "playerLog": player_logs,
+            "buildLog": Path(os.environ["TICEI_PLAYER_BUILD_LOG"])
+                .resolve()
+                .relative_to(root)
+                .as_posix(),
+            "result": result,
+        },
+        indent=2,
+    )
+    + "\n",
+    encoding="utf-8",
+)
+PY
+    require_file "$player_result_path" "Player visual result contract"
+    echo "Terminal Iris Player visual evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+    if [ "$player_exit_aggregate" -ne 0 ]; then
+        return 1
+    fi
+}
+
+run_terminal_player_build_smoke_legacy() {
+    local timestamp
+    local output_dir
+    local output_dir_win
+    local player_path
+    local player_path_win
+    local log_path_win
+    local runtime_log_pointer
+    local runtime_log_pointer_win
+    local runtime_log_keyboard
+    local runtime_log_keyboard_win
+    local runtime_log_gameclear_pointer
+    local runtime_log_gameclear_pointer_win
+    local runtime_log_gameclear_keyboard
+    local runtime_log_gameclear_keyboard_win
+    local shader_dependency_hits
+    local worktree_diff_hash
+    local untracked_file
+    local gameplay_ui_root_hash
+    local stage_result_prefab_hash
+    local game_clear_prefab_hash
+    local persistent_shell_hash
+    local result_transition_style_hash
+    local result_dim_snapshot_source_hash
+    local material_hash
+    local shader_hash
+    local camera_runtime_hash
+    local artifact_hash
+    local -a unity_command
+
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    output_dir="$TERMINAL_PLAYER_BUILD_ROOT/$timestamp"
+    player_path="$output_dir/VectorQuake-TerminalIrisSmoke.exe"
+    runtime_log_pointer="$output_dir/player-runtime-pointer.log"
+    runtime_log_keyboard="$output_dir/player-runtime-keyboard.log"
+    runtime_log_gameclear_pointer="$output_dir/player-runtime-gameclear-pointer.log"
+    runtime_log_gameclear_keyboard="$output_dir/player-runtime-gameclear-keyboard.log"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    player_path_win="$(wslpath -w "$player_path")"
+    log_path_win="$(wslpath -w "$UNITY_TERMINAL_PLAYER_BUILD_LOG")"
+    runtime_log_pointer_win="$(wslpath -w "$runtime_log_pointer")"
+    runtime_log_keyboard_win="$(wslpath -w "$runtime_log_keyboard")"
+    runtime_log_gameclear_pointer_win="$(wslpath -w "$runtime_log_gameclear_pointer")"
+    runtime_log_gameclear_keyboard_win="$(wslpath -w "$runtime_log_gameclear_keyboard")"
+    unity_command=(
+        timeout --kill-after=20 900
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -buildTarget StandaloneWindows64
+        -logFile "$log_path_win"
+        -executeMethod PlayerProfilerCaptureCli.BuildWindowsDevelopmentPlayer
+        -captureBuildPath "$player_path_win"
+        -captureBackend Mono
+        --capture-stage stage-1-1
+        --capture-campaign-temp-slot
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would run Windows x64 Terminal Iris development Player build smoke:"
+        print_shell_command "${unity_command[@]}"
+        echo "Would verify serialized Player data contains UI/TerminalIris."
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$output_dir"
+    rm -f "$UNITY_TERMINAL_PLAYER_BUILD_LOG"
+    echo "Running Windows x64 Terminal Iris development Player build smoke..."
+    "${unity_command[@]}"
+
+    require_file "$player_path" "Terminal Iris development Player executable"
+    require_dir "${player_path%.exe}_Data" "Terminal Iris development Player data"
+    shader_dependency_hits="$(
+        rg -a -l "UI/TerminalIris" "$output_dir" 2>/dev/null || true
+    )"
+    if [ -z "$shader_dependency_hits" ]; then
+        echo "ERROR: Built Player data does not contain the serialized UI/TerminalIris shader dependency."
+        echo "  output directory: $output_dir"
+        return 1
+    fi
+    echo "Running built Player terminal production pointer smoke..."
+    if ! timeout --kill-after=10 60 \
+            "$player_path" \
+            -force-d3d11 \
+            -screen-fullscreen 0 \
+            -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            -logFile "$runtime_log_pointer_win" \
+            --capture-stage stage-1-1 \
+            --capture-campaign-temp-slot \
+            --terminal-player-build-smoke \
+            --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            --terminal-player-build-smoke-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            --terminal-player-build-smoke-input pointer; then
+        echo "ERROR: Built Player terminal pointer smoke failed."
+        tail -n 120 "$runtime_log_pointer" || true
+        return 1
+    fi
+    echo "Running built Player terminal production keyboard smoke..."
+    if ! timeout --kill-after=10 60 \
+            "$player_path" \
+            -force-d3d11 \
+            -screen-fullscreen 0 \
+            -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            -logFile "$runtime_log_keyboard_win" \
+            --capture-stage stage-1-1 \
+            --capture-campaign-temp-slot \
+            --terminal-player-build-smoke \
+            --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            --terminal-player-build-smoke-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            --terminal-player-build-smoke-input keyboard; then
+        echo "ERROR: Built Player terminal keyboard smoke failed."
+        tail -n 120 "$runtime_log_keyboard" || true
+        return 1
+    fi
+    echo "Running built Player terminal GameClear pointer smoke..."
+    if ! timeout --kill-after=10 60 \
+            "$player_path" \
+            -force-d3d11 \
+            -screen-fullscreen 0 \
+            -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            -logFile "$runtime_log_gameclear_pointer_win" \
+            --capture-stage stage-4-2 \
+            --capture-campaign-temp-slot \
+            --terminal-player-build-smoke \
+            --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            --terminal-player-build-smoke-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            --terminal-player-build-smoke-scenario gameclear \
+            --terminal-player-build-smoke-input pointer; then
+        echo "ERROR: Built Player terminal GameClear pointer smoke failed."
+        tail -n 120 "$runtime_log_gameclear_pointer" || true
+        return 1
+    fi
+    echo "Running built Player terminal GameClear keyboard smoke..."
+    if ! timeout --kill-after=10 60 \
+            "$player_path" \
+            -force-d3d11 \
+            -screen-fullscreen 0 \
+            -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            -logFile "$runtime_log_gameclear_keyboard_win" \
+            --capture-stage stage-4-2 \
+            --capture-campaign-temp-slot \
+            --terminal-player-build-smoke \
+            --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+            --terminal-player-build-smoke-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+            --terminal-player-build-smoke-scenario gameclear \
+            --terminal-player-build-smoke-input keyboard; then
+        echo "ERROR: Built Player terminal GameClear keyboard smoke failed."
+        tail -n 120 "$runtime_log_gameclear_keyboard" || true
+        return 1
+    fi
+    require_file "$runtime_log_pointer" "Terminal Iris built Player pointer runtime smoke log"
+    require_file "$runtime_log_keyboard" "Terminal Iris built Player keyboard runtime smoke log"
+    require_file "$runtime_log_gameclear_pointer" "Terminal Iris built Player GameClear pointer runtime smoke log"
+    require_file "$runtime_log_gameclear_keyboard" "Terminal Iris built Player GameClear keyboard runtime smoke log"
+    if ! rg -q "TERMINAL_PLAYER_BUILD_SMOKE:PASS" "$runtime_log_pointer" ||
+       ! rg -q "TERMINAL_PLAYER_BUILD_SMOKE:PASS" "$runtime_log_keyboard" ||
+       ! rg -q "TERMINAL_PLAYER_BUILD_SMOKE:PASS scenario=gameclear" "$runtime_log_gameclear_pointer" ||
+       ! rg -q "TERMINAL_PLAYER_BUILD_SMOKE:PASS scenario=gameclear" "$runtime_log_gameclear_keyboard"; then
+        echo "ERROR: Built Player did not confirm all StageResult and GameClear terminal input paths."
+        tail -n 120 "$runtime_log_pointer" || true
+        tail -n 120 "$runtime_log_keyboard" || true
+        tail -n 120 "$runtime_log_gameclear_pointer" || true
+        tail -n 120 "$runtime_log_gameclear_keyboard" || true
+        return 1
+    fi
+    if rg -q "TERMINAL_PLAYER_BUILD_SMOKE:FAIL" "$runtime_log_pointer" ||
+       rg -q "TERMINAL_PLAYER_BUILD_SMOKE:FAIL" "$runtime_log_keyboard" ||
+       rg -q "TERMINAL_PLAYER_BUILD_SMOKE:FAIL" "$runtime_log_gameclear_pointer" ||
+       rg -q "TERMINAL_PLAYER_BUILD_SMOKE:FAIL" "$runtime_log_gameclear_keyboard"; then
+        echo "ERROR: Built Player reported a terminal production smoke failure."
+        tail -n 120 "$runtime_log_pointer" || true
+        tail -n 120 "$runtime_log_keyboard" || true
+        tail -n 120 "$runtime_log_gameclear_pointer" || true
+        tail -n 120 "$runtime_log_gameclear_keyboard" || true
+        return 1
+    fi
+    worktree_diff_hash="$(
+        {
+            git diff --binary HEAD -- .
+            while IFS= read -r -d '' untracked_file; do
+                printf 'UNTRACKED %s\n' "$untracked_file"
+                sha256sum -- "$untracked_file"
+            done < <(git ls-files --others --exclude-standard -z | sort -z)
+        } | sha256sum | awk '{print $1}'
+    )"
+    gameplay_ui_root_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/GameplayUiCanvasRootShell.prefab" | awk '{print $1}')"
+    stage_result_prefab_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab" | awk '{print $1}')"
+    game_clear_prefab_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab" | awk '{print $1}')"
+    persistent_shell_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayShell.prefab" | awk '{print $1}')"
+    result_transition_style_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/ResultTransitionVisualStyle.asset" | awk '{print $1}')"
+    result_dim_snapshot_source_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_ViewShared/Runtime/ResultDimVisualSnapshot.cs" | awk '{print $1}')"
+    terminal_iris_motion_profile_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/TerminalIrisMotionProfile.asset" | awk '{print $1}')"
+    material_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIrisOverlay.mat" | awk '{print $1}')"
+    shader_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIris.shader" | awk '{print $1}')"
+    camera_runtime_hash="$(
+        sha256sum \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bootstrap/GameplayCameraStartupPlanComposer.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeContext.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Runtime/GameplayTerminalFocusTargetSource.cs" |
+            sha256sum | awk '{print $1}'
+    )"
+    artifact_hash="$(sha256sum "$player_path" | awk '{print $1}')"
+
+    {
+        echo "UTC=$timestamp"
+        echo "HEAD=$(git rev-parse HEAD)"
+        echo "Branch=$(git branch --show-current)"
+        echo "WorktreeDiffSHA256=$worktree_diff_hash"
+        echo "WorktreeHashIncludes=tracked-binary-diff+untracked-path-content-sha256"
+        echo "ResultTransitionVisualStyleSHA256=$result_transition_style_hash"
+        echo "ResultDimVisualSnapshotSourceSHA256=$result_dim_snapshot_source_hash"
+        echo "TerminalIrisMotionProfileSHA256=$terminal_iris_motion_profile_hash"
+        echo "StageResultPrefabSHA256=$stage_result_prefab_hash"
+        echo "GameClearPrefabSHA256=$game_clear_prefab_hash"
+        echo "GameplayUiRootSHA256=$gameplay_ui_root_hash"
+        echo "PersistentShellSHA256=$persistent_shell_hash"
+        echo "MaterialSHA256=$material_hash"
+        echo "ShaderSHA256=$shader_hash"
+        echo "CameraRuntimeSourcesSHA256=$camera_runtime_hash"
+        echo "ArtifactSHA256=$artifact_hash"
+        echo "Player=$player_path"
+        echo "Stage=stage-1-1"
+        echo "SceneRoute=canonical gameplay shell"
+        echo "Backend=Mono"
+        echo "Configuration=Development"
+        echo "Shader=UI/TerminalIris"
+        echo "RuntimePointerSmokeLog=$runtime_log_pointer"
+        echo "RuntimeKeyboardSmokeLog=$runtime_log_keyboard"
+        echo "RuntimeGameClearPointerSmokeLog=$runtime_log_gameclear_pointer"
+        echo "RuntimeGameClearKeyboardSmokeLog=$runtime_log_gameclear_keyboard"
+        echo "RuntimePointerSmokeMarker=TERMINAL_PLAYER_BUILD_SMOKE:PASS"
+        echo "RuntimeKeyboardSmokeMarker=TERMINAL_PLAYER_BUILD_SMOKE:PASS"
+        echo "RuntimeGameClearPointerSmokeMarker=TERMINAL_PLAYER_BUILD_SMOKE:PASS scenario=gameclear"
+        echo "RuntimeGameClearKeyboardSmokeMarker=TERMINAL_PLAYER_BUILD_SMOKE:PASS scenario=gameclear"
+        echo "ShaderDependencyHits:"
+        echo "$shader_dependency_hits"
+        echo "GitStatusShort:"
+        git status --short
+    } > "$output_dir/manifest.txt"
+    echo "Terminal Iris development Player build smoke: PASS"
+    echo "  output directory: $output_dir"
+    echo "  manifest:         $output_dir/manifest.txt"
+}
+
+run_terminal_production_playmode() {
+    local stage_key="$1"
+    local stage_label="$2"
+    local default_filter="$3"
+
+    if [ -z "$TEST_FILTER" ]; then
+        TEST_FILTER="$default_filter"
+    fi
+
+    run_dotnet_core
+    run_unity_stage \
+        "full" \
+        "$stage_key" \
+        "$stage_label" \
+        "PlayMode" \
+        "$UNITY_CORE_PLAYMODE_LOG" \
+        "$UNITY_CORE_PLAYMODE_XML" \
+        "TestRunnerCliBootstrap.RunPlayMode" \
+        "Game.Feature.Gameplay.PlayModeTests" \
+        "Full"
+}
+
+prepare_terminal_iris_quality_output() {
+    local timestamp
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    if [ "$TERMINAL_IRIS_CAPTURE_BEFORE" -eq 1 ]; then
+        TERMINAL_IRIS_QUALITY_PHASE="before"
+        TERMINAL_IRIS_QUALITY_OUTPUT_DIR="$TERMINAL_IRIS_QUALITY_OUTPUT_ROOT/Before-$timestamp"
+    else
+        TERMINAL_IRIS_QUALITY_PHASE="after"
+        TERMINAL_IRIS_QUALITY_OUTPUT_DIR="$TERMINAL_IRIS_QUALITY_OUTPUT_ROOT/After-$timestamp"
+    fi
+    mkdir -p "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+}
+
+write_terminal_iris_quality_manifest() {
+    local aggregate_diff_hash
+    local untracked_hash
+    aggregate_diff_hash="$(git diff --binary | sha256sum | awk '{print $1}')"
+    untracked_hash="$(
+        git ls-files --others --exclude-standard -z |
+        sha256sum |
+        awk '{print $1}'
+    )"
+    {
+        echo "SchemaVersion=2"
+        echo "Phase=$TERMINAL_IRIS_QUALITY_PHASE"
+        echo "UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "Branch=$(git branch --show-current)"
+        echo "HEAD=$(git rev-parse HEAD)"
+        echo "TrackedDiffSHA256=$aggregate_diff_hash"
+        echo "UntrackedPathListSHA256=$untracked_hash"
+        echo "EvidenceBundleId=$TERMINAL_IRIS_EVIDENCE_BUNDLE_ID"
+        echo "EvidenceRunId=$TERMINAL_IRIS_EVIDENCE_RUN_ID"
+        echo "ShaderSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIris.shader" | awk '{print $1}')"
+        echo "MaterialSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIrisOverlay.mat" | awk '{print $1}')"
+        echo "ProfileSourceSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisMotionProfile.cs" | awk '{print $1}')"
+        echo "ProfileAssetSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/TerminalIrisMotionProfile.asset" | awk '{print $1}')"
+        echo "PrefabSHA256=$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/GameplayUiCanvasRootShell.prefab" | awk '{print $1}')"
+        echo "GraphicsMode=enabled"
+        echo "RenderTextureMatrix=1280x720,1920x1080,1920x1200,2560x1080,2560x1440,3440x1440,3840x2160"
+        echo "BeforeRenderTextureMatrix=1920x1080,3440x1440"
+        echo "PlayerBuildHash=not-run"
+    } > "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/manifest.txt"
+}
+
+run_terminal_iris_quality_lane() {
+    local stage_key="$1"
+    local stage_label="$2"
+    local default_filter="$3"
+    if [ -z "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
+        prepare_terminal_iris_quality_output
+    fi
+    TEST_FILTER="${TEST_FILTER:-$default_filter}"
+    run_dotnet_core
+    UNITY_GRAPHICS=1 run_unity_stage \
+        "full" \
+        "$stage_key" \
+        "$stage_label" \
+        "PlayMode" \
+        "$UNITY_CORE_PLAYMODE_LOG" \
+        "$UNITY_CORE_PLAYMODE_XML" \
+        "TestRunnerCliBootstrap.RunPlayMode" \
+        "Game.Feature.Gameplay.PlayModeTests" \
+        "Full"
+    write_terminal_iris_quality_manifest
+    echo "Terminal Iris quality evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+}
+
+run_terminal_iris_player_visual_quality() {
+    local build_dir
+    local build_dir_win
+    local player_path
+    local player_path_win
+    local build_log
+    local build_log_win
+    local width
+    local height
+    local fps
+    local focus
+    local run_dir
+    local run_dir_win
+    local runtime_log
+    local runtime_log_win
+    local exit_attempts_path
+    local attempt
+    local max_attempts=3
+    local pass_marker
+    local artifact_hash
+    local player_result_path
+    local player_exit_aggregate=0
+    local -a build_command
+    local -a run_matrix
+    local -a performance_args
+
+    if [ -z "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
+        prepare_terminal_iris_quality_output
+    fi
+    build_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/PlayerBuild"
+    player_path="$build_dir/VectorQuake-TerminalIrisVisualQuality.exe"
+    build_log="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-build.log"
+    build_dir_win="$(wslpath -w "$build_dir")"
+    player_path_win="$(wslpath -w "$player_path")"
+    build_log_win="$(wslpath -w "$build_log")"
+    build_command=(
+        timeout --kill-after=20 900
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -buildTarget StandaloneWindows64
+        -logFile "$build_log_win"
+        -executeMethod PlayerProfilerCaptureCli.BuildWindowsDevelopmentPlayer
+        -captureBuildPath "$player_path_win"
+        -captureBackend Mono
+        --capture-stage stage-1-1
+        --capture-campaign-temp-slot
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would build and run a graphics-enabled Windows Terminal Iris visual-quality Player."
+        print_shell_command "${build_command[@]}"
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$build_dir"
+    echo "Building Windows Terminal Iris visual-quality Development Player..."
+    "${build_command[@]}"
+    require_file "$player_path" "Terminal Iris visual-quality Player"
+
+    if [ "$TERMINAL_IRIS_CAPTURE_BEFORE" -eq 1 ]; then
+        run_matrix=(
+            "1920 1080 60 center"
+            "1920 1080 60 offcenter"
+            "3440 1440 60 center"
+            "3440 1440 60 offcenter"
+        )
+    else
+        run_matrix=(
+            "1920 1080 30 center"
+            "1920 1080 30 offcenter"
+            "1920 1080 60 center"
+            "1920 1080 60 offcenter"
+            "1920 1080 120 center"
+            "1920 1080 120 offcenter"
+            "3440 1440 30 center"
+            "3440 1440 30 offcenter"
+            "3440 1440 60 center"
+            "3440 1440 60 offcenter"
+            "3440 1440 120 center"
+            "3440 1440 120 offcenter"
+        )
+    fi
+
+    exit_attempts_path="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-exit-attempts.csv"
+    printf 'width,height,frameRate,focus,attempt,exitCode,passMarker\n' \
+        > "$exit_attempts_path"
+    for row in "${run_matrix[@]}"; do
+        read -r width height fps focus <<< "$row"
+        run_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/Player-${width}x${height}-${fps}fps-${focus}"
+        runtime_log="$run_dir/player.log"
+        mkdir -p "$run_dir"
+        run_dir_win="$(wslpath -w "$run_dir")"
+        performance_args=()
+        if [ "$TERMINAL_IRIS_CAPTURE_BEFORE" -eq 0 ] &&
+           [ "$width" -eq 1920 ] &&
+           [ "$height" -eq 1080 ] &&
+           [ "$fps" -eq 60 ] &&
+           [ "$focus" = "center" ]; then
+            performance_args=(--terminal-iris-performance)
+        fi
+        echo "Running graphics Player ${width}x${height} ${fps}fps ${focus}..."
+        attempt=1
+        while [ "$attempt" -le "$max_attempts" ]; do
+            local player_exit_code=0
+            attempt_log="$run_dir/player-attempt-${attempt}.log"
+            attempt_log_win="$(wslpath -w "$attempt_log")"
+            timeout --kill-after=10 90 \
+                "$player_path" \
+                -logFile "$attempt_log_win" \
+                -screen-fullscreen 0 \
+                -screen-width "$width" \
+                -screen-height "$height" \
+                -force-d3d12 \
+                --capture-stage stage-1-1 \
+                --capture-campaign-temp-slot \
+                --terminal-iris-player-visual-quality \
+                --terminal-iris-player-visual-output "$run_dir_win" \
+                --terminal-iris-player-visual-focus "$focus" \
+                --terminal-iris-player-visual-fps "$fps" \
+                "${performance_args[@]}" ||
+                player_exit_code=$?
+            if [ "$player_exit_code" -eq 124 ]; then
+                cmd.exe /c taskkill \
+                    /IM VectorQuake-TerminalIrisVisualQuality.exe \
+                    /T /F >/dev/null 2>&1 || true
+                sleep 2
+            fi
+            pass_marker=0
+            if [ -f "$attempt_log" ] &&
+               rg -q "TERMINAL_IRIS_PLAYER_VISUAL_QUALITY:PASS" "$attempt_log"; then
+                pass_marker=1
+            fi
+            printf '%s,%s,%s,%s,%s,%s,%s\n' \
+                "$width" "$height" "$fps" "$focus" "$attempt" \
+                "$player_exit_code" "$pass_marker" >> "$exit_attempts_path"
+            if [ "$player_exit_code" -eq 0 ] && [ "$pass_marker" -eq 1 ]; then
+                copy_try=1
+                while ! cp "$attempt_log" "$runtime_log"; do
+                    if [ "$copy_try" -ge 3 ]; then
+                        echo "ERROR: Could not preserve the canonical Player log."
+                        return 1
+                    fi
+                    copy_try=$((copy_try + 1))
+                    sleep 1
+                done
+                break
+            fi
+            if [ ! -f "$attempt_log" ]; then
+                : > "$run_dir/player-attempt-${attempt}-exit-${player_exit_code}-missing.log"
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+                echo "ERROR: Player did not produce exit 0 with a PASS marker after $max_attempts attempts."
+                tail -n 160 "$attempt_log" || true
+                player_exit_aggregate="$player_exit_code"
+                return 1
+            fi
+            echo "WARNING: Player attempt returned exit=$player_exit_code passMarker=$pass_marker; retrying canonical cell."
+            attempt=$((attempt + 1))
+            sleep 2
+        done
+        require_file "$run_dir/player-visual-manifest.json" "Player visual-quality manifest"
+        if ! rg -q "TERMINAL_IRIS_PLAYER_VISUAL_QUALITY:PASS" "$runtime_log"; then
+            echo "ERROR: Graphics Player did not emit the visual-quality success marker."
+            tail -n 160 "$runtime_log" || true
+            return 1
+        fi
+    done
+
+    artifact_hash="$(
+        find "$build_dir" -type f -print0 |
+        sort -z |
+        xargs -0 sha256sum |
+        sha256sum |
+        awk '{print $1}'
+    )"
+    write_terminal_iris_quality_manifest
+    {
+        echo "PlayerArtifactSHA256=$artifact_hash"
+        echo "PlayerExecutable=$player_path"
+        echo "PlayerGraphicsRuns=${#run_matrix[@]}"
+    } >> "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/manifest.txt"
+    player_result_path="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-visual-result.json"
+    TICEI_PLAYER_RESULT_PATH="$player_result_path" \
+    TICEI_PLAYER_OUTPUT_ROOT="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" \
+    TICEI_PLAYER_BUILD_LOG="$build_log" \
+    TICEI_PLAYER_EXIT_ATTEMPTS="$exit_attempts_path" \
+    TICEI_PLAYER_EXIT_CODE="$player_exit_aggregate" \
+    TICEI_PLAYER_BUNDLE_ID="${TERMINAL_IRIS_EVIDENCE_BUNDLE_ID:-}" \
+    TICEI_PLAYER_SOURCE_FREEZE_ID="${TERMINAL_IRIS_SOURCE_FREEZE_ID:-}" \
+    python3 - <<'PY'
+import csv
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+
+root = Path(os.environ["TICEI_PLAYER_OUTPUT_ROOT"]).resolve()
+result_path = Path(os.environ["TICEI_PLAYER_RESULT_PATH"]).resolve()
+attempts_path = Path(os.environ["TICEI_PLAYER_EXIT_ATTEMPTS"]).resolve()
+with attempts_path.open(newline="", encoding="utf-8") as handle:
+    exit_attempts = [
+        {
+            "width": int(row["width"]),
+            "height": int(row["height"]),
+            "frameRate": int(row["frameRate"]),
+            "focus": row["focus"],
+            "attempt": int(row["attempt"]),
+            "exitCode": int(row["exitCode"]),
+            "passMarker": row["passMarker"] == "1",
+        }
+        for row in csv.DictReader(handle)
+    ]
+manifests = sorted(root.glob("Player-*/player-visual-manifest.json"))
+matrix = []
+captures = []
+player_logs = []
+gpu = ""
+graphics_api = ""
+driver = ""
+for manifest_path in manifests:
+    payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    run_root = manifest_path.parent
+    resolution = payload.get("resolution", [])
+    focus = run_root.name.rsplit("-", 1)[-1]
+    fps = int(payload.get("targetFrameRate", 0))
+    cell_attempts = [
+        row
+        for row in exit_attempts
+        if row["width"] == int(resolution[0])
+        and row["height"] == int(resolution[1])
+        and row["frameRate"] == fps
+        and row["focus"] == focus
+    ]
+    matrix.append(
+        {
+            "width": int(resolution[0]),
+            "height": int(resolution[1]),
+            "frameRate": fps,
+            "focus": focus,
+            "attemptCount": len(cell_attempts),
+            "finalExitCode": (
+                cell_attempts[-1]["exitCode"] if cell_attempts else None
+            ),
+        }
+    )
+    gpu = gpu or str(payload.get("graphicsDeviceName", ""))
+    graphics_api = graphics_api or str(payload.get("graphicsDeviceType", ""))
+    player_log = run_root / "player.log"
+    player_logs.append(player_log.relative_to(root).as_posix())
+    if not driver and player_log.is_file():
+        match = re.search(
+            r"^\s*Driver:\s*(.+?)\s*$",
+            player_log.read_text(encoding="utf-8", errors="replace"),
+            re.MULTILINE,
+        )
+        if match:
+            driver = match.group(1)
+    for capture in payload.get("captures", []):
+        path = run_root / f"{capture['label']}.png"
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        captures.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "sha256": digest,
+                "width": int(resolution[0]),
+                "height": int(resolution[1]),
+                "frameRate": fps,
+                "focus": focus,
+                "label": capture["label"],
+            }
+        )
+
+expected_matrix_count = 12
+expected_capture_count = 192
+player_exit_code = int(os.environ["TICEI_PLAYER_EXIT_CODE"])
+result = (
+    "PASS"
+    if len(matrix) == expected_matrix_count
+    and len(captures) == expected_capture_count
+    and player_exit_code == 0
+    and all(row["finalExitCode"] == 0 for row in matrix)
+    else "FAIL"
+)
+result_path.write_text(
+    json.dumps(
+        {
+            "schemaVersion": 1,
+            "bundleId": os.environ.get("TICEI_PLAYER_BUNDLE_ID", ""),
+            "sourceFreezeId": os.environ.get("TICEI_PLAYER_SOURCE_FREEZE_ID", ""),
+            "laneId": "player-visual-quality",
+            "buildExitCode": 0,
+            "playerExitCode": player_exit_code,
+            "captureCount": len(captures),
+            "expectedCaptureCount": expected_capture_count,
+            "matrix": matrix,
+            "exitAttempts": exit_attempts,
+            "GPU": gpu,
+            "graphicsAPI": graphics_api,
+            "driver": driver,
+            "resolutions": sorted(
+                {f"{row['width']}x{row['height']}" for row in matrix}
+            ),
+            "frameRates": sorted({row["frameRate"] for row in matrix}),
+            "captureManifest": captures,
+            "playerLog": player_logs,
+            "buildLog": Path(os.environ["TICEI_PLAYER_BUILD_LOG"])
+                .resolve()
+                .relative_to(root)
+                .as_posix(),
+            "result": result,
+        },
+        indent=2,
+    )
+    + "\n",
+    encoding="utf-8",
+)
+PY
+    require_file "$player_result_path" "Player visual result contract"
+    echo "Terminal Iris Player visual evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+    if [ "$player_exit_aggregate" -ne 0 ]; then
+        return 1
+    fi
+}
+
+run_terminal_player_build_smoke() {
+    local timestamp
+    local output_dir
+    local output_dir_win
+    local player_path
+    local player_path_win
+    local log_path_win
+    local runtime_log_pointer
+    local runtime_log_pointer_win
+    local runtime_log_keyboard
+    local runtime_log_keyboard_win
+    local runtime_log_gameclear_pointer
+    local runtime_log_gameclear_pointer_win
+    local runtime_log_gameclear_keyboard
+    local runtime_log_gameclear_keyboard_win
+    local shader_dependency_hits
+    local worktree_diff_hash
+    local untracked_file
+    local gameplay_ui_root_hash
+    local stage_result_prefab_hash
+    local game_clear_prefab_hash
+    local persistent_shell_hash
+    local result_transition_style_hash
+    local result_dim_snapshot_source_hash
+    local material_hash
+    local shader_hash
+    local camera_runtime_hash
+    local artifact_hash
+    local attempt
+    local scenario_label
+    local stage_id
+    local scenario_arg
+    local input_mode
+    local initial_chances
+    local scenario_attempts
+    local runtime_log
+    local runtime_log_win
+    local expected_marker
+    local scenario_spec
+    local revision_sha
+    local -a unity_command
+    local -a runtime_input_logs=()
+    local -a scenario_args=()
+    local -a launch_context_args=()
+    local -a input_matrix=()
+
+    case "$TERMINAL_PLAYER_SMOKE_PROFILE" in
+        standard)
+            input_matrix=(
+                "stageresult|stage-4-1||pointer||3"
+                "gameclear-standalone|stage-4-2|gameclear|pointer||3"
+                "gameclear-sequential|stage-4-1|gameclear-sequential|pointer||3"
+                "stageresult|stage-4-1||keyboard||3"
+                "gameclear-standalone|stage-4-2|gameclear|keyboard||3"
+                "gameclear-sequential|stage-4-1|gameclear-sequential|keyboard||3"
+                "defeat-3-to-2|stage-2-2|defeat|pointer|3|1"
+                "defeat-2-to-1|stage-2-2|defeat|pointer|2|1"
+                "defeat-1-to-0|stage-2-2|defeat|pointer|1|1"
+                "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||2"
+                "pause-retry|stage-1-1|pause-retry|pointer||2"
+                "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2"
+            )
+            ;;
+        ultrawide)
+            input_matrix=(
+                "stageresult|stage-4-1||pointer||1"
+                "gameclear-main-menu|stage-4-2|gameclear|pointer||1"
+                "defeat-2-to-1|stage-2-2|defeat|pointer|2|1"
+                "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||1"
+            )
+            ;;
+        missing-routes)
+            input_matrix=(
+                "gameclear-main-menu|stage-4-2|gameclear|pointer||1"
+                "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||2"
+                "pause-retry|stage-1-1|pause-retry|pointer||2"
+                "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2"
+            )
+            ;;
+        *)
+            echo "ERROR: Unsupported TERMINAL_PLAYER_SMOKE_PROFILE: $TERMINAL_PLAYER_SMOKE_PROFILE"
+            return 1
+            ;;
+    esac
+
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    revision_sha="$(git rev-parse HEAD)"
+    output_dir="$TERMINAL_PLAYER_BUILD_ROOT/$timestamp"
+    player_path="$output_dir/VectorQuake-TerminalIrisSmoke.exe"
+    runtime_log_pointer="$output_dir/player-runtime-pointer.log"
+    runtime_log_keyboard="$output_dir/player-runtime-keyboard.log"
+    runtime_log_gameclear_pointer="$output_dir/player-runtime-gameclear-pointer.log"
+    runtime_log_gameclear_keyboard="$output_dir/player-runtime-gameclear-keyboard.log"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    player_path_win="$(wslpath -w "$player_path")"
+    log_path_win="$(wslpath -w "$UNITY_TERMINAL_PLAYER_BUILD_LOG")"
+    runtime_log_pointer_win="$(wslpath -w "$runtime_log_pointer")"
+    runtime_log_keyboard_win="$(wslpath -w "$runtime_log_keyboard")"
+    runtime_log_gameclear_pointer_win="$(wslpath -w "$runtime_log_gameclear_pointer")"
+    runtime_log_gameclear_keyboard_win="$(wslpath -w "$runtime_log_gameclear_keyboard")"
+    unity_command=(
+        timeout --kill-after=20 900
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -buildTarget StandaloneWindows64
+        -logFile "$log_path_win"
+        -executeMethod PlayerProfilerCaptureCli.BuildWindowsDevelopmentPlayer
+        -captureBuildPath "$player_path_win"
+        -captureBackend Mono
+        --capture-stage stage-1-1
+        -captureSupplementalScenes Assets/Scenes/MainMenuScene.unity
+        --capture-campaign-temp-slot
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would run Windows x64 Terminal Iris development Player build smoke:"
+        print_shell_command "${unity_command[@]}"
+        echo "Would verify serialized Player data contains UI/TerminalIris."
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$output_dir"
+    rm -f "$UNITY_TERMINAL_PLAYER_BUILD_LOG"
+    echo "Running Windows x64 Terminal Iris development Player build smoke..."
+    "${unity_command[@]}"
+
+    require_file "$player_path" "Terminal Iris development Player executable"
+    require_dir "${player_path%.exe}_Data" "Terminal Iris development Player data"
+    shader_dependency_hits="$(
+        rg -a -l "UI/TerminalIris" "$output_dir" 2>/dev/null || true
+    )"
+    if [ -z "$shader_dependency_hits" ]; then
+        echo "ERROR: Built Player data does not contain the serialized UI/TerminalIris shader dependency."
+        echo "  output directory: $output_dir"
+        return 1
+    fi
+    for attempt in 1 2 3; do
+        for scenario_spec in "${input_matrix[@]}"; do
+            IFS='|' read -r scenario_label stage_id scenario_arg input_mode initial_chances scenario_attempts <<< "$scenario_spec"
+            if [ "$attempt" -gt "$scenario_attempts" ]; then
+                continue
+            fi
+            runtime_log="$output_dir/player-runtime-${scenario_label}-${input_mode}-attempt-${attempt}.log"
+            runtime_log_win="$(wslpath -w "$runtime_log")"
+            scenario_args=()
+            launch_context_args=()
+            expected_marker="TERMINAL_PLAYER_BUILD_SMOKE:PASS"
+            if [ -n "$scenario_arg" ]; then
+                scenario_args=(--terminal-player-build-smoke-scenario "$scenario_arg")
+                expected_marker="TERMINAL_PLAYER_BUILD_SMOKE:PASS scenario=$scenario_arg"
+            fi
+            if [ -n "$initial_chances" ]; then
+                scenario_args+=(--capture-campaign-temp-slot-chances "$initial_chances")
+            fi
+            if [ -n "$stage_id" ]; then
+                launch_context_args=(
+                    --capture-stage "$stage_id"
+                    --capture-campaign-temp-slot
+                )
+            fi
+
+            echo "Running built Player scenario=$scenario_label input=$input_mode attempt=$attempt..."
+            if ! wait_for_terminal_player_exit "$player_path_win"; then
+                echo "ERROR: Previous Terminal Player process is still active before scenario dispatch."
+                return 1
+            fi
+            if ! timeout --kill-after=10 60 \
+                    "$player_path" \
+                    -force-d3d11 \
+                    -screen-fullscreen 0 \
+                    -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+                    -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+                    -logFile "$runtime_log_win" \
+                    "${launch_context_args[@]}" \
+                    --terminal-player-build-smoke \
+                    --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
+                    --terminal-player-build-smoke-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
+                    --terminal-player-build-smoke-revision "$revision_sha" \
+                    --terminal-player-build-smoke-input "$input_mode" \
+                    "${scenario_args[@]}"; then
+                terminate_terminal_player_processes "$player_path_win" || true
+                echo "ERROR: Built Player scenario=$scenario_label input=$input_mode attempt=$attempt failed."
+                tail -n 160 "$runtime_log" || true
+                return 1
+            fi
+
+            if ! wait_for_terminal_player_exit "$player_path_win"; then
+                terminate_terminal_player_processes "$player_path_win" || true
+                echo "ERROR: Built Player process remained active after scenario completion."
+                return 1
+            fi
+
+            require_file "$runtime_log" "Terminal Iris built Player input runtime smoke log"
+            if ! rg -qF "$expected_marker" "$runtime_log" ||
+               rg -qF "TERMINAL_PLAYER_BUILD_SMOKE:FAIL" "$runtime_log"; then
+                echo "ERROR: Built Player scenario=$scenario_label input=$input_mode attempt=$attempt marker validation failed."
+                tail -n 160 "$runtime_log" || true
+                return 1
+            fi
+            runtime_input_logs+=("$runtime_log")
+        done
+    done
+    worktree_diff_hash="$(
+        {
+            git diff --binary HEAD -- .
+            while IFS= read -r -d '' untracked_file; do
+                printf 'UNTRACKED %s\n' "$untracked_file"
+                sha256sum -- "$untracked_file"
+            done < <(git ls-files --others --exclude-standard -z | sort -z)
+        } | sha256sum | awk '{print $1}'
+    )"
+    gameplay_ui_root_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/GameplayUiCanvasRootShell.prefab" | awk '{print $1}')"
+    stage_result_prefab_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab" | awk '{print $1}')"
+    game_clear_prefab_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Screens/Prefabs/GameClearScreen.prefab" | awk '{print $1}')"
+    persistent_shell_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayShell.prefab" | awk '{print $1}')"
+    result_transition_style_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/ResultTransitionVisualStyle.asset" | awk '{print $1}')"
+    result_dim_snapshot_source_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_ViewShared/Runtime/ResultDimVisualSnapshot.cs" | awk '{print $1}')"
+    terminal_iris_motion_profile_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/TerminalIrisMotionProfile.asset" | awk '{print $1}')"
+    material_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIrisOverlay.mat" | awk '{print $1}')"
+    shader_hash="$(sha256sum "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Shaders/TerminalIris.shader" | awk '{print $1}')"
+    camera_runtime_hash="$(
+        sha256sum \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bootstrap/GameplayCameraStartupPlanComposer.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeContext.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs" \
+            "$PROJECT_PATH_WSL/Assets/_Features/UI/UI_Composition/Runtime/GameplayTerminalFocusTargetSource.cs" |
+            sha256sum | awk '{print $1}'
+    )"
+    artifact_hash="$(sha256sum "$player_path" | awk '{print $1}')"
+
+    {
+        echo "UTC=$timestamp"
+        echo "HEAD=$(git rev-parse HEAD)"
+        echo "Branch=$(git branch --show-current)"
+        echo "WorktreeDiffSHA256=$worktree_diff_hash"
+        echo "WorktreeHashIncludes=tracked-binary-diff+untracked-path-content-sha256"
+        echo "ResultTransitionVisualStyleSHA256=$result_transition_style_hash"
+        echo "ResultDimVisualSnapshotSourceSHA256=$result_dim_snapshot_source_hash"
+        echo "TerminalIrisMotionProfileSHA256=$terminal_iris_motion_profile_hash"
+        echo "StageResultPrefabSHA256=$stage_result_prefab_hash"
+        echo "GameClearPrefabSHA256=$game_clear_prefab_hash"
+        echo "GameplayUiRootSHA256=$gameplay_ui_root_hash"
+        echo "PersistentShellSHA256=$persistent_shell_hash"
+        echo "MaterialSHA256=$material_hash"
+        echo "ShaderSHA256=$shader_hash"
+        echo "CameraRuntimeSourcesSHA256=$camera_runtime_hash"
+        echo "ArtifactSHA256=$artifact_hash"
+        echo "Player=$player_path"
+        echo "Stage=stage-1-1"
+        echo "SceneRoute=canonical gameplay shell"
+        echo "Backend=Mono"
+        echo "Configuration=Development"
+        echo "Shader=UI/TerminalIris"
+        echo "RuntimeInputSmokeCount=${#runtime_input_logs[@]}"
+        echo "SmokeProfile=$TERMINAL_PLAYER_SMOKE_PROFILE"
+        echo "RequestedResolution=${TERMINAL_PLAYER_SMOKE_WIDTH}x${TERMINAL_PLAYER_SMOKE_HEIGHT}"
+        echo "BuildScenes=UIAudioScene (bootstrap) + MainMenuScene (supplemental)"
+        printf 'RuntimeInputSmokeLog=%s\n' "${runtime_input_logs[@]}"
+        echo "ShaderDependencyHits:"
+        echo "$shader_dependency_hits"
+        echo "GitStatusShort:"
+        git status --short
+    } > "$output_dir/manifest.txt"
+    echo "Terminal Iris development Player build smoke: PASS"
+    echo "  output directory: $output_dir"
+    echo "  manifest:         $output_dir/manifest.txt"
 }
 
 run_typography_visual() {
@@ -4003,6 +5463,10 @@ parse_arguments() {
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
+            --capture-before)
+                TERMINAL_IRIS_CAPTURE_BEFORE=1
+                shift
+                ;;
             --filter|--test-filter)
                 local filter_arg="$1"
                 shift
@@ -4040,7 +5504,8 @@ parse_arguments() {
     if { [ "$RUN_MODE" = "climate-glyph-update" ] ||
          [ "$RUN_MODE" = "typography-visual" ] ||
          [ "$RUN_MODE" = "typography-hud-visual" ] ||
-         [ "$RUN_MODE" = "typography-result-visual" ]; } &&
+         [ "$RUN_MODE" = "typography-result-visual" ] ||
+         [ "$RUN_MODE" = "terminal-player-build-smoke" ]; } &&
        [ -n "$TEST_FILTER" ]; then
         echo "ERROR: asset generation and visual evidence lanes do not accept test filters."
         print_usage
@@ -4118,6 +5583,45 @@ main() {
     fi
 
     case "$mode" in
+        terminal-iris-legacy-analyzer-regression)
+            run_terminal_iris_quality_lane \
+                "terminal-iris-legacy-analyzer-regression" \
+                "terminal Iris legacy analyzer regression (graphics PlayMode)" \
+                "TerminalIrisLegacyAnalyzerRegression_OffcenterPixelsReproduceFalseCenter"
+            ;;
+        terminal-iris-known-center-analyzer)
+            run_terminal_iris_quality_lane \
+                "terminal-iris-known-center-analyzer" \
+                "terminal Iris known-center analyzer (graphics PlayMode)" \
+                "TerminalIrisKnownCenterAnalyzer_SyntheticAndShaderFixturesProduceEvidence"
+            ;;
+        terminal-iris-final-close-frames)
+            run_terminal_iris_quality_lane \
+                "terminal-iris-final-close-frames" \
+                "terminal Iris final-close per-render evidence (graphics PlayMode)" \
+                "TerminalResultHandoffCover_ActualVictoryAlphaTimelineIsMonotonic;TerminalIrisFrameSelection_SyntheticFailureMatrixPreservesSemantics;TerminalIrisFinalCloseFrameEvidence_VictoryAndDefeatRenderSequences"
+            ;;
+        terminal-iris-static-edge-quality)
+            run_terminal_iris_quality_lane \
+                "terminal-iris-static-edge-quality" \
+                "terminal Iris static edge quality (graphics PlayMode)" \
+                "TerminalIrisStaticEdgeQuality_GraphicsMatrixProducesEvidence"
+            ;;
+        terminal-iris-small-radius)
+            run_terminal_iris_quality_lane \
+                "terminal-iris-small-radius" \
+                "terminal Iris small-radius quality (graphics PlayMode)" \
+                "TerminalIrisSmallRadius_GraphicsSequenceProducesEvidence"
+            ;;
+        terminal-iris-temporal-stability)
+            run_terminal_iris_quality_lane \
+                "terminal-iris-temporal-stability" \
+                "terminal Iris temporal stability (PlayMode)" \
+                "TerminalIrisTemporalStability_RuntimePlaybackProducesEvidence"
+            ;;
+        terminal-iris-player-visual-quality)
+            run_terminal_iris_player_visual_quality
+            ;;
         core)
             run_dotnet_core
             run_unity_core
@@ -4133,6 +5637,101 @@ main() {
         climate-glyph-update)
             run_climate_glyph_update
             ;;
+        terminal-production-scene-handoff)
+            run_terminal_production_playmode \
+                "terminal-production-scene-handoff" \
+                "terminal production scene handoff (PlayMode)" \
+                "TerminalProductionSceneHandoff_LoadSceneAsyncSingle_BlocksNewHostUntilReveal"
+            ;;
+        terminal-production-input-ownership)
+            run_terminal_production_playmode \
+                "terminal-production-input-ownership" \
+                "terminal production input ownership (PlayMode)" \
+                "TerminalProductionSceneHandoff_LoadSceneAsyncSingle_BlocksNewHostUntilReveal"
+            ;;
+        terminal-production-render-coverage)
+            run_terminal_production_playmode \
+                "terminal-production-render-coverage" \
+                "terminal production render coverage (PlayMode)" \
+                "TerminalProductionSceneHandoff_LoadSceneAsyncSingle_BlocksNewHostUntilReveal;TerminalRenderEvidence_FourAspectRatios_CapturesNoGapLifecycleFrames"
+            ;;
+        terminal-production-offcenter-focus)
+            run_terminal_iris_quality_lane \
+                "terminal-production-offcenter-focus" \
+                "terminal production off-center focus aggregate (graphics PlayMode)" \
+                "TerminalProductionOffcenterFocus_ActualVictoryUsesOutputCameraAndPixelAperture"
+            ;;
+        terminal-production-same-scene-reveal)
+            run_terminal_production_playmode \
+                "terminal-production-same-scene-reveal" \
+                "terminal production same-scene result handoff (PlayMode)" \
+                "TerminalVictoryBlueHandoff_ActualVictoryCreatesResultAndCleansBlockers"
+            ;;
+        terminal-production-stage-result-input)
+            run_terminal_production_playmode \
+                "terminal-production-stage-result-input" \
+                "terminal production StageResult input (PlayMode)" \
+                "TerminalProductionStageResultInput_PointerClickNavigatesExactlyOnce;TerminalProductionStageResultInput_KeyboardSubmitNavigatesExactlyOnce"
+            ;;
+        terminal-victory-blue-handoff)
+            run_terminal_production_playmode \
+                "terminal-victory-blue-handoff" \
+                "terminal Victory blue result handoff (PlayMode)" \
+                "TerminalVictoryBlueHandoff_ActualVictoryCreatesResultAndCleansBlockers"
+            ;;
+        terminal-stage-entry-opening)
+            run_terminal_production_playmode \
+                "terminal-stage-entry-opening" \
+                "terminal stage entry opening (PlayMode)" \
+                "TerminalStageEntryOpening_ActualStageResultLoadsNewSceneAndReleasesGameplay"
+            ;;
+        terminal-result-interaction)
+            run_terminal_production_playmode \
+                "terminal-result-interaction" \
+                "terminal result interaction (PlayMode)" \
+                "TerminalProductionStageResultInput_PointerClickNavigatesExactlyOnce;TerminalProductionStageResultInput_KeyboardSubmitNavigatesExactlyOnce"
+            ;;
+        terminal-blue-pixel-continuity)
+            UNITY_GRAPHICS=1 run_terminal_production_playmode \
+                "terminal-blue-pixel-continuity" \
+                "terminal blue pixel continuity (PlayMode)" \
+                "TerminalBluePixelContinuity_RenderTextureOwnersAreEquivalent"
+            ;;
+        terminal-result-dim-snapshot)
+            TEST_FILTER="${TEST_FILTER:-UiRepositoryPrefabCatalogSmokeTests}"
+            run_dotnet_ui
+            run_unity_ui
+            ;;
+        terminal-result-handoff-cover)
+            run_terminal_production_playmode \
+                "terminal-result-handoff-cover" \
+                "terminal ResultHandoffCover production timeline (PlayMode)" \
+                "TerminalResultHandoffCover_ActualVictoryAlphaTimelineIsMonotonic"
+            ;;
+        terminal-result-continuous-brightness)
+            UNITY_GRAPHICS=1 run_terminal_production_playmode \
+                "terminal-result-continuous-brightness" \
+                "terminal result continuous brightness (PlayMode)" \
+                "TerminalBluePixelContinuity_RenderTextureOwnersAreEquivalent"
+            ;;
+        terminal-result-exit-cover-fade)
+            run_terminal_production_playmode \
+                "terminal-result-exit-cover-fade" \
+                "terminal result persistent exit cover fade (PlayMode)" \
+                "TerminalStageEntryOpening_ActualStageResultLoadsNewSceneAndReleasesGameplay"
+            ;;
+        terminal-result-timescale-zero)
+            run_terminal_production_playmode \
+                "terminal-result-timescale-zero" \
+                "terminal result full Time.timeScale zero flow (PlayMode)" \
+                "TerminalResultTimeScaleZero_FullVictoryEntryFlowCompletes"
+            ;;
+        terminal-gameclear-player-e2e)
+            run_terminal_production_playmode \
+                "terminal-gameclear-player-e2e" \
+                "terminal GameClear production end-to-end (PlayMode)" \
+                "TerminalGameClearPlayerE2E_ActualFinalVictoryPointerMainExactlyOnce"
+            ;;
         typography-visual)
             run_typography_visual
             ;;
@@ -4141,6 +5740,10 @@ main() {
             ;;
         typography-result-visual)
             run_terminal_result_visual
+            ;;
+        terminal-player-build-smoke)
+            run_dotnet_ui
+            run_terminal_player_build_smoke
             ;;
         full)
             run_dotnet_full
@@ -4170,7 +5773,8 @@ main() {
        [ "$mode" != "climate-glyph-update" ] &&
        [ "$mode" != "typography-visual" ] &&
        [ "$mode" != "typography-hud-visual" ] &&
-       [ "$mode" != "typography-result-visual" ]; then
+       [ "$mode" != "typography-result-visual" ] &&
+       [ "$mode" != "terminal-player-build-smoke" ]; then
         echo "ALL TESTS PASSED"
     fi
 }

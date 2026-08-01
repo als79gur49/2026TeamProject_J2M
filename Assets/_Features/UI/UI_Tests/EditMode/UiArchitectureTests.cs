@@ -851,6 +851,8 @@ namespace Game.Feature.UI.Tests
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
                     "RequestDemoStageControlPopup(IPopupPayload)",
                     "RequestPausePopup()",
+                    "TryLaunchStage(StageNavigationRequest)",
+                    "TryReturnToMainMenu()",
                 }));
             Assert.That(
                 GetConstructorSignatures(typeof(UIFlowCoordinator)),

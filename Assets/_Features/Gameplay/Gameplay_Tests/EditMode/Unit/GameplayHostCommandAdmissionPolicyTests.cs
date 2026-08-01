@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -15,6 +16,194 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayHostCommandAdmissionPolicyTests
     {
+        [Test]
+        [Category("Extended")]
+        public void AdmissionPolicy_TerminalSessionRejectsPublicCommandWithSameBlockingReasonUntilRevealCompletes()
+        {
+            var hostObject = new GameObject(
+                "AdmissionPolicy_TerminalSessionRejectsPublicCommandWithSameBlockingReasonUntilRevealCompletes");
+
+            try
+            {
+                TerminalSessionRegistry.ResetForTests();
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+
+                using var policy = CreatePolicy(host);
+                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.True);
+                var authority = TerminalSessionRegistry.Authority;
+                var sourceGeneration = authority.CurrentSceneGeneration > 0
+                    ? authority.CurrentSceneGeneration
+                    : authority.RegisterSceneBootstrap(501, "command-admission-test");
+                var claim = authority.TryClaim(new TerminalClaimRequest(
+                    TerminalTransitionKind.Defeat,
+                    sourceGeneration,
+                    TerminalDestinationKind.ReloadedGameplay));
+                Assert.That(claim.Accepted, Is.True);
+
+                var policyResult = policy.EvaluateActionableRequest();
+                var gatewayResult =
+                    host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
+
+                Assert.That(policyResult.Accepted, Is.False);
+                Assert.That(
+                    policyResult.RejectionReason,
+                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+                Assert.That(gatewayResult.Accepted, Is.False);
+                Assert.That(
+                    gatewayResult.RejectionReason,
+                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+
+                Assert.That(TerminalSessionRegistry.TryAdvance(
+                    claim.Token,
+                    TerminalSessionPhase.Revealing), Is.True);
+                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.False);
+                Assert.That(TerminalSessionRegistry.TryComplete(claim.Token), Is.True);
+                Assert.That(policy.EvaluateActionableRequest().Accepted, Is.True);
+            }
+            finally
+            {
+                TerminalSessionRegistry.ResetForTests();
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayInputHost_CreatedInDestinationSceneRejectsTicksAndAllBufferedInputUntilRevealCompletes()
+        {
+            var hostObject = new GameObject(
+                "GameplayInputHost_CreatedInDestinationSceneRejectsTicksAndAllBufferedInputUntilRevealCompletes");
+
+            try
+            {
+                TerminalSessionRegistry.ResetForTests();
+                var authority = TerminalSessionRegistry.Authority;
+                var sourceGeneration = authority.RegisterSceneBootstrap(8101, "SceneA");
+                var claim = authority.TryClaim(new TerminalClaimRequest(
+                    TerminalTransitionKind.Defeat,
+                    sourceGeneration,
+                    TerminalDestinationKind.ReloadedGameplay));
+                Assert.That(claim.Accepted, Is.True);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+                var nextTickBeforeReveal = host.TickRunner.NextTickIndex;
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                host.InputHost.BufferFlip();
+
+                Assert.That(host.InputHost.AdvanceTime(10f), Is.Zero);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(nextTickBeforeReveal));
+                Assert.That(host.InputHost.PreviewPushDirection(), Is.EqualTo(Direction.None));
+                var publicResult =
+                    host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
+                Assert.That(publicResult.Accepted, Is.False);
+                Assert.That(
+                    publicResult.RejectionReason,
+                    Is.EqualTo(GameplayCommandRejectionReason.TerminalSession));
+
+                Assert.That(
+                    authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Revealing),
+                    Is.True);
+                Assert.That(authority.TryComplete(claim.Token), Is.True);
+
+                var firstPostRevealTick = host.InputHost.RunSingleTick();
+                Assert.That(firstPostRevealTick, Is.Not.Null);
+                Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(nextTickBeforeReveal + 1));
+                Assert.That(
+                    GameplayCompositionRoot.CreateSnapshot(host.WorldState)
+                        .TryGetEntity(10, out var player),
+                    Is.True);
+                Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            }
+            finally
+            {
+                TerminalSessionRegistry.ResetForTests();
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayInputHost_ManualRetryEntrySessionBlocksEveryLifecyclePhaseAndReleasesOnce()
+        {
+            var hostObject = new GameObject(
+                "GameplayInputHost_ManualRetryEntrySessionBlocksEveryLifecyclePhaseAndReleasesOnce");
+
+            try
+            {
+                SceneEntryPresentationRegistry.ResetForTests();
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        facing: Direction.Right),
+                }));
+                host.InputHost.SetAutoAdvanceTicks(false);
+
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.ManualRetry,
+                        StageId.CreateOrThrow("stage-0-1"),
+                        sourceSceneGeneration: 11,
+                        out var token),
+                    Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                host.InputHost.BufferPush();
+                host.InputHost.BufferFlip();
+                Assert.That(host.InputHost.PreviewPushDirection(), Is.EqualTo(Direction.None));
+
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryBindTransition(token, 71),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryAdvance(
+                        token,
+                        SceneEntryPresentationPhase.PersistentCoverReady),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryAdvance(
+                        token,
+                        SceneEntryPresentationPhase.Loading),
+                    Is.True);
+                Assert.That(host.InputHost.AdvanceTime(10f), Is.Zero);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryRegisterDestinationScene(token, 12),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryAdvance(
+                        token,
+                        SceneEntryPresentationPhase.EntryIrisClosed),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryAdvance(
+                        token,
+                        SceneEntryPresentationPhase.Opening),
+                    Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                Assert.That(SceneEntryPresentationRegistry.TryComplete(token), Is.True);
+
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(SceneEntryPresentationRegistry.TryComplete(token), Is.False);
+            }
+            finally
+            {
+                SceneEntryPresentationRegistry.ResetForTests();
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
         [Test]
         [Category("Extended")]
         public void AdmissionPolicy_SeedsSnapshotCache_AndReusesSameReference_WithinCompletedTickWindow()

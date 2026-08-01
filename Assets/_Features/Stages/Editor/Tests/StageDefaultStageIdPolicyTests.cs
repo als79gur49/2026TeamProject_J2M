@@ -134,6 +134,34 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow, Is.True);
         }
 
+        [TestCase(3)]
+        [TestCase(2)]
+        [TestCase(1)]
+        public void PlayerCaptureBootstrap_CampaignTempSlotHonorsExplicitRemainingChances(
+            int remainingChances)
+        {
+            var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
+                new[]
+                {
+                    "Game.exe",
+                    "--capture-stage=stage-0-1",
+                    PlayerCaptureLaunchBootstrap.CampaignTempSlotArgument,
+                    PlayerCaptureLaunchBootstrap.CampaignTempSlotChancesArgument,
+                    remainingChances.ToString(),
+                },
+                logErrors: false,
+                out var error);
+
+            var store = new SaveSlotStore(
+                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
+            Assert.That(primed, Is.True, error);
+            Assert.That(store.LoadSlot(1).RemainingChances, Is.EqualTo(remainingChances));
+            Assert.That(
+                EditorDirectPlayContextStore.GetCurrentOrNone().RemainingChances,
+                Is.EqualTo(remainingChances));
+        }
+
         [Test]
         public void PlayerCaptureBuildScenes_CaptureStageUsesGameplayShellScene()
         {
@@ -145,6 +173,27 @@ namespace Game.Feature.Stages.Editor.Tests
             });
 
             Assert.That(scenes, Is.EqualTo(new[] { "Assets/Scenes/UIAudioScene.unity" }));
+        }
+
+        [Test]
+        public void PlayerCaptureBuildScenes_CaptureStageCanIncludeMainMenuSupplement()
+        {
+            var scenes = PlayerProfilerCaptureCli.ResolveBuildScenesForTests(new[]
+            {
+                "Unity.exe",
+                "--capture-stage",
+                "stage-0-1",
+                "-captureSupplementalScenes",
+                "Assets/Scenes/MainMenuScene.unity",
+            });
+
+            Assert.That(
+                scenes,
+                Is.EqualTo(new[]
+                {
+                    "Assets/Scenes/UIAudioScene.unity",
+                    "Assets/Scenes/MainMenuScene.unity",
+                }));
         }
 
         [Test]

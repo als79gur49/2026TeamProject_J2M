@@ -12,6 +12,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -19,6 +20,144 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowIntegrationTests
     {
+        [SetUp]
+        public void ResetTerminalSession()
+        {
+            TerminalDestinationReadiness.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            GameplayEntryTransitionVisualSnapshotRegistry.ResetForTests();
+        }
+
+        [TearDown]
+        public void ClearTerminalSession()
+        {
+            TerminalDestinationReadiness.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            GameplayEntryTransitionVisualSnapshotRegistry.ResetForTests();
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiFlowInstaller_TerminalSessionClosesPopupAndRejectsBackUntilCompletion()
+        {
+            var hostObject = new GameObject("GameplayUiFlowInstaller_TerminalPopupOwnership");
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+                installer.HudView.ClickPause();
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+
+                var terminalToken = ClaimTerminalSession(
+                    TerminalTransitionKind.Defeat,
+                    TerminalDestinationKind.ReloadedGameplay,
+                    sceneHandle: 901);
+
+                Assert.That(installer.PopupController.PopupCount, Is.Zero);
+                Assert.That(installer.Coordinator.HandleBackRequested(), Is.False);
+                Assert.That(installer.Coordinator.RequestPausePopup(), Is.False);
+                Assert.That(
+                    TerminalSessionRegistry.TryAdvance(
+                        terminalToken,
+                        TerminalSessionPhase.Revealing),
+                    Is.True);
+                Assert.That(TerminalSessionRegistry.TryComplete(terminalToken), Is.True);
+                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiFlowInstaller_TerminalSessionClosesExpandedTmpDropdownAndClearsSelection()
+        {
+            var hostObject = new GameObject("GameplayUiFlowInstaller_TerminalDropdownOwnership");
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+                installer.HudView.ClickPause();
+                installer.PausePopupView.ClickSettings();
+
+                var dropdown = installer.SettingsScreenView.GetComponentInChildren<TMP_Dropdown>(true);
+                Assert.That(dropdown, Is.Not.Null);
+                var liveList = new GameObject(
+                    "Dropdown List",
+                    typeof(RectTransform),
+                    typeof(CanvasGroup));
+                var blocker = new GameObject(
+                    "Blocker",
+                    typeof(RectTransform),
+                    typeof(CanvasGroup));
+                typeof(TMP_Dropdown)
+                    .GetField("m_Dropdown", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.SetValue(dropdown, liveList);
+                typeof(TMP_Dropdown)
+                    .GetField("m_Blocker", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.SetValue(dropdown, blocker);
+                Assert.That(dropdown.IsExpanded, Is.True);
+                var eventSystem = EventSystem.current;
+                if (eventSystem == null)
+                {
+                    eventSystem = new GameObject("EventSystem").AddComponent<EventSystem>();
+                }
+
+                eventSystem.SetSelectedGameObject(dropdown.gameObject);
+
+                ClaimTerminalSession(
+                    TerminalTransitionKind.Victory,
+                    TerminalDestinationKind.SameSceneStageResult,
+                    sceneHandle: 902);
+
+                Assert.That(dropdown.IsExpanded, Is.False);
+                Assert.That(liveList == null || !liveList.activeSelf, Is.True);
+                Assert.That(blocker == null || !blocker.activeSelf, Is.True);
+                Assert.That(eventSystem.currentSelectedGameObject, Is.Null);
+                Assert.That(installer.Coordinator.HandleBackRequested(), Is.False);
+                Assert.That(installer.Coordinator.HandlePopupBackdropClicked(), Is.False);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        private static TerminalSessionToken ClaimTerminalSession(
+            TerminalTransitionKind terminalKind,
+            TerminalDestinationKind destinationKind,
+            int sceneHandle)
+        {
+            var authority = TerminalSessionRegistry.Authority;
+            var sourceGeneration = authority.CurrentSceneGeneration > 0
+                ? authority.CurrentSceneGeneration
+                : authority.RegisterSceneBootstrap(
+                    sceneHandle,
+                    "gameplay-ui-flow-integration-test");
+            var claim = authority.TryClaim(new TerminalClaimRequest(
+                terminalKind,
+                sourceGeneration,
+                destinationKind));
+            Assert.That(claim.Accepted, Is.True);
+            return claim.Token;
+        }
+
         [Test]
         [Category("Extended")]
         public void GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup()
@@ -159,7 +298,7 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen()
+        public void GameplayUiFlowInstaller_BareStageBackedHostRejectsUncorrelatedStageClearFallback()
         {
             var hostObject = new GameObject("GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen");
             StageContentEntry contentEntry = null;
@@ -185,35 +324,18 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
 
-                var result = host.InputHost.RunSingleTick();
+                var exception = Assert.Throws<System.InvalidOperationException>(
+                    () => host.InputHost.RunSingleTick());
 
-                Assert.That(result, Is.Not.Null);
-                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
+                Assert.That(
+                    exception.Message,
+                    Does.Contain("canonical terminal arbiter"));
                 Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion, Is.Not.Null);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.WasCleared, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.StageRunId.IsValid, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.ObjectiveSnapshot.IsCleared, Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
-                Assert.That(installer.HudView.IsVisible, Is.False);
-                Assert.That(installer.StageResultScreenView, Is.Not.Null);
-                Assert.That(installer.StageResultScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion, Is.Null);
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                var stageResultPayload = installer.ScreenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
-                Assert.That(stageResultPayload, Is.Not.Null);
-                Assert.That(stageResultPayload.ContinueStageRequest.IsValid, Is.True);
-                Assert.That(stageResultPayload.ContinueStageRequest.StageId, Is.EqualTo(contentEntry.StageId));
-                Assert.That(stageResultPayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
-                Assert.That(stageResultPayload.RetryStageRequest.IsValid, Is.True);
-                Assert.That(stageResultPayload.RetryStageRequest.StageId, Is.EqualTo(contentEntry.StageId));
-                Assert.That(stageResultPayload.RetryStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
-
-                installer.StageResultScreenView.ClickContinue();
-
                 Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
             }
             finally
             {

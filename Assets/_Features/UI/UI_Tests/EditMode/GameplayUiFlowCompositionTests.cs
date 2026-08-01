@@ -309,7 +309,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_PauseMainMenu_SuppressesGameplayPresentationAudioResume()
+        public void GameplayUiFlowInstaller_PauseMainMenu_KeepsPausedSourceAndPresentationAudioUntilOpaqueHandoff()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_PauseMainMenu_SuppressesGameplayPresentationAudioResume");
 
@@ -324,7 +324,10 @@ namespace Game.Feature.UI.Tests
                 installer.HudView.ClickPause();
                 installer.PausePopupView.ClickMainMenu();
 
-                Assert.That(pause.IsPaused, Is.False);
+                Assert.That(
+                    pause.IsPaused,
+                    Is.True,
+                    "Pause remains owned until the unscaled source Iris reaches rendered opaque.");
                 Assert.That(
                     pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
                     Is.True);

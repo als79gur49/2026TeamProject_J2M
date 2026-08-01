@@ -42,6 +42,9 @@ namespace Game.Feature.UI.Tests
         [TearDown]
         public void TearDown()
         {
+            GameplayEntryTransitionVisualSnapshotRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
@@ -52,6 +55,79 @@ namespace Game.Feature.UI.Tests
             if (eventSystem != null)
             {
                 UnityEngine.Object.DestroyImmediate(eventSystem.gameObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuGameplayEntrySource_UsesScreenCenterIrisAndBlocksAllMenuInteraction()
+        {
+            var root = new GameObject("main-menu-gameplay-entry-source");
+            var provider = CreateProvider("stage-0-1");
+            var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
+            var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
+            try
+            {
+                TerminalSessionRegistry.ResetForTests();
+                SceneEntryPresentationRegistry.ResetForTests();
+                var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                root.AddComponent<AudioRuntimeInstaller>();
+                root.AddComponent<DisplayRuntimeInstaller>();
+                SetPrivateField(installer, "_installOnStart", false);
+                SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
+                SetPrivateField(installer, "_screenPrefabCatalog", UiTestPrefabAssetUtility.LoadScreenCatalog());
+                SetPrivateField(installer, "_popupPrefabCatalog", catalog);
+                SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
+                SetPrivateField(installer, "_routeConfig", routeConfig);
+                SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
+                SetPrivateField(
+                    installer,
+                    "_campaignStageSequenceDefinition",
+                    CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+                installer.Install();
+
+                var policy = SceneTransitionRoutePolicyCatalog.ResolveProduction(
+                    SceneTransitionIntent.GameplayEntry);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.GameplayEntry,
+                        StageId.CreateOrThrow("stage-0-1"),
+                        sourceSceneGeneration: 1,
+                        launchProvenance: "main-menu-new-game",
+                        launchSlotNumber: 1,
+                        launchToken: Guid.NewGuid(),
+                        out var token),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryBindTransition(token, transitionId: 301),
+                    Is.True);
+                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Capture(
+                    token,
+                    policy);
+
+                Assert.That(
+                    installer.TryBeginGameplayEntrySourceClose(
+                        token,
+                        visual,
+                        out var playback),
+                    Is.True);
+                Assert.That(installer.IsGameplayEntryInteractionBlocked, Is.True);
+                Assert.That(installer.MainMenuScreenView.CanHandleUiNavigation, Is.False);
+                Assert.That(
+                    installer.MainMenuScreenView.SaveSlotPanel.HasFocusableCards,
+                    Is.False);
+                Assert.That(playback.FocusTarget.IsFallback, Is.True);
+                Assert.That(playback.FocusTarget.NormalizedCenter, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(visual.SourceFocusPolicy, Is.EqualTo(GameplayEntryFocusPolicy.AuthoredThenScreenCenter));
+                Assert.That(visual.SourceCloseColor, Is.EqualTo(visual.HoldColor));
+                Assert.That(visual.HoldColor, Is.EqualTo(visual.DestinationOpenColor));
+                Assert.That(visual.HoldColor.b, Is.GreaterThan(visual.HoldColor.r));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                provider.Dispose();
             }
         }
 
@@ -209,8 +285,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
                 Assert.That(harness.LaunchHandoffStore.TryPeek(out var handoff), Is.True);
                 Assert.That(handoff.SlotNumber, Is.EqualTo(1));
+                Assert.That(handoff.Source, Is.EqualTo("main-menu-new-game"));
                 Assert.That(harness.Router.Requests.Count, Is.EqualTo(1));
                 Assert.That(harness.Router.Requests[0].StageId.Value, Is.EqualTo("stage-0-1"));
+                Assert.That(
+                    harness.Router.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -237,7 +317,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
                 Assert.That(harness.LaunchHandoffStore.TryPeek(out var handoff), Is.True);
                 Assert.That(handoff.SlotNumber, Is.EqualTo(2));
+                Assert.That(handoff.Source, Is.EqualTo("main-menu-continue"));
                 Assert.That(harness.Router.Requests[0].StageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(
+                    harness.Router.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -294,6 +378,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.SaveStore.LoadSlot(1).CampaignCompleted, Is.False);
                 Assert.That(harness.SaveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
                 Assert.That(harness.Router.Requests.Count, Is.EqualTo(1));
+                Assert.That(
+                    harness.Router.Requests[0].Source,
+                    Is.EqualTo("main-menu-completed-restart"));
+                Assert.That(
+                    harness.Router.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -615,7 +705,8 @@ namespace Game.Feature.UI.Tests
                 activeSlotProvider.SetActiveSlot(2);
                 StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-0-1"));
 
-                new ConfiguredMainMenuReturnRouter(routeConfig, sceneLoader).ReturnToMainMenu();
+                new ConfiguredMainMenuReturnRouter(routeConfig, sceneLoader).ReturnToMainMenu(
+                    SceneTransitionIntent.ReturnToMainMenu);
 
                 Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
                 Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
@@ -874,11 +965,16 @@ namespace Game.Feature.UI.Tests
                     new StageNavigationRequest(
                         rejectedStage,
                         StageNavigationKind.Continue,
-                        "guard-rejection"),
+                        "guard-rejection",
+                        transitionIntent: SceneTransitionIntent.GameplayEntry),
                     "unused-scene",
                     handoff.Token);
 
                 Assert.That(accepted, Is.False);
+                Assert.That(coordinator.LastResolvedRoutePolicy.HasValue, Is.True);
+                Assert.That(
+                    coordinator.LastResolvedRoutePolicy.Value.Intent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
                 Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
                 Assert.That(stillPending, Is.SameAs(handoff));
                 Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(firstStage));
@@ -919,7 +1015,8 @@ namespace Game.Feature.UI.Tests
                     new StageNavigationRequest(
                         mismatchedStage,
                         StageNavigationKind.Continue,
-                        "matching-token-mismatch"),
+                        "matching-token-mismatch",
+                        transitionIntent: SceneTransitionIntent.GameplayEntry),
                     "unused-scene",
                     handoff.Token);
 
@@ -1131,6 +1228,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(sceneLoader.LoadedScenes, Is.EqualTo(new[] { "UIAudioScene" }));
 
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                var uiInstaller = installerObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(uiInstaller);
                 DisableAutoCreateViews(installer);
                 AssignStageCatalogProvider(installer);
                 AssignTimingPresets(installer);
@@ -1155,8 +1254,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(playerHud.HasRemainingChances, Is.True);
                 Assert.That(playerHud.MaxChances, Is.GreaterThan(0));
 
-                var uiInstaller = installerObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(uiInstaller);
                 uiInstaller.Install(host);
                 var chancePanelView = uiInstaller.HudView.ChancePanelView;
                 var chancePanelRoot = GetPrivateField<GameObject>(chancePanelView, "_root");

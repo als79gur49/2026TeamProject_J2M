@@ -223,6 +223,62 @@ namespace Game.Feature.UI.Tests
             Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
         }
 
+        [TestCase(3, 2, ChanceChangeKind.Lost, false)]
+        [TestCase(2, 1, ChanceChangeKind.LastChanceEntered, true)]
+        public void HudUiAudioFeedbackController_SuppressedTerminalChangeKeepsVisualStateWithoutHudCue(
+            int remainingBefore,
+            int remainingAfter,
+            ChanceChangeKind expectedKind,
+            bool expectedLastChance)
+        {
+            var presenter = new ChancePanelPresenter();
+            var uiAudioPort = new RecordingUiAudioPort();
+            using var controller = new HudUiAudioFeedbackController(
+                uiAudioPort,
+                presenter.ViewModel,
+                new ObjectiveHudViewModel());
+
+            presenter.Apply(new UIChanceSlice(true, remainingBefore, 3));
+            presenter.Apply(new UIChanceSlice(
+                true,
+                remainingAfter,
+                3,
+                GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+
+            Assert.That(presenter.ViewModel.RemainingChances, Is.EqualTo(remainingAfter));
+            Assert.That(presenter.ViewModel.IsLastChance, Is.EqualTo(expectedLastChance));
+            Assert.That(presenter.ViewModel.AnimationHint.Kind, Is.EqualTo(expectedKind));
+            Assert.That(
+                presenter.ViewModel.AnimationHint.AudioCuePolicy,
+                Is.EqualTo(ChanceChangeAudioCuePolicy.Suppress));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+        }
+
+        [Test]
+        public void HudUiAudioFeedbackController_SuppressedChangeAdvancesBaselineWithoutLateReplay()
+        {
+            var presenter = new ChancePanelPresenter();
+            var uiAudioPort = new RecordingUiAudioPort();
+            using var controller = new HudUiAudioFeedbackController(
+                uiAudioPort,
+                presenter.ViewModel,
+                new ObjectiveHudViewModel());
+
+            presenter.Apply(new UIChanceSlice(true, 3, 3));
+            presenter.Apply(new UIChanceSlice(
+                true,
+                2,
+                3,
+                GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+            presenter.Apply(new UIChanceSlice(true, 2, 3));
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+
+            presenter.Apply(new UIChanceSlice(true, 1, 3));
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.LastChance }));
+        }
+
         [Test]
         public void HudUiAudioFeedbackController_DefaultFinalChanceLossPlaysChanceLossCue()
         {

@@ -373,6 +373,8 @@ namespace Game.Feature.UI.Tests
             {
                 nameof(GameplayLevelFailedReadModel.Reason),
                 nameof(GameplayLevelFailedReadModel.RestartLevelRequest),
+                nameof(GameplayLevelFailedReadModel.TerminalToken),
+                nameof(GameplayLevelFailedReadModel.TerminalClaimId),
             }));
             Assert.That(readModelProperties.Select(property => property.PropertyType), Has.None.EqualTo(typeof(string)));
 

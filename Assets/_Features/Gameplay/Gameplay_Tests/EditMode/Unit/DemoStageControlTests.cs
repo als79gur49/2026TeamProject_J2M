@@ -80,10 +80,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.Success, Is.True);
             Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(selected.StageId));
-            Assert.That(StageLaunchContextStore.TryGetCurrent(out var launchStageId), Is.True);
-            Assert.That(launchStageId, Is.EqualTo(selected.StageId));
+            Assert.That(
+                StageLaunchContextStore.TryGetCurrent(out _),
+                Is.False,
+                "The production router, not the Demo bridge, owns pending-less reload context registration.");
             Assert.That(router.Requests, Has.Count.EqualTo(1));
             Assert.That(router.Requests[0].StageId, Is.EqualTo(selected.StageId));
+            Assert.That(
+                router.Requests[0].TransitionIntent,
+                Is.EqualTo(SceneTransitionIntent.DemoStageRelaunch));
         }
 
         [Test]
