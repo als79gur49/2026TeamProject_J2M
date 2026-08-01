@@ -1219,11 +1219,13 @@ def verify_lanes(
                             lane_id,
                         )
                     )
-                if int(record.get("exitCode", -1)) != 1:
+                expected_exit_code = 1 if approved else 0
+                if int(record.get("exitCode", -1)) != expected_exit_code:
                     failures.append(
                         Failure(
                             "COMMAND_RESULT_MISMATCH",
-                            "UI exact-debt result requires command exit 1",
+                            "UI exact-set result requires command exit "
+                            f"{expected_exit_code}",
                             lane_id,
                         )
                     )

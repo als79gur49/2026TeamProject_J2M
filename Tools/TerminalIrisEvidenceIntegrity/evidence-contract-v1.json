@@ -86,12 +86,12 @@
       "kind": "unity-test-framework",
       "commandArgv": [
         "./run_tests.sh",
-        "full",
+        "terminal-transition-architecture",
         "--filter",
         "SceneTransitionRoutePolicyCatalogTests;SceneTransitionRoutePolicyArchitectureTests;TerminalSessionAuthorityTests"
       ],
       "allowedExitCodes": [0],
-      "xml": [{"path": "unity-editmode.xml", "total": 61}],
+      "xml": [{"path": "unity-editmode.xml", "total": 66}],
       "logs": ["unity-editmode.log", "dotnet.log", "wrapper.log"]
     },
     "lifecycle": {
@@ -147,8 +147,8 @@
     "ui": {
       "kind": "unity-test-framework",
       "commandArgv": ["./run_tests.sh", "ui"],
-      "allowedExitCodes": [1],
-      "xml": [{"path": "unity-editmode.xml", "total": 1121}],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-editmode.xml", "total": 1172}],
       "logs": ["unity-editmode.log", "dotnet.log", "wrapper.log"]
     }
   },
@@ -189,10 +189,7 @@
   ],
   "approvedUiFailurePolicy": {
     "mode": "exact-set",
-    "approvedExpectedFailureIds": [
-      "Game.Feature.UI.Tests.ClimateCrisisKrTypographyContractTests.ClimateAssets_KeepCommittedIdentityAndCanonicalMaterial",
-      "Game.Feature.UI.Tests.UnityLocalizationStringTableIntegrationTests.UiSettingsBridgeAssembly_UsesUnityAdapterWhenLocalizationAssetsAreAvailable"
-    ]
+    "approvedExpectedFailureIds": []
   },
   "offCenterMatrix": {
     "directions": ["Left", "Right", "Top", "Bottom"],

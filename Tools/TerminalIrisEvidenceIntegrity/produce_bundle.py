@@ -105,7 +105,7 @@ LANES = [
         "CMD-05",
         (
             "./run_tests.sh",
-            "full",
+            "terminal-transition-architecture",
             "--filter",
             "SceneTransitionRoutePolicyCatalogTests;"
             "SceneTransitionRoutePolicyArchitectureTests;"

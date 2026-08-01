@@ -18,6 +18,8 @@ namespace Game.Feature.UI.Composition
         internal const string OutputArgument = "--terminal-iris-player-visual-output";
         internal const string FocusArgument = "--terminal-iris-player-visual-focus";
         internal const string FrameRateArgument = "--terminal-iris-player-visual-fps";
+        internal const string WidthArgument = "--terminal-iris-player-visual-width";
+        internal const string HeightArgument = "--terminal-iris-player-visual-height";
         internal const string PerformanceArgument = "--terminal-iris-performance";
         internal const string SuccessMarker = "TERMINAL_IRIS_PLAYER_VISUAL_QUALITY:PASS";
         internal const string FailureMarker = "TERMINAL_IRIS_PLAYER_VISUAL_QUALITY:FAIL";
@@ -48,6 +50,27 @@ namespace Game.Feature.UI.Composition
             Directory.CreateDirectory(outputDirectory);
             QualitySettings.vSyncCount = 0;
             UnityEngine.Application.targetFrameRate = ReadPositiveInt(FrameRateArgument, 60);
+            var requestedWidth = ReadPositiveInt(WidthArgument, Screen.width);
+            var requestedHeight = ReadPositiveInt(HeightArgument, Screen.height);
+            Screen.SetResolution(
+                requestedWidth,
+                requestedHeight,
+                FullScreenMode.Windowed);
+            var resolutionDeadline = Time.realtimeSinceStartup + 10f;
+            while (Time.realtimeSinceStartup < resolutionDeadline &&
+                   (Screen.width != requestedWidth || Screen.height != requestedHeight))
+            {
+                yield return null;
+            }
+
+            if (Screen.width != requestedWidth || Screen.height != requestedHeight)
+            {
+                Fail(
+                    $"requested resolution {requestedWidth}x{requestedHeight} " +
+                    $"did not settle; actual={Screen.width}x{Screen.height}");
+                yield break;
+            }
+
             var focusName = ReadArgumentValue(FocusArgument);
             var focus = string.Equals(focusName, "center", StringComparison.OrdinalIgnoreCase)
                 ? new Vector2(0.5f, 0.5f)

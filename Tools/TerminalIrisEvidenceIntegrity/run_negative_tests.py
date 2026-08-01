@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Callable
+import xml.etree.ElementTree as ET
 
 import verify_bundle
 
@@ -187,23 +188,21 @@ def mutation_cases() -> list[tuple[str, str, str, Callable[[Path], None], bool]]
     def ui_failure_changed(bundle: Path) -> None:
         path = lane_root(bundle, "ui") / "unity-editmode.xml"
         original_stat = path.stat()
-        text = path.read_text(encoding="utf-8")
-        approved_fullname = (
-            'fullname="Game.Feature.UI.Tests.'
-            "ClimateCrisisKrTypographyContractTests."
-            'ClimateAssets_KeepCommittedIdentityAndCanonicalMaterial"'
+        tree = ET.parse(path)
+        root = tree.getroot()
+        test_case = next(root.iter("test-case"), None)
+        if test_case is None:
+            raise RuntimeError("UI XML has no test case to mutate")
+        test_case.set(
+            "fullname",
+            "Game.Feature.UI.Tests.TerminalIrisInjectedUnexpectedFailure",
         )
-        unexpected_fullname = (
-            'fullname="Game.Feature.UI.Tests.'
-            "ClimateCrisisKrTypographyContractTests."
-            'TerminalIrisInjectedUnexpectedFailure"'
-        )
-        if approved_fullname not in text:
-            raise RuntimeError("approved UI failure fullname was not found")
-        cow_text(
-            path,
-            text.replace(approved_fullname, unexpected_fullname, 1),
-        )
+        test_case.set("result", "Failed")
+        root.set("passed", str(max(0, int(root.get("passed", "0")) - 1)))
+        root.set("failed", str(int(root.get("failed", "0")) + 1))
+        if path.exists():
+            path.unlink()
+        tree.write(path, encoding="utf-8", xml_declaration=True)
         os.utime(
             path,
             ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),

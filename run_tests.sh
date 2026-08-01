@@ -766,7 +766,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-result-visual|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -3453,6 +3453,8 @@ run_terminal_iris_player_visual_quality() {
                 --terminal-iris-player-visual-output "$run_dir_win" \
                 --terminal-iris-player-visual-focus "$focus" \
                 --terminal-iris-player-visual-fps "$fps" \
+                --terminal-iris-player-visual-width "$width" \
+                --terminal-iris-player-visual-height "$height" \
                 "${performance_args[@]}" ||
                 player_exit_code=$?
             if [ "$player_exit_code" -eq 124 ]; then
@@ -4126,6 +4128,8 @@ run_terminal_iris_player_visual_quality() {
                 --terminal-iris-player-visual-output "$run_dir_win" \
                 --terminal-iris-player-visual-focus "$focus" \
                 --terminal-iris-player-visual-fps "$fps" \
+                --terminal-iris-player-visual-width "$width" \
+                --terminal-iris-player-visual-height "$height" \
                 "${performance_args[@]}" ||
                 player_exit_code=$?
             if [ "$player_exit_code" -eq 124 ]; then
@@ -5427,6 +5431,25 @@ run_unity_full() {
     run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
 }
 
+run_terminal_transition_architecture() {
+    if [ "$DRY_RUN" -eq 0 ]; then
+        : > "$DOTNET_FULL_LOG"
+    fi
+    echo "Running Windows terminal transition architecture builds..."
+    run_dotnet_build "$DOTNET_FULL_LOG" Game.Feature.Stages.Editor.Tests.csproj -c Debug
+    run_dotnet_build "$DOTNET_FULL_LOG" Game.Feature.UI.Tests.csproj -c Debug
+    run_unity_stage \
+        "full" \
+        "terminal-transition-architecture" \
+        "terminal transition architecture (EditMode)" \
+        "EditMode" \
+        "$UNITY_FULL_EDITMODE_LOG" \
+        "$UNITY_FULL_EDITMODE_XML" \
+        "TestRunnerCliBootstrap.RunEditMode" \
+        "" \
+        ""
+}
+
 run_unity_integration_simulation() {
     run_unity_stage "integration-simulation" "integration-simulation-editmode" "integration-simulation (EditMode)" "EditMode" "$UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG" "$UNITY_INTEGRATION_SIMULATION_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Integration.Simulation.Tests" ""
 }
@@ -5744,6 +5767,9 @@ main() {
         terminal-player-build-smoke)
             run_dotnet_ui
             run_terminal_player_build_smoke
+            ;;
+        terminal-transition-architecture)
+            run_terminal_transition_architecture
             ;;
         full)
             run_dotnet_full
