@@ -105,6 +105,11 @@ namespace Game.Feature.UI.Composition
             Canvas.willRenderCanvases -= HandleCanvasRendered;
         }
 
+        private void LateUpdate()
+        {
+            MaintainRequestedResolution();
+        }
+
         private void HandleCanvasRendered()
         {
             _lastCanvasRenderFrame = Time.frameCount;
@@ -1641,6 +1646,25 @@ namespace Game.Feature.UI.Composition
                         $"raycast={finalIris?.BlocksRaycasts}");
                     yield break;
                 }
+            }
+
+            deadline = Time.realtimeSinceStartup + RenderEnvironmentTimeoutSeconds;
+            while ((Screen.width != _requestedWidth ||
+                    Screen.height != _requestedHeight) &&
+                   Time.realtimeSinceStartup < deadline)
+            {
+                MaintainRequestedResolution();
+                yield return null;
+            }
+
+            if (Screen.width != _requestedWidth ||
+                Screen.height != _requestedHeight)
+            {
+                Fail(
+                    $"defeat destination resolution mismatch requested=" +
+                    $"{_requestedWidth}x{_requestedHeight} actual=" +
+                    $"{Screen.width}x{Screen.height}");
+                yield break;
             }
 
             var savedSlot = saveStore.LoadSlot(1);
