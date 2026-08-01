@@ -73,6 +73,12 @@ namespace Game.Feature.Stages.Editor
                     return "Objective condition AuthoringLabel differs from generated output.";
                 }
 
+                if (issue.HasValue &&
+                    issue.Value.FieldName.EndsWith(".SortOrder", StringComparison.Ordinal))
+                {
+                    return "Objective condition SortOrder differs from generated output.";
+                }
+
                 return issue.HasValue ? issue.Value.Message : Message;
             }
 

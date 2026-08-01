@@ -1,10 +1,41 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Objectives;
 using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Stages.Editor
 {
+    internal sealed class StageObjectiveConditionSortOrderEditState
+    {
+        private string stableConditionId = string.Empty;
+        private StageConditionAsset condition;
+        private string message = string.Empty;
+
+        public void Set(StageObjectiveConditionEditorRow row, string validationMessage)
+        {
+            stableConditionId = row?.StableConditionId ?? string.Empty;
+            condition = row?.Condition;
+            message = validationMessage ?? string.Empty;
+        }
+
+        public void Clear()
+        {
+            stableConditionId = string.Empty;
+            condition = null;
+            message = string.Empty;
+        }
+
+        public string GetMessage(StageObjectiveConditionEditorRow row)
+        {
+            return row != null &&
+                   string.Equals(stableConditionId, row.StableConditionId, StringComparison.Ordinal) &&
+                   ReferenceEquals(condition, row.Condition)
+                ? message
+                : string.Empty;
+        }
+    }
+
     internal static class StageObjectiveConditionEditorRenderer
     {
         public static bool Draw(
@@ -12,6 +43,7 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringDefinition authoring,
             StageObjectiveConditionEditorSelection selection,
             StageObjectiveConditionEditorFeedback feedback,
+            StageObjectiveConditionSortOrderEditState sortOrderEditState,
             string contextWarning,
             ref Vector2 listScroll)
         {
@@ -59,7 +91,8 @@ namespace Game.Feature.Stages.Editor
                         authoring,
                         rows,
                         selection,
-                        feedback);
+                        feedback,
+                        sortOrderEditState);
                 }
             }
 
@@ -118,7 +151,8 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringDefinition authoring,
             IReadOnlyList<StageObjectiveConditionEditorRow> rows,
             StageObjectiveConditionEditorSelection selection,
-            StageObjectiveConditionEditorFeedback feedback)
+            StageObjectiveConditionEditorFeedback feedback,
+            StageObjectiveConditionSortOrderEditState sortOrderEditState)
         {
             EditorGUILayout.LabelField("Selected Condition", EditorStyles.miniBoldLabel);
             var resolution = selection.Resolve(rows, out var row);
@@ -180,7 +214,12 @@ namespace Game.Feature.Stages.Editor
             DrawReadOnlyText("Type", row.ConditionTypeName);
             DrawReadOnlyText("Role", row.Role.ToString());
             DrawReadOnlyText("Required", row.Required.ToString());
-            DrawReadOnlyText("Sort Order", row.SortOrder.ToString());
+            changed |= DrawSortOrder(
+                serializedAuthoring,
+                authoring,
+                selection,
+                row,
+                sortOrderEditState);
             DrawConditionAsset(row);
             DrawTypeSpecificSummary(row);
 
@@ -203,6 +242,73 @@ namespace Game.Feature.Stages.Editor
             }
 
             DrawGeneratedStageReference(authoring);
+
+            return changed;
+        }
+
+        internal static bool CanEditSortOrder(StageObjectiveConditionEditorRow row)
+        {
+            return row != null &&
+                   row.Role == StageObjectiveConditionRole.SecondaryGoal &&
+                   !string.IsNullOrEmpty(row.StableConditionId) &&
+                   row.Condition != null;
+        }
+
+        private static bool DrawSortOrder(
+            SerializedObject serializedAuthoring,
+            StageAuthoringDefinition authoring,
+            StageObjectiveConditionEditorSelection selection,
+            StageObjectiveConditionEditorRow row,
+            StageObjectiveConditionSortOrderEditState editState)
+        {
+            editState ??= new StageObjectiveConditionSortOrderEditState();
+            if (!CanEditSortOrder(row))
+            {
+                DrawReadOnlyText("Sort Order", row.SortOrder.ToString());
+                if (row.Role == StageObjectiveConditionRole.PrimaryGoal)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Primary Goal ordering is preserved by this editor.",
+                        MessageType.Info);
+                }
+
+                return false;
+            }
+
+            EditorGUI.BeginChangeCheck();
+            var nextSortOrder = EditorGUILayout.IntField(
+                new GUIContent(
+                    "Sort Order",
+                    "Controls presentation order. Must be a positive value unique within this Stage. Gaps are allowed."),
+                row.SortOrder);
+            var sortOrderChanged = EditorGUI.EndChangeCheck();
+            var changed = false;
+            if (sortOrderChanged)
+            {
+                changed = StageObjectiveConditionEditorMutation.TrySetSecondarySortOrder(
+                    serializedAuthoring,
+                    authoring,
+                    selection,
+                    nextSortOrder,
+                    out var validation);
+                if (validation.IsValid)
+                {
+                    editState.Clear();
+                }
+                else
+                {
+                    editState.Set(row, validation.Message);
+                }
+            }
+
+            EditorGUILayout.HelpBox(
+                "Controls presentation order. Must be a positive value unique within this Stage. Gaps are allowed.",
+                MessageType.Info);
+            var validationMessage = editState.GetMessage(row);
+            if (!string.IsNullOrEmpty(validationMessage))
+            {
+                EditorGUILayout.HelpBox(validationMessage, MessageType.Error);
+            }
 
             return changed;
         }

@@ -27,6 +27,7 @@ namespace Game.Feature.Stages.Editor
         private StageObjectiveConditionEditorSelection objectiveConditionSelection = new();
         private StageObjectiveConditionEditorFeedback objectiveConditionFeedback =
             StageObjectiveConditionEditorFeedback.Unresolved;
+        private StageObjectiveConditionSortOrderEditState objectiveSortOrderEditState = new();
         private StageContentEntry objectiveCatalogEntry;
         private bool objectiveConditionFeedbackDirty = true;
         private double objectiveFeedbackRefreshNotBefore;
@@ -155,6 +156,7 @@ namespace Game.Feature.Stages.Editor
             selection = new StageAuthoringGridSelectionState();
             objectiveConditionSelection = new StageObjectiveConditionEditorSelection();
             objectiveConditionFeedback = StageObjectiveConditionEditorFeedback.Unresolved;
+            objectiveSortOrderEditState = new StageObjectiveConditionSortOrderEditState();
             objectiveCatalogEntry = StageObjectiveConditionEditorFeedbackBuilder.ResolveCatalogEntry(authoring);
             objectiveConditionFeedbackDirty = true;
             objectiveFeedbackRefreshNotBefore = 0d;
@@ -238,6 +240,25 @@ namespace Game.Feature.Stages.Editor
                 out error);
             if (changed)
             {
+                MarkObjectiveConditionFeedbackDirty(debounce: true);
+            }
+
+            return changed;
+        }
+
+        internal bool SetSelectedObjectiveSecondarySortOrderForTests(
+            int sortOrder,
+            out StageObjectiveConditionSortOrderValidationResult validation)
+        {
+            var changed = StageObjectiveConditionEditorMutation.TrySetSecondarySortOrder(
+                serializedAuthoring,
+                authoring,
+                objectiveConditionSelection,
+                sortOrder,
+                out validation);
+            if (changed)
+            {
+                objectiveSortOrderEditState.Clear();
                 MarkObjectiveConditionFeedbackDirty(debounce: true);
             }
 
@@ -720,6 +741,7 @@ namespace Game.Feature.Stages.Editor
                     authoring,
                     objectiveConditionSelection,
                     objectiveConditionFeedback,
+                    objectiveSortOrderEditState,
                     objectiveContextWarning,
                     ref objectiveConditionListScroll))
             {
