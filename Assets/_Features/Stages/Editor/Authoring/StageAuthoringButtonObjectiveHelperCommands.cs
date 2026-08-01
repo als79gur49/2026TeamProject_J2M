@@ -367,15 +367,6 @@ namespace Game.Feature.Stages.Editor
                 return ButtonObjectiveCommandResult.Failure("Exit PrimaryGoal condition must be created first.");
             }
 
-            if (!TryResolveOrCreateConditionAsset(
-                    definition,
-                    tileId,
-                    out var condition,
-                    out var error))
-            {
-                return ButtonObjectiveCommandResult.Failure(error);
-            }
-
             var entries = objective.GetConditionEntriesOrEmpty();
             var matchingIndices = FindButtonObjectiveEntryIndices(entries, tileId, stableConditionId);
             if (matchingIndices.Count > 0)
@@ -383,6 +374,21 @@ namespace Game.Feature.Stages.Editor
                 return ButtonObjectiveCommandResult.Warning(
                     $"Button clear condition already has {matchingIndices.Count} matching objective entry.",
                     ResolveFirstCondition(entries, matchingIndices));
+            }
+
+            if (!TryGetNextSecondaryGoalSortOrder(entries, out var nextSortOrder))
+            {
+                return ButtonObjectiveCommandResult.Failure(
+                    "No additional automatic Sort Order can be allocated.");
+            }
+
+            if (!TryResolveOrCreateConditionAsset(
+                    definition,
+                    tileId,
+                    out var condition,
+                    out var error))
+            {
+                return ButtonObjectiveCommandResult.Failure(error);
             }
 
             var nextEntries = new List<StageObjectiveConditionEntry>(entries)
@@ -396,7 +402,7 @@ namespace Game.Feature.Stages.Editor
                     AuthoringLabel = string.IsNullOrWhiteSpace(authoringLabel)
                         ? GetDefaultAuthoringLabel(selectedFeature)
                         : authoringLabel.Trim(),
-                    SortOrder = GetNextSecondaryGoalSortOrder(entries),
+                    SortOrder = nextSortOrder,
                 }
             };
 
@@ -707,8 +713,9 @@ namespace Game.Feature.Stages.Editor
             return requiredPrimaryGoalCount == 1 && hasPlayerAtAnyZone;
         }
 
-        private static int GetNextSecondaryGoalSortOrder(
-            IReadOnlyList<StageObjectiveConditionEntry> entries)
+        private static bool TryGetNextSecondaryGoalSortOrder(
+            IReadOnlyList<StageObjectiveConditionEntry> entries,
+            out int sortOrder)
         {
             var maxSecondary = 0;
             for (var i = 0; i < entries.Count; i++)
@@ -720,7 +727,14 @@ namespace Game.Feature.Stages.Editor
                 }
             }
 
-            return Math.Max(10, maxSecondary + 10);
+            if (maxSecondary > int.MaxValue - 10)
+            {
+                sortOrder = 0;
+                return false;
+            }
+
+            sortOrder = Math.Max(10, maxSecondary + 10);
+            return true;
         }
 
         private static void SetButtonConditionTileId(ButtonActivatedConditionAsset condition, int tileId)
