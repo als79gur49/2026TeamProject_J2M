@@ -7,6 +7,15 @@ import produce_bundle
 
 
 class ProduceBundleUnitTests(unittest.TestCase):
+    def test_player_visual_lane_has_no_unrelated_test_result_origins(self) -> None:
+        lane = produce_bundle.Lane(
+            "player-visual-quality",
+            "CMD-10",
+            ("./run_tests.sh", "terminal-iris-player-visual-quality"),
+            "player-visual",
+        )
+        self.assertEqual(produce_bundle.result_origins(lane), [])
+
     def test_lane_closure_requires_allowed_complete_exact_set(self) -> None:
         contracts = {
             "architecture": {

@@ -327,7 +327,12 @@ def result_origins(lane: Lane) -> list[tuple[Path, str]]:
             (root / "wsl-unity-core-playmode.log", "unity-playmode.log"),
         ]
     if lane.kind == "player-visual":
-        return [(root / "wsl-dotnet-core.log", "dotnet.log")]
+        # This lane owns its build log and result JSON beneath the configured
+        # graphics output root.  It must not inherit a TestResults artifact
+        # from an earlier lane: the Player runner intentionally does not emit
+        # wsl-dotnet-core.log, and treating that unrelated file as required
+        # makes an otherwise complete Player matrix impossible to close.
+        return []
     return [
         (root / "wsl-dotnet-core.log", "dotnet.log"),
         (root / "wsl-unity-core-playmode.xml", "unity-playmode.xml"),
