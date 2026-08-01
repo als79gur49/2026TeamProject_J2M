@@ -51,6 +51,11 @@ namespace Game.Feature.Stages.Editor
         private bool tileFeatureVisualBindingAdvancedFoldout;
         private int loadedButtonObjectiveAuthoringLabelTileId;
         private string buttonObjectiveAuthoringLabel = string.Empty;
+        private IStageButtonObjectiveRemovalConfirmation buttonObjectiveRemovalConfirmation =
+            new StageButtonObjectiveRemovalDialogConfirmation();
+        private bool hasPendingButtonObjectiveRemovalGenerate;
+        private int pendingButtonObjectiveRemovalTileId;
+        private string pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
         private string zoneFeedback = string.Empty;
         private MessageType zoneFeedbackType = MessageType.Info;
         private string zoneCreateId = "zone";
@@ -176,6 +181,9 @@ namespace Game.Feature.Stages.Editor
             selectedTileFeatureVisualPrefab = null;
             tileFeatureVisualBindingAdvancedFoldout = false;
             loadedButtonObjectiveAuthoringLabelTileId = 0;
+            hasPendingButtonObjectiveRemovalGenerate = false;
+            pendingButtonObjectiveRemovalTileId = 0;
+            pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
             buttonObjectiveAuthoringLabel = string.Empty;
             zoneFeedback = string.Empty;
             zoneCreateId = "zone";
@@ -599,6 +607,20 @@ namespace Game.Feature.Stages.Editor
         internal bool RemoveSelectedButtonRequiredSecondaryGoalForTests(out string error)
         {
             return RemoveSelectedButtonRequiredSecondaryGoal(out error);
+        }
+
+        internal StageButtonObjectiveRemovalPlan GetSelectedButtonObjectiveRemovalPlanForTests()
+        {
+            return TryGetSelectedTileFeature(out var feature)
+                ? StageButtonObjectiveRemovalPlanner.Build(serializedAuthoring, authoring, feature)
+                : StageButtonObjectiveRemovalPlanner.Build(serializedAuthoring, authoring, default);
+        }
+
+        internal void SetButtonObjectiveRemovalConfirmationForTests(
+            IStageButtonObjectiveRemovalConfirmation confirmation)
+        {
+            buttonObjectiveRemovalConfirmation = confirmation ??
+                new StageButtonObjectiveRemovalDialogConfirmation();
         }
 
         internal void PingSelectedButtonConditionAssetForTests()
@@ -2002,14 +2024,11 @@ namespace Game.Feature.Stages.Editor
             var canPing = status.ConditionAsset != null ||
                           !string.IsNullOrWhiteSpace(status.ExpectedConditionPath) &&
                           AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(status.ExpectedConditionPath) != null;
-            var canRemove = status.State == ButtonObjectiveLinkState.Linked ||
-                            status.State == ButtonObjectiveLinkState.DuplicateCondition ||
-                            status.State == ButtonObjectiveLinkState.StableConditionIdConflict ||
-                            status.State == ButtonObjectiveLinkState.ConditionAssetMissing ||
-                            status.State == ButtonObjectiveLinkState.ConditionAssetInvalid ||
-                            status.State == ButtonObjectiveLinkState.ConditionReferencesDifferentTile ||
-                            status.State == ButtonObjectiveLinkState.ConditionReferencesNonButtonTile ||
-                            status.MatchingEntryCount > 0;
+            var removalPlan = StageButtonObjectiveRemovalPlanner.Build(
+                serializedAuthoring,
+                authoring,
+                feature);
+            var canRemove = removalPlan.Mode != StageButtonObjectiveRemovalMode.Unavailable;
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -2040,11 +2059,21 @@ namespace Game.Feature.Stages.Editor
             {
                 using (new EditorGUI.DisabledScope(!canRemove))
                 {
-                    if (GUILayout.Button("Remove Button Clear Condition", GUILayout.Width(224)))
+                    var removalLabel = removalPlan.Mode == StageButtonObjectiveRemovalMode.ConflictRepair
+                        ? "Resolve Conflicting Objectives…"
+                        : "Remove Objective…";
+                    if (GUILayout.Button(removalLabel, GUILayout.Width(224)))
                     {
-                        RemoveSelectedButtonRequiredSecondaryGoal(out _);
+                        RemoveSelectedButtonRequiredSecondaryGoal(removalPlan, out _);
                     }
                 }
+            }
+
+            if (!canRemove)
+            {
+                EditorGUILayout.HelpBox(
+                    "No safely removable Button Objective target was resolved.",
+                    MessageType.Info);
             }
         }
 
@@ -2477,6 +2506,21 @@ namespace Game.Feature.Stages.Editor
 
         private bool RemoveSelectedButtonRequiredSecondaryGoal(out string error)
         {
+            if (!TryGetSelectedTileFeature(out var feature))
+            {
+                error = "No TileFeature selected.";
+                SetTileFeatureFeedback(error, MessageType.Warning);
+                return false;
+            }
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serializedAuthoring, authoring, feature);
+            return RemoveSelectedButtonRequiredSecondaryGoal(plan, out error);
+        }
+
+        private bool RemoveSelectedButtonRequiredSecondaryGoal(
+            StageButtonObjectiveRemovalPlan plan,
+            out string error)
+        {
             error = string.Empty;
             if (!TryGetSelectedTileFeature(out var feature))
             {
@@ -2485,21 +2529,46 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var result = StageAuthoringButtonObjectiveHelperCommands.TryRemoveRequiredSecondaryGoal(authoring, feature);
-            error = result.Message;
-            if (!result.Succeeded && result.MessageType == MessageType.Error)
+            if (plan == null || plan.Mode == StageButtonObjectiveRemovalMode.Unavailable)
             {
-                SetTileFeatureFeedback(result.Message, result.MessageType);
+                error = "No safely removable Button Objective target was resolved.";
+                SetTileFeatureFeedback(error, MessageType.Warning);
+                return false;
+            }
+
+            if (!buttonObjectiveRemovalConfirmation.Confirm(plan))
+            {
+                error = "Button Objective removal cancelled.";
+                return false;
+            }
+
+            var result = StageButtonObjectiveRemovalExecutor.TryExecute(
+                serializedAuthoring,
+                authoring,
+                feature,
+                plan);
+            error = result.Message;
+            if (!result.Succeeded)
+            {
+                SetTileFeatureFeedback(
+                    result.Message,
+                    result.Code == StageButtonObjectiveRemovalResultCode.ButtonObjectiveRemovalTargetChanged
+                        ? MessageType.Warning
+                        : MessageType.Error);
                 Repaint();
                 return false;
             }
 
             serializedAuthoring.Update();
-            RestoreOrClearObjectiveConditionSelection();
+            objectiveConditionSelection.Clear();
+            objectiveContextWarning = string.Empty;
+            hasPendingButtonObjectiveRemovalGenerate = true;
+            pendingButtonObjectiveRemovalTileId = feature.TileId;
+            pendingButtonObjectiveRemovalAuthoringSnapshot = EditorJsonUtility.ToJson(authoring);
             MarkObjectiveConditionFeedbackDirty();
-            SetTileFeatureFeedback(result.Message, result.MessageType);
+            SetTileFeatureFeedback(result.Message, MessageType.Info);
             Repaint();
-            return result.Succeeded;
+            return true;
         }
 
         private void PingSelectedButtonConditionAsset()
@@ -2773,7 +2842,22 @@ namespace Game.Feature.Stages.Editor
 
         private void GenerateAndStoreReport()
         {
-            lastReport = StageAuthoringGenerator.Generate(authoring, StageAuthoringGenerateOptions.WriteAll);
+            var isExactPendingRemovalState = hasPendingButtonObjectiveRemovalGenerate &&
+                                             string.Equals(
+                                                 pendingButtonObjectiveRemovalAuthoringSnapshot,
+                                                 EditorJsonUtility.ToJson(authoring),
+                                                 StringComparison.Ordinal);
+            lastReport = StageAuthoringGenerator.Generate(
+                authoring,
+                StageAuthoringGenerateOptions.WriteAll,
+                recordUndo: !isExactPendingRemovalState);
+            if (!lastReport.HasErrors)
+            {
+                hasPendingButtonObjectiveRemovalGenerate = false;
+                pendingButtonObjectiveRemovalTileId = 0;
+                pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
+            }
+
             MarkObjectiveConditionFeedbackDirty();
             RefreshObjectiveConditionFeedbackIfNeeded(lastReport);
             RestoreOrClearObjectiveConditionSelection();
@@ -2795,10 +2879,38 @@ namespace Game.Feature.Stages.Editor
             }
 
             serializedAuthoring?.Update();
+            RefreshPendingButtonObjectiveRemovalGenerateAfterUndoRedo();
             MarkObjectiveConditionFeedbackDirty();
             RestoreOrClearObjectiveConditionSelection();
             RefreshObjectiveConditionFeedbackIfNeeded();
             Repaint();
+        }
+
+        private void RefreshPendingButtonObjectiveRemovalGenerateAfterUndoRedo()
+        {
+            if (pendingButtonObjectiveRemovalTileId <= 0)
+            {
+                return;
+            }
+
+            var feature = authoring.TileFeatures.FirstOrDefault(candidate =>
+                candidate.TileId == pendingButtonObjectiveRemovalTileId &&
+                candidate.Kind == TileFeatureKind.Button);
+            if (feature.TileId <= 0)
+            {
+                hasPendingButtonObjectiveRemovalGenerate = false;
+                pendingButtonObjectiveRemovalTileId = 0;
+                pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
+                return;
+            }
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(serializedAuthoring, authoring, feature);
+            hasPendingButtonObjectiveRemovalGenerate =
+                plan.Mode == StageButtonObjectiveRemovalMode.Unavailable &&
+                string.Equals(
+                    pendingButtonObjectiveRemovalAuthoringSnapshot,
+                    EditorJsonUtility.ToJson(authoring),
+                    StringComparison.Ordinal);
         }
 
         private void HandleObjectiveProjectChanged()
