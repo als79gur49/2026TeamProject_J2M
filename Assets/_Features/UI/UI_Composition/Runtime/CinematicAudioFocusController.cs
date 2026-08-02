@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class CinematicAudioFocusController : MonoBehaviour
+    public sealed class CinematicAudioFocusController : MonoBehaviour, ICinematicAudioFocusOwner
     {
         [SerializeField] private AudioRuntimeInstaller _audioRuntimeInstaller;
         [SerializeField] private GlobalAudioFlowBootstrap _audioFlowBootstrap;

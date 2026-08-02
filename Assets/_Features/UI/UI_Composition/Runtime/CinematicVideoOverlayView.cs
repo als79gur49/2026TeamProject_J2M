@@ -8,7 +8,10 @@ using UnityEngine.Video;
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class CinematicVideoOverlayView : MonoBehaviour, IPointerClickHandler
+    public sealed class CinematicVideoOverlayView :
+        MonoBehaviour,
+        IPointerClickHandler,
+        ICinematicPlaybackOverlay
     {
         private const string UiMapName = "UI";
         private const string SubmitActionName = "Submit";
@@ -262,6 +265,76 @@ namespace Game.Feature.UI.Composition
             LogCinematicDiagnosticsIfNeeded(clip, options);
             BindSkipActions();
             BeginEnterFadeToBlack();
+        }
+
+        void ICinematicPlaybackOverlay.Play(
+            VideoClip clip,
+            SlotCinematicPlaybackOptions options,
+            CinematicOpaqueHandoffToken opaqueHandoffToken,
+            Action<CinematicPlaybackCompletion> completion)
+        {
+            Play(clip, options, opaqueHandoffToken, completion);
+        }
+
+        internal bool AbortSetupAfterFailure(
+            CinematicOpaqueHandoffToken expectedToken)
+        {
+            if ((expectedToken.IsValid && expectedToken != _opaqueHandoffToken) ||
+                (!expectedToken.IsValid && _opaqueHandoffToken.IsValid))
+            {
+                return false;
+            }
+
+            _completion = null;
+            _completionDispatched = true;
+            _exitFadeRequested = false;
+            _pendingCompletion = default;
+            _queuedSkip = false;
+            _skipEnabled = false;
+            _awaitingOpaqueRender = false;
+            _opaqueRenderRequestFrame = -1;
+            _opaqueHandoffToken = default;
+            _currentClip = null;
+            _currentOptions = default;
+            IsPlaying = false;
+            _fadeRunner.Reset();
+            UnbindSkipActions();
+
+            if (_videoPlayer != null)
+            {
+                _videoPlayer.prepareCompleted -= HandlePrepareCompleted;
+                _videoPlayer.loopPointReached -= HandleLoopPointReached;
+                _videoPlayer.errorReceived -= HandleErrorReceived;
+                _videoPlayer.Stop();
+                _videoPlayer.clip = null;
+                _videoPlayer.targetTexture = null;
+            }
+
+            if (_cinematicAudioSource != null)
+            {
+                _cinematicAudioSource.Stop();
+            }
+
+            SetVideoImageVisible(false);
+            ReleaseRenderTexture();
+            ApplyAudioFadeGain(1f);
+            ApplyFadeAlpha(0f);
+            if (_canvasGroup != null)
+            {
+                _canvasGroup.alpha = 0f;
+                _canvasGroup.blocksRaycasts = false;
+                _canvasGroup.interactable = false;
+            }
+
+            CurrentPresentationState = CinematicPresentationState.Idle;
+            gameObject.SetActive(false);
+            return true;
+        }
+
+        bool ICinematicPlaybackOverlay.AbortSetupAfterFailure(
+            CinematicOpaqueHandoffToken expectedToken)
+        {
+            return AbortSetupAfterFailure(expectedToken);
         }
 
         public void RequestSkip()
@@ -1083,6 +1156,12 @@ namespace Game.Feature.UI.Composition
             _opaqueHandoffToken = default;
             _awaitingOpaqueRender = false;
             gameObject.SetActive(false);
+        }
+
+        void ICinematicPlaybackOverlay.ReleaseOpaqueHandoff(
+            CinematicOpaqueHandoffToken token)
+        {
+            ReleaseOpaqueHandoff(token);
         }
 
         private void OnEnable()

@@ -56,5 +56,16 @@ namespace Game.Feature.UI.Composition
             IsRunning = false;
             return true;
         }
+
+        public void Reset()
+        {
+            _settings = default;
+            _from = 0f;
+            _to = 0f;
+            _duration = 0f;
+            _elapsed = 0f;
+            CurrentAlpha = 0f;
+            IsRunning = false;
+        }
     }
 }
