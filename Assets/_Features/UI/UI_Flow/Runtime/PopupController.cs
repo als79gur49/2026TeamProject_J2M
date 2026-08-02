@@ -84,7 +84,7 @@ namespace Game.Feature.UI.Flow
             var completionHandler = new Action<PopupCompletionKind>(completionKind =>
                 HandleRuntimeCompletionRequested(newInstanceId, completionKind));
             var record = new PopupRuntimeRecord(entry, runtimeResult.Runtime, completionHandler);
-            runtimeResult.Runtime.CompletionRequested += completionHandler;
+            AttachCompletionHandler(record);
             _stack.Add(record);
             ApplyTopmostState();
             StateChanged?.Invoke();
@@ -228,8 +228,31 @@ namespace Game.Feature.UI.Flow
 
         private void DetachAndDispose(PopupRuntimeRecord record)
         {
-            record.Runtime.CompletionRequested -= record.CompletionHandler;
+            DetachCompletionHandler(record);
+            record.IsDisposed = true;
             record.Runtime.Dispose();
+        }
+
+        private static void AttachCompletionHandler(PopupRuntimeRecord record)
+        {
+            if (record.IsDisposed || record.IsCompletionHandlerAttached)
+            {
+                return;
+            }
+
+            record.Runtime.CompletionRequested += record.CompletionHandler;
+            record.IsCompletionHandlerAttached = true;
+        }
+
+        private static void DetachCompletionHandler(PopupRuntimeRecord record)
+        {
+            if (!record.IsCompletionHandlerAttached)
+            {
+                return;
+            }
+
+            record.Runtime.CompletionRequested -= record.CompletionHandler;
+            record.IsCompletionHandlerAttached = false;
         }
 
         private int FindIndex(PopupInstanceId instanceId)
@@ -253,17 +276,55 @@ namespace Game.Feature.UI.Flow
                  completionKind == PopupCompletionKind.MainMenuRequested))
             {
                 var retainedRecord = _stack[index];
-                retainedRecord.Runtime.CompletionRequested -= retainedRecord.CompletionHandler;
-                retainedRecord.Runtime.SetIsTopmost(false);
-                StateChanged?.Invoke();
-                NotifyCompletion(
-                    retainedRecord.Entry,
-                    completionKind,
-                    PopupCloseReason.UserAction);
+                DetachCompletionHandler(retainedRecord);
+                try
+                {
+                    retainedRecord.Runtime.SetIsTopmost(false);
+                    StateChanged?.Invoke();
+                    NotifyCompletion(
+                        retainedRecord.Entry,
+                        completionKind,
+                        PopupCloseReason.UserAction);
+                }
+                catch (Exception routingException)
+                {
+                    try
+                    {
+                        RestoreRetainedRecordAfterDispatchFailure(retainedRecord);
+                    }
+                    catch (Exception restoreException)
+                    {
+                        routingException.Data[
+                            "PopupRetainedRuntimeRestoreException"] = restoreException;
+                    }
+
+                    throw;
+                }
+
                 return;
             }
 
             Close(instanceId, PopupCloseReason.UserAction, completionKind);
+        }
+
+        private void RestoreRetainedRecordAfterDispatchFailure(
+            PopupRuntimeRecord retainedRecord)
+        {
+            var index = FindIndex(retainedRecord.Entry.InstanceId);
+            if (index < 0 ||
+                !ReferenceEquals(_stack[index], retainedRecord) ||
+                !_stack[index].Entry.InstanceId.Equals(
+                    retainedRecord.Entry.InstanceId) ||
+                !ReferenceEquals(_stack[index].Runtime, retainedRecord.Runtime) ||
+                retainedRecord.IsDisposed ||
+                retainedRecord.IsCompletionHandlerAttached)
+            {
+                return;
+            }
+
+            AttachCompletionHandler(retainedRecord);
+            ApplyTopmostState();
+            StateChanged?.Invoke();
         }
 
         private void NotifyCompletion(
@@ -348,6 +409,10 @@ namespace Game.Feature.UI.Flow
             public IPopupRuntime Runtime { get; }
 
             public Action<PopupCompletionKind> CompletionHandler { get; }
+
+            public bool IsCompletionHandlerAttached { get; set; }
+
+            public bool IsDisposed { get; set; }
         }
     }
 }
