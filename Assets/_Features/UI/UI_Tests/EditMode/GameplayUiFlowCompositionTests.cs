@@ -19,6 +19,24 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [SetUp]
+        public void ResetTransitionAuthorities()
+        {
+            TerminalDestinationReadiness.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+        }
+
+        [TearDown]
+        public void ClearTransitionAuthorities()
+        {
+            TerminalDestinationReadiness.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+        }
+
         [Test]
         public void AudioRuntimeInstaller_IsGuardedAgainstSameRootDuplicates()
         {
@@ -292,6 +310,9 @@ namespace Game.Feature.UI.Tests
                 var pause = new FakeGameplayPauseService();
                 installer.Install(CreatePortsWithValidStage(pauseService: pause));
                 var pauseService = rootObject.GetComponent<AudioRuntimeInstaller>().AudioPlaybackPauseService;
+                TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                    sceneHandle: 7601,
+                    sceneName: "PauseRetryAudioCompositionSource");
 
                 installer.HudView.ClickPause();
                 installer.PausePopupView.ClickRetry();

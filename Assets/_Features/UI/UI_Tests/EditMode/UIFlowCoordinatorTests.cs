@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.UI.Tests
 {
@@ -18,6 +21,7 @@ namespace Game.Feature.UI.Tests
             TerminalDestinationReadiness.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
             SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
         }
 
         [TearDown]
@@ -26,6 +30,7 @@ namespace Game.Feature.UI.Tests
             TerminalDestinationReadiness.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
             SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
         }
 
         [Test]
@@ -1008,6 +1013,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageLaunchRouter.Requests[0].StageId, Is.EqualTo(restartRequest.StageId));
             Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
             Assert.That(stageLaunchRouter.Requests[0].Source, Is.EqualTo("level-failed-restart-level"));
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
             Assert.That(
                 mainMenuReturnRouter.ReturnCallCount,
                 Is.Zero,
@@ -1031,6 +1037,9 @@ namespace Game.Feature.UI.Tests
                 out _,
                 out var stageLaunchRouter);
             var stageId = StageId.CreateOrThrow("stage-1-1");
+            var callSequence = new List<string>();
+            stageLaunchRouter.AfterLaunch = _ => callSequence.Add("route-accepted");
+            pauseService.BeforeResume = () => callSequence.Add("resume");
 
             coordinator.Initialize();
             presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
@@ -1049,11 +1058,332 @@ namespace Game.Feature.UI.Tests
                 popupRuntimeFactory.CreatedRuntimes[^1].Runtime.IsTopmost,
                 Is.False);
             Assert.That(pauseService.IsPaused, Is.False);
+            Assert.That(pauseService.ResumeCallCount, Is.EqualTo(1));
+            Assert.That(callSequence, Is.EqualTo(new[] { "route-accepted", "resume" }));
             Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
             Assert.That(stageLaunchRouter.Requests[0].StageId, Is.EqualTo(stageId));
             Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
             Assert.That(stageLaunchRouter.Requests[0].Source, Is.EqualTo("pause-retry"));
             Assert.That(stageLaunchRouter.Requests[0].TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageRetryManual));
+        }
+
+        [Test]
+        public void PauseRetry_RoutingThrowsBeforeOwnership_RestoresPopupAndKeepsSimulationPaused()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out _,
+                out var popupController,
+                out var uiAudioPort,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("pause-retry-throw-stage");
+            var routingFailure = new ApplicationException("Injected pre-ownership routing failure.");
+            stageLaunchRouter.ExceptionToThrow = routingFailure;
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                sceneHandle: 7402,
+                sceneName: "PauseRetryThrowSource");
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+            uiAudioPort.Clear();
+
+            var thrown = Assert.Throws<ApplicationException>(() =>
+                pauseRuntime.Emit(PopupCompletionKind.RetryRequested));
+
+            Assert.That(thrown, Is.SameAs(routingFailure));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.Pause));
+            Assert.That(pauseRuntime.IsTopmost, Is.True);
+            Assert.That(stageLaunchRouter.LaunchCallCount, Is.EqualTo(1));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
+            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.Aborted));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+        }
+
+        [Test]
+        public void PauseRetry_RoutingRejected_RestoresPopupAndKeepsSimulationPaused()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out _,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("pause-retry-rejected-stage");
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                sceneHandle: 7403,
+                sceneName: "PauseRetryRejectedSource");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.GameplayEntry,
+                    stageId,
+                    generation,
+                    out _),
+                Is.True);
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+
+            Exception thrown = null;
+            try
+            {
+                pauseRuntime.Emit(PopupCompletionKind.RetryRequested);
+            }
+            catch (Exception exception)
+            {
+                thrown = exception;
+            }
+
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(thrown, Is.TypeOf<InvalidOperationException>());
+            Assert.That(
+                thrown.Message,
+                Does.Contain("Pause Retry route was rejected before transition ownership."));
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.Pause));
+            Assert.That(pauseRuntime.IsTopmost, Is.True);
+            Assert.That(stageLaunchRouter.LaunchCallCount, Is.Zero);
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+        }
+
+        [Test]
+        public void PauseRetry_AfterRoutingThrow_SecondRetryDispatchesExactlyOnce()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                new FakeScreenRuntimeFactory(),
+                presentationSource,
+                out _,
+                out var popupController,
+                out var uiAudioPort,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("pause-retry-second-after-throw");
+            var firstFailure = new ApplicationException("Injected first Retry routing failure.");
+            stageLaunchRouter.ExceptionToThrow = firstFailure;
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(7404, "PauseRetrySecondThrowSource");
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+            uiAudioPort.Clear();
+
+            Assert.That(
+                Assert.Throws<ApplicationException>(() =>
+                    pauseRuntime.Emit(PopupCompletionKind.RetryRequested)),
+                Is.SameAs(firstFailure));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+
+            stageLaunchRouter.ExceptionToThrow = null;
+            pauseRuntime.Emit(PopupCompletionKind.RetryRequested);
+
+            Assert.That(stageLaunchRouter.LaunchCallCount, Is.EqualTo(2));
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(pauseService.ResumeCallCount, Is.EqualTo(1));
+            Assert.That(pauseService.IsPaused, Is.False);
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(pauseRuntime.IsTopmost, Is.False);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+        }
+
+        [Test]
+        public void PauseRetry_AfterRoutingRejection_SecondRetryDispatchesExactlyOnce()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                new FakeScreenRuntimeFactory(),
+                presentationSource,
+                out _,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("pause-retry-second-after-rejection");
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                7405,
+                "PauseRetrySecondRejectedSource");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.GameplayEntry,
+                    stageId,
+                    generation,
+                    out var blockingToken),
+                Is.True);
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+
+            var rejection = Assert.Throws<InvalidOperationException>(() =>
+                pauseRuntime.Emit(PopupCompletionKind.RetryRequested));
+            Assert.That(
+                rejection.Message,
+                Does.Contain("Pause Retry route was rejected before transition ownership."));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(SceneEntryPresentationRegistry.TryCancelClaim(blockingToken), Is.True);
+
+            pauseRuntime.Emit(PopupCompletionKind.RetryRequested);
+
+            Assert.That(stageLaunchRouter.LaunchCallCount, Is.EqualTo(1));
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(pauseService.ResumeCallCount, Is.EqualTo(1));
+            Assert.That(pauseService.IsPaused, Is.False);
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(pauseRuntime.IsTopmost, Is.False);
+        }
+
+        [Test]
+        public void PauseRetry_RouterAdvancesToFailureOwnerThenThrows_DoesNotRollbackTransitionOwnership()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                new FakeScreenRuntimeFactory(),
+                presentationSource,
+                out _,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("pause-retry-router-advanced");
+            var routingFailure = new ApplicationException("Injected advanced-owner routing failure.");
+            const string failureReason = "Router owns the failed opaque cover.";
+            stageLaunchRouter.BeforeLaunch = _ =>
+            {
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryFailHoldingCover(
+                        SceneEntryPresentationRegistry.Current.Token,
+                        failureReason),
+                    Is.True);
+            };
+            stageLaunchRouter.ExceptionToThrow = routingFailure;
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(7406, "PauseRetryAdvancedOwnerSource");
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+
+            Assert.That(
+                Assert.Throws<ApplicationException>(() =>
+                    pauseRuntime.Emit(PopupCompletionKind.RetryRequested)),
+                Is.SameAs(routingFailure));
+
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(SceneEntryPresentationRegistry.Current.FailureReason, Is.EqualTo(failureReason));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.Pause));
+            Assert.That(pauseRuntime.IsTopmost, Is.True);
+        }
+
+        [Test]
+        public void PauseRetry_RoutingAcceptedWhenResumeThrows_PreservesTransitionOwnerWithoutPopupRollback()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                new FakeScreenRuntimeFactory(),
+                presentationSource,
+                out _,
+                out var popupController,
+                out _,
+                out var stageLaunchRouter);
+            var stageId = StageId.CreateOrThrow("pause-retry-resume-failure");
+            var resumeFailure = new ApplicationException("Injected accepted-route Resume failure.");
+            pauseService.BeforeResume = () => throw resumeFailure;
+
+            coordinator.Initialize();
+            presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(7407, "PauseRetryResumeFailureSource");
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+            LogAssert.Expect(LogType.Exception, new Regex("Injected accepted-route Resume failure\\."));
+
+            pauseRuntime.Emit(PopupCompletionKind.RetryRequested);
+
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.EqualTo(1));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(pauseRuntime.IsTopmost, Is.False);
+        }
+
+        [Test]
+        public void PauseMainMenu_RoutingThrows_RetainsPopupAndPauseState()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            var mainMenuRouter = new FakeMainMenuReturnRouter
+            {
+                ExceptionToThrow = new ApplicationException("Injected Pause Main Menu routing failure."),
+            };
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                new FakeScreenRuntimeFactory(),
+                presentationSource,
+                mainMenuRouter,
+                out _,
+                out var popupController,
+                out _,
+                out _);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var pauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+
+            Assert.That(
+                Assert.Throws<ApplicationException>(() =>
+                    pauseRuntime.Emit(PopupCompletionKind.MainMenuRequested)),
+                Is.SameAs(mainMenuRouter.ExceptionToThrow));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.Zero);
+            Assert.That(popupController.TopPopup?.PopupId, Is.EqualTo(PopupId.Pause));
+            Assert.That(pauseRuntime.IsTopmost, Is.True);
         }
 
         [Test]

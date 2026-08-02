@@ -239,8 +239,31 @@ namespace Game.Feature.UI.Flow
 
                 case PopupCompletionKind.RetryRequested:
                     ClearPauseReturnMode();
-                    _pauseService.Resume();
-                    LaunchStage(BuildPauseRetryRequest());
+                    try
+                    {
+                        if (!TryLaunchStage(BuildPauseRetryRequest()))
+                        {
+                            throw new InvalidOperationException(
+                                "Pause Retry route was rejected before transition ownership.");
+                        }
+                    }
+                    catch
+                    {
+                        _activeAudioTransaction?.Abort(UiFlowAudioSilenceReason.Aborted);
+                        throw;
+                    }
+
+                    try
+                    {
+                        _pauseService.Resume();
+                    }
+                    catch (Exception exception)
+                    {
+                        // The route owns the transition once TryLaunchStage returns true.
+                        // Keep that owner and prevent retained-popup rollback on Resume failure.
+                        UnityEngine.Debug.LogException(exception);
+                    }
+
                     break;
 
                 case PopupCompletionKind.MainMenuRequested:
