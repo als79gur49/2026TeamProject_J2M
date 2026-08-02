@@ -38,6 +38,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const int ExpectedRemainingChances = 2;
         private const int ExpectedMaxChances = 3;
         private const int PixelDeltaThreshold = 8;
+        private const int CanonicalRequestedWidth = 1920;
+        private const int CanonicalRequestedHeight = 1080;
+        private const int ResolutionWaitFrameLimit = 120;
+        private const FullScreenMode RequestedFullscreenMode = FullScreenMode.Windowed;
 
         private static readonly LocaleScenario[] Scenarios =
         {
@@ -52,6 +56,52 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         };
 
         [Category("Full")]
+        [Test]
+        public void ResolutionObservation_MatchingRequest_IsAccepted()
+        {
+            var observation = new ResolutionObservation(
+                CanonicalRequestedWidth,
+                CanonicalRequestedHeight,
+                FullScreenMode.Windowed,
+                CanonicalRequestedWidth,
+                CanonicalRequestedHeight,
+                FullScreenMode.Windowed,
+                waitedFrames: 2);
+
+            Assert.That(observation.MatchedRequest, Is.True);
+            Assert.That(observation.RequestedWidth, Is.EqualTo(1920));
+            Assert.That(observation.RequestedHeight, Is.EqualTo(1080));
+            Assert.That(observation.ObservedWidth, Is.EqualTo(1920));
+            Assert.That(observation.ObservedHeight, Is.EqualTo(1080));
+        }
+
+        [Category("Full")]
+        [Test]
+        public void ResolutionObservation_MismatchAfterBoundedWait_IsRejectedWithDiagnostic()
+        {
+            var observation = new ResolutionObservation(
+                CanonicalRequestedWidth,
+                CanonicalRequestedHeight,
+                FullScreenMode.Windowed,
+                2560,
+                1440,
+                FullScreenMode.Windowed,
+                ResolutionWaitFrameLimit);
+
+            Assert.That(observation.MatchedRequest, Is.False);
+            Assert.That(observation.RequestedWidth, Is.EqualTo(1920));
+            Assert.That(observation.RequestedHeight, Is.EqualTo(1080));
+            Assert.That(observation.ObservedWidth, Is.EqualTo(2560));
+            Assert.That(observation.ObservedHeight, Is.EqualTo(1440));
+            Assert.That(observation.WaitedFrames, Is.EqualTo(ResolutionWaitFrameLimit));
+            Assert.That(observation.FailureDiagnostic, Does.Contain("Requested 1920x1080"));
+            Assert.That(observation.FailureDiagnostic, Does.Contain("observed 2560x1440"));
+            Assert.That(observation.FailureDiagnostic, Does.Contain("after 120 frames"));
+            Assert.That(observation.FailureDiagnostic, Does.Contain("Windowed"));
+            Assert.That(observation.FailureDiagnostic, Does.Contain(Application.unityVersion));
+        }
+
+        [Category("Full")]
         [UnityTest]
         public IEnumerator CaptureStage0_1HudAndWorldGuideCanonicalEvidence()
         {
@@ -59,8 +109,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var outputDirectory = ReadRequiredArgument(args, "-m1aHudGuideVisualOutput");
             var expectedHead = ReadRequiredArgument(args, "-m1aHudGuideVisualHead");
             var expectedTree = ReadRequiredArgument(args, "-m1aHudGuideVisualTree");
-            var requestedWidth = ReadPositiveInt(args, "-m1aHudGuideVisualWidth", 1920);
-            var requestedHeight = ReadPositiveInt(args, "-m1aHudGuideVisualHeight", 1080);
+            var requestedWidth = ReadPositiveInt(
+                args,
+                "-m1aHudGuideVisualWidth",
+                CanonicalRequestedWidth);
+            var requestedHeight = ReadPositiveInt(
+                args,
+                "-m1aHudGuideVisualHeight",
+                CanonicalRequestedHeight);
             outputDirectory = Path.GetFullPath(outputDirectory);
             Directory.CreateDirectory(outputDirectory);
 
@@ -73,14 +129,31 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var errors = new List<string>();
             var captures = new List<LocaleCapture>();
             var wardCaptures = new List<StageHudCapture>();
+            ResolutionObservation resolutionObservation = null;
 
             try
             {
-                Screen.SetResolution(requestedWidth, requestedHeight, FullScreenMode.Windowed);
-                yield return null;
-                yield return new WaitForEndOfFrame();
-                requestedWidth = Screen.width;
-                requestedHeight = Screen.height;
+                var resolutionWait = WaitForRequestedResolution(
+                    requestedWidth,
+                    requestedHeight,
+                    RequestedFullscreenMode,
+                    value => resolutionObservation = value);
+                while (resolutionWait.MoveNext())
+                {
+                    yield return resolutionWait.Current;
+                }
+
+                if (resolutionObservation == null)
+                {
+                    throw new InvalidOperationException(
+                        "Resolution wait completed without an observation.");
+                }
+
+                if (!resolutionObservation.MatchedRequest)
+                {
+                    throw new InvalidOperationException(
+                        resolutionObservation.FailureDiagnostic);
+                }
 
                 foreach (var scenario in Scenarios)
                 {
@@ -231,6 +304,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 expectedTree,
                 requestedWidth,
                 requestedHeight,
+                resolutionObservation,
                 captures,
                 wardCaptures,
                 errors);
@@ -281,7 +355,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 if (Screen.width != requestedWidth || Screen.height != requestedHeight)
                 {
                     throw new InvalidOperationException(
-                        $"Game view is {Screen.width}x{Screen.height}; expected {requestedWidth}x{requestedHeight}.");
+                        $"Requested {requestedWidth}x{requestedHeight} in " +
+                        $"{RequestedFullscreenMode} mode but observed Screen " +
+                        $"{Screen.width}x{Screen.height} in {Screen.fullScreenMode} mode " +
+                        $"after scene stabilization. Unity {Application.unityVersion}.");
                 }
 
                 var host = FindExactlyOne<GameplaySceneHost>("GameplaySceneHost");
@@ -409,7 +486,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     !HasPixelVariation(canonicalFrame))
                 {
                     throw new InvalidOperationException(
-                        "Canonical frame is blank or has the wrong resolution.");
+                        $"Canonical frame validation failed. Requested " +
+                        $"{requestedWidth}x{requestedHeight}; observed Screen " +
+                        $"{Screen.width}x{Screen.height}; captured texture " +
+                        $"{canonicalFrame.width}x{canonicalFrame.height}; mode " +
+                        $"{Screen.fullScreenMode}; Unity {Application.unityVersion}; " +
+                        $"pixel variation={HasPixelVariation(canonicalFrame)}.");
                 }
 
                 var hudBounds = Union(
@@ -427,8 +509,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var guideFile = $"M1A_WorldGuide_{scenario.Locale}.png";
                 var hudPath = Path.Combine(outputDirectory, hudFile);
                 var guidePath = Path.Combine(outputDirectory, guideFile);
-                WriteCrop(canonicalFrame, hudBounds, 48, hudPath);
-                WriteCrop(canonicalFrame, guideBounds, 72, guidePath);
+                var hudPngDimensions = WriteCrop(canonicalFrame, hudBounds, 48, hudPath);
+                var guidePngDimensions = WriteCrop(canonicalFrame, guideBounds, 72, guidePath);
 
                 foreach (var key in new[] { "StageName", "Pause", "Chance", "Movement", "Push", "Flip" })
                 {
@@ -464,9 +546,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     hudFile,
                     FileLength(hudPath),
                     FileSha256(hudPath),
+                    hudPngDimensions.Width,
+                    hudPngDimensions.Height,
                     guideFile,
                     FileLength(guidePath),
                     FileSha256(guidePath),
+                    guidePngDimensions.Width,
+                    guidePngDimensions.Height,
                     evidence,
                     keycaps,
                     graphicIdentity,
@@ -520,7 +606,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 if (Screen.width != requestedWidth || Screen.height != requestedHeight)
                 {
                     throw new InvalidOperationException(
-                        $"Game view is {Screen.width}x{Screen.height}; expected {requestedWidth}x{requestedHeight}.");
+                        $"Requested {requestedWidth}x{requestedHeight} in " +
+                        $"{RequestedFullscreenMode} mode but observed Screen " +
+                        $"{Screen.width}x{Screen.height} in {Screen.fullScreenMode} mode " +
+                        $"after Ward scene stabilization. Unity {Application.unityVersion}.");
                 }
 
                 if (!StageLaunchContextStore.TryGetCurrent(out var currentStageId) ||
@@ -583,7 +672,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     !HasPixelVariation(canonicalFrame))
                 {
                     throw new InvalidOperationException(
-                        "Ward canonical frame is blank or has the wrong resolution.");
+                        $"Ward canonical frame validation failed. Requested " +
+                        $"{requestedWidth}x{requestedHeight}; observed Screen " +
+                        $"{Screen.width}x{Screen.height}; captured texture " +
+                        $"{canonicalFrame?.width ?? 0}x{canonicalFrame?.height ?? 0}; mode " +
+                        $"{Screen.fullScreenMode}; Unity {Application.unityVersion}; " +
+                        $"pixel variation={canonicalFrame != null && HasPixelVariation(canonicalFrame)}.");
                 }
 
                 var hudBinding = installer.HudView.GetComponent<GameplayHudLocalizationBinding>();
@@ -606,7 +700,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var hudFile = $"M3_StageHUD_{WardStageIdValue}_{scenario.Locale}.png";
                 var hudPath = Path.Combine(outputDirectory, hudFile);
-                WriteCrop(canonicalFrame, cropBounds, 72, hudPath);
+                var hudPngDimensions = WriteCrop(canonicalFrame, cropBounds, 72, hudPath);
 
                 var delta = -1L;
                 var proof = CapturePixelProof(
@@ -632,6 +726,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     hudFile,
                     FileLength(hudPath),
                     FileSha256(hudPath),
+                    hudPngDimensions.Width,
+                    hudPngDimensions.Height,
                     stageEvidence));
             }
             finally
@@ -673,6 +769,45 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     stageId,
                     ExpectedRemainingChances));
             PlayerPrefs.Save();
+        }
+
+        private static IEnumerator WaitForRequestedResolution(
+            int requestedWidth,
+            int requestedHeight,
+            FullScreenMode requestedMode,
+            Action<ResolutionObservation> onObserved)
+        {
+            Screen.SetResolution(requestedWidth, requestedHeight, requestedMode);
+            for (var waitedFrames = 1; waitedFrames <= ResolutionWaitFrameLimit; waitedFrames++)
+            {
+                yield return null;
+                yield return new WaitForEndOfFrame();
+
+                var observedWidth = Screen.width;
+                var observedHeight = Screen.height;
+                var observedMode = Screen.fullScreenMode;
+                if (observedWidth == requestedWidth && observedHeight == requestedHeight)
+                {
+                    onObserved(new ResolutionObservation(
+                        requestedWidth,
+                        requestedHeight,
+                        requestedMode,
+                        observedWidth,
+                        observedHeight,
+                        observedMode,
+                        waitedFrames));
+                    yield break;
+                }
+            }
+
+            onObserved(new ResolutionObservation(
+                requestedWidth,
+                requestedHeight,
+                requestedMode,
+                Screen.width,
+                Screen.height,
+                Screen.fullScreenMode,
+                ResolutionWaitFrameLimit));
         }
 
         private static Rect ValidateChanceFixture(ChancePanelView chanceView)
@@ -1244,8 +1379,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             string outputDirectory,
             string expectedHead,
             string expectedTree,
-            int width,
-            int height,
+            int requestedWidth,
+            int requestedHeight,
+            ResolutionObservation resolutionObservation,
             IReadOnlyList<LocaleCapture> captures,
             IReadOnlyList<StageHudCapture> wardCaptures,
             IReadOnlyCollection<string> errors)
@@ -1257,7 +1393,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Append(builder, "worktree_path", Path.GetFullPath(Path.Combine(Application.dataPath, "..")));
             Append(builder, "scene", ScenePath);
             Append(builder, "stage_id", $"{LabStageIdValue},{WardStageIdValue}");
-            Append(builder, "resolution", $"{width}x{height}");
+            Append(builder, "resolution", $"{requestedWidth}x{requestedHeight}");
+            Append(
+                builder,
+                "requested_resolution",
+                $"{requestedWidth}x{requestedHeight}");
+            Append(
+                builder,
+                "observed_screen_resolution",
+                $"{resolutionObservation.ObservedWidth}x{resolutionObservation.ObservedHeight}");
+            Append(
+                builder,
+                "capture_texture_resolution",
+                $"{requestedWidth}x{requestedHeight}");
+            Append(builder, "requested_fullscreen_mode", RequestedFullscreenMode.ToString());
+            Append(builder, "observed_fullscreen_mode", resolutionObservation.ObservedMode.ToString());
+            Append(
+                builder,
+                "resolution_waited_frames",
+                resolutionObservation.WaitedFrames.ToString(CultureInfo.InvariantCulture));
+            Append(builder, "unity_version", Application.unityVersion);
             Append(
                 builder,
                 "capture_count",
@@ -1286,9 +1441,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Append(builder, "hud_file", capture.HudFile);
                 Append(builder, "hud_bytes", capture.HudBytes.ToString(CultureInfo.InvariantCulture));
                 Append(builder, "hud_sha256", capture.HudSha256);
+                Append(builder, "hud_png_width", capture.HudPngWidth.ToString(CultureInfo.InvariantCulture));
+                Append(builder, "hud_png_height", capture.HudPngHeight.ToString(CultureInfo.InvariantCulture));
                 Append(builder, "guide_file", capture.GuideFile);
                 Append(builder, "guide_bytes", capture.GuideBytes.ToString(CultureInfo.InvariantCulture));
                 Append(builder, "guide_sha256", capture.GuideSha256);
+                Append(builder, "guide_png_width", capture.GuidePngWidth.ToString(CultureInfo.InvariantCulture));
+                Append(builder, "guide_png_height", capture.GuidePngHeight.ToString(CultureInfo.InvariantCulture));
                 Append(
                     builder,
                     "chance_count",
@@ -1338,6 +1497,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Append(builder, "hud_file", capture.HudFile);
                 Append(builder, "hud_bytes", capture.HudBytes.ToString(CultureInfo.InvariantCulture));
                 Append(builder, "hud_sha256", capture.HudSha256);
+                Append(builder, "hud_png_width", capture.HudPngWidth.ToString(CultureInfo.InvariantCulture));
+                Append(builder, "hud_png_height", capture.HudPngHeight.ToString(CultureInfo.InvariantCulture));
                 Append(builder, "missing_glyph_count", "0");
                 Append(builder, "fallback_count", "0");
                 Append(builder, "layout", "PASS");
@@ -1551,7 +1712,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
         }
 
-        private static void WriteCrop(
+        private static PngDimensions WriteCrop(
             Texture2D source,
             Rect bounds,
             int padding,
@@ -1575,11 +1736,58 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
 
                 File.WriteAllBytes(path, bytes);
+                var writtenDimensions = ReadPngDimensions(File.ReadAllBytes(path));
+                if (writtenDimensions.Width != crop.width ||
+                    writtenDimensions.Height != crop.height)
+                {
+                    throw new InvalidOperationException(
+                        $"Written PNG {Path.GetFileName(path)} is " +
+                        $"{writtenDimensions.Width}x{writtenDimensions.Height}; " +
+                        $"expected crop {crop.width}x{crop.height} from canonical " +
+                        $"{source.width}x{source.height} capture.");
+                }
+
+                return writtenDimensions;
             }
             finally
             {
                 Object.DestroyImmediate(texture);
             }
+        }
+
+        private static PngDimensions ReadPngDimensions(byte[] bytes)
+        {
+            if (bytes == null ||
+                bytes.Length < 24 ||
+                bytes[0] != 0x89 ||
+                bytes[1] != 0x50 ||
+                bytes[2] != 0x4E ||
+                bytes[3] != 0x47 ||
+                bytes[12] != 0x49 ||
+                bytes[13] != 0x48 ||
+                bytes[14] != 0x44 ||
+                bytes[15] != 0x52)
+            {
+                throw new InvalidOperationException("Written capture is not a valid PNG IHDR stream.");
+            }
+
+            var width = ReadBigEndianInt32(bytes, 16);
+            var height = ReadBigEndianInt32(bytes, 20);
+            if (width <= 0 || height <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"Written PNG dimensions are invalid: {width}x{height}.");
+            }
+
+            return new PngDimensions(width, height);
+        }
+
+        private static int ReadBigEndianInt32(byte[] bytes, int offset)
+        {
+            return (bytes[offset] << 24) |
+                   (bytes[offset + 1] << 16) |
+                   (bytes[offset + 2] << 8) |
+                   bytes[offset + 3];
         }
 
         private static Color32[] ReadCropPixels(Texture2D source, RectInt crop)
@@ -1826,9 +2034,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 string hudFile,
                 long hudBytes,
                 string hudSha256,
+                int hudPngWidth,
+                int hudPngHeight,
                 string guideFile,
                 long guideBytes,
                 string guideSha256,
+                int guidePngWidth,
+                int guidePngHeight,
                 IReadOnlyDictionary<string, TargetEvidence> targets,
                 KeycapEvidence keycaps,
                 string graphicIdentityHash,
@@ -1838,9 +2050,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 HudFile = hudFile;
                 HudBytes = hudBytes;
                 HudSha256 = hudSha256;
+                HudPngWidth = hudPngWidth;
+                HudPngHeight = hudPngHeight;
                 GuideFile = guideFile;
                 GuideBytes = guideBytes;
                 GuideSha256 = guideSha256;
+                GuidePngWidth = guidePngWidth;
+                GuidePngHeight = guidePngHeight;
                 Targets = targets;
                 Keycaps = keycaps;
                 GraphicIdentityHash = graphicIdentityHash;
@@ -1851,13 +2067,54 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             public string HudFile { get; }
             public long HudBytes { get; }
             public string HudSha256 { get; }
+            public int HudPngWidth { get; }
+            public int HudPngHeight { get; }
             public string GuideFile { get; }
             public long GuideBytes { get; }
             public string GuideSha256 { get; }
+            public int GuidePngWidth { get; }
+            public int GuidePngHeight { get; }
             public IReadOnlyDictionary<string, TargetEvidence> Targets { get; }
             public KeycapEvidence Keycaps { get; }
             public string GraphicIdentityHash { get; }
             public string SemanticFixtureHash { get; }
+        }
+
+        private sealed class ResolutionObservation
+        {
+            public ResolutionObservation(
+                int requestedWidth,
+                int requestedHeight,
+                FullScreenMode requestedMode,
+                int observedWidth,
+                int observedHeight,
+                FullScreenMode observedMode,
+                int waitedFrames)
+            {
+                RequestedWidth = requestedWidth;
+                RequestedHeight = requestedHeight;
+                RequestedMode = requestedMode;
+                ObservedWidth = observedWidth;
+                ObservedHeight = observedHeight;
+                ObservedMode = observedMode;
+                WaitedFrames = waitedFrames;
+            }
+
+            public int RequestedWidth { get; }
+            public int RequestedHeight { get; }
+            public FullScreenMode RequestedMode { get; }
+            public int ObservedWidth { get; }
+            public int ObservedHeight { get; }
+            public FullScreenMode ObservedMode { get; }
+            public int WaitedFrames { get; }
+
+            public bool MatchedRequest =>
+                ObservedWidth == RequestedWidth && ObservedHeight == RequestedHeight;
+
+            public string FailureDiagnostic =>
+                $"Requested {RequestedWidth}x{RequestedHeight} in {RequestedMode} mode but " +
+                $"observed {ObservedWidth}x{ObservedHeight} in {ObservedMode} mode after " +
+                $"{WaitedFrames} frames. Unity {Application.unityVersion}.";
         }
 
         private sealed class StageHudCapture
@@ -1868,6 +2125,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 string hudFile,
                 long hudBytes,
                 string hudSha256,
+                int hudPngWidth,
+                int hudPngHeight,
                 TargetEvidence stageName)
             {
                 StageId = stageId;
@@ -1875,6 +2134,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 HudFile = hudFile;
                 HudBytes = hudBytes;
                 HudSha256 = hudSha256;
+                HudPngWidth = hudPngWidth;
+                HudPngHeight = hudPngHeight;
                 StageName = stageName;
             }
 
@@ -1883,7 +2144,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             public string HudFile { get; }
             public long HudBytes { get; }
             public string HudSha256 { get; }
+            public int HudPngWidth { get; }
+            public int HudPngHeight { get; }
             public TargetEvidence StageName { get; }
+        }
+
+        private readonly struct PngDimensions
+        {
+            public PngDimensions(int width, int height)
+            {
+                Width = width;
+                Height = height;
+            }
+
+            public int Width { get; }
+            public int Height { get; }
         }
 
         private readonly struct PlayerPrefsBackup
