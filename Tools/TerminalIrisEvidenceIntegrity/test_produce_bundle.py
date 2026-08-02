@@ -2,11 +2,70 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 import produce_bundle
 
 
 class ProduceBundleUnitTests(unittest.TestCase):
+    def test_bundle_parent_defaults_to_repository_test_logs(self) -> None:
+        with mock.patch.dict(
+            "os.environ",
+            {produce_bundle.EVIDENCE_BUNDLE_ROOT_ENV: ""},
+        ):
+            self.assertEqual(
+                produce_bundle.resolve_bundle_parent(),
+                produce_bundle.DEFAULT_BUNDLE_PARENT,
+            )
+
+    def test_bundle_parent_accepts_external_root_override(self) -> None:
+        external_root = "/mnt/d/J2M/evidence/terminal-transition/bundles"
+        with mock.patch.dict(
+            "os.environ",
+            {produce_bundle.EVIDENCE_BUNDLE_ROOT_ENV: external_root},
+        ):
+            self.assertEqual(
+                produce_bundle.resolve_bundle_parent(),
+                produce_bundle.Path(external_root).resolve(),
+            )
+
+    def test_player_visual_runner_supports_external_build_root(self) -> None:
+        runner = (produce_bundle.PROJECT_ROOT / "run_tests.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(
+            runner.count("TERMINAL_IRIS_QUALITY_PLAYER_BUILD_ROOT"),
+            4,
+        )
+
+    def test_result_origin_root_matches_runner_override_precedence(self) -> None:
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "CODEX_VALIDATION_ROOT": "/mnt/d/J2M/evidence/validation",
+                "TEST_RESULTS_ROOT": "",
+            },
+        ):
+            self.assertEqual(
+                produce_bundle.resolve_test_results_root(),
+                produce_bundle.Path(
+                    "/mnt/d/J2M/evidence/validation/test-results"
+                ).resolve(),
+            )
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "CODEX_VALIDATION_ROOT": "/ignored",
+                "TEST_RESULTS_ROOT": "/mnt/d/J2M/evidence/explicit-results",
+            },
+        ):
+            self.assertEqual(
+                produce_bundle.resolve_test_results_root(),
+                produce_bundle.Path(
+                    "/mnt/d/J2M/evidence/explicit-results"
+                ).resolve(),
+            )
+
     def test_player_visual_lane_has_no_unrelated_test_result_origins(self) -> None:
         lane = produce_bundle.Lane(
             "player-visual-quality",

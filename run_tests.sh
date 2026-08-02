@@ -3351,6 +3351,7 @@ run_terminal_iris_player_visual_quality() {
     local artifact_hash
     local player_result_path
     local player_exit_aggregate=0
+    local quality_build_key
     local -a build_command
     local -a run_matrix
     local -a performance_args
@@ -3358,7 +3359,12 @@ run_terminal_iris_player_visual_quality() {
     if [ -z "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
         prepare_terminal_iris_quality_output
     fi
-    build_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/PlayerBuild"
+    if [ -n "${TERMINAL_IRIS_QUALITY_PLAYER_BUILD_ROOT:-}" ]; then
+        quality_build_key="${TERMINAL_IRIS_EVIDENCE_RUN_ID:-manual}"
+        build_dir="$TERMINAL_IRIS_QUALITY_PLAYER_BUILD_ROOT/$quality_build_key/PlayerBuild"
+    else
+        build_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/PlayerBuild"
+    fi
     player_path="$build_dir/VectorQuake-TerminalIrisVisualQuality.exe"
     build_log="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-build.log"
     build_dir_win="$(wslpath -w "$build_dir")"
@@ -4026,6 +4032,7 @@ run_terminal_iris_player_visual_quality() {
     local artifact_hash
     local player_result_path
     local player_exit_aggregate=0
+    local quality_build_key
     local -a build_command
     local -a run_matrix
     local -a performance_args
@@ -4033,7 +4040,12 @@ run_terminal_iris_player_visual_quality() {
     if [ -z "$TERMINAL_IRIS_QUALITY_OUTPUT_DIR" ]; then
         prepare_terminal_iris_quality_output
     fi
-    build_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/PlayerBuild"
+    if [ -n "${TERMINAL_IRIS_QUALITY_PLAYER_BUILD_ROOT:-}" ]; then
+        quality_build_key="${TERMINAL_IRIS_EVIDENCE_RUN_ID:-manual}"
+        build_dir="$TERMINAL_IRIS_QUALITY_PLAYER_BUILD_ROOT/$quality_build_key/PlayerBuild"
+    else
+        build_dir="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/PlayerBuild"
+    fi
     player_path="$build_dir/VectorQuake-TerminalIrisVisualQuality.exe"
     build_log="$TERMINAL_IRIS_QUALITY_OUTPUT_DIR/player-build.log"
     build_dir_win="$(wslpath -w "$build_dir")"

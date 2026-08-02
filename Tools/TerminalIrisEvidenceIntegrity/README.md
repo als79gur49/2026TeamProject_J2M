@@ -14,10 +14,19 @@ Produce and close a fresh bundle:
 Tools/TerminalIrisEvidenceIntegrity/run_bundle.sh --produce
 ```
 
-The producer writes only under:
+By default, the producer writes under:
 
 ```text
 TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId>/
+```
+
+Storage-policy or CI runs can keep the same behavior while selecting an
+external parent directory:
+
+```bash
+TERMINAL_IRIS_EVIDENCE_BUNDLE_ROOT=/mnt/d/J2M/evidence/terminal-transition/bundles \
+  TERMINAL_IRIS_QUALITY_PLAYER_BUILD_ROOT=/mnt/d/J2M/builds/terminal-transition/evidence \
+  Tools/TerminalIrisEvidenceIntegrity/run_bundle.sh --produce
 ```
 
 It records the source freeze, runs the exact 12-lane matrix, writes

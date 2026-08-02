@@ -21,10 +21,11 @@ import xml.etree.ElementTree as ET
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
 CONTRACT_PATH = SCRIPT_DIR / "evidence-contract-v1.json"
-BUNDLE_PARENT = (
+DEFAULT_BUNDLE_PARENT = (
     PROJECT_ROOT
     / "TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Bundles"
 )
+EVIDENCE_BUNDLE_ROOT_ENV = "TERMINAL_IRIS_EVIDENCE_BUNDLE_ROOT"
 
 SOURCE_PATHS = [
     "Assets/_Features/UI/UI_Composition/Runtime/GameplayTerminalFocusTargetSource.cs",
@@ -77,6 +78,23 @@ class Lane:
     command_id: str
     argv: tuple[str, ...]
     kind: str = "unity-test-framework"
+
+
+def resolve_bundle_parent() -> Path:
+    override = os.environ.get(EVIDENCE_BUNDLE_ROOT_ENV, "").strip()
+    if not override:
+        return DEFAULT_BUNDLE_PARENT
+    return Path(override).expanduser().resolve()
+
+
+def resolve_test_results_root() -> Path:
+    explicit = os.environ.get("TEST_RESULTS_ROOT", "").strip()
+    if explicit:
+        return Path(explicit).expanduser().resolve()
+    validation_root = os.environ.get("CODEX_VALIDATION_ROOT", "").strip()
+    if validation_root:
+        return Path(validation_root).expanduser().resolve() / "test-results"
+    return PROJECT_ROOT / "TestResults"
 
 
 LANES = [
@@ -305,7 +323,7 @@ def copy_fresh(
 
 
 def result_origins(lane: Lane) -> list[tuple[Path, str]]:
-    root = PROJECT_ROOT / "TestResults"
+    root = resolve_test_results_root()
     if lane.lane_id == "architecture":
         return [
             (root / "wsl-dotnet-full.log", "dotnet.log"),
@@ -736,7 +754,7 @@ def main() -> int:
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     bundle_id = f"TICEI-{timestamp}"
-    bundle_root = BUNDLE_PARENT / bundle_id
+    bundle_root = resolve_bundle_parent() / bundle_id
     if bundle_root.exists():
         print(f"bundle already exists: {bundle_root}", file=sys.stderr)
         return 2
