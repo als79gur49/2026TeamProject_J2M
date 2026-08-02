@@ -130,9 +130,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var captures = new List<LocaleCapture>();
             var wardCaptures = new List<StageHudCapture>();
             ResolutionObservation resolutionObservation = null;
+            GameViewResolutionScope gameViewResolutionScope = null;
 
             try
             {
+                gameViewResolutionScope = GameViewResolutionScope.Apply(
+                    requestedWidth,
+                    requestedHeight);
                 var resolutionWait = WaitForRequestedResolution(
                     requestedWidth,
                     requestedHeight,
@@ -286,6 +290,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
             finally
             {
+                gameViewResolutionScope?.Dispose();
                 StageLaunchContextStore.Clear();
                 EditorDirectPlayContextStore.Clear();
                 EditorDirectPlayContextStore.ClearTempDirectPlaySave();
@@ -2115,6 +2120,181 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 $"Requested {RequestedWidth}x{RequestedHeight} in {RequestedMode} mode but " +
                 $"observed {ObservedWidth}x{ObservedHeight} in {ObservedMode} mode after " +
                 $"{WaitedFrames} frames. Unity {Application.unityVersion}.";
+        }
+
+        private sealed class GameViewResolutionScope : IDisposable
+        {
+            private const string TemporarySizeLabel = "M1A Visual Evidence";
+            private const BindingFlags InstanceFlags =
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            private const BindingFlags StaticFlags =
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic |
+                BindingFlags.FlattenHierarchy;
+
+            private readonly EditorWindow _gameView;
+            private readonly PropertyInfo _selectedSizeIndex;
+            private readonly object _sizeGroup;
+            private readonly MethodInfo _removeCustomSize;
+            private readonly int _previousSizeIndex;
+            private readonly int _temporaryCustomIndex;
+            private bool _disposed;
+
+            private GameViewResolutionScope(
+                EditorWindow gameView,
+                PropertyInfo selectedSizeIndex,
+                object sizeGroup,
+                MethodInfo removeCustomSize,
+                int previousSizeIndex,
+                int temporaryCustomIndex)
+            {
+                _gameView = gameView;
+                _selectedSizeIndex = selectedSizeIndex;
+                _sizeGroup = sizeGroup;
+                _removeCustomSize = removeCustomSize;
+                _previousSizeIndex = previousSizeIndex;
+                _temporaryCustomIndex = temporaryCustomIndex;
+            }
+
+            public static GameViewResolutionScope Apply(int requestedWidth, int requestedHeight)
+            {
+                var editorAssembly = typeof(Editor).Assembly;
+                var gameViewType = RequireType(editorAssembly, "UnityEditor.GameView");
+                var gameViewSizesType = RequireType(editorAssembly, "UnityEditor.GameViewSizes");
+                var gameViewSizeType = RequireType(editorAssembly, "UnityEditor.GameViewSize");
+                var gameViewSizeKindType = RequireType(
+                    editorAssembly,
+                    "UnityEditor.GameViewSizeType");
+                var gameView = EditorWindow.GetWindow(gameViewType);
+                var selectedSizeIndex = RequireProperty(
+                    gameViewType,
+                    "selectedSizeIndex",
+                    InstanceFlags);
+                var previousSizeIndex = (int)selectedSizeIndex.GetValue(gameView);
+                var sizesInstance = RequireProperty(
+                    gameViewSizesType,
+                    "instance",
+                    StaticFlags).GetValue(null);
+                var sizeGroup = RequireProperty(
+                    gameViewSizesType,
+                    "currentGroup",
+                    InstanceFlags).GetValue(sizesInstance);
+                var sizeGroupType = sizeGroup.GetType();
+                var getTotalCount = RequireMethod(sizeGroupType, "GetTotalCount");
+                var getBuiltinCount = RequireMethod(sizeGroupType, "GetBuiltinCount");
+                var getCustomCount = RequireMethod(sizeGroupType, "GetCustomCount");
+                var getGameViewSize = RequireMethod(sizeGroupType, "GetGameViewSize");
+                var addCustomSize = RequireMethod(sizeGroupType, "AddCustomSize");
+                var removeCustomSize = RequireMethod(sizeGroupType, "RemoveCustomSize");
+                var widthProperty = RequireProperty(gameViewSizeType, "width", InstanceFlags);
+                var heightProperty = RequireProperty(gameViewSizeType, "height", InstanceFlags);
+                var sizeKindProperty = RequireProperty(gameViewSizeType, "sizeType", InstanceFlags);
+                var fixedResolution = Enum.Parse(gameViewSizeKindType, "FixedResolution");
+
+                var targetSizeIndex = -1;
+                var totalCount = (int)getTotalCount.Invoke(sizeGroup, null);
+                for (var index = 0; index < totalCount; index++)
+                {
+                    var size = getGameViewSize.Invoke(sizeGroup, new object[] { index });
+                    if ((int)widthProperty.GetValue(size) == requestedWidth &&
+                        (int)heightProperty.GetValue(size) == requestedHeight &&
+                        Equals(sizeKindProperty.GetValue(size), fixedResolution))
+                    {
+                        targetSizeIndex = index;
+                        break;
+                    }
+                }
+
+                var temporaryCustomIndex = -1;
+                if (targetSizeIndex < 0)
+                {
+                    temporaryCustomIndex = (int)getCustomCount.Invoke(sizeGroup, null);
+                    var constructor = gameViewSizeType.GetConstructor(
+                        InstanceFlags,
+                        binder: null,
+                        types: new[]
+                        {
+                            gameViewSizeKindType,
+                            typeof(int),
+                            typeof(int),
+                            typeof(string),
+                        },
+                        modifiers: null);
+                    if (constructor == null)
+                    {
+                        throw new MissingMethodException(
+                            gameViewSizeType.FullName,
+                            ".ctor(GameViewSizeType, int, int, string)");
+                    }
+
+                    var temporarySize = constructor.Invoke(new[]
+                    {
+                        fixedResolution,
+                        (object)requestedWidth,
+                        requestedHeight,
+                        TemporarySizeLabel,
+                    });
+                    addCustomSize.Invoke(sizeGroup, new[] { temporarySize });
+                    targetSizeIndex =
+                        (int)getBuiltinCount.Invoke(sizeGroup, null) + temporaryCustomIndex;
+                }
+
+                var scope = new GameViewResolutionScope(
+                    gameView,
+                    selectedSizeIndex,
+                    sizeGroup,
+                    removeCustomSize,
+                    previousSizeIndex,
+                    temporaryCustomIndex);
+                try
+                {
+                    selectedSizeIndex.SetValue(gameView, targetSizeIndex);
+                    gameView.Repaint();
+                    return scope;
+                }
+                catch
+                {
+                    scope.Dispose();
+                    throw;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _selectedSizeIndex.SetValue(_gameView, _previousSizeIndex);
+                _gameView.Repaint();
+                if (_temporaryCustomIndex >= 0)
+                {
+                    _removeCustomSize.Invoke(
+                        _sizeGroup,
+                        new object[] { _temporaryCustomIndex });
+                }
+            }
+
+            private static Type RequireType(Assembly assembly, string typeName)
+            {
+                return assembly.GetType(typeName, throwOnError: true);
+            }
+
+            private static PropertyInfo RequireProperty(
+                Type type,
+                string propertyName,
+                BindingFlags bindingFlags)
+            {
+                return type.GetProperty(propertyName, bindingFlags) ??
+                       throw new MissingMemberException(type.FullName, propertyName);
+            }
+
+            private static MethodInfo RequireMethod(Type type, string methodName)
+            {
+                return type.GetMethod(methodName, InstanceFlags) ??
+                       throw new MissingMethodException(type.FullName, methodName);
+            }
         }
 
         private sealed class StageHudCapture
