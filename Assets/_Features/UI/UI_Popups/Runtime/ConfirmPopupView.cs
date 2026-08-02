@@ -246,6 +246,13 @@ namespace Game.Feature.UI.Popups
         {
             ApplyRootVisibility();
 
+            var warningText = _viewModel != null ? _viewModel.WarningText : string.Empty;
+            if (_warningLabel != null)
+            {
+                _warningLabel.text = warningText;
+                _warningLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(warningText));
+            }
+
             if (_viewModel == null)
             {
                 return;
@@ -259,11 +266,6 @@ namespace Game.Feature.UI.Popups
             if (_bodyLabel != null)
             {
                 _bodyLabel.text = _viewModel.BodyText;
-            }
-
-            if (_warningLabel != null)
-            {
-                _warningLabel.text = _viewModel.WarningText;
             }
 
             if (_confirmButtonLabel != null)
