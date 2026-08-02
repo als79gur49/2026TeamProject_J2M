@@ -1,3 +1,4 @@
+using System;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
@@ -213,6 +214,232 @@ namespace Game.Feature.UI.Tests
             Assert.That(controller.HandleBackRequested(), Is.True);
             Assert.That(controller.PopupCount, Is.EqualTo(0));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.True);
+        }
+
+        [Test]
+        public void RetryCompletionCallbackThrows_RestoresRetainedPopupRuntime()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            var dispatchCount = 0;
+            Assert.That(
+                controller.Push(
+                    new PopupRequest(
+                        PopupId.Pause,
+                        PausePopupPayload.Default,
+                        _ =>
+                        {
+                            dispatchCount++;
+                            if (dispatchCount == 1)
+                            {
+                                throw new InvalidOperationException("Injected retry routing failure.");
+                            }
+                        }),
+                    out var popupId),
+                Is.True);
+            var runtime = runtimeFactory.CreatedRuntimes[0].Runtime;
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Emit(PopupCompletionKind.RetryRequested));
+
+            Assert.That(exception.Message, Is.EqualTo("Injected retry routing failure."));
+            Assert.That(controller.PopupCount, Is.EqualTo(1));
+            Assert.That(controller.TopPopup.Value.InstanceId, Is.EqualTo(popupId));
+            Assert.That(runtime.IsDisposed, Is.False);
+            Assert.That(runtime.IsTopmost, Is.True);
+
+            runtime.Emit(PopupCompletionKind.RetryRequested);
+
+            Assert.That(dispatchCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void MainMenuCompletionCallbackThrows_RestoresRetainedPopupRuntime()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            var dispatchCount = 0;
+            Assert.That(
+                controller.Push(
+                    new PopupRequest(
+                        PopupId.Pause,
+                        PausePopupPayload.Default,
+                        completion =>
+                        {
+                            if (completion.CompletionKind !=
+                                PopupCompletionKind.MainMenuRequested)
+                            {
+                                return;
+                            }
+
+                            dispatchCount++;
+                            if (dispatchCount == 1)
+                            {
+                                throw new InvalidOperationException(
+                                    "Injected Main Menu routing failure.");
+                            }
+                        }),
+                    out var popupId),
+                Is.True);
+            var runtime = runtimeFactory.CreatedRuntimes[0].Runtime;
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Emit(PopupCompletionKind.MainMenuRequested));
+
+            Assert.That(
+                exception.Message,
+                Is.EqualTo("Injected Main Menu routing failure."));
+            Assert.That(controller.PopupCount, Is.EqualTo(1));
+            Assert.That(controller.TopPopup.Value.InstanceId, Is.EqualTo(popupId));
+            Assert.That(runtime.IsDisposed, Is.False);
+            Assert.That(runtime.IsTopmost, Is.True);
+
+            runtime.Emit(PopupCompletionKind.MainMenuRequested);
+
+            Assert.That(dispatchCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void RoutingThrow_WithNewPopupPushed_PreservesNewPopupAsTopmost()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            var stateChangedCount = 0;
+            controller.StateChanged += () => stateChangedCount++;
+            PopupInstanceId newerPopupId = default;
+            Assert.That(
+                controller.Push(
+                    new PopupRequest(
+                        PopupId.Pause,
+                        PausePopupPayload.Default,
+                        completion =>
+                        {
+                            if (completion.CompletionKind !=
+                                PopupCompletionKind.RetryRequested)
+                            {
+                                return;
+                            }
+
+                            controller.Push(
+                                new PopupRequest(
+                                    PopupId.Confirm,
+                                    new ConfirmPopupPayload(
+                                        "Confirm",
+                                        "Body",
+                                        "Yes",
+                                        "No",
+                                        false)),
+                                out newerPopupId);
+                            throw new InvalidOperationException(
+                                "Injected routing failure after popup push.");
+                        }),
+                    out var retainedPopupId),
+                Is.True);
+            var retainedRuntime = runtimeFactory.CreatedRuntimes[0].Runtime;
+
+            Assert.Throws<InvalidOperationException>(() =>
+                retainedRuntime.Emit(PopupCompletionKind.RetryRequested));
+
+            Assert.That(controller.PopupCount, Is.EqualTo(2));
+            Assert.That(
+                controller.TopPopup.Value.InstanceId,
+                Is.EqualTo(newerPopupId));
+            Assert.That(
+                controller.TopPopup.Value.InstanceId,
+                Is.Not.EqualTo(retainedPopupId));
+            Assert.That(retainedRuntime.IsTopmost, Is.False);
+            Assert.That(
+                runtimeFactory.CreatedRuntimes[1].Runtime.IsTopmost,
+                Is.True);
+            Assert.That(stateChangedCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void CallbackClosesRetainedPopupThenThrows_DoesNotResurrectPopup()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            PopupInstanceId popupId = default;
+            Assert.That(
+                controller.Push(
+                    new PopupRequest(
+                        PopupId.Pause,
+                        PausePopupPayload.Default,
+                        completion =>
+                        {
+                            if (completion.CompletionKind !=
+                                PopupCompletionKind.RetryRequested)
+                            {
+                                return;
+                            }
+
+                            Assert.That(
+                                controller.Close(
+                                    popupId,
+                                    PopupCloseReason.Programmatic),
+                                Is.True);
+                            throw new InvalidOperationException(
+                                "Injected failure after retained popup close.");
+                        }),
+                    out popupId),
+                Is.True);
+            var runtime = runtimeFactory.CreatedRuntimes[0].Runtime;
+
+            Assert.Throws<InvalidOperationException>(() =>
+                runtime.Emit(PopupCompletionKind.RetryRequested));
+
+            Assert.That(controller.PopupCount, Is.Zero);
+            Assert.That(runtime.IsDisposed, Is.True);
+            Assert.DoesNotThrow(() =>
+                runtime.Emit(PopupCompletionKind.RetryRequested));
+        }
+
+        [Test]
+        public void CallbackCloseAllThenThrows_DoesNotRestoreDisposedRuntime()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            Assert.That(
+                controller.Push(
+                    new PopupRequest(
+                        PopupId.Pause,
+                        PausePopupPayload.Default,
+                        completion =>
+                        {
+                            if (completion.CompletionKind !=
+                                PopupCompletionKind.MainMenuRequested)
+                            {
+                                return;
+                            }
+
+                            controller.CloseAll(PopupCloseReason.ScreenTransition);
+                            throw new InvalidOperationException(
+                                "Injected failure after CloseAll.");
+                        }),
+                    out _),
+                Is.True);
+            var retainedRuntime = runtimeFactory.CreatedRuntimes[0].Runtime;
+            Assert.That(
+                controller.Push(
+                    new PopupRequest(
+                        PopupId.Confirm,
+                        new ConfirmPopupPayload(
+                            "Confirm",
+                            "Body",
+                            "Yes",
+                            "No",
+                            false)),
+                    out _),
+                Is.True);
+            Assert.That(controller.CloseTop(PopupCloseReason.Programmatic), Is.True);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                retainedRuntime.Emit(PopupCompletionKind.MainMenuRequested));
+
+            Assert.That(controller.PopupCount, Is.Zero);
+            Assert.That(retainedRuntime.IsDisposed, Is.True);
+            Assert.DoesNotThrow(() =>
+                retainedRuntime.Emit(PopupCompletionKind.MainMenuRequested));
         }
 
         [Test]
