@@ -312,6 +312,350 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void DeleteSlotInvalidatedIntro_ReleasesMatchingOpaqueOwner()
+        {
+            var keys = TestKeys.Create(nameof(DeleteSlotInvalidatedIntro_ReleasesMatchingOpaqueOwner));
+            var clip = LoadTestClip();
+            var definition = CreateDefinition(
+                clip,
+                CreateFadeSettings(enter: 0f, reveal: 0f, exit: 0f));
+            var root = new GameObject(
+                nameof(DeleteSlotInvalidatedIntro_ReleasesMatchingOpaqueOwner),
+                typeof(RectTransform));
+            try
+            {
+                var rawSaveStore = new SaveSlotStore(keys.SaveKey);
+                var handoffStore = new ControllableCampaignLaunchHandoffStore();
+                var activeStorage = new PlayerPrefsActiveSlotStorage(keys.ActiveKey);
+                var saveStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                    rawSaveStore,
+                    activeStorage,
+                    handoffStore);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "main-menu-new-game",
+                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay),
+                    SceneTransitionIntent.GameplayEntry);
+                saveStore.SaveSlot(CreateSlot(1, stageId));
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        stageId,
+                        request.NavigationKind,
+                        request.Source,
+                        out _),
+                    Is.True);
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var player = new CinematicFlowCoordinator(
+                    definition,
+                    view,
+                    root.AddComponent<CinematicAudioFocusController>());
+                var route = new RecordingStageLaunchRouter();
+                var router = new CinematicStageLaunchRouter(
+                    route,
+                    saveStore,
+                    handoffStore,
+                    player);
+
+                router.Launch(request);
+                view.NotifyPreparedFirstFrame();
+                view.RequestSkip();
+                view.AdvanceFadeForTesting(1f);
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+
+                saveStore.DeleteSlot(1);
+                Assert.That(view.AcknowledgeOpaqueRenderForTesting(), Is.True);
+
+                var canvasGroup = root.GetComponent<CanvasGroup>();
+                Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(
+                    CinematicOpaqueHandoffRegistry.Current.Phase,
+                    Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+                Assert.That(root.activeSelf, Is.False);
+                Assert.That(canvasGroup.alpha, Is.Zero);
+                Assert.That(canvasGroup.blocksRaycasts, Is.False);
+                Assert.That(canvasGroup.interactable, Is.False);
+                Assert.That(route.AttemptCount, Is.Zero);
+                Assert.That(rawSaveStore.LoadSlot(1).IsEmpty, Is.True);
+                Assert.That(
+                    CinematicOpaqueHandoffRegistry.TryClaim(
+                        SceneTransitionIntent.CinematicToMainMenu,
+                        TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                        Color.black,
+                        () => { },
+                        out _),
+                    Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+                keys.Clear();
+            }
+        }
+
+        [Test]
+        public void ClearAllInvalidatedIntro_ReleasesMatchingOpaqueOwner()
+        {
+            var keys = TestKeys.Create(nameof(ClearAllInvalidatedIntro_ReleasesMatchingOpaqueOwner));
+            var clip = LoadTestClip();
+            var definition = CreateDefinition(
+                clip,
+                CreateFadeSettings(enter: 0f, reveal: 0f, exit: 0f));
+            var root = new GameObject(
+                nameof(ClearAllInvalidatedIntro_ReleasesMatchingOpaqueOwner),
+                typeof(RectTransform));
+            try
+            {
+                var rawSaveStore = new SaveSlotStore(keys.SaveKey);
+                var handoffStore = new ControllableCampaignLaunchHandoffStore();
+                var activeStorage = new PlayerPrefsActiveSlotStorage(keys.ActiveKey);
+                var saveStore = new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                    rawSaveStore,
+                    activeStorage,
+                    handoffStore);
+                var stageId = StageId.CreateOrThrow("stage-0-1");
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Continue,
+                    "main-menu-new-game",
+                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay),
+                    SceneTransitionIntent.GameplayEntry);
+                saveStore.SaveSlot(CreateSlot(1, stageId));
+                Assert.That(
+                    handoffStore.TryBegin(
+                        1,
+                        stageId,
+                        request.NavigationKind,
+                        request.Source,
+                        out _),
+                    Is.True);
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                var player = new CinematicFlowCoordinator(
+                    definition,
+                    view,
+                    root.AddComponent<CinematicAudioFocusController>());
+                var route = new RecordingStageLaunchRouter();
+                var router = new CinematicStageLaunchRouter(
+                    route,
+                    saveStore,
+                    handoffStore,
+                    player);
+
+                router.Launch(request);
+                view.NotifyPreparedFirstFrame();
+                view.RequestSkip();
+                view.AdvanceFadeForTesting(1f);
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+
+                saveStore.ClearAll();
+                Assert.That(view.AcknowledgeOpaqueRenderForTesting(), Is.True);
+
+                var canvasGroup = root.GetComponent<CanvasGroup>();
+                Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(
+                    CinematicOpaqueHandoffRegistry.Current.Phase,
+                    Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+                Assert.That(root.activeSelf, Is.False);
+                Assert.That(canvasGroup.alpha, Is.Zero);
+                Assert.That(canvasGroup.blocksRaycasts, Is.False);
+                Assert.That(canvasGroup.interactable, Is.False);
+                Assert.That(route.AttemptCount, Is.Zero);
+                Assert.That(rawSaveStore.LoadSlot(1).IsEmpty, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+                keys.Clear();
+            }
+        }
+
+        [Test]
+        public void CancelledOpaqueRelease_ReleasesExactlyOnce()
+        {
+            var releaseCount = 0;
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => releaseCount++,
+                    out var token),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(token),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    token,
+                    SceneTransitionIntent.CinematicToMainMenu),
+                Is.False);
+            Assert.That(releaseCount, Is.Zero);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    token,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    token,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+
+            Assert.That(releaseCount, Is.EqualTo(1));
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.Current.Phase,
+                Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+        }
+
+        [Test]
+        public void CancelledOpaqueRelease_DoesNotReleaseNewerOpaqueOwner()
+        {
+            var oldReleaseCount = 0;
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => oldReleaseCount++,
+                    out var oldToken),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    oldToken,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.True);
+            var newerReleaseCount = 0;
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => newerReleaseCount++,
+                    out var newerToken),
+                Is.True);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    oldToken,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+
+            Assert.That(oldReleaseCount, Is.EqualTo(1));
+            Assert.That(newerReleaseCount, Is.Zero);
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+            Assert.That(CinematicOpaqueHandoffRegistry.Current.Token, Is.EqualTo(newerToken));
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.Current.Phase,
+                Is.EqualTo(CinematicOpaqueHandoffPhase.Claimed));
+        }
+
+        [Test]
+        public void CancelledOpaqueRelease_PreservesPersistentCoverTransferredOwner()
+        {
+            var cancellationResult = true;
+            var releaseCount = 0;
+            CinematicOpaqueHandoffToken token = default;
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () =>
+                    {
+                        cancellationResult =
+                            CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                                token,
+                                SceneTransitionIntent.CinematicToGameplay);
+                        releaseCount++;
+                    },
+                    out token),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(token),
+                Is.True);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryTransferToPersistentCover(token),
+                Is.True);
+
+            Assert.That(cancellationResult, Is.False);
+            Assert.That(releaseCount, Is.EqualTo(1));
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.Current.Phase,
+                Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+        }
+
+        [Test]
+        public void CancelledOpaqueRelease_PreservesFailedHoldingOpaqueOwner()
+        {
+            var releaseCount = 0;
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => releaseCount++,
+                    out var token),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                    token,
+                    "Injected transfer failure."),
+                Is.True);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    token,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+
+            Assert.That(releaseCount, Is.Zero);
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.Current.Phase,
+                Is.EqualTo(CinematicOpaqueHandoffPhase.FailedHoldingOpaque));
+        }
+
+        [Test]
+        public void CancelledOpaqueReleaseCallbackThrows_MovesRegistryToFailedHoldingOpaque()
+        {
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => throw new InvalidOperationException("Injected opaque release failure."),
+                    out var token),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(token),
+                Is.True);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    token,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.Current.Phase,
+                Is.EqualTo(CinematicOpaqueHandoffPhase.FailedHoldingOpaque));
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.Current.FailureReason,
+                Is.EqualTo("Injected opaque release failure."));
+        }
+
+        [Test]
         public void StaleHandoffCompletion_AllowsSubsequentGameplayLaunch()
         {
             using var harness = new CinematicLaunchHarness(

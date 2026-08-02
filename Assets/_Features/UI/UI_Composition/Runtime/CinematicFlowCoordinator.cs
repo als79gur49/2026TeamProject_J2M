@@ -21,12 +21,20 @@ namespace Game.Feature.UI.Composition
         void RequestSkip();
     }
 
-    public sealed class CinematicFlowCoordinator : ISlotCinematicPlayer
+    internal interface ICinematicOpaqueHandoffCancellationOwner
+    {
+        bool TryReleaseCancelledIntroOpaqueOwner();
+    }
+
+    public sealed class CinematicFlowCoordinator :
+        ISlotCinematicPlayer,
+        ICinematicOpaqueHandoffCancellationOwner
     {
         private readonly CinematicAudioFocusController _audioFocusController;
         private readonly SlotCinematicDefinition _definition;
         private readonly CinematicVideoOverlayView _overlayView;
         private bool _completionDispatched;
+        private CinematicOpaqueHandoffToken _opaqueHandoffToken;
 
         public CinematicFlowCoordinator(
             SlotCinematicDefinition definition,
@@ -57,6 +65,22 @@ namespace Game.Feature.UI.Composition
         public void RequestSkip()
         {
             _overlayView.RequestSkip();
+        }
+
+        bool ICinematicOpaqueHandoffCancellationOwner
+            .TryReleaseCancelledIntroOpaqueOwner()
+        {
+            var token = _opaqueHandoffToken;
+            if (!token.IsValid ||
+                !CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                    token,
+                    SceneTransitionIntent.CinematicToGameplay))
+            {
+                return false;
+            }
+
+            _opaqueHandoffToken = default;
+            return true;
         }
 
         private void Play(
@@ -101,6 +125,8 @@ namespace Game.Feature.UI.Composition
                     "The cinematic opaque handoff session is already owned."));
                 return;
             }
+
+            _opaqueHandoffToken = handoffToken;
 
             _overlayView.Play(
                 clip,
@@ -267,6 +293,45 @@ namespace Game.Feature.UI.Composition
             Publish(
                 CinematicOpaqueHandoffPhase.PersistentCoverRendered,
                 string.Empty);
+            try
+            {
+                _releaseOpaqueOwner.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Publish(
+                    CinematicOpaqueHandoffPhase.FailedHoldingOpaque,
+                    exception.Message);
+                return false;
+            }
+
+            _releaseOpaqueOwner = null;
+            _current = new CinematicOpaqueHandoffSnapshot(
+                false,
+                _current.Token,
+                _current.Intent,
+                CinematicOpaqueHandoffPhase.Released,
+                _current.SourceSceneGeneration,
+                _current.OpaqueColor,
+                string.Empty);
+            return true;
+        }
+
+        internal static bool TryReleaseCancelledOpaqueOwner(
+            CinematicOpaqueHandoffToken token,
+            SceneTransitionIntent expectedIntent)
+        {
+            if (!Matches(token) ||
+                _current.Intent != expectedIntent ||
+                expectedIntent != SceneTransitionIntent.CinematicToGameplay ||
+                (_current.Phase != CinematicOpaqueHandoffPhase.Claimed &&
+                 _current.Phase !=
+                 CinematicOpaqueHandoffPhase.CinematicOpaqueRendered) ||
+                _releaseOpaqueOwner == null)
+            {
+                return false;
+            }
+
             try
             {
                 _releaseOpaqueOwner.Invoke();

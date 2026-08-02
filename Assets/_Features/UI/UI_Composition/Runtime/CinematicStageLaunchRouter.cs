@@ -9,6 +9,8 @@ namespace Game.Feature.UI.Composition
     {
         private readonly IStageLaunchRouter _inner;
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
+        private readonly ICinematicOpaqueHandoffCancellationOwner
+            _opaqueHandoffCancellationOwner;
         private readonly ISlotCinematicPlayer _player;
         private readonly SlotCinematicProgressStore _progressStore;
 
@@ -31,6 +33,8 @@ namespace Game.Feature.UI.Composition
             _progressStore = progressStore ?? throw new ArgumentNullException(nameof(progressStore));
             _launchHandoffStore = launchHandoffStore ?? throw new ArgumentNullException(nameof(launchHandoffStore));
             _player = player ?? throw new ArgumentNullException(nameof(player));
+            _opaqueHandoffCancellationOwner =
+                player as ICinematicOpaqueHandoffCancellationOwner;
         }
 
         public void Launch(StageNavigationRequest request)
@@ -93,6 +97,8 @@ namespace Game.Feature.UI.Composition
                         TryCancelCapturedIntroClaimIfStillClaimed(
                             entryToken,
                             request.StageId);
+                        _opaqueHandoffCancellationOwner?
+                            .TryReleaseCancelledIntroOpaqueOwner();
                         return;
                     }
 
