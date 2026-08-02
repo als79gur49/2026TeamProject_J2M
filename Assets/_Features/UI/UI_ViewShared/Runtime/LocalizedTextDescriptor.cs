@@ -977,21 +977,22 @@ namespace Game.Feature.UI.ViewShared
             var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
             var stageEntries = new[]
             {
-                new KeyValuePair<string, string>("stage.stage-0-1.display_name", "Lab-01"),
-                new KeyValuePair<string, string>("stage.stage-0-2.display_name", "Lab-02"),
-                new KeyValuePair<string, string>("stage.stage-1-1.display_name", "Lobby-01"),
-                new KeyValuePair<string, string>("stage.stage-2-1.display_name", "Ward[A]-01"),
-                new KeyValuePair<string, string>("stage.stage-2-2.display_name", "Ward[A]-02"),
-                new KeyValuePair<string, string>("stage.stage-3-1.display_name", "Ward[B]-01"),
-                new KeyValuePair<string, string>("stage.stage-3-2.display_name", "Ward[B]-02"),
-                new KeyValuePair<string, string>("stage.stage-4-1.display_name", "Morgue-01"),
-                new KeyValuePair<string, string>("stage.stage-4-2.display_name", "Morgue-02"),
+                (Key: "stage.stage-0-1.display_name", English: "Lab-01", Korean: "연구실-01"),
+                (Key: "stage.stage-0-2.display_name", English: "Lab-02", Korean: "연구실-02"),
+                (Key: "stage.stage-1-1.display_name", English: "Lobby-01", Korean: "로비-01"),
+                (Key: "stage.stage-2-1.display_name", English: "Ward[A]-01", Korean: "병동[A]-01"),
+                (Key: "stage.stage-2-2.display_name", English: "Ward[A]-02", Korean: "병동[A]-02"),
+                (Key: "stage.stage-3-1.display_name", English: "Ward[B]-01", Korean: "병동[B]-01"),
+                (Key: "stage.stage-3-2.display_name", English: "Ward[B]-02", Korean: "병동[B]-02"),
+                (Key: "stage.stage-4-1.display_name", English: "Morgue-01", Korean: "영안실-01"),
+                (Key: "stage.stage-4-2.display_name", English: "Morgue-02", Korean: "영안실-02"),
+                (Key: "stage.legacy-stage-5-1.display_name", English: "Legacy 5-1", Korean: "Legacy 5-1"),
             };
 
             for (var i = 0; i < stageEntries.Length; i++)
             {
-                english.Add(stageEntries[i].Key, stageEntries[i].Value);
-                korean.Add(stageEntries[i].Key, stageEntries[i].Value);
+                english.Add(stageEntries[i].Key, stageEntries[i].English);
+                korean.Add(stageEntries[i].Key, stageEntries[i].Korean);
             }
         }
 

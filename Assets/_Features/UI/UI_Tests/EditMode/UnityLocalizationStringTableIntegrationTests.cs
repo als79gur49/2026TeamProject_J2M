@@ -709,6 +709,57 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PackageFreeStageFallback_MatchesCompleteLocaleTablesAndPreservesUnknownKeys()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection(StageDisplayNameKeys.Table);
+            var englishTable = collection?.GetTable(PackageFreeLocalizedTextResolver.DefaultLocaleCode) as StringTable;
+            var koreanTable = collection?.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
+            Assert.That(englishTable, Is.Not.Null);
+            Assert.That(koreanTable, Is.Not.Null);
+
+            var fallbackResolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var unityResolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            var stageKeys = StageDisplayNameEntries
+                .Select(entry => entry.Key)
+                .Append(LegacyStageDisplayNameKey)
+                .ToArray();
+            Assert.That(stageKeys, Has.Length.EqualTo(10));
+
+            var englishFallbackValues = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var key in stageKeys)
+            {
+                var descriptor = StageDisplayNameTextDescriptors.Create(key);
+                var expected = englishTable.GetEntry(key)?.LocalizedValue;
+                Assert.That(expected, Is.Not.Null.And.Not.Empty, $"en-US table missing {key}");
+                Assert.That(fallbackResolver.Resolve(descriptor), Is.EqualTo(expected), $"en-US fallback {key}");
+                Assert.That(unityResolver.Resolve(descriptor), Is.EqualTo(expected), $"en-US String Table {key}");
+                englishFallbackValues.Add(key, fallbackResolver.Resolve(descriptor));
+            }
+
+            var unknown = StageDisplayNameTextDescriptors.Create("stage.unknown.display_name");
+            Assert.That(fallbackResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+            Assert.That(unityResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+
+            fallbackResolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(unityResolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
+            foreach (var key in stageKeys)
+            {
+                var descriptor = StageDisplayNameTextDescriptors.Create(key);
+                var expected = koreanTable.GetEntry(key)?.LocalizedValue;
+                Assert.That(expected, Is.Not.Null.And.Not.Empty, $"ko-KR table missing {key}");
+                Assert.That(fallbackResolver.Resolve(descriptor), Is.EqualTo(expected), $"ko-KR fallback {key}");
+                Assert.That(unityResolver.Resolve(descriptor), Is.EqualTo(expected), $"ko-KR String Table {key}");
+                if (!string.Equals(expected, englishTable.GetEntry(key)?.LocalizedValue, StringComparison.Ordinal))
+                {
+                    Assert.That(fallbackResolver.Resolve(descriptor), Is.Not.EqualTo(englishFallbackValues[key]), key);
+                }
+            }
+
+            Assert.That(fallbackResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+            Assert.That(unityResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+        }
+
+        [Test]
         public void UnityStringTableTextResolver_ResolvesSettingsAudioSmartStringArguments()
         {
             using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
