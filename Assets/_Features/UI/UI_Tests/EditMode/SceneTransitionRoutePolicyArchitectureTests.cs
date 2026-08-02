@@ -399,6 +399,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokeFunction, Does.Contain("wait_for_terminal_player_exit"));
             Assert.That(smokeFunction, Does.Contain("terminate_terminal_player_processes"));
             Assert.That(
+                smokeFunction,
+                Does.Contain(
+                    "TERMINAL_PLAYER_BUILD_SMOKE:PASS.*requestedResolution=${TERMINAL_PLAYER_SMOKE_WIDTH}"));
+            Assert.That(
                 probe,
                 Does.Contain("UnityEngine.Application.runInBackground = true"));
             Assert.That(
@@ -409,6 +413,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(probe, Does.Contain("SetForegroundWindow"));
             Assert.That(probe, Does.Contain("InputSystem.DisableDevice"));
             Assert.That(probe, Does.Contain("RunDefeatSmoke"));
+            Assert.That(
+                probe,
+                Does.Contain("defeat destination resolution mismatch"));
+            Assert.That(probe, Does.Contain("private void LateUpdate()"));
+            Assert.That(probe, Does.Contain("MaintainRequestedResolution();"));
             Assert.That(probe, Does.Contain("RunMainMenuGameplaySmoke"));
             Assert.That(probe, Does.Contain("RunPauseRetrySmoke"));
             Assert.That(probe, Does.Contain("RunLevelFailedRestartContinuation"));

@@ -4540,6 +4540,13 @@ run_terminal_player_build_smoke() {
                 tail -n 160 "$runtime_log" || true
                 return 1
             fi
+            if ! rg -q \
+                    "TERMINAL_PLAYER_BUILD_SMOKE:PASS.*requestedResolution=${TERMINAL_PLAYER_SMOKE_WIDTH}x${TERMINAL_PLAYER_SMOKE_HEIGHT} actualResolution=${TERMINAL_PLAYER_SMOKE_WIDTH}x${TERMINAL_PLAYER_SMOKE_HEIGHT}" \
+                    "$runtime_log"; then
+                echo "ERROR: Built Player scenario=$scenario_label input=$input_mode attempt=$attempt resolution validation failed."
+                tail -n 160 "$runtime_log" || true
+                return 1
+            fi
             runtime_input_logs+=("$runtime_log")
         done
     done
