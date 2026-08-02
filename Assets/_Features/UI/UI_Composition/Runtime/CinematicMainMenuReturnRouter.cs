@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Game.Feature.Stages;
 using Game.Feature.UI.Flow;
+using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
@@ -100,8 +101,18 @@ namespace Game.Feature.UI.Composition
                         return;
                     }
 
-                    _progressStore.MarkOutroPlayed(slotNumber);
-                    _inner.ReturnToMainMenu(SceneTransitionIntent.CinematicToMainMenu);
+                    try
+                    {
+                        _inner.ReturnToMainMenu(SceneTransitionIntent.CinematicToMainMenu);
+                        _progressStore.MarkOutroPlayed(slotNumber);
+                    }
+                    catch (Exception exception)
+                    {
+                        TryFailCurrentClaimIfStillClaimed(
+                            entryToken,
+                            BuildRoutingFailureMessage(exception));
+                        Debug.LogException(exception);
+                    }
                 });
             }
             catch
@@ -109,6 +120,31 @@ namespace Game.Feature.UI.Composition
                 MainMenuEntryPresentationRegistry.TryCancelClaim(entryToken);
                 throw;
             }
+        }
+
+        private static void TryFailCurrentClaimIfStillClaimed(
+            MainMenuEntrySessionToken token,
+            string failureReason)
+        {
+            var current = MainMenuEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != token ||
+                current.TransitionIntent != SceneTransitionIntent.CinematicToMainMenu ||
+                current.Phase != SceneEntryPresentationPhase.Claimed)
+            {
+                return;
+            }
+
+            MainMenuEntryPresentationRegistry.TryFailHoldingCover(token, failureReason);
+        }
+
+        private static string BuildRoutingFailureMessage(Exception exception)
+        {
+            const string message =
+                "Outro completed, but Main Menu routing failed while holding its opaque owner.";
+            return exception == null || string.IsNullOrWhiteSpace(exception.Message)
+                ? message
+                : $"{message} {exception.Message}";
         }
     }
 }

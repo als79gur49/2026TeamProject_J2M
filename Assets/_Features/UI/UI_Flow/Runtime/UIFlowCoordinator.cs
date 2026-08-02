@@ -588,23 +588,61 @@ namespace Game.Feature.UI.Flow
                 return false;
             }
 
+            var entryClaimed = false;
+            var entryToken = default(SceneEntrySessionToken);
             if (IsCanonicalGameplayEntrySessionRoute(routePolicy) &&
                 !SceneEntryPresentationRegistry.TryClaim(
                     routePolicy.Intent,
                     request.StageId,
                     TerminalSessionRegistry.Authority.CurrentSceneGeneration,
-                    out _))
+                    out entryToken))
             {
                 return false;
             }
+
+            entryClaimed = entryToken.IsValid;
 
             if (routePolicy.Intent != SceneTransitionIntent.ManualRetry)
             {
                 ClosePopupsForScreenTransition();
             }
 
-            _stageLaunchRouter.Launch(request);
+            try
+            {
+                _stageLaunchRouter.Launch(request);
+            }
+            catch
+            {
+                if (entryClaimed)
+                {
+                    TryCancelCurrentClaimIfStillClaimed(
+                        entryToken,
+                        routePolicy.Intent,
+                        request.StageId);
+                }
+
+                throw;
+            }
+
             return true;
+        }
+
+        private static void TryCancelCurrentClaimIfStillClaimed(
+            SceneEntrySessionToken token,
+            SceneTransitionIntent transitionIntent,
+            StageId destinationStageId)
+        {
+            var current = SceneEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != token ||
+                current.TransitionIntent != transitionIntent ||
+                !current.DestinationStageId.Equals(destinationStageId) ||
+                current.Phase != SceneEntryPresentationPhase.Claimed)
+            {
+                return;
+            }
+
+            SceneEntryPresentationRegistry.TryCancelClaim(token);
         }
 
         public bool TryReturnToMainMenu()

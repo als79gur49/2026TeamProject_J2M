@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Stages;
@@ -737,6 +738,106 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_CanonicalStageLaunchThrow_CancelsMatchingClaimAndAllowsRetry()
+        {
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                sceneHandle: 7501,
+                sceneName: "CanonicalLaunchThrowSource");
+            var failure = new ApplicationException("Injected synchronous launch failure.");
+            var router = new ControlledStageLaunchRouter
+            {
+                ExceptionToThrow = failure,
+            };
+            using var coordinator = CreateCoordinator(router);
+            var request = CreateCanonicalGameplayEntryRequest("claim-rollback-retry");
+
+            var thrown = Assert.Throws<ApplicationException>(() =>
+                coordinator.TryLaunchStage(request));
+
+            Assert.That(thrown, Is.SameAs(failure));
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+
+            router.ExceptionToThrow = null;
+            Assert.That(coordinator.TryLaunchStage(request), Is.True);
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_CanonicalStageLaunchThrow_PreservesRouterFailedHoldingCover()
+        {
+            TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                sceneHandle: 7502,
+                sceneName: "CanonicalLaunchFailHoldingSource");
+            const string routerFailure = "Router already owns the opaque failure.";
+            var router = new ControlledStageLaunchRouter
+            {
+                BeforeThrow = () =>
+                {
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryFailHoldingCover(
+                            SceneEntryPresentationRegistry.Current.Token,
+                            routerFailure),
+                        Is.True);
+                },
+                ExceptionToThrow = new ApplicationException("Injected router failure."),
+            };
+            using var coordinator = CreateCoordinator(router);
+
+            Assert.Throws<ApplicationException>(() =>
+                coordinator.TryLaunchStage(
+                    CreateCanonicalGameplayEntryRequest("preserve-fail-holding")));
+
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.FailureReason,
+                Is.EqualTo(routerFailure));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_CanonicalStageLaunchThrow_DoesNotCancelNewerClaim()
+        {
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                sceneHandle: 7503,
+                sceneName: "CanonicalLaunchStaleTokenSource");
+            var request = CreateCanonicalGameplayEntryRequest("stale-token-isolation");
+            var newerToken = default(SceneEntrySessionToken);
+            var router = new ControlledStageLaunchRouter
+            {
+                BeforeThrow = () =>
+                {
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryCancelClaim(
+                            SceneEntryPresentationRegistry.Current.Token),
+                        Is.True);
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryClaim(
+                            SceneTransitionIntent.GameplayEntry,
+                            request.StageId,
+                            generation,
+                            out newerToken),
+                        Is.True);
+                },
+                ExceptionToThrow = new ApplicationException("Injected stale-token failure."),
+            };
+            using var coordinator = CreateCoordinator(router);
+
+            Assert.Throws<ApplicationException>(() => coordinator.TryLaunchStage(request));
+
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.EqualTo(newerToken));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
+        }
+
+        [Test]
         public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_ResultOnly()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -1006,6 +1107,50 @@ namespace Game.Feature.UI.Tests
                 out popupController,
                 out _,
                 out stageLaunchRouter);
+        }
+
+        private static UIFlowCoordinator CreateCoordinator(IStageLaunchRouter stageLaunchRouter)
+        {
+            return new UIFlowCoordinator(
+                new ScreenController(new FakeScreenRuntimeFactory()),
+                new PopupController(new FakePopupRuntimeFactory()),
+                new UIBlockPolicy(),
+                new FakeGameplayPauseService(),
+                new ManualGameplayUiPresentationSource(),
+                new RecordingUiAudioPort(),
+                stageLaunchRouter,
+                new FakeMainMenuReturnRouter());
+        }
+
+        private static StageNavigationRequest CreateCanonicalGameplayEntryRequest(string source)
+        {
+            return new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-0-1"),
+                StageNavigationKind.Continue,
+                source,
+                transitionIntent: SceneTransitionIntent.GameplayEntry);
+        }
+
+        private sealed class ControlledStageLaunchRouter : IStageLaunchRouter
+        {
+            private readonly List<StageNavigationRequest> _requests = new();
+
+            public IReadOnlyList<StageNavigationRequest> Requests => _requests;
+
+            public Action BeforeThrow { get; set; }
+
+            public Exception ExceptionToThrow { get; set; }
+
+            public void Launch(StageNavigationRequest request)
+            {
+                BeforeThrow?.Invoke();
+                if (ExceptionToThrow != null)
+                {
+                    throw ExceptionToThrow;
+                }
+
+                _requests.Add(request);
+            }
         }
 
         private static UIFlowCoordinator CreateCoordinator(
