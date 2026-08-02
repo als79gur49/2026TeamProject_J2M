@@ -280,124 +280,138 @@ namespace Game.Feature.UI.Composition
             }
 
             var entrySession = SceneEntryPresentationRegistry.Current;
-            if (routePolicy.ImplementsSceneTransitionSession &&
-                routePolicy.DestinationKind == SceneTransitionDestinationKind.Gameplay)
-            {
-                if (routePolicy.Intent == SceneTransitionIntent.StageAdvance)
-                {
-                    if (!entrySession.IsActive ||
-                        entrySession.TransitionIntent != routePolicy.Intent ||
-                        !entrySession.DestinationStageId.Equals(request.StageId))
-                    {
-                        _guard.Complete(transitionId);
-                        throw new InvalidOperationException(
-                            "Next-stage transition requires the matching persistent SceneEntryPresentationSession claim.");
-                    }
-                }
-                else if (!entrySession.IsActive)
-                {
-                    if (!SceneEntryPresentationRegistry.TryClaim(
-                            routePolicy.Intent,
-                            request.StageId,
-                            TerminalSessionRegistry.Authority.CurrentSceneGeneration,
-                            launchContext?.Source ?? request.Source,
-                            launchContext?.SlotNumber ?? 0,
-                            launchContext?.Token ?? Guid.Empty,
-                            out _))
-                    {
-                        _guard.Complete(transitionId);
-                        throw new InvalidOperationException(
-                            $"Retry route {routePolicy.Intent} could not claim gameplay entry session.");
-                    }
-
-                    entrySession = SceneEntryPresentationRegistry.Current;
-                }
-
-                if (entrySession.TransitionIntent != routePolicy.Intent ||
-                    !entrySession.DestinationStageId.Equals(request.StageId) ||
-                    !SceneEntryPresentationRegistry.TryBindTransition(
-                        entrySession.Token,
-                        transitionId))
-                {
-                    _guard.Complete(transitionId);
-                    throw new InvalidOperationException(
-                        $"Gameplay entry route {routePolicy.Intent} requires its matching current session.");
-                }
-
-                GameplayEntryTransitionVisualSnapshotRegistry.Capture(
-                    entrySession.Token,
-                    routePolicy,
-                    routePolicy.Intent == SceneTransitionIntent.StageAdvance
-                        ? ResultTransitionVisualSnapshotRegistry
-                            .RequireCurrent()
-                            .Dim
-                            .OpaqueColor
-                        : null,
-                    routePolicy.Intent == SceneTransitionIntent.CinematicToGameplay
-                        ? cinematicHandoff.OpaqueColor
-                        : null);
-            }
-
-            var mainMenuEntrySession =
-                MainMenuEntryPresentationRegistry.Current;
-            if (routePolicy.ImplementsSceneTransitionSession &&
-                routePolicy.DestinationKind ==
-                SceneTransitionDestinationKind.MainMenu)
-            {
-                if (!mainMenuEntrySession.IsActive)
-                {
-                    if (!MainMenuEntryPresentationRegistry.TryClaim(
-                            routePolicy.Intent,
-                            TerminalSessionRegistry.Authority
-                                .CurrentSceneGeneration,
-                            request.Source,
-                            out _))
-                    {
-                        _guard.Complete(transitionId);
-                        throw new InvalidOperationException(
-                            $"Main Menu route {routePolicy.Intent} could not claim its destination session.");
-                    }
-
-                    mainMenuEntrySession =
-                        MainMenuEntryPresentationRegistry.Current;
-                }
-
-                if (mainMenuEntrySession.TransitionIntent !=
-                    routePolicy.Intent ||
-                    !MainMenuEntryPresentationRegistry.TryBindTransition(
-                        mainMenuEntrySession.Token,
-                        transitionId))
-                {
-                    _guard.Complete(transitionId);
-                    throw new InvalidOperationException(
-                        $"Main Menu route {routePolicy.Intent} requires its matching current session.");
-                }
-
-                MainMenuTransitionVisualPolicy.Capture(
-                    mainMenuEntrySession.Token,
-                    routePolicy,
-                    routePolicy.Intent ==
-                    SceneTransitionIntent.CinematicToMainMenu
-                        ? cinematicHandoff.OpaqueColor
-                        : null);
-            }
-
-            var terminalToken = request.TransitionHint.TerminalToken;
-            if (terminalToken.IsValid &&
-                !TerminalSessionRegistry.Authority.TryBindTransition(
-                    terminalToken,
-                    transitionId,
-                    TerminalSessionRegistry.Current.DestinationKind))
-            {
-                _guard.Complete(transitionId);
-                throw new InvalidOperationException(
-                    $"Scene transition {transitionId} could not bind terminal token {terminalToken}.");
-            }
-
+            var mainMenuEntrySession = MainMenuEntryPresentationRegistry.Current;
+            var gameplayVisualCaptured = false;
+            var gameplayTransitionBound = false;
+            var mainMenuVisualCaptured = false;
+            var mainMenuTransitionBound = false;
             _currentCampaignLaunchToken = campaignLaunchToken;
             _currentLaunchContext = null;
             try
             {
+                if (routePolicy.ImplementsSceneTransitionSession &&
+                    routePolicy.DestinationKind ==
+                    SceneTransitionDestinationKind.Gameplay)
+                {
+                    if (routePolicy.Intent == SceneTransitionIntent.StageAdvance)
+                    {
+                        if (!entrySession.IsActive ||
+                            entrySession.TransitionIntent != routePolicy.Intent ||
+                            !entrySession.DestinationStageId.Equals(request.StageId))
+                        {
+                            throw new InvalidOperationException(
+                                "Next-stage transition requires the matching persistent SceneEntryPresentationSession claim.");
+                        }
+                    }
+                    else if (!entrySession.IsActive)
+                    {
+                        if (!SceneEntryPresentationRegistry.TryClaim(
+                                routePolicy.Intent,
+                                request.StageId,
+                                TerminalSessionRegistry.Authority
+                                    .CurrentSceneGeneration,
+                                launchContext?.Source ?? request.Source,
+                                launchContext?.SlotNumber ?? 0,
+                                launchContext?.Token ?? Guid.Empty,
+                                out _))
+                        {
+                            throw new InvalidOperationException(
+                                $"Retry route {routePolicy.Intent} could not claim gameplay entry session.");
+                        }
+
+                        entrySession = SceneEntryPresentationRegistry.Current;
+                    }
+
+                    if (entrySession.TransitionIntent != routePolicy.Intent ||
+                        !entrySession.DestinationStageId.Equals(request.StageId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Gameplay entry route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    GameplayEntryTransitionVisualSnapshotRegistry.Capture(
+                        entrySession.Token,
+                        routePolicy,
+                        routePolicy.Intent == SceneTransitionIntent.StageAdvance
+                            ? ResultTransitionVisualSnapshotRegistry
+                                .RequireCurrent()
+                                .Dim
+                                .OpaqueColor
+                            : null,
+                        routePolicy.Intent ==
+                        SceneTransitionIntent.CinematicToGameplay
+                            ? cinematicHandoff.OpaqueColor
+                            : null);
+                    gameplayVisualCaptured = true;
+                    if (!SceneEntryPresentationRegistry.TryBindTransition(
+                            entrySession.Token,
+                            transitionId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Gameplay entry route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    gameplayTransitionBound = true;
+                }
+
+                if (routePolicy.ImplementsSceneTransitionSession &&
+                    routePolicy.DestinationKind ==
+                    SceneTransitionDestinationKind.MainMenu)
+                {
+                    if (!mainMenuEntrySession.IsActive)
+                    {
+                        if (!MainMenuEntryPresentationRegistry.TryClaim(
+                                routePolicy.Intent,
+                                TerminalSessionRegistry.Authority
+                                    .CurrentSceneGeneration,
+                                request.Source,
+                                out _))
+                        {
+                            throw new InvalidOperationException(
+                                $"Main Menu route {routePolicy.Intent} could not claim its destination session.");
+                        }
+
+                        mainMenuEntrySession =
+                            MainMenuEntryPresentationRegistry.Current;
+                    }
+
+                    if (mainMenuEntrySession.TransitionIntent !=
+                        routePolicy.Intent)
+                    {
+                        throw new InvalidOperationException(
+                            $"Main Menu route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    MainMenuTransitionVisualPolicy.Capture(
+                        mainMenuEntrySession.Token,
+                        routePolicy,
+                        routePolicy.Intent ==
+                        SceneTransitionIntent.CinematicToMainMenu
+                            ? cinematicHandoff.OpaqueColor
+                            : null);
+                    mainMenuVisualCaptured = true;
+                    if (!MainMenuEntryPresentationRegistry.TryBindTransition(
+                            mainMenuEntrySession.Token,
+                            transitionId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Main Menu route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    mainMenuTransitionBound = true;
+                }
+
+                var terminalToken = request.TransitionHint.TerminalToken;
+                if (terminalToken.IsValid &&
+                    !TerminalSessionRegistry.Authority.TryBindTransition(
+                        terminalToken,
+                        transitionId,
+                        TerminalSessionRegistry.Current.DestinationKind))
+                {
+                    throw new InvalidOperationException(
+                        $"Scene transition {transitionId} could not bind terminal token {terminalToken}.");
+                }
+
                 beforeLoad?.Invoke();
                 _currentLaunchContext = launchContext;
                 var shell = EnsureOverlayShell();
@@ -420,13 +434,21 @@ namespace Game.Feature.UI.Composition
             }
             catch
             {
-                ClearFailedCampaignLaunch(_currentLaunchContext, campaignLaunchToken);
-                var holdingCover = TryHoldSceneEntryCoverOnFailure(
-                                       request,
-                                       "Scene transition failed before its scene load routine started.") ||
-                                   TryHoldMainMenuEntryCoverOnFailure(
-                                       request,
-                                       "Scene transition failed before its scene load routine started.");
+                ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
+                const string failureReason =
+                    "Scene transition failed before its scene load routine started.";
+                var holdingCover = HandleSceneEntryPreCoroutineFailure(
+                                       entrySession,
+                                       transitionId,
+                                       gameplayVisualCaptured,
+                                       gameplayTransitionBound,
+                                       failureReason) ||
+                                   HandleMainMenuEntryPreCoroutineFailure(
+                                       mainMenuEntrySession,
+                                       transitionId,
+                                       mainMenuVisualCaptured,
+                                       mainMenuTransitionBound,
+                                       failureReason);
                 if (!holdingCover)
                 {
                     _guard.Complete(transitionId);
@@ -1545,6 +1567,147 @@ namespace Game.Feature.UI.Composition
             instance.HideAll();
             _overlayShell = instance;
             return _overlayShell;
+        }
+
+        private bool HandleSceneEntryPreCoroutineFailure(
+            SceneEntryPresentationSnapshot expected,
+            long transitionId,
+            bool visualCaptured,
+            bool transitionBound,
+            string failureReason)
+        {
+            if (!expected.IsActive)
+            {
+                return false;
+            }
+
+            var current = SceneEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != expected.Token ||
+                current.TransitionIntent != expected.TransitionIntent ||
+                !current.DestinationStageId.Equals(expected.DestinationStageId))
+            {
+                if (visualCaptured)
+                {
+                    GameplayEntryTransitionVisualSnapshotRegistry.Clear(
+                        expected.Token);
+                }
+
+                return false;
+            }
+
+            if (current.Phase == SceneEntryPresentationPhase.Claimed)
+            {
+                if (visualCaptured)
+                {
+                    GameplayEntryTransitionVisualSnapshotRegistry.Clear(
+                        expected.Token);
+                }
+
+                SceneEntryPresentationRegistry.TryCancelClaim(expected.Token);
+                return false;
+            }
+
+            if (!transitionBound || current.TransitionId != transitionId)
+            {
+                return false;
+            }
+
+            if (current.Phase !=
+                SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return true;
+            }
+
+            if (visualCaptured)
+            {
+                try
+                {
+                    var overlay = EnsureOverlay();
+                    overlay.RequestOpaqueTakeover(
+                        GameplayEntryTransitionVisualSnapshotRegistry
+                            .Require(expected.Token, expected.TransitionIntent)
+                            .HoldColor);
+                    overlay.HideVisual();
+                }
+                catch (Exception overlayFailure)
+                {
+                    Debug.LogException(overlayFailure, this);
+                }
+            }
+
+            return SceneEntryPresentationRegistry.TryFailHoldingCover(
+                expected.Token,
+                failureReason);
+        }
+
+        private bool HandleMainMenuEntryPreCoroutineFailure(
+            MainMenuEntryPresentationSnapshot expected,
+            long transitionId,
+            bool visualCaptured,
+            bool transitionBound,
+            string failureReason)
+        {
+            if (!expected.IsActive)
+            {
+                return false;
+            }
+
+            var current = MainMenuEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != expected.Token ||
+                current.TransitionIntent != expected.TransitionIntent)
+            {
+                if (visualCaptured)
+                {
+                    MainMenuTransitionVisualPolicy.Clear(expected.Token);
+                }
+
+                return false;
+            }
+
+            if (current.Phase == SceneEntryPresentationPhase.Claimed)
+            {
+                if (visualCaptured)
+                {
+                    MainMenuTransitionVisualPolicy.Clear(expected.Token);
+                }
+
+                MainMenuEntryPresentationRegistry.TryCancelClaim(expected.Token);
+                return false;
+            }
+
+            if (!transitionBound || current.TransitionId != transitionId)
+            {
+                return false;
+            }
+
+            if (current.Phase !=
+                SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return true;
+            }
+
+            if (visualCaptured)
+            {
+                try
+                {
+                    var overlay = EnsureOverlay();
+                    overlay.RequestOpaqueTakeover(
+                        MainMenuTransitionVisualPolicy
+                            .Require(expected.Token, expected.TransitionIntent)
+                            .HoldColor);
+                    overlay.HideVisual();
+                }
+                catch (Exception overlayFailure)
+                {
+                    Debug.LogException(overlayFailure, this);
+                }
+            }
+
+            return MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                expected.Token,
+                failureReason);
         }
 
         private bool TryHoldSceneEntryCoverOnFailure(
