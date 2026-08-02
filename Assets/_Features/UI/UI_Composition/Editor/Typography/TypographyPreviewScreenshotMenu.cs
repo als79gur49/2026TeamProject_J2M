@@ -127,6 +127,19 @@ namespace Game.Feature.UI.Composition.Editor
                 saveSlotDiagnosticResult.ThrowIfFailed();
             }
 
+            if (string.Equals(localeCode, "en-US", StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(targetName))
+            {
+                var confirmPopupResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                    TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                        .Where(target => string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal)),
+                    new[] { localeCode },
+                    System.IO.Path.Combine(outputDirectory, "Diagnostics"),
+                    options);
+                LogResult(confirmPopupResult);
+                confirmPopupResult.ThrowIfFailed();
+            }
+
             if (!string.Equals(localeCode, "ko-KR", StringComparison.Ordinal))
             {
                 return;
