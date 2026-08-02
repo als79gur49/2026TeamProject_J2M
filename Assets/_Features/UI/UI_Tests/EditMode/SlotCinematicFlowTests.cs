@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 using UnityEngine.Video;
 
@@ -464,14 +466,17 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void RouteRejected_DoesNotWriteIntroProgressAndClearsMatchingHandoff()
+        public void RouteRejected_TerminalizesMatchingIntroClaimWithoutUnhandledCallbackException()
         {
             using var harness = new CinematicLaunchHarness(
-                nameof(RouteRejected_DoesNotWriteIntroProgressAndClearsMatchingHandoff));
+                nameof(RouteRejected_TerminalizesMatchingIntroClaimWithoutUnhandledCallbackException));
             harness.Route.RejectOnLaunch = true;
             harness.StartCinematic();
+            LogAssert.Expect(
+                LogType.Exception,
+                new Regex("Injected immediate route rejection\\."));
 
-            Assert.Throws<ImmediateRouteRejectedException>(() =>
+            Assert.DoesNotThrow(() =>
                 harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
             Assert.DoesNotThrow(() =>
                 harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Cancelled));
@@ -480,23 +485,92 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
             Assert.That(harness.HandoffStore.ClearSuccessCount, Is.EqualTo(1));
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
         }
 
         [Test]
-        public void RouteThrows_DoesNotWriteIntroProgressAndClearsMatchingHandoff()
+        public void RouteThrows_TerminalizesMatchingIntroClaimWithoutUnhandledCallbackException()
         {
             using var harness = new CinematicLaunchHarness(
-                nameof(RouteThrows_DoesNotWriteIntroProgressAndClearsMatchingHandoff));
+                nameof(RouteThrows_TerminalizesMatchingIntroClaimWithoutUnhandledCallbackException));
             harness.Route.ExceptionToThrow = new ApplicationException("Injected route exception.");
             harness.StartCinematic();
+            LogAssert.Expect(LogType.Exception, new Regex("Injected route exception\\."));
 
-            Assert.Throws<ApplicationException>(() =>
+            Assert.DoesNotThrow(() =>
                 harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped));
 
             Assert.That(harness.Route.AttemptCount, Is.EqualTo(1));
             Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
             Assert.That(harness.HandoffStore.ClearSuccessCount, Is.EqualTo(1));
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.FailureReason,
+                Does.Contain("Injected route exception."));
+        }
+
+        [Test]
+        public void RouteThrows_PreservesRouterAdvancedIntroFailureState()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(RouteThrows_PreservesRouterAdvancedIntroFailureState));
+            const string routerFailure = "Inner router already owns intro failure cover.";
+            harness.Route.BeforeThrow = () =>
+                SceneEntryPresentationRegistry.TryFailHoldingCover(
+                    SceneEntryPresentationRegistry.Current.Token,
+                    routerFailure);
+            harness.Route.ExceptionToThrow = new ApplicationException("Injected route exception.");
+            harness.StartCinematic();
+            LogAssert.Expect(LogType.Exception, new Regex("Injected route exception\\."));
+
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.FailureReason,
+                Is.EqualTo(routerFailure));
+        }
+
+        [Test]
+        public void RouteThrows_DoesNotTerminalizeNewerIntroClaim()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(RouteThrows_DoesNotTerminalizeNewerIntroClaim));
+            var generation = TerminalSessionRegistry.Authority.CurrentSceneGeneration;
+            var newerToken = default(SceneEntrySessionToken);
+            harness.Route.BeforeThrow = () =>
+            {
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryCancelClaim(
+                        SceneEntryPresentationRegistry.Current.Token),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.CinematicToGameplay,
+                        harness.Request.StageId,
+                        generation,
+                        out newerToken),
+                    Is.True);
+            };
+            harness.Route.ExceptionToThrow = new ApplicationException("Injected stale route exception.");
+            harness.StartCinematic();
+            LogAssert.Expect(LogType.Exception, new Regex("Injected stale route exception\\."));
+
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+
+            Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.EqualTo(newerToken));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
         }
 
         [Test]
@@ -623,6 +697,105 @@ namespace Game.Feature.UI.Tests
             {
                 keys.Clear();
             }
+        }
+
+        [Test]
+        public void CinematicMainMenuReturnRouter_RoutingThrow_TerminalizesClaimWithoutProgressOrUnhandledException()
+        {
+            using var harness = new CinematicMainMenuReturnHarness(
+                nameof(CinematicMainMenuReturnRouter_RoutingThrow_TerminalizesClaimWithoutProgressOrUnhandledException));
+            harness.Route.ExceptionToThrow = new ApplicationException("Injected Main Menu route exception.");
+            harness.StartCinematic();
+            LogAssert.Expect(LogType.Exception, new Regex("Injected Main Menu route exception\\."));
+
+            Assert.DoesNotThrow(() => harness.Player.CompleteOutro());
+
+            Assert.That(harness.Route.ReturnCallCount, Is.EqualTo(1));
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+            Assert.That(harness.RawSaveStore.LoadSlot(1).OutroPlayed, Is.False);
+            Assert.That(
+                MainMenuEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                MainMenuEntryPresentationRegistry.Current.FailureReason,
+                Does.Contain("Injected Main Menu route exception."));
+        }
+
+        [Test]
+        public void CinematicMainMenuReturnRouter_RoutingThrow_PreservesRouterAdvancedFailureState()
+        {
+            using var harness = new CinematicMainMenuReturnHarness(
+                nameof(CinematicMainMenuReturnRouter_RoutingThrow_PreservesRouterAdvancedFailureState));
+            const string routerFailure = "Inner router already owns Main Menu failure cover.";
+            harness.Route.BeforeThrow = () =>
+                MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                    MainMenuEntryPresentationRegistry.Current.Token,
+                    routerFailure);
+            harness.Route.ExceptionToThrow = new ApplicationException("Injected Main Menu route exception.");
+            harness.StartCinematic();
+            LogAssert.Expect(LogType.Exception, new Regex("Injected Main Menu route exception\\."));
+
+            Assert.DoesNotThrow(() => harness.Player.CompleteOutro());
+
+            Assert.That(
+                MainMenuEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+            Assert.That(
+                MainMenuEntryPresentationRegistry.Current.FailureReason,
+                Is.EqualTo(routerFailure));
+        }
+
+        [Test]
+        public void CinematicMainMenuReturnRouter_RoutingThrow_DoesNotTerminalizeNewerClaim()
+        {
+            using var harness = new CinematicMainMenuReturnHarness(
+                nameof(CinematicMainMenuReturnRouter_RoutingThrow_DoesNotTerminalizeNewerClaim));
+            var generation = TerminalSessionRegistry.Authority.CurrentSceneGeneration;
+            var newerToken = default(MainMenuEntrySessionToken);
+            harness.Route.BeforeThrow = () =>
+            {
+                Assert.That(
+                    MainMenuEntryPresentationRegistry.TryCancelClaim(
+                        MainMenuEntryPresentationRegistry.Current.Token),
+                    Is.True);
+                Assert.That(
+                    MainMenuEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.CinematicToMainMenu,
+                        generation,
+                        "newer-outro-session",
+                        out newerToken),
+                    Is.True);
+            };
+            harness.Route.ExceptionToThrow = new ApplicationException("Injected stale Main Menu route exception.");
+            harness.StartCinematic();
+            LogAssert.Expect(
+                LogType.Exception,
+                new Regex("Injected stale Main Menu route exception\\."));
+
+            Assert.DoesNotThrow(() => harness.Player.CompleteOutro());
+
+            Assert.That(MainMenuEntryPresentationRegistry.Current.Token, Is.EqualTo(newerToken));
+            Assert.That(
+                MainMenuEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+        }
+
+        [Test]
+        public void CinematicMainMenuReturnRouter_MarksProgressOnlyAfterRoutingReturns()
+        {
+            using var harness = new CinematicMainMenuReturnHarness(
+                nameof(CinematicMainMenuReturnRouter_MarksProgressOnlyAfterRoutingReturns));
+            var outroWasMarkedDuringRoute = true;
+            harness.Route.BeforeReturn = () =>
+                outroWasMarkedDuringRoute = harness.RawSaveStore.LoadSlot(1).OutroPlayed;
+            harness.StartCinematic();
+
+            harness.Player.CompleteOutro();
+
+            Assert.That(outroWasMarkedDuringRoute, Is.False);
+            Assert.That(harness.RawSaveStore.LoadSlot(1).OutroPlayed, Is.True);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -1871,9 +2044,12 @@ namespace Game.Feature.UI.Tests
 
             public Exception ExceptionToThrow { get; set; }
 
+            public Action BeforeThrow { get; set; }
+
             public void Launch(StageNavigationRequest request)
             {
                 AttemptCount++;
+                BeforeThrow?.Invoke();
                 if (RejectOnLaunch)
                 {
                     throw new ImmediateRouteRejectedException();
@@ -1885,6 +2061,53 @@ namespace Game.Feature.UI.Tests
                 }
 
                 _requests.Add(request);
+            }
+        }
+
+        private sealed class CinematicMainMenuReturnHarness : IDisposable
+        {
+            private readonly TestKeys _keys;
+
+            public CinematicMainMenuReturnHarness(string testName)
+            {
+                _keys = TestKeys.Create(testName);
+                RawSaveStore = new SaveSlotStore(_keys.SaveKey);
+                ProgressStore = new RecordingUpdateSaveSlotStore(RawSaveStore);
+                var activeSlotProvider = new ActiveSlotProvider(_keys.ActiveKey);
+                RawSaveStore.SaveSlot(CreateSlot(
+                    1,
+                    StageId.CreateOrThrow("stage-4-1"),
+                    campaignCompleted: true));
+                activeSlotProvider.SetActiveSlot(1);
+                Route = new RecordingMainMenuReturnRouter();
+                Player = new ManualSlotCinematicPlayer { HasOutroClipValue = true };
+                Router = new CinematicMainMenuReturnRouter(
+                    Route,
+                    new SlotCinematicProgressStore(ProgressStore),
+                    activeSlotProvider,
+                    Player,
+                    () => true);
+            }
+
+            public SaveSlotStore RawSaveStore { get; }
+
+            public RecordingUpdateSaveSlotStore ProgressStore { get; }
+
+            public RecordingMainMenuReturnRouter Route { get; }
+
+            public ManualSlotCinematicPlayer Player { get; }
+
+            public CinematicMainMenuReturnRouter Router { get; }
+
+            public void StartCinematic()
+            {
+                Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
+                Assert.That(Player.PlayOutroCallCount, Is.EqualTo(1));
+            }
+
+            public void Dispose()
+            {
+                _keys.Clear();
             }
         }
 
@@ -2117,10 +2340,22 @@ namespace Game.Feature.UI.Tests
 
             public SceneTransitionIntent LastTransitionIntent { get; private set; }
 
+            public Action BeforeReturn { get; set; }
+
+            public Action BeforeThrow { get; set; }
+
+            public Exception ExceptionToThrow { get; set; }
+
             public void ReturnToMainMenu(SceneTransitionIntent transitionIntent)
             {
                 LastTransitionIntent = transitionIntent;
                 ReturnCallCount++;
+                BeforeReturn?.Invoke();
+                BeforeThrow?.Invoke();
+                if (ExceptionToThrow != null)
+                {
+                    throw ExceptionToThrow;
+                }
             }
         }
     }

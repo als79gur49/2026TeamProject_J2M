@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Game.Feature.Stages;
+using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
@@ -93,10 +94,23 @@ namespace Game.Feature.UI.Composition
                     {
                         case CinematicPlaybackCompletionKind.Completed:
                         case CinematicPlaybackCompletionKind.Skipped:
-                            LaunchOrClear(
-                                request.WithTransitionIntent(SceneTransitionIntent.CinematicToGameplay),
-                                handoff);
-                            _progressStore.MarkIntroPlayed(handoff.SlotNumber);
+                            try
+                            {
+                                LaunchOrClear(
+                                    request.WithTransitionIntent(SceneTransitionIntent.CinematicToGameplay),
+                                    handoff);
+                                _progressStore.MarkIntroPlayed(handoff.SlotNumber);
+                            }
+                            catch (Exception exception)
+                            {
+                                TryClearCurrentHandoff(handoff);
+                                TryFailCurrentClaimIfStillClaimed(
+                                    entryToken,
+                                    request.StageId,
+                                    BuildRoutingFailureMessage(exception));
+                                Debug.LogException(exception);
+                            }
+
                             return;
 
                         case CinematicPlaybackCompletionKind.Failed:
@@ -174,6 +188,33 @@ namespace Game.Feature.UI.Composition
                    SceneTransitionIntent.CinematicToGameplay &&
                    current.DestinationStageId.Equals(destinationStageId) &&
                    current.Phase == SceneEntryPresentationPhase.Claimed;
+        }
+
+        private static void TryFailCurrentClaimIfStillClaimed(
+            SceneEntrySessionToken token,
+            StageId destinationStageId,
+            string failureReason)
+        {
+            var current = SceneEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != token ||
+                current.TransitionIntent != SceneTransitionIntent.CinematicToGameplay ||
+                !current.DestinationStageId.Equals(destinationStageId) ||
+                current.Phase != SceneEntryPresentationPhase.Claimed)
+            {
+                return;
+            }
+
+            SceneEntryPresentationRegistry.TryFailHoldingCover(token, failureReason);
+        }
+
+        private static string BuildRoutingFailureMessage(Exception exception)
+        {
+            const string message =
+                "Intro completed, but gameplay routing failed while holding its opaque owner.";
+            return exception == null || string.IsNullOrWhiteSpace(exception.Message)
+                ? message
+                : $"{message} {exception.Message}";
         }
     }
 }
