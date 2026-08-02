@@ -267,7 +267,9 @@ verify_climate_committed_source_integrity() {
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/NanumGothic SDF SyntheticBold.mat.meta"
     )
 
-    head_climate_sdf_sha256="$CLIMATE_COMMITTED_SDF_SHA256"
+    head_climate_sdf_sha256="$(
+        git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256
+    )"
     head_climate_ttf_sha256="$(git_head_runner_constant CLIMATE_SOURCE_TTF_SHA256)"
     head_climate_ttf_guid="$(git_head_runner_constant CLIMATE_SOURCE_TTF_GUID)"
     head_climate_sdf_guid="$(git_head_runner_constant CLIMATE_SDF_GUID)"
@@ -380,6 +382,12 @@ verify_climate_worktree_source_integrity() {
     candidate_nanum_ttf_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$NANUM_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
+    if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate SDF mismatch."
+        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  actual:   $candidate_sdf_hash"
+        return 1
+    fi
     if [ "$candidate_ttf_hash" != "$CLIMATE_SOURCE_TTF_SHA256" ]; then
         echo "ERROR: Candidate worktree Climate source TTF mismatch."
         echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
@@ -450,8 +458,7 @@ verify_climate_worktree_source_integrity() {
         "glyph String Table input GUID"
 
     echo "Climate/Nanum candidate worktree integrity: PASS"
-    echo "  Climate candidate SHA-256 (record only): $candidate_sdf_hash"
-    echo "  Candidate output hash is not a pre-update acceptance condition."
+    echo "  Climate candidate SHA-256: $candidate_sdf_hash"
     echo "  Nanum body/meta:     6/6 present"
 }
 
