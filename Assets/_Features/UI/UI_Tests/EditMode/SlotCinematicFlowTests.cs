@@ -266,37 +266,161 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DeletePendingSlot_LateCompletedCallbackDoesNotMutateProfileOrRoute()
+        public void IntroPlaying_DeleteSlotInvalidatesHandoff_CompletionCancelsMatchingClaim()
         {
             using var harness = new CinematicLaunchHarness(
-                nameof(DeletePendingSlot_LateCompletedCallbackDoesNotMutateProfileOrRoute));
+                nameof(IntroPlaying_DeleteSlotInvalidatesHandoff_CompletionCancelsMatchingClaim));
             harness.StartCinematic();
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
 
             harness.SaveStore.DeleteSlot(harness.Handoff.SlotNumber);
-            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
 
             Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IsEmpty, Is.True);
             Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
             Assert.That(harness.Route.AttemptCount, Is.Zero);
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
             Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
         }
 
         [Test]
-        public void ClearAll_LateSkippedCallbackDoesNotMutateProfileOrRoute()
+        public void IntroPlaying_ClearAllInvalidatesHandoff_SkippedCancelsMatchingClaim()
         {
             using var harness = new CinematicLaunchHarness(
-                nameof(ClearAll_LateSkippedCallbackDoesNotMutateProfileOrRoute));
+                nameof(IntroPlaying_ClearAllInvalidatesHandoff_SkippedCancelsMatchingClaim));
             harness.StartCinematic();
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
 
             harness.SaveStore.ClearAll();
-            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped);
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Skipped));
 
             Assert.That(harness.RawSaveStore.LoadSlot(harness.Handoff.SlotNumber).IsEmpty, Is.True);
             Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
             Assert.That(harness.Route.AttemptCount, Is.Zero);
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
             Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+        }
+
+        [Test]
+        public void StaleHandoffCompletion_AllowsSubsequentGameplayLaunch()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(StaleHandoffCompletion_AllowsSubsequentGameplayLaunch));
+            harness.StartCinematic();
+            var oldEntryToken = SceneEntryPresentationRegistry.Current.Token;
+
+            harness.SaveStore.DeleteSlot(harness.Handoff.SlotNumber);
+            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            harness.SaveStore.SaveSlot(CreateSlot(harness.Handoff.SlotNumber, harness.Request.StageId));
+            Assert.That(
+                harness.HandoffStore.TryBegin(
+                    harness.Handoff.SlotNumber,
+                    harness.Request.StageId,
+                    harness.Request.NavigationKind,
+                    harness.Request.Source,
+                    out _),
+                Is.True);
+
+            Assert.DoesNotThrow(() => harness.Router.Launch(harness.Request));
+
+            Assert.That(harness.Player.PlayIntroCallCount, Is.EqualTo(2));
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.Not.EqualTo(oldEntryToken));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
+        }
+
+        [Test]
+        public void StaleHandoffCompletion_DoesNotCancelNewerEntryClaim()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(StaleHandoffCompletion_DoesNotCancelNewerEntryClaim));
+            harness.StartCinematic();
+            var oldEntryToken = SceneEntryPresentationRegistry.Current.Token;
+            Assert.That(harness.HandoffStore.TryClear(harness.Handoff.Token), Is.True);
+            Assert.That(SceneEntryPresentationRegistry.TryCancelClaim(oldEntryToken), Is.True);
+            var newerStageId = StageId.CreateOrThrow("stage-1-1");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    newerStageId,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    out var newerEntryToken),
+                Is.True);
+
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.EqualTo(newerEntryToken));
+            Assert.That(SceneEntryPresentationRegistry.Current.DestinationStageId, Is.EqualTo(newerStageId));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.Claimed));
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+        }
+
+        [Test]
+        public void StaleHandoffCompletion_PreservesRouterAdvancedEntrySession()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(StaleHandoffCompletion_PreservesRouterAdvancedEntrySession));
+            harness.StartCinematic();
+            var entryToken = SceneEntryPresentationRegistry.Current.Token;
+            Assert.That(harness.HandoffStore.TryClear(harness.Handoff.Token), Is.True);
+            Assert.That(
+                SceneEntryPresentationRegistry.TryBindTransition(entryToken, 7301),
+                Is.True);
+
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+            Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.EqualTo(entryToken));
+            Assert.That(
+                SceneEntryPresentationRegistry.Current.Phase,
+                Is.EqualTo(SceneEntryPresentationPhase.PersistentCoverRequested));
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
+        }
+
+        [Test]
+        public void StaleHandoffCompletion_IsExactlyOnceAndIdempotent()
+        {
+            using var harness = new CinematicLaunchHarness(
+                nameof(StaleHandoffCompletion_IsExactlyOnceAndIdempotent));
+            harness.StartCinematic();
+            var inactivePublishCount = 0;
+            SceneEntryPresentationRegistry.ReadModel.Changed += snapshot =>
+            {
+                if (!snapshot.IsActive)
+                {
+                    inactivePublishCount++;
+                }
+            };
+            harness.SaveStore.ClearAll();
+
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+            Assert.DoesNotThrow(() =>
+                harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed));
+
+            Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+            Assert.That(inactivePublishCount, Is.EqualTo(1));
+            Assert.That(harness.Route.AttemptCount, Is.Zero);
+            Assert.That(harness.ProgressStore.UpdateSlotCallCount, Is.Zero);
         }
 
         [Test]

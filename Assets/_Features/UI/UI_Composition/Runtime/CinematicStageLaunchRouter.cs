@@ -83,9 +83,20 @@ namespace Game.Feature.UI.Composition
                 _player.PlayIntro(result =>
                 {
                     if (Volatile.Read(ref terminalClaimed) != 0 ||
-                        !IsCurrentHandoff(handoff) ||
-                        !IsCurrentEntrySession(entryToken, request.StageId) ||
                         Interlocked.CompareExchange(ref terminalClaimed, 1, 0) != 0)
+                    {
+                        return;
+                    }
+
+                    if (!IsCurrentHandoff(handoff))
+                    {
+                        TryCancelCapturedIntroClaimIfStillClaimed(
+                            entryToken,
+                            request.StageId);
+                        return;
+                    }
+
+                    if (!IsCurrentEntrySession(entryToken, request.StageId))
                     {
                         return;
                     }
@@ -206,6 +217,23 @@ namespace Game.Feature.UI.Composition
             }
 
             SceneEntryPresentationRegistry.TryFailHoldingCover(token, failureReason);
+        }
+
+        private static void TryCancelCapturedIntroClaimIfStillClaimed(
+            SceneEntrySessionToken token,
+            StageId destinationStageId)
+        {
+            var current = SceneEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != token ||
+                current.TransitionIntent != SceneTransitionIntent.CinematicToGameplay ||
+                !current.DestinationStageId.Equals(destinationStageId) ||
+                current.Phase != SceneEntryPresentationPhase.Claimed)
+            {
+                return;
+            }
+
+            SceneEntryPresentationRegistry.TryCancelClaim(token);
         }
 
         private static string BuildRoutingFailureMessage(Exception exception)
