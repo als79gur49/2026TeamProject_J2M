@@ -1668,6 +1668,301 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase(SlotCinematicKind.Intro)]
+        [TestCase(SlotCinematicKind.Outro)]
+        public void OverlayPlayThrowsAfterOpaqueClaim_AbortsExactOpaqueOwner(
+            SlotCinematicKind kind)
+        {
+            var clip = LoadTestClip();
+            var definition = CreateDefinitionWithBothClips(clip);
+            var root = new GameObject(nameof(OverlayPlayThrowsAfterOpaqueClaim_AbortsExactOpaqueOwner));
+            var setupException = new InvalidOperationException("Injected overlay setup failure.");
+            try
+            {
+                var overlay = new ThrowingSetupOverlay(root.AddComponent<AudioSource>(), setupException);
+                var focus = new RecordingCinematicAudioFocusOwner();
+                var coordinator = new CinematicFlowCoordinator(definition, overlay, null, focus);
+                var completionCount = 0;
+
+                var thrown = Assert.Throws<InvalidOperationException>(() =>
+                {
+                    if (kind == SlotCinematicKind.Intro)
+                    {
+                        coordinator.PlayIntro(_ => completionCount++);
+                    }
+                    else
+                    {
+                        coordinator.PlayOutro(_ => completionCount++);
+                    }
+                });
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(
+                    CinematicOpaqueHandoffRegistry.Current.Phase,
+                    Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+                Assert.That(overlay.IsPlaying, Is.False);
+                Assert.That(overlay.PartialRuntimeActive, Is.False);
+                Assert.That(overlay.CompletionRetained, Is.False);
+                Assert.That(focus.BeginCount, Is.EqualTo(1));
+                Assert.That(focus.EndCount, Is.EqualTo(1));
+                Assert.That(completionCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [TestCase(SlotCinematicKind.Intro)]
+        [TestCase(SlotCinematicKind.Outro)]
+        public void IntroSetupThrow_AllowsSubsequentCinematicClaimAndPlayback(
+            SlotCinematicKind nextKind)
+        {
+            var clip = LoadTestClip();
+            var definition = CreateDefinitionWithBothClips(clip);
+            var root = new GameObject(nameof(IntroSetupThrow_AllowsSubsequentCinematicClaimAndPlayback));
+            try
+            {
+                var overlay = new ThrowingSetupOverlay(
+                    root.AddComponent<AudioSource>(),
+                    new InvalidOperationException("Injected first setup failure."));
+                var focus = new RecordingCinematicAudioFocusOwner();
+                var coordinator = new CinematicFlowCoordinator(definition, overlay, null, focus);
+
+                Assert.Throws<InvalidOperationException>(() => coordinator.PlayIntro(_ => { }));
+                overlay.ExceptionToThrow = null;
+
+                Assert.DoesNotThrow(() =>
+                {
+                    if (nextKind == SlotCinematicKind.Intro)
+                    {
+                        coordinator.PlayIntro(_ => { });
+                    }
+                    else
+                    {
+                        coordinator.PlayOutro(_ => { });
+                    }
+                });
+                Assert.That(overlay.PlayCount, Is.EqualTo(2));
+                Assert.That(overlay.IsPlaying, Is.True);
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+                Assert.That(
+                    CinematicOpaqueHandoffRegistry.Current.Intent,
+                    Is.EqualTo(nextKind == SlotCinematicKind.Intro
+                        ? SceneTransitionIntent.CinematicToGameplay
+                        : SceneTransitionIntent.CinematicToMainMenu));
+                Assert.That(focus.BeginCount, Is.EqualTo(2));
+                Assert.That(focus.EndCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        public void OverlaySetupAbort_ResetsPartialRuntimeWithoutCompletionCallback()
+        {
+            var clip = LoadTestClip();
+            var root = new GameObject(
+                nameof(OverlaySetupAbort_ResetsPartialRuntimeWithoutCompletionCallback),
+                typeof(RectTransform));
+            try
+            {
+                var view = root.AddComponent<CinematicVideoOverlayView>();
+                Assert.That(
+                    CinematicOpaqueHandoffRegistry.TryClaim(
+                        SceneTransitionIntent.CinematicToGameplay,
+                        TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                        Color.black,
+                        () => { },
+                        out var token),
+                    Is.True);
+                var completionCount = 0;
+                view.Play(clip, CreatePlaybackOptions(), token, _ => completionCount++);
+
+                Assert.That(view.IsPlaying, Is.True);
+                Assert.That(view.ConfiguredRenderTextureWidth, Is.GreaterThan(0));
+                Assert.That(view.AbortSetupAfterFailure(token), Is.True);
+
+                var canvasGroup = root.GetComponent<CanvasGroup>();
+                Assert.That(view.IsPlaying, Is.False);
+                Assert.That(view.CurrentPresentationState, Is.EqualTo(CinematicPresentationState.Idle));
+                Assert.That(view.ConfiguredRenderTextureWidth, Is.Zero);
+                Assert.That(root.activeSelf, Is.False);
+                Assert.That(canvasGroup.alpha, Is.Zero);
+                Assert.That(canvasGroup.blocksRaycasts, Is.False);
+                Assert.That(canvasGroup.interactable, Is.False);
+                Assert.That(completionCount, Is.Zero);
+                Assert.That(view.AbortSetupAfterFailure(token), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void OpaqueSetupAbort_ReleasesOnlyExactClaimedOwnerWithoutReleaseCallback()
+        {
+            var releaseCount = 0;
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => releaseCount++,
+                    out var token),
+                Is.True);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    token,
+                    SceneTransitionIntent.CinematicToMainMenu),
+                Is.False);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    token,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.True);
+
+            Assert.That(releaseCount, Is.Zero);
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+            Assert.That(CinematicOpaqueHandoffRegistry.Current.Phase, Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+        }
+
+        [Test]
+        public void OpaqueSetupAbort_PreservesAdvancedAndFailedOwners()
+        {
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => { },
+                    out var advancedToken),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(advancedToken),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    advancedToken,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+            Assert.That(CinematicOpaqueHandoffRegistry.Current.Phase, Is.EqualTo(CinematicOpaqueHandoffPhase.CinematicOpaqueRendered));
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(advancedToken, "retained failure"),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    advancedToken,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+            Assert.That(CinematicOpaqueHandoffRegistry.Current.Phase, Is.EqualTo(CinematicOpaqueHandoffPhase.FailedHoldingOpaque));
+        }
+
+        [Test]
+        public void OpaqueSetupAbort_DoesNotAbortNewerOwner()
+        {
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToGameplay,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => { },
+                    out var oldToken),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    oldToken,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.True);
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryClaim(
+                    SceneTransitionIntent.CinematicToMainMenu,
+                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                    Color.black,
+                    () => { },
+                    out var newerToken),
+                Is.True);
+
+            Assert.That(
+                CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    oldToken,
+                    SceneTransitionIntent.CinematicToGameplay),
+                Is.False);
+            Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+            Assert.That(CinematicOpaqueHandoffRegistry.Current.Token, Is.EqualTo(newerToken));
+            Assert.That(CinematicOpaqueHandoffRegistry.Current.Phase, Is.EqualTo(CinematicOpaqueHandoffPhase.Claimed));
+        }
+
+        [Test]
+        public void OverlayAbortThrows_PreservesOriginalExceptionAndFailsExactOwnerSafely()
+        {
+            var clip = LoadTestClip();
+            var definition = CreateDefinitionWithBothClips(clip);
+            var root = new GameObject(nameof(OverlayAbortThrows_PreservesOriginalExceptionAndFailsExactOwnerSafely));
+            var setupException = new InvalidOperationException("primary setup failure");
+            var abortException = new InvalidOperationException("overlay abort failure");
+            try
+            {
+                var overlay = new ThrowingSetupOverlay(root.AddComponent<AudioSource>(), setupException)
+                {
+                    AbortException = abortException,
+                };
+                var focus = new RecordingCinematicAudioFocusOwner();
+                var coordinator = new CinematicFlowCoordinator(definition, overlay, null, focus);
+
+                var thrown = Assert.Throws<InvalidOperationException>(() => coordinator.PlayIntro(_ => { }));
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(thrown.Data["CinematicOverlayAbortFailure"], Is.SameAs(abortException));
+                Assert.That(focus.EndCount, Is.EqualTo(1));
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+                Assert.That(CinematicOpaqueHandoffRegistry.Current.Phase, Is.EqualTo(CinematicOpaqueHandoffPhase.FailedHoldingOpaque));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        public void OverlayPlayThrowsAfterOwnerAdvanced_PreservesAdvancedOwner()
+        {
+            var clip = LoadTestClip();
+            var definition = CreateDefinitionWithBothClips(clip);
+            var root = new GameObject(nameof(OverlayPlayThrowsAfterOwnerAdvanced_PreservesAdvancedOwner));
+            try
+            {
+                var overlay = new ThrowingSetupOverlay(
+                    root.AddComponent<AudioSource>(),
+                    new InvalidOperationException("setup failed after acknowledgement"));
+                overlay.BeforeThrow = token =>
+                    Assert.That(CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(token), Is.True);
+                var focus = new RecordingCinematicAudioFocusOwner();
+                var coordinator = new CinematicFlowCoordinator(definition, overlay, null, focus);
+
+                Assert.Throws<InvalidOperationException>(() => coordinator.PlayIntro(_ => { }));
+
+                Assert.That(overlay.AbortCount, Is.Zero);
+                Assert.That(focus.EndCount, Is.EqualTo(1));
+                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.True);
+                Assert.That(CinematicOpaqueHandoffRegistry.Current.Phase, Is.EqualTo(CinematicOpaqueHandoffPhase.CinematicOpaqueRendered));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
         [Test]
         public void CinematicVideoOverlayView_ZeroDurationFade_CompletesDeterministically()
         {
@@ -2335,6 +2630,17 @@ namespace Game.Feature.UI.Tests
             return definition;
         }
 
+        private static SlotCinematicDefinition CreateDefinitionWithBothClips(VideoClip clip)
+        {
+            var definition = CreateDefinition(
+                clip,
+                CreateFadeSettings(enter: 0f, reveal: 0f, exit: 0f));
+            var serialized = new SerializedObject(definition);
+            serialized.FindProperty("_outroClip").objectReferenceValue = clip;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
         private readonly struct TestKeys
         {
             private TestKeys(string saveKey, string activeKey)
@@ -2422,6 +2728,94 @@ namespace Game.Feature.UI.Tests
                 _outroCompletion = null;
                 IsPlaying = false;
                 completion?.Invoke(new CinematicPlaybackCompletion(kind));
+            }
+        }
+
+        private sealed class RecordingCinematicAudioFocusOwner : ICinematicAudioFocusOwner
+        {
+            public int BeginCount { get; private set; }
+            public int EndCount { get; private set; }
+
+            public void BeginFocus(AudioSource cinematicAudioSource)
+            {
+                Assert.That(cinematicAudioSource, Is.Not.Null);
+                BeginCount++;
+            }
+
+            public void EndFocus()
+            {
+                EndCount++;
+            }
+        }
+
+        private sealed class ThrowingSetupOverlay : ICinematicPlaybackOverlay
+        {
+            private Action<CinematicPlaybackCompletion> _completion;
+
+            public ThrowingSetupOverlay(AudioSource audioSource, Exception exceptionToThrow)
+            {
+                CinematicAudioSource = audioSource;
+                ExceptionToThrow = exceptionToThrow;
+            }
+
+            public bool IsPlaying { get; private set; }
+            public AudioSource CinematicAudioSource { get; }
+            public Exception ExceptionToThrow { get; set; }
+            public Exception AbortException { get; set; }
+            public Action<CinematicOpaqueHandoffToken> BeforeThrow { get; set; }
+            public int PlayCount { get; private set; }
+            public int AbortCount { get; private set; }
+            public bool PartialRuntimeActive { get; private set; }
+            public bool CompletionRetained => _completion != null;
+
+            public void EnsureHierarchy(SlotCinematicPlaybackOptions options)
+            {
+            }
+
+            public void SetAudioFocusController(CinematicAudioFocusController audioFocusController)
+            {
+            }
+
+            public void Play(
+                VideoClip clip,
+                SlotCinematicPlaybackOptions options,
+                CinematicOpaqueHandoffToken opaqueHandoffToken,
+                Action<CinematicPlaybackCompletion> completion)
+            {
+                PlayCount++;
+                IsPlaying = true;
+                PartialRuntimeActive = true;
+                _completion = completion;
+                if (ExceptionToThrow != null)
+                {
+                    BeforeThrow?.Invoke(opaqueHandoffToken);
+                    throw ExceptionToThrow;
+                }
+            }
+
+            public void RequestSkip()
+            {
+            }
+
+            public bool AbortSetupAfterFailure(CinematicOpaqueHandoffToken expectedToken)
+            {
+                AbortCount++;
+                if (AbortException != null)
+                {
+                    throw AbortException;
+                }
+
+                IsPlaying = false;
+                PartialRuntimeActive = false;
+                _completion = null;
+                return true;
+            }
+
+            public void ReleaseOpaqueHandoff(CinematicOpaqueHandoffToken token)
+            {
+                IsPlaying = false;
+                PartialRuntimeActive = false;
+                _completion = null;
             }
         }
 

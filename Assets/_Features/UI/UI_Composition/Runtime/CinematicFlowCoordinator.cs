@@ -26,13 +26,36 @@ namespace Game.Feature.UI.Composition
         bool TryReleaseCancelledIntroOpaqueOwner();
     }
 
+    internal interface ICinematicPlaybackOverlay
+    {
+        bool IsPlaying { get; }
+        AudioSource CinematicAudioSource { get; }
+        void EnsureHierarchy(SlotCinematicPlaybackOptions options);
+        void SetAudioFocusController(CinematicAudioFocusController audioFocusController);
+        void Play(
+            VideoClip clip,
+            SlotCinematicPlaybackOptions options,
+            CinematicOpaqueHandoffToken opaqueHandoffToken,
+            Action<CinematicPlaybackCompletion> completion);
+        bool AbortSetupAfterFailure(CinematicOpaqueHandoffToken expectedToken);
+        void ReleaseOpaqueHandoff(CinematicOpaqueHandoffToken token);
+        void RequestSkip();
+    }
+
+    internal interface ICinematicAudioFocusOwner
+    {
+        void BeginFocus(AudioSource cinematicAudioSource);
+        void EndFocus();
+    }
+
     public sealed class CinematicFlowCoordinator :
         ISlotCinematicPlayer,
         ICinematicOpaqueHandoffCancellationOwner
     {
-        private readonly CinematicAudioFocusController _audioFocusController;
+        private readonly CinematicAudioFocusController _overlayAudioFocusController;
+        private readonly ICinematicAudioFocusOwner _audioFocusController;
         private readonly SlotCinematicDefinition _definition;
-        private readonly CinematicVideoOverlayView _overlayView;
+        private readonly ICinematicPlaybackOverlay _overlayView;
         private bool _completionDispatched;
         private CinematicOpaqueHandoffToken _opaqueHandoffToken;
 
@@ -40,9 +63,19 @@ namespace Game.Feature.UI.Composition
             SlotCinematicDefinition definition,
             CinematicVideoOverlayView overlayView,
             CinematicAudioFocusController audioFocusController)
+            : this(definition, overlayView, audioFocusController, audioFocusController)
+        {
+        }
+
+        internal CinematicFlowCoordinator(
+            SlotCinematicDefinition definition,
+            ICinematicPlaybackOverlay overlayView,
+            CinematicAudioFocusController overlayAudioFocusController,
+            ICinematicAudioFocusOwner audioFocusController)
         {
             _definition = definition;
             _overlayView = overlayView ?? throw new ArgumentNullException(nameof(overlayView));
+            _overlayAudioFocusController = overlayAudioFocusController;
             _audioFocusController = audioFocusController;
         }
 
@@ -103,36 +136,125 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            _completionDispatched = false;
-            var options = _definition.CreatePlaybackOptions();
-            _overlayView.EnsureHierarchy(options);
-            _overlayView.SetAudioFocusController(_audioFocusController);
-            _audioFocusController?.BeginFocus(_overlayView.CinematicAudioSource);
             var intent = kind == SlotCinematicKind.Intro
                 ? SceneTransitionIntent.CinematicToGameplay
                 : SceneTransitionIntent.CinematicToMainMenu;
             CinematicOpaqueHandoffToken handoffToken = default;
-            if (!CinematicOpaqueHandoffRegistry.TryClaim(
-                    intent,
-                    TerminalSessionRegistry.Authority.CurrentSceneGeneration,
-                    options.FadeSettings.FadeColor,
-                    () => _overlayView.ReleaseOpaqueHandoff(handoffToken),
-                    out handoffToken))
+            var focusSetupStarted = false;
+            var overlaySetupStarted = false;
+            _completionDispatched = false;
+            try
             {
-                _audioFocusController?.EndFocus();
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Failed,
-                    "The cinematic opaque handoff session is already owned."));
-                return;
+                var options = _definition.CreatePlaybackOptions();
+                overlaySetupStarted = true;
+                _overlayView.EnsureHierarchy(options);
+                _overlayView.SetAudioFocusController(_overlayAudioFocusController);
+                if (_audioFocusController != null)
+                {
+                    focusSetupStarted = true;
+                    _audioFocusController.BeginFocus(_overlayView.CinematicAudioSource);
+                }
+
+                if (!CinematicOpaqueHandoffRegistry.TryClaim(
+                        intent,
+                        TerminalSessionRegistry.Authority.CurrentSceneGeneration,
+                        options.FadeSettings.FadeColor,
+                        () => _overlayView.ReleaseOpaqueHandoff(handoffToken),
+                        out handoffToken))
+                {
+                    _audioFocusController?.EndFocus();
+                    focusSetupStarted = false;
+                    completion?.Invoke(new CinematicPlaybackCompletion(
+                        CinematicPlaybackCompletionKind.Failed,
+                        "The cinematic opaque handoff session is already owned."));
+                    return;
+                }
+
+                _opaqueHandoffToken = handoffToken;
+
+                _overlayView.Play(
+                    clip,
+                    options,
+                    handoffToken,
+                    result => CompleteOnce(result, completion));
+            }
+            catch (Exception setupException)
+            {
+                CleanupFailedSetup(
+                    setupException,
+                    intent,
+                    handoffToken,
+                    overlaySetupStarted,
+                    focusSetupStarted);
+                throw;
+            }
+        }
+
+        private void CleanupFailedSetup(
+            Exception setupException,
+            SceneTransitionIntent intent,
+            CinematicOpaqueHandoffToken handoffToken,
+            bool overlaySetupStarted,
+            bool focusSetupStarted)
+        {
+            var exactClaimedOwner =
+                CinematicOpaqueHandoffRegistry.IsExactClaimedOwner(handoffToken, intent);
+            var overlayAborted = !overlaySetupStarted;
+            if (overlaySetupStarted && (!handoffToken.IsValid || exactClaimedOwner))
+            {
+                try
+                {
+                    overlayAborted = _overlayView.AbortSetupAfterFailure(handoffToken);
+                }
+                catch (Exception cleanupException)
+                {
+                    AttachCleanupFailure(setupException, "CinematicOverlayAbortFailure", cleanupException);
+                }
             }
 
-            _opaqueHandoffToken = handoffToken;
+            if (focusSetupStarted)
+            {
+                try
+                {
+                    _audioFocusController?.EndFocus();
+                }
+                catch (Exception cleanupException)
+                {
+                    AttachCleanupFailure(setupException, "CinematicAudioFocusEndFailure", cleanupException);
+                }
+            }
 
-            _overlayView.Play(
-                clip,
-                options,
-                handoffToken,
-                result => CompleteOnce(result, completion));
+            if (exactClaimedOwner)
+            {
+                if (!overlayAborted ||
+                    !CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                        handoffToken,
+                        intent))
+                {
+                    CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                        handoffToken,
+                        overlayAborted
+                            ? "The exact cinematic setup claim could not be aborted."
+                            : "The partial cinematic overlay setup could not be aborted.");
+                }
+            }
+
+            var current = CinematicOpaqueHandoffRegistry.Current;
+            if (!current.IsActive || current.Token != handoffToken)
+            {
+                _opaqueHandoffToken = default;
+            }
+        }
+
+        private static void AttachCleanupFailure(
+            Exception setupException,
+            string key,
+            Exception cleanupException)
+        {
+            if (!setupException.Data.Contains(key))
+            {
+                setupException.Data[key] = cleanupException;
+            }
         }
 
         private void CompleteOnce(
@@ -275,6 +397,36 @@ namespace Game.Feature.UI.Composition
 
             Publish(
                 CinematicOpaqueHandoffPhase.CinematicOpaqueRendered,
+                string.Empty);
+            return true;
+        }
+
+        internal static bool IsExactClaimedOwner(
+            CinematicOpaqueHandoffToken token,
+            SceneTransitionIntent expectedIntent)
+        {
+            return Matches(token) &&
+                   _current.Intent == expectedIntent &&
+                   _current.Phase == CinematicOpaqueHandoffPhase.Claimed;
+        }
+
+        internal static bool TryAbortClaimedOwnerAfterSetupFailure(
+            CinematicOpaqueHandoffToken token,
+            SceneTransitionIntent expectedIntent)
+        {
+            if (!IsExactClaimedOwner(token, expectedIntent))
+            {
+                return false;
+            }
+
+            _releaseOpaqueOwner = null;
+            _current = new CinematicOpaqueHandoffSnapshot(
+                false,
+                _current.Token,
+                _current.Intent,
+                CinematicOpaqueHandoffPhase.Released,
+                _current.SourceSceneGeneration,
+                _current.OpaqueColor,
                 string.Empty);
             return true;
         }
