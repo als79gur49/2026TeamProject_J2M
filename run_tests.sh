@@ -4055,6 +4055,44 @@ require_filtered_tests_if_needed() {
     fi
 }
 
+generated_dotnet_inputs_present() {
+    local mode="$1"
+
+    case "$mode" in
+        core|core-feature-gate|--integration-simulation|--integration-replay|--integration-fuzz)
+            [ -f "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj" ] &&
+                [ -f "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj" ]
+            ;;
+        ui)
+            [ -f "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj" ]
+            ;;
+        full)
+            find "$PROJECT_PATH_WSL" -maxdepth 1 -type f \
+                \( -name '*.sln' -o -name '*.slnx' \) -print -quit |
+                grep -q .
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+run_dotnet_and_unity_lane() {
+    local mode="$1"
+    local dotnet_function="$2"
+    local unity_function="$3"
+
+    if [ "$DRY_RUN" -eq 1 ] || generated_dotnet_inputs_present "$mode"; then
+        "$dotnet_function"
+        "$unity_function"
+        return
+    fi
+
+    echo "Generated dotnet project inputs are absent; running the Unity lane first for cold-checkout import."
+    "$unity_function"
+    "$dotnet_function"
+}
+
 main() {
     local mode
 
@@ -4119,16 +4157,13 @@ main() {
 
     case "$mode" in
         core)
-            run_dotnet_core
-            run_unity_core
+            run_dotnet_and_unity_lane "$mode" run_dotnet_core run_unity_core
             ;;
         core-feature-gate)
-            run_dotnet_core
-            run_unity_core_feature_gate
+            run_dotnet_and_unity_lane "$mode" run_dotnet_core run_unity_core_feature_gate
             ;;
         ui)
-            run_dotnet_ui
-            run_unity_ui
+            run_dotnet_and_unity_lane "$mode" run_dotnet_ui run_unity_ui
             ;;
         climate-glyph-update)
             run_climate_glyph_update
@@ -4143,8 +4178,7 @@ main() {
             run_terminal_result_visual
             ;;
         full)
-            run_dotnet_full
-            run_unity_full
+            run_dotnet_and_unity_lane "$mode" run_dotnet_full run_unity_full
             ;;
         --integration-simulation)
             run_dotnet_integration "$DOTNET_INTEGRATION_SIMULATION_LOG"
