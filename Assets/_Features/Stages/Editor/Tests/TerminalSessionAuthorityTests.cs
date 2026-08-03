@@ -115,6 +115,101 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(authority.Current.Phase, Is.EqualTo(TerminalSessionPhase.WaitingSameSceneDestination));
         }
 
+        [Test]
+        public void IrisSetupAbort_DeactivatesExactUnboundSessionAndRetainsFailure()
+        {
+            var authority = new PersistentTerminalSessionAuthority(authorityGeneration: 71);
+            var scene = authority.RegisterSceneBootstrap(351, "IrisSetup");
+            var claim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Victory,
+                scene,
+                TerminalDestinationKind.SameSceneStageResult));
+            Assert.That(authority.TryAdvancePhase(claim.Token, TerminalSessionPhase.Iris), Is.True);
+
+            Assert.That(
+                authority.TryAbortIrisSetup(
+                    claim.Token,
+                    new TerminalFailure("IrisSetup", "material setup failed")),
+                Is.True);
+
+            Assert.That(authority.IsActive, Is.False);
+            Assert.That(authority.Current.Token, Is.EqualTo(claim.Token));
+            Assert.That(authority.Current.Phase, Is.EqualTo(TerminalSessionPhase.FailedBeforeCover));
+            Assert.That(authority.Current.FailureReason, Does.Contain("material setup failed"));
+        }
+
+        [Test]
+        public void IrisSetupAbort_RejectsAdvancedOrTransitionBoundOwner()
+        {
+            var advanced = new PersistentTerminalSessionAuthority(authorityGeneration: 72);
+            var scene = advanced.RegisterSceneBootstrap(352, "AdvancedIris");
+            var advancedClaim = advanced.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                scene,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(advanced.TryAdvancePhase(advancedClaim.Token, TerminalSessionPhase.Iris), Is.True);
+            Assert.That(advanced.TryAdvancePhase(advancedClaim.Token, TerminalSessionPhase.Black), Is.True);
+            Assert.That(
+                advanced.TryAbortIrisSetup(
+                    advancedClaim.Token,
+                    new TerminalFailure("Late", "late failure")),
+                Is.False);
+            Assert.That(advanced.IsActive, Is.True);
+            Assert.That(advanced.Phase, Is.EqualTo(TerminalSessionPhase.Black));
+
+            var bound = new PersistentTerminalSessionAuthority(authorityGeneration: 73);
+            scene = bound.RegisterSceneBootstrap(353, "BoundIris");
+            var boundClaim = bound.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                scene,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(bound.TryAdvancePhase(boundClaim.Token, TerminalSessionPhase.Iris), Is.True);
+            Assert.That(
+                bound.TryBindTransition(
+                    boundClaim.Token,
+                    transitionId: 99,
+                    TerminalDestinationKind.ReloadedGameplay),
+                Is.True);
+            Assert.That(
+                bound.TryAbortIrisSetup(
+                    boundClaim.Token,
+                    new TerminalFailure("Bound", "bound failure")),
+                Is.False);
+            Assert.That(bound.IsActive, Is.True);
+            Assert.That(bound.Current.TransitionId, Is.EqualTo(99));
+        }
+
+        [Test]
+        public void IrisSetupAbort_OldTokenDoesNotMutateNewerSession()
+        {
+            var authority = new PersistentTerminalSessionAuthority(authorityGeneration: 74);
+            var scene = authority.RegisterSceneBootstrap(354, "NewerOwner");
+            var oldClaim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                scene,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(authority.TryAdvancePhase(oldClaim.Token, TerminalSessionPhase.Iris), Is.True);
+            Assert.That(
+                authority.TryAbortIrisSetup(
+                    oldClaim.Token,
+                    new TerminalFailure("Old", "old setup failed")),
+                Is.True);
+            var newClaim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Victory,
+                scene,
+                TerminalDestinationKind.SameSceneStageResult));
+            var before = authority.Current;
+
+            Assert.That(
+                authority.TryAbortIrisSetup(
+                    oldClaim.Token,
+                    new TerminalFailure("Stale", "stale cleanup")),
+                Is.False);
+            Assert.That(authority.Current.Token, Is.EqualTo(newClaim.Token));
+            Assert.That(authority.Current.Phase, Is.EqualTo(before.Phase));
+            Assert.That(authority.IsActive, Is.True);
+        }
+
         [TestCase(DestinationReadinessOutcome.Failed)]
         [TestCase(DestinationReadinessOutcome.Cancelled)]
         public void ReloadedDestinationFailureConvergesToFailedHoldingCover(

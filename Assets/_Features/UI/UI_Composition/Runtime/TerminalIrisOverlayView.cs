@@ -6,8 +6,31 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
 {
+    internal interface ITerminalIrisSetupView
+    {
+        ResultTransitionVisualStyle RequireVisualStyle();
+
+        void ConfigureDimSnapshot(ResultDimVisualSnapshot snapshot);
+
+        void ConfigureTransitionColor(Color color);
+
+        float CalculateFullyRevealedRadius(Vector2 center, float fullOpenMargin);
+
+        void Show();
+
+        void Apply(TerminalTransitionPlayback playback);
+
+        Vector2 ReadMaterialCenterForDiagnostics();
+
+        Vector2 LastAppliedCenterForDiagnostics { get; }
+
+        int LastMaterialApplicationFrameForDiagnostics { get; }
+
+        void Hide();
+    }
+
     [DisallowMultipleComponent]
-    internal sealed class TerminalIrisOverlayView : MonoBehaviour
+    internal sealed class TerminalIrisOverlayView : MonoBehaviour, ITerminalIrisSetupView
     {
         internal const string IrisShaderName = "UI/TerminalIris";
         private static readonly int CenterId = Shader.PropertyToID("_Center");
@@ -55,6 +78,12 @@ namespace Game.Feature.UI.Composition
 
         internal int LastMaterialApplicationFrameForDiagnostics =>
             _lastMaterialApplicationFrame;
+
+        Vector2 ITerminalIrisSetupView.LastAppliedCenterForDiagnostics =>
+            LastAppliedCenterForDiagnostics;
+
+        int ITerminalIrisSetupView.LastMaterialApplicationFrameForDiagnostics =>
+            LastMaterialApplicationFrameForDiagnostics;
 
         internal int LastVisibleRenderFrameForDiagnostics => _lastVisibleRenderFrame;
 
@@ -117,6 +146,8 @@ namespace Game.Feature.UI.Composition
             _image.raycastTarget = true;
         }
 
+        void ITerminalIrisSetupView.Show() => Show();
+
         internal void Apply(TerminalTransitionPlayback playback)
         {
             if (playback == null)
@@ -137,6 +168,16 @@ namespace Game.Feature.UI.Composition
                 OuterColorId,
                 RequireTransitionColor());
             _runtimeMaterial.SetFloat(OuterOpacityId, 1f);
+        }
+
+        void ITerminalIrisSetupView.Apply(TerminalTransitionPlayback playback) =>
+            Apply(playback);
+
+        public Vector2 ReadMaterialCenterForDiagnostics()
+        {
+            EnsureInitialized();
+            var center = _runtimeMaterial.GetVector(CenterId);
+            return new Vector2(center.x, center.y);
         }
 
         internal void Hide()
@@ -160,6 +201,8 @@ namespace Game.Feature.UI.Composition
 
             gameObject.SetActive(false);
         }
+
+        void ITerminalIrisSetupView.Hide() => Hide();
 
         private void HandleWillRenderCanvases()
         {
@@ -217,6 +260,11 @@ namespace Game.Feature.UI.Composition
                 fullOpenMargin);
         }
 
+        float ITerminalIrisSetupView.CalculateFullyRevealedRadius(
+            Vector2 center,
+            float fullOpenMargin) =>
+            CalculateFullyRevealedRadius(center, fullOpenMargin);
+
         internal ResultTransitionVisualStyle RequireVisualStyle()
         {
             if (_resultTransitionStyle == null)
@@ -227,6 +275,9 @@ namespace Game.Feature.UI.Composition
 
             return _resultTransitionStyle;
         }
+
+        ResultTransitionVisualStyle ITerminalIrisSetupView.RequireVisualStyle() =>
+            RequireVisualStyle();
 
         internal void ConfigureDimSnapshot(ResultDimVisualSnapshot snapshot)
         {
@@ -239,6 +290,9 @@ namespace Game.Feature.UI.Composition
             _activeDimSnapshot = snapshot;
             ConfigureTransitionColor(snapshot.OpaqueColor);
         }
+
+        void ITerminalIrisSetupView.ConfigureDimSnapshot(ResultDimVisualSnapshot snapshot) =>
+            ConfigureDimSnapshot(snapshot);
 
         internal void ConfigureTransitionColor(Color color)
         {
@@ -257,6 +311,9 @@ namespace Game.Feature.UI.Composition
             color.a = 1f;
             _activeTransitionColor = color;
         }
+
+        void ITerminalIrisSetupView.ConfigureTransitionColor(Color color) =>
+            ConfigureTransitionColor(color);
 
         internal void RequestClosedRenderAcknowledgement()
         {

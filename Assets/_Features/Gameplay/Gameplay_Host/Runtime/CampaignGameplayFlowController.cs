@@ -257,7 +257,7 @@ namespace Game.Feature.Gameplay.Host
                     mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                 });
 
-            _host.InputHost.EnterTerminalHold();
+            _host.InputHost.EnterTerminalHold(claim.Token);
             _chanceDisplayOverride?.Set(
                 route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage
                     ? 0
@@ -291,12 +291,24 @@ namespace Game.Feature.Gameplay.Host
                     "Chance Lost",
                     "Retrying with one fewer chance.")),
                 SceneTransitionIntent.DeathRetry);
-            if (!_terminalTransitionPort.TryBegin(
-                    CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SceneHandoff),
-                    out _))
+            try
             {
-                throw new InvalidOperationException(
-                    $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
+                if (!_terminalTransitionPort.TryBegin(
+                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SceneHandoff),
+                        out _))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
+                }
+            }
+            catch
+            {
+                if (TryRecoverIrisSetupFailure(claim.Token))
+                {
+                    _stageLaunchRouter.Launch(request);
+                }
+
+                throw;
             }
 
             request = request.WithTransitionHint(
@@ -316,12 +328,25 @@ namespace Game.Feature.Gameplay.Host
                     $"Accepted terminal token {claim.Token} could not bind the LevelFailed destination.");
             }
 
-            if (!_terminalTransitionPort.TryBegin(
-                    CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
-                    out var playback))
+            TerminalTransitionPlayback playback;
+            try
             {
-                throw new InvalidOperationException(
-                    $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
+                if (!_terminalTransitionPort.TryBegin(
+                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
+                        out playback))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
+                }
+            }
+            catch
+            {
+                if (TryRecoverIrisSetupFailure(claim.Token))
+                {
+                    PublishLevelFailed(route, claim.Token);
+                }
+
+                throw;
             }
 
             void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
@@ -364,7 +389,7 @@ namespace Game.Feature.Gameplay.Host
             TerminalClaimResult claim)
         {
             _handledClear = true;
-            _host.InputHost.EnterTerminalHold();
+            _host.InputHost.EnterTerminalHold(claim.Token);
 
             var completedStageId = readModel != null && readModel.StageId.IsValid
                 ? readModel.StageId
@@ -427,12 +452,25 @@ namespace Game.Feature.Gameplay.Host
 
         private void BeginVictoryTerminal(TerminalClaimResult claim)
         {
-            if (!_terminalTransitionPort.TryBegin(
-                    CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
-                    out var playback))
+            TerminalTransitionPlayback playback;
+            try
             {
-                throw new InvalidOperationException(
-                    $"Accepted terminal token {claim.Token} could not start the required Victory Iris.");
+                if (!_terminalTransitionPort.TryBegin(
+                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
+                        out playback))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not start the required Victory Iris.");
+                }
+            }
+            catch
+            {
+                if (TryRecoverIrisSetupFailure(claim.Token))
+                {
+                    _presentationFeed?.ReleaseStageClearTerminalGate(claim.Token);
+                }
+
+                throw;
             }
 
             void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
@@ -470,6 +508,15 @@ namespace Game.Feature.Gameplay.Host
                 _host.InputHost.PlayerEntityId,
                 claim.Token,
                 destinationMode);
+        }
+
+        private bool TryRecoverIrisSetupFailure(TerminalSessionToken token)
+        {
+            var session = TerminalSessionRegistry.Current;
+            return !session.IsActive &&
+                   session.Token == token &&
+                   session.Phase == TerminalSessionPhase.FailedBeforeCover &&
+                   _host.InputHost.TryExitTerminalHold(token);
         }
 
         private StageId ResolveCurrentSlotStageId()

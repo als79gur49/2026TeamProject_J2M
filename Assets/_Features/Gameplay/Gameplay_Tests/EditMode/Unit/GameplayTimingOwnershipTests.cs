@@ -1331,6 +1331,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [TestCase("Noncampaign")]
+        [TestCase("EditorDirectPlaySuppressedCampaign")]
+        [Category("Core")]
+        public void GameplayHostPresentationFeed_TerminalOutcomesDisabled_ForceClearUsesMinimalCompletion(
+            string bootstrapContext)
+        {
+            var rootObject = new GameObject($"force-clear-{bootstrapContext}");
+            var entry = CreateStageContentEntry("stage-1-1");
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(
+                presentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(presentationDefinition);
+            TerminalSessionRegistry.ResetForTests();
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var inputHost = rootObject.AddComponent<GameplayInputHost>();
+                var feed = new GameplayHostPresentationFeed(inputHost, presenter, entry);
+                feed.DisableTerminalOutcomes();
+                var bridge = new GameplayHostDemoStageControlCompletionBridge(feed);
+                var acceptedClaims = 0;
+                var rejectedClaims = 0;
+                feed.TerminalClaimAccepted += (_, _, _) => acceptedClaims++;
+                feed.TerminalClaimRejected += _ => rejectedClaims++;
+
+                var result = bridge.ForceClearCurrentStage();
+
+                Assert.That(result.Success, Is.True, result.Message);
+                Assert.That(feed.CurrentMinimalStageCompletion, Is.Not.Null);
+                Assert.That(
+                    feed.CurrentMinimalStageCompletion.StageId.Value,
+                    Is.EqualTo("stage-1-1"));
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(acceptedClaims, Is.Zero);
+                Assert.That(rejectedClaims, Is.Zero);
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(inputHost.IsTerminalHoldActive, Is.False);
+
+                var second = bridge.ForceClearCurrentStage();
+                Assert.That(second.Success, Is.False);
+                Assert.That(second.Message, Does.Contain("already"));
+                feed.Dispose();
+            }
+            finally
+            {
+                TerminalSessionRegistry.ResetForTests();
+                UnityEngine.Object.DestroyImmediate(presentationDefinition);
+                UnityEngine.Object.DestroyImmediate(entry);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         [Test]
         [Category("Core")]
         public void GameplayHostPresentationFeed_SameTickDeathAndClear_AcceptsOnlyDefeatAndNeverPublishesStageCleared()

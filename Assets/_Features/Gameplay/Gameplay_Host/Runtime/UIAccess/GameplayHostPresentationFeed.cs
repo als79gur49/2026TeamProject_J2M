@@ -65,6 +65,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         internal MinimalStageCompletionReadModel ForceClearCurrentStage()
         {
+            if (!_terminalOutcomesEnabled)
+            {
+                return _stageCompletionRuntime.ForceClearCurrentStage();
+            }
+
             if (_terminalArbiter == null)
             {
                 throw new InvalidOperationException(

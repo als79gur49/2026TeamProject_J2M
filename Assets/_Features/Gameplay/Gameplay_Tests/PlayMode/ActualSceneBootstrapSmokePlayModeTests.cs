@@ -3388,6 +3388,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     hashes[i] = string.IsNullOrEmpty(result.DeterminismHash) ? "<empty>" : result.DeterminismHash;
                 }
 
+                if (assertDirectPlayEvidence)
+                {
+                    AssertDirectPlayForceClearCapability(host);
+                }
+
                 Assert.That(
                     bootstrapRuntimeErrorCount,
                     Is.Zero,
@@ -3496,6 +3501,27 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.WorldState, Is.Not.Null, "first gameplay state reached.");
             Assert.That(host.TickRunner.NextTickIndex, Is.GreaterThanOrEqualTo(1), "initial presentation refresh reached before manual tick smoke.");
             AssertSceneInstallerIntegrity(scenePath);
+        }
+
+        private static void AssertDirectPlayForceClearCapability(GameplaySceneHost host)
+        {
+            var uiInstaller = Object.FindObjectsByType<GameplayUiFlowInstaller>(
+                    FindObjectsInactive.Exclude,
+                    FindObjectsSortMode.None)
+                .Single();
+            Assert.That(
+                uiInstaller.TryForceClearCurrentStageForDiagnostics(out var forceClearMessage),
+                Is.True,
+                forceClearMessage);
+            Assert.That(forceClearMessage, Does.Contain("Forced clear committed"));
+            Assert.That(
+                uiInstaller.TryGetTerminalTransitionPort(out var transitionPort),
+                Is.True);
+            Assert.That(
+                ((GameplayTerminalTransitionPort)transitionPort).CurrentPlayback,
+                Is.Null);
+            Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+            Assert.That(host.InputHost.IsTerminalHoldActive, Is.False);
         }
 
         private static void AssertSceneInstallerIntegrity(string scenePath)
