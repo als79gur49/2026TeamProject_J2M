@@ -295,8 +295,9 @@ namespace Game.Feature.Gameplay.Host
                         "Stage-backed noncampaign bootstrap requires the production gameplay presentation feed.");
                 }
 
-                // Explicit policy B: direct-play/noncampaign scenes keep global respawn
-                // semantics and publish no terminal StageCleared/LevelFailed destination.
+                // Direct-play/noncampaign scenes keep global respawn semantics and publish
+                // no terminal destination. Demo Force Clear remains a minimal completion-only
+                // command and does not install or invoke the campaign terminal authority.
                 presentationFeed.DisableTerminalOutcomes();
                 return;
             }
