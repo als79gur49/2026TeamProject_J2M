@@ -201,7 +201,6 @@ namespace Game.Platform.Tests.PlayMode
             var steamRuntime = new CountingPlatformRuntime("steam")
             {
                 AvailabilityResult = PlatformAvailability.Unavailable("DllMissing"),
-                InitializationResult = PlatformInitializationResult.Failure("DllMissing"),
             };
             var steamFactory = new CountingPlatformRuntimeFactory(steamRuntime);
             var localRuntime = new CountingPlatformRuntime("local");
@@ -213,7 +212,7 @@ namespace Game.Platform.Tests.PlayMode
             Assert.That(PlatformRuntimeRegistry.RegisterFactory(steamFactory).IsSuccess, Is.True);
             LogAssert.Expect(
                 LogType.Error,
-                "Platform runtime 'steam' initialization failed: DllMissing");
+                "Platform runtime 'steam' initialized but is unavailable: DllMissing");
 
             var host = PlatformRuntimeBootstrap.BootstrapNowForTests();
             yield return null;
@@ -232,6 +231,7 @@ namespace Game.Platform.Tests.PlayMode
             Assert.That(steamRuntime.InitializeCount, Is.EqualTo(1));
             Assert.That(steamRuntime.TickCount, Is.Zero);
             Assert.That(steamRuntime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(host.TickEnabled, Is.False);
             Assert.That(localFactory.CreateCount, Is.Zero);
             Assert.That(localRuntime.InitializeCount, Is.Zero);
         }

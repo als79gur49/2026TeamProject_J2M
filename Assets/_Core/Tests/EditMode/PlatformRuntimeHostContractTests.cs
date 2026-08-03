@@ -56,6 +56,40 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
+        public void SuccessfulInitializeWithUnavailableRuntime_FailsClosedAndCleansUpOnce()
+        {
+            var runtime = new FakePlatformRuntime("unavailable-after-initialize")
+            {
+                AvailabilityResult = PlatformAvailability.Unavailable("service unavailable"),
+            };
+            var lifecycle = CreateLifecycle(runtime);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'unavailable-after-initialize' initialized but is unavailable: " +
+                "service unavailable");
+
+            lifecycle.InitializeOnce();
+            lifecycle.TickOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(lifecycle.InitializationResult.IsSuccess, Is.True);
+            Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+            Assert.That(lifecycle.TickEnabled, Is.False);
+            Assert.That(lifecycle.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+            Assert.That(lifecycle.Selection.RequestedProviderId,
+                Is.EqualTo(new PlatformProviderId("unavailable-after-initialize")));
+            Assert.That(lifecycle.Selection.FallbackUsed, Is.False);
+            Assert.That(lifecycle.Selection.FailureReason,
+                Is.EqualTo("Platform provider 'unavailable-after-initialize' was selected but is unavailable: " +
+                    "service unavailable"));
+            Assert.That(runtime.InitializeCount, Is.EqualTo(1));
+            Assert.That(runtime.TickCount, Is.Zero);
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(lifecycle.ShutdownAttempted, Is.True);
+        }
+
+        [Test]
         public void InitializeException_IsContainedWithoutChangingProviderIdentity()
         {
             var runtime = new FakePlatformRuntime("throw-init")

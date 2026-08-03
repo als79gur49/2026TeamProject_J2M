@@ -61,7 +61,6 @@ namespace Game.Platform.Runtime
             try
             {
                 initializationResult = runtime.Initialize();
-                tickEnabled = initializationResult.IsSuccess;
                 availability = ResolveAvailability(selection, runtime);
                 if (!initializationResult.IsSuccess)
                 {
@@ -75,7 +74,27 @@ namespace Game.Platform.Runtime
                     Debug.LogError(
                         "Platform runtime '" + selection.SelectedProviderId +
                         "' initialization failed: " + initializationResult.FailureReason);
+                    return;
                 }
+
+                if (!availability.IsAvailable)
+                {
+                    tickEnabled = false;
+                    if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
+                    {
+                        selection = PlatformRuntimeSelectionResult.Unavailable(
+                            selection,
+                            availability.Reason);
+                    }
+
+                    Debug.LogError(
+                        "Platform runtime '" + selection.SelectedProviderId +
+                        "' initialized but is unavailable: " + availability.Reason);
+                    ShutdownOnce();
+                    return;
+                }
+
+                tickEnabled = true;
             }
             catch (Exception exception)
             {
