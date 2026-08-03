@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.Host;
 using UnityEditor;
+using UnityEngine;
 
 namespace Game.Feature.Stages.Editor
 {
@@ -27,7 +30,7 @@ namespace Game.Feature.Stages.Editor
                 ApplyPresentationOutput(plan.PresentationOutput, plan.BuildData);
             }
 
-            AssetDatabase.SaveAssets();
+            StageAuthoringGenerationSaveSet.SaveTouchedAssets(plan, options);
         }
 
         public static void ApplyGameplayOutput(
@@ -241,6 +244,55 @@ namespace Game.Feature.Stages.Editor
         private static string Normalize(string value)
         {
             return StageAuthoringGenerator.Normalize(value);
+        }
+    }
+
+    internal static class StageAuthoringGenerationSaveSet
+    {
+        public static void SaveTouchedAssets(
+            StageAuthoringGenerationPlan plan,
+            StageAuthoringGenerateOptions options)
+        {
+            if (plan == null)
+            {
+                return;
+            }
+
+            options ??= plan.Options ?? StageAuthoringGenerateOptions.WriteAll;
+            var assetsByPath = new Dictionary<string, UnityEngine.Object>(StringComparer.Ordinal);
+            AddPlanOwnedPersistentAsset(assetsByPath, plan.Source);
+            if (options.WriteGameplay)
+            {
+                AddPlanOwnedPersistentAsset(assetsByPath, plan.GameplayOutput);
+            }
+
+            if (options.WritePresentationBindings)
+            {
+                AddPlanOwnedPersistentAsset(assetsByPath, plan.PresentationOutput);
+            }
+
+            foreach (var path in assetsByPath.Keys.OrderBy(path => path, StringComparer.Ordinal))
+            {
+                AssetDatabase.SaveAssetIfDirty(assetsByPath[path]);
+            }
+        }
+
+        private static void AddPlanOwnedPersistentAsset(
+            IDictionary<string, UnityEngine.Object> assetsByPath,
+            UnityEngine.Object asset)
+        {
+            if (asset == null || !EditorUtility.IsPersistent(asset))
+            {
+                return;
+            }
+
+            var path = AssetDatabase.GetAssetPath(asset);
+            if (string.IsNullOrEmpty(path) || assetsByPath.ContainsKey(path))
+            {
+                return;
+            }
+
+            assetsByPath.Add(path, asset);
         }
     }
 }

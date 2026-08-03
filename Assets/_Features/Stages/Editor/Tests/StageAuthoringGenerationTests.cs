@@ -286,7 +286,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringDefinitionObjective_PreservesAuthoringMetadataAndDefaultsPrimaryGoalAuthoringLabel()
+        public void StageAuthoringDefinitionObjective_PreservesEmptyPrimaryGoalAuthoringLabelForValidation()
         {
             var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
             try
@@ -313,7 +313,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
                 Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
-                Assert.That(objective.ConditionEntries.Single().AuthoringLabel, Is.EqualTo("Reach the Exit Zone"));
+                Assert.That(objective.ConditionEntries.Single().AuthoringLabel, Is.Empty);
             }
             finally
             {
