@@ -6,7 +6,7 @@ namespace Game.Platform.Runtime
     internal sealed class PlatformRuntimeLifecycle
     {
         private PlatformRuntimeSelectionResult selection;
-        private readonly IPlatformRuntime runtime;
+        private IPlatformRuntime activeRuntime;
 
         private bool initializationAttempted;
         private bool tickEnabled;
@@ -19,8 +19,8 @@ namespace Game.Platform.Runtime
         internal PlatformRuntimeLifecycle(PlatformRuntimeSelectionResult selection)
         {
             this.selection = selection;
-            runtime = selection.Runtime;
-            availability = ResolveAvailability(selection, runtime);
+            activeRuntime = selection.Runtime;
+            availability = ResolveAvailability(selection, activeRuntime);
         }
 
         internal PlatformRuntimeSelectionResult Selection => selection;
@@ -37,6 +37,8 @@ namespace Game.Platform.Runtime
 
         internal bool ShutdownAttempted => shutdownAttempted;
 
+        internal bool HasActiveRuntime => activeRuntime != null;
+
         internal string TickFailureReason => tickFailureReason;
 
         internal string ShutdownFailureReason => shutdownFailureReason;
@@ -49,7 +51,7 @@ namespace Game.Platform.Runtime
             }
 
             initializationAttempted = true;
-            if (!selection.IsSuccess || runtime == null)
+            if (!selection.IsSuccess || activeRuntime == null)
             {
                 initializationResult = PlatformInitializationResult.Failure(
                     "Platform runtime initialization was not attempted because selection failed: " +
@@ -60,8 +62,8 @@ namespace Game.Platform.Runtime
 
             try
             {
-                initializationResult = runtime.Initialize();
-                availability = ResolveAvailability(selection, runtime);
+                initializationResult = activeRuntime.Initialize();
+                availability = ResolveAvailability(selection, activeRuntime);
                 if (!initializationResult.IsSuccess)
                 {
                     if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
@@ -122,7 +124,13 @@ namespace Game.Platform.Runtime
 
             try
             {
+                var runtime = activeRuntime;
                 runtime.Tick();
+                availability = ResolveAvailability(selection, runtime);
+                if (!availability.IsAvailable)
+                {
+                    FailClosedAfterRuntimeDegradation();
+                }
             }
             catch (Exception exception)
             {
@@ -144,6 +152,8 @@ namespace Game.Platform.Runtime
 
             shutdownAttempted = true;
             tickEnabled = false;
+            var runtime = activeRuntime;
+            activeRuntime = null;
             if (runtime == null)
             {
                 return;
@@ -160,6 +170,22 @@ namespace Game.Platform.Runtime
                     "' shutdown threw " + FormatException(exception) + ".";
                 Debug.LogError(shutdownFailureReason);
             }
+        }
+
+        private void FailClosedAfterRuntimeDegradation()
+        {
+            tickEnabled = false;
+            if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
+            {
+                selection = PlatformRuntimeSelectionResult.Unavailable(selection, availability.Reason);
+            }
+
+            tickFailureReason =
+                "Platform runtime '" + selection.SelectedProviderId +
+                "' became unavailable during tick: " + availability.Reason +
+                "; further ticks are disabled.";
+            Debug.LogError(tickFailureReason);
+            ShutdownOnce();
         }
 
         private static PlatformAvailability ResolveAvailability(

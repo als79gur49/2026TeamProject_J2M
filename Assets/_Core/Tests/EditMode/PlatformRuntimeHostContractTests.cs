@@ -135,6 +135,33 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
+        public void RuntimeBecomesUnavailableDuringTick_FailsClosedAndShutsDownOnce()
+        {
+            var runtime = new FakePlatformRuntime("degrades-on-tick");
+            var lifecycle = CreateLifecycle(runtime);
+            lifecycle.InitializeOnce();
+            runtime.AvailabilityResult = PlatformAvailability.Unavailable("callback fault");
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'degrades-on-tick' became unavailable during tick: callback fault; further ticks are disabled.");
+
+            lifecycle.TickOnce();
+            lifecycle.TickOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(runtime.TickCount, Is.EqualTo(1));
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+            Assert.That(lifecycle.HasActiveRuntime, Is.False);
+            Assert.That(lifecycle.TickEnabled, Is.False);
+            Assert.That(lifecycle.ShutdownAttempted, Is.True);
+            Assert.That(lifecycle.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+            Assert.That(lifecycle.Selection.FallbackUsed, Is.False);
+            Assert.That(lifecycle.TickFailureReason, Does.Contain("callback fault"));
+        }
+
+        [Test]
         public void ShutdownException_IsContainedAndNotRetried()
         {
             var runtime = new FakePlatformRuntime("throw-shutdown")

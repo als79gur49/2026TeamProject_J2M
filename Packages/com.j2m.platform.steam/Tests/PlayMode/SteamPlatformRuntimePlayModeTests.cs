@@ -70,6 +70,32 @@ namespace Game.Platform.Steam.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator CallbackFault_ReleasesLifecycleAndDoesNotPumpOrShutdownTwice()
+        {
+            var native = new CountingNativeApi();
+            var host = BootstrapWithFactory(new SteamPlatformRuntimeFactory(() => native));
+
+            yield return null;
+            Assert.That(native.CallbackCount, Is.GreaterThan(0));
+            native.CallbackException = new System.InvalidOperationException("callback fault");
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'steam' became unavailable during tick: " +
+                "CallbackException: InvalidOperationException with message 'callback fault'; further ticks are disabled.");
+
+            yield return null;
+            var callbacksAfterFault = native.CallbackCount;
+            yield return null;
+            InvokeHostShutdown(host);
+            Object.Destroy(((Component)host).gameObject);
+            yield return null;
+
+            Assert.That(native.CallbackCount, Is.EqualTo(callbacksAfterFault));
+            Assert.That(native.ShutdownCount, Is.EqualTo(1));
+            Assert.That(GetHostTickEnabled(host), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator LocalFoundationHost_HasNoSteamCallbackOwnership()
         {
             var native = new CountingNativeApi();
@@ -130,6 +156,13 @@ namespace Game.Platform.Steam.Tests.PlayMode
             shutdown.Invoke(host, null);
         }
 
+        private static bool GetHostTickEnabled(object host)
+        {
+            var tickEnabled = host.GetType().GetProperty("TickEnabled", InternalInstance);
+            Assert.That(tickEnabled, Is.Not.Null);
+            return (bool)tickEnabled.GetValue(host);
+        }
+
         private static void DestroyCanonicalHost()
         {
             var hostType = typeof(LocalPlatformRuntime).Assembly.GetType(
@@ -168,6 +201,8 @@ namespace Game.Platform.Steam.Tests.PlayMode
             internal int CallbackCount { get; private set; }
             internal int ShutdownCount { get; private set; }
 
+            internal System.Exception CallbackException { get; set; }
+
             public bool IsPacksizeCompatible() => true;
 
             public SteamDllCheckObservation ObserveDllCheck() =>
@@ -182,6 +217,10 @@ namespace Game.Platform.Steam.Tests.PlayMode
             public void RunCallbacks()
             {
                 CallbackCount++;
+                if (CallbackException != null)
+                {
+                    throw CallbackException;
+                }
             }
 
             public void Shutdown()
