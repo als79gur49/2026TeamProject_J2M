@@ -32,7 +32,8 @@ namespace Game.Platform.Runtime
                 if (string.Equals(argument, ProviderSelectionArgument, StringComparison.Ordinal))
                 {
                     if (index + 1 >= arguments.Count ||
-                        string.IsNullOrWhiteSpace(arguments[index + 1]))
+                        string.IsNullOrWhiteSpace(arguments[index + 1]) ||
+                        IsCommandLineOptionToken(arguments[index + 1]))
                     {
                         return PlatformProviderSelectionRequest.Invalid(
                             CommandLineSource,
@@ -92,6 +93,12 @@ namespace Game.Platform.Runtime
         internal static void ResetFromArguments(IReadOnlyList<string> arguments)
         {
             currentRequest = ParseArguments(arguments);
+        }
+
+        private static bool IsCommandLineOptionToken(string token)
+        {
+            return !string.IsNullOrEmpty(token) &&
+                token.StartsWith("-", StringComparison.Ordinal);
         }
     }
 }

@@ -145,6 +145,26 @@ namespace Game.Platform.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator CommandLine_SwitchInsteadOfProviderValue_IsInvalidWithoutLocalFallback()
+        {
+            ResetWithArguments(
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "-batchmode");
+            ExpectSelectionFailureLogs(
+                PlatformProviderSelection.ProviderSelectionArgument +
+                " requires a provider ID value.");
+
+            var host = PlatformRuntimeBootstrap.BootstrapNowForTests();
+            yield return null;
+
+            Assert.That(host.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.InvalidProviderSelection));
+            Assert.That(host.Selection.HasRequestedProviderId, Is.False);
+            Assert.That(host.Selection.FallbackUsed, Is.False);
+            Assert.That(host.TickEnabled, Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator CommandLine_ConflictingProviderValues_AreRejected()
         {
             ResetWithArguments(

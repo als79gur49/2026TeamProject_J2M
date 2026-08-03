@@ -75,6 +75,36 @@ namespace Game.Platform.Tests.EditMode
             Assert.That(request.FailureReason, Does.Contain("requires a provider ID value"));
         }
 
+        [TestCase("-batchmode")]
+        [TestCase("--nographics")]
+        public void SelectorFollowedByCommandLineOption_IsInvalidWithoutConsumingOption(
+            string option)
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                option,
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Invalid));
+            Assert.That(request.HasRequestedProviderId, Is.False);
+            Assert.That(request.FailureReason, Does.Contain("requires a provider ID value"));
+        }
+
+        [Test]
+        public void ValidProviderBeforeCommandLineOption_PreservesProviderValue()
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "steam",
+                "-batchmode",
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Explicit));
+            Assert.That(request.RequestedProviderId.Value, Is.EqualTo("steam"));
+        }
+
         [TestCase("")]
         [TestCase("   ")]
         public void EmptyValue_IsInvalid(string value)
