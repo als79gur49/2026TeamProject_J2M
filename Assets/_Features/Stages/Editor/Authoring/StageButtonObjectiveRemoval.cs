@@ -351,6 +351,7 @@ namespace Game.Feature.Stages.Editor
                     StringComparison.Ordinal) &&
                 candidate.ConditionReferenceMatches &&
                 candidate.ConditionTileId == tileId &&
+                candidate.Required &&
                 candidate.RoleMatches &&
                 candidate.TypeMatches);
             var mode = candidates.Length == 0

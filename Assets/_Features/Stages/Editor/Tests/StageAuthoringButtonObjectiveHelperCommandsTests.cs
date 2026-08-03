@@ -228,6 +228,35 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AllocateSortOrder_ConsidersEntriesAcrossAllGovernedRoles()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var primary = Condition(null, true, StageObjectiveConditionRole.PrimaryGoal, "primary");
+            primary.SortOrder = 10;
+            var secondary = Condition(null, true, StageObjectiveConditionRole.SecondaryGoal, "secondary");
+            secondary.SortOrder = 20;
+            var challenge = Condition(null, false, StageObjectiveConditionRole.Challenge, "challenge");
+            challenge.SortOrder = 30;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                primary,
+                secondary,
+                challenge));
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryAddRequiredSecondaryGoal(
+                fixture.Authoring,
+                fixture.Button,
+                fixture.Entry.StageId.Value);
+
+            Assert.That(result.Succeeded, Is.True, result.Message);
+            var sortOrders = fixture.Authoring.Objective.ConditionEntries
+                .Select(entry => entry.SortOrder)
+                .ToArray();
+            Assert.That(sortOrders, Is.EqualTo(new[] { 10, 20, 30, 40 }));
+            Assert.That(sortOrders.Distinct().Count(), Is.EqualTo(sortOrders.Length));
+        }
+
+        [Test]
         public void TryRemoveRequiredSecondaryGoal_LinkedButton_RemovesEntryButKeepsAsset()
         {
             using var fixture = TempStageContentFixture.Create();
@@ -393,6 +422,29 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(plan.Candidates[0].MatchReason,
                 Is.EqualTo(StageButtonObjectiveRemovalMatchReason.StableAndTileMatch));
             Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.True);
+        }
+
+        [Test]
+        public void ClassifySingleCanonical_ExcludesNonRequiredEntry()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var condition = fixture.CreateExpectedButtonCondition(901);
+            var entry = ButtonEntry(condition, "button-901", "Optional button", 30);
+            entry.Required = false;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                entry));
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring),
+                fixture.Authoring,
+                fixture.Button);
+
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            Assert.That(plan.Candidates, Has.Count.EqualTo(1));
+            Assert.That(plan.Candidates[0].Required, Is.False);
+            Assert.That(StageButtonObjectiveRemovalConfirmationMessage.BuildRepair(plan),
+                Does.Contain("conflicting Button Objective entries"));
         }
 
         [Test]

@@ -671,23 +671,22 @@ namespace Game.Feature.Stages.Editor
             IReadOnlyList<StageObjectiveConditionEntry> entries,
             out int sortOrder)
         {
-            var maxSecondary = 0;
+            var maxSortOrder = 0;
             for (var i = 0; i < entries.Count; i++)
             {
-                if (entries[i].Role == StageObjectiveConditionRole.SecondaryGoal &&
-                    entries[i].SortOrder > maxSecondary)
+                if (entries[i].SortOrder > maxSortOrder)
                 {
-                    maxSecondary = entries[i].SortOrder;
+                    maxSortOrder = entries[i].SortOrder;
                 }
             }
 
-            if (maxSecondary > int.MaxValue - 10)
+            if (maxSortOrder > int.MaxValue - 10)
             {
                 sortOrder = 0;
                 return false;
             }
 
-            sortOrder = Math.Max(10, maxSecondary + 10);
+            sortOrder = Math.Max(10, maxSortOrder + 10);
             return true;
         }
 
