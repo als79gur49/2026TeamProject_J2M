@@ -12,10 +12,16 @@ namespace Game.Platform.Tests.PlayMode
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            var existing = PlatformRuntimeApplicationHost.CurrentForTests;
-            if (existing != null)
+            var existingHosts = Object.FindObjectsByType<PlatformRuntimeApplicationHost>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            foreach (var existing in existingHosts)
             {
                 Object.Destroy(existing.gameObject);
+            }
+
+            if (existingHosts.Length > 0)
+            {
                 yield return null;
             }
 
@@ -25,10 +31,16 @@ namespace Game.Platform.Tests.PlayMode
         [UnityTearDown]
         public IEnumerator TearDown()
         {
-            var existing = PlatformRuntimeApplicationHost.CurrentForTests;
-            if (existing != null)
+            var existingHosts = Object.FindObjectsByType<PlatformRuntimeApplicationHost>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            foreach (var existing in existingHosts)
             {
                 Object.Destroy(existing.gameObject);
+            }
+
+            if (existingHosts.Length > 0)
+            {
                 yield return null;
             }
 
@@ -38,6 +50,7 @@ namespace Game.Platform.Tests.PlayMode
         [UnityTest]
         public IEnumerator LocalRuntime_MainMenuLoadsWithoutSerializedPlatformSetup()
         {
+            Assert.That(PlatformRuntimeBootstrap.AutomaticBootstrapSuppressedForTests, Is.False);
             var host = PlatformRuntimeBootstrap.BootstrapNowForTests();
             Assert.That(host, Is.Not.Null);
             Assert.That(host.ProviderId, Is.EqualTo(PlatformProviderId.Local));

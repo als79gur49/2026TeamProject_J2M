@@ -8,24 +8,22 @@ namespace Game.Platform.Tests.PlayMode
 {
     public sealed class PlatformRuntimeApplicationHostPlayModeTests
     {
+        private System.IDisposable bootstrapSuppressionSession;
+
         [UnitySetUp]
         public IEnumerator SetUp()
         {
             yield return DestroyCanonicalHost();
             PlatformRuntimeBootstrap.ResetSubsystemStateForTests();
-            Assert.That(
-                PlatformRuntimeBootstrap.TryConfigureTestOverride(
-                    suppressAutomaticBootstrap: true,
-                    fakeFactory: null,
-                    out var failureReason),
-                Is.True,
-                failureReason);
+            bootstrapSuppressionSession = PlatformRuntimeTestBootstrap.BeginBootstrapSuppression();
         }
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
             yield return DestroyCanonicalHost();
+            bootstrapSuppressionSession?.Dispose();
+            bootstrapSuppressionSession = null;
             PlatformRuntimeBootstrap.ResetSubsystemStateForTests();
         }
 
@@ -340,7 +338,7 @@ namespace Game.Platform.Tests.PlayMode
             var runtime = new CountingPlatformRuntime("invalid-override");
             LogAssert.Expect(
                 LogType.Error,
-                "Platform test bootstrap suppression and fake factory injection cannot be combined.");
+                "Platform test bootstrap suppression requires an explicit test session.");
 
             var accepted = PlatformRuntimeBootstrap.TryConfigureTestOverride(
                 suppressAutomaticBootstrap: true,
@@ -360,7 +358,7 @@ namespace Game.Platform.Tests.PlayMode
             BootstrapWithFactory(new CountingPlatformRuntimeFactory(runtime));
             LogAssert.Expect(
                 LogType.Error,
-                "Platform test bootstrap override cannot be configured after registry seal.");
+                "Platform test bootstrap suppression requires an explicit test session.");
 
             var accepted = PlatformRuntimeBootstrap.TryConfigureTestOverride(
                 suppressAutomaticBootstrap: true,
@@ -383,6 +381,22 @@ namespace Game.Platform.Tests.PlayMode
             Assert.That(PlatformRuntimeBootstrap.AutomaticBootstrapSuppressedForTests, Is.False);
             Assert.That(PlatformRuntimeBootstrap.HasTestFactory, Is.False);
             Assert.That(PlatformRuntimeRegistry.IsSealed, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator NestedSuppressionSessions_RestoreDefaultOnlyAfterFinalDispose()
+        {
+            var nested = PlatformRuntimeTestBootstrap.BeginBootstrapSuppression();
+            Assert.That(PlatformRuntimeBootstrap.AutomaticBootstrapSuppressedForTests, Is.True);
+
+            nested.Dispose();
+            Assert.That(PlatformRuntimeBootstrap.AutomaticBootstrapSuppressedForTests, Is.True);
+
+            bootstrapSuppressionSession.Dispose();
+            bootstrapSuppressionSession = null;
+            yield return null;
+
+            Assert.That(PlatformRuntimeBootstrap.AutomaticBootstrapSuppressedForTests, Is.False);
         }
 
         private static PlatformRuntimeApplicationHost BootstrapWithFactory(
@@ -415,10 +429,16 @@ namespace Game.Platform.Tests.PlayMode
 
         private static IEnumerator DestroyCanonicalHost()
         {
-            var host = PlatformRuntimeApplicationHost.CurrentForTests;
-            if (host != null)
+            var hosts = Object.FindObjectsByType<PlatformRuntimeApplicationHost>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            foreach (var host in hosts)
             {
                 Object.Destroy(host.gameObject);
+            }
+
+            if (hosts.Length > 0)
+            {
                 yield return null;
             }
         }

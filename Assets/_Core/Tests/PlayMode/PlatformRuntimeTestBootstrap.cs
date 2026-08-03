@@ -1,17 +1,13 @@
 using Game.Platform.Runtime;
-using UnityEngine;
+using System;
 
 namespace Game.Platform.Tests.PlayMode
 {
     internal static class PlatformRuntimeTestBootstrap
     {
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
-        private static void SuppressProductionBootstrap()
+        internal static IDisposable BeginBootstrapSuppression()
         {
-            PlatformRuntimeBootstrap.TryConfigureTestOverride(
-                suppressAutomaticBootstrap: true,
-                fakeFactory: null,
-                out _);
+            return PlatformRuntimeBootstrap.BeginAutomaticBootstrapSuppressionForTests();
         }
     }
 }

@@ -8,11 +8,11 @@ namespace Game.Platform.Runtime
     {
         private static bool bootstrapInProgress;
         private static bool testOverrideConfigured;
-        private static bool automaticBootstrapSuppressedForTests;
+        private static int automaticBootstrapSuppressionLeaseCount;
         private static IPlatformRuntimeFactory testFactory;
 
         internal static bool AutomaticBootstrapSuppressedForTests =>
-            automaticBootstrapSuppressedForTests;
+            automaticBootstrapSuppressionLeaseCount > 0;
 
         internal static bool HasTestFactory => testFactory != null;
 
@@ -24,7 +24,7 @@ namespace Game.Platform.Runtime
             PlatformRuntimeApplicationHost.ResetStaticOwnerForSubsystemRegistration();
             bootstrapInProgress = false;
             testOverrideConfigured = false;
-            automaticBootstrapSuppressedForTests = false;
+            automaticBootstrapSuppressionLeaseCount = 0;
             testFactory = null;
         }
 
@@ -39,10 +39,17 @@ namespace Game.Platform.Runtime
             IPlatformRuntimeFactory fakeFactory,
             out string failureReason)
         {
-            if (suppressAutomaticBootstrap && fakeFactory != null)
+            if (suppressAutomaticBootstrap)
             {
                 return RejectTestOverride(
-                    "Platform test bootstrap suppression and fake factory injection cannot be combined.",
+                    "Platform test bootstrap suppression requires an explicit test session.",
+                    out failureReason);
+            }
+
+            if (AutomaticBootstrapSuppressedForTests && fakeFactory != null)
+            {
+                return RejectTestOverride(
+                    "Platform test factory injection cannot be combined with bootstrap suppression.",
                     out failureReason);
             }
 
@@ -68,10 +75,33 @@ namespace Game.Platform.Runtime
             }
 
             testOverrideConfigured = true;
-            automaticBootstrapSuppressedForTests = suppressAutomaticBootstrap;
             testFactory = fakeFactory;
             failureReason = string.Empty;
             return true;
+        }
+
+        internal static IDisposable BeginAutomaticBootstrapSuppressionForTests()
+        {
+            if (PlatformRuntimeRegistry.IsSealed)
+            {
+                throw new InvalidOperationException(
+                    "Platform test bootstrap suppression cannot begin after registry seal.");
+            }
+
+            if (PlatformRuntimeApplicationHost.HasCanonicalHost)
+            {
+                throw new InvalidOperationException(
+                    "Platform test bootstrap suppression cannot begin after host creation.");
+            }
+
+            if (testOverrideConfigured && testFactory != null)
+            {
+                throw new InvalidOperationException(
+                    "Platform test bootstrap suppression cannot be combined with factory injection.");
+            }
+
+            automaticBootstrapSuppressionLeaseCount++;
+            return new AutomaticBootstrapSuppressionLease();
         }
 
         internal static PlatformRuntimeApplicationHost BootstrapNowForTests()
@@ -92,7 +122,7 @@ namespace Game.Platform.Runtime
 
         private static PlatformRuntimeApplicationHost BootstrapNow()
         {
-            if (automaticBootstrapSuppressedForTests)
+            if (AutomaticBootstrapSuppressedForTests)
             {
                 return null;
             }
@@ -147,6 +177,25 @@ namespace Game.Platform.Runtime
             failureReason = reason;
             Debug.LogError(reason);
             return false;
+        }
+
+        private sealed class AutomaticBootstrapSuppressionLease : IDisposable
+        {
+            private bool disposed;
+
+            public void Dispose()
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                disposed = true;
+                if (automaticBootstrapSuppressionLeaseCount > 0)
+                {
+                    automaticBootstrapSuppressionLeaseCount--;
+                }
+            }
         }
     }
 }
