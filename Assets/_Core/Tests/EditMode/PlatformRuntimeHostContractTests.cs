@@ -114,7 +114,7 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
-        public void TickException_DisablesFurtherTicksAndLogsOnce()
+        public void TickException_FailsClosedAndShutsDownExactlyOnce()
         {
             var runtime = new FakePlatformRuntime("throw-tick")
             {
@@ -128,10 +128,18 @@ namespace Game.Platform.Tests.EditMode
 
             lifecycle.TickOnce();
             lifecycle.TickOnce();
+            lifecycle.ShutdownOnce();
 
             Assert.That(runtime.TickCount, Is.EqualTo(1));
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+            Assert.That(lifecycle.HasActiveRuntime, Is.False);
             Assert.That(lifecycle.TickEnabled, Is.False);
-            Assert.That(lifecycle.TickFailureReason, Is.Not.Empty);
+            Assert.That(lifecycle.ShutdownAttempted, Is.True);
+            Assert.That(lifecycle.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+            Assert.That(lifecycle.Selection.FallbackUsed, Is.False);
+            Assert.That(lifecycle.TickFailureReason, Does.Contain("tick failure"));
         }
 
         [Test]

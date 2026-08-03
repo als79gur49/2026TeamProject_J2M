@@ -134,16 +134,52 @@ namespace Game.Platform.Runtime
             }
             catch (Exception exception)
             {
-                tickEnabled = false;
-                tickFailureReason =
+                var failureReason =
                     "Platform runtime '" + selection.SelectedProviderId +
                     "' tick threw " + FormatException(exception) +
                     "; further ticks are disabled.";
-                Debug.LogError(tickFailureReason);
+                FailClosedActiveRuntime(
+                    PlatformAvailability.Unavailable(failureReason),
+                    failureReason);
             }
         }
 
         internal void ShutdownOnce()
+        {
+            tickEnabled = false;
+            var runtime = activeRuntime;
+            activeRuntime = null;
+            ShutdownRuntimeOnce(runtime);
+        }
+
+        private void FailClosedAfterRuntimeDegradation()
+        {
+            FailClosedActiveRuntime(
+                availability,
+                "Platform runtime '" + selection.SelectedProviderId +
+                "' became unavailable during tick: " + availability.Reason +
+                "; further ticks are disabled.");
+        }
+
+        private void FailClosedActiveRuntime(
+            PlatformAvailability unavailableAvailability,
+            string diagnosticReason)
+        {
+            tickEnabled = false;
+            var runtime = activeRuntime;
+            activeRuntime = null;
+            availability = unavailableAvailability;
+            if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
+            {
+                selection = PlatformRuntimeSelectionResult.Unavailable(selection, availability.Reason);
+            }
+
+            tickFailureReason = diagnosticReason;
+            Debug.LogError(tickFailureReason);
+            ShutdownRuntimeOnce(runtime);
+        }
+
+        private void ShutdownRuntimeOnce(IPlatformRuntime runtime)
         {
             if (shutdownAttempted)
             {
@@ -151,9 +187,6 @@ namespace Game.Platform.Runtime
             }
 
             shutdownAttempted = true;
-            tickEnabled = false;
-            var runtime = activeRuntime;
-            activeRuntime = null;
             if (runtime == null)
             {
                 return;
@@ -170,22 +203,6 @@ namespace Game.Platform.Runtime
                     "' shutdown threw " + FormatException(exception) + ".";
                 Debug.LogError(shutdownFailureReason);
             }
-        }
-
-        private void FailClosedAfterRuntimeDegradation()
-        {
-            tickEnabled = false;
-            if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
-            {
-                selection = PlatformRuntimeSelectionResult.Unavailable(selection, availability.Reason);
-            }
-
-            tickFailureReason =
-                "Platform runtime '" + selection.SelectedProviderId +
-                "' became unavailable during tick: " + availability.Reason +
-                "; further ticks are disabled.";
-            Debug.LogError(tickFailureReason);
-            ShutdownOnce();
         }
 
         private static PlatformAvailability ResolveAvailability(
