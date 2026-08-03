@@ -14,16 +14,19 @@ namespace Game.Platform.Steam.Tests.PlayMode
         private static readonly BindingFlags InternalInstance =
             BindingFlags.Instance | BindingFlags.NonPublic;
 
-        [SetUp]
-        public void SetUp()
+        [UnitySetUp]
+        public IEnumerator SetUp()
         {
+            yield return DestroyPlatformHosts();
             ResetPlatformFoundation();
+            AssertNoPlatformHosts();
         }
 
-        [TearDown]
-        public void TearDown()
+        [UnityTearDown]
+        public IEnumerator TearDown()
         {
-            DestroyCanonicalHost();
+            yield return DestroyPlatformHosts();
+            AssertNoPlatformHosts();
             ResetPlatformFoundation();
         }
 
@@ -36,6 +39,7 @@ namespace Game.Platform.Steam.Tests.PlayMode
             yield return null;
             yield return null;
 
+            AssertSinglePlatformHost(host, SteamPlatformRuntime.ProviderId);
             Assert.That(native.InitializeCount, Is.EqualTo(1));
             Assert.That(native.CallbackCount, Is.GreaterThan(0));
             Assert.That(GetHostProviderId(host), Is.EqualTo(SteamPlatformRuntime.ProviderId));
@@ -60,6 +64,7 @@ namespace Game.Platform.Steam.Tests.PlayMode
             yield return null;
             yield return null;
 
+            AssertSinglePlatformHost(host, SteamPlatformRuntime.ProviderId);
             Assert.That(native.InitializeCount, Is.EqualTo(1));
             Assert.That(native.CallbackCount, Is.Zero);
 
@@ -76,6 +81,7 @@ namespace Game.Platform.Steam.Tests.PlayMode
             var host = BootstrapWithFactory(new SteamPlatformRuntimeFactory(() => native));
 
             yield return null;
+            AssertSinglePlatformHost(host, SteamPlatformRuntime.ProviderId);
             Assert.That(native.CallbackCount, Is.GreaterThan(0));
             native.CallbackException = new System.InvalidOperationException("callback fault");
             LogAssert.Expect(
@@ -104,6 +110,7 @@ namespace Game.Platform.Steam.Tests.PlayMode
             yield return null;
             yield return null;
 
+            AssertSinglePlatformHost(host, PlatformProviderId.Local);
             Assert.That(GetHostProviderId(host), Is.EqualTo(PlatformProviderId.Local));
             Assert.That(native.InitializeCount, Is.Zero);
             Assert.That(native.CallbackCount, Is.Zero);
@@ -111,6 +118,47 @@ namespace Game.Platform.Steam.Tests.PlayMode
 
             Object.Destroy(((Component)host).gameObject);
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DestroyBeforeReset_RemovesLocalHostBeforeSteamBootstrap()
+        {
+            var localHost = BootstrapWithFactory(null);
+            yield return null;
+            AssertSinglePlatformHost(localHost, PlatformProviderId.Local);
+
+            yield return DestroyPlatformHosts();
+            AssertNoPlatformHosts();
+            ResetPlatformFoundation();
+
+            var native = new CountingNativeApi();
+            var steamHost = BootstrapWithFactory(
+                new SteamPlatformRuntimeFactory(() => native));
+            yield return null;
+
+            AssertSinglePlatformHost(steamHost, SteamPlatformRuntime.ProviderId);
+            Assert.That(native.InitializeCount, Is.EqualTo(1));
+            Assert.That(native.CallbackCount, Is.GreaterThan(0));
+        }
+
+        [UnityTest]
+        public IEnumerator RepeatedSteamBootstrapCycles_DoNotAccumulateOrphanHosts()
+        {
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                var native = new CountingNativeApi();
+                var host = BootstrapWithFactory(
+                    new SteamPlatformRuntimeFactory(() => native));
+                yield return null;
+
+                AssertSinglePlatformHost(host, SteamPlatformRuntime.ProviderId);
+                Assert.That(native.InitializeCount, Is.EqualTo(1));
+
+                yield return DestroyPlatformHosts();
+                AssertNoPlatformHosts();
+                Assert.That(native.ShutdownCount, Is.EqualTo(1));
+                ResetPlatformFoundation();
+            }
         }
 
         private static object BootstrapWithFactory(IPlatformRuntimeFactory factory)
@@ -163,16 +211,50 @@ namespace Game.Platform.Steam.Tests.PlayMode
             return (bool)tickEnabled.GetValue(host);
         }
 
-        private static void DestroyCanonicalHost()
+        private static IEnumerator DestroyPlatformHosts()
         {
             var hostType = typeof(LocalPlatformRuntime).Assembly.GetType(
                 "Game.Platform.Runtime.PlatformRuntimeApplicationHost",
                 throwOnError: true);
-            var current = hostType.GetProperty("CurrentForTests", InternalStatic)?.GetValue(null);
-            if (current is Component component)
+            var hosts = Object.FindObjectsByType(
+                hostType,
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            foreach (var host in hosts)
             {
-                Object.DestroyImmediate(component.gameObject);
+                Object.Destroy(((Component)host).gameObject);
             }
+
+            if (hosts.Length > 0)
+            {
+                yield return null;
+            }
+        }
+
+        private static void AssertSinglePlatformHost(
+            object expectedHost,
+            PlatformProviderId expectedProviderId)
+        {
+            var hosts = FindPlatformHosts();
+            Assert.That(hosts, Has.Length.EqualTo(1));
+            Assert.That(hosts[0], Is.SameAs(expectedHost));
+            Assert.That(GetHostProviderId(hosts[0]), Is.EqualTo(expectedProviderId));
+        }
+
+        private static void AssertNoPlatformHosts()
+        {
+            Assert.That(FindPlatformHosts(), Is.Empty);
+        }
+
+        private static Object[] FindPlatformHosts()
+        {
+            var hostType = typeof(LocalPlatformRuntime).Assembly.GetType(
+                "Game.Platform.Runtime.PlatformRuntimeApplicationHost",
+                throwOnError: true);
+            return Object.FindObjectsByType(
+                hostType,
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
         }
 
         private static void ResetPlatformFoundation()
