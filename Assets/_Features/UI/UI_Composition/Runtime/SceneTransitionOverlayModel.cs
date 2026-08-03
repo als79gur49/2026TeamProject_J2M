@@ -7,8 +7,6 @@ namespace Game.Feature.UI.Composition
     {
         public readonly StageTransitionKind TransitionKind;
         public readonly TransitionOverlayKind OverlayKind;
-        public readonly string Title;
-        public readonly string Message;
         public readonly bool BlockInput;
         public readonly bool ShowProgress;
         public readonly float Progress01;
@@ -20,8 +18,6 @@ namespace Game.Feature.UI.Composition
 
         public SceneTransitionOverlayModel(
             TransitionOverlayKind overlayKind,
-            string title,
-            string message,
             bool blockInput,
             bool showProgress,
             float progress01,
@@ -33,8 +29,6 @@ namespace Game.Feature.UI.Composition
             : this(
                 StageTransitionKind.Unknown,
                 overlayKind,
-                title,
-                message,
                 blockInput,
                 showProgress,
                 progress01,
@@ -49,8 +43,6 @@ namespace Game.Feature.UI.Composition
         public SceneTransitionOverlayModel(
             StageTransitionKind transitionKind,
             TransitionOverlayKind overlayKind,
-            string title,
-            string message,
             bool blockInput,
             bool showProgress,
             float progress01,
@@ -62,8 +54,6 @@ namespace Game.Feature.UI.Composition
         {
             TransitionKind = transitionKind;
             OverlayKind = overlayKind;
-            Title = title ?? string.Empty;
-            Message = message ?? string.Empty;
             BlockInput = blockInput;
             ShowProgress = showProgress;
             Progress01 = Mathf.Clamp01(progress01);

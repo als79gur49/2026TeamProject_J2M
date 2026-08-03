@@ -147,9 +147,7 @@ namespace Game.Feature.Gameplay.Host
                     slot.CurrentStageId,
                     route.NextStageId,
                     deathCount,
-                    "campaign-death-retry",
-                    "Chance Lost",
-                    "Retrying with one fewer chance."))));
+                    "campaign-death-retry"))));
         }
 
         private int ResolveDeathRecoveryEligibleTick(TickResult result)

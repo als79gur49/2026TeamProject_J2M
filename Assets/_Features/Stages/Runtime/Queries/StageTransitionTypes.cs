@@ -118,9 +118,7 @@ namespace Game.Feature.Stages
             StageId currentStageId,
             StageId retryStageId,
             int deathCount,
-            string source,
-            string title,
-            string message)
+            string source)
         {
             PreviousRemainingChances = Math.Max(0, previousRemainingChances);
             CurrentRemainingChances = Math.Max(0, currentRemainingChances);
@@ -129,8 +127,6 @@ namespace Game.Feature.Stages
             RetryStageId = retryStageId;
             DeathCount = Math.Max(0, deathCount);
             Source = source ?? string.Empty;
-            Title = title ?? string.Empty;
-            Message = message ?? string.Empty;
         }
 
         public int PreviousRemainingChances { get; }
@@ -146,10 +142,6 @@ namespace Game.Feature.Stages
         public int DeathCount { get; }
 
         public string Source { get; }
-
-        public string Title { get; }
-
-        public string Message { get; }
     }
 
     public readonly struct StageTransitionHint

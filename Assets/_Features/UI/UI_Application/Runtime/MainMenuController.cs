@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -10,7 +11,7 @@ namespace Game.Feature.UI.Application
         void Request(ConfirmPopupPayload payload, Action<bool> completion);
     }
 
-    public sealed class MainMenuController
+    public sealed class MainMenuController : IDisposable
     {
         private readonly IConfirmPopupPort _confirmPopupPort;
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
@@ -18,7 +19,10 @@ namespace Game.Feature.UI.Application
         private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly SaveSlotValidationService _saveSlotValidationService;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
+        private readonly ILocalizedTextResolver _localizedTextResolver;
+        private readonly IMainMenuSaveDiagnosticPort _saveDiagnosticPort;
         private LaunchConfirmationOperation _currentLaunchConfirmation;
+        private bool _isDisposed;
 
         public MainMenuController(
             ICampaignSaveSlotStore saveSlotStore,
@@ -26,7 +30,9 @@ namespace Game.Feature.UI.Application
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
             IConfirmPopupPort confirmPopupPort,
-            SaveSlotValidationService saveSlotValidationService = null)
+            SaveSlotValidationService saveSlotValidationService = null,
+            ILocalizedTextResolver localizedTextResolver = null,
+            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null)
         {
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
             _launchHandoffStore = launchHandoffStore ??
@@ -35,6 +41,11 @@ namespace Game.Feature.UI.Application
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _confirmPopupPort = confirmPopupPort ?? throw new ArgumentNullException(nameof(confirmPopupPort));
             _saveSlotValidationService = saveSlotValidationService;
+            _localizedTextResolver = localizedTextResolver ??
+                InvariantSettingsLocalizedTextResolver.Instance;
+            _saveDiagnosticPort = saveDiagnosticPort ??
+                NoOpMainMenuSaveDiagnosticPort.Instance;
+            _localizedTextResolver.LocaleChanged += HandleLocaleChanged;
         }
 
         public event Action<SaveSlotPanelViewModel> ViewModelChanged;
@@ -44,13 +55,22 @@ namespace Game.Feature.UI.Application
             var loadResult = _saveSlotStore.LoadAllWithReport();
             if (loadResult.Report.BlocksCampaignAccess)
             {
-                return MainMenuSlotViewModelMapper.MapCampaignAccessBlocked(loadResult.Report);
+                _saveDiagnosticPort.Report(new SaveSlotFailureDiagnostic(
+                    MainMenuSlotViewModelMapper.MapFailureKind(loadResult.Report.Status),
+                    loadResult.Report.Status,
+                    loadResult.Report.Reason,
+                    slotNumber: 0,
+                    operation: SaveSlotRepositoryOperation.LoadAllWithReport));
+                return MainMenuSlotViewModelMapper.MapCampaignAccessBlocked(
+                    loadResult.Report,
+                    _localizedTextResolver);
             }
 
             return MainMenuSlotViewModelMapper.Map(
                 loadResult.Slots,
                 _sequenceResolver,
-                _saveSlotValidationService);
+                _saveSlotValidationService,
+                _localizedTextResolver);
         }
 
         public void HandleIntent(SaveSlotIntent intent)
@@ -154,12 +174,9 @@ namespace Game.Feature.UI.Application
             }
 
             _confirmPopupPort.Request(
-                new ConfirmPopupPayload(
-                    "Delete Slot",
-                    $"Delete slot {slotNumber}? This cannot be undone.",
-                    "Delete",
-                    "Cancel",
-                    true),
+                MainMenuLocalization.CreateConfirmationPayload(
+                    MainMenuConfirmationKind.DeleteSlot,
+                    slotNumber),
                 confirmed =>
                 {
                     try
@@ -249,18 +266,12 @@ namespace Game.Feature.UI.Application
             var operation = new LaunchConfirmationOperation(handoff, operationKind);
             _currentLaunchConfirmation = operation;
             var payload = operationKind == MainMenuLaunchOperationKind.Restart
-                ? new ConfirmPopupPayload(
-                    "Restart Slot",
-                    $"Restart slot {handoff.SlotNumber}? Existing campaign progress will be overwritten.",
-                    "Restart",
-                    "Cancel",
-                    true)
-                : new ConfirmPopupPayload(
-                    "Overwrite Slot",
-                    $"Overwrite slot {handoff.SlotNumber}? Existing campaign progress will be replaced.",
-                    "Overwrite",
-                    "Cancel",
-                    true);
+                ? MainMenuLocalization.CreateConfirmationPayload(
+                    MainMenuConfirmationKind.RestartSlot,
+                    handoff.SlotNumber)
+                : MainMenuLocalization.CreateConfirmationPayload(
+                    MainMenuConfirmationKind.OverwriteSlot,
+                    handoff.SlotNumber);
 
             try
             {
@@ -437,6 +448,25 @@ namespace Game.Feature.UI.Application
         private void RefreshViewModel()
         {
             ViewModelChanged?.Invoke(BuildViewModel());
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _localizedTextResolver.LocaleChanged -= HandleLocaleChanged;
+            _isDisposed = true;
+        }
+
+        private void HandleLocaleChanged()
+        {
+            if (!_isDisposed)
+            {
+                RefreshViewModel();
+            }
         }
 
         private enum MainMenuLaunchOperationKind

@@ -39,11 +39,13 @@ namespace Game.Feature.UI.Application
         public KeyboardRebindResult(
             KeyboardBindableAction action,
             KeyboardBindingValidationResult validationResult,
-            KeyboardBindingSettingsSnapshot snapshot)
+            KeyboardBindingSettingsSnapshot snapshot,
+            KeyboardBindableAction? conflictingAction = null)
         {
             Action = action;
             ValidationResult = validationResult;
             Snapshot = snapshot;
+            ConflictingAction = conflictingAction;
         }
 
         public KeyboardBindableAction Action { get; }
@@ -51,6 +53,8 @@ namespace Game.Feature.UI.Application
         public KeyboardBindingValidationResult ValidationResult { get; }
 
         public KeyboardBindingSettingsSnapshot Snapshot { get; }
+
+        public KeyboardBindableAction? ConflictingAction { get; }
     }
 
     public readonly struct KeyboardRebindStartResult

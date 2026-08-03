@@ -587,7 +587,6 @@ namespace Game.Feature.UI.Application
             SettingsStaticTextDescriptors.Flip,
             SettingsStaticTextDescriptors.Change,
             SettingsStaticTextDescriptors.ResetInput);
-        private string _statusText = string.Empty;
         private LocalizedTextDescriptor _statusTextDescriptor;
 
         public SettingsInputPresenter(IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
@@ -656,7 +655,7 @@ namespace Game.Feature.UI.Application
 
         private void HandleRebindCompleted(KeyboardRebindResult result)
         {
-            SetStatus(result.ValidationResult, result.Action);
+            SetStatus(result.ValidationResult, result.Action, result.ConflictingAction);
             RefreshViewModel(result.Snapshot);
             RebindCompleted?.Invoke(result);
         }
@@ -687,8 +686,17 @@ namespace Game.Feature.UI.Application
             return _localizedTextResolver.Resolve(descriptor);
         }
 
-        private void SetStatus(KeyboardBindingValidationResult result, KeyboardBindableAction action)
+        private void SetStatus(
+            KeyboardBindingValidationResult result,
+            KeyboardBindableAction action,
+            KeyboardBindableAction? conflictingAction = null)
         {
+            if (result == KeyboardBindingValidationResult.Success)
+            {
+                SetStatusDescriptor(default);
+                return;
+            }
+
             if (result == KeyboardBindingValidationResult.Canceled)
             {
                 SetStatusDescriptor(SettingsDynamicTextDescriptors.InputRebindCanceled());
@@ -713,45 +721,41 @@ namespace Game.Feature.UI.Application
                 return;
             }
 
-            SetRawStatus(ToStatusText(result, action));
+            if (result == KeyboardBindingValidationResult.DuplicateAction &&
+                conflictingAction.HasValue)
+            {
+                SetStatusDescriptor(SettingsDynamicTextDescriptors.InputActionConflict(
+                    ToActionDisplayNameDescriptor(conflictingAction.Value)));
+                return;
+            }
+
+            SetStatusDescriptor(SettingsDynamicTextDescriptors.InputUnsupportedKey());
         }
 
         private void SetStatusDescriptor(LocalizedTextDescriptor descriptor)
         {
             _statusTextDescriptor = descriptor;
-            _statusText = string.Empty;
-        }
-
-        private void SetRawStatus(string statusText)
-        {
-            _statusTextDescriptor = default;
-            _statusText = statusText ?? string.Empty;
         }
 
         private string ResolveStatusText()
         {
             return string.IsNullOrEmpty(_statusTextDescriptor.Table) &&
                    string.IsNullOrEmpty(_statusTextDescriptor.Key)
-                ? _statusText
+                ? string.Empty
                 : Resolve(_statusTextDescriptor);
         }
 
-        private static string ToStatusText(KeyboardBindingValidationResult result, KeyboardBindableAction action)
+        private static LocalizedTextDescriptor ToActionDisplayNameDescriptor(
+            KeyboardBindableAction action)
         {
-            switch (result)
+            switch (action)
             {
-                case KeyboardBindingValidationResult.Success:
-                    return string.Empty;
-                case KeyboardBindingValidationResult.Canceled:
-                    return string.Empty;
-                case KeyboardBindingValidationResult.DuplicateAction:
-                    return action == KeyboardBindableAction.Push
-                        ? "This key is already used by Flip."
-                        : "This key is already used by Push.";
-                case KeyboardBindingValidationResult.MovementConflict:
-                    return string.Empty;
+                case KeyboardBindableAction.Push:
+                    return SettingsStaticTextDescriptors.Push;
+                case KeyboardBindableAction.Flip:
+                    return SettingsStaticTextDescriptors.Flip;
                 default:
-                    return "This key cannot be used.";
+                    return default;
             }
         }
     }
@@ -967,11 +971,13 @@ namespace Game.Feature.UI.Application
             [SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus] = "Preview reverted to the previous saved display settings.",
             [SettingsLocalizationContract.Keys.DisplaySavedStatus] = "Display settings saved.",
             [SettingsLocalizationContract.Keys.DisplayExternalDriftStatus] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
-            [SettingsLocalizationContract.Keys.InputRebindCanceled] = "Rebind canceled.",
+            [SettingsLocalizationContract.Keys.InputRebindCanceled] = "Key reassignment cancelled.",
             [SettingsLocalizationContract.Keys.InputResetComplete] = "Input settings reset.",
-            [SettingsLocalizationContract.Keys.InputReservedKey] = "This key is reserved.",
-            [SettingsLocalizationContract.Keys.InputMovementConflict] = "This key conflicts with movement keys.",
-            [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
+            [SettingsLocalizationContract.Keys.InputReservedKey] = "This key cannot be used.",
+            [SettingsLocalizationContract.Keys.InputMovementConflict] = "Movement keys cannot overlap.",
+            [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Another key is already being reassigned.",
+            [SettingsLocalizationContract.Keys.InputActionConflict] = "This key is already used by {0}.",
+            [SettingsLocalizationContract.Keys.InputUnsupportedKey] = "This key cannot be used.",
             [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
             [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
             [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "Reset Input Settings",
@@ -1000,6 +1006,21 @@ namespace Game.Feature.UI.Application
                 values.Add(entry.Key, entry.English);
             }
 
+            foreach (var entry in MainMenuLocalizationContract.Entries)
+            {
+                values.Add(entry.Key, entry.English);
+            }
+
+            values.Add("stage.stage-0-1.display_name", "Lab-01");
+            values.Add("stage.stage-0-2.display_name", "Lab-02");
+            values.Add("stage.stage-1-1.display_name", "Lobby-01");
+            values.Add("stage.stage-2-1.display_name", "Ward[A]-01");
+            values.Add("stage.stage-2-2.display_name", "Ward[A]-02");
+            values.Add("stage.stage-3-1.display_name", "Ward[B]-01");
+            values.Add("stage.stage-3-2.display_name", "Ward[B]-02");
+            values.Add("stage.stage-4-1.display_name", "Morgue-01");
+            values.Add("stage.stage-4-2.display_name", "Morgue-02");
+
             return values;
         }
 
@@ -1017,7 +1038,8 @@ namespace Game.Feature.UI.Application
 
         public string Resolve(LocalizedTextDescriptor descriptor)
         {
-            if (string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) &&
+            if ((string.Equals(descriptor.Table, SettingsStaticTextDescriptors.Table, StringComparison.Ordinal) ||
+                 string.Equals(descriptor.Table, "Stage", StringComparison.Ordinal)) &&
                 Values.TryGetValue(descriptor.Key, out var value))
             {
                 return FormatKnownDynamicText(descriptor, value);
@@ -1026,7 +1048,7 @@ namespace Game.Feature.UI.Application
             return $"[{descriptor.Table}:{descriptor.Key}]";
         }
 
-        private static string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
+        private string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
         {
             if ((string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.AudioVolumeValueKey, StringComparison.Ordinal) ||
                  string.Equals(descriptor.Key, SettingsDynamicTextDescriptors.AudioVolumeValueMutedKey, StringComparison.Ordinal)) &&
@@ -1052,6 +1074,15 @@ namespace Game.Feature.UI.Application
                     Convert.ToString(
                         descriptor.Arguments[0],
                         System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+            }
+
+            if (string.Equals(
+                    descriptor.Key,
+                    SettingsDynamicTextDescriptors.InputActionConflictKey,
+                    StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace("{0}", ResolveArgument(descriptor.Arguments[0]));
             }
 
             if ((string.Equals(
@@ -1082,7 +1113,28 @@ namespace Game.Feature.UI.Application
                             System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
             }
 
+            if (descriptor.Key.StartsWith("ui.main_menu.", StringComparison.Ordinal))
+            {
+                for (var i = 0; i < descriptor.Arguments.Count; i++)
+                {
+                    value = value.Replace(
+                        $"{{{i}}}",
+                        Convert.ToString(
+                            descriptor.Arguments[i],
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+                }
+            }
+
             return value;
+        }
+
+        private string ResolveArgument(object argument)
+        {
+            return argument is LocalizedTextDescriptor nestedDescriptor
+                ? Resolve(nestedDescriptor)
+                : Convert.ToString(
+                    argument,
+                    System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         private static bool TryGetPercentArgument(LocalizedTextDescriptor descriptor, out int percent)

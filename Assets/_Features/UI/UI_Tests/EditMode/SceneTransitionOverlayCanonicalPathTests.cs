@@ -33,6 +33,44 @@ namespace Game.Feature.UI.Tests
         private const string SceneTransitionOverlayAssetAuthoringPath =
             "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionOverlayAssetAuthoring.cs";
 
+        [Test]
+        public void SceneTransitionPayloadContracts_DoNotRetainGenericDisplayCopy()
+        {
+            var declaredMemberFlags =
+                BindingFlags.Instance |
+                BindingFlags.Static |
+                BindingFlags.Public |
+                BindingFlags.NonPublic |
+                BindingFlags.DeclaredOnly;
+            var chanceLostPayloadMembers = typeof(StageTransitionChanceLostPayload)
+                .GetMembers(declaredMemberFlags)
+                .Select(member => member.Name)
+                .ToArray();
+            var overlayModelMembers = typeof(SceneTransitionOverlayModel)
+                .GetMembers(declaredMemberFlags)
+                .Select(member => member.Name)
+                .ToArray();
+            var coordinatorMethods = typeof(SceneTransitionCoordinator)
+                .GetMethods(declaredMemberFlags)
+                .Select(method => method.Name)
+                .ToArray();
+
+            Assert.That(chanceLostPayloadMembers, Does.Not.Contain("Title"));
+            Assert.That(chanceLostPayloadMembers, Does.Not.Contain("Message"));
+            Assert.That(overlayModelMembers, Does.Not.Contain("Title"));
+            Assert.That(overlayModelMembers, Does.Not.Contain("Message"));
+            Assert.That(coordinatorMethods, Does.Not.Contain("ResolveTitle"));
+            Assert.That(coordinatorMethods, Does.Not.Contain("ResolveMessage"));
+
+            var productionSource = string.Join(
+                "\n",
+                TransitionPayloadProductionSourcePaths.Select(File.ReadAllText));
+            foreach (var displayCopy in RetiredTransitionDisplayCopy)
+            {
+                Assert.That(productionSource, Does.Not.Contain($"\"{displayCopy}\""), displayCopy);
+            }
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -309,8 +347,6 @@ namespace Game.Feature.UI.Tests
                 coordinator.PlayTransitionAudio(new SceneTransitionOverlayModel(
                     StageTransitionKind.DeathRetryChanceLost,
                     TransitionOverlayKind.ChanceLost,
-                    "Chance Lost",
-                    "Retrying.",
                     blockInput: true,
                     showProgress: true,
                     progress01: 0f,
@@ -342,8 +378,6 @@ namespace Game.Feature.UI.Tests
                 coordinator.PlayTransitionAudio(new SceneTransitionOverlayModel(
                     StageTransitionKind.LevelFailedRestart,
                     TransitionOverlayKind.Restart,
-                    "Restarting Level",
-                    "Returning.",
                     blockInput: true,
                     showProgress: true,
                     progress01: 0f,
@@ -401,8 +435,6 @@ namespace Game.Feature.UI.Tests
             return new SceneTransitionOverlayModel(
                 transitionKind,
                 overlayKind,
-                "Title",
-                "Message",
                 blockInput: true,
                 showProgress: true,
                 progress01: 0f,
@@ -420,6 +452,36 @@ namespace Game.Feature.UI.Tests
             StageTransitionKind.StageClearNext,
             StageTransitionKind.StageRetryManual,
             StageTransitionKind.LevelFailedRestart,
+        };
+
+        private static readonly string[] TransitionPayloadProductionSourcePaths =
+        {
+            "Assets/_Features/Stages/Runtime/Queries/StageTransitionTypes.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
+            "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionOverlayModel.cs",
+            "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionCoordinator.cs",
+        };
+
+        private static readonly string[] RetiredTransitionDisplayCopy =
+        {
+            "Loading",
+            "Returning to Main",
+            "Loading Next Stage",
+            "Retrying Stage",
+            "Chance Lost",
+            "Restarting Level",
+            "Restarting",
+            "Preparing the stage.",
+            "Preparing the main menu.",
+            "Preparing the next stage.",
+            "Restarting the current stage.",
+            "Retrying from your current stage.",
+            "Returning to the first stage in this level.",
+            "Preparing the scene.",
+            "Stage Clear",
+            "Returning",
+            "Continue",
+            "Please wait",
         };
 
         private static readonly string[] DeletedDuplicatePrefabGuids =

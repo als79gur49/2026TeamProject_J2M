@@ -13,6 +13,16 @@ namespace Game.Feature.UI.Screens
         Unsupported = 4,
     }
 
+    public enum SaveSlotFailurePresentationKind
+    {
+        None = 0,
+        UnsupportedVersion = 1,
+        CorruptedData = 2,
+        PermissionDenied = 3,
+        LoadFailed = 4,
+        NeedsRepair = 5,
+    }
+
     public enum SaveSlotIntentKind
     {
         None = 0,
@@ -140,10 +150,13 @@ namespace Game.Feature.UI.Screens
             string lastPlayedText,
             string primaryActionText,
             SaveSlotIntentKind primaryIntentKind,
-            bool showDelete)
+            bool showDelete,
+            string deleteActionText = "",
+            SaveSlotFailurePresentationKind failureKind = SaveSlotFailurePresentationKind.None)
         {
             SlotNumber = slotNumber;
             State = state;
+            FailureKind = failureKind;
             TitleText = titleText ?? string.Empty;
             StatusText = statusText ?? string.Empty;
             StageText = stageText ?? string.Empty;
@@ -153,11 +166,14 @@ namespace Game.Feature.UI.Screens
             PrimaryActionText = primaryActionText ?? string.Empty;
             PrimaryIntentKind = primaryIntentKind;
             ShowDelete = showDelete;
+            DeleteActionText = deleteActionText ?? string.Empty;
         }
 
         public int SlotNumber { get; }
 
         public SaveSlotCardState State { get; }
+
+        public SaveSlotFailurePresentationKind FailureKind { get; }
 
         public string TitleText { get; }
 
@@ -176,6 +192,8 @@ namespace Game.Feature.UI.Screens
         public SaveSlotIntentKind PrimaryIntentKind { get; }
 
         public bool ShowDelete { get; }
+
+        public string DeleteActionText { get; }
     }
 
     public sealed class SaveSlotPanelViewModel

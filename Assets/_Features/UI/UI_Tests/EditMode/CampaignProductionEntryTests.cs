@@ -181,6 +181,7 @@ namespace Game.Feature.UI.Tests
                 AssertSerializedReference(serializedCard, "_primaryButton", typeof(Button));
                 AssertSerializedReference(serializedCard, "_primaryButtonLabel", typeof(TMP_Text));
                 AssertSerializedReference(serializedCard, "_deleteButton", typeof(Button));
+                AssertSerializedReference(serializedCard, "_deleteButtonLabel", typeof(TMP_Text));
             }
         }
 
@@ -650,26 +651,26 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CompletedSlotDisplay_UsesSequenceDisplay_NotHardCodedFinalStageText()
+        public void CompletedSlotDisplay_UsesStageLocalizationTable_NotSequenceRawDisplay()
         {
             var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
             try
             {
                 var entry = new CampaignStageSequenceEntry();
-                entry.Set(StageId.CreateOrThrow("stage-custom-final"), "Final Custom", "level-custom");
+                entry.Set(StageId.CreateOrThrow("stage-4-2"), "DO NOT USE", "level-4");
                 definition.SetEntries(new[] { entry });
                 var resolver = new CampaignStageSequenceResolver(definition);
                 var viewModel = MainMenuSlotViewModelMapper.MapSlot(
                     new SaveSlotData
                     {
                         SlotNumber = 1,
-                        CurrentStageId = StageId.CreateOrThrow("stage-custom-final"),
-                        CurrentLevelGroupId = "level-custom",
+                        CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
+                        CurrentLevelGroupId = "level-4",
                         CampaignCompleted = true,
                     },
                     resolver);
 
-                Assert.That(viewModel.StageText, Is.EqualTo("Stage Final Custom"));
+                Assert.That(viewModel.StageText, Is.EqualTo("Stage Morgue-02"));
             }
             finally
             {

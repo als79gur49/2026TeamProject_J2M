@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.ViewShared;
 
@@ -70,6 +71,122 @@ namespace Game.Feature.UI.Application
                 default:
                     return string.Empty;
             }
+        }
+    }
+
+    public enum HudWorldGuideLocalizationEntryId
+    {
+        Pause = 0,
+        Chances = 1,
+        Movement = 2,
+        Push = 3,
+        Flip = 4,
+    }
+
+    public enum WorldGuideActionLocalizationKind
+    {
+        None = 0,
+        Movement = 1,
+        Push = 2,
+        Flip = 3,
+    }
+
+    public readonly struct HudWorldGuideLocalizationContractEntry
+    {
+        public HudWorldGuideLocalizationContractEntry(
+            HudWorldGuideLocalizationEntryId id,
+            string key,
+            string english,
+            string korean,
+            LocalizedTextRole role,
+            LocalizedTextWeight weight)
+        {
+            Id = id;
+            Key = key ?? string.Empty;
+            English = english ?? string.Empty;
+            Korean = korean ?? string.Empty;
+            Role = role;
+            Weight = weight;
+        }
+
+        public HudWorldGuideLocalizationEntryId Id { get; }
+        public string Key { get; }
+        public string English { get; }
+        public string Korean { get; }
+        public LocalizedTextRole Role { get; }
+        public LocalizedTextWeight Weight { get; }
+        public LocalizedTextDescriptor Descriptor =>
+            new LocalizedTextDescriptor(HudWorldGuideLocalization.Table, Key, Role, Weight);
+    }
+
+    public static class HudWorldGuideLocalization
+    {
+        public const string Table = "UI";
+
+        public static class Keys
+        {
+            public const string Pause = HudWorldGuideLocalizationKeys.Pause;
+            public const string Chances = HudWorldGuideLocalizationKeys.Chances;
+            public const string Movement = HudWorldGuideLocalizationKeys.Movement;
+            public const string Push = HudWorldGuideLocalizationKeys.Push;
+            public const string Flip = HudWorldGuideLocalizationKeys.Flip;
+        }
+
+        private static readonly IReadOnlyList<HudWorldGuideLocalizationContractEntry> ContractEntries =
+            Array.AsReadOnly(new[]
+            {
+                Entry(HudWorldGuideLocalizationEntryId.Pause, Keys.Pause, "Pause", "일시 정지",
+                    LocalizedTextRole.Button, LocalizedTextWeight.Bold),
+                Entry(HudWorldGuideLocalizationEntryId.Chances, Keys.Chances, "CHANCES", "기회",
+                    LocalizedTextRole.Title, LocalizedTextWeight.Bold),
+                Entry(HudWorldGuideLocalizationEntryId.Movement, Keys.Movement, "Move", "이동",
+                    LocalizedTextRole.Body, LocalizedTextWeight.Regular),
+                Entry(HudWorldGuideLocalizationEntryId.Push, Keys.Push, "Push", "밀기",
+                    LocalizedTextRole.Body, LocalizedTextWeight.Regular),
+                Entry(HudWorldGuideLocalizationEntryId.Flip, Keys.Flip, "Flip", "뒤집기",
+                    LocalizedTextRole.Body, LocalizedTextWeight.Regular),
+            });
+
+        public static IReadOnlyList<HudWorldGuideLocalizationContractEntry> Entries => ContractEntries;
+
+        public static LocalizedTextDescriptor PauseDescriptor =>
+            ContractEntries[(int)HudWorldGuideLocalizationEntryId.Pause].Descriptor;
+
+        public static LocalizedTextDescriptor ChancesDescriptor =>
+            ContractEntries[(int)HudWorldGuideLocalizationEntryId.Chances].Descriptor;
+
+        public static bool TryCreateWorldGuideDescriptor(
+            WorldGuideActionLocalizationKind kind,
+            out LocalizedTextDescriptor descriptor)
+        {
+            switch (kind)
+            {
+                case WorldGuideActionLocalizationKind.Movement:
+                    descriptor = ContractEntries[(int)HudWorldGuideLocalizationEntryId.Movement].Descriptor;
+                    return true;
+                case WorldGuideActionLocalizationKind.Push:
+                    descriptor = ContractEntries[(int)HudWorldGuideLocalizationEntryId.Push].Descriptor;
+                    return true;
+                case WorldGuideActionLocalizationKind.Flip:
+                    descriptor = ContractEntries[(int)HudWorldGuideLocalizationEntryId.Flip].Descriptor;
+                    return true;
+                case WorldGuideActionLocalizationKind.None:
+                default:
+                    descriptor = default;
+                    return false;
+            }
+        }
+
+        private static HudWorldGuideLocalizationContractEntry Entry(
+            HudWorldGuideLocalizationEntryId id,
+            string key,
+            string english,
+            string korean,
+            LocalizedTextRole role,
+            LocalizedTextWeight weight)
+        {
+            return new HudWorldGuideLocalizationContractEntry(
+                id, key, english, korean, role, weight);
         }
     }
 }

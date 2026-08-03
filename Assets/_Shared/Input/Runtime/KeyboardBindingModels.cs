@@ -62,11 +62,13 @@ namespace Game.Shared.Input
         public KeyboardRebindResult(
             KeyboardBindableAction action,
             KeyboardBindingValidationStatus status,
-            KeyboardBindingSettingsSnapshot snapshot)
+            KeyboardBindingSettingsSnapshot snapshot,
+            KeyboardBindableAction? conflictingAction = null)
         {
             Action = action;
             Status = status;
             Snapshot = snapshot;
+            ConflictingAction = conflictingAction;
         }
 
         public KeyboardBindableAction Action { get; }
@@ -74,6 +76,8 @@ namespace Game.Shared.Input
         public KeyboardBindingValidationStatus Status { get; }
 
         public KeyboardBindingSettingsSnapshot Snapshot { get; }
+
+        public KeyboardBindableAction? ConflictingAction { get; }
     }
 
     public readonly struct KeyboardRebindStartResult

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
@@ -26,6 +27,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Button _primaryButton;
         [SerializeField] private TMP_Text _primaryButtonLabel;
         [SerializeField] private Button _deleteButton;
+        [SerializeField] private TMP_Text _deleteButtonLabel;
         [SerializeField] private Image _primarySelectionFrame;
         [SerializeField] private Image _deleteSelectionFrame;
         [SerializeField] private UiSelectionVisualProfile _selectionVisualProfile;
@@ -69,6 +71,7 @@ namespace Game.Feature.UI.Screens
                 _primaryButton == null ||
                 _primaryButtonLabel == null ||
                 _deleteButton == null ||
+                _deleteButtonLabel == null ||
                 _primarySelectionFrame == null ||
                 _deleteSelectionFrame == null ||
                 _selectionVisualProfile == null)
@@ -85,11 +88,27 @@ namespace Game.Feature.UI.Screens
                 !IsOwnedByCard(_primaryButton.transform) ||
                 !IsOwnedByCard(_primaryButtonLabel.transform) ||
                 !IsOwnedByCard(_deleteButton.transform) ||
+                !IsOwnedByCard(_deleteButtonLabel.transform) ||
                 !_primarySelectionFrame.transform.IsChildOf(_primaryButton.transform) ||
                 !_deleteSelectionFrame.transform.IsChildOf(_deleteButton.transform))
             {
                 throw new InvalidOperationException(MissingAuthoredStructureMessage);
             }
+        }
+
+        public IReadOnlyList<TMP_Text> CreateTypographyTargets()
+        {
+            return new[]
+            {
+                _titleLabel,
+                _statusLabel,
+                _stageLabel,
+                _chancesLabel,
+                _deathsLabel,
+                _lastPlayedLabel,
+                _primaryButtonLabel,
+                _deleteButtonLabel,
+            };
         }
 
         private void OnEnable()
@@ -258,14 +277,28 @@ namespace Game.Feature.UI.Screens
             if (_primaryButton != null)
             {
                 var hasPrimaryIntent = _viewModel != null && _viewModel.PrimaryIntentKind != SaveSlotIntentKind.None;
-                _primaryButton.gameObject.SetActive(true);
+                var hideUnavailableFailureAction =
+                    _viewModel != null &&
+                    _viewModel.FailureKind != SaveSlotFailurePresentationKind.None &&
+                    !hasPrimaryIntent;
+                _primaryButton.gameObject.SetActive(!hideUnavailableFailureAction);
                 _primaryButton.interactable = hasPrimaryIntent;
             }
 
             if (_deleteButton != null)
             {
-                _deleteButton.gameObject.SetActive(true);
-                _deleteButton.interactable = _viewModel != null && _viewModel.ShowDelete;
+                var showDelete = _viewModel != null && _viewModel.ShowDelete;
+                var hideUnavailableFailureAction =
+                    _viewModel != null &&
+                    _viewModel.FailureKind != SaveSlotFailurePresentationKind.None &&
+                    !showDelete;
+                _deleteButton.gameObject.SetActive(!hideUnavailableFailureAction);
+                _deleteButton.interactable = showDelete;
+            }
+
+            if (_deleteButtonLabel != null)
+            {
+                _deleteButtonLabel.text = _viewModel?.DeleteActionText ?? string.Empty;
             }
         }
 
