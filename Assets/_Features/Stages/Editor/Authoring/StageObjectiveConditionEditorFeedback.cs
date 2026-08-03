@@ -105,7 +105,7 @@ namespace Game.Feature.Stages.Editor
                 }
             }
 
-            return issues.Count > 0 ? issues[0] : null;
+            return null;
         }
     }
 

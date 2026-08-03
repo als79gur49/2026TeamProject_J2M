@@ -36,8 +36,17 @@ namespace Game.Feature.Stages.Editor
             {
                 TileFeatureKind.Exit => SelectPrimary(rows, expectedCondition, selection, out warning),
                 TileFeatureKind.Button => SelectButton(rows, feature.TileId, expectedCondition, selection, out warning),
-                _ => StageObjectiveConditionContextResolution.NotApplicable,
+                _ => ClearNotApplicable(selection, out warning),
             };
+        }
+
+        private static StageObjectiveConditionContextResolution ClearNotApplicable(
+            StageObjectiveConditionEditorSelection selection,
+            out string warning)
+        {
+            selection.Clear();
+            warning = string.Empty;
+            return StageObjectiveConditionContextResolution.NotApplicable;
         }
 
         public static StageObjectiveConditionContextResolution SelectPrimary(
@@ -87,6 +96,8 @@ namespace Game.Feature.Stages.Editor
                 .ToArray();
             var exactMatches = stableMatches
                 .Where(row =>
+                    row.Required &&
+                    row.Role == StageObjectiveConditionRole.SecondaryGoal &&
                     row.Condition is ButtonActivatedConditionAsset buttonCondition &&
                     buttonCondition.TileId == tileId &&
                     row.ButtonTileId == tileId &&

@@ -296,6 +296,105 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void SelectingNonObjectiveTileFeature_ClearsObjectiveContextWithoutRepeatedDirtying()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var condition = CreateButtonActivatedCondition(5);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 5,
+                        Kind = TileFeatureKind.Button,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 6,
+                        Kind = TileFeatureKind.Slide,
+                        Cell = new SurfaceCell(FaceId.Floor, 2, 1),
+                    },
+                });
+                authoring.SetObjective(Objective(
+                    Entry(condition, "button-5", "Button", StageObjectiveConditionRole.SecondaryGoal, 10)));
+                window.BindForTests(authoring);
+
+                Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+
+                Assert.That(window.SelectTileFeatureByIdForTests(6), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.ObjectiveHighlightCellForTests, Is.Null);
+                Assert.That(window.ObjectiveContextWarningForTests, Is.Empty);
+                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(condition);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void UndoRedo_InvalidatesTileFeatureContextMarkerAndRecalculatesCurrentKind()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var condition = CreateButtonActivatedCondition(5);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 5,
+                        Kind = TileFeatureKind.Button,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                authoring.SetObjective(Objective(
+                    Entry(condition, "button-5", "Button", StageObjectiveConditionRole.SecondaryGoal, 10)));
+                window.BindForTests(authoring);
+                Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+                Undo.ClearAll();
+
+                Undo.RecordObject(authoring, "Change selected TileFeature kind");
+                var changedFeature = authoring.TileFeatures.Single();
+                changedFeature.Kind = TileFeatureKind.Slide;
+                authoring.SetTileFeatures(new[] { changedFeature });
+                EditorUtility.SetDirty(authoring);
+                Undo.FlushUndoRecordObjects();
+
+                Undo.PerformUndo();
+                window.HandleObjectiveUndoRedoForTests();
+                Assert.That(authoring.TileFeatures.Single().Kind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+
+                Undo.PerformRedo();
+                window.HandleObjectiveUndoRedoForTests();
+                Assert.That(authoring.TileFeatures.Single().Kind, Is.EqualTo(TileFeatureKind.Slide));
+                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.False);
+            }
+            finally
+            {
+                Undo.ClearAll();
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(condition);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
         public void ObjectiveConditionContext_StableIdAndButtonTileMismatchClearsSelectionWithoutMutation()
         {
             var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
@@ -336,6 +435,48 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [TestCase(false, StageObjectiveConditionRole.SecondaryGoal)]
+        [TestCase(true, StageObjectiveConditionRole.Challenge)]
+        public void NavigationEligibility_RequiresRequiredSecondaryGoalMetadata(
+            bool required,
+            StageObjectiveConditionRole role)
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var condition = CreateButtonActivatedCondition(5);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 5,
+                        Kind = TileFeatureKind.Button,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                var entry = Entry(condition, "button-5", "Button", role, 10);
+                entry.Required = required;
+                authoring.SetObjective(Objective(entry));
+                var before = EditorJsonUtility.ToJson(authoring);
+                window.BindForTests(authoring);
+
+                Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
+
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.ObjectiveContextWarningForTests,
+                    Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(EditorJsonUtility.ToJson(authoring), Is.EqualTo(before));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(condition);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
         [Test]
         public void ObjectiveConditionValidation_ValidCampaignHasNoObjectiveIssues()
         {
@@ -354,6 +495,77 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.That(rowCount, Is.EqualTo(54));
+        }
+
+        [Test]
+        public void ResolveIssues_MatchesExactRowAndLeavesOtherSameTypeRowGeneral()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var conditionA = CreateButtonActivatedCondition(5);
+            var conditionB = CreateButtonActivatedCondition(6);
+            try
+            {
+                authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 5,
+                        Kind = TileFeatureKind.Button,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                    },
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 6,
+                        Kind = TileFeatureKind.Button,
+                        Cell = new SurfaceCell(FaceId.Floor, 2, 1),
+                    },
+                });
+                authoring.SetObjective(Objective(
+                    Entry(conditionA, "button-5", "Button A", StageObjectiveConditionRole.SecondaryGoal, 10),
+                    Entry(conditionB, "button-6", "Button B", StageObjectiveConditionRole.SecondaryGoal, 20)));
+                var serialized = new SerializedObject(authoring);
+                serialized.Update();
+                var rows = StageObjectiveConditionEditorResolver.BuildRows(serialized, authoring);
+                var validationIssue = new StageValidationIssue(
+                    StageValidationSeverity.Error,
+                    "objective.sort-order",
+                    "entry[1] has an invalid SortOrder.",
+                    fieldName: "Objective.ConditionEntries[1].SortOrder");
+                var validationFeedback = new StageObjectiveConditionEditorFeedback(
+                    StageObjectiveConditionEditorStatus.InvalidAuthoring,
+                    new[] { validationIssue },
+                    Array.Empty<StageValidationIssue>(),
+                    false,
+                    "Objective authoring is invalid.");
+
+                Assert.That(validationFeedback.GetRowMessage(rows[0]),
+                    Is.EqualTo("Objective authoring is invalid."));
+                Assert.That(validationFeedback.GetRowMessage(rows[1]),
+                    Does.StartWith("objective.sort-order:"));
+
+                var driftIssue = new StageValidationIssue(
+                    StageValidationSeverity.Warning,
+                    "GameplayDrift.ObjectiveMismatch",
+                    "entry[1] label differs.",
+                    fieldName: "Objective.ConditionEntries[1].AuthoringLabel");
+                var driftFeedback = new StageObjectiveConditionEditorFeedback(
+                    StageObjectiveConditionEditorStatus.GenerateRequired,
+                    Array.Empty<StageValidationIssue>(),
+                    new[] { driftIssue },
+                    false,
+                    "Objective generation is required.");
+
+                Assert.That(driftFeedback.GetRowMessage(rows[0]),
+                    Is.EqualTo("Objective generation is required."));
+                Assert.That(driftFeedback.GetRowMessage(rows[1]),
+                    Is.EqualTo("Objective condition AuthoringLabel differs from generated output."));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionA);
+                UnityEngine.Object.DestroyImmediate(conditionB);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
         }
 
         [Test]
@@ -632,6 +844,82 @@ namespace Game.Feature.Stages.Editor.Tests
                 entry.StableConditionId == "button-5"), Is.False);
             Assert.That(fixture.Window.GetObjectiveConditionFeedbackForTests().Status,
                 Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+        }
+
+        [Test]
+        public void RemovalGenerate_PreservesUnrelatedGameplayPresentationAndMappingUndo()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-0-1");
+            var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 5);
+            var placement = fixture.Authoring.Placements.First(candidate =>
+                candidate.Kind == StageAuthoringEntityKind.Wall &&
+                !string.IsNullOrEmpty(candidate.PresentationId));
+            var originalHp = placement.Hp;
+            var originalDisplayName = placement.DisplayName;
+            var originalPresentationId = placement.PresentationId;
+            var placementStableGuid = placement.StableGuid;
+            var originalMappingName = fixture.Authoring.EntityIdMappings.Single(mapping =>
+                mapping.StableGuid == placementStableGuid).LastKnownDisplayName;
+            var gameplayBefore = EditorJsonUtility.ToJson(fixture.Gameplay);
+            var presentationBefore = EditorJsonUtility.ToJson(fixture.Presentation);
+            fixture.Window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
+            fixture.Window.SelectTileFeatureByIdForTests(button.TileId);
+            fixture.Window.SetButtonObjectiveRemovalConfirmationForTests(
+                new FixedRemovalConfirmation(true));
+            Undo.ClearAll();
+
+            Undo.RecordObject(fixture.Authoring, "Stage unrelated authoring drift");
+            placement.Hp = originalHp + 1;
+            placement.DisplayName = "Review drift wall";
+            placement.PresentationId = "box_tutorial";
+            EditorUtility.SetDirty(fixture.Authoring);
+            Undo.FlushUndoRecordObjects();
+            Undo.IncrementCurrentGroup();
+
+            Assert.That(
+                fixture.Window.RemoveSelectedButtonRequiredSecondaryGoalForTests(out var error),
+                Is.True,
+                error);
+            Undo.FlushUndoRecordObjects();
+            Undo.IncrementCurrentGroup();
+
+            fixture.Window.GenerateForTests();
+            Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False,
+                FormatIssues(fixture.Window.LastReportForTests));
+            Assert.That(EditorJsonUtility.ToJson(fixture.Gameplay), Is.Not.EqualTo(gameplayBefore));
+            Assert.That(EditorJsonUtility.ToJson(fixture.Presentation), Is.Not.EqualTo(presentationBefore));
+            Assert.That(fixture.Authoring.EntityIdMappings.Single(mapping =>
+                    mapping.StableGuid == placementStableGuid).LastKnownDisplayName,
+                Is.EqualTo("Review drift wall"));
+
+            Undo.PerformUndo();
+            placement = fixture.Authoring.Placements.Single(candidate =>
+                candidate.StableGuid == placementStableGuid);
+
+            Assert.That(EditorJsonUtility.ToJson(fixture.Gameplay), Is.EqualTo(gameplayBefore));
+            Assert.That(EditorJsonUtility.ToJson(fixture.Presentation), Is.EqualTo(presentationBefore));
+            Assert.That(fixture.Authoring.EntityIdMappings.Single(mapping =>
+                    mapping.StableGuid == placementStableGuid).LastKnownDisplayName,
+                Is.EqualTo(originalMappingName));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.False);
+            Assert.That(placement.DisplayName, Is.EqualTo("Review drift wall"));
+
+            Undo.PerformUndo();
+            placement = fixture.Authoring.Placements.Single(candidate =>
+                candidate.StableGuid == placementStableGuid);
+
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Any(entry =>
+                entry.StableConditionId == "button-5"), Is.True);
+            Assert.That(placement.DisplayName, Is.EqualTo("Review drift wall"));
+
+            Undo.PerformUndo();
+            placement = fixture.Authoring.Placements.Single(candidate =>
+                candidate.StableGuid == placementStableGuid);
+
+            Assert.That(placement.Hp, Is.EqualTo(originalHp));
+            Assert.That(placement.DisplayName, Is.EqualTo(originalDisplayName));
+            Assert.That(placement.PresentationId, Is.EqualTo(originalPresentationId));
         }
 
         [Test]
