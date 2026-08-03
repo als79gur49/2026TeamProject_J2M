@@ -1,0 +1,10 @@
+{
+  "name": "com.j2m.platform.steam",
+  "displayName": "J2M Steam Platform Provider Core",
+  "version": "0.1.0",
+  "unity": "6000.3",
+  "description": "Store-neutral Steam provider lifecycle core with an injectable native API boundary.",
+  "author": {
+    "name": "J2M"
+  }
+}
