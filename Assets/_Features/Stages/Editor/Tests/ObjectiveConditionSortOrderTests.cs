@@ -434,7 +434,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(rendererSource, Does.Not.Contain("MoveArrayElement"));
             Assert.That(rendererSource, Does.Contain("Primary Goal ordering is preserved by this editor."));
             Assert.That(rendererSource, Does.Contain("Gaps are allowed."));
-            Assert.That(helperSource, Does.Contain("maxSecondary > int.MaxValue - 10"));
+            Assert.That(helperSource, Does.Contain("maxSortOrder > int.MaxValue - 10"));
             Assert.That(helperSource, Does.Contain("No additional automatic Sort Order can be allocated."));
         }
 
