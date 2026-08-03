@@ -1,0 +1,151 @@
+using Game.Platform.Runtime;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace Game.Platform.Tests.EditMode
+{
+    public sealed class PlatformRuntimeHostContractTests
+    {
+        [Test]
+        public void Initialize_IsAttemptedExactlyOnceAndEnablesTick()
+        {
+            var runtime = new FakePlatformRuntime("fake");
+            var lifecycle = CreateLifecycle(runtime);
+
+            lifecycle.InitializeOnce();
+            lifecycle.InitializeOnce();
+            lifecycle.TickOnce();
+
+            Assert.That(runtime.InitializeCount, Is.EqualTo(1));
+            Assert.That(runtime.TickCount, Is.EqualTo(1));
+            Assert.That(lifecycle.InitializationResult.IsSuccess, Is.True);
+        }
+
+        [Test]
+        public void FailedInitialize_DisablesTickAndStillShutsDownOnce()
+        {
+            var runtime = new FakePlatformRuntime("failed")
+            {
+                InitializationResult = PlatformInitializationResult.Failure("not available"),
+            };
+            var lifecycle = CreateLifecycle(runtime);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'failed' initialization failed: not available");
+
+            lifecycle.InitializeOnce();
+            lifecycle.TickOnce();
+            lifecycle.ShutdownOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(runtime.InitializeCount, Is.EqualTo(1));
+            Assert.That(runtime.TickCount, Is.Zero);
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(lifecycle.ProviderId, Is.EqualTo(new PlatformProviderId("failed")));
+            Assert.That(
+                lifecycle.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+            Assert.That(lifecycle.Selection.RequestedProviderId,
+                Is.EqualTo(new PlatformProviderId("failed")));
+            Assert.That(lifecycle.Selection.SelectedProviderId,
+                Is.EqualTo(new PlatformProviderId("failed")));
+            Assert.That(lifecycle.Selection.FallbackUsed, Is.False);
+            Assert.That(lifecycle.Selection.FailureReason,
+                Is.EqualTo("Platform provider 'failed' was selected but is unavailable: not available"));
+        }
+
+        [Test]
+        public void InitializeException_IsContainedWithoutChangingProviderIdentity()
+        {
+            var runtime = new FakePlatformRuntime("throw-init")
+            {
+                ThrowOnInitialize = true,
+            };
+            var lifecycle = CreateLifecycle(runtime);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'throw-init' initialization threw InvalidOperationException with message 'initialize failure'.");
+
+            lifecycle.InitializeOnce();
+            lifecycle.TickOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(lifecycle.InitializationResult.IsSuccess, Is.False);
+            Assert.That(lifecycle.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+            Assert.That(lifecycle.ProviderId, Is.EqualTo(new PlatformProviderId("throw-init")));
+            Assert.That(runtime.TickCount, Is.Zero);
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TickException_DisablesFurtherTicksAndLogsOnce()
+        {
+            var runtime = new FakePlatformRuntime("throw-tick")
+            {
+                ThrowOnTick = true,
+            };
+            var lifecycle = CreateLifecycle(runtime);
+            lifecycle.InitializeOnce();
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'throw-tick' tick threw InvalidOperationException with message 'tick failure'; further ticks are disabled.");
+
+            lifecycle.TickOnce();
+            lifecycle.TickOnce();
+
+            Assert.That(runtime.TickCount, Is.EqualTo(1));
+            Assert.That(lifecycle.TickEnabled, Is.False);
+            Assert.That(lifecycle.TickFailureReason, Is.Not.Empty);
+        }
+
+        [Test]
+        public void ShutdownException_IsContainedAndNotRetried()
+        {
+            var runtime = new FakePlatformRuntime("throw-shutdown")
+            {
+                ThrowOnShutdown = true,
+            };
+            var lifecycle = CreateLifecycle(runtime);
+            lifecycle.InitializeOnce();
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'throw-shutdown' shutdown threw InvalidOperationException with message 'shutdown failure'.");
+
+            lifecycle.ShutdownOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(lifecycle.ShutdownAttempted, Is.True);
+            Assert.That(lifecycle.ShutdownFailureReason, Is.Not.Empty);
+        }
+
+        [Test]
+        public void SelectionFailure_NeverTicksAndHasNoFallbackRuntime()
+        {
+            var selection = PlatformRuntimeSelectionResult.Failure(
+                PlatformRuntimeSelectionStatus.FactoryCreationFailed,
+                new PlatformProviderId("failed-selection"),
+                "factory did not create a runtime");
+            var lifecycle = new PlatformRuntimeLifecycle(selection);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime initialization was not attempted because selection failed: factory did not create a runtime");
+
+            lifecycle.InitializeOnce();
+            lifecycle.TickOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(lifecycle.ProviderId, Is.EqualTo(new PlatformProviderId("failed-selection")));
+            Assert.That(lifecycle.InitializationResult.IsSuccess, Is.False);
+            Assert.That(selection.Runtime, Is.Null);
+        }
+
+        private static PlatformRuntimeLifecycle CreateLifecycle(FakePlatformRuntime runtime)
+        {
+            return new PlatformRuntimeLifecycle(
+                PlatformRuntimeSelectionResult.Success(runtime.ProviderId, runtime));
+        }
+    }
+}
