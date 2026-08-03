@@ -174,10 +174,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.WorldGuideInstructionView
   canvas: {fileID: 3362614325282700329}
-  bindingKind: 1
+  instructionKind: 1
   wasdDisplayRoot: {fileID: 1690508981188278279}
   arrowDisplayRoot: {fileID: 5669385911026618827}
   actionKeyLabel: {fileID: 0}
+  actionTextLabel: {fileID: 2796098102944790268}
 --- !u!114 &6633223254039843064
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1476,7 +1477,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Move
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b8aa923455f5a64468504293db7cef18, type: 2}
   m_sharedMaterial: {fileID: -6429523705279460953, guid: b8aa923455f5a64468504293db7cef18, type: 2}

@@ -108,7 +108,7 @@ namespace Game.Feature.UI.Composition
 
     public static class ConfirmPopupProductionLocalizationComposer
     {
-        private const int RequiredTargetCount = 4;
+        private const int RequiredTargetCount = 5;
 
         public static IDisposable Bind(
             ConfirmPopupView view,

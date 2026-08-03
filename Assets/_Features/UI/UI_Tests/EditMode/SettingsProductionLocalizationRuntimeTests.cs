@@ -198,7 +198,7 @@ namespace Game.Feature.UI.Tests
 
             harness.OpenConfirm(new ConfirmPopupPayload("Title", "Body", "Yes", "No", false));
 
-            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 5));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 6));
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
 
             harness.OpenConfirm(new ConfirmPopupPayload("Second", "Independent", "Yes", "No", false));
-            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 5));
+            Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount + 6));
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
             harness.CloseConfirm();
             Assert.That(resolver.LocaleChangedSubscriberCount, Is.EqualTo(baselineSubscriberCount));
@@ -525,7 +525,7 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(keyboardPort.IsRebinding, Is.False);
-            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 예약되어 있습니다."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(GetField<SettingsInputViewModel>(view.InputView, "_viewModel"), Is.SameAs(inputModel));
 
             harness.DisposeController();
@@ -604,14 +604,14 @@ namespace Game.Feature.UI.Tests
             view.InputView.ClickPushChange();
             keyboardPort.Complete();
 
-            Assert.That(view.InputView.StatusText, Is.EqualTo("This key is reserved."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("This key cannot be used."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 예약되어 있습니다."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
         }
 
@@ -628,14 +628,14 @@ namespace Game.Feature.UI.Tests
             view.InputView.ClickPushChange();
             keyboardPort.Complete();
 
-            Assert.That(view.InputView.StatusText, Is.EqualTo("This key conflicts with movement keys."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("Movement keys cannot overlap."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 이동 키와 충돌합니다."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
         }
 
@@ -651,15 +651,53 @@ namespace Game.Feature.UI.Tests
             view.ClickInputTab();
             view.InputView.ClickPushChange();
 
-            Assert.That(view.InputView.StatusText, Is.EqualTo("Rebind already in progress."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("Another key is already being reassigned."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(view.InputView.StatusText, Is.EqualTo("키 변경이 이미 진행 중입니다."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+        }
+
+        [TestCase(
+            KeyboardBindableAction.Push,
+            "This key is already used by Flip.",
+            "이 키는 이미 뒤집기에 사용 중입니다.")]
+        [TestCase(
+            KeyboardBindableAction.Flip,
+            "This key is already used by Push.",
+            "이 키는 이미 밀기에 사용 중입니다.")]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_ActionConflictLocalizesActionAcrossLocaleRoundTrip(
+            KeyboardBindableAction action,
+            string englishStatus,
+            string koreanStatus)
+        {
+            var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            var keyboardPort = new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.DuplicateAction);
+            using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort: keyboardPort);
+
+            harness.ShowSettings();
+            var view = harness.SettingsView;
+            view.ClickInputTab();
+            StartRebind(view.InputView, action);
+            keyboardPort.Complete();
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo(englishStatus));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo(koreanStatus));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
+
+            resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            Assert.That(view.InputView.StatusText, Is.EqualTo(englishStatus));
         }
 
         [TestCase("Space", "Left Shift")]
@@ -1609,7 +1647,12 @@ namespace Game.Feature.UI.Tests
                 completed?.Invoke(new KeyboardRebindResult(
                     _rebindingAction,
                     _completionResult,
-                    BuildSnapshot()));
+                    BuildSnapshot(),
+                    _completionResult == KeyboardBindingValidationResult.DuplicateAction
+                        ? (_rebindingAction == KeyboardBindableAction.Push
+                            ? KeyboardBindableAction.Flip
+                            : KeyboardBindableAction.Push)
+                        : (KeyboardBindableAction?)null));
             }
 
             private KeyboardBindingSettingsSnapshot BuildSnapshot()

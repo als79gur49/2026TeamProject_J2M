@@ -51,12 +51,8 @@ namespace Game.Feature.UI.Application
         private void RequestQuit()
         {
             _confirmPopupPort.Request(
-                new ConfirmPopupPayload(
-                    "Quit Game",
-                    "Quit to desktop? Unsaved progress may be lost.",
-                    "Quit",
-                    "Cancel",
-                    true),
+                MainMenuLocalization.CreateConfirmationPayload(
+                    MainMenuConfirmationKind.QuitGame),
                 confirmed =>
                 {
                     if (confirmed)

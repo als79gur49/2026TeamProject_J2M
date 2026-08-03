@@ -353,6 +353,65 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SaveSlotCardView_FailureState_ShowsOnlySupportedActions()
+        {
+            var root = new GameObject(
+                nameof(SaveSlotCardView_FailureState_ShowsOnlySupportedActions),
+                typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                var card = root.AddComponent<SaveSlotCardView>();
+                AuthorSaveSlotCard(card);
+                root.SetActive(true);
+                InvokePrivate(card, "OnEnable");
+
+                card.Bind(new SaveSlotCardViewModel(
+                    1,
+                    SaveSlotCardState.Corrupted,
+                    "Slot 1",
+                    "Save Load Failed",
+                    "The save data could not be loaded.",
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    SaveSlotIntentKind.None,
+                    showDelete: false,
+                    failureKind: SaveSlotFailurePresentationKind.LoadFailed));
+
+                Assert.That(GetPrivateField<Button>(card, "_primaryButton").gameObject.activeSelf, Is.False);
+                Assert.That(GetPrivateField<Button>(card, "_deleteButton").gameObject.activeSelf, Is.False);
+                Assert.That(card.HasAnyFocusableAction, Is.False);
+
+                card.Bind(new SaveSlotCardViewModel(
+                    1,
+                    SaveSlotCardState.Corrupted,
+                    "Slot 1",
+                    "Save Data Damaged",
+                    "This save data could not be read.",
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    "Restart",
+                    SaveSlotIntentKind.Restart,
+                    showDelete: true,
+                    deleteActionText: "Delete",
+                    failureKind: SaveSlotFailurePresentationKind.CorruptedData));
+
+                Assert.That(GetPrivateField<Button>(card, "_primaryButton").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<Button>(card, "_primaryButton").interactable, Is.True);
+                Assert.That(GetPrivateField<Button>(card, "_deleteButton").gameObject.activeSelf, Is.True);
+                Assert.That(GetPrivateField<Button>(card, "_deleteButton").interactable, Is.True);
+                Assert.That(card.HasAnyFocusableAction, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void MainMenuScreenView_SettingsButton_RaisesCommandIntentOnly()
         {
             var harness = CreateShellHarness(withPanel: false);
@@ -819,8 +878,9 @@ namespace Game.Feature.UI.Tests
             var primaryButton = CreateActionButton("PrimaryButton", actionRow, out var primaryButtonLabel);
             SetPrivateField(card, "_primaryButton", primaryButton);
             SetPrivateField(card, "_primaryButtonLabel", primaryButtonLabel);
-            var deleteButton = CreateActionButton("DeleteButton", actionRow, out _);
+            var deleteButton = CreateActionButton("DeleteButton", actionRow, out var deleteButtonLabel);
             SetPrivateField(card, "_deleteButton", deleteButton);
+            SetPrivateField(card, "_deleteButtonLabel", deleteButtonLabel);
             SetPrivateField(card, "_primarySelectionFrame", CreateSelectionFrame("PrimarySelectionFrame", primaryButton.transform));
             SetPrivateField(card, "_deleteSelectionFrame", CreateSelectionFrame("DeleteSelectionFrame", deleteButton.transform));
             SetPrivateField(card, "_selectionVisualProfile", UiSelectionVisualProfile.CreateRuntimeDefault());

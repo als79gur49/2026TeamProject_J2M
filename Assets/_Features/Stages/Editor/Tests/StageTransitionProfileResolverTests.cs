@@ -184,9 +184,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 StageId.CreateOrThrow("stage-0-1"),
                 StageId.CreateOrThrow("stage-0-1"),
                 4,
-                "campaign-death-retry",
-                "Chance Lost",
-                "Retrying.");
+                "campaign-death-retry");
             var request = new StageNavigationRequest(
                 StageId.CreateOrThrow("stage-0-1"),
                 StageNavigationKind.Retry,
@@ -197,6 +195,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(request.TransitionHint.ChanceLostPayload.PreviousRemainingChances, Is.EqualTo(2));
             Assert.That(request.TransitionHint.ChanceLostPayload.CurrentRemainingChances, Is.EqualTo(1));
             Assert.That(request.TransitionHint.ChanceLostPayload.TotalChances, Is.EqualTo(3));
+            Assert.That(request.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.DeathRetryChanceLost));
+            Assert.That(request.TransitionHint.ChanceLostPayload.CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("stage-0-1")));
+            Assert.That(request.TransitionHint.ChanceLostPayload.RetryStageId, Is.EqualTo(StageId.CreateOrThrow("stage-0-1")));
+            Assert.That(request.TransitionHint.ChanceLostPayload.DeathCount, Is.EqualTo(4));
+            Assert.That(request.TransitionHint.ChanceLostPayload.Source, Is.EqualTo("campaign-death-retry"));
         }
 
         [Test]

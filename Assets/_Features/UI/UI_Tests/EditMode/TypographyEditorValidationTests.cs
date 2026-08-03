@@ -711,6 +711,32 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void TypographyPreviewScreenshotUtility_M2aDiagnosticsUseProductionMainMenuPrefab()
+        {
+            var targets = TypographyPreviewScreenshotUtility.M2aDiagnosticTargets;
+
+            Assert.That(
+                targets.Select(target => target.FileStem),
+                Is.EqualTo(new[]
+                {
+                    "M2ACorrupt",
+                    "M2APermission",
+                    "M2ALoadFailed",
+                    "M2ANeedsRepair",
+                }));
+            Assert.That(
+                targets.Select(target => target.PrefabPath).Distinct(),
+                Is.EqualTo(new[]
+                {
+                    "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab",
+                }));
+            Assert.That(
+                targets.All(target =>
+                    TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem) == 9),
+                Is.True);
+        }
+
+        [Test]
         public void TypographyPreviewScreenshotUtility_CreatesRequiredScreenshotsWithoutDirtyingGuardedAssets()
         {
             var outputDirectory = Path.Combine(

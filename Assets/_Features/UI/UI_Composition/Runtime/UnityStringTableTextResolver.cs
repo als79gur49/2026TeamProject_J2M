@@ -229,7 +229,7 @@ namespace Game.Feature.UI.Composition
             return !string.IsNullOrEmpty(value);
         }
 
-        private static string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
+        private string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
         {
             if (descriptor.Arguments.Count == 0)
             {
@@ -239,7 +239,9 @@ namespace Game.Feature.UI.Composition
             var arguments = new object[descriptor.Arguments.Count];
             for (var i = 0; i < descriptor.Arguments.Count; i++)
             {
-                arguments[i] = descriptor.Arguments[i];
+                arguments[i] = descriptor.Arguments[i] is LocalizedTextDescriptor nestedDescriptor
+                    ? Resolve(nestedDescriptor)
+                    : descriptor.Arguments[i];
             }
 
             return entry.GetLocalizedString(arguments);

@@ -181,6 +181,7 @@ MonoBehaviour:
   _primaryButton: {fileID: 7746143982626428556}
   _primaryButtonLabel: {fileID: 4806820205413055107}
   _deleteButton: {fileID: 8007278617751703394}
+  _deleteButtonLabel: {fileID: 401494306030593571}
   _primarySelectionFrame: {fileID: 931004}
   _deleteSelectionFrame: {fileID: 931104}
   _selectionVisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}
@@ -338,6 +339,7 @@ MonoBehaviour:
   _primaryButton: {fileID: 8006288289784480098}
   _primaryButtonLabel: {fileID: 5346521851647212093}
   _deleteButton: {fileID: 5496161307864276480}
+  _deleteButtonLabel: {fileID: 4535388637863044702}
   _primarySelectionFrame: {fileID: 932004}
   _deleteSelectionFrame: {fileID: 932104}
   _selectionVisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}
@@ -495,6 +497,7 @@ MonoBehaviour:
   _primaryButton: {fileID: 3656664542644924409}
   _primaryButtonLabel: {fileID: 2206664544515165775}
   _deleteButton: {fileID: 8240016847501300479}
+  _deleteButtonLabel: {fileID: 8058893720988771354}
   _primarySelectionFrame: {fileID: 933004}
   _deleteSelectionFrame: {fileID: 933104}
   _selectionVisualProfile: {fileID: 11400000, guid: e46a5c0937a949bbbf8bcb65bb9f4ce0, type: 2}

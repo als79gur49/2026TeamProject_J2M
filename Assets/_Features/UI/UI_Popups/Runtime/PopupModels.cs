@@ -126,9 +126,27 @@ namespace Game.Feature.UI.Popups
             string confirmLabel,
             string cancelLabel,
             bool isConfirmDestructive)
+            : this(
+                titleText,
+                bodyText,
+                string.Empty,
+                confirmLabel,
+                cancelLabel,
+                isConfirmDestructive)
+        {
+        }
+
+        public ConfirmPopupPayload(
+            string titleText,
+            string bodyText,
+            string warningText,
+            string confirmLabel,
+            string cancelLabel,
+            bool isConfirmDestructive)
         {
             TitleText = titleText ?? string.Empty;
             BodyText = bodyText ?? string.Empty;
+            WarningText = warningText ?? string.Empty;
             ConfirmLabel = confirmLabel ?? string.Empty;
             CancelLabel = cancelLabel ?? string.Empty;
             IsConfirmDestructive = isConfirmDestructive;
@@ -140,13 +158,32 @@ namespace Game.Feature.UI.Popups
             LocalizedTextDescriptor confirmLabelDescriptor,
             LocalizedTextDescriptor cancelLabelDescriptor,
             bool isConfirmDestructive)
+            : this(
+                titleTextDescriptor,
+                bodyTextDescriptor,
+                default,
+                confirmLabelDescriptor,
+                cancelLabelDescriptor,
+                isConfirmDestructive)
+        {
+        }
+
+        public ConfirmPopupPayload(
+            LocalizedTextDescriptor titleTextDescriptor,
+            LocalizedTextDescriptor bodyTextDescriptor,
+            LocalizedTextDescriptor warningTextDescriptor,
+            LocalizedTextDescriptor confirmLabelDescriptor,
+            LocalizedTextDescriptor cancelLabelDescriptor,
+            bool isConfirmDestructive)
         {
             TitleTextDescriptor = titleTextDescriptor;
             BodyTextDescriptor = bodyTextDescriptor;
+            WarningTextDescriptor = warningTextDescriptor;
             ConfirmLabelDescriptor = confirmLabelDescriptor;
             CancelLabelDescriptor = cancelLabelDescriptor;
             TitleText = string.Empty;
             BodyText = string.Empty;
+            WarningText = string.Empty;
             ConfirmLabel = string.Empty;
             CancelLabel = string.Empty;
             IsConfirmDestructive = isConfirmDestructive;
@@ -156,6 +193,8 @@ namespace Game.Feature.UI.Popups
 
         public string BodyText { get; }
 
+        public string WarningText { get; }
+
         public string ConfirmLabel { get; }
 
         public string CancelLabel { get; }
@@ -163,6 +202,8 @@ namespace Game.Feature.UI.Popups
         public LocalizedTextDescriptor TitleTextDescriptor { get; }
 
         public LocalizedTextDescriptor BodyTextDescriptor { get; }
+
+        public LocalizedTextDescriptor WarningTextDescriptor { get; }
 
         public LocalizedTextDescriptor ConfirmLabelDescriptor { get; }
 
@@ -213,6 +254,8 @@ namespace Game.Feature.UI.Popups
 
         public string BodyText { get; private set; } = string.Empty;
 
+        public string WarningText { get; private set; } = string.Empty;
+
         public string ConfirmLabel { get; private set; } = string.Empty;
 
         public string CancelLabel { get; private set; } = string.Empty;
@@ -226,8 +269,26 @@ namespace Game.Feature.UI.Popups
             string cancelLabel,
             bool isConfirmDestructive)
         {
+            SetContent(
+                titleText,
+                bodyText,
+                string.Empty,
+                confirmLabel,
+                cancelLabel,
+                isConfirmDestructive);
+        }
+
+        public void SetContent(
+            string titleText,
+            string bodyText,
+            string warningText,
+            string confirmLabel,
+            string cancelLabel,
+            bool isConfirmDestructive)
+        {
             TitleText = titleText ?? string.Empty;
             BodyText = bodyText ?? string.Empty;
+            WarningText = warningText ?? string.Empty;
             ConfirmLabel = confirmLabel ?? string.Empty;
             CancelLabel = cancelLabel ?? string.Empty;
             IsConfirmDestructive = isConfirmDestructive;

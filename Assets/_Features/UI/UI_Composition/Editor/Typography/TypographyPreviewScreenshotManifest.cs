@@ -312,7 +312,7 @@ namespace Game.Feature.UI.Composition.Editor
                 ? ReadCurrentGitHead()
                 : context.GitHead;
             var unityVersion = string.IsNullOrWhiteSpace(context.UnityVersion)
-                ? Application.unityVersion
+                ? UnityEngine.Application.unityVersion
                 : context.UnityVersion;
             var captureCommand = string.IsNullOrWhiteSpace(context.CaptureCommand)
                 ? AggregateCaptureEntryPoint
@@ -506,7 +506,7 @@ namespace Game.Feature.UI.Composition.Editor
 
         public static string ReadCurrentGitHead()
         {
-            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             var processValue = TryReadGitHeadFromProcess(projectRoot);
             if (IsGitHead(processValue))
             {
@@ -741,7 +741,7 @@ namespace Game.Feature.UI.Composition.Editor
                 }
             }
 
-            return Application.unityVersion;
+            return UnityEngine.Application.unityVersion;
         }
 
         private static string TryReadGitHeadFromProcess(string projectRoot)
@@ -864,7 +864,7 @@ namespace Game.Feature.UI.Composition.Editor
             }
 
             var configuredPath = contents.Substring(prefix.Length).Trim();
-            if (Application.platform == RuntimePlatform.WindowsEditor &&
+            if (UnityEngine.Application.platform == RuntimePlatform.WindowsEditor &&
                 configuredPath.StartsWith("/mnt/", StringComparison.Ordinal) &&
                 configuredPath.Length > 7 &&
                 configuredPath[6] == '/')
@@ -880,7 +880,7 @@ namespace Game.Feature.UI.Composition.Editor
 
         private static string GetRepositoryRelativePath(string path)
         {
-            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
             return Path.GetRelativePath(projectRoot, Path.GetFullPath(path)).Replace('\\', '/');
         }
 

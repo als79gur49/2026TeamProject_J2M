@@ -128,7 +128,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 283195222745088
-    m_Localized: "\uD0A4 \uBCC0\uACBD \uCDE8\uC18C\uB428"
+    m_Localized: 키 재지정을 취소했습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195264688128
@@ -136,15 +136,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195306631168
-    m_Localized: "\uC774 \uD0A4\uB294 \uC608\uC57D\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4."
+    m_Localized: 이 키는 사용할 수 없습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195348574208
-    m_Localized: "\uC774 \uD0A4\uB294 \uC774\uB3D9 \uD0A4\uC640 \uCDA9\uB3CC\uD569\uB2C8\uB2E4."
+    m_Localized: 이동 키는 서로 중복될 수 없습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195390517248
-    m_Localized: "\uD0A4 \uBCC0\uACBD\uC774 \uC774\uBBF8 \uC9C4\uD589 \uC911\uC785\uB2C8\uB2E4."
+    m_Localized: 다른 키를 이미 재지정하고 있습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
@@ -305,6 +305,191 @@ MonoBehaviour:
     m_Localized: "게임 클리어"
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693657
+    m_Localized: "\uC77C\uC2DC \uC815\uC9C0"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693658
+    m_Localized: "\uAE30\uD68C"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693659
+    m_Localized: "\uC774\uB3D9"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693660
+    m_Localized: "\uBC00\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693661
+    m_Localized: "\uB4A4\uC9D1\uAE30"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693662
+    m_Localized: 슬롯 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693663
+    m_Localized: 비어 있음
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693664
+    m_Localized: 새 게임
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693665
+    m_Localized: 완료
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693666
+    m_Localized: 스테이지 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693667
+    m_Localized: 기회 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693668
+    m_Localized: 사망 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693669
+    m_Localized: 최근 플레이 {0}
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693670
+    m_Localized: 다시 시작
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693671
+    m_Localized: 계속
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693672
+    m_Localized: 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693673
+    m_Localized: 슬롯 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693674
+    m_Localized: "{0}번 슬롯을 삭제할까요?"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693675
+    m_Localized: 이 작업은 되돌릴 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693676
+    m_Localized: 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693677
+    m_Localized: 슬롯 다시 시작
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693678
+    m_Localized: "{0}번 슬롯을 처음부터 다시 시작할까요?"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693679
+    m_Localized: 기존 진행 상황은 교체됩니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693680
+    m_Localized: 다시 시작
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693681
+    m_Localized: 슬롯 덮어쓰기
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693682
+    m_Localized: "{0}번 슬롯에서 새 게임을 시작할까요?"
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693683
+    m_Localized: 기존 진행 상황은 덮어씌워집니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693684
+    m_Localized: 새 게임
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693685
+    m_Localized: 게임 종료
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693686
+    m_Localized: 데스크톱으로 종료할까요?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693687
+    m_Localized: 저장되지 않은 진행 상황은 사라질 수 있습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693688
+    m_Localized: 종료
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693689
+    m_Localized: 지원하지 않는 저장 데이터
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693690
+    m_Localized: 지원하지 않는 버전에서 생성된 저장 데이터입니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693691
+    m_Localized: 저장 데이터 손상
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693692
+    m_Localized: 저장 데이터를 읽을 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693693
+    m_Localized: 저장 데이터 접근 실패
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693694
+    m_Localized: 저장 데이터 접근 권한을 확인하세요.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693695
+    m_Localized: 저장 불러오기 실패
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693696
+    m_Localized: 저장 데이터를 불러올 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693697
+    m_Localized: 저장 데이터 사용 불가
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693698
+    m_Localized: 현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693699
+    m_Localized: 이 키는 이미 {0}에 사용 중입니다.
+    m_Metadata:
+      m_Items:
+      - rid: 5336917459874873345
+  - m_Id: 4971587610693700
+    m_Localized: 이 키는 사용할 수 없습니다.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:
@@ -324,3 +509,12 @@ MonoBehaviour:
         - id: 4971587610693648
         - id: 4971587610693649
         - id: 4971587610693650
+        - id: 4971587610693662
+        - id: 4971587610693666
+        - id: 4971587610693667
+        - id: 4971587610693668
+        - id: 4971587610693669
+        - id: 4971587610693674
+        - id: 4971587610693678
+        - id: 4971587610693682
+        - id: 4971587610693699
