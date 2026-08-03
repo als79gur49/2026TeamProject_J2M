@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _isRebuildingKeyboardMoveOrderTracker;
         private bool _isSimulationPaused;
         private bool _isTerminalHoldActive;
+        private TerminalSessionToken _terminalHoldToken;
         private TickInputBuffer _inputBuffer;
         private ITerminalSessionReadModel _terminalSession;
         private ISceneEntryPresentationReadModel _sceneEntrySession;
@@ -239,10 +240,49 @@ namespace Game.Feature.Gameplay.Host
             _accumulatedTime = 0f;
         }
 
+        internal void EnterTerminalHold(TerminalSessionToken token)
+        {
+            if (!token.IsValid)
+            {
+                throw new ArgumentException(
+                    "Terminal input hold requires a valid session token.",
+                    nameof(token));
+            }
+
+            EnsureInitialized();
+            if (_isTerminalHoldActive && _terminalHoldToken != token)
+            {
+                throw new InvalidOperationException(
+                    "A different terminal session already owns the explicit input hold.");
+            }
+
+            _terminalHoldToken = token;
+            _isTerminalHoldActive = true;
+            ClearPendingPlayerInput();
+            ClearPendingUiInput();
+            _accumulatedTime = 0f;
+        }
+
         internal void ExitTerminalHold()
         {
             EnsureInitialized();
             _isTerminalHoldActive = false;
+            _terminalHoldToken = default;
+        }
+
+        internal bool TryExitTerminalHold(TerminalSessionToken token)
+        {
+            EnsureInitialized();
+            if (!_isTerminalHoldActive ||
+                !_terminalHoldToken.IsValid ||
+                _terminalHoldToken != token)
+            {
+                return false;
+            }
+
+            _isTerminalHoldActive = false;
+            _terminalHoldToken = default;
+            return true;
         }
 
         public void SetRawMoveInput(Vector2 rawMoveInput)

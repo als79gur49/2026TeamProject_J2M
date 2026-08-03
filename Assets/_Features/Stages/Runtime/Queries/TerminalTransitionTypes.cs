@@ -302,6 +302,7 @@ namespace Game.Feature.Stages
         WaitingResultInteraction = 13,
         Completed = 14,
         FailedHoldingCover = 15,
+        FailedBeforeCover = 16,
     }
 
     public enum TerminalDestinationKind
@@ -486,6 +487,8 @@ namespace Game.Feature.Stages
         bool TryAdvancePhase(TerminalSessionToken token, TerminalSessionPhase next);
 
         bool TryFail(TerminalSessionToken token, TerminalFailure failure);
+
+        bool TryAbortIrisSetup(TerminalSessionToken token, TerminalFailure failure);
     }
 
     public interface ITerminalSessionAuthorityProvider
@@ -597,6 +600,7 @@ namespace Game.Feature.Stages
                 next == TerminalSessionPhase.Inactive ||
                 next == TerminalSessionPhase.Completed ||
                 next == TerminalSessionPhase.FailedHoldingCover ||
+                next == TerminalSessionPhase.FailedBeforeCover ||
                 next <= _current.Phase)
             {
                 return false;
@@ -695,6 +699,31 @@ namespace Game.Feature.Stages
                 TerminalSessionPhase.FailedHoldingCover,
                 failure.Message,
                 _current.TransitionId,
+                _current.SourceSceneGeneration,
+                _current.DestinationSceneGeneration,
+                _current.DestinationKind);
+            return true;
+        }
+
+        public bool TryAbortIrisSetup(
+            TerminalSessionToken token,
+            TerminalFailure failure)
+        {
+            if (!_current.IsActive ||
+                _current.Token != token ||
+                _current.Phase != TerminalSessionPhase.Iris ||
+                _current.TransitionId != 0)
+            {
+                return false;
+            }
+
+            Publish(
+                isActive: false,
+                token,
+                _current.TerminalKind,
+                TerminalSessionPhase.FailedBeforeCover,
+                failure.Message,
+                transitionId: 0,
                 _current.SourceSceneGeneration,
                 _current.DestinationSceneGeneration,
                 _current.DestinationKind);
@@ -845,6 +874,15 @@ namespace Game.Feature.Stages
             return _authority.TryFail(
                 token,
                 new TerminalFailure("TerminalTransitionFailure", failureReason));
+        }
+
+        public static bool TryAbortIrisSetup(
+            TerminalSessionToken token,
+            string failureReason)
+        {
+            return _authority.TryAbortIrisSetup(
+                token,
+                new TerminalFailure("TerminalIrisSetupFailure", failureReason));
         }
 
         public static bool TryComplete(TerminalSessionToken token)

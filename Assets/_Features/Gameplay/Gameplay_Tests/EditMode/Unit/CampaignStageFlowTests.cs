@@ -14,6 +14,7 @@ using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
 using Game.Shared.Audio;
 using NUnit.Framework;
@@ -1781,6 +1782,213 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-iris-setup-fallback-host");
+            var router = new FakeStageLaunchRouter();
+            var setupException = new InvalidOperationException("defeat iris setup failed");
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(setupException));
+                var handler = (Action<TickResult>)Delegate.CreateDelegate(
+                    typeof(Action<TickResult>),
+                    controller,
+                    GetHandleTickCompletedMethod());
+
+                var thrown = Assert.Throws<InvalidOperationException>(
+                    () => handler(CreateDeathTickResult(50, eligibleTick: 53)));
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(TerminalSessionRegistry.Current.Phase, Is.EqualTo(TerminalSessionPhase.FailedBeforeCover));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+                Assert.That(router.LastRequest.TransitionHint.HasTerminalClaim, Is.False);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-level-failed-iris-setup-fallback-host");
+            var setupException = new InvalidOperationException("level-failed iris setup failed");
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 1);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(
+                    hostObject,
+                    playerEntityId: 10,
+                    respawnDelayTicks: 3,
+                    presenter);
+                var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(setupException));
+                SetPrivateField(controller, "_presentationFeed", feed);
+                var handler = (Action<TickResult>)Delegate.CreateDelegate(
+                    typeof(Action<TickResult>),
+                    controller,
+                    GetHandleTickCompletedMethod());
+
+                var thrown = Assert.Throws<InvalidOperationException>(
+                    () => handler(CreateDeathTickResult(50, eligibleTick: 53)));
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(feed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(
+                    feed.CurrentLevelFailed.RestartLevelRequest.StageId.Value,
+                    Is.EqualTo("stage-2-1"));
+                feed.Dispose();
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-victory-iris-setup-fallback-host");
+            var setupException = new InvalidOperationException("victory iris setup failed");
+            var entry = CreateEntry("stage-1-1");
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(
+                presentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(presentationDefinition);
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-1-1", "level-1", remainingChances: 3);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(
+                    hostObject,
+                    playerEntityId: 10,
+                    respawnDelayTicks: 3,
+                    presenter);
+                var feed = new GameplayHostPresentationFeed(host.InputHost, presenter, entry);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(setupException));
+                SetPrivateField(controller, "_presentationFeed", feed);
+                var arbiter = ReadPrivateField<TerminalArbitrationOwner>(controller, "_terminalArbiter");
+                feed.ConfigureTerminalArbiter(arbiter);
+                var acceptedHandler = (Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult>)
+                    Delegate.CreateDelegate(
+                        typeof(Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult>),
+                        controller,
+                        typeof(CampaignGameplayFlowController).GetMethod(
+                            "HandleTerminalClaimAccepted",
+                            BindingFlags.Instance | BindingFlags.NonPublic));
+                feed.TerminalClaimAccepted += acceptedHandler;
+                var frames = new List<GameplayPresentationFrame>();
+                feed.FramePublished += frames.Add;
+
+                var thrown = Assert.Throws<InvalidOperationException>(
+                    () => feed.ForceClearCurrentStage());
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(feed.CurrentMinimalStageCompletion, Is.Not.Null);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(frames, Has.Count.EqualTo(1));
+                Assert.That(frames[0].StageEvent.HasValue, Is.True);
+                Assert.That(
+                    frames[0].StageEvent.Value.EventKind,
+                    Is.EqualTo(GameplayStageEventKind.Cleared));
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                feed.TerminalClaimAccepted -= acceptedHandler;
+                feed.Dispose();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentationDefinition);
+                UnityEngine.Object.DestroyImmediate(entry);
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayInputHost_ExactTerminalHoldRelease_PreservesNewerOwner()
+        {
+            var hostObject = new GameObject("terminal-hold-newer-owner-host");
+            try
+            {
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                SetPrivateField(inputHost, "_isInitialized", true);
+                var oldToken = new TerminalSessionToken(81, 1);
+                var newerToken = new TerminalSessionToken(81, 2);
+
+                inputHost.EnterTerminalHold(newerToken);
+
+                Assert.That(inputHost.TryExitTerminalHold(oldToken), Is.False);
+                Assert.That(ReadInputHostTerminalHold(inputHost), Is.True);
+                Assert.That(inputHost.TryExitTerminalHold(newerToken), Is.True);
+                Assert.That(ReadInputHostTerminalHold(inputHost), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void CampaignDeath_ClaimedLevelFailed_IgnoresLaterStageClear()
         {
@@ -2686,12 +2894,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class FakeTerminalTransitionPort : ITerminalTransitionPort
         {
+            private readonly Exception _setupException;
+
+            internal FakeTerminalTransitionPort(Exception setupException = null)
+            {
+                _setupException = setupException;
+            }
+
             public TerminalTransitionPlayback Current { get; private set; }
 
             public bool TryBegin(
                 TerminalTransitionRequest request,
                 out TerminalTransitionPlayback playback)
             {
+                if (_setupException != null)
+                {
+                    var authority = TerminalSessionRegistry.Authority;
+                    if (authority.IsActive &&
+                        authority.ActiveToken == request.Token &&
+                        authority.Phase == TerminalSessionPhase.Claimed)
+                    {
+                        authority.TryAdvancePhase(request.Token, TerminalSessionPhase.Iris);
+                    }
+
+                    authority.TryAbortIrisSetup(
+                        request.Token,
+                        new TerminalFailure("TestIrisSetup", _setupException.Message));
+                    playback = null;
+                    throw _setupException;
+                }
+
                 if (Current != null && !Current.IsTerminal)
                 {
                     playback = Current;

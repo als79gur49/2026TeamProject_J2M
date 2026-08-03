@@ -79,22 +79,25 @@ namespace Game.Feature.UI.Composition
     {
         private readonly ITerminalFocusTargetSource _focusTargetSource;
         private readonly PersistentTerminalSessionAuthority _terminalAuthority;
-        private readonly TerminalIrisOverlayView _view;
+        private readonly ITerminalIrisSetupView _view;
         private readonly TerminalIrisMotionProfileResolver _motionProfileResolver;
+        private readonly Func<TerminalIrisRuntimePreset, TerminalTransitionPlayback> _playbackFactory;
         private TerminalTransitionPlayback _playback;
         private bool _disposed;
 
         public GameplayTerminalTransitionPort(
-            TerminalIrisOverlayView view,
+            ITerminalIrisSetupView view,
             TerminalIrisMotionProfileResolver motionProfileResolver,
             ITerminalFocusTargetSource focusTargetSource,
-            PersistentTerminalSessionAuthority terminalAuthority = null)
+            PersistentTerminalSessionAuthority terminalAuthority = null,
+            Func<TerminalIrisRuntimePreset, TerminalTransitionPlayback> playbackFactory = null)
         {
             _view = view != null ? view : throw new ArgumentNullException(nameof(view));
             _motionProfileResolver = motionProfileResolver ??
                 throw new ArgumentNullException(nameof(motionProfileResolver));
             _focusTargetSource = focusTargetSource;
             _terminalAuthority = terminalAuthority ?? TerminalSessionRegistry.Authority;
+            _playbackFactory = playbackFactory ?? (preset => new TerminalTransitionPlayback(preset));
             TerminalDestinationReadiness.DestinationReady += HandleDestinationReady;
         }
 
@@ -190,7 +193,8 @@ namespace Game.Feature.UI.Composition
                 }
             }
 
-            var candidate = new TerminalTransitionPlayback(preset);
+            var candidate = _playbackFactory(preset) ??
+                throw new InvalidOperationException("Terminal Iris playback factory returned null.");
             var closeFullyRevealedRadius = Mathf.Max(
                 _view.CalculateFullyRevealedRadius(preset.FallbackCenter, 0f),
                 _view.CalculateFullyRevealedRadius(focus.NormalizedCenter, 0f));
@@ -222,28 +226,37 @@ namespace Game.Feature.UI.Composition
                 candidate.Dispose();
                 return false;
             }
-            _playback = candidate;
-            _playback.StateChanged += HandleStateChanged;
-            _playback.Cancelled += HandleCancelled;
-            _view.Show();
-            _view.Apply(_playback);
-            var appliedMaterialCenter = _view.RuntimeMaterialForTests.GetVector("_Center");
-            LastFocusTransportDiagnostics = new TerminalFocusTransportDiagnostics(
-                request,
-                _terminalAuthority.Current,
-                focus.NormalizedCenter,
-                !focus.IsFallback,
-                focus.IsFallback
-                    ? TerminalFocusTransportSource.MotionProfileFallback
-                    : TerminalFocusTransportSource.ProductionPlayerProjection,
-                candidate.FocusTarget.NormalizedCenter,
-                !candidate.FocusTarget.IsFallback,
-                _view.LastAppliedCenterForDiagnostics,
-                new Vector2(appliedMaterialCenter.x, appliedMaterialCenter.y),
-                _view.LastMaterialApplicationFrameForDiagnostics);
-            TerminalTransitionRegistry.Set(_playback);
-            playback = _playback;
-            return true;
+
+            try
+            {
+                _playback = candidate;
+                _playback.StateChanged += HandleStateChanged;
+                _playback.Cancelled += HandleCancelled;
+                _view.Show();
+                _view.Apply(_playback);
+                var appliedMaterialCenter = _view.ReadMaterialCenterForDiagnostics();
+                LastFocusTransportDiagnostics = new TerminalFocusTransportDiagnostics(
+                    request,
+                    _terminalAuthority.Current,
+                    focus.NormalizedCenter,
+                    !focus.IsFallback,
+                    focus.IsFallback
+                        ? TerminalFocusTransportSource.MotionProfileFallback
+                        : TerminalFocusTransportSource.ProductionPlayerProjection,
+                    candidate.FocusTarget.NormalizedCenter,
+                    !candidate.FocusTarget.IsFallback,
+                    _view.LastAppliedCenterForDiagnostics,
+                    appliedMaterialCenter,
+                    _view.LastMaterialApplicationFrameForDiagnostics);
+                TerminalTransitionRegistry.Set(_playback);
+                playback = _playback;
+                return true;
+            }
+            catch (Exception setupException)
+            {
+                AbortFailedSetup(candidate, request, setupException);
+                throw;
+            }
         }
 
         internal void Tick(float unscaledDeltaTime)
@@ -395,6 +408,55 @@ namespace Game.Feature.UI.Composition
             _playback.Cancelled -= HandleCancelled;
             _playback.Dispose();
             _playback = null;
+        }
+
+        private void AbortFailedSetup(
+            TerminalTransitionPlayback candidate,
+            TerminalTransitionRequest request,
+            Exception setupException)
+        {
+            TerminalTransitionRegistry.Clear(candidate);
+            candidate.StateChanged -= HandleStateChanged;
+            candidate.Cancelled -= HandleCancelled;
+            candidate.Dispose();
+            if (ReferenceEquals(_playback, candidate))
+            {
+                _playback = null;
+            }
+
+            LastFocusTransportDiagnostics = default;
+            try
+            {
+                _view.Hide();
+            }
+            catch (Exception cleanupException)
+            {
+                AttachCleanupFailure(
+                    setupException,
+                    "TerminalIrisViewHideFailure",
+                    cleanupException);
+            }
+
+            if (!_terminalAuthority.TryAbortIrisSetup(
+                    request.Token,
+                    new TerminalFailure(
+                        "TerminalIrisSetupFailure",
+                        setupException.Message)))
+            {
+                setupException.Data["TerminalIrisAuthorityAbortRejected"] =
+                    _terminalAuthority.Current;
+            }
+        }
+
+        private static void AttachCleanupFailure(
+            Exception setupException,
+            string key,
+            Exception cleanupException)
+        {
+            if (!setupException.Data.Contains(key))
+            {
+                setupException.Data[key] = cleanupException;
+            }
         }
     }
 }
