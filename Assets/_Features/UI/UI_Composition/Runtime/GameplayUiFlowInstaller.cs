@@ -475,10 +475,21 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
+            var expectedSceneEntryToken = default(SceneEntrySessionToken);
+            var expectedSceneEntryDestinationGeneration = 0L;
             try
             {
                 EnsureTerminalTransitionPort(sceneHost);
                 _installedSceneHost = sceneHost;
+                var sceneEntrySession = SceneEntryPresentationRegistry.Current;
+                if (sceneEntrySession.IsActive &&
+                    sceneEntrySession.Phase == SceneEntryPresentationPhase.Loading)
+                {
+                    expectedSceneEntryToken = sceneEntrySession.Token;
+                    expectedSceneEntryDestinationGeneration =
+                        TerminalSessionRegistry.Authority.CurrentSceneGeneration;
+                }
+
                 RegisterSceneEntryDestinationIfApplicable();
                 _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
                 _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
@@ -496,10 +507,37 @@ namespace Game.Feature.UI.Composition
             }
             catch (Exception exception)
             {
-                ReportDestinationFailureIfOwned(
-                    DestinationReadinessOutcome.Failed,
-                    "DESTINATION_INSTALL_FAILED",
-                    exception.Message);
+                try
+                {
+                    ReportSceneEntryFailureIfOwned(
+                        expectedSceneEntryToken,
+                        expectedSceneEntryDestinationGeneration,
+                        "DESTINATION_ENTRY_INSTALL_FAILED",
+                        exception.Message);
+                }
+                catch (Exception reportException)
+                {
+                    AttachSecondaryException(
+                        exception,
+                        "SceneEntryFailureReportingFailure",
+                        reportException);
+                }
+
+                try
+                {
+                    ReportDestinationFailureIfOwned(
+                        DestinationReadinessOutcome.Failed,
+                        "DESTINATION_INSTALL_FAILED",
+                        exception.Message);
+                }
+                catch (Exception reportException)
+                {
+                    AttachSecondaryException(
+                        exception,
+                        "TerminalDestinationFailureReportingFailure",
+                        reportException);
+                }
+
                 throw;
             }
         }
@@ -1372,8 +1410,26 @@ namespace Game.Feature.UI.Composition
             string message)
         {
             var session = SceneEntryPresentationRegistry.Current;
-            if (!session.IsActive ||
+            ReportSceneEntryFailureIfOwned(
+                session.Token,
+                session.DestinationSceneGeneration,
+                code,
+                message);
+        }
+
+        private static void ReportSceneEntryFailureIfOwned(
+            SceneEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            string code,
+            string message)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!expectedToken.IsValid ||
+                expectedDestinationGeneration <= 0 ||
+                !session.IsActive ||
+                session.Token != expectedToken ||
                 session.DestinationSceneGeneration <= 0 ||
+                session.DestinationSceneGeneration != expectedDestinationGeneration ||
                 session.DestinationSceneGeneration !=
                 TerminalSessionRegistry.Authority.CurrentSceneGeneration ||
                 session.Phase == SceneEntryPresentationPhase.Completed ||
@@ -1382,9 +1438,36 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? "Gameplay destination UI installation failed without exception details."
+                : message;
             SceneEntryPresentationRegistry.TryFailHoldingCover(
                 session.Token,
-                $"{code}: {message}");
+                $"{code}: {detail}");
+        }
+
+        private static void AttachSecondaryException(
+            Exception primaryException,
+            string key,
+            Exception secondaryException)
+        {
+            if (primaryException == null || secondaryException == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!primaryException.Data.Contains(key))
+                {
+                    primaryException.Data[key] = secondaryException;
+                }
+            }
+            catch
+            {
+                // Keep the original installation exception primary even when
+                // secondary diagnostic attachment is unavailable.
+            }
         }
 
         private IResultTransitionScreenView ResolveActiveResultTransitionView(
