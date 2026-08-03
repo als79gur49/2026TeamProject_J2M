@@ -28,7 +28,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(entry.Required, Is.True);
             Assert.That(entry.Role, Is.EqualTo(StageObjectiveConditionRole.SecondaryGoal));
             Assert.That(entry.StableConditionId, Is.EqualTo("button-901"));
-            Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+            Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
             Assert.That(entry.SortOrder, Is.EqualTo(10));
             Assert.That(fixture.Authoring.Objective.CompletionPolicy, Is.EqualTo(StageCompletionPolicy.RequireAllConditions));
         }
@@ -61,11 +61,11 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result.Succeeded, Is.True, result.Message);
             Assert.That(fixture.Authoring.Objective.ConditionEntries.Single().Condition, Is.SameAs(existing));
-            Assert.That(fixture.Authoring.Objective.ConditionEntries.Single().DisplayText, Is.EqualTo("Activate QA button"));
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Single().AuthoringLabel, Is.EqualTo("Activate QA button"));
         }
 
         [Test]
-        public void TryAddRequiredSecondaryGoal_MoonBlockOnlyButton_UsesMoonBlockDisplayText()
+        public void TryAddRequiredSecondaryGoal_MoonBlockOnlyButton_UsesMoonBlockAuthoringLabel()
         {
             using var fixture = TempStageContentFixture.Create(tileFeatures: new[]
             {
@@ -78,7 +78,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixture.Entry.StageId.Value);
 
             Assert.That(result.Succeeded, Is.True, result.Message);
-            Assert.That(fixture.Authoring.Objective.ConditionEntries.Single().DisplayText,
+            Assert.That(fixture.Authoring.Objective.ConditionEntries.Single().AuthoringLabel,
                 Is.EqualTo("Place the MoonBlock on the button"));
         }
 
@@ -349,7 +349,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Required = required,
                 Role = role,
                 StableConditionId = stableId,
-                DisplayText = string.Empty,
+                AuthoringLabel = string.Empty,
                 SortOrder = 0,
             };
         }

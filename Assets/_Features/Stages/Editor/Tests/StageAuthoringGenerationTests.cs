@@ -14,6 +14,23 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class StageAuthoringGenerationTests
     {
+        private const string ObjectiveStageRoot =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages";
+
+        private static readonly string[] ObjectiveStageNames =
+        {
+            "legacy-stage-5-1",
+            "stage-0-1",
+            "stage-0-2",
+            "stage-1-1",
+            "stage-2-1",
+            "stage-2-2",
+            "stage-3-1",
+            "stage-3-2",
+            "stage-4-1",
+            "stage-4-2",
+        };
+
         [Test]
         public void StableIdPreservedWhenPlacementReordered()
         {
@@ -209,7 +226,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GeneratedStageDefinitionPreservesObjectiveConditionDisplayFields()
+        public void GeneratedStageDefinitionPreservesObjectiveConditionAuthoringFields()
         {
             var fixture = CreateFixture(
                 Placement("player", StageAuthoringEntityKind.Player, 0, 0),
@@ -244,7 +261,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             Required = true,
                             Role = StageObjectiveConditionRole.SecondaryGoal,
                             StableConditionId = "button-100",
-                            DisplayText = "Place a push box on the button",
+                            AuthoringLabel = "Place a push box on the button",
                             SortOrder = 10,
                         },
                     },
@@ -252,11 +269,13 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
                 Assert.That(report.HasErrors, Is.False, FormatIssues(report));
+                var secondReport = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(secondReport.HasErrors, Is.False, FormatIssues(secondReport));
                 Assert.That(fixture.Gameplay.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
                 Assert.That(fixture.Gameplay.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = fixture.Gameplay.Objective.ConditionEntries.Single();
                 Assert.That(entry.StableConditionId, Is.EqualTo("button-100"));
-                Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+                Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
                 Assert.That(entry.SortOrder, Is.EqualTo(10));
             }
             finally
@@ -267,7 +286,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringDefinitionObjective_PreservesDisplayMetadataAndDefaultsPrimaryGoalDisplayText()
+        public void StageAuthoringDefinitionObjective_PreservesAuthoringMetadataAndDefaultsPrimaryGoalAuthoringLabel()
         {
             var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
             try
@@ -284,7 +303,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             Required = true,
                             Role = StageObjectiveConditionRole.PrimaryGoal,
                             StableConditionId = "primary-goal",
-                            DisplayText = string.Empty,
+                            AuthoringLabel = string.Empty,
                             SortOrder = 0,
                         },
                     },
@@ -294,7 +313,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
                 Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
-                Assert.That(objective.ConditionEntries.Single().DisplayText, Is.EqualTo("Reach the Exit Zone"));
+                Assert.That(objective.ConditionEntries.Single().AuthoringLabel, Is.EqualTo("Reach the Exit Zone"));
             }
             finally
             {
@@ -303,7 +322,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GeneratedAssetWriterPreservesObjectiveTitleSummaryDisplayTextAndSortOrder()
+        public void GeneratedAssetWriterPreservesObjectiveTitleSummaryAuthoringLabelAndSortOrder()
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
             var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
@@ -328,7 +347,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             Required = true,
                             Role = StageObjectiveConditionRole.SecondaryGoal,
                             StableConditionId = "button-100",
-                            DisplayText = "Place a push box on the button",
+                            AuthoringLabel = "Place a push box on the button",
                             SortOrder = 10,
                         },
                     },
@@ -342,7 +361,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(stage.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
                 Assert.That(stage.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = stage.Objective.ConditionEntries.Single();
-                Assert.That(entry.DisplayText, Is.EqualTo("Place a push box on the button"));
+                Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
                 Assert.That(entry.SortOrder, Is.EqualTo(10));
             }
             finally
@@ -350,6 +369,116 @@ namespace Game.Feature.Stages.Editor.Tests
                 UnityEngine.Object.DestroyImmediate(condition);
                 UnityEngine.Object.DestroyImmediate(stage);
             }
+        }
+
+        [Test]
+        public void ObjectiveAuthoringLabelSerialization_LegacyDisplayTextTokenLoadsIntoAuthoringLabel()
+        {
+            var sourcePath = GetGeneratedObjectiveStagePath("stage-0-2");
+            var temporaryPath =
+                $"Assets/__ObjectiveAuthoringLabelLegacyFixture_{Guid.NewGuid():N}.asset";
+
+            try
+            {
+                Assert.That(AssetDatabase.CopyAsset(sourcePath, temporaryPath), Is.True);
+                var yaml = File.ReadAllText(ToAbsoluteProjectPath(temporaryPath));
+                Assert.That(CountSerializedToken(yaml, "AuthoringLabel"), Is.EqualTo(1));
+
+                yaml = yaml.Replace("AuthoringLabel:", "DisplayText:");
+                File.WriteAllText(ToAbsoluteProjectPath(temporaryPath), yaml);
+                AssetDatabase.ImportAsset(
+                    temporaryPath,
+                    ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+
+                var loaded = AssetDatabase.LoadAssetAtPath<StageDefinition>(temporaryPath);
+                Assert.That(loaded, Is.Not.Null);
+                Assert.That(
+                    loaded.Objective.ConditionEntries.Single().AuthoringLabel,
+                    Is.EqualTo("Reach the Exit Zone"));
+            }
+            finally
+            {
+                AssetDatabase.DeleteAsset(temporaryPath);
+            }
+        }
+
+        [Test]
+        public void ObjectiveAuthoringLabelAssets_UseCurrentTokenOnExactMigrationInventory()
+        {
+            var paths = GetObjectiveAssetPaths().ToArray();
+
+            Assert.That(paths, Has.Length.EqualTo(20));
+            Assert.That(paths.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(20));
+
+            var oldTokenCount = 0;
+            var newTokenCount = 0;
+            for (var i = 0; i < paths.Length; i++)
+            {
+                Assert.That(File.Exists(ToAbsoluteProjectPath(paths[i])), Is.True, paths[i]);
+                var yaml = File.ReadAllText(ToAbsoluteProjectPath(paths[i]));
+                oldTokenCount += CountSerializedToken(yaml, "DisplayText");
+                newTokenCount += CountSerializedToken(yaml, "AuthoringLabel");
+            }
+
+            Assert.That(oldTokenCount, Is.Zero);
+            Assert.That(newTokenCount, Is.EqualTo(108));
+        }
+
+        [Test]
+        public void ObjectiveAuthoringLabelAssets_PreservePairIdentityParityAndZeroDrift()
+        {
+            for (var i = 0; i < ObjectiveStageNames.Length; i++)
+            {
+                var stageName = ObjectiveStageNames[i];
+                var generatedPath = GetGeneratedObjectiveStagePath(stageName);
+                var authoringPath = GetAuthoringObjectiveStagePath(stageName);
+                var generated = AssetDatabase.LoadAssetAtPath<StageDefinition>(generatedPath);
+                var authoring = AssetDatabase.LoadAssetAtPath<StageAuthoringDefinition>(authoringPath);
+
+                Assert.That(generated, Is.Not.Null, generatedPath);
+                Assert.That(authoring, Is.Not.Null, authoringPath);
+                Assert.That(authoring.GeneratedGameplayDefinition, Is.SameAs(generated), stageName);
+
+                var generatedEntries = generated.Objective.GetConditionEntriesOrEmpty();
+                var authoringEntries = authoring.Objective.GetConditionEntriesOrEmpty();
+                Assert.That(authoringEntries, Has.Length.EqualTo(generatedEntries.Length), stageName);
+                for (var entryIndex = 0; entryIndex < generatedEntries.Length; entryIndex++)
+                {
+                    var expected = authoringEntries[entryIndex];
+                    var actual = generatedEntries[entryIndex];
+                    Assert.That(actual.Condition, Is.SameAs(expected.Condition), $"{stageName}[{entryIndex}].Condition");
+                    Assert.That(actual.Required, Is.EqualTo(expected.Required), $"{stageName}[{entryIndex}].Required");
+                    Assert.That(actual.Role, Is.EqualTo(expected.Role), $"{stageName}[{entryIndex}].Role");
+                    Assert.That(actual.StableConditionId, Is.EqualTo(expected.StableConditionId), $"{stageName}[{entryIndex}].StableConditionId");
+                    Assert.That(actual.AuthoringLabel, Is.EqualTo(expected.AuthoringLabel), $"{stageName}[{entryIndex}].AuthoringLabel");
+                    Assert.That(actual.SortOrder, Is.EqualTo(expected.SortOrder), $"{stageName}[{entryIndex}].SortOrder");
+                }
+
+                var issues = StageAuthoringDriftComparer.CompareGameplay(
+                    StageAuthoringProjection.ProjectExpectedGameplay(authoring, allocationPlan: null),
+                    StageAuthoringProjection.ProjectActualGameplay(generated),
+                    new StageAuthoringDriftContext(
+                        StageValidationSeverity.Error,
+                        StageValidationTiming.TestOrCi,
+                        generated,
+                        generatedPath,
+                        stageName,
+                        authoring.name,
+                        generated.name));
+                Assert.That(issues, Is.Empty, FormatIssues(issues));
+            }
+        }
+
+        [Test]
+        public void StageAuthoringGridWindow_LabelsAuthoringMetadataAsNonPlayerFacing()
+        {
+            var source = File.ReadAllText(ToAbsoluteProjectPath(
+                "Assets/_Features/Stages/Editor/Authoring/StageAuthoringGridWindow.cs"));
+
+            Assert.That(source, Does.Contain("\"Authoring Label\""));
+            Assert.That(source, Does.Contain("Editor-facing label used for authoring, validation, and drift comparison."));
+            Assert.That(source, Does.Contain("It is not player-facing localized copy."));
+            Assert.That(source, Does.Not.Contain("\"DisplayText\""));
         }
 
         [Test]
@@ -592,6 +721,37 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(forbiddenHits, Is.Empty);
         }
 
+        private static IEnumerable<string> GetObjectiveAssetPaths()
+        {
+            for (var i = 0; i < ObjectiveStageNames.Length; i++)
+            {
+                yield return GetGeneratedObjectiveStagePath(ObjectiveStageNames[i]);
+                yield return GetAuthoringObjectiveStagePath(ObjectiveStageNames[i]);
+            }
+        }
+
+        private static string GetGeneratedObjectiveStagePath(string stageName)
+        {
+            return $"{ObjectiveStageRoot}/{stageName}/{stageName}.asset";
+        }
+
+        private static string GetAuthoringObjectiveStagePath(string stageName)
+        {
+            return $"{ObjectiveStageRoot}/{stageName}/{stageName}_Authoring.asset";
+        }
+
+        private static string ToAbsoluteProjectPath(string assetPath)
+        {
+            return Path.GetFullPath(Path.Combine(Application.dataPath, "..", assetPath));
+        }
+
+        private static int CountSerializedToken(string yaml, string token)
+        {
+            return yaml
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Count(line => line.TrimStart().StartsWith(token + ":", StringComparison.Ordinal));
+        }
+
         private static StageAuthoringFixture CreateFixture(params StagePlacedEntityAuthoring[] placements)
         {
             return CreateFixture(Array.Empty<string>(), Array.Empty<string>(), placements);
@@ -749,6 +909,13 @@ namespace Game.Feature.Stages.Editor.Tests
         private static string FormatIssues(StageAuthoringGenerationReport report)
         {
             return string.Join(Environment.NewLine, report.Issues.Select(issue => $"[{issue.Severity}] {issue.Code}: {issue.Message}"));
+        }
+
+        private static string FormatIssues(IEnumerable<StageValidationIssue> issues)
+        {
+            return string.Join(
+                Environment.NewLine,
+                issues.Select(issue => $"[{issue.Severity}] {issue.Code}: {issue.Message}"));
         }
 
         private sealed class StageAuthoringFixture

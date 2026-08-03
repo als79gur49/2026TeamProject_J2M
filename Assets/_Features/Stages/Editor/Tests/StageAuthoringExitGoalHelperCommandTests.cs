@@ -355,7 +355,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(entry.Required, Is.True);
             Assert.That(entry.Role, Is.EqualTo(StageObjectiveConditionRole.PrimaryGoal));
             Assert.That(entry.StableConditionId, Is.EqualTo("primary-goal"));
-            Assert.That(entry.DisplayText, Is.EqualTo("Reach the Exit Zone"));
+            Assert.That(entry.AuthoringLabel, Is.EqualTo("Reach the Exit Zone"));
             Assert.That(entry.SortOrder, Is.Zero);
         }
 
@@ -845,7 +845,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Required = required,
                 Role = role,
                 StableConditionId = stableId,
-                DisplayText = string.Empty,
+                AuthoringLabel = string.Empty,
                 SortOrder = 0,
             };
         }

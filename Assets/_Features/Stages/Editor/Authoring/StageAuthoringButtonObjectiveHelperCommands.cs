@@ -315,7 +315,7 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringDefinition definition,
             StageTileFeatureDefinition selectedFeature,
             string stageIdOrAssetName,
-            string displayText = null)
+            string authoringLabel = null)
         {
             _ = stageIdOrAssetName;
             if (!TryValidateSelectedButton(
@@ -393,9 +393,9 @@ namespace Game.Feature.Stages.Editor
                     Required = true,
                     Role = StageObjectiveConditionRole.SecondaryGoal,
                     StableConditionId = stableConditionId,
-                    DisplayText = string.IsNullOrWhiteSpace(displayText)
-                        ? GetDefaultDisplayText(selectedFeature)
-                        : displayText.Trim(),
+                    AuthoringLabel = string.IsNullOrWhiteSpace(authoringLabel)
+                        ? GetDefaultAuthoringLabel(selectedFeature)
+                        : authoringLabel.Trim(),
                     SortOrder = GetNextSecondaryGoalSortOrder(entries),
                 }
             };
@@ -409,7 +409,7 @@ namespace Game.Feature.Stages.Editor
             return ButtonObjectiveCommandResult.Success("Added required SecondaryGoal Button clear condition.", condition);
         }
 
-        public static string GetDefaultDisplayText(StageTileFeatureDefinition selectedFeature)
+        public static string GetDefaultAuthoringLabel(StageTileFeatureDefinition selectedFeature)
         {
             return selectedFeature.BoxSelector switch
             {

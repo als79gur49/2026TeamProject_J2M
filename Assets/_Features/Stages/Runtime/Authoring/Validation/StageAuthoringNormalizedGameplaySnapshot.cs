@@ -137,14 +137,14 @@ namespace Game.Feature.Stages
             bool required,
             StageObjectiveConditionRole role,
             string stableConditionId,
-            string displayText = "",
+            string authoringLabel = "",
             int sortOrder = 0)
         {
             Condition = condition;
             Required = required;
             Role = role;
             StableConditionId = stableConditionId ?? string.Empty;
-            DisplayText = displayText ?? string.Empty;
+            AuthoringLabel = authoringLabel ?? string.Empty;
             SortOrder = sortOrder;
         }
 
@@ -156,7 +156,7 @@ namespace Game.Feature.Stages
 
         public string StableConditionId { get; }
 
-        public string DisplayText { get; }
+        public string AuthoringLabel { get; }
 
         public int SortOrder { get; }
     }

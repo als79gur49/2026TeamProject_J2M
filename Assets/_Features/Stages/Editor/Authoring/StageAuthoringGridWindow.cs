@@ -37,8 +37,8 @@ namespace Game.Feature.Stages.Editor
         private int loadedTileFeatureId;
         private GameObject selectedTileFeatureVisualPrefab;
         private bool tileFeatureVisualBindingAdvancedFoldout;
-        private int loadedButtonObjectiveDisplayTileId;
-        private string buttonObjectiveDisplayText = string.Empty;
+        private int loadedButtonObjectiveAuthoringLabelTileId;
+        private string buttonObjectiveAuthoringLabel = string.Empty;
         private string zoneFeedback = string.Empty;
         private MessageType zoneFeedbackType = MessageType.Info;
         private string zoneCreateId = "zone";
@@ -142,8 +142,8 @@ namespace Game.Feature.Stages.Editor
             loadedTileFeatureId = 0;
             selectedTileFeatureVisualPrefab = null;
             tileFeatureVisualBindingAdvancedFoldout = false;
-            loadedButtonObjectiveDisplayTileId = 0;
-            buttonObjectiveDisplayText = string.Empty;
+            loadedButtonObjectiveAuthoringLabelTileId = 0;
+            buttonObjectiveAuthoringLabel = string.Empty;
             zoneFeedback = string.Empty;
             zoneCreateId = "zone";
             zoneCreateFace = FaceId.Floor;
@@ -459,9 +459,9 @@ namespace Game.Feature.Stages.Editor
             return GetSelectedButtonObjectiveLinkStatus();
         }
 
-        internal void SetButtonObjectiveDisplayTextForTests(string displayText)
+        internal void SetButtonObjectiveAuthoringLabelForTests(string authoringLabel)
         {
-            buttonObjectiveDisplayText = displayText ?? string.Empty;
+            buttonObjectiveAuthoringLabel = authoringLabel ?? string.Empty;
         }
 
         internal bool AddSelectedButtonRequiredSecondaryGoalForTests(out string error)
@@ -1830,16 +1830,20 @@ namespace Game.Feature.Stages.Editor
                 EditorGUILayout.LabelField("Condition Asset Path", status.ExpectedConditionPath);
             }
 
-            if (loadedButtonObjectiveDisplayTileId != feature.TileId)
+            if (loadedButtonObjectiveAuthoringLabelTileId != feature.TileId)
             {
-                loadedButtonObjectiveDisplayTileId = feature.TileId;
-                buttonObjectiveDisplayText =
-                    StageAuthoringButtonObjectiveHelperCommands.GetDefaultDisplayText(feature);
+                loadedButtonObjectiveAuthoringLabelTileId = feature.TileId;
+                buttonObjectiveAuthoringLabel =
+                    StageAuthoringButtonObjectiveHelperCommands.GetDefaultAuthoringLabel(feature);
             }
 
-            buttonObjectiveDisplayText = EditorGUILayout.TextField(
-                "DisplayText",
-                buttonObjectiveDisplayText ?? string.Empty);
+            buttonObjectiveAuthoringLabel = EditorGUILayout.TextField(
+                "Authoring Label",
+                buttonObjectiveAuthoringLabel ?? string.Empty);
+            EditorGUILayout.HelpBox(
+                "Editor-facing label used for authoring, validation, and drift comparison. " +
+                "It is not player-facing localized copy.",
+                MessageType.Info);
 
             var canAdd = status.State == ButtonObjectiveLinkState.NotLinked ||
                          status.State == ButtonObjectiveLinkState.ObjectiveDisabled;
@@ -2161,9 +2165,9 @@ namespace Game.Feature.Stages.Editor
                 feature.BoundEntityId,
                 feature.PresentationKey);
             selectedTileFeatureVisualPrefab = ResolveTileFeatureVisualPrefab(feature.TileId);
-            loadedButtonObjectiveDisplayTileId = feature.TileId;
-            buttonObjectiveDisplayText = feature.Kind == TileFeatureKind.Button
-                ? StageAuthoringButtonObjectiveHelperCommands.GetDefaultDisplayText(feature)
+            loadedButtonObjectiveAuthoringLabelTileId = feature.TileId;
+            buttonObjectiveAuthoringLabel = feature.Kind == TileFeatureKind.Button
+                ? StageAuthoringButtonObjectiveHelperCommands.GetDefaultAuthoringLabel(feature)
                 : string.Empty;
         }
 
@@ -2287,7 +2291,7 @@ namespace Game.Feature.Stages.Editor
                 authoring,
                 feature,
                 authoring != null ? authoring.name : string.Empty,
-                buttonObjectiveDisplayText);
+                buttonObjectiveAuthoringLabel);
             error = result.Message;
             if (result.PingTarget != null && result.Succeeded)
             {
