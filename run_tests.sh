@@ -3255,6 +3255,18 @@ run_dotnet_integration() {
     run_dotnet_build "$log_path" Game.Feature.Gameplay.Tests.csproj -c Debug
 }
 
+run_dotnet_integration_simulation() {
+    run_dotnet_integration "$DOTNET_INTEGRATION_SIMULATION_LOG"
+}
+
+run_dotnet_integration_replay() {
+    run_dotnet_integration "$DOTNET_INTEGRATION_REPLAY_LOG"
+}
+
+run_dotnet_integration_fuzz() {
+    run_dotnet_integration "$DOTNET_INTEGRATION_FUZZ_LOG"
+}
+
 normalize_glyph_serialized_output() {
     local asset_path
 
@@ -4865,12 +4877,24 @@ run_dotnet_and_unity_lane() {
 
     if [ "$DRY_RUN" -eq 1 ] || generated_dotnet_inputs_present "$mode"; then
         "$dotnet_function"
+        local dotnet_exit_code=$?
+        if [ "$dotnet_exit_code" -ne 0 ]; then
+            return "$dotnet_exit_code"
+        fi
         "$unity_function"
         return
     fi
 
     echo "Generated dotnet project inputs are absent; running the Unity lane first for cold-checkout import."
     "$unity_function"
+    local unity_exit_code=$?
+    if [ "$unity_exit_code" -ne 0 ]; then
+        return "$unity_exit_code"
+    fi
+    if ! generated_dotnet_inputs_present "$mode"; then
+        echo "ERROR: Unity bootstrap completed without generating required dotnet project inputs for lane '$mode'." >&2
+        return 1
+    fi
     "$dotnet_function"
 }
 
@@ -4968,16 +4992,13 @@ main() {
             run_dotnet_and_unity_lane "$mode" run_dotnet_full run_unity_full
             ;;
         --integration-simulation)
-            run_dotnet_integration "$DOTNET_INTEGRATION_SIMULATION_LOG"
-            run_unity_integration_simulation
+            run_dotnet_and_unity_lane "$mode" run_dotnet_integration_simulation run_unity_integration_simulation
             ;;
         --integration-replay)
-            run_dotnet_integration "$DOTNET_INTEGRATION_REPLAY_LOG"
-            run_unity_integration_replay
+            run_dotnet_and_unity_lane "$mode" run_dotnet_integration_replay run_unity_integration_replay
             ;;
         --integration-fuzz)
-            run_dotnet_integration "$DOTNET_INTEGRATION_FUZZ_LOG"
-            run_unity_integration_fuzz
+            run_dotnet_and_unity_lane "$mode" run_dotnet_integration_fuzz run_unity_integration_fuzz
             ;;
         *)
             print_usage

@@ -21,6 +21,20 @@ record_unity_and_generate_projects() {
     touch "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
 }
 
+record_unity_failure() {
+    CALLS+=(unity)
+    return 42
+}
+
+record_unity_without_projects() {
+    CALLS+=(unity)
+}
+
+record_dotnet_failure() {
+    CALLS+=(dotnet)
+    return 43
+}
+
 assert_calls() {
     local expected="$1"
     local actual="${CALLS[*]}"
@@ -35,8 +49,51 @@ run_dotnet_and_unity_lane core record_dotnet record_unity_and_generate_projects
 assert_calls "unity dotnet"
 
 CALLS=()
-run_dotnet_and_unity_lane core record_dotnet record_unity_and_generate_projects
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
+run_dotnet_and_unity_lane --integration-simulation record_dotnet record_unity_and_generate_projects
+assert_calls "unity dotnet"
+
+CALLS=()
+run_dotnet_and_unity_lane --integration-replay record_dotnet record_unity_and_generate_projects
 assert_calls "dotnet unity"
+
+CALLS=()
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
+if run_dotnet_and_unity_lane --integration-fuzz record_dotnet record_unity_failure; then
+    echo "Expected Unity bootstrap failure to be preserved." >&2
+    exit 1
+else
+    status=$?
+fi
+if [ "$status" -ne 42 ]; then
+    echo "Expected Unity bootstrap exit 42 but observed $status." >&2
+    exit 1
+fi
+assert_calls "unity"
+
+CALLS=()
+if run_dotnet_and_unity_lane --integration-simulation record_dotnet record_unity_without_projects; then
+    echo "Expected missing generated project inputs to fail." >&2
+    exit 1
+fi
+assert_calls "unity"
+
+CALLS=()
+record_unity_and_generate_projects
+CALLS=()
+if run_dotnet_and_unity_lane --integration-replay record_dotnet_failure record_unity_and_generate_projects; then
+    echo "Expected dotnet failure to be preserved." >&2
+    exit 1
+else
+    status=$?
+fi
+if [ "$status" -ne 43 ]; then
+    echo "Expected dotnet exit 43 but observed $status." >&2
+    exit 1
+fi
+assert_calls "dotnet"
 
 CALLS=()
 rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"
