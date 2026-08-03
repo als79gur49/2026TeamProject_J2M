@@ -39,6 +39,8 @@ namespace Game.Platform.Tests.EditMode
 
         internal bool ThrowOnShutdown { get; set; }
 
+        internal bool ResourceAcquired { get; private set; }
+
         internal int InitializeCount { get; private set; }
 
         internal int TickCount { get; private set; }
@@ -48,6 +50,7 @@ namespace Game.Platform.Tests.EditMode
         public PlatformInitializationResult Initialize()
         {
             InitializeCount++;
+            ResourceAcquired = true;
             if (ThrowOnInitialize)
             {
                 throw new InvalidOperationException("initialize failure");
@@ -68,6 +71,7 @@ namespace Game.Platform.Tests.EditMode
         public void Shutdown()
         {
             ShutdownCount++;
+            ResourceAcquired = false;
             if (ThrowOnShutdown)
             {
                 throw new InvalidOperationException("shutdown failure");

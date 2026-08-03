@@ -6,6 +6,7 @@ namespace Game.Platform.Runtime
     internal sealed class PlatformRuntimeLifecycle
     {
         private PlatformRuntimeSelectionResult selection;
+        private readonly IPlatformRuntime candidateRuntime;
         private IPlatformRuntime activeRuntime;
 
         private bool initializationAttempted;
@@ -19,8 +20,8 @@ namespace Game.Platform.Runtime
         internal PlatformRuntimeLifecycle(PlatformRuntimeSelectionResult selection)
         {
             this.selection = selection;
-            activeRuntime = selection.Runtime;
-            availability = ResolveAvailability(selection, activeRuntime);
+            candidateRuntime = selection.Runtime;
+            availability = ResolveAvailability(selection, candidateRuntime);
         }
 
         internal PlatformRuntimeSelectionResult Selection => selection;
@@ -51,7 +52,8 @@ namespace Game.Platform.Runtime
             }
 
             initializationAttempted = true;
-            if (!selection.IsSuccess || activeRuntime == null)
+            var candidate = candidateRuntime;
+            if (!selection.IsSuccess || candidate == null)
             {
                 initializationResult = PlatformInitializationResult.Failure(
                     "Platform runtime initialization was not attempted because selection failed: " +
@@ -62,8 +64,8 @@ namespace Game.Platform.Runtime
 
             try
             {
-                initializationResult = activeRuntime.Initialize();
-                availability = ResolveAvailability(selection, activeRuntime);
+                initializationResult = candidate.Initialize();
+                availability = ResolveAvailability(selection, candidate);
                 if (!initializationResult.IsSuccess)
                 {
                     if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
@@ -76,6 +78,7 @@ namespace Game.Platform.Runtime
                     Debug.LogError(
                         "Platform runtime '" + selection.SelectedProviderId +
                         "' initialization failed: " + initializationResult.FailureReason);
+                    ShutdownCandidateOnce(candidate);
                     return;
                 }
 
@@ -92,10 +95,11 @@ namespace Game.Platform.Runtime
                     Debug.LogError(
                         "Platform runtime '" + selection.SelectedProviderId +
                         "' initialized but is unavailable: " + availability.Reason);
-                    ShutdownOnce();
+                    ShutdownCandidateOnce(candidate);
                     return;
                 }
 
+                activeRuntime = candidate;
                 tickEnabled = true;
             }
             catch (Exception exception)
@@ -112,6 +116,7 @@ namespace Game.Platform.Runtime
                 }
 
                 Debug.LogError(initializationResult.FailureReason);
+                ShutdownCandidateOnce(candidate);
             }
         }
 
@@ -177,6 +182,11 @@ namespace Game.Platform.Runtime
             tickFailureReason = diagnosticReason;
             Debug.LogError(tickFailureReason);
             ShutdownRuntimeOnce(runtime);
+        }
+
+        private void ShutdownCandidateOnce(IPlatformRuntime candidate)
+        {
+            ShutdownRuntimeOnce(candidate);
         }
 
         private void ShutdownRuntimeOnce(IPlatformRuntime runtime)

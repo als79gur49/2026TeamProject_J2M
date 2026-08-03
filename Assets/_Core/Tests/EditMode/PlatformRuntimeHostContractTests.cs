@@ -36,6 +36,12 @@ namespace Game.Platform.Tests.EditMode
 
             lifecycle.InitializeOnce();
             lifecycle.TickOnce();
+
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(runtime.ResourceAcquired, Is.False);
+            Assert.That(lifecycle.HasActiveRuntime, Is.False);
+            Assert.That(lifecycle.TickEnabled, Is.False);
+
             lifecycle.ShutdownOnce();
             lifecycle.ShutdownOnce();
 
@@ -70,6 +76,12 @@ namespace Game.Platform.Tests.EditMode
 
             lifecycle.InitializeOnce();
             lifecycle.TickOnce();
+
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(runtime.ResourceAcquired, Is.False);
+            Assert.That(lifecycle.HasActiveRuntime, Is.False);
+            Assert.That(lifecycle.TickEnabled, Is.False);
+
             lifecycle.ShutdownOnce();
 
             Assert.That(lifecycle.InitializationResult.IsSuccess, Is.True);
@@ -103,6 +115,12 @@ namespace Game.Platform.Tests.EditMode
 
             lifecycle.InitializeOnce();
             lifecycle.TickOnce();
+
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(runtime.ResourceAcquired, Is.False);
+            Assert.That(lifecycle.HasActiveRuntime, Is.False);
+            Assert.That(lifecycle.TickEnabled, Is.False);
+
             lifecycle.ShutdownOnce();
 
             Assert.That(lifecycle.InitializationResult.IsSuccess, Is.False);

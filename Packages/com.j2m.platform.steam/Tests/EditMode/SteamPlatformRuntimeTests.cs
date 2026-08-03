@@ -1,5 +1,9 @@
 using System;
+using System.Reflection;
+using Game.Platform.Runtime;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Platform.Steam.Tests.EditMode
 {
@@ -72,18 +76,46 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
-        public void AppIdZero_FailsAvailabilityButStillShutsNativeDownOnce()
+        public void AppIdZero_LifecycleImmediatelyReleasesNativeStateAndNeverShutsDownTwice()
         {
             var native = new FakeSteamNativeApi { AppId = 0 };
             var runtime = new SteamPlatformRuntime(native);
+            var lifecycle = CreateLifecycle(runtime);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'steam' initialization failed: " +
+                "AppIdUnavailable: SteamAPI initialized but returned AppID 0.");
 
-            runtime.Initialize();
-            runtime.Shutdown();
-            runtime.Shutdown();
+            InvokeLifecycle(lifecycle, "InitializeOnce");
+
+            Assert.That(native.InitializeCount, Is.EqualTo(1));
+            Assert.That(native.ShutdownCount, Is.EqualTo(1));
+            Assert.That(native.CallbackCount, Is.Zero);
+            Assert.That(GetLifecycleProperty<bool>(lifecycle, "HasActiveRuntime"), Is.False);
+            Assert.That(GetLifecycleProperty<bool>(lifecycle, "TickEnabled"), Is.False);
+            Assert.That(
+                GetLifecycleProperty<PlatformInitializationResult>(
+                    lifecycle,
+                    "InitializationResult").FailureReason,
+                Is.EqualTo("AppIdUnavailable: SteamAPI initialized but returned AppID 0."));
+            var selection = GetLifecycleProperty<PlatformRuntimeSelectionResult>(
+                lifecycle,
+                "Selection");
+            Assert.That(
+                selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+            Assert.That(selection.FallbackUsed, Is.False);
 
             Assert.That(runtime.Diagnostics.LastFailureReason,
                 Is.EqualTo(SteamPlatformFailureReason.AppIdUnavailable));
+            Assert.That(runtime.Diagnostics.State, Is.EqualTo(SteamPlatformRuntimeState.Shutdown));
+
+            InvokeLifecycle(lifecycle, "ShutdownOnce");
+            InvokeLifecycle(lifecycle, "ShutdownOnce");
+            runtime.Tick();
+
             Assert.That(native.ShutdownCount, Is.EqualTo(1));
+            Assert.That(native.CallbackCount, Is.Zero);
         }
 
         [Test]
@@ -173,5 +205,43 @@ namespace Game.Platform.Steam.Tests.EditMode
             new object[] { new EntryPointNotFoundException("missing entry"), SteamPlatformFailureReason.EntryPointMissing },
             new object[] { new InvalidOperationException("init"), SteamPlatformFailureReason.InitializationException },
         };
+
+        private static object CreateLifecycle(IPlatformRuntime runtime)
+        {
+            var selectionFactory = typeof(PlatformRuntimeSelectionResult).GetMethod(
+                "Success",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(selectionFactory, Is.Not.Null);
+            var selection = selectionFactory.Invoke(
+                null,
+                new object[] { runtime.ProviderId, runtime });
+            var lifecycleType = typeof(IPlatformRuntime).Assembly.GetType(
+                "Game.Platform.Runtime.PlatformRuntimeLifecycle",
+                throwOnError: true);
+            return Activator.CreateInstance(
+                lifecycleType,
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                args: new[] { selection },
+                culture: null);
+        }
+
+        private static void InvokeLifecycle(object lifecycle, string methodName)
+        {
+            var method = lifecycle.GetType().GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(lifecycle, null);
+        }
+
+        private static T GetLifecycleProperty<T>(object lifecycle, string propertyName)
+        {
+            var property = lifecycle.GetType().GetProperty(
+                propertyName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(property, Is.Not.Null);
+            return (T)property.GetValue(lifecycle);
+        }
     }
 }
