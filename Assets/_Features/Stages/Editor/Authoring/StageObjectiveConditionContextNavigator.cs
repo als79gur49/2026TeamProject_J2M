@@ -57,18 +57,18 @@ namespace Game.Feature.Stages.Editor
         {
             warning = string.Empty;
             rows ??= Array.Empty<StageObjectiveConditionEditorRow>();
-            var stableMatches = rows
-                .Where(row => string.Equals(row.StableConditionId, "primary-goal", StringComparison.Ordinal))
+            var primaryGoalAssociations = rows
+                .Where(row => row.Role == StageObjectiveConditionRole.PrimaryGoal)
                 .ToArray();
-            var exactMatches = stableMatches
+            var exactMatches = primaryGoalAssociations
                 .Where(row =>
+                    string.Equals(row.StableConditionId, "primary-goal", StringComparison.Ordinal) &&
                     row.Required &&
-                    row.Role == StageObjectiveConditionRole.PrimaryGoal &&
                     row.Condition is PlayerAtAnyZoneConditionAsset &&
                     (expectedCondition == null || ReferenceEquals(row.Condition, expectedCondition)))
                 .ToArray();
 
-            if (stableMatches.Length == 1 && exactMatches.Length == 1)
+            if (primaryGoalAssociations.Length == 1 && exactMatches.Length == 1)
             {
                 selection.Select(exactMatches.Single());
                 return StageObjectiveConditionContextResolution.Resolved;
