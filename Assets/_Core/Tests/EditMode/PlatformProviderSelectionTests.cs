@@ -63,7 +63,7 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
-        public void MissingValue_IsInvalid()
+        public void SingleSelector_MissingValue_IsInvalid()
         {
             var request = PlatformProviderSelection.ParseArguments(new[]
             {
@@ -77,7 +77,7 @@ namespace Game.Platform.Tests.EditMode
 
         [TestCase("-batchmode")]
         [TestCase("--nographics")]
-        public void SelectorFollowedByCommandLineOption_IsInvalidWithoutConsumingOption(
+        public void SingleSelector_FollowedBySwitch_IsInvalid(
             string option)
         {
             var request = PlatformProviderSelection.ParseArguments(new[]
@@ -133,7 +133,7 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
-        public void DuplicateSameValue_IsConflicting()
+        public void RepeatedSelectors_ValidAndValid_AreConflicting()
         {
             var request = PlatformProviderSelection.ParseArguments(new[]
             {
@@ -147,7 +147,7 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
-        public void DuplicateDifferentValues_IsConflicting()
+        public void RepeatedSelectors_WithDifferentValidValues_AreConflicting()
         {
             var request = PlatformProviderSelection.ParseArguments(new[]
             {
@@ -159,6 +159,72 @@ namespace Game.Platform.Tests.EditMode
 
             Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
             Assert.That(request.FailureReason, Does.Contain("Multiple explicit"));
+        }
+
+        [Test]
+        public void RepeatedSelectors_ValidAndMissing_AreConflicting()
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "steam",
+                PlatformProviderSelection.ProviderSelectionArgument,
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
+        }
+
+        [Test]
+        public void RepeatedSelectors_MissingAndValid_AreConflicting()
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "steam",
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
+        }
+
+        [Test]
+        public void RepeatedSelectors_MissingAndMissing_AreConflicting()
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                PlatformProviderSelection.ProviderSelectionArgument,
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
+        }
+
+        [Test]
+        public void RepeatedSelectors_ValidAndFollowingSwitch_AreConflicting()
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "steam",
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "-batchmode",
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
+        }
+
+        [Test]
+        public void RepeatedSelectors_FollowingSwitchAndValid_AreConflicting()
+        {
+            var request = PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "-batchmode",
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "steam",
+            });
+
+            Assert.That(request.Kind, Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
         }
 
         [Test]

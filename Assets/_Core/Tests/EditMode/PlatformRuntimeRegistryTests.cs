@@ -21,7 +21,7 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
-        public void NoExplicitRequest_SelectsDefaultLocal()
+        public void NoSelector_DefaultsToLocal()
         {
             PlatformRuntimeRegistry.Seal();
 
@@ -124,7 +124,7 @@ namespace Game.Platform.Tests.EditMode
 
         [TestCase("steam")]
         [TestCase("unknown-store")]
-        public void ExplicitUnregisteredProvider_FailsWithoutLocalMasking(string providerId)
+        public void SingleSelector_UnknownProvider_IsNotRegistered(string providerId)
         {
             var localFactory = new FakePlatformRuntimeFactory(
                 "local",
@@ -173,7 +173,7 @@ namespace Game.Platform.Tests.EditMode
         }
 
         [Test]
-        public void ConflictingSelection_FailsBeforeFactoryCreation()
+        public void ConflictingSelectors_PreserveTypedConflictResult()
         {
             var factory = RegisterCountingFactory("available");
             var request = PlatformProviderSelection.ParseArguments(new[]
@@ -181,7 +181,7 @@ namespace Game.Platform.Tests.EditMode
                 PlatformProviderSelection.ProviderSelectionArgument,
                 "available",
                 PlatformProviderSelection.ProviderSelectionArgument,
-                "local",
+                "-batchmode",
             });
             PlatformRuntimeRegistry.Seal();
             LogAssert.Expect(
@@ -195,6 +195,43 @@ namespace Game.Platform.Tests.EditMode
             Assert.That(selection.Runtime, Is.Null);
             Assert.That(selection.FallbackUsed, Is.False);
             Assert.That(factory.CreateCount, Is.Zero);
+        }
+
+        [Test]
+        public void ConflictingSelectors_DoNotCreateLocalRuntime()
+        {
+            var localFactory = RegisterCountingFactory("local");
+            var request = RepeatedMalformedRequest("available");
+            PlatformRuntimeRegistry.Seal();
+            LogAssert.Expect(
+                LogType.Error,
+                "Multiple explicit platform provider selections were supplied.");
+
+            var selection = PlatformRuntimeRegistry.Select(request);
+
+            Assert.That(selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.ConflictingProviderSelection));
+            Assert.That(selection.Runtime, Is.Null);
+            Assert.That(selection.FallbackUsed, Is.False);
+            Assert.That(localFactory.CreateCount, Is.Zero);
+        }
+
+        [Test]
+        public void ConflictingSelectors_DoNotCreateRequestedProvider()
+        {
+            var requestedFactory = RegisterCountingFactory("available");
+            var request = RepeatedMalformedRequest("available");
+            PlatformRuntimeRegistry.Seal();
+            LogAssert.Expect(
+                LogType.Error,
+                "Multiple explicit platform provider selections were supplied.");
+
+            var selection = PlatformRuntimeRegistry.Select(request);
+
+            Assert.That(selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.ConflictingProviderSelection));
+            Assert.That(selection.Runtime, Is.Null);
+            Assert.That(requestedFactory.CreateCount, Is.Zero);
         }
 
         [Test]
@@ -343,6 +380,17 @@ namespace Game.Platform.Tests.EditMode
             {
                 PlatformProviderSelection.ProviderSelectionArgument,
                 providerId,
+            });
+        }
+
+        private static PlatformProviderSelectionRequest RepeatedMalformedRequest(string providerId)
+        {
+            return PlatformProviderSelection.ParseArguments(new[]
+            {
+                PlatformProviderSelection.ProviderSelectionArgument,
+                providerId,
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "-batchmode",
             });
         }
 

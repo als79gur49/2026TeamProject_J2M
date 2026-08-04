@@ -185,6 +185,38 @@ namespace Game.Platform.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator ConflictingSelectors_DoNotInitializeLocalRuntime()
+        {
+            var localRuntime = new CountingPlatformRuntime("local");
+            var localFactory = new CountingPlatformRuntimeFactory(localRuntime);
+            var requestedRuntime = new CountingPlatformRuntime("steam");
+            var requestedFactory = new CountingPlatformRuntimeFactory(requestedRuntime);
+            ResetWithArguments(
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "steam",
+                PlatformProviderSelection.ProviderSelectionArgument,
+                "-batchmode");
+            Assert.That(PlatformRuntimeRegistry.RegisterFactory(localFactory).IsSuccess, Is.True);
+            Assert.That(PlatformRuntimeRegistry.RegisterFactory(requestedFactory).IsSuccess, Is.True);
+            ExpectSelectionFailureLogs(
+                "Multiple explicit platform provider selections were supplied.");
+
+            var host = PlatformRuntimeBootstrap.BootstrapNowForTests();
+            yield return null;
+
+            Assert.That(host.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.ConflictingProviderSelection));
+            Assert.That(host.Selection.SelectionKind,
+                Is.EqualTo(PlatformProviderSelectionKind.Conflicting));
+            Assert.That(host.Selection.FallbackUsed, Is.False);
+            Assert.That(host.TickEnabled, Is.False);
+            Assert.That(localFactory.CreateCount, Is.Zero);
+            Assert.That(localRuntime.InitializeCount, Is.Zero);
+            Assert.That(requestedFactory.CreateCount, Is.Zero);
+            Assert.That(requestedRuntime.InitializeCount, Is.Zero);
+        }
+
+        [UnityTest]
         public IEnumerator CommandLine_ExplicitSteamWithFactory_OwnsLifecycleExclusively()
         {
             var steamRuntime = new CountingPlatformRuntime("steam");
