@@ -266,6 +266,238 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ExitRequiredFalse_DoesNotResolveContext()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            try
+            {
+                var rows = new[] { PrimaryRow(condition, required: false) };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectPrimary(
+                    rows,
+                    condition,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.PrimarySelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        public void ExitRequiredTrue_ResolvesContext()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            try
+            {
+                var rows = new[] { PrimaryRow(condition, required: true) };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectPrimary(
+                    rows,
+                    condition,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Resolved));
+                Assert.That(warning, Is.Empty);
+                Assert.That(selection.Resolve(rows, out var selected),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.Resolved));
+                Assert.That(selected, Is.SameAs(rows[0]));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        public void ExitWrongRole_DoesNotResolveContext()
+        {
+            var condition = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            try
+            {
+                var rows = new[]
+                {
+                    PrimaryRow(condition, required: true, role: StageObjectiveConditionRole.Challenge),
+                };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectPrimary(
+                    rows,
+                    condition,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.PrimarySelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        public void ExitWrongConditionReference_DoesNotResolveContext()
+        {
+            var actual = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            var expected = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            try
+            {
+                var rows = new[] { PrimaryRow(actual, required: true) };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectPrimary(
+                    rows,
+                    expected,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.PrimarySelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(expected);
+                UnityEngine.Object.DestroyImmediate(actual);
+            }
+        }
+
+        [Test]
+        public void ExitNavigatorAndValidator_AgreeOnCanonicalMetadata()
+        {
+            var authoring = UnityEngine.Object.Instantiate(LoadAuthoring("stage-0-2"));
+            try
+            {
+                var exit = authoring.TileFeatures.Single(feature => feature.Kind == TileFeatureKind.Exit);
+                Assert.That(
+                    StageAuthoringExitGoalHelperCommands.TryGetExitGoalZoneStatus(
+                        authoring,
+                        exit.TileId,
+                        out var status),
+                    Is.True,
+                    status.Message);
+                var serialized = new SerializedObject(authoring);
+                serialized.Update();
+                var rows = StageObjectiveConditionEditorResolver.BuildRows(serialized, authoring);
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                Assert.That(
+                    StageObjectiveConditionContextNavigator.SelectPrimary(
+                        rows,
+                        status.PrimaryGoalCondition,
+                        selection,
+                        out var warning),
+                    Is.EqualTo(StageObjectiveConditionContextResolution.Resolved));
+                Assert.That(warning, Is.Empty);
+
+                var objective = authoring.Objective;
+                var entries = objective.ConditionEntries.ToArray();
+                var primaryIndex = Array.FindIndex(entries, entry =>
+                    entry.StableConditionId == "primary-goal");
+                entries[primaryIndex].Required = false;
+                objective.ConditionEntries = entries;
+                authoring.SetObjective(objective);
+                serialized.Update();
+                rows = StageObjectiveConditionEditorResolver.BuildRows(serialized, authoring);
+
+                Assert.That(
+                    StageAuthoringExitGoalHelperCommands.TryGetExitGoalZoneStatus(
+                        authoring,
+                        exit.TileId,
+                        out status),
+                    Is.False);
+                Assert.That(
+                    StageObjectiveConditionContextNavigator.SelectPrimary(
+                        rows,
+                        status.PrimaryGoalCondition,
+                        selection,
+                        out warning),
+                    Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.PrimarySelectionUnresolved));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void InvalidExitMetadata_PreservesContextWarning()
+        {
+            var authoring = UnityEngine.Object.Instantiate(LoadAuthoring("stage-0-2"));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                var objective = authoring.Objective;
+                var entries = objective.ConditionEntries.ToArray();
+                var primaryIndex = Array.FindIndex(entries, entry =>
+                    entry.StableConditionId == "primary-goal");
+                entries[primaryIndex].Required = false;
+                objective.ConditionEntries = entries;
+                authoring.SetObjective(objective);
+                window.BindForTests(authoring);
+                var exit = authoring.TileFeatures.Single(feature => feature.Kind == TileFeatureKind.Exit);
+
+                Assert.That(window.SelectTileFeatureByIdForTests(exit.TileId), Is.True);
+
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.ObjectiveContextWarningForTests,
+                    Is.EqualTo(StageObjectiveConditionContextNavigator.PrimarySelectionUnresolved));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void InvalidExitMetadata_DoesNotSelectUnrelatedRow()
+        {
+            var primary = ScriptableObject.CreateInstance<PlayerAtAnyZoneConditionAsset>();
+            var unrelated = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+            try
+            {
+                var rows = new[]
+                {
+                    PrimaryRow(primary, required: false),
+                    OtherRow(unrelated, entryIndex: 1),
+                };
+                var selection = new StageObjectiveConditionEditorSelection();
+                selection.Select(rows[1]);
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectPrimary(
+                    rows,
+                    primary,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.PrimarySelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(unrelated);
+                UnityEngine.Object.DestroyImmediate(primary);
+            }
+        }
+
+        [Test]
         public void ObjectiveConditionContext_ButtonTileFiveSelectsCanonicalRowAndHighlight()
         {
             var authoring = LoadAuthoring("stage-0-1");
@@ -1464,6 +1696,51 @@ namespace Game.Feature.Stages.Editor.Tests
                 ObjectiveSummary = "Objective summary",
                 ConditionEntries = entries,
             };
+        }
+
+        private static StageObjectiveConditionEditorRow PrimaryRow(
+            PlayerAtAnyZoneConditionAsset condition,
+            bool required,
+            StageObjectiveConditionRole role = StageObjectiveConditionRole.PrimaryGoal)
+        {
+            return new StageObjectiveConditionEditorRow(
+                0,
+                "primary-goal",
+                "Reach the Exit Zone",
+                role,
+                required,
+                0,
+                condition,
+                nameof(PlayerAtAnyZoneConditionAsset),
+                StageObjectiveConditionEditorCategory.PrimaryGoal,
+                StageObjectiveConditionEditorAssociationKind.PrimaryGoal,
+                null,
+                null,
+                null,
+                false,
+                string.Empty);
+        }
+
+        private static StageObjectiveConditionEditorRow OtherRow(
+            StageConditionAsset condition,
+            int entryIndex)
+        {
+            return new StageObjectiveConditionEditorRow(
+                entryIndex,
+                "unrelated",
+                "Unrelated",
+                StageObjectiveConditionRole.Challenge,
+                true,
+                10,
+                condition,
+                condition.GetType().Name,
+                StageObjectiveConditionEditorCategory.OtherCondition,
+                StageObjectiveConditionEditorAssociationKind.Other,
+                null,
+                null,
+                null,
+                false,
+                string.Empty);
         }
 
         private static StageObjectiveConditionEntry Entry(

@@ -62,6 +62,7 @@ namespace Game.Feature.Stages.Editor
                 .ToArray();
             var exactMatches = stableMatches
                 .Where(row =>
+                    row.Required &&
                     row.Role == StageObjectiveConditionRole.PrimaryGoal &&
                     row.Condition is PlayerAtAnyZoneConditionAsset &&
                     (expectedCondition == null || ReferenceEquals(row.Condition, expectedCondition)))
