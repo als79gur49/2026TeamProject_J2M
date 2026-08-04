@@ -710,6 +710,265 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ButtonNoAssociation_IsUnresolved()
+        {
+            var unrelated = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
+            try
+            {
+                var rows = new[] { OtherRow(unrelated, entryIndex: 0) };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectButton(
+                    rows,
+                    5,
+                    null,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(unrelated);
+            }
+        }
+
+        [Test]
+        public void ButtonSingleCanonicalAssociation_SelectsExpectedRow()
+        {
+            var condition = CreateButtonActivatedCondition(5);
+            try
+            {
+                var rows = new[] { ButtonRow(condition, entryIndex: 0, stableConditionId: "button-5") };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectButton(
+                    rows,
+                    5,
+                    condition,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Resolved));
+                Assert.That(warning, Is.Empty);
+                Assert.That(selection.Resolve(rows, out var selected),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.Resolved));
+                Assert.That(selected, Is.SameAs(rows[0]));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        public void ButtonDuplicateSameTileId_DoesNotSelectRow()
+        {
+            var canonical = CreateButtonActivatedCondition(5);
+            var duplicate = CreateButtonActivatedCondition(5);
+            try
+            {
+                var rows = new[]
+                {
+                    ButtonRow(canonical, entryIndex: 0, stableConditionId: "button-5"),
+                    ButtonRow(duplicate, entryIndex: 1, stableConditionId: "alternate-button"),
+                };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectButton(
+                    rows,
+                    5,
+                    canonical,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicate);
+                UnityEngine.Object.DestroyImmediate(canonical);
+            }
+        }
+
+        [Test]
+        public void ButtonDuplicateSameTileId_ReportsConflict()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var canonical = CreateButtonActivatedCondition(5);
+            var duplicate = CreateButtonActivatedCondition(5);
+            try
+            {
+                var feature = ButtonFeature(5);
+                authoring.SetTileFeatures(new[] { feature });
+                authoring.SetObjective(Objective(
+                    Entry(canonical, "button-5", "Canonical", StageObjectiveConditionRole.SecondaryGoal, 10),
+                    Entry(duplicate, "alternate-button", "Duplicate", StageObjectiveConditionRole.SecondaryGoal, 20)));
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+
+                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
+                Assert.That(status.MatchingEntryCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicate);
+                UnityEngine.Object.DestroyImmediate(canonical);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void ButtonDuplicateSameStableId_IsConflict()
+        {
+            var canonical = CreateButtonActivatedCondition(5);
+            var differentTile = CreateButtonActivatedCondition(6);
+            try
+            {
+                var rows = new[]
+                {
+                    ButtonRow(canonical, entryIndex: 0, stableConditionId: "button-5"),
+                    ButtonRow(differentTile, entryIndex: 1, stableConditionId: "button-5"),
+                };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                Assert.That(
+                    StageObjectiveConditionContextNavigator.SelectButton(
+                        rows,
+                        5,
+                        canonical,
+                        selection,
+                        out var warning),
+                    Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(differentTile);
+                UnityEngine.Object.DestroyImmediate(canonical);
+            }
+        }
+
+        [Test]
+        public void ButtonDuplicateDifferentStableIds_IsConflict()
+        {
+            var canonical = CreateButtonActivatedCondition(5);
+            var duplicate = CreateButtonActivatedCondition(5);
+            try
+            {
+                var rows = new[]
+                {
+                    ButtonRow(canonical, entryIndex: 0, stableConditionId: "button-5"),
+                    ButtonRow(duplicate, entryIndex: 1, stableConditionId: "button-copy"),
+                };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                Assert.That(
+                    StageObjectiveConditionContextNavigator.SelectButton(
+                        rows,
+                        5,
+                        canonical,
+                        selection,
+                        out var warning),
+                    Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicate);
+                UnityEngine.Object.DestroyImmediate(canonical);
+            }
+        }
+
+        [Test]
+        public void ButtonOneCanonicalOneInvalid_IsStillConflict()
+        {
+            var canonical = CreateButtonActivatedCondition(5);
+            var invalid = CreateButtonActivatedCondition(5);
+            try
+            {
+                var rows = new[]
+                {
+                    ButtonRow(canonical, entryIndex: 0, stableConditionId: "button-5"),
+                    ButtonRow(
+                        invalid,
+                        entryIndex: 1,
+                        stableConditionId: "invalid-button",
+                        required: false,
+                        role: StageObjectiveConditionRole.Challenge),
+                };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                Assert.That(
+                    StageObjectiveConditionContextNavigator.SelectButton(
+                        rows,
+                        5,
+                        canonical,
+                        selection,
+                        out var warning),
+                    Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(invalid);
+                UnityEngine.Object.DestroyImmediate(canonical);
+            }
+        }
+
+        [Test]
+        public void NavigatorAndRemovalPlanner_AgreeOnDuplicateAssociation()
+        {
+            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var canonical = CreateButtonActivatedCondition(5);
+            var duplicate = CreateButtonActivatedCondition(5);
+            try
+            {
+                var feature = ButtonFeature(5);
+                authoring.SetTileFeatures(new[] { feature });
+                authoring.SetObjective(Objective(
+                    Entry(canonical, "button-5", "Canonical", StageObjectiveConditionRole.SecondaryGoal, 10),
+                    Entry(duplicate, "different-stable-id", "Duplicate", StageObjectiveConditionRole.SecondaryGoal, 20)));
+                var serialized = new SerializedObject(authoring);
+                serialized.Update();
+                var rows = StageObjectiveConditionEditorResolver.BuildRows(serialized, authoring);
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var navigation = StageObjectiveConditionContextNavigator.SelectButton(
+                    rows,
+                    5,
+                    canonical,
+                    selection,
+                    out var warning);
+                var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+                var removalPlan = StageButtonObjectiveRemovalPlanner.Build(authoring, feature);
+
+                Assert.That(navigation, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(linkStatus.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
+                Assert.That(linkStatus.MatchingEntryCount, Is.EqualTo(2));
+                Assert.That(removalPlan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                Assert.That(removalPlan.Candidates, Has.Count.EqualTo(2));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicate);
+                UnityEngine.Object.DestroyImmediate(canonical);
+                UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
         public void ObjectiveConditionValidation_ValidCampaignHasNoObjectiveIssues()
         {
             var rowCount = 0;
@@ -1741,6 +2000,42 @@ namespace Game.Feature.Stages.Editor.Tests
                 null,
                 false,
                 string.Empty);
+        }
+
+        private static StageObjectiveConditionEditorRow ButtonRow(
+            ButtonActivatedConditionAsset condition,
+            int entryIndex,
+            string stableConditionId,
+            bool required = true,
+            StageObjectiveConditionRole role = StageObjectiveConditionRole.SecondaryGoal)
+        {
+            return new StageObjectiveConditionEditorRow(
+                entryIndex,
+                stableConditionId,
+                "Button",
+                role,
+                required,
+                10 + entryIndex * 10,
+                condition,
+                nameof(ButtonActivatedConditionAsset),
+                StageObjectiveConditionEditorCategory.ButtonObjective,
+                StageObjectiveConditionEditorAssociationKind.Button,
+                condition.TileId,
+                null,
+                null,
+                false,
+                string.Empty);
+        }
+
+        private static StageTileFeatureDefinition ButtonFeature(int tileId)
+        {
+            return new StageTileFeatureDefinition
+            {
+                TileId = tileId,
+                Kind = TileFeatureKind.Button,
+                Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+            };
         }
 
         private static StageObjectiveConditionEntry Entry(

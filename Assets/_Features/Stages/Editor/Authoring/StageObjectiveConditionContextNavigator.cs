@@ -89,14 +89,21 @@ namespace Game.Feature.Stages.Editor
             warning = string.Empty;
             rows ??= Array.Empty<StageObjectiveConditionEditorRow>();
             var expectedStableConditionId = $"button-{tileId}";
-            var stableMatches = rows
-                .Where(row => string.Equals(
-                    row.StableConditionId,
-                    expectedStableConditionId,
-                    StringComparison.Ordinal))
-                .ToArray();
-            var exactMatches = stableMatches
+            var matchingAssociations = rows
                 .Where(row =>
+                    string.Equals(
+                        StageAuthoringButtonObjectiveHelperCommands.NormalizeStableConditionId(
+                            row.StableConditionId),
+                        expectedStableConditionId,
+                        StringComparison.Ordinal) ||
+                    row.ButtonTileId == tileId)
+                .ToArray();
+            var exactMatches = matchingAssociations
+                .Where(row =>
+                    string.Equals(
+                        row.StableConditionId,
+                        expectedStableConditionId,
+                        StringComparison.Ordinal) &&
                     row.Required &&
                     row.Role == StageObjectiveConditionRole.SecondaryGoal &&
                     row.Condition is ButtonActivatedConditionAsset buttonCondition &&
@@ -105,7 +112,7 @@ namespace Game.Feature.Stages.Editor
                     (expectedCondition == null || ReferenceEquals(row.Condition, expectedCondition)))
                 .ToArray();
 
-            if (stableMatches.Length == 1 && exactMatches.Length == 1)
+            if (matchingAssociations.Length == 1 && exactMatches.Length == 1)
             {
                 selection.Select(exactMatches[0]);
                 return StageObjectiveConditionContextResolution.Resolved;
