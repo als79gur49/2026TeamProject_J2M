@@ -70,7 +70,7 @@ namespace Game.Feature.Stages.Editor
 
             if (stableMatches.Length == 1 && exactMatches.Length == 1)
             {
-                selection.Select(exactMatches[0]);
+                selection.Select(exactMatches.Single());
                 return StageObjectiveConditionContextResolution.Resolved;
             }
 
@@ -114,7 +114,7 @@ namespace Game.Feature.Stages.Editor
 
             if (matchingAssociations.Length == 1 && exactMatches.Length == 1)
             {
-                selection.Select(exactMatches[0]);
+                selection.Select(exactMatches.Single());
                 return StageObjectiveConditionContextResolution.Resolved;
             }
 
