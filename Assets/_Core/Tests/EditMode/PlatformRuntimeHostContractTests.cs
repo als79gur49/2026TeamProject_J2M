@@ -19,7 +19,11 @@ namespace Game.Platform.Tests.EditMode
 
             Assert.That(runtime.InitializeCount, Is.EqualTo(1));
             Assert.That(runtime.TickCount, Is.EqualTo(1));
+            Assert.That(runtime.ShutdownCount, Is.Zero);
             Assert.That(lifecycle.InitializationResult.IsSuccess, Is.True);
+            Assert.That(lifecycle.Availability.IsAvailable, Is.True);
+            Assert.That(lifecycle.HasActiveRuntime, Is.True);
+            Assert.That(lifecycle.TickEnabled, Is.True);
         }
 
         [Test]
@@ -41,6 +45,10 @@ namespace Game.Platform.Tests.EditMode
             Assert.That(runtime.ResourceAcquired, Is.False);
             Assert.That(lifecycle.HasActiveRuntime, Is.False);
             Assert.That(lifecycle.TickEnabled, Is.False);
+            Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+            Assert.That(lifecycle.Availability.Reason, Is.EqualTo("not available"));
+            Assert.That(lifecycle.InitializationResult.FailureReason,
+                Is.EqualTo("not available"));
 
             lifecycle.ShutdownOnce();
             lifecycle.ShutdownOnce();
@@ -127,8 +135,103 @@ namespace Game.Platform.Tests.EditMode
             Assert.That(lifecycle.Selection.Status,
                 Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
             Assert.That(lifecycle.ProviderId, Is.EqualTo(new PlatformProviderId("throw-init")));
+            Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+            Assert.That(lifecycle.Availability.Reason,
+                Is.EqualTo(
+                    "Platform runtime 'throw-init' initialization threw " +
+                    "InvalidOperationException with message 'initialize failure'."));
+            Assert.That(lifecycle.InitializationResult.FailureReason,
+                Is.EqualTo(lifecycle.Availability.Reason));
+            Assert.That(lifecycle.Selection.FallbackUsed, Is.False);
             Assert.That(runtime.TickCount, Is.Zero);
             Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FailedInitializeWithShutdownException_PreservesInitializationFailure()
+        {
+            var runtime = new FakePlatformRuntime("failed-shutdown-throws")
+            {
+                InitializationResult = PlatformInitializationResult.Failure("initialization diagnostic"),
+                ThrowOnShutdown = true,
+            };
+            var lifecycle = CreateLifecycle(runtime);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'failed-shutdown-throws' initialization failed: " +
+                "initialization diagnostic");
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'failed-shutdown-throws' shutdown threw " +
+                "InvalidOperationException with message 'shutdown failure'.");
+
+            lifecycle.InitializeOnce();
+            lifecycle.ShutdownOnce();
+
+            Assert.That(runtime.ShutdownCount, Is.EqualTo(1));
+            Assert.That(lifecycle.InitializationResult.FailureReason,
+                Is.EqualTo("initialization diagnostic"));
+            Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+            Assert.That(lifecycle.Availability.Reason,
+                Is.EqualTo("initialization diagnostic"));
+            Assert.That(lifecycle.ShutdownFailureReason, Does.Contain("shutdown failure"));
+            Assert.That(lifecycle.Selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+        }
+
+        [Test]
+        public void ExplicitProviderInitializationFailure_NeverCreatesOrInitializesLocalFallback()
+        {
+            PlatformRuntimeRegistry.ResetForSubsystemRegistration();
+            try
+            {
+                var requestedRuntime = new FakePlatformRuntime("requested-failure")
+                {
+                    InitializationResult = PlatformInitializationResult.Failure(
+                        "requested initialization failed"),
+                };
+                var requestedFactory = new FakePlatformRuntimeFactory(
+                    "requested-failure",
+                    () => requestedRuntime);
+                var localRuntime = new FakePlatformRuntime("local");
+                var localFactory = new FakePlatformRuntimeFactory(
+                    "local",
+                    () => localRuntime);
+                Assert.That(PlatformRuntimeRegistry.RegisterFactory(localFactory).IsSuccess, Is.True);
+                Assert.That(PlatformRuntimeRegistry.RegisterFactory(requestedFactory).IsSuccess, Is.True);
+                PlatformRuntimeRegistry.Seal();
+                var request = PlatformProviderSelection.ParseArguments(new[]
+                {
+                    PlatformProviderSelection.ProviderSelectionArgument,
+                    "requested-failure",
+                });
+                var lifecycle = new PlatformRuntimeLifecycle(
+                    PlatformRuntimeRegistry.Select(request));
+                LogAssert.Expect(
+                    LogType.Error,
+                    "Platform runtime 'requested-failure' initialization failed: " +
+                    "requested initialization failed");
+
+                lifecycle.InitializeOnce();
+                lifecycle.TickOnce();
+                lifecycle.ShutdownOnce();
+
+                Assert.That(requestedFactory.CreateCount, Is.EqualTo(1));
+                Assert.That(requestedRuntime.InitializeCount, Is.EqualTo(1));
+                Assert.That(requestedRuntime.ShutdownCount, Is.EqualTo(1));
+                Assert.That(localFactory.CreateCount, Is.Zero);
+                Assert.That(localRuntime.InitializeCount, Is.Zero);
+                Assert.That(lifecycle.Availability.IsAvailable, Is.False);
+                Assert.That(lifecycle.HasActiveRuntime, Is.False);
+                Assert.That(lifecycle.TickEnabled, Is.False);
+                Assert.That(lifecycle.Selection.Status,
+                    Is.EqualTo(PlatformRuntimeSelectionStatus.RequestedProviderUnavailable));
+                Assert.That(lifecycle.Selection.FallbackUsed, Is.False);
+            }
+            finally
+            {
+                PlatformRuntimeRegistry.ResetForSubsystemRegistration();
+            }
         }
 
         [Test]

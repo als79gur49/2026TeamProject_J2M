@@ -93,6 +93,12 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(native.CallbackCount, Is.Zero);
             Assert.That(GetLifecycleProperty<bool>(lifecycle, "HasActiveRuntime"), Is.False);
             Assert.That(GetLifecycleProperty<bool>(lifecycle, "TickEnabled"), Is.False);
+            var availability = GetLifecycleProperty<PlatformAvailability>(
+                lifecycle,
+                "Availability");
+            Assert.That(availability.IsAvailable, Is.False);
+            Assert.That(availability.Reason,
+                Is.EqualTo("AppIdUnavailable: SteamAPI initialized but returned AppID 0."));
             Assert.That(
                 GetLifecycleProperty<PlatformInitializationResult>(
                     lifecycle,

@@ -68,17 +68,11 @@ namespace Game.Platform.Runtime
                 availability = ResolveAvailability(selection, candidate);
                 if (!initializationResult.IsSuccess)
                 {
-                    if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
-                    {
-                        selection = PlatformRuntimeSelectionResult.Unavailable(
-                            selection,
-                            initializationResult.FailureReason);
-                    }
-
-                    Debug.LogError(
+                    FailInitialization(
+                        candidate,
+                        initializationResult,
                         "Platform runtime '" + selection.SelectedProviderId +
                         "' initialization failed: " + initializationResult.FailureReason);
-                    ShutdownCandidateOnce(candidate);
                     return;
                 }
 
@@ -104,19 +98,10 @@ namespace Game.Platform.Runtime
             }
             catch (Exception exception)
             {
-                initializationResult = PlatformInitializationResult.Failure(
+                var failure = PlatformInitializationResult.Failure(
                     "Platform runtime '" + selection.SelectedProviderId +
                     "' initialization threw " + FormatException(exception) + ".");
-                tickEnabled = false;
-                if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
-                {
-                    selection = PlatformRuntimeSelectionResult.Unavailable(
-                        selection,
-                        initializationResult.FailureReason);
-                }
-
-                Debug.LogError(initializationResult.FailureReason);
-                ShutdownCandidateOnce(candidate);
+                FailInitialization(candidate, failure, failure.FailureReason);
             }
         }
 
@@ -187,6 +172,26 @@ namespace Game.Platform.Runtime
         private void ShutdownCandidateOnce(IPlatformRuntime candidate)
         {
             ShutdownRuntimeOnce(candidate);
+        }
+
+        private void FailInitialization(
+            IPlatformRuntime candidate,
+            PlatformInitializationResult failure,
+            string diagnosticReason)
+        {
+            initializationResult = failure;
+            tickEnabled = false;
+            activeRuntime = null;
+            availability = PlatformAvailability.Unavailable(failure.FailureReason);
+            if (selection.SelectionKind == PlatformProviderSelectionKind.Explicit)
+            {
+                selection = PlatformRuntimeSelectionResult.Unavailable(
+                    selection,
+                    failure.FailureReason);
+            }
+
+            Debug.LogError(diagnosticReason);
+            ShutdownCandidateOnce(candidate);
         }
 
         private void ShutdownRuntimeOnce(IPlatformRuntime runtime)
