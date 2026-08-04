@@ -760,11 +760,13 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void SelectingNonObjectiveTileFeature_ClearsObjectiveContextWithoutRepeatedDirtying()
         {
-            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
-            var condition = CreateButtonActivatedCondition(5);
-            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
-            try
+            string fixtureRoot;
+            using (var fixture = CanonicalButtonOwnershipFixture.Create(5))
             {
+                fixtureRoot = fixture.RootPath;
+                var authoring = fixture.Authoring;
+                var condition = fixture.CanonicalCondition;
+                var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
                 authoring.SetTileFeatures(new[]
                 {
                     new StageTileFeatureDefinition
@@ -783,33 +785,46 @@ namespace Game.Feature.Stages.Editor.Tests
                 });
                 authoring.SetObjective(Objective(
                     Entry(condition, "button-5", "Button", StageObjectiveConditionRole.SecondaryGoal, 10)));
-                window.BindForTests(authoring);
+                AssertCanonicalButtonOwnership(fixture, 5);
+                var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    authoring,
+                    authoring.TileFeatures.Single(feature => feature.TileId == 5));
+                Assert.That(linkStatus.State, Is.EqualTo(ButtonObjectiveLinkState.Linked));
+                Assert.That(linkStatus.ExpectedConditionPath, Is.EqualTo(fixture.ExpectedConditionPath));
+                Assert.That(linkStatus.ConditionAsset, Is.SameAs(condition));
 
-                Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
-                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+                try
+                {
+                    window.BindForTests(authoring);
 
-                Assert.That(window.SelectTileFeatureByIdForTests(6), Is.True);
-                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
-                Assert.That(window.ObjectiveHighlightCellForTests, Is.Null);
-                Assert.That(window.ObjectiveContextWarningForTests, Is.Empty);
-                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.False);
+                    Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+
+                    Assert.That(window.SelectTileFeatureByIdForTests(6), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                    Assert.That(window.ObjectiveHighlightCellForTests, Is.Null);
+                    Assert.That(window.ObjectiveContextWarningForTests, Is.Empty);
+                    Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.False);
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(window);
+                }
             }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(window);
-                UnityEngine.Object.DestroyImmediate(condition);
-                UnityEngine.Object.DestroyImmediate(authoring);
-            }
+
+            Assert.That(AssetDatabase.IsValidFolder(fixtureRoot), Is.False);
         }
 
         [Test]
         public void UndoRedo_InvalidatesTileFeatureContextMarkerAndRecalculatesCurrentKind()
         {
-            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
-            var condition = CreateButtonActivatedCondition(5);
-            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
-            try
+            string fixtureRoot;
+            using (var fixture = CanonicalButtonOwnershipFixture.Create(5))
             {
+                fixtureRoot = fixture.RootPath;
+                var authoring = fixture.Authoring;
+                var condition = fixture.CanonicalCondition;
+                var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
                 authoring.SetTileFeatures(new[]
                 {
                     new StageTileFeatureDefinition
@@ -822,38 +837,49 @@ namespace Game.Feature.Stages.Editor.Tests
                 });
                 authoring.SetObjective(Objective(
                     Entry(condition, "button-5", "Button", StageObjectiveConditionRole.SecondaryGoal, 10)));
-                window.BindForTests(authoring);
-                Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
-                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
-                Undo.ClearAll();
+                AssertCanonicalButtonOwnership(fixture, 5);
+                var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    authoring,
+                    authoring.TileFeatures.Single());
+                Assert.That(linkStatus.State, Is.EqualTo(ButtonObjectiveLinkState.Linked));
+                Assert.That(linkStatus.ExpectedConditionPath, Is.EqualTo(fixture.ExpectedConditionPath));
+                Assert.That(linkStatus.ConditionAsset, Is.SameAs(condition));
 
-                Undo.RecordObject(authoring, "Change selected TileFeature kind");
-                var changedFeature = authoring.TileFeatures.Single();
-                changedFeature.Kind = TileFeatureKind.Slide;
-                authoring.SetTileFeatures(new[] { changedFeature });
-                EditorUtility.SetDirty(authoring);
-                Undo.FlushUndoRecordObjects();
+                try
+                {
+                    window.BindForTests(authoring);
+                    Assert.That(window.SelectTileFeatureByIdForTests(5), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+                    Undo.ClearAll();
 
-                Undo.PerformUndo();
-                window.HandleObjectiveUndoRedoForTests();
-                Assert.That(authoring.TileFeatures.Single().Kind, Is.EqualTo(TileFeatureKind.Button));
-                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.True);
-                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+                    Undo.RecordObject(authoring, "Change selected TileFeature kind");
+                    var changedFeature = authoring.TileFeatures.Single();
+                    changedFeature.Kind = TileFeatureKind.Slide;
+                    authoring.SetTileFeatures(new[] { changedFeature });
+                    EditorUtility.SetDirty(authoring);
+                    Undo.FlushUndoRecordObjects();
 
-                Undo.PerformRedo();
-                window.HandleObjectiveUndoRedoForTests();
-                Assert.That(authoring.TileFeatures.Single().Kind, Is.EqualTo(TileFeatureKind.Slide));
-                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.True);
-                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
-                Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.False);
+                    Undo.PerformUndo();
+                    window.HandleObjectiveUndoRedoForTests();
+                    Assert.That(authoring.TileFeatures.Single().Kind, Is.EqualTo(TileFeatureKind.Button));
+                    Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Not.Null);
+
+                    Undo.PerformRedo();
+                    window.HandleObjectiveUndoRedoForTests();
+                    Assert.That(authoring.TileFeatures.Single().Kind, Is.EqualTo(TileFeatureKind.Slide));
+                    Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                    Assert.That(window.RefreshObjectiveContextFromSelectedTileFeatureForTests(), Is.False);
+                }
+                finally
+                {
+                    Undo.ClearAll();
+                    UnityEngine.Object.DestroyImmediate(window);
+                }
             }
-            finally
-            {
-                Undo.ClearAll();
-                UnityEngine.Object.DestroyImmediate(window);
-                UnityEngine.Object.DestroyImmediate(condition);
-                UnityEngine.Object.DestroyImmediate(authoring);
-            }
+
+            Assert.That(AssetDatabase.IsValidFolder(fixtureRoot), Is.False);
         }
 
         [Test]
@@ -1090,28 +1116,34 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void ButtonDuplicateSameTileId_ReportsConflict()
         {
-            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
-            var canonical = CreateButtonActivatedCondition(5);
-            var duplicate = CreateButtonActivatedCondition(5);
-            try
+            string fixtureRoot;
+            using (var fixture = CanonicalButtonOwnershipFixture.Create(5))
             {
+                fixtureRoot = fixture.RootPath;
+                var authoring = fixture.Authoring;
+                var canonical = fixture.CanonicalCondition;
+                var duplicate = CreateButtonActivatedCondition(5);
                 var feature = ButtonFeature(5);
-                authoring.SetTileFeatures(new[] { feature });
-                authoring.SetObjective(Objective(
-                    Entry(canonical, "button-5", "Canonical", StageObjectiveConditionRole.SecondaryGoal, 10),
-                    Entry(duplicate, "alternate-button", "Duplicate", StageObjectiveConditionRole.SecondaryGoal, 20)));
+                try
+                {
+                    authoring.SetTileFeatures(new[] { feature });
+                    authoring.SetObjective(Objective(
+                        Entry(canonical, "button-5", "Canonical", StageObjectiveConditionRole.SecondaryGoal, 10),
+                        Entry(duplicate, "alternate-button", "Duplicate", StageObjectiveConditionRole.SecondaryGoal, 20)));
+                    AssertCanonicalButtonOwnership(fixture, 5);
 
-                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+                    var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
 
-                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
-                Assert.That(status.MatchingEntryCount, Is.EqualTo(2));
+                    Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
+                    Assert.That(status.MatchingEntryCount, Is.EqualTo(2));
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(duplicate);
+                }
             }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(duplicate);
-                UnityEngine.Object.DestroyImmediate(canonical);
-                UnityEngine.Object.DestroyImmediate(authoring);
-            }
+
+            Assert.That(AssetDatabase.IsValidFolder(fixtureRoot), Is.False);
         }
 
         [Test]
@@ -1217,45 +1249,51 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void NavigatorAndRemovalPlanner_AgreeOnDuplicateAssociation()
         {
-            var authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
-            var canonical = CreateButtonActivatedCondition(5);
-            var duplicate = CreateButtonActivatedCondition(5);
-            try
+            string fixtureRoot;
+            using (var fixture = CanonicalButtonOwnershipFixture.Create(5))
             {
+                fixtureRoot = fixture.RootPath;
+                var authoring = fixture.Authoring;
+                var canonical = fixture.CanonicalCondition;
+                var duplicate = CreateButtonActivatedCondition(5);
                 var feature = ButtonFeature(5);
-                authoring.SetTileFeatures(new[] { feature });
-                authoring.SetObjective(Objective(
-                    Entry(canonical, "button-5", "Canonical", StageObjectiveConditionRole.SecondaryGoal, 10),
-                    Entry(duplicate, "different-stable-id", "Duplicate", StageObjectiveConditionRole.SecondaryGoal, 20)));
-                var serialized = new SerializedObject(authoring);
-                serialized.Update();
-                var rows = StageObjectiveConditionEditorResolver.BuildRows(serialized, authoring);
-                var selection = new StageObjectiveConditionEditorSelection();
+                try
+                {
+                    authoring.SetTileFeatures(new[] { feature });
+                    authoring.SetObjective(Objective(
+                        Entry(canonical, "button-5", "Canonical", StageObjectiveConditionRole.SecondaryGoal, 10),
+                        Entry(duplicate, "different-stable-id", "Duplicate", StageObjectiveConditionRole.SecondaryGoal, 20)));
+                    AssertCanonicalButtonOwnership(fixture, 5);
+                    var serialized = new SerializedObject(authoring);
+                    serialized.Update();
+                    var rows = StageObjectiveConditionEditorResolver.BuildRows(serialized, authoring);
+                    var selection = new StageObjectiveConditionEditorSelection();
 
-                var navigation = StageObjectiveConditionContextNavigator.SelectButton(
-                    rows,
-                    5,
-                    canonical,
-                    selection,
-                    out var warning);
-                var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
-                var removalPlan = StageButtonObjectiveRemovalPlanner.Build(authoring, feature);
+                    var navigation = StageObjectiveConditionContextNavigator.SelectButton(
+                        rows,
+                        5,
+                        canonical,
+                        selection,
+                        out var warning);
+                    var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+                    var removalPlan = StageButtonObjectiveRemovalPlanner.Build(authoring, feature);
 
-                Assert.That(navigation, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
-                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
-                Assert.That(linkStatus.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
-                Assert.That(linkStatus.MatchingEntryCount, Is.EqualTo(2));
-                Assert.That(removalPlan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
-                Assert.That(removalPlan.Candidates, Has.Count.EqualTo(2));
-                Assert.That(selection.Resolve(rows, out _),
-                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+                    Assert.That(navigation, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                    Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                    Assert.That(linkStatus.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
+                    Assert.That(linkStatus.MatchingEntryCount, Is.EqualTo(2));
+                    Assert.That(removalPlan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                    Assert.That(removalPlan.Candidates, Has.Count.EqualTo(2));
+                    Assert.That(selection.Resolve(rows, out _),
+                        Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(duplicate);
+                }
             }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(duplicate);
-                UnityEngine.Object.DestroyImmediate(canonical);
-                UnityEngine.Object.DestroyImmediate(authoring);
-            }
+
+            Assert.That(AssetDatabase.IsValidFolder(fixtureRoot), Is.False);
         }
 
         [Test]
@@ -2336,6 +2374,37 @@ namespace Game.Feature.Stages.Editor.Tests
             return condition;
         }
 
+        private static void AssertCanonicalButtonOwnership(
+            CanonicalButtonOwnershipFixture fixture,
+            int tileId)
+        {
+            Assert.That(AssetDatabase.GetAssetPath(fixture.Authoring), Is.Not.Empty);
+            Assert.That(fixture.Authoring.OwnerEntry, Is.SameAs(fixture.Entry));
+            Assert.That(AssetDatabase.GetAssetPath(fixture.Entry), Is.Not.Empty);
+            Assert.That(
+                StageAuthoringButtonObjectiveHelperCommands.TryGetExpectedButtonConditionPath(
+                    fixture.Authoring,
+                    tileId,
+                    out var expectedConditionPath,
+                    out var pathError),
+                Is.True,
+                pathError);
+            Assert.That(expectedConditionPath, Is.Not.Empty);
+            Assert.That(expectedConditionPath, Is.EqualTo(fixture.ExpectedConditionPath));
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<ButtonActivatedConditionAsset>(expectedConditionPath),
+                Is.SameAs(fixture.CanonicalCondition));
+
+            var canonicalRows = fixture.Authoring.Objective.GetConditionEntriesOrEmpty()
+                .Where(entry => entry.StableConditionId == $"button-{tileId}")
+                .ToArray();
+            Assert.That(canonicalRows, Has.Length.EqualTo(1));
+            Assert.That(canonicalRows[0].Condition, Is.SameAs(fixture.CanonicalCondition));
+            Assert.That(canonicalRows[0].Required, Is.True);
+            Assert.That(canonicalRows[0].Role, Is.EqualTo(StageObjectiveConditionRole.SecondaryGoal));
+            Assert.That(fixture.CanonicalCondition.TileId, Is.EqualTo(tileId));
+        }
+
         private static byte[] ReadAssetBytes(string assetPath)
         {
             return File.ReadAllBytes(ToAbsoluteProjectPath(assetPath));
@@ -2468,6 +2537,154 @@ namespace Game.Feature.Stages.Editor.Tests
         private static string ToAbsoluteProjectPath(string assetPath)
         {
             return Path.GetFullPath(Path.Combine(Application.dataPath, "..", assetPath));
+        }
+
+        private sealed class CanonicalButtonOwnershipFixture : IDisposable
+        {
+            private CanonicalButtonOwnershipFixture(
+                string rootPath,
+                string expectedConditionPath,
+                StageContentEntry entry,
+                StageAuthoringDefinition authoring,
+                ButtonActivatedConditionAsset canonicalCondition)
+            {
+                RootPath = rootPath;
+                ExpectedConditionPath = expectedConditionPath;
+                Entry = entry;
+                Authoring = authoring;
+                CanonicalCondition = canonicalCondition;
+            }
+
+            public string RootPath { get; }
+
+            public string ExpectedConditionPath { get; }
+
+            public StageContentEntry Entry { get; }
+
+            public StageAuthoringDefinition Authoring { get; }
+
+            public ButtonActivatedConditionAsset CanonicalCondition { get; }
+
+            public static CanonicalButtonOwnershipFixture Create(int tileId)
+            {
+                var token = Guid.NewGuid().ToString("N");
+                var rootPath = $"Assets/__ObjectiveConditionEditorM1_CanonicalOwnership_{token}";
+                var campaignFolder = $"campaign-pr163-{token.Substring(0, 8)}";
+                var stageIdValue = $"pr163-m2-{token}".Substring(0, 31);
+                var stageFolder =
+                    $"{rootPath}/Campaigns/{campaignFolder}/Levels/level-01/Stages/{stageIdValue}";
+                StageContentEntry entry = null;
+                StageAuthoringDefinition authoring = null;
+                ButtonActivatedConditionAsset canonicalCondition = null;
+
+                try
+                {
+                    EnsureFolder(stageFolder);
+                    entry = ScriptableObject.CreateInstance<StageContentEntry>();
+                    authoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+                    entry.name = $"{stageIdValue}_Entry";
+                    authoring.name = $"{stageIdValue}_Authoring";
+                    entry.AssignStageId(StageId.CreateOrThrow(stageIdValue));
+                    entry.AssignAuthoringDefinition(authoring);
+
+                    var entryPath = $"{stageFolder}/{stageIdValue}_Entry.asset";
+                    var authoringPath = $"{stageFolder}/{stageIdValue}_Authoring.asset";
+                    AssetDatabase.CreateAsset(entry, entryPath);
+                    AssetDatabase.CreateAsset(authoring, authoringPath);
+                    authoring.SetOwnerMetadata(entry, AssetDatabase.AssetPathToGUID(entryPath));
+                    authoring.SetBoard(new StageBoardDefinition
+                    {
+                        MinInclusive = new Vector2Int(0, 0),
+                        MaxInclusive = new Vector2Int(3, 3),
+                        InitialBottomFace = FaceId.Floor,
+                    });
+                    authoring.SetTileFeatures(new[] { ButtonFeature(tileId) });
+                    EditorUtility.SetDirty(entry);
+                    EditorUtility.SetDirty(authoring);
+                    AssetDatabase.SaveAssets();
+
+                    if (!StageAuthoringButtonObjectiveHelperCommands.TryGetExpectedButtonConditionPath(
+                            authoring,
+                            tileId,
+                            out var expectedConditionPath,
+                            out var pathError))
+                    {
+                        throw new InvalidOperationException(pathError);
+                    }
+
+                    EnsureFolder(Path.GetDirectoryName(expectedConditionPath)?.Replace('\\', '/'));
+                    canonicalCondition = CreateButtonActivatedCondition(tileId);
+                    canonicalCondition.name = Path.GetFileNameWithoutExtension(expectedConditionPath);
+                    AssetDatabase.CreateAsset(canonicalCondition, expectedConditionPath);
+                    authoring.SetObjective(Objective(
+                        Entry(
+                            canonicalCondition,
+                            $"button-{tileId}",
+                            "Button",
+                            StageObjectiveConditionRole.SecondaryGoal,
+                            10)));
+                    EditorUtility.SetDirty(authoring);
+                    EditorUtility.SetDirty(canonicalCondition);
+                    AssetDatabase.SaveAssets();
+
+                    return new CanonicalButtonOwnershipFixture(
+                        rootPath,
+                        expectedConditionPath,
+                        entry,
+                        authoring,
+                        canonicalCondition);
+                }
+                catch
+                {
+                    if (AssetDatabase.IsValidFolder(rootPath))
+                    {
+                        AssetDatabase.DeleteAsset(rootPath);
+                    }
+                    else
+                    {
+                        if (canonicalCondition != null)
+                        {
+                            UnityEngine.Object.DestroyImmediate(canonicalCondition);
+                        }
+
+                        if (authoring != null)
+                        {
+                            UnityEngine.Object.DestroyImmediate(authoring);
+                        }
+
+                        if (entry != null)
+                        {
+                            UnityEngine.Object.DestroyImmediate(entry);
+                        }
+                    }
+
+                    throw;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (AssetDatabase.IsValidFolder(RootPath))
+                {
+                    Assert.That(AssetDatabase.DeleteAsset(RootPath), Is.True);
+                }
+
+                AssetDatabase.SaveAssets();
+            }
+
+            private static void EnsureFolder(string assetFolder)
+            {
+                if (string.IsNullOrEmpty(assetFolder) || AssetDatabase.IsValidFolder(assetFolder))
+                {
+                    return;
+                }
+
+                var parent = Path.GetDirectoryName(assetFolder)?.Replace('\\', '/');
+                EnsureFolder(parent);
+                Assert.That(
+                    AssetDatabase.CreateFolder(parent, Path.GetFileName(assetFolder)),
+                    Is.Not.Empty);
+            }
         }
 
         private sealed class FixedRemovalConfirmation : IStageButtonObjectiveRemovalConfirmation

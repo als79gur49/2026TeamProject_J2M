@@ -139,10 +139,24 @@ namespace Game.Feature.Stages.Editor
                     stableConditionId);
             }
 
-            TryGetExpectedButtonConditionPath(definition, tileId, out var expectedConditionPath, out _);
-            var expectedAsset = !string.IsNullOrEmpty(expectedConditionPath)
-                ? AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(expectedConditionPath)
-                : null;
+            if (!TryGetExpectedButtonConditionPath(
+                    definition,
+                    tileId,
+                    out var expectedConditionPath,
+                    out var pathError) ||
+                string.IsNullOrEmpty(expectedConditionPath))
+            {
+                return CreateStatus(
+                    ButtonObjectiveLinkState.ConditionAssetMissing,
+                    string.IsNullOrEmpty(pathError)
+                        ? "Canonical Button condition path could not be resolved."
+                        : pathError,
+                    tileId,
+                    stableConditionId,
+                    expectedConditionPath);
+            }
+
+            var expectedAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(expectedConditionPath);
             if (expectedAsset != null && expectedAsset is not ButtonActivatedConditionAsset)
             {
                 return CreateStatus(

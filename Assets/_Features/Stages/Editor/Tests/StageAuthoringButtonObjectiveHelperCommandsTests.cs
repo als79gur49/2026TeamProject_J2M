@@ -726,6 +726,97 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CanonicalButtonConditionPathResolutionFailure_FailsClosedAcrossStatusNavigationAndRemoval()
+        {
+            string stageFolder;
+            string externalConditionPath;
+            using (var fixture = TempStageContentFixture.Create())
+            {
+                stageFolder = fixture.StageFolder;
+                externalConditionPath = $"{stageFolder}/External_ButtonActivated.asset";
+                var externalCondition = CreateButtonActivatedCondition(901);
+                externalCondition.name = "External_ButtonActivated";
+                AssetDatabase.CreateAsset(externalCondition, externalConditionPath);
+                fixture.Authoring.SetOwnerMetadata(null, string.Empty);
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(
+                        externalCondition,
+                        "button-901",
+                        "External canonical-looking Button",
+                        10)));
+                EditorUtility.SetDirty(fixture.Authoring);
+                AssetDatabase.SaveAssets();
+
+                var authoringPath = AssetDatabase.GetAssetPath(fixture.Authoring);
+                var authoringJsonBefore = EditorJsonUtility.ToJson(fixture.Authoring);
+                var authoringBytesBefore = File.ReadAllBytes(ToAbsoluteProjectPath(authoringPath));
+                var externalConditionBytesBefore = File.ReadAllBytes(
+                    ToAbsoluteProjectPath(externalConditionPath));
+
+                Assert.That(
+                    StageAuthoringButtonObjectiveHelperCommands.TryGetExpectedButtonConditionPath(
+                        fixture.Authoring,
+                        fixture.Button.TileId,
+                        out var expectedConditionPath,
+                        out var pathError),
+                    Is.False);
+                Assert.That(expectedConditionPath, Is.Empty);
+                Assert.That(pathError, Is.Not.Empty);
+                Assert.That(EditorUtility.IsDirty(fixture.Authoring), Is.False);
+                Assert.That(EditorUtility.IsDirty(externalCondition), Is.False);
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+
+                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetMissing));
+                Assert.That(status.State, Is.Not.EqualTo(ButtonObjectiveLinkState.Linked));
+                Assert.That(status.ExpectedConditionPath, Is.Empty);
+                Assert.That(status.ConditionAsset, Is.Null);
+
+                var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+                try
+                {
+                    window.BindForTests(fixture.Authoring);
+                    Assert.That(window.SelectTileFeatureByIdForTests(901), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                    Assert.That(window.ResolveObjectiveConditionSelectionForTests(),
+                        Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+                    Assert.That(window.ObjectiveHighlightCellForTests, Is.Null);
+                    Assert.That(window.ObjectiveContextWarningForTests,
+                        Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(window);
+                }
+
+                var plan = StageButtonObjectiveRemovalPlanner.Build(
+                    new SerializedObject(fixture.Authoring),
+                    fixture.Authoring,
+                    fixture.Button);
+                Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                Assert.That(plan.CanonicalCondition, Is.Null);
+                Assert.That(plan.Candidates, Has.Count.EqualTo(1));
+                Assert.That(plan.Candidates[0].Condition, Is.SameAs(externalCondition));
+                Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.False);
+
+                Assert.That(EditorJsonUtility.ToJson(fixture.Authoring), Is.EqualTo(authoringJsonBefore));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(authoringPath)),
+                    Is.EqualTo(authoringBytesBefore));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(externalConditionPath)),
+                    Is.EqualTo(externalConditionBytesBefore));
+                Assert.That(EditorUtility.IsDirty(fixture.Authoring), Is.False);
+                Assert.That(EditorUtility.IsDirty(externalCondition), Is.False);
+            }
+
+            Assert.That(AssetDatabase.IsValidFolder(stageFolder), Is.False);
+            Assert.That(AssetDatabase.LoadAssetAtPath<ButtonActivatedConditionAsset>(externalConditionPath),
+                Is.Null);
+        }
+
+        [Test]
         public void ObjectiveConditionRemoval_NoCandidate_ClassifiesUnavailable()
         {
             using var fixture = TempStageContentFixture.Create();
