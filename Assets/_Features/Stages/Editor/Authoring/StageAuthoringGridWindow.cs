@@ -3157,9 +3157,18 @@ namespace Game.Feature.Stages.Editor
             }
             else if (feature.Kind == TileFeatureKind.Button)
             {
-                expectedCondition = StageAuthoringButtonObjectiveHelperCommands
-                    .GetLinkStatus(authoring, feature)
-                    .ConditionAsset;
+                var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+                if (linkStatus.State != ButtonObjectiveLinkState.Linked ||
+                    linkStatus.ConditionAsset is not ButtonActivatedConditionAsset)
+                {
+                    objectiveConditionSelection.Clear();
+                    objectiveContextWarning = StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved;
+                    lastObjectiveContextTileFeatureId = feature.TileId;
+                    Repaint();
+                    return;
+                }
+
+                expectedCondition = linkStatus.ConditionAsset;
             }
 
             var resolution = StageObjectiveConditionContextNavigator.SelectForTileFeature(

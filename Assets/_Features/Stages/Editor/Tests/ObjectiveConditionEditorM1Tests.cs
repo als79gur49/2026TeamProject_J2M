@@ -737,6 +737,66 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void NullExpectedCondition_IsNotWildcard()
+        {
+            var condition = CreateButtonActivatedCondition(5);
+            try
+            {
+                var rows = new[] { ButtonRow(condition, entryIndex: 0, stableConditionId: "button-5") };
+                var selection = new StageObjectiveConditionEditorSelection();
+
+                var resolution = StageObjectiveConditionContextNavigator.SelectButton(
+                    rows,
+                    5,
+                    null,
+                    selection,
+                    out var warning);
+
+                Assert.That(resolution, Is.EqualTo(StageObjectiveConditionContextResolution.Unresolved));
+                Assert.That(warning, Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
+        public void NullExpectedCondition_SelectsNoRow()
+        {
+            var condition = CreateButtonActivatedCondition(5);
+            try
+            {
+                var rows = new[] { ButtonRow(condition, entryIndex: 0, stableConditionId: "button-5") };
+                var selection = new StageObjectiveConditionEditorSelection();
+                Assert.That(
+                    StageObjectiveConditionContextNavigator.SelectButton(
+                        rows,
+                        5,
+                        condition,
+                        selection,
+                        out _),
+                    Is.EqualTo(StageObjectiveConditionContextResolution.Resolved));
+
+                StageObjectiveConditionContextNavigator.SelectButton(
+                    rows,
+                    5,
+                    null,
+                    selection,
+                    out _);
+
+                Assert.That(selection.Resolve(rows, out _),
+                    Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(condition);
+            }
+        }
+
+        [Test]
         public void ButtonSingleCanonicalAssociation_SelectsExpectedRow()
         {
             var condition = CreateButtonActivatedCondition(5);

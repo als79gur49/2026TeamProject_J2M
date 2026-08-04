@@ -88,6 +88,13 @@ namespace Game.Feature.Stages.Editor
         {
             warning = string.Empty;
             rows ??= Array.Empty<StageObjectiveConditionEditorRow>();
+            if (expectedCondition is not ButtonActivatedConditionAsset)
+            {
+                selection.Clear();
+                warning = ButtonSelectionUnresolved;
+                return StageObjectiveConditionContextResolution.Unresolved;
+            }
+
             var expectedStableConditionId = $"button-{tileId}";
             var matchingAssociations = rows
                 .Where(row =>
@@ -109,7 +116,7 @@ namespace Game.Feature.Stages.Editor
                     row.Condition is ButtonActivatedConditionAsset buttonCondition &&
                     buttonCondition.TileId == tileId &&
                     row.ButtonTileId == tileId &&
-                    (expectedCondition == null || ReferenceEquals(row.Condition, expectedCondition)))
+                    ReferenceEquals(row.Condition, expectedCondition))
                 .ToArray();
 
             if (matchingAssociations.Length == 1 && exactMatches.Length == 1)
