@@ -259,7 +259,31 @@ namespace Game.Feature.Stages.Editor
                         1);
                 }
 
-                if (expectedButton != null && !ReferenceEquals(buttonCondition, expectedButton))
+                if (!string.Equals(entry.StableConditionId, stableConditionId, StringComparison.Ordinal))
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.StableConditionIdConflict,
+                        $"Button condition StableConditionId must be '{stableConditionId}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        buttonCondition,
+                        1);
+                }
+
+                if (!string.IsNullOrEmpty(expectedConditionPath) && expectedButton == null)
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.ConditionAssetMissing,
+                        $"Canonical condition asset is missing at '{expectedConditionPath}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        matchingEntryCount: 1);
+                }
+
+                if (!string.IsNullOrEmpty(expectedConditionPath) &&
+                    !ReferenceEquals(buttonCondition, expectedButton))
                 {
                     return CreateStatus(
                         ButtonObjectiveLinkState.ConditionReferenceMismatch,
