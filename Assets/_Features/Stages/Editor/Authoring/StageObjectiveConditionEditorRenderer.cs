@@ -317,6 +317,22 @@ namespace Game.Feature.Stages.Editor
         {
             EditorGUILayout.LabelField("Status", feedback.StatusLabel, EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(feedback.Message, ToMessageType(feedback.Status));
+            EditorGUILayout.LabelField("Issue Source", feedback.IssueSourceKind.ToString());
+            if (feedback.IssueOwner != null)
+            {
+                using (new EditorGUI.DisabledScope(true))
+                {
+                    EditorGUILayout.ObjectField(
+                        "Issue Owner",
+                        feedback.IssueOwner,
+                        typeof(UnityEngine.Object),
+                        allowSceneObjects: false);
+                }
+            }
+
+            EditorGUILayout.LabelField(
+                "Generate / Repair",
+                feedback.CanGenerateOrRepair ? "Eligible" : "Not Eligible");
             for (var i = 0; i < feedback.ValidationIssues.Count; i++)
             {
                 var issue = feedback.ValidationIssues[i];
@@ -343,6 +359,8 @@ namespace Game.Feature.Stages.Editor
                 StageObjectiveConditionEditorStatus.GenerateRequired => MessageType.Warning,
                 StageObjectiveConditionEditorStatus.InvalidAuthoring => MessageType.Error,
                 StageObjectiveConditionEditorStatus.GeneratedOutputMissing => MessageType.Warning,
+                StageObjectiveConditionEditorStatus.GeneratedOutputError => MessageType.Error,
+                StageObjectiveConditionEditorStatus.CatalogError => MessageType.Error,
                 _ => MessageType.Warning,
             };
         }

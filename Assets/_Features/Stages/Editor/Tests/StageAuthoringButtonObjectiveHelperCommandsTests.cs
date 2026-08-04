@@ -494,6 +494,51 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CanonicalButtonConditionReferenceMismatch_FailsClosedAcrossStatusNavigationAndRemoval()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var mismatched = CreateButtonActivatedCondition(901);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(mismatched, "button-901", "Mismatched reference", 30)));
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+
+                Assert.That(status.State,
+                    Is.EqualTo(ButtonObjectiveLinkState.ConditionReferenceMismatch));
+                Assert.That(status.ConditionAsset, Is.SameAs(canonical));
+                Assert.That(status.ExpectedConditionPath, Is.EqualTo(fixture.ExpectedButtonConditionPath));
+                Assert.That(status.MatchingEntryCount, Is.EqualTo(1));
+
+                window.BindForTests(fixture.Authoring);
+                Assert.That(window.SelectTileFeatureByIdForTests(901), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.ObjectiveContextWarningForTests,
+                    Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+
+                var plan = StageButtonObjectiveRemovalPlanner.Build(
+                    new SerializedObject(fixture.Authoring),
+                    fixture.Authoring,
+                    fixture.Button);
+                Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                Assert.That(plan.CanonicalCondition, Is.SameAs(canonical));
+                Assert.That(plan.Candidates, Has.Count.EqualTo(1));
+                Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(mismatched);
+            }
+        }
+
+        [Test]
         public void ObjectiveConditionRemoval_NoCandidate_ClassifiesUnavailable()
         {
             using var fixture = TempStageContentFixture.Create();

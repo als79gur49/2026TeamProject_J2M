@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEditor;
 
 namespace Game.Feature.Stages.Editor
@@ -11,7 +12,17 @@ namespace Game.Feature.Stages.Editor
         GenerateRequired,
         InvalidAuthoring,
         GeneratedOutputMissing,
+        GeneratedOutputError,
+        CatalogError,
         Unresolved,
+    }
+
+    internal enum StageObjectiveConditionIssueSourceKind
+    {
+        None,
+        InvalidAuthoring,
+        GeneratedOutput,
+        Catalog,
     }
 
     internal sealed class StageObjectiveConditionEditorFeedback
@@ -28,13 +39,24 @@ namespace Game.Feature.Stages.Editor
             IReadOnlyList<StageValidationIssue> validationIssues,
             IReadOnlyList<StageValidationIssue> driftIssues,
             bool hasAdditionalValidationIssues,
-            string message)
+            string message,
+            IReadOnlyList<StageValidationIssue> generatedOutputIssues = null,
+            IReadOnlyList<StageValidationIssue> catalogIssues = null,
+            StageObjectiveConditionIssueSourceKind issueSourceKind =
+                StageObjectiveConditionIssueSourceKind.None,
+            UnityEngine.Object issueOwner = null,
+            bool canGenerateOrRepair = false)
         {
             Status = status;
             ValidationIssues = validationIssues ?? Array.Empty<StageValidationIssue>();
             DriftIssues = driftIssues ?? Array.Empty<StageValidationIssue>();
+            GeneratedOutputIssues = generatedOutputIssues ?? Array.Empty<StageValidationIssue>();
+            CatalogIssues = catalogIssues ?? Array.Empty<StageValidationIssue>();
             HasAdditionalValidationIssues = hasAdditionalValidationIssues;
             Message = message ?? string.Empty;
+            IssueSourceKind = issueSourceKind;
+            IssueOwner = issueOwner;
+            CanGenerateOrRepair = canGenerateOrRepair;
         }
 
         public StageObjectiveConditionEditorStatus Status { get; }
@@ -43,9 +65,19 @@ namespace Game.Feature.Stages.Editor
 
         public IReadOnlyList<StageValidationIssue> DriftIssues { get; }
 
+        public IReadOnlyList<StageValidationIssue> GeneratedOutputIssues { get; }
+
+        public IReadOnlyList<StageValidationIssue> CatalogIssues { get; }
+
         public bool HasAdditionalValidationIssues { get; }
 
         public string Message { get; }
+
+        public StageObjectiveConditionIssueSourceKind IssueSourceKind { get; }
+
+        public UnityEngine.Object IssueOwner { get; }
+
+        public bool CanGenerateOrRepair { get; }
 
         public string StatusLabel => Status switch
         {
@@ -53,6 +85,8 @@ namespace Game.Feature.Stages.Editor
             StageObjectiveConditionEditorStatus.GenerateRequired => "Generate Required",
             StageObjectiveConditionEditorStatus.InvalidAuthoring => "Invalid",
             StageObjectiveConditionEditorStatus.GeneratedOutputMissing => "Generated Output Missing",
+            StageObjectiveConditionEditorStatus.GeneratedOutputError => "Generated Output Error",
+            StageObjectiveConditionEditorStatus.CatalogError => "Catalog Error",
             _ => "Unresolved",
         };
 
@@ -99,13 +133,48 @@ namespace Game.Feature.Stages.Editor
             {
                 if (issues[i].FieldName.Contains(indexToken, StringComparison.Ordinal) ||
                     issues[i].Message.Contains($"entry[{row.EntryIndex}]", StringComparison.OrdinalIgnoreCase) ||
-                    issues[i].Message.Contains(row.StableConditionId, StringComparison.Ordinal))
+                    HasExactStableConditionIdToken(issues[i].Message, row.StableConditionId))
                 {
                     return issues[i];
                 }
             }
 
             return null;
+        }
+
+        internal static bool HasExactStableConditionIdToken(
+            string message,
+            string stableConditionId)
+        {
+            if (string.IsNullOrEmpty(message) || string.IsNullOrWhiteSpace(stableConditionId))
+            {
+                return false;
+            }
+
+            var token = new StringBuilder();
+            for (var i = 0; i <= message.Length; i++)
+            {
+                if (i < message.Length && IsStableConditionIdTokenCharacter(message[i]))
+                {
+                    token.Append(message[i]);
+                    continue;
+                }
+
+                if (token.Length > 0 &&
+                    string.Equals(token.ToString(), stableConditionId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                token.Clear();
+            }
+
+            return false;
+        }
+
+        private static bool IsStableConditionIdTokenCharacter(char value)
+        {
+            return char.IsLetterOrDigit(value) || value == '-' || value == '_';
         }
     }
 
@@ -125,6 +194,8 @@ namespace Game.Feature.Stages.Editor
             {
                 var validationIssues = new List<StageValidationIssue>();
                 var allValidationIssues = new List<StageValidationIssue>();
+                var generatedOutputIssues = new List<StageValidationIssue>();
+                var catalogIssues = new List<StageValidationIssue>();
                 var generationReport = existingValidationReport ?? StageAuthoringGenerator.Generate(
                     authoring,
                     StageAuthoringGenerateOptions.DryRunValidation);
@@ -139,7 +210,16 @@ namespace Game.Feature.Stages.Editor
                         {
                             Timing = StageValidationTiming.EditorAuthoring,
                         });
-                    AddUnique(allValidationIssues, catalogReport.Issues);
+                    AddUnique(
+                        generatedOutputIssues,
+                        catalogReport.Issues.Where(issue =>
+                            IsObjectiveValidationIssue(issue) ||
+                            IsObjectiveDriftIssue(issue)));
+                    AddUnique(
+                        catalogIssues,
+                        catalogReport.Issues.Where(issue =>
+                            !IsObjectiveValidationIssue(issue) &&
+                            !IsObjectiveDriftIssue(issue)));
                 }
 
                 for (var i = 0; i < allValidationIssues.Count; i++)
@@ -152,7 +232,9 @@ namespace Game.Feature.Stages.Editor
 
                 var hasAdditionalValidationIssues = allValidationIssues.Any(issue =>
                     !IsObjectiveValidationIssue(issue) &&
-                    !IsObjectiveDriftIssue(issue));
+                    !IsObjectiveDriftIssue(issue)) ||
+                    generatedOutputIssues.Count > 0 ||
+                    catalogIssues.Count > 0;
                 if (validationIssues.Any(issue => issue.Severity == StageValidationSeverity.Error))
                 {
                     var firstError = validationIssues.First(issue =>
@@ -162,7 +244,12 @@ namespace Game.Feature.Stages.Editor
                         validationIssues,
                         Array.Empty<StageValidationIssue>(),
                         hasAdditionalValidationIssues,
-                        firstError.Message);
+                        firstError.Message,
+                        generatedOutputIssues,
+                        catalogIssues,
+                        StageObjectiveConditionIssueSourceKind.InvalidAuthoring,
+                        authoring,
+                        canGenerateOrRepair: false);
                 }
 
                 if (authoring.GeneratedGameplayDefinition == null)
@@ -172,7 +259,12 @@ namespace Game.Feature.Stages.Editor
                         validationIssues,
                         Array.Empty<StageValidationIssue>(),
                         hasAdditionalValidationIssues,
-                        "The generated StageDefinition is missing.");
+                        "The generated StageDefinition is missing.",
+                        generatedOutputIssues,
+                        catalogIssues,
+                        StageObjectiveConditionIssueSourceKind.GeneratedOutput,
+                        authoring,
+                        canGenerateOrRepair: true);
                 }
 
                 var allocationPlan = StageAuthoringProjection.BuildAllocationPlan(authoring);
@@ -196,7 +288,47 @@ namespace Game.Feature.Stages.Editor
                         validationIssues,
                         driftIssues,
                         hasAdditionalValidationIssues,
-                        "Objective condition authoring differs from the generated StageDefinition.");
+                        "Objective condition authoring differs from the generated StageDefinition.",
+                        generatedOutputIssues,
+                        catalogIssues,
+                        StageObjectiveConditionIssueSourceKind.GeneratedOutput,
+                        authoring.GeneratedGameplayDefinition,
+                        canGenerateOrRepair: true);
+                }
+
+                if (generatedOutputIssues.Any(issue =>
+                        issue.Severity == StageValidationSeverity.Error))
+                {
+                    var firstGeneratedError = generatedOutputIssues.First(issue =>
+                        issue.Severity == StageValidationSeverity.Error);
+                    return new StageObjectiveConditionEditorFeedback(
+                        StageObjectiveConditionEditorStatus.GeneratedOutputError,
+                        validationIssues,
+                        driftIssues,
+                        hasAdditionalValidationIssues,
+                        firstGeneratedError.Message,
+                        generatedOutputIssues,
+                        catalogIssues,
+                        StageObjectiveConditionIssueSourceKind.GeneratedOutput,
+                        authoring.GeneratedGameplayDefinition,
+                        canGenerateOrRepair: true);
+                }
+
+                if (catalogIssues.Any(issue => issue.Severity == StageValidationSeverity.Error))
+                {
+                    var firstCatalogError = catalogIssues.First(issue =>
+                        issue.Severity == StageValidationSeverity.Error);
+                    return new StageObjectiveConditionEditorFeedback(
+                        StageObjectiveConditionEditorStatus.CatalogError,
+                        validationIssues,
+                        driftIssues,
+                        hasAdditionalValidationIssues,
+                        firstCatalogError.Message,
+                        generatedOutputIssues,
+                        catalogIssues,
+                        StageObjectiveConditionIssueSourceKind.Catalog,
+                        catalogEntry,
+                        canGenerateOrRepair: false);
                 }
 
                 return new StageObjectiveConditionEditorFeedback(
@@ -204,7 +336,12 @@ namespace Game.Feature.Stages.Editor
                     validationIssues,
                     driftIssues,
                     hasAdditionalValidationIssues,
-                    "Objective authoring and generated output are in sync.");
+                    "Objective authoring and generated output are in sync.",
+                    generatedOutputIssues,
+                    catalogIssues,
+                    StageObjectiveConditionIssueSourceKind.None,
+                    issueOwner: null,
+                    canGenerateOrRepair: false);
             }
             catch (Exception exception)
             {

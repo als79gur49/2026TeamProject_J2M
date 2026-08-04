@@ -1059,6 +1059,56 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        [TestCase("abc", "abc", true)]
+        [TestCase("abc-1", "abc", false)]
+        [TestCase("abc-10", "abc-1", false)]
+        [TestCase("xabc", "abc", false)]
+        [TestCase("abc", "", false)]
+        public void StableConditionIdIssueMatcher_UsesExactCanonicalToken(
+            string issueToken,
+            string stableConditionId,
+            bool expected)
+        {
+            Assert.That(
+                StageObjectiveConditionEditorFeedback.HasExactStableConditionIdToken(
+                    $"Objective issue for '{issueToken}'.",
+                    stableConditionId),
+                Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void StableConditionIdIssueMatcher_PrefixCollisionDoesNotAssignWrongRow()
+        {
+            var conditionA = CreateButtonActivatedCondition(1);
+            var conditionB = CreateButtonActivatedCondition(10);
+            try
+            {
+                var rowA = ButtonRow(conditionA, entryIndex: 0, stableConditionId: "button-1");
+                var rowB = ButtonRow(conditionB, entryIndex: 1, stableConditionId: "button-10");
+                var issue = new StageValidationIssue(
+                    StageValidationSeverity.Error,
+                    "objective.stable-id",
+                    "Duplicate stable ID 'button-10'.",
+                    fieldName: "Objective.ConditionEntries.StableConditionId");
+                var feedback = new StageObjectiveConditionEditorFeedback(
+                    StageObjectiveConditionEditorStatus.InvalidAuthoring,
+                    new[] { issue },
+                    Array.Empty<StageValidationIssue>(),
+                    false,
+                    "Objective authoring is invalid.");
+
+                Assert.That(feedback.GetRowMessage(rowA),
+                    Is.EqualTo("Objective authoring is invalid."));
+                Assert.That(feedback.GetRowMessage(rowB),
+                    Is.EqualTo("objective.stable-id: Duplicate stable ID 'button-10'."));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(conditionB);
+                UnityEngine.Object.DestroyImmediate(conditionA);
+            }
+        }
+
         [Test]
         public void ObjectiveConditionDrift_ValidAuthoringWithoutGeneratedOutputReportsMissing()
         {
@@ -1078,6 +1128,42 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(authoring);
+            }
+        }
+
+        [Test]
+        public void GeneratedCatalogObjectiveError_AfterAuthoringCorrection_ReportsGenerateRequired()
+        {
+            using var fixture = CampaignPairFixture.Create("stage-0-1");
+            var catalogEntry = ScriptableObject.CreateInstance<StageContentEntry>();
+            try
+            {
+                catalogEntry.name = "stage-0-1_Entry";
+                catalogEntry.AssignStageId(StageId.CreateOrThrow("stage-0-1"));
+                catalogEntry.AssignAuthoringDefinition(fixture.Authoring);
+                catalogEntry.AssignGameplayDefinition(fixture.Gameplay);
+                catalogEntry.AssignPresentationDefinition(fixture.Presentation);
+                SetGeneratedAuthoringLabel(fixture.Gameplay, "button-5", "   ");
+
+                var feedback = StageObjectiveConditionEditorFeedbackBuilder.Build(
+                    fixture.Authoring,
+                    catalogEntry);
+
+                Assert.That(
+                    feedback.Status,
+                    Is.EqualTo(StageObjectiveConditionEditorStatus.GenerateRequired));
+                Assert.That(feedback.ValidationIssues, Is.Empty);
+                Assert.That(feedback.DriftIssues, Is.Not.Empty);
+                Assert.That(feedback.GeneratedOutputIssues, Is.Not.Empty);
+                Assert.That(feedback.IssueSourceKind,
+                    Is.EqualTo(StageObjectiveConditionIssueSourceKind.GeneratedOutput));
+                Assert.That(feedback.IssueOwner, Is.SameAs(fixture.Gameplay));
+                Assert.That(feedback.CanGenerateOrRepair, Is.True);
+                Assert.That(feedback.Message, Does.Contain("differs"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(catalogEntry);
             }
         }
 
@@ -1925,6 +2011,30 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.Fail($"Missing objective condition '{stableConditionId}'.");
+        }
+
+        private static void SetGeneratedAuthoringLabel(
+            StageDefinition gameplay,
+            string stableConditionId,
+            string label)
+        {
+            var serialized = new SerializedObject(gameplay);
+            var entries = serialized.FindProperty("objective").FindPropertyRelative("ConditionEntries");
+            for (var i = 0; i < entries.arraySize; i++)
+            {
+                var entry = entries.GetArrayElementAtIndex(i);
+                if (entry.FindPropertyRelative("StableConditionId").stringValue != stableConditionId)
+                {
+                    continue;
+                }
+
+                entry.FindPropertyRelative("AuthoringLabel").stringValue = label;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(gameplay);
+                return;
+            }
+
+            Assert.Fail($"Missing generated objective condition '{stableConditionId}'.");
         }
 
         private static ButtonActivatedConditionAsset CreateButtonActivatedCondition(int tileId)

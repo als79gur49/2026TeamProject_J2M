@@ -21,6 +21,7 @@ namespace Game.Feature.Stages.Editor
         ConditionAssetInvalid,
         ConditionReferencesDifferentTile,
         ConditionReferencesNonButtonTile,
+        ConditionReferenceMismatch,
         DuplicateCondition,
         StableConditionIdConflict,
     }
@@ -255,6 +256,18 @@ namespace Game.Feature.Stages.Editor
                         stableConditionId,
                         expectedConditionPath,
                         buttonCondition,
+                        1);
+                }
+
+                if (expectedButton != null && !ReferenceEquals(buttonCondition, expectedButton))
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.ConditionReferenceMismatch,
+                        $"Condition reference does not match the canonical asset at '{expectedConditionPath}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        expectedButton,
                         1);
                 }
 
