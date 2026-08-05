@@ -58,6 +58,311 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase("ManualRetry")]
+        [TestCase("GameplayEntry")]
+        [TestCase("StageAdvance")]
+        [TestCase("DeathRetry")]
+        public void EnsureTerminalTransitionPortThrow_FailsCapturedLoadingSceneEntry(
+            string transitionIntentName)
+        {
+            var transitionIntent = Enum.Parse<SceneTransitionIntent>(
+                transitionIntentName);
+            var root = new GameObject(
+                $"loading-owner-terminal-setup-{transitionIntent}");
+            try
+            {
+                var host = CreateHost(root);
+                var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                var invalidRoot = new GameObject("InvalidGameplayUiCanvasRoot")
+                    .AddComponent<GameplayUiCanvasRootView>();
+                invalidRoot.transform.SetParent(root.transform, false);
+                SetPrivateField(installer, "_rootView", invalidRoot);
+
+                var authority = TerminalSessionRegistry.Authority;
+                var sourceGeneration = authority.CurrentSceneGeneration;
+                var terminalToken = default(TerminalSessionToken);
+                if (transitionIntent == SceneTransitionIntent.DeathRetry)
+                {
+                    var terminalClaim = authority.TryClaim(
+                        new TerminalClaimRequest(
+                            TerminalTransitionKind.Defeat,
+                            sourceGeneration,
+                            TerminalDestinationKind.ReloadedGameplay));
+                    Assert.That(terminalClaim.Accepted, Is.True);
+                    terminalToken = terminalClaim.Token;
+                    Assert.That(
+                        authority.TryBindTransition(
+                            terminalToken,
+                            transitionId: 9900,
+                            TerminalDestinationKind.ReloadedGameplay),
+                        Is.True);
+                    Assert.That(
+                        authority.TryAdvancePhase(
+                            terminalToken,
+                            TerminalSessionPhase.WaitingDestinationReady),
+                        Is.True);
+                }
+
+                var token = PrepareLoadingSceneEntry(
+                    transitionIntent,
+                    sourceGeneration,
+                    transitionId: 9900);
+                var destinationGeneration = authority.RegisterSceneBootstrap(
+                    9901,
+                    "loading-owner-terminal-setup-destination");
+
+                var exception = CaptureException(() => installer.Install(host));
+                var session = SceneEntryPresentationRegistry.Current;
+
+                Assert.That(exception, Is.TypeOf<InvalidOperationException>());
+                Assert.That(session.IsActive, Is.True);
+                Assert.That(session.Token, Is.EqualTo(token));
+                Assert.That(session.TransitionIntent, Is.EqualTo(transitionIntent));
+                Assert.That(
+                    session.DestinationStageId,
+                    Is.EqualTo(StageId.CreateOrThrow("stage-0-1")));
+                Assert.That(
+                    session.DestinationSceneGeneration,
+                    Is.Zero,
+                    "Destination registration must remain after terminal/root setup.");
+                Assert.That(
+                    authority.CurrentSceneGeneration,
+                    Is.EqualTo(destinationGeneration));
+                Assert.That(
+                    session.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+                Assert.That(
+                    session.FailureReason,
+                    Does.Contain("DESTINATION_ENTRY_INSTALL_FAILED"));
+                Assert.That(
+                    SceneEntryPresentationRegistry.IsActive,
+                    Is.True,
+                    "The failed owner must retain persistent-cover and input admission ownership.");
+
+                if (transitionIntent == SceneTransitionIntent.DeathRetry)
+                {
+                    var terminalSession = authority.Current;
+                    Assert.That(terminalSession.Token, Is.EqualTo(terminalToken));
+                    Assert.That(
+                        terminalSession.Phase,
+                        Is.EqualTo(TerminalSessionPhase.FailedHoldingCover));
+                    Assert.That(
+                        terminalSession.FailureReason,
+                        Is.EqualTo(exception.Message));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void EnsureTerminalTransitionPortThrow_DefeatReportsOwnersIndependently()
+        {
+            var root = new GameObject(
+                nameof(EnsureTerminalTransitionPortThrow_DefeatReportsOwnersIndependently));
+            var reportException = new InvalidOperationException(
+                "LOADING_SCENE_ENTRY_REPORT_FAILURE");
+            var token = default(SceneEntrySessionToken);
+            void ThrowAfterSceneEntryFailure(SceneEntryPresentationSnapshot snapshot)
+            {
+                if (snapshot.Token == token &&
+                    snapshot.Phase == SceneEntryPresentationPhase.FailedHoldingCover)
+                {
+                    throw reportException;
+                }
+            }
+
+            try
+            {
+                var host = CreateHost(root);
+                var installer = root.AddComponent<GameplayUiFlowInstaller>();
+                var invalidRoot = new GameObject("InvalidGameplayUiCanvasRoot")
+                    .AddComponent<GameplayUiCanvasRootView>();
+                invalidRoot.transform.SetParent(root.transform, false);
+                SetPrivateField(installer, "_rootView", invalidRoot);
+
+                var authority = TerminalSessionRegistry.Authority;
+                var sourceGeneration = authority.CurrentSceneGeneration;
+                var terminalClaim = authority.TryClaim(
+                    new TerminalClaimRequest(
+                        TerminalTransitionKind.Defeat,
+                        sourceGeneration,
+                        TerminalDestinationKind.ReloadedGameplay));
+                Assert.That(terminalClaim.Accepted, Is.True);
+                Assert.That(
+                    authority.TryBindTransition(
+                        terminalClaim.Token,
+                        transitionId: 9902,
+                        TerminalDestinationKind.ReloadedGameplay),
+                    Is.True);
+                Assert.That(
+                    authority.TryAdvancePhase(
+                        terminalClaim.Token,
+                        TerminalSessionPhase.WaitingDestinationReady),
+                    Is.True);
+                token = PrepareLoadingSceneEntry(
+                    SceneTransitionIntent.DeathRetry,
+                    sourceGeneration,
+                    transitionId: 9902);
+                authority.RegisterSceneBootstrap(
+                    9903,
+                    "loading-owner-dual-report-destination");
+                SceneEntryPresentationRegistry.ReadModel.Changed +=
+                    ThrowAfterSceneEntryFailure;
+
+                var exception = CaptureException(() => installer.Install(host));
+
+                Assert.That(exception, Is.TypeOf<InvalidOperationException>());
+                Assert.That(exception, Is.Not.SameAs(reportException));
+                Assert.That(
+                    exception.Data["SceneEntryFailureReportingFailure"],
+                    Is.SameAs(reportException));
+                Assert.That(
+                    SceneEntryPresentationRegistry.Current.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+                Assert.That(
+                    TerminalSessionRegistry.Current.Token,
+                    Is.EqualTo(terminalClaim.Token));
+                Assert.That(
+                    TerminalSessionRegistry.Current.Phase,
+                    Is.EqualTo(TerminalSessionPhase.FailedHoldingCover));
+                Assert.That(
+                    TerminalSessionRegistry.Current.FailureReason,
+                    Is.EqualTo(exception.Message));
+            }
+            finally
+            {
+                SceneEntryPresentationRegistry.ReadModel.Changed -=
+                    ThrowAfterSceneEntryFailure;
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase("NoActiveSceneEntry")]
+        [TestCase("StaleToken")]
+        [TestCase("NewerToken")]
+        [TestCase("GenerationMismatch")]
+        [TestCase("IntentMismatch")]
+        [TestCase("DestinationMismatch")]
+        [TestCase("WaitingRuntimeReady")]
+        [TestCase("Completed")]
+        [TestCase("AlreadyFailed")]
+        public void LoadingSceneEntryFailureGuard_PreservesNonMatchingOwner(
+            string isolationCase)
+        {
+            var authority = TerminalSessionRegistry.Authority;
+            var sourceGeneration = authority.RegisterSceneBootstrap(
+                9904,
+                "loading-owner-guard-source");
+            var token = PrepareLoadingSceneEntry(
+                SceneTransitionIntent.ManualRetry,
+                sourceGeneration,
+                transitionId: 9905);
+            var expectedOwner = SceneEntryPresentationRegistry.Current;
+            var expectedDestinationGeneration = authority.RegisterSceneBootstrap(
+                9906,
+                "loading-owner-guard-destination");
+
+            switch (isolationCase)
+            {
+                case "NoActiveSceneEntry":
+                    SceneEntryPresentationRegistry.ResetForTests();
+                    break;
+                case "StaleToken":
+                    expectedOwner = CopyWithToken(
+                        expectedOwner,
+                        new SceneEntrySessionToken(token.Value + 1000));
+                    break;
+                case "NewerToken":
+                    SceneEntryPresentationRegistry.ResetForTests();
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryClaim(
+                            SceneTransitionIntent.ManualRetry,
+                            StageId.CreateOrThrow("stage-0-1"),
+                            sourceGeneration,
+                            out var dummyToken),
+                        Is.True);
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryCancelClaim(dummyToken),
+                        Is.True);
+                    PrepareLoadingSceneEntry(
+                        SceneTransitionIntent.ManualRetry,
+                        sourceGeneration,
+                        transitionId: 9907);
+                    break;
+                case "GenerationMismatch":
+                    authority.RegisterSceneBootstrap(
+                        9908,
+                        "loading-owner-guard-generation-mismatch");
+                    break;
+                case "IntentMismatch":
+                    SceneEntryPresentationRegistry.ResetForTests();
+                    PrepareLoadingSceneEntry(
+                        SceneTransitionIntent.GameplayEntry,
+                        sourceGeneration,
+                        transitionId: 9905);
+                    break;
+                case "DestinationMismatch":
+                    SceneEntryPresentationRegistry.ResetForTests();
+                    PrepareLoadingSceneEntry(
+                        SceneTransitionIntent.ManualRetry,
+                        sourceGeneration,
+                        transitionId: 9905,
+                        destinationStageId: "stage-0-2");
+                    break;
+                case "WaitingRuntimeReady":
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryRegisterDestinationScene(
+                            token,
+                            expectedDestinationGeneration),
+                        Is.True);
+                    break;
+                case "Completed":
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryRegisterDestinationScene(
+                            token,
+                            expectedDestinationGeneration),
+                        Is.True);
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryAdvance(
+                            token,
+                            SceneEntryPresentationPhase.EntryIrisClosed),
+                        Is.True);
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryAdvance(
+                            token,
+                            SceneEntryPresentationPhase.Opening),
+                        Is.True);
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryComplete(token),
+                        Is.True);
+                    break;
+                case "AlreadyFailed":
+                    Assert.That(
+                        SceneEntryPresentationRegistry.TryFailHoldingCover(
+                            token,
+                            "existing loading owner failure"),
+                        Is.True);
+                    break;
+                default:
+                    Assert.Fail($"Unknown isolation case: {isolationCase}");
+                    break;
+            }
+
+            var before = SceneEntryPresentationRegistry.Current;
+            InvokePrivateStatic(
+                typeof(GameplayUiFlowInstaller),
+                "ReportCapturedLoadingSceneEntryFailureIfOwned",
+                expectedOwner,
+                expectedDestinationGeneration,
+                "UNEXPECTED_LOADING_OWNER_MUTATION",
+                isolationCase);
+            var after = SceneEntryPresentationRegistry.Current;
+            AssertSceneEntrySnapshotEqual(before, after);
+        }
+
         [TestCase("ConfigureTransitionColor", "ManualRetry")]
         [TestCase("Show", "ManualRetry")]
         [TestCase("ApplyClosedEntry", "ManualRetry")]
@@ -634,12 +939,13 @@ namespace Game.Feature.UI.Tests
         private static SceneEntrySessionToken PrepareLoadingSceneEntry(
             SceneTransitionIntent intent,
             long sourceGeneration,
-            long transitionId)
+            long transitionId,
+            string destinationStageId = "stage-0-1")
         {
             Assert.That(
                 SceneEntryPresentationRegistry.TryClaim(
                     intent,
-                    StageId.CreateOrThrow("stage-0-1"),
+                    StageId.CreateOrThrow(destinationStageId),
                     sourceGeneration,
                     out var token),
                 Is.True);
@@ -659,6 +965,25 @@ namespace Game.Feature.UI.Tests
                     SceneEntryPresentationPhase.Loading),
                 Is.True);
             return token;
+        }
+
+        private static SceneEntryPresentationSnapshot CopyWithToken(
+            SceneEntryPresentationSnapshot snapshot,
+            SceneEntrySessionToken token)
+        {
+            return new SceneEntryPresentationSnapshot(
+                snapshot.IsActive,
+                token,
+                snapshot.Phase,
+                snapshot.TransitionIntent,
+                snapshot.DestinationStageId,
+                snapshot.TransitionId,
+                snapshot.SourceSceneGeneration,
+                snapshot.DestinationSceneGeneration,
+                snapshot.LaunchProvenance,
+                snapshot.LaunchSlotNumber,
+                snapshot.LaunchToken,
+                snapshot.FailureReason);
         }
 
         private static MainMenuEntrySessionToken PrepareLoadingMainMenuEntry(
@@ -831,8 +1156,25 @@ namespace Game.Feature.UI.Tests
             Assert.That(actual.Token, Is.EqualTo(expected.Token));
             Assert.That(actual.Phase, Is.EqualTo(expected.Phase));
             Assert.That(
+                actual.TransitionIntent,
+                Is.EqualTo(expected.TransitionIntent));
+            Assert.That(
+                actual.DestinationStageId,
+                Is.EqualTo(expected.DestinationStageId));
+            Assert.That(actual.TransitionId, Is.EqualTo(expected.TransitionId));
+            Assert.That(
+                actual.SourceSceneGeneration,
+                Is.EqualTo(expected.SourceSceneGeneration));
+            Assert.That(
                 actual.DestinationSceneGeneration,
                 Is.EqualTo(expected.DestinationSceneGeneration));
+            Assert.That(
+                actual.LaunchProvenance,
+                Is.EqualTo(expected.LaunchProvenance));
+            Assert.That(
+                actual.LaunchSlotNumber,
+                Is.EqualTo(expected.LaunchSlotNumber));
+            Assert.That(actual.LaunchToken, Is.EqualTo(expected.LaunchToken));
             Assert.That(actual.FailureReason, Is.EqualTo(expected.FailureReason));
         }
 

@@ -479,22 +479,15 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
-            var expectedSceneEntryToken = default(SceneEntrySessionToken);
-            var expectedSceneEntryDestinationGeneration = 0L;
+            CaptureInstallAttemptLoadingSceneEntryOwnerIfApplicable(
+                out var expectedLoadingSceneEntryOwner,
+                out var expectedSceneEntryDestinationGeneration);
+            var expectedSceneEntryToken = expectedLoadingSceneEntryOwner.Token;
             try
             {
                 EnsureTerminalTransitionPort(sceneHost);
                 _installedSceneHost = sceneHost;
                 _gameplayWorldGuidePresenter = sceneHost.GetComponent<GameplayWorldGuidePresenter>();
-                var sceneEntrySession = SceneEntryPresentationRegistry.Current;
-                if (sceneEntrySession.IsActive &&
-                    sceneEntrySession.Phase == SceneEntryPresentationPhase.Loading)
-                {
-                    expectedSceneEntryToken = sceneEntrySession.Token;
-                    expectedSceneEntryDestinationGeneration =
-                        TerminalSessionRegistry.Authority.CurrentSceneGeneration;
-                }
-
                 RegisterSceneEntryDestinationIfApplicable();
                 _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
                 _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
@@ -514,6 +507,11 @@ namespace Game.Feature.UI.Composition
             {
                 try
                 {
+                    ReportCapturedLoadingSceneEntryFailureIfOwned(
+                        expectedLoadingSceneEntryOwner,
+                        expectedSceneEntryDestinationGeneration,
+                        "DESTINATION_ENTRY_INSTALL_FAILED",
+                        exception.Message);
                     ReportSceneEntryFailureIfOwned(
                         expectedSceneEntryToken,
                         expectedSceneEntryDestinationGeneration,
@@ -1536,6 +1534,74 @@ namespace Game.Feature.UI.Composition
                 session.DestinationSceneGeneration,
                 code,
                 message);
+        }
+
+        private static void CaptureInstallAttemptLoadingSceneEntryOwnerIfApplicable(
+            out SceneEntryPresentationSnapshot expectedOwner,
+            out long expectedDestinationGeneration)
+        {
+            expectedOwner = default;
+            expectedDestinationGeneration = 0;
+
+            var session = SceneEntryPresentationRegistry.Current;
+            var destinationGeneration =
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration;
+            if (!session.IsActive ||
+                !session.Token.IsValid ||
+                session.Phase != SceneEntryPresentationPhase.Loading ||
+                session.TransitionIntent == SceneTransitionIntent.Unknown ||
+                !session.DestinationStageId.IsValid ||
+                session.SourceSceneGeneration <= 0 ||
+                session.DestinationSceneGeneration != 0 ||
+                destinationGeneration <= 0 ||
+                destinationGeneration == session.SourceSceneGeneration)
+            {
+                return;
+            }
+
+            expectedOwner = session;
+            expectedDestinationGeneration = destinationGeneration;
+        }
+
+        private static void ReportCapturedLoadingSceneEntryFailureIfOwned(
+            SceneEntryPresentationSnapshot expectedOwner,
+            long expectedDestinationGeneration,
+            string code,
+            string message)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!expectedOwner.IsActive ||
+                !expectedOwner.Token.IsValid ||
+                expectedOwner.Phase != SceneEntryPresentationPhase.Loading ||
+                expectedOwner.DestinationSceneGeneration != 0 ||
+                expectedDestinationGeneration <= 0 ||
+                expectedDestinationGeneration ==
+                expectedOwner.SourceSceneGeneration ||
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration !=
+                expectedDestinationGeneration ||
+                !session.IsActive ||
+                session.Token != expectedOwner.Token ||
+                session.Phase != SceneEntryPresentationPhase.Loading ||
+                session.TransitionIntent != expectedOwner.TransitionIntent ||
+                !session.DestinationStageId.Equals(
+                    expectedOwner.DestinationStageId) ||
+                session.TransitionId != expectedOwner.TransitionId ||
+                session.SourceSceneGeneration !=
+                expectedOwner.SourceSceneGeneration ||
+                session.DestinationSceneGeneration != 0 ||
+                session.LaunchProvenance != expectedOwner.LaunchProvenance ||
+                session.LaunchSlotNumber != expectedOwner.LaunchSlotNumber ||
+                session.LaunchToken != expectedOwner.LaunchToken)
+            {
+                return;
+            }
+
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? "Gameplay destination UI installation failed without exception details."
+                : message;
+            SceneEntryPresentationRegistry.TryFailHoldingCover(
+                session.Token,
+                $"{code}: {detail}");
         }
 
         private static void ReportSceneEntryFailureIfOwned(
