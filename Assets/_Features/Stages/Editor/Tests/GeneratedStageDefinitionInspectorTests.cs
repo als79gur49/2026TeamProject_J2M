@@ -119,6 +119,113 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void UnsavedGeneratedGameplayDefinitionChange_InvalidatesOwnershipIndex()
+        {
+            EnsureTemporaryRoot();
+            var previousStage = CreateAsset<StageDefinition>($"{TemporaryRoot}/previous.asset");
+            var newStage = CreateAsset<StageDefinition>($"{TemporaryRoot}/new.asset");
+            var owner = CreateOwnerAsset($"{TemporaryRoot}/owner.asset", previousStage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(previousStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(1));
+
+            var serialized = new SerializedObject(owner);
+            var previousReference = owner.GeneratedGameplayDefinition;
+            serialized.FindProperty("generatedGameplayDefinition").objectReferenceValue = newStage;
+            Assert.That(
+                StageAuthoringDefinitionEditor.ApplyModifiedPropertiesAndInvalidateOwnership(
+                    serialized,
+                    previousReference),
+                Is.True);
+            Assert.That(EditorUtility.IsDirty(owner), Is.True);
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(previousStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(newStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(2));
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(previousStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(newStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void UnrelatedAuthoringPropertyChange_DoesNotInvalidateOwnershipIndex()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            var owner = CreateOwnerAsset($"{TemporaryRoot}/owner.asset", stage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(1));
+
+            var serialized = new SerializedObject(owner);
+            serialized.FindProperty("enforceGeneratedSync").boolValue = !owner.EnforceGeneratedSync;
+            Assert.That(
+                StageAuthoringDefinitionEditor.ApplyModifiedPropertiesAndInvalidateOwnership(
+                    serialized,
+                    owner.GeneratedGameplayDefinition),
+                Is.True);
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void UndoRedoGeneratedReferenceChange_RefreshesOwnership()
+        {
+            EnsureTemporaryRoot();
+            var previousStage = CreateAsset<StageDefinition>($"{TemporaryRoot}/previous.asset");
+            var newStage = CreateAsset<StageDefinition>($"{TemporaryRoot}/new.asset");
+            var owner = CreateOwnerAsset($"{TemporaryRoot}/owner.asset", previousStage);
+            UnityEditor.Editor editor = null;
+            try
+            {
+                Undo.RecordObject(owner, "Change generated gameplay definition");
+                owner.AssignGeneratedDefinitions(newStage, null);
+                EditorUtility.SetDirty(owner);
+                Undo.FlushUndoRecordObjects();
+                editor = UnityEditor.Editor.CreateEditor(owner);
+                StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+                Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(newStage).Kind,
+                    Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+                Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(1));
+
+                Undo.PerformUndo();
+
+                Assert.That(owner.GeneratedGameplayDefinition, Is.SameAs(previousStage));
+                Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(previousStage).Kind,
+                    Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+                Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(newStage).Kind,
+                    Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+                Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(2));
+
+                Undo.PerformRedo();
+
+                Assert.That(owner.GeneratedGameplayDefinition, Is.SameAs(newStage));
+                Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(previousStage).Kind,
+                    Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+                Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(newStage).Kind,
+                    Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+                Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(3));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(editor);
+                Undo.ClearUndo(owner);
+            }
+        }
+
+        [Test]
         public void GeneratedOwnership_RemainsCorrectAfterRebuild()
         {
             EnsureTemporaryRoot();
@@ -708,6 +815,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(inspectorSource, Does.Contain("serializedObject.FindProperty(\"enemyUnitArchetypeCatalog\")"));
             Assert.That(resolverSource, Does.Contain("EditorApplication.projectChanged += Invalidate"));
             Assert.That(resolverSource, Does.Contain("StageGeneratedDefinitionOwnershipIndex.GetOwners(target)"));
+            var authoringInspectorSource = File.ReadAllText(
+                "Assets/_Features/Stages/Editor/Authoring/StageAuthoringDefinitionEditor.cs");
+            Assert.That(authoringInspectorSource, Does.Contain("ApplyModifiedPropertiesAndInvalidateOwnership"));
+            Assert.That(authoringInspectorSource, Does.Contain("Undo.undoRedoPerformed += HandleOwnershipUndoRedo"));
             Assert.That(writerSource, Does.Contain("StageAuthoringGenerationSaveSet.SaveTouchedAssets(plan, options);"));
             Assert.That(writerSource, Does.Not.Contain("AssetDatabase.SaveAssets"));
             Assert.That(writerSource, Does.Not.Contain("enemyUnitArchetypeCatalog"));

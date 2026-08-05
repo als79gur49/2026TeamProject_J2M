@@ -115,6 +115,19 @@ namespace Game.Feature.Stages.Editor
             ownersByTarget = null;
         }
 
+        internal static bool InvalidateIfGeneratedGameplayDefinitionChanged(
+            StageDefinition previous,
+            StageDefinition current)
+        {
+            if (ReferenceEquals(previous, current))
+            {
+                return false;
+            }
+
+            Invalidate();
+            return true;
+        }
+
         internal static void ResetForTests()
         {
             ownersByTarget = null;
