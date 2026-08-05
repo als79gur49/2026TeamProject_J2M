@@ -123,6 +123,9 @@ namespace Game.Feature.UI.Screens
         private readonly ILocalizedTextResolver _localeSource;
         private readonly GameplayUiTypographyTheme _typographyTheme;
         private readonly TypographyBinding _typographyBinding;
+        private readonly TypographyStyleTag _styleTag;
+        private readonly TmpTypographyAuthoredState _authoredState;
+        private readonly bool _usesExplicitStyleTag;
         private bool _isDisposed;
 
         public LocalizedTmpTypographyBinding(
@@ -153,10 +156,56 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        public LocalizedTmpTypographyBinding(
+            TMP_Text target,
+            ILocalizedTextResolver localeSource,
+            GameplayUiTypographyTheme typographyTheme,
+            TypographyStyleTag styleTag)
+        {
+            _target = target ?? throw new ArgumentNullException(nameof(target));
+            _localeSource = localeSource ?? throw new ArgumentNullException(nameof(localeSource));
+            _typographyTheme = typographyTheme ?? throw new ArgumentNullException(nameof(typographyTheme));
+            _styleTag = styleTag;
+            _authoredState = TmpTypographyAuthoredState.Capture(target);
+            _usesExplicitStyleTag = true;
+
+            try
+            {
+                _localeSource.LocaleChanged += HandleLocaleChanged;
+                Refresh();
+            }
+            catch
+            {
+                _localeSource.LocaleChanged -= HandleLocaleChanged;
+                throw;
+            }
+        }
+
         public void Refresh()
         {
             if (_isDisposed || _target == null)
             {
+                return;
+            }
+
+            if (_usesExplicitStyleTag)
+            {
+                if (!_typographyTheme.TryResolve(
+                        _localeSource.CurrentLocaleCode,
+                        _styleTag,
+                        out var explicitStyle))
+                {
+                    throw new InvalidOperationException(
+                        $"Typography style '{_styleTag}' is not available for locale " +
+                        $"'{_localeSource.CurrentLocaleCode}'.");
+                }
+
+                LocalizedTmpTextApplicator.ApplyResolvedTypography(
+                    _target,
+                    explicitStyle,
+                    _authoredState,
+                    explicitStyle.ApplyMask,
+                    TypographySizingSource.Hybrid);
                 return;
             }
 

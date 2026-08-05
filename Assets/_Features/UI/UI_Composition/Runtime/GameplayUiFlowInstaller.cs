@@ -63,6 +63,9 @@ namespace Game.Feature.UI.Composition
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
+        private GameplayHudLocalizationBinding _gameplayHudLocalizationBinding;
+        private GameplayWorldGuideLocalizationController _gameplayWorldGuideLocalizationController;
+        private GameplayWorldGuidePresenter _gameplayWorldGuidePresenter;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private ILocalizedTextResolver _localizedTextResolver;
@@ -481,6 +484,7 @@ namespace Game.Feature.UI.Composition
             {
                 EnsureTerminalTransitionPort(sceneHost);
                 _installedSceneHost = sceneHost;
+                _gameplayWorldGuidePresenter = sceneHost.GetComponent<GameplayWorldGuidePresenter>();
                 var sceneEntrySession = SceneEntryPresentationRegistry.Current;
                 if (sceneEntrySession.IsActive &&
                     sceneEntrySession.Phase == SceneEntryPresentationPhase.Loading)
@@ -618,6 +622,23 @@ namespace Game.Feature.UI.Composition
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
             _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
+            _gameplayHudLocalizationBinding =
+                _rootView.HudView.GetComponent<GameplayHudLocalizationBinding>();
+            if (_gameplayHudLocalizationBinding == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplayHudRoot is missing GameplayHudLocalizationBinding.");
+            }
+
+            _gameplayHudLocalizationBinding.Initialize(_localizedTextResolver);
+            if (_gameplayWorldGuidePresenter != null)
+            {
+                _gameplayWorldGuideLocalizationController =
+                    new GameplayWorldGuideLocalizationController(
+                        _gameplayWorldGuidePresenter,
+                        _localizedTextResolver,
+                        _gameplayHudLocalizationBinding.Theme);
+            }
 
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
@@ -713,6 +734,10 @@ namespace Game.Feature.UI.Composition
             }
 
             _isDisposed = true;
+            _gameplayWorldGuideLocalizationController?.Dispose();
+            _gameplayWorldGuideLocalizationController = null;
+            _gameplayHudLocalizationBinding?.Dispose();
+            _gameplayHudLocalizationBinding = null;
             // Dispose the persistent HUD presenter before any view/controller teardown can
             // encounter a partially destroyed hidden HUD hierarchy.
             HudRootPresenter?.Dispose();

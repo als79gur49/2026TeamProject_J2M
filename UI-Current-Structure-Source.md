@@ -86,6 +86,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - `DeathRetryChanceLost` resolves exactly to the dedicated `ChanceLostOverlayContent` prefab because it owns slot/effect-driven chance-loss visuals and does not expose dynamic previous/current/total/death chance text bindings; its current authored slots use explicit inspector-bound slot roots, and `ChanceSlotView*` name fallback exists only as a safety net.
 - Other canonical transition kinds use typed Iris executors and do not infer content through an overlay-kind or generic catalog fallback.
 - Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
+- Scene transition overlay models carry semantic identity, input/progress state, and typed chance-loss numeric state only. Generic `Title` and `Message` payload/model members are retired because no transition renderer consumed them; the coordinator does not resolve player-facing transition copy.
 - `LevelFailedRestart` has no current dedicated message/text content contract; the old LevelFailed-only transition message field was removed as stale residue.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.
 - `UiNavigationInputRouter` is a resolver-only input router initialized through `IUiNavigationTargetResolver`.

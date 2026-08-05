@@ -441,9 +441,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         currentStageId: stageId,
                         retryStageId: stageId,
                         deathCount: 1,
-                        source: "campaign-death-retry",
-                        title: "Chance Lost",
-                        message: "Retrying."))
+                        source: "campaign-death-retry"))
                 .WithTerminalClaim(claim.Token);
             var navigationRequest = new StageNavigationRequest(
                 stageId,

@@ -333,8 +333,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 view.Bind(new SceneTransitionOverlayModel(
                     StageTransitionKind.DeathRetryChanceLost,
                     TransitionOverlayKind.ChanceLost,
-                    "Chance Lost",
-                    "Retrying.",
                     blockInput: true,
                     showProgress: true,
                     progress01: 0f,
@@ -627,8 +625,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     new SceneTransitionOverlayModel(
                         StageTransitionKind.DeathRetryChanceLost,
                         TransitionOverlayKind.ChanceLost,
-                        "Chance Lost",
-                        "Retrying.",
                         blockInput: true,
                         showProgress: true,
                         progress01: 0f,
@@ -763,9 +759,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         stageId,
                         stageId,
                         deathCount: 1,
-                        source: "campaign-death-retry",
-                        title: "Chance Lost",
-                        message: "Retrying."))
+                        source: "campaign-death-retry"))
                 .WithTerminalClaim(terminalToken);
             return new StageNavigationRequest(
                 stageId,

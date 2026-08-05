@@ -88,6 +88,7 @@ __pycache__/
 /[Tt]est[Rr]esult/
 /[Tt]est[Rr]esults/
 /TestLogs/SaveReadiness/
+/TestLogs/M1aHudGuideVisualQA/
 
 # Unity PlayMode test runner temporary scenes
 /[Aa]ssets/InitTestScene*.unity

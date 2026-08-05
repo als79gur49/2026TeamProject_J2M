@@ -3183,6 +3183,6 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the Exit Zone
+      AuthoringLabel: Reach the Exit Zone
       SortOrder: 0
   enemyUnitArchetypeCatalog: {fileID: 0}

@@ -17,6 +17,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private TMP_Text _bodyLabel;
+        [SerializeField] private TMP_Text _warningLabel;
         [SerializeField] private Button _confirmButton;
         [SerializeField] private Button _cancelButton;
         [SerializeField] private TMP_Text _confirmButtonLabel;
@@ -38,6 +39,8 @@ namespace Game.Feature.UI.Popups
         public string TitleText => _viewModel != null ? _viewModel.TitleText : string.Empty;
 
         public string BodyText => _viewModel != null ? _viewModel.BodyText : string.Empty;
+
+        public string WarningText => _viewModel != null ? _viewModel.WarningText : string.Empty;
 
         public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
@@ -76,6 +79,7 @@ namespace Game.Feature.UI.Popups
             {
                 _titleLabel,
                 _bodyLabel,
+                _warningLabel,
                 _confirmButtonLabel,
                 _cancelButtonLabel,
             };
@@ -241,6 +245,13 @@ namespace Game.Feature.UI.Popups
         private void RefreshView()
         {
             ApplyRootVisibility();
+
+            var warningText = _viewModel != null ? _viewModel.WarningText : string.Empty;
+            if (_warningLabel != null)
+            {
+                _warningLabel.text = warningText;
+                _warningLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(warningText));
+            }
 
             if (_viewModel == null)
             {

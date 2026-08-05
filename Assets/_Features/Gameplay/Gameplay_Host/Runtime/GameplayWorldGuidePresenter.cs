@@ -8,8 +8,15 @@ using UnityEngine.InputSystem;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public interface IWorldGuideLocalizationSource
+    {
+        event Action GuidesChanged;
+
+        void CopyLocalizationTargets(List<IWorldGuideLocalizationTarget> destination);
+    }
+
     [DisallowMultipleComponent]
-    public sealed class GameplayWorldGuidePresenter : MonoBehaviour
+    public sealed class GameplayWorldGuidePresenter : MonoBehaviour, IWorldGuideLocalizationSource
     {
         private sealed class GuideInstance
         {
@@ -28,7 +35,26 @@ namespace Game.Feature.Gameplay.Host
         private KeyboardBindingSettingsSnapshot _keyboardBindingSnapshot;
         private bool _initialized;
 
+        public event Action GuidesChanged;
+
         public int InstanceCount => _instances.Count;
+
+        public void CopyLocalizationTargets(List<IWorldGuideLocalizationTarget> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            destination.Clear();
+            for (var i = 0; i < _instances.Count; i++)
+            {
+                if (_instances[i].View != null)
+                {
+                    destination.Add(_instances[i].View);
+                }
+            }
+        }
 
         public void Initialize(
             StageWorldGuideCatalog catalog,
@@ -37,7 +63,8 @@ namespace Game.Feature.Gameplay.Host
             ISurfaceCellPresentationPoseResolver poseResolver,
             Camera viewCamera,
             Transform parent,
-            InputActionAsset actions = null)
+            InputActionAsset actions = null,
+            IKeyboardBindingStore bindingStore = null)
         {
             Cleanup();
 
@@ -45,7 +72,7 @@ namespace Game.Feature.Gameplay.Host
             _poseResolver = poseResolver;
             _viewCamera = viewCamera;
             _parent = parent != null ? parent : transform;
-            ConfigureKeyboardBindings(actions);
+            ConfigureKeyboardBindings(actions, bindingStore);
             _initialized = true;
 
             if (catalog == null || instructions == null || instructions.Count == 0)
@@ -58,11 +85,13 @@ namespace Game.Feature.Gameplay.Host
                 InstantiateGuide(catalog, instructions[i], i);
             }
 
+            GuidesChanged?.Invoke();
             RefreshAll();
         }
 
         public void Cleanup()
         {
+            var hadInstances = _instances.Count > 0;
             for (var i = 0; i < _instances.Count; i++)
             {
                 var view = _instances[i].View;
@@ -82,9 +111,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _instances.Clear();
+            KeyboardBindingSettingsService.BindingsChanged -= HandleKeyboardBindingsChanged;
             _keyboardBindingSettingsService?.Dispose();
             _keyboardBindingSettingsService = null;
             _initialized = false;
+            if (hadInstances)
+            {
+                GuidesChanged?.Invoke();
+            }
         }
 
         private void LateUpdate()
@@ -168,7 +202,9 @@ namespace Game.Feature.Gameplay.Host
             instance.View.SetVisible(true);
         }
 
-        private void ConfigureKeyboardBindings(InputActionAsset actions)
+        private void ConfigureKeyboardBindings(
+            InputActionAsset actions,
+            IKeyboardBindingStore bindingStore)
         {
             _keyboardBindingSnapshot = new KeyboardBindingSettingsSnapshot(
                 KeyboardMovementScheme.Wasd,
@@ -183,8 +219,18 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _keyboardBindingSettingsService = new KeyboardBindingSettingsService(actions);
+            _keyboardBindingSettingsService = new KeyboardBindingSettingsService(actions, bindingStore);
             _keyboardBindingSnapshot = _keyboardBindingSettingsService.Read();
+            KeyboardBindingSettingsService.BindingsChanged += HandleKeyboardBindingsChanged;
+        }
+
+        private void HandleKeyboardBindingsChanged(KeyboardBindingSettingsSnapshot snapshot)
+        {
+            _keyboardBindingSnapshot = snapshot;
+            for (var i = 0; i < _instances.Count; i++)
+            {
+                _instances[i].View?.ApplyKeyboardBindings(snapshot);
+            }
         }
 
         private bool TryResolvePose(

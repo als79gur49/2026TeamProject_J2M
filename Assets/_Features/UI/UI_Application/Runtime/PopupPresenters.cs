@@ -75,6 +75,7 @@ namespace Game.Feature.UI.Application
             ViewModel.SetContent(
                 Resolve(payload.TitleTextDescriptor, payload.TitleText),
                 Resolve(payload.BodyTextDescriptor, payload.BodyText),
+                Resolve(payload.WarningTextDescriptor, payload.WarningText),
                 Resolve(payload.ConfirmLabelDescriptor, payload.ConfirmLabel),
                 Resolve(payload.CancelLabelDescriptor, payload.CancelLabel),
                 payload.IsConfirmDestructive);

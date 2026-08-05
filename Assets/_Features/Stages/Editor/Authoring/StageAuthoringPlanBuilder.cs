@@ -38,6 +38,18 @@ namespace Game.Feature.Stages.Editor
                     string.Empty);
             }
 
+            ValidateObjectiveAuthoringLabels(source, report);
+            if (report.HasErrors)
+            {
+                return new StageAuthoringGenerationPlan(
+                    source,
+                    gameplayOutput,
+                    presentationOutput,
+                    null,
+                    report,
+                    options);
+            }
+
             var allocation = StageAuthoringEntityIdAllocator.BuildAllocationPlan(source, report);
             if (report.HasErrors)
             {
@@ -83,6 +95,27 @@ namespace Game.Feature.Stages.Editor
                 buildData,
                 report,
                 options);
+        }
+
+        private static void ValidateObjectiveAuthoringLabels(
+            StageAuthoringDefinition source,
+            StageAuthoringGenerationReport report)
+        {
+            var entries = source.Objective.GetConditionEntriesOrEmpty();
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (!StageObjectiveAuthoringMetadataPolicy.IsAuthoringLabelMissing(
+                        entries[i].AuthoringLabel))
+                {
+                    continue;
+                }
+
+                report.Add(
+                    StageValidationSeverity.Error,
+                    StageObjectiveAuthoringMetadataPolicy.AuthoringLabelMissingCode,
+                    $"Objective condition entry[{i}] requires a non-empty authoring label.",
+                    source);
+            }
         }
 
         public static StageAuthoringBuildData BuildExpectedDataForComparison(

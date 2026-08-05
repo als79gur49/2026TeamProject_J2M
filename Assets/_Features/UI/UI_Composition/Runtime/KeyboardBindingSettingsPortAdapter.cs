@@ -71,7 +71,10 @@ namespace Game.Feature.UI.Composition
             return new KeyboardRebindResult(
                 ToUi(result.Action),
                 ToUi(result.Status),
-                ToUi(result.Snapshot));
+                ToUi(result.Snapshot),
+                result.ConflictingAction.HasValue
+                    ? ToUi(result.ConflictingAction.Value)
+                    : (KeyboardBindableAction?)null);
         }
 
         private static KeyboardMovementScheme ToUi(SharedKeyboardMovementScheme scheme)

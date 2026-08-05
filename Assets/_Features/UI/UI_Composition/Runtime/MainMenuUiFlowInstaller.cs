@@ -438,7 +438,9 @@ namespace Game.Feature.UI.Composition
                 sequenceResolver,
                 stageLaunchRouter,
                 _confirmPopupPort,
-                validationService);
+                validationService,
+                _localizedTextResolver,
+                new UnityMainMenuSaveDiagnosticPort());
 
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
@@ -579,6 +581,7 @@ namespace Game.Feature.UI.Composition
 
             _settingsOverlayController?.Dispose();
             _audioSettingsLifecycleRelay?.FlushNow();
+            Controller?.Dispose();
             PopupController?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
         }
@@ -1036,5 +1039,25 @@ namespace Game.Feature.UI.Composition
             }
         }
 
+    }
+
+    internal sealed class UnityMainMenuSaveDiagnosticPort : IMainMenuSaveDiagnosticPort
+    {
+        public void Report(SaveSlotFailureDiagnostic diagnostic)
+        {
+            var slot = diagnostic.SlotNumber > 0
+                ? diagnostic.SlotNumber.ToString()
+                : "all";
+            var reason = (diagnostic.Reason ?? string.Empty)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+            Debug.LogWarning(
+                "[CampaignSaveUI] " +
+                $"operation={diagnostic.Operation} " +
+                $"slot={slot} " +
+                $"failure={diagnostic.FailureKind} " +
+                $"status={diagnostic.LoadStatus} " +
+                $"reason={reason}");
+        }
     }
 }
