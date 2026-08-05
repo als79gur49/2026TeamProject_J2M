@@ -241,6 +241,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ObjectiveConditionSortOrder_GameplayHostObjectiveQuery_SortsByValueThenAuthoringOrder()
+        {
+            var hostObject = new GameObject("ObjectiveConditionSortOrder_GameplayHostObjectiveQuery");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(
+                            new SurfaceCell(FaceId.Floor, 0, 0),
+                            facing: Direction.Right),
+                    },
+                    CreateSortOrderObjectiveDefinition()));
+
+                var objective = host.UiAccess.QueryFacade.Objectives.Read();
+
+                Assert.That(objective.Conditions.Count, Is.EqualTo(3));
+                Assert.That(
+                    objective.Conditions.Select(condition => condition.StableId),
+                    Is.EqualTo(new[] { "tie-earlier", "tie-later", "late" }));
+                Assert.That(
+                    objective.Conditions.Select(condition => condition.SortOrder),
+                    Is.EqualTo(new[] { 10, 10, 20 }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayHostObjectiveQuery_DoesNotExposeRawDetailsOrAuthoringLabel()
         {
             var hostObject = new GameObject("GameplayHostObjectiveQuery_DoesNotExposeRawDetailsAsAuthoringLabel");
@@ -1026,6 +1060,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 playerEntityId: 10,
                 new[] { goalZone },
                 new[] { runtimeEntry });
+        }
+
+        private static StageObjectiveRuntimeDefinition CreateSortOrderObjectiveDefinition()
+        {
+            var goalZone = new StageZoneRuntimeDefinition(
+                "goal",
+                FaceId.Floor,
+                new[]
+                {
+                    new StageZoneRuntimeRegion(
+                        new Vector2Int(0, 0),
+                        new Vector2Int(0, 0)),
+                });
+            var entries = new[]
+            {
+                CreateSortOrderRuntimeEntry("late", goalZone, sortOrder: 20, authoringOrder: 0),
+                CreateSortOrderRuntimeEntry("tie-later", goalZone, sortOrder: 10, authoringOrder: 2),
+                CreateSortOrderRuntimeEntry("tie-earlier", goalZone, sortOrder: 10, authoringOrder: 1),
+            };
+
+            return new StageObjectiveRuntimeDefinition(
+                StageCompletionPolicy.RequireAllConditions,
+                playerEntityId: 10,
+                new[] { goalZone },
+                entries);
+        }
+
+        private static StageObjectiveConditionRuntimeDefinitionEntry CreateSortOrderRuntimeEntry(
+            string stableConditionId,
+            StageZoneRuntimeDefinition goalZone,
+            int sortOrder,
+            int authoringOrder)
+        {
+            return new StageObjectiveConditionRuntimeDefinitionEntry(
+                new PlayerAtAnyZoneConditionRuntimeDefinition(
+                    stableConditionId,
+                    stableConditionId,
+                    playerEntityId: 10,
+                    new[] { goalZone },
+                    requireAlive: true),
+                required: true,
+                role: StageObjectiveConditionRole.SecondaryGoal,
+                stableConditionId,
+                StageObjectiveConditionPresentationIds.ReachZone,
+                "reach-zone|role-2",
+                sortOrder,
+                authoringOrder);
         }
 
         private static PlayerControlTimingSettings CreateRecoveryTimingSettings(

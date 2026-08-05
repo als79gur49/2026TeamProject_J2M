@@ -11,7 +11,8 @@ namespace Game.Feature.Stages.Editor
     {
         public static void ApplyPlan(
             StageAuthoringGenerationPlan plan,
-            StageAuthoringGenerateOptions options)
+            StageAuthoringGenerateOptions options,
+            bool recordUndo = true)
         {
             if (plan == null || plan.Source == null || plan.BuildData == null || plan.Allocation == null)
             {
@@ -19,15 +20,15 @@ namespace Game.Feature.Stages.Editor
             }
 
             options ??= plan.Options ?? StageAuthoringGenerateOptions.WriteAll;
-            ApplyMappings(plan.Source, plan.Allocation.Mappings);
+            ApplyMappings(plan.Source, plan.Allocation.Mappings, recordUndo);
             if (options.WriteGameplay && plan.GameplayOutput != null)
             {
-                ApplyGameplayOutput(plan.GameplayOutput, plan.BuildData);
+                ApplyGameplayOutput(plan.GameplayOutput, plan.BuildData, recordUndo);
             }
 
             if (options.WritePresentationBindings && plan.PresentationOutput != null)
             {
-                ApplyPresentationOutput(plan.PresentationOutput, plan.BuildData);
+                ApplyPresentationOutput(plan.PresentationOutput, plan.BuildData, recordUndo);
             }
 
             StageAuthoringGenerationSaveSet.SaveTouchedAssets(plan, options);
@@ -107,9 +108,14 @@ namespace Game.Feature.Stages.Editor
 
         private static void ApplyMappings(
             StageAuthoringDefinition source,
-            IReadOnlyList<StageAuthoringIdMapping> mappings)
+            IReadOnlyList<StageAuthoringIdMapping> mappings,
+            bool recordUndo)
         {
-            Undo.RecordObject(source, "Generate Stage Authoring Entity IDs");
+            if (recordUndo)
+            {
+                Undo.RecordObject(source, "Generate Stage Authoring Entity IDs");
+            }
+
             source.SetEntityIdMappings(mappings);
             EditorUtility.SetDirty(source);
         }

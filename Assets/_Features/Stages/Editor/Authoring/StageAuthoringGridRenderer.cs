@@ -44,7 +44,8 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringGridSelectionState selection,
             StageAuthoringEntityKind? focusedGridKind,
             StageAuthoringGridEditMode editMode,
-            BoardTilePaintGridPreview paintPreview)
+            BoardTilePaintGridPreview paintPreview,
+            SurfaceCell? objectiveHighlightCell = null)
         {
             var board = authoring.Board;
             EditorGUILayout.LabelField(
@@ -149,7 +150,10 @@ namespace Game.Feature.Stages.Editor
                                 editMode == StageAuthoringGridEditMode.ZoneEditing && zoneCount > 0,
                                 editMode,
                                 paintPreview,
-                                new SurfaceCell(selection.TargetFace, x, y)))
+                                new SurfaceCell(selection.TargetFace, x, y),
+                                objectiveHighlightCell.HasValue &&
+                                objectiveHighlightCell.Value.Equals(
+                                    new SurfaceCell(selection.TargetFace, x, y))))
                         {
                             if (editMode == StageAuthoringGridEditMode.TileFeaturePlacement)
                             {
@@ -195,7 +199,8 @@ namespace Game.Feature.Stages.Editor
             bool zoneCell,
             StageAuthoringGridEditMode editMode,
             BoardTilePaintGridPreview paintPreview,
-            SurfaceCell cell)
+            SurfaceCell cell,
+            bool objectiveHighlight)
         {
             var previousBackgroundColor = GUI.backgroundColor;
             if (TryResolveCellBackgroundColor(
@@ -207,7 +212,8 @@ namespace Game.Feature.Stages.Editor
                     editMode,
                     paintPreview,
                     cell,
-                    out var tint))
+                    out var tint,
+                    objectiveHighlight))
             {
                 GUI.backgroundColor = tint;
             }
@@ -231,11 +237,17 @@ namespace Game.Feature.Stages.Editor
             StageAuthoringGridEditMode editMode,
             BoardTilePaintGridPreview paintPreview,
             SurfaceCell cell,
-            out Color tint)
+            out Color tint,
+            bool objectiveHighlight = false)
         {
             var hasCustomTint = false;
             tint = defaultColor;
-            if (selectedZoneHighlight)
+            if (objectiveHighlight)
+            {
+                tint = new Color(1f, 0.78f, 0.32f, 1f);
+                hasCustomTint = true;
+            }
+            else if (selectedZoneHighlight)
             {
                 tint = new Color(0.5f, 0.85f, 0.45f, 1f);
                 hasCustomTint = true;

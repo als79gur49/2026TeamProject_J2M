@@ -21,6 +21,7 @@ namespace Game.Feature.Stages.Editor
         ConditionAssetInvalid,
         ConditionReferencesDifferentTile,
         ConditionReferencesNonButtonTile,
+        ConditionReferenceMismatch,
         DuplicateCondition,
         StableConditionIdConflict,
     }
@@ -138,10 +139,24 @@ namespace Game.Feature.Stages.Editor
                     stableConditionId);
             }
 
-            TryGetExpectedButtonConditionPath(definition, tileId, out var expectedConditionPath, out _);
-            var expectedAsset = !string.IsNullOrEmpty(expectedConditionPath)
-                ? AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(expectedConditionPath)
-                : null;
+            if (!TryGetExpectedButtonConditionPath(
+                    definition,
+                    tileId,
+                    out var expectedConditionPath,
+                    out var pathError) ||
+                string.IsNullOrEmpty(expectedConditionPath))
+            {
+                return CreateStatus(
+                    ButtonObjectiveLinkState.ConditionAssetMissing,
+                    string.IsNullOrEmpty(pathError)
+                        ? "Canonical Button condition path could not be resolved."
+                        : pathError,
+                    tileId,
+                    stableConditionId,
+                    expectedConditionPath);
+            }
+
+            var expectedAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(expectedConditionPath);
             if (expectedAsset != null && expectedAsset is not ButtonActivatedConditionAsset)
             {
                 return CreateStatus(
@@ -165,7 +180,7 @@ namespace Game.Feature.Stages.Editor
             }
 
             var entries = definition.Objective.GetConditionEntriesOrEmpty();
-            var matchingIndices = FindButtonObjectiveEntryIndices(entries, tileId, stableConditionId);
+            var matchingIndices = CollectButtonObjectiveRepairCandidateIndices(entries, tileId, stableConditionId);
             if (matchingIndices.Count > 1)
             {
                 return CreateStatus(
@@ -255,6 +270,42 @@ namespace Game.Feature.Stages.Editor
                         stableConditionId,
                         expectedConditionPath,
                         buttonCondition,
+                        1);
+                }
+
+                if (!string.Equals(entry.StableConditionId, stableConditionId, StringComparison.Ordinal))
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.StableConditionIdConflict,
+                        $"Button condition StableConditionId must be '{stableConditionId}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        buttonCondition,
+                        1);
+                }
+
+                if (!string.IsNullOrEmpty(expectedConditionPath) && expectedButton == null)
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.ConditionAssetMissing,
+                        $"Canonical condition asset is missing at '{expectedConditionPath}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        matchingEntryCount: 1);
+                }
+
+                if (!string.IsNullOrEmpty(expectedConditionPath) &&
+                    !ReferenceEquals(buttonCondition, expectedButton))
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.ConditionReferenceMismatch,
+                        $"Condition reference does not match the canonical asset at '{expectedConditionPath}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        expectedButton,
                         1);
                 }
 
@@ -367,6 +418,21 @@ namespace Game.Feature.Stages.Editor
                 return ButtonObjectiveCommandResult.Failure("Exit PrimaryGoal condition must be created first.");
             }
 
+            var entries = objective.GetConditionEntriesOrEmpty();
+            var matchingIndices = CollectButtonObjectiveRepairCandidateIndices(entries, tileId, stableConditionId);
+            if (matchingIndices.Count > 0)
+            {
+                return ButtonObjectiveCommandResult.Warning(
+                    $"Button clear condition already has {matchingIndices.Count} matching objective entry.",
+                    ResolveFirstCondition(entries, matchingIndices));
+            }
+
+            if (!TryGetNextSecondaryGoalSortOrder(entries, out var nextSortOrder))
+            {
+                return ButtonObjectiveCommandResult.Failure(
+                    "No additional automatic Sort Order can be allocated.");
+            }
+
             if (!TryResolveOrCreateConditionAsset(
                     definition,
                     tileId,
@@ -374,15 +440,6 @@ namespace Game.Feature.Stages.Editor
                     out var error))
             {
                 return ButtonObjectiveCommandResult.Failure(error);
-            }
-
-            var entries = objective.GetConditionEntriesOrEmpty();
-            var matchingIndices = FindButtonObjectiveEntryIndices(entries, tileId, stableConditionId);
-            if (matchingIndices.Count > 0)
-            {
-                return ButtonObjectiveCommandResult.Warning(
-                    $"Button clear condition already has {matchingIndices.Count} matching objective entry.",
-                    ResolveFirstCondition(entries, matchingIndices));
             }
 
             var nextEntries = new List<StageObjectiveConditionEntry>(entries)
@@ -396,7 +453,7 @@ namespace Game.Feature.Stages.Editor
                     AuthoringLabel = string.IsNullOrWhiteSpace(authoringLabel)
                         ? GetDefaultAuthoringLabel(selectedFeature)
                         : authoringLabel.Trim(),
-                    SortOrder = GetNextSecondaryGoalSortOrder(entries),
+                    SortOrder = nextSortOrder,
                 }
             };
 
@@ -416,52 +473,6 @@ namespace Game.Feature.Stages.Editor
                 TileFeatureBoxSelector.MoonBlockOnly => "Place the MoonBlock on the button",
                 _ => "Place a push box on the button",
             };
-        }
-
-        public static ButtonObjectiveCommandResult TryRemoveRequiredSecondaryGoal(
-            StageAuthoringDefinition definition,
-            StageTileFeatureDefinition selectedFeature)
-        {
-            if (!TryValidateSelectedButton(
-                    definition,
-                    selectedFeature,
-                    requireButton: true,
-                    out var tileId,
-                    out var stableConditionId,
-                    out var validationStatus))
-            {
-                return ButtonObjectiveCommandResult.Failure(validationStatus.Message);
-            }
-
-            var objective = definition.Objective;
-            var entries = objective.GetConditionEntriesOrEmpty();
-            var matchingIndices = FindButtonObjectiveEntryIndices(entries, tileId, stableConditionId);
-            if (matchingIndices.Count == 0)
-            {
-                return ButtonObjectiveCommandResult.Warning("Button clear condition is not linked.");
-            }
-
-            var matchingSet = new HashSet<int>(matchingIndices);
-            var nextEntries = new List<StageObjectiveConditionEntry>(entries.Length);
-            for (var i = 0; i < entries.Length; i++)
-            {
-                if (!matchingSet.Contains(i))
-                {
-                    nextEntries.Add(entries[i]);
-                }
-            }
-
-            var pingTarget = ResolveFirstCondition(entries, matchingIndices);
-            objective.ConditionEntries = nextEntries.ToArray();
-            Undo.RecordObject(definition, "Remove Button Clear Condition");
-            definition.SetObjective(objective);
-            EditorUtility.SetDirty(definition);
-
-            return matchingIndices.Count == 1
-                ? ButtonObjectiveCommandResult.Success("Removed Button clear condition objective entry.", pingTarget)
-                : ButtonObjectiveCommandResult.SuccessWarning(
-                    $"Removed {matchingIndices.Count} duplicate Button clear condition objective entries.",
-                    pingTarget);
         }
 
         public static ButtonObjectiveCommandResult TryPingConditionAsset(
@@ -529,7 +540,7 @@ namespace Game.Feature.Stages.Editor
             return true;
         }
 
-        private static bool TryGetExpectedButtonConditionPath(
+        internal static bool TryGetExpectedButtonConditionPath(
             StageAuthoringDefinition definition,
             int tileId,
             out string conditionPath,
@@ -646,7 +657,7 @@ namespace Game.Feature.Stages.Editor
             return true;
         }
 
-        private static List<int> FindButtonObjectiveEntryIndices(
+        internal static List<int> CollectButtonObjectiveRepairCandidateIndices(
             IReadOnlyList<StageObjectiveConditionEntry> entries,
             int tileId,
             string stableConditionId)
@@ -707,20 +718,27 @@ namespace Game.Feature.Stages.Editor
             return requiredPrimaryGoalCount == 1 && hasPlayerAtAnyZone;
         }
 
-        private static int GetNextSecondaryGoalSortOrder(
-            IReadOnlyList<StageObjectiveConditionEntry> entries)
+        private static bool TryGetNextSecondaryGoalSortOrder(
+            IReadOnlyList<StageObjectiveConditionEntry> entries,
+            out int sortOrder)
         {
-            var maxSecondary = 0;
+            var maxSortOrder = 0;
             for (var i = 0; i < entries.Count; i++)
             {
-                if (entries[i].Role == StageObjectiveConditionRole.SecondaryGoal &&
-                    entries[i].SortOrder > maxSecondary)
+                if (entries[i].SortOrder > maxSortOrder)
                 {
-                    maxSecondary = entries[i].SortOrder;
+                    maxSortOrder = entries[i].SortOrder;
                 }
             }
 
-            return Math.Max(10, maxSecondary + 10);
+            if (maxSortOrder > int.MaxValue - 10)
+            {
+                sortOrder = 0;
+                return false;
+            }
+
+            sortOrder = Math.Max(10, maxSortOrder + 10);
+            return true;
         }
 
         private static void SetButtonConditionTileId(ButtonActivatedConditionAsset condition, int tileId)
@@ -783,12 +801,12 @@ namespace Game.Feature.Stages.Editor
             return null;
         }
 
-        private static string CreateStableConditionId(int tileId)
+        internal static string CreateStableConditionId(int tileId)
         {
             return tileId > 0 ? $"{StableConditionIdPrefix}{tileId}" : string.Empty;
         }
 
-        private static string NormalizeStableConditionId(string stableConditionId)
+        internal static string NormalizeStableConditionId(string stableConditionId)
         {
             return stableConditionId?.Trim() ?? string.Empty;
         }
