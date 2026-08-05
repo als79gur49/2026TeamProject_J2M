@@ -81,6 +81,7 @@ namespace Game.Feature.UI.Composition
         private GameplaySceneHost _installedSceneHost;
         private bool _terminalSessionSubscribed;
         private bool _entryIrisClosedPrepared;
+        private SceneEntrySessionToken _failedEntryIrisSetupToken;
         private float _entryOpeningElapsed;
         private float _entryOpeningRadius;
         private Vector2 _entryFocusCenter;
@@ -1247,6 +1248,11 @@ namespace Game.Feature.UI.Composition
             if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
                 !_entryIrisClosedPrepared)
             {
+                if (_failedEntryIrisSetupToken == session.Token)
+                {
+                    return;
+                }
+
                 if (!IsStrongGameplayDestinationReady(
                         session,
                         out var focus,
@@ -1273,24 +1279,7 @@ namespace Game.Feature.UI.Composition
                     return;
                 }
 
-                _terminalIrisMotionResolver ??=
-                    _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
-                var entryOpenPreset =
-                    _terminalIrisMotionResolver.ResolveStageEntryOpen();
-                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
-                    session.Token,
-                    session.TransitionIntent);
-                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
-                irisView.Show();
-                irisView.ApplyClosedEntry(focus.NormalizedCenter, entryOpenPreset);
-                _entryFocusCenter = focus.NormalizedCenter;
-                _entryOpeningRadius = irisView.CalculateFullyRevealedRadius(
-                    focus.NormalizedCenter,
-                    entryOpenPreset.FullOpenMargin);
-                _entryOpeningElapsed = 0f;
-                _entryOpenPreset = entryOpenPreset;
-                _preparedEntryToken = session.Token;
-                _entryIrisClosedPrepared = true;
+                PrepareGameplayDestinationIris(session, focus, irisView);
                 return;
             }
 
@@ -1359,6 +1348,7 @@ namespace Game.Feature.UI.Composition
 
             irisView.Hide();
             _entryIrisClosedPrepared = false;
+            _failedEntryIrisSetupToken = default;
             _entryOpenPreset = null;
             _preparedEntryToken = default;
             if (!SceneEntryPresentationRegistry.TryComplete(session.Token))
@@ -1368,6 +1358,112 @@ namespace Game.Feature.UI.Composition
             }
 
             GameplayEntryTransitionVisualSnapshotRegistry.Clear(session.Token);
+        }
+
+        private void PrepareGameplayDestinationIris(
+            SceneEntryPresentationSnapshot session,
+            TerminalFocusTarget focus,
+            TerminalIrisOverlayView irisView)
+        {
+            var expectedToken = session.Token;
+            var expectedDestinationGeneration =
+                session.DestinationSceneGeneration;
+            var expectedTerminalDestinationOwner =
+                TerminalSessionRegistry.Authority.Current;
+            try
+            {
+                _terminalIrisMotionResolver ??=
+                    _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
+                var entryOpenPreset =
+                    _terminalIrisMotionResolver.ResolveStageEntryOpen();
+                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                    expectedToken,
+                    session.TransitionIntent);
+                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
+                irisView.Show();
+                irisView.ApplyClosedEntry(
+                    focus.NormalizedCenter,
+                    entryOpenPreset);
+                var openingRadius = irisView.CalculateFullyRevealedRadius(
+                    focus.NormalizedCenter,
+                    entryOpenPreset.FullOpenMargin);
+
+                _entryFocusCenter = focus.NormalizedCenter;
+                _entryOpeningRadius = openingRadius;
+                _entryOpeningElapsed = 0f;
+                _entryOpenPreset = entryOpenPreset;
+                _preparedEntryToken = expectedToken;
+                _failedEntryIrisSetupToken = default;
+                _entryIrisClosedPrepared = true;
+            }
+            catch (Exception setupException)
+            {
+                AbortGameplayDestinationIrisPreparation(
+                    expectedToken,
+                    expectedDestinationGeneration,
+                    expectedTerminalDestinationOwner,
+                    irisView,
+                    setupException);
+                throw;
+            }
+        }
+
+        private void AbortGameplayDestinationIrisPreparation(
+            SceneEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            TerminalSessionSnapshot expectedTerminalDestinationOwner,
+            TerminalIrisOverlayView irisView,
+            Exception primaryException)
+        {
+            _entryIrisClosedPrepared = false;
+            _failedEntryIrisSetupToken = expectedToken;
+            _entryOpenPreset = null;
+            _preparedEntryToken = default;
+            _entryOpeningElapsed = 0f;
+            _entryOpeningRadius = 0f;
+            _entryFocusCenter = default;
+            try
+            {
+                irisView?.Hide();
+            }
+            catch (Exception cleanupException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "DestinationEntryIrisCleanupFailure",
+                    cleanupException);
+            }
+
+            try
+            {
+                ReportSceneEntryIrisPreparationFailureIfOwned(
+                    expectedToken,
+                    expectedDestinationGeneration,
+                    "DESTINATION_ENTRY_IRIS_PREPARATION_FAILED",
+                    primaryException.Message);
+            }
+            catch (Exception reportException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "SceneEntryIrisFailureReportingFailure",
+                    reportException);
+            }
+
+            try
+            {
+                ReportTerminalDestinationIrisPreparationFailureIfOwned(
+                    expectedTerminalDestinationOwner,
+                    "DESTINATION_IRIS_PREPARATION_FAILED",
+                    primaryException.Message);
+            }
+            catch (Exception reportException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "TerminalDestinationIrisFailureReportingFailure",
+                    reportException);
+            }
         }
 
         private bool IsStrongGameplayDestinationReady(
@@ -1469,6 +1565,78 @@ namespace Game.Feature.UI.Composition
             SceneEntryPresentationRegistry.TryFailHoldingCover(
                 session.Token,
                 $"{code}: {detail}");
+        }
+
+        private static void ReportSceneEntryIrisPreparationFailureIfOwned(
+            SceneEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            string code,
+            string message)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                session.Token != expectedToken ||
+                session.DestinationSceneGeneration !=
+                expectedDestinationGeneration ||
+                session.DestinationSceneGeneration !=
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration ||
+                session.Phase !=
+                SceneEntryPresentationPhase.WaitingRuntimeReady)
+            {
+                return;
+            }
+
+            ReportSceneEntryFailureIfOwned(
+                expectedToken,
+                expectedDestinationGeneration,
+                code,
+                message);
+        }
+
+        private static void
+            ReportTerminalDestinationIrisPreparationFailureIfOwned(
+                TerminalSessionSnapshot expected,
+                string code,
+                string message)
+        {
+            var authority = TerminalSessionRegistry.Authority;
+            var current = authority.Current;
+            if (!expected.IsActive ||
+                expected.TerminalKind != TerminalTransitionKind.Defeat ||
+                expected.DestinationKind !=
+                TerminalDestinationKind.ReloadedGameplay ||
+                expected.DestinationSceneGeneration <= 0 ||
+                expected.Phase !=
+                TerminalSessionPhase.WaitingDestinationReady ||
+                !current.IsActive ||
+                current.Token != expected.Token ||
+                current.TerminalKind != expected.TerminalKind ||
+                current.DestinationKind != expected.DestinationKind ||
+                current.TransitionId != expected.TransitionId ||
+                current.SourceSceneGeneration !=
+                expected.SourceSceneGeneration ||
+                current.DestinationSceneGeneration !=
+                expected.DestinationSceneGeneration ||
+                current.Phase != expected.Phase ||
+                authority.CurrentSceneGeneration !=
+                expected.DestinationSceneGeneration)
+            {
+                return;
+            }
+
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? "Gameplay destination Iris preparation failed without exception details."
+                : message;
+            TerminalDestinationReadiness.Signal(new DestinationReadinessSignal(
+                expected.Token,
+                expected.TransitionId,
+                expected.SourceSceneGeneration,
+                expected.DestinationSceneGeneration,
+                expected.DestinationKind,
+                TerminalSessionPhase.WaitingDestinationReady,
+                TerminalDestinationProvenance.ReloadedGameplayBootstrap,
+                DestinationReadinessOutcome.Failed,
+                $"{code}: {detail}"));
         }
 
         private static void AttachSecondaryException(

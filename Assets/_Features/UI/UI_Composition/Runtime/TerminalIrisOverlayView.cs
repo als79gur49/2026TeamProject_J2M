@@ -6,6 +6,13 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
 {
+    internal enum TerminalIrisSetupOperation
+    {
+        ConfigureTransitionColor = 0,
+        Show = 1,
+        ApplyClosedEntry = 2,
+    }
+
     internal interface ITerminalIrisSetupView
     {
         ResultTransitionVisualStyle RequireVisualStyle();
@@ -32,6 +39,9 @@ namespace Game.Feature.UI.Composition
     [DisallowMultipleComponent]
     internal sealed class TerminalIrisOverlayView : MonoBehaviour, ITerminalIrisSetupView
     {
+        // Test-only fault seam. Production leaves this null.
+        internal static Action<TerminalIrisSetupOperation> BeforeSetupOperationForTests;
+
         internal const string IrisShaderName = "UI/TerminalIris";
         private static readonly int CenterId = Shader.PropertyToID("_Center");
         private static readonly int RadiusId = Shader.PropertyToID("_Radius");
@@ -138,6 +148,7 @@ namespace Game.Feature.UI.Composition
 
         internal void Show()
         {
+            BeforeSetupOperationForTests?.Invoke(TerminalIrisSetupOperation.Show);
             EnsureInitialized();
             gameObject.SetActive(true);
             _canvasGroup.alpha = 1f;
@@ -221,6 +232,8 @@ namespace Game.Feature.UI.Composition
             Vector2 center,
             TerminalIrisRuntimeOpenPreset preset)
         {
+            BeforeSetupOperationForTests?.Invoke(
+                TerminalIrisSetupOperation.ApplyClosedEntry);
             EnsureInitialized();
             _runtimeMaterial.SetVector(CenterId, center);
             _lastAppliedCenter = center;
@@ -296,6 +309,8 @@ namespace Game.Feature.UI.Composition
 
         internal void ConfigureTransitionColor(Color color)
         {
+            BeforeSetupOperationForTests?.Invoke(
+                TerminalIrisSetupOperation.ConfigureTransitionColor);
             if (float.IsNaN(color.r) ||
                 float.IsInfinity(color.r) ||
                 float.IsNaN(color.g) ||
