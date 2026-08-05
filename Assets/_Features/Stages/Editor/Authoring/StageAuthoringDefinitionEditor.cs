@@ -9,11 +9,25 @@ namespace Game.Feature.Stages.Editor
     public sealed class StageAuthoringDefinitionEditor : UnityEditor.Editor
     {
         private StageAuthoringGenerationReport lastReport;
+        private StageDefinition observedGeneratedGameplayDefinition;
+
+        private void OnEnable()
+        {
+            observedGeneratedGameplayDefinition = CurrentGeneratedGameplayDefinition;
+            Undo.undoRedoPerformed -= HandleOwnershipUndoRedo;
+            Undo.undoRedoPerformed += HandleOwnershipUndoRedo;
+        }
+
+        private void OnDisable()
+        {
+            Undo.undoRedoPerformed -= HandleOwnershipUndoRedo;
+        }
 
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
             var authoring = (StageAuthoringDefinition)target;
+            var generatedGameplayDefinitionBeforeEdit = authoring.GeneratedGameplayDefinition;
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("generatedGameplayDefinition"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("generatedPresentationDefinition"));
@@ -25,7 +39,10 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("zones"), includeChildren: true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("objective"), includeChildren: true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("entityIdMappings"), includeChildren: true);
-            serializedObject.ApplyModifiedProperties();
+            ApplyModifiedPropertiesAndInvalidateOwnership(
+                serializedObject,
+                generatedGameplayDefinitionBeforeEdit);
+            observedGeneratedGameplayDefinition = authoring.GeneratedGameplayDefinition;
 
             EditorGUILayout.Space();
             DrawPlacementSummary(authoring);
@@ -34,6 +51,34 @@ namespace Game.Feature.Stages.Editor
             DrawGeneratedAssetLinks(authoring);
             DrawToolbar(authoring);
             DrawReport(lastReport);
+        }
+
+        internal static bool ApplyModifiedPropertiesAndInvalidateOwnership(
+            SerializedObject source,
+            StageDefinition previousGeneratedGameplayDefinition)
+        {
+            var propertiesChanged = source.ApplyModifiedProperties();
+            var authoring = source.targetObject as StageAuthoringDefinition;
+            StageGeneratedDefinitionOwnershipIndex.InvalidateIfGeneratedGameplayDefinitionChanged(
+                previousGeneratedGameplayDefinition,
+                authoring != null ? authoring.GeneratedGameplayDefinition : null);
+            return propertiesChanged;
+        }
+
+        private StageDefinition CurrentGeneratedGameplayDefinition =>
+            target is StageAuthoringDefinition authoring
+                ? authoring.GeneratedGameplayDefinition
+                : null;
+
+        private void HandleOwnershipUndoRedo()
+        {
+            serializedObject.UpdateIfRequiredOrScript();
+            var current = CurrentGeneratedGameplayDefinition;
+            StageGeneratedDefinitionOwnershipIndex.InvalidateIfGeneratedGameplayDefinitionChanged(
+                observedGeneratedGameplayDefinition,
+                current);
+            observedGeneratedGameplayDefinition = current;
+            Repaint();
         }
 
         private void DrawToolbar(StageAuthoringDefinition authoring)

@@ -5,6 +5,7 @@ using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 
 namespace Game.Feature.UI.Tests
@@ -66,12 +67,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewModel.SlotCards.Any(card => card.PrimaryIntentKind == SaveSlotIntentKind.Continue), Is.False);
         }
 
-        [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired, "Needs Repair", "Save data needs repair")]
-        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, "Needs Repair", "Save data needs repair")]
-        [TestCase(CampaignSaveLoadStatus.IoFailed, "Load Blocked", "Save data cannot be loaded")]
-        [TestCase(CampaignSaveLoadStatus.Unauthorized, "Permission Denied", "Save data permission denied")]
+        [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired, SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.")]
+        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.")]
+        [TestCase(CampaignSaveLoadStatus.IoFailed, SaveSlotFailurePresentationKind.LoadFailed, "Save Load Failed", "The save data could not be loaded.")]
+        [TestCase(CampaignSaveLoadStatus.Unauthorized, SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.")]
         public void BlockingLoad_UsesStatusSpecificMessage(
             CampaignSaveLoadStatus status,
+            SaveSlotFailurePresentationKind expectedKind,
             string expectedStatusText,
             string expectedDetailText)
         {
@@ -82,6 +84,126 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(viewModel.SlotCards.All(card => card.StatusText == expectedStatusText), Is.True);
             Assert.That(viewModel.SlotCards.All(card => card.StageText == expectedDetailText), Is.True);
+            Assert.That(viewModel.SlotCards.All(card => card.FailureKind == expectedKind), Is.True);
+        }
+
+        [TestCase(CampaignSaveLoadStatus.Missing, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSaveLoadStatus.Loaded, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSaveLoadStatus.ImportedLegacy, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSaveLoadStatus.BackupRecovered, SaveSlotFailurePresentationKind.None)]
+        [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired, SaveSlotFailurePresentationKind.CorruptedData)]
+        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.NeedsRepair)]
+        [TestCase(CampaignSaveLoadStatus.IoFailed, SaveSlotFailurePresentationKind.LoadFailed)]
+        [TestCase(CampaignSaveLoadStatus.Unauthorized, SaveSlotFailurePresentationKind.PermissionDenied)]
+        public void CampaignLoadStatus_MapsToTypedUiFailureKind(
+            CampaignSaveLoadStatus status,
+            SaveSlotFailurePresentationKind expected)
+        {
+            Assert.That(MainMenuSlotViewModelMapper.MapFailureKind(status), Is.EqualTo(expected));
+        }
+
+        [TestCase(SaveSlotValidationStatus.Empty, SaveSlotFailurePresentationKind.None)]
+        [TestCase(SaveSlotValidationStatus.Valid, SaveSlotFailurePresentationKind.None)]
+        [TestCase(SaveSlotValidationStatus.Completed, SaveSlotFailurePresentationKind.None)]
+        [TestCase(SaveSlotValidationStatus.Corrupted, SaveSlotFailurePresentationKind.CorruptedData)]
+        [TestCase(SaveSlotValidationStatus.UnsupportedVersion, SaveSlotFailurePresentationKind.UnsupportedVersion)]
+        [TestCase(SaveSlotValidationStatus.StageMissingFromSequence, SaveSlotFailurePresentationKind.NeedsRepair)]
+        [TestCase(SaveSlotValidationStatus.StageMissingFromCatalog, SaveSlotFailurePresentationKind.NeedsRepair)]
+        public void SlotValidationStatus_MapsToTypedUiFailureKind(
+            SaveSlotValidationStatus status,
+            SaveSlotFailurePresentationKind expected)
+        {
+            Assert.That(MainMenuSlotViewModelMapper.MapFailureKind(status), Is.EqualTo(expected));
+        }
+
+        [TestCase(SaveSlotValidationStatus.UnsupportedVersion, SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.")]
+        [TestCase(SaveSlotValidationStatus.Corrupted, SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.")]
+        [TestCase(SaveSlotValidationStatus.StageMissingFromSequence, SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.")]
+        [TestCase(SaveSlotValidationStatus.StageMissingFromCatalog, SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.")]
+        public void InvalidSlot_UsesSafeLocalizedCopyAndOnlySupportedActions(
+            SaveSlotValidationStatus status,
+            SaveSlotFailurePresentationKind expectedKind,
+            string expectedTitle,
+            string expectedDetail)
+        {
+            var slot = CreateExistingSlot(1);
+            slot.TotalDeaths = 99;
+            slot.LastPlayedAt = "2026-07-30T01:23:45+09:00";
+            var validation = new SaveSlotValidationResult(
+                slot,
+                status,
+                "untrusted-level",
+                levelGroupWasSynced: false);
+
+            var card = MainMenuSlotViewModelMapper.MapSlot(
+                slot,
+                null,
+                validation,
+                PackageFreeLocalizedTextResolver.CreateSettingsDefault());
+
+            Assert.That(card.FailureKind, Is.EqualTo(expectedKind));
+            Assert.That(card.StatusText, Is.EqualTo(expectedTitle));
+            Assert.That(card.StageText, Is.EqualTo(expectedDetail));
+            Assert.That(card.ChancesText, Is.Empty);
+            Assert.That(card.DeathsText, Is.Empty);
+            Assert.That(card.LastPlayedText, Is.Empty);
+            Assert.That(card.PrimaryActionText, Is.EqualTo("Restart"));
+            Assert.That(card.PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.Restart));
+            Assert.That(card.ShowDelete, Is.True);
+            Assert.That(card.DeleteActionText, Is.EqualTo("Delete"));
+        }
+
+        [Test]
+        public void BlockingLoad_RawDiagnosticExceptionAndPathNeverReachCardText()
+        {
+            const string diagnostic =
+                "UnauthorizedAccessException: C:\\Users\\Player\\Saves\\profile.json";
+            var controller = CreateController(new RecordingSaveSlotStore(
+                new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.Unauthorized,
+                    diagnostic,
+                    "CampaignProfileDocument")));
+
+            var viewModel = controller.BuildViewModel();
+
+            foreach (var card in viewModel.SlotCards)
+            {
+                var playerText = string.Join(
+                    "\n",
+                    card.TitleText,
+                    card.StatusText,
+                    card.StageText,
+                    card.ChancesText,
+                    card.DeathsText,
+                    card.LastPlayedText,
+                    card.PrimaryActionText,
+                    card.DeleteActionText);
+                Assert.That(playerText, Does.Not.Contain(diagnostic));
+                Assert.That(playerText, Does.Not.Contain("UnauthorizedAccessException"));
+                Assert.That(playerText, Does.Not.Contain("C:\\Users\\Player"));
+            }
+        }
+
+        [Test]
+        public void BlockingLoad_ForwardsTypedFailureAndRawReasonToDiagnosticPort()
+        {
+            const string diagnostic = "Access to profile.json was denied.";
+            var diagnostics = new RecordingSaveDiagnosticPort();
+            var controller = CreateController(
+                new RecordingSaveSlotStore(new CampaignSaveLoadReport(
+                    CampaignSaveLoadStatus.Unauthorized,
+                    diagnostic,
+                    "CampaignProfileDocument")),
+                saveDiagnosticPort: diagnostics);
+
+            controller.BuildViewModel();
+
+            Assert.That(diagnostics.ReportCount, Is.EqualTo(1));
+            Assert.That(diagnostics.Last.FailureKind, Is.EqualTo(SaveSlotFailurePresentationKind.PermissionDenied));
+            Assert.That(diagnostics.Last.LoadStatus, Is.EqualTo(CampaignSaveLoadStatus.Unauthorized));
+            Assert.That(diagnostics.Last.Reason, Is.EqualTo(diagnostic));
+            Assert.That(diagnostics.Last.SlotNumber, Is.Zero);
+            Assert.That(diagnostics.Last.Operation, Is.EqualTo(SaveSlotRepositoryOperation.LoadAllWithReport));
         }
 
         [Test]
@@ -235,23 +357,30 @@ namespace Game.Feature.UI.Tests
         public void MainMenuController_SourceUsesCampaignAccessBlockerInsteadOfRepairOnlyCheck()
         {
             var source = File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs");
+            var mapper = File.ReadAllText(
+                "Assets/_Features/UI/UI_Application/Runtime/MainMenuSlotViewModelMapper.cs");
 
             Assert.That(source, Does.Contain("BlocksCampaignAccess"));
             Assert.That(source, Does.Not.Contain(".RequiresRepair"));
+            Assert.That(mapper, Does.Not.Contain("report.Reason"));
+            Assert.That(mapper, Does.Not.Contain("Reason.Contains"));
+            Assert.That(mapper, Does.Not.Contain("Reason.StartsWith"));
         }
 
         private static MainMenuController CreateController(
             RecordingSaveSlotStore store,
             RecordingCampaignLaunchHandoffStore launchHandoffStore = null,
             RecordingStageLaunchRouter router = null,
-            RecordingConfirmPopupPort confirmPopupPort = null)
+            RecordingConfirmPopupPort confirmPopupPort = null,
+            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null)
         {
             return new MainMenuController(
                 store,
                 launchHandoffStore ?? new RecordingCampaignLaunchHandoffStore(),
                 new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
                 router ?? new RecordingStageLaunchRouter(),
-                confirmPopupPort ?? new RecordingConfirmPopupPort());
+                confirmPopupPort ?? new RecordingConfirmPopupPort(),
+                saveDiagnosticPort: saveDiagnosticPort);
         }
 
         private static CampaignSaveLoadReport BlockedReport(CampaignSaveLoadStatus status)
@@ -425,6 +554,19 @@ namespace Game.Feature.UI.Tests
                 var completion = _completion;
                 _completion = null;
                 completion?.Invoke(confirmed);
+            }
+        }
+
+        private sealed class RecordingSaveDiagnosticPort : IMainMenuSaveDiagnosticPort
+        {
+            public int ReportCount { get; private set; }
+
+            public SaveSlotFailureDiagnostic Last { get; private set; }
+
+            public void Report(SaveSlotFailureDiagnostic diagnostic)
+            {
+                ReportCount++;
+                Last = diagnostic;
             }
         }
     }

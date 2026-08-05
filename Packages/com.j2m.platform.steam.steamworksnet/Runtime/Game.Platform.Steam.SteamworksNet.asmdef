@@ -1,0 +1,24 @@
+{
+  "name": "Game.Platform.Steam.SteamworksNet",
+  "rootNamespace": "Game.Platform.Steam.SteamworksNet",
+  "references": [
+    "Game.Platform.Runtime",
+    "Game.Platform.Steam",
+    "com.rlabrecque.steamworks.net"
+  ],
+  "includePlatforms": [
+    "Editor",
+    "WindowsStandalone32",
+    "WindowsStandalone64"
+  ],
+  "defineConstraints": [
+    "J2M_STEAMWORKSNET_AVAILABLE"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.j2m.thirdparty.steamworksnet",
+      "expression": "[2025.165.0-j2m.1]",
+      "define": "J2M_STEAMWORKSNET_AVAILABLE"
+    }
+  ]
+}

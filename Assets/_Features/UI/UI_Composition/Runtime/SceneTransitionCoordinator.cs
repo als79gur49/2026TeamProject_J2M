@@ -1931,8 +1931,6 @@ namespace Game.Feature.UI.Composition
             return new SceneTransitionOverlayModel(
                 transitionKind,
                 profile.OverlayKind,
-                ResolveTitle(profile, hint, transitionKind),
-                ResolveMessage(profile, hint, transitionKind),
                 profile.BlockInput,
                 profile.ShowProgress,
                 progress01,
@@ -1952,80 +1950,6 @@ namespace Game.Feature.UI.Composition
             }
 
             return hint.Kind;
-        }
-
-        private static string ResolveTitle(
-            StageTransitionProfile profile,
-            StageTransitionHint hint,
-            StageTransitionKind transitionKind)
-        {
-            if (hint.HasChanceLostPayload && !string.IsNullOrWhiteSpace(hint.ChanceLostPayload.Title))
-            {
-                return hint.ChanceLostPayload.Title;
-            }
-
-            switch (transitionKind)
-            {
-                case StageTransitionKind.MainToGameplay:
-                    return "Loading";
-                case StageTransitionKind.GameplayToMain:
-                    return "Returning to Main";
-                case StageTransitionKind.StageClearNext:
-                    return "Loading Next Stage";
-                case StageTransitionKind.StageRetryManual:
-                    return "Retrying Stage";
-                case StageTransitionKind.DeathRetryChanceLost:
-                    return "Chance Lost";
-                case StageTransitionKind.LevelFailedRestart:
-                    return "Restarting Level";
-            }
-
-            return profile.OverlayKind switch
-            {
-                TransitionOverlayKind.ChanceLost => "Chance Lost",
-                TransitionOverlayKind.StageClear => "Loading Next Stage",
-                TransitionOverlayKind.Restart => "Restarting",
-                TransitionOverlayKind.MainMenuReturn => "Returning to Main",
-                TransitionOverlayKind.None => string.Empty,
-                _ => "Loading",
-            };
-        }
-
-        private static string ResolveMessage(
-            StageTransitionProfile profile,
-            StageTransitionHint hint,
-            StageTransitionKind transitionKind)
-        {
-            if (hint.HasChanceLostPayload && !string.IsNullOrWhiteSpace(hint.ChanceLostPayload.Message))
-            {
-                return hint.ChanceLostPayload.Message;
-            }
-
-            switch (transitionKind)
-            {
-                case StageTransitionKind.MainToGameplay:
-                    return "Preparing the stage.";
-                case StageTransitionKind.GameplayToMain:
-                    return "Preparing the main menu.";
-                case StageTransitionKind.StageClearNext:
-                    return "Preparing the next stage.";
-                case StageTransitionKind.StageRetryManual:
-                    return "Restarting the current stage.";
-                case StageTransitionKind.DeathRetryChanceLost:
-                    return "Retrying from your current stage.";
-                case StageTransitionKind.LevelFailedRestart:
-                    return "Returning to the first stage in this level.";
-            }
-
-            return profile.OverlayKind switch
-            {
-                TransitionOverlayKind.ChanceLost => "Retrying from your current stage.",
-                TransitionOverlayKind.StageClear => "Preparing the next stage.",
-                TransitionOverlayKind.Restart => "Preparing the stage.",
-                TransitionOverlayKind.MainMenuReturn => "Preparing the main menu.",
-                TransitionOverlayKind.None => string.Empty,
-                _ => "Preparing the scene.",
-            };
         }
 
         internal static bool IsMinimumVisibleElapsedForActivation(

@@ -732,13 +732,13 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the exit zone
+      AuthoringLabel: Reach the exit zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 0c67e5cda649411f81bf08c96e7fdffa, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-2
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 10
   entityIdMappings:
   - StableGuid: legacy-stage-5-1:Player:10

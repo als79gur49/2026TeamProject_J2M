@@ -388,6 +388,7 @@ Scene transition content notes:
 - `DeathRetryChanceLost` resolves exactly to the dedicated `ChanceLostOverlayContent` path because chance-loss visuals are slot/effect-driven and do not expose dynamic previous/current/total/death chance text bindings; its current authored slots use explicit inspector-bound slot roots, and `ChanceSlotView*` name fallback exists only as a safety net.
 - Other canonical transition kinds use their typed Iris executor and do not infer catalog content from an overlay kind or fallback entry.
 - Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
+- Scene transition overlay model composition carries transition semantic identity, input/progress state, and typed chance-loss numeric state only. Generic `Title` / `Message` payload and model surfaces are retired, and the coordinator must not resolve display copy that no renderer consumes.
 - `LevelFailedRestart` does not own a current dedicated transition message/text content contract.
 
 Deletion protection notes:

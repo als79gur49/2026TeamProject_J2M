@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Composition.Editor;
 using Game.Feature.UI.Popups;
@@ -12,6 +13,7 @@ using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -56,17 +58,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ConfirmPopupPrefab_HasFourSemanticTypographyBindingsWithAuthoredLayout()
+        public void ConfirmPopupPrefab_HasFiveSemanticTypographyBindingsWithAuthoredLayout()
         {
             var prefab = LoadConfirmPrefab();
             var required = GetConfirmRequiredBindings(prefab);
 
-            Assert.That(prefab.GetComponentsInChildren<TypographyBinding>(true), Has.Length.EqualTo(4));
+            Assert.That(prefab.GetComponentsInChildren<TypographyBinding>(true), Has.Length.EqualTo(5));
             AssertRequiredBindings(required);
             AssertConfirmTarget(required[0].Text, "Title", 1859700045196034169, Vector2.zero);
             AssertConfirmTarget(required[1].Text, "Body", 786007152345686790, Vector2.zero);
-            AssertConfirmTarget(required[2].Text, "Buttons/ConfirmButton/Label", 5809623355355838332, Vector2.zero);
-            AssertConfirmTarget(required[3].Text, "Buttons/CancelButton/Label", 5096854244621539299, Vector2.zero);
+            AssertConfirmTarget(required[2].Text, "Warning", 990004, Vector2.zero);
+            AssertConfirmTarget(required[3].Text, "Buttons/ConfirmButton/Label", 5809623355355838332, Vector2.zero);
+            AssertConfirmTarget(required[4].Text, "Buttons/CancelButton/Label", 5096854244621539299, Vector2.zero);
         }
 
         [Test]
@@ -98,6 +101,104 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 typographyScope?.Dispose();
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ConfirmPopupWarningRow_CollapsesAndRestoresAcrossReuseAndLocaleChanges()
+        {
+            var root = UnityEngine.Object.Instantiate(LoadConfirmPrefab().gameObject);
+            var view = root.GetComponent<ConfirmPopupView>();
+            var warning = GetField<TMP_Text>(view, "_warningLabel");
+            var warningLayout = warning.GetComponent<LayoutElement>();
+            var body = GetField<TMP_Text>(view, "_bodyLabel");
+            var buttons = (RectTransform)root.transform.Find("Buttons");
+            var verticalLayout = root.GetComponent<VerticalLayoutGroup>();
+            var viewModel = new ConfirmPopupViewModel();
+
+            try
+            {
+                Assert.That(warningLayout, Is.Not.Null);
+                Assert.That(verticalLayout, Is.Not.Null);
+                Assert.That(buttons, Is.Not.Null);
+
+                view.IsVisible = true;
+                view.Bind(viewModel);
+                viewModel.SetContent("Title", "Body", "Warning", "Confirm", "Cancel", true);
+                RebuildConfirmLayout((RectTransform)root.transform);
+
+                var authoredWarningHeight = warningLayout.preferredHeight;
+                var warningContentHeight = CalculatePreferredHeight(verticalLayout);
+                var warningButtonY = buttons.anchoredPosition.y;
+                var bodyY = body.rectTransform.anchoredPosition.y;
+                var popupHeight = ((RectTransform)root.transform).rect.height;
+
+                Assert.That(authoredWarningHeight, Is.GreaterThan(0f));
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+                Assert.That(warning.text, Is.EqualTo("Warning"));
+                Assert.That(warning.rectTransform.rect.height, Is.EqualTo(authoredWarningHeight).Within(0.01f));
+
+                viewModel.SetContent("Title", "Body", string.Empty, "Confirm", "Cancel", false);
+                RebuildConfirmLayout((RectTransform)root.transform);
+
+                var noWarningContentHeight = CalculatePreferredHeight(verticalLayout);
+                Assert.That(warning.text, Is.Empty);
+                Assert.That(warning.gameObject.activeSelf, Is.False);
+                Assert.That(warning.gameObject.activeInHierarchy, Is.False);
+                Assert.That(
+                    warningContentHeight - noWarningContentHeight,
+                    Is.EqualTo(authoredWarningHeight + verticalLayout.spacing).Within(0.01f),
+                    "The inactive warning row must contribute neither its authored height nor an adjacent spacing slot.");
+                Assert.That(
+                    buttons.anchoredPosition.y - warningButtonY,
+                    Is.EqualTo(authoredWarningHeight + verticalLayout.spacing).Within(0.01f),
+                    "Buttons must move into the collapsed warning row instead of leaving a blank gap.");
+                Assert.That(body.rectTransform.anchoredPosition.y, Is.EqualTo(bodyY).Within(0.01f));
+                Assert.That(((RectTransform)root.transform).rect.height, Is.EqualTo(popupHeight).Within(0.01f));
+                Assert.That(warningLayout.preferredHeight, Is.EqualTo(authoredWarningHeight));
+
+                viewModel.SetContent("Title", "Body", " \t ", "Confirm", "Cancel", false);
+                RebuildConfirmLayout((RectTransform)root.transform);
+                Assert.That(warning.gameObject.activeSelf, Is.False, "Whitespace warning copy is not player-visible content.");
+
+                viewModel.SetContent("Title", "Body", "Warning restored", "Confirm", "Cancel", true);
+                RebuildConfirmLayout((RectTransform)root.transform);
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+                Assert.That(warning.text, Is.EqualTo("Warning restored"));
+                Assert.That(warningLayout.preferredHeight, Is.EqualTo(authoredWarningHeight));
+                Assert.That(warning.rectTransform.rect.height, Is.EqualTo(authoredWarningHeight).Within(0.01f));
+                Assert.That(buttons.anchoredPosition.y, Is.EqualTo(warningButtonY).Within(0.01f));
+
+                view.Bind(null);
+                RebuildConfirmLayout((RectTransform)root.transform);
+                Assert.That(warning.text, Is.Empty, "Unbind must clear transient warning copy.");
+                Assert.That(warning.gameObject.activeSelf, Is.False, "Unbind must collapse transient warning layout.");
+
+                var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+                using var presenter = new ConfirmPopupPresenter(resolver);
+                view.Bind(presenter.ViewModel);
+                presenter.Apply(MainMenuLocalization.CreateConfirmationPayload(
+                    MainMenuConfirmationKind.RestartSlot,
+                    2));
+                RebuildConfirmLayout((RectTransform)root.transform);
+                var englishWarning = warning.text;
+
+                Assert.That(englishWarning, Is.Not.Empty);
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+                Assert.That(warningLayout.preferredHeight, Is.EqualTo(authoredWarningHeight));
+
+                resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+                RebuildConfirmLayout((RectTransform)root.transform);
+
+                Assert.That(warning.text, Is.Not.Empty);
+                Assert.That(warning.text, Is.Not.EqualTo(englishWarning));
+                Assert.That(warning.gameObject.activeSelf, Is.True);
+                Assert.That(warningLayout.preferredHeight, Is.EqualTo(authoredWarningHeight));
+                Assert.That(warning.rectTransform.rect.height, Is.EqualTo(authoredWarningHeight).Within(0.01f));
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(root);
             }
         }
@@ -517,6 +618,19 @@ namespace Game.Feature.UI.Tests
             return theme;
         }
 
+        private static float CalculatePreferredHeight(VerticalLayoutGroup layout)
+        {
+            layout.CalculateLayoutInputVertical();
+            return layout.preferredHeight;
+        }
+
+        private static void RebuildConfirmLayout(RectTransform root)
+        {
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+            Canvas.ForceUpdateCanvases();
+        }
+
         private static IReadOnlyList<(string Name, TMP_Text Text, TypographyStyleTag ExpectedTag)> GetPauseRequiredBindings(
             PausePopupView prefab)
         {
@@ -538,6 +652,7 @@ namespace Game.Feature.UI.Tests
             {
                 ("Confirm title", GetField<TMP_Text>(prefab, "_titleLabel"), TypographyStyleTag.HeaderLarge),
                 ("Confirm body", GetField<TMP_Text>(prefab, "_bodyLabel"), TypographyStyleTag.PopupBody),
+                ("Confirm warning", GetField<TMP_Text>(prefab, "_warningLabel"), TypographyStyleTag.PopupBody),
                 ("Confirm action", GetField<TMP_Text>(prefab, "_confirmButtonLabel"), TypographyStyleTag.PopupAction),
                 ("Cancel action", GetField<TMP_Text>(prefab, "_cancelButtonLabel"), TypographyStyleTag.PopupAction),
             };

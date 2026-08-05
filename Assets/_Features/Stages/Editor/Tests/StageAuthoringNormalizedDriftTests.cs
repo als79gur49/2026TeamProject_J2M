@@ -244,7 +244,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NormalizedDrift_ObjectiveConditionDisplayMismatch_ReportsGameplayDriftObjectiveMismatch()
+        public void NormalizedDrift_ObjectiveConditionAuthoringLabelMismatch_ReportsGameplayDriftObjectiveMismatch()
         {
             var expected = CreateObjectiveSnapshot(
                 new StageAuthoringNormalizedObjective(
@@ -277,12 +277,12 @@ namespace Game.Feature.Stages.Editor.Tests
                     "Reach the Exit",
                     "Move to the exit zone."));
 
-            var issues = CompareGameplay(expected, actual, "objective-display");
+            var issues = CompareGameplay(expected, actual, "objective-authoring-label");
 
             Assert.That(
                 issues.Any(issue =>
                     issue.Code == "GameplayDrift.ObjectiveMismatch" &&
-                    issue.FieldName == "Objective.ConditionEntries[0].DisplayText"),
+                    issue.FieldName == "Objective.ConditionEntries[0].AuthoringLabel"),
                 Is.True,
                 FormatIssues(issues));
             Assert.That(

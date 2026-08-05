@@ -2875,48 +2875,48 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the exit zone
+      AuthoringLabel: Reach the exit zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: b997310c193a9d84394778bae744d2e7, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-11
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 10
     - Condition: {fileID: 11400000, guid: d11e97d9e5b8111478c0fad71957afc8, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-24
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 20
     - Condition: {fileID: 11400000, guid: bf5c31edc7589bf4cb40a2af33ec141b, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-25
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 30
     - Condition: {fileID: 11400000, guid: 42d9f3e95daa1f8458b093510839b3b2, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-26
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 40
     - Condition: {fileID: 11400000, guid: da57b8e9a245df24397b66cc9b6dd8f1, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-61
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 50
     - Condition: {fileID: 11400000, guid: 6cd562e4a25eee6409c96c695225e2fb, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-62
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 60
     - Condition: {fileID: 11400000, guid: 5166506f31d01684ab157f4b1779d873, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-36
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 70
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}

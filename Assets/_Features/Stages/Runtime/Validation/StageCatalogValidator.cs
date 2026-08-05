@@ -895,12 +895,13 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
-                if (string.IsNullOrWhiteSpace(conditionEntry.DisplayText))
+                if (StageObjectiveAuthoringMetadataPolicy.IsAuthoringLabelMissing(
+                        conditionEntry.AuthoringLabel))
                 {
                     report.Add(
                         StageValidationSeverity.Error,
-                        "objective.display-text-missing",
-                        $"Production campaign stage '{entry.StageId.Value}' objective condition entry[{i}] is missing user-facing DisplayText.",
+                        StageObjectiveAuthoringMetadataPolicy.AuthoringLabelMissingCode,
+                        $"Production campaign stage '{entry.StageId.Value}' objective condition entry[{i}]: Objective condition authoring label is required.",
                         entry.GameplayDefinition,
                         gameplayAssetPath,
                         options.Timing);

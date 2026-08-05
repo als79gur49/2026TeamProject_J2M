@@ -1,5 +1,17 @@
 {
   "dependencies": {
+    "com.j2m.platform.steam": {
+      "version": "file:com.j2m.platform.steam",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.j2m.platform.steam.steamworksnet": {
+      "version": "file:com.j2m.platform.steam.steamworksnet",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,

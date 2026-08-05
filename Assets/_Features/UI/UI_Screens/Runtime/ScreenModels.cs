@@ -342,6 +342,8 @@ namespace Game.Feature.UI.Screens
         public const string InputReservedKeyKey = SettingsLocalizationContract.Keys.InputReservedKey;
         public const string InputMovementConflictKey = SettingsLocalizationContract.Keys.InputMovementConflict;
         public const string InputAlreadyRebindingKey = SettingsLocalizationContract.Keys.InputAlreadyRebinding;
+        public const string InputActionConflictKey = SettingsLocalizationContract.Keys.InputActionConflict;
+        public const string InputUnsupportedKeyKey = SettingsLocalizationContract.Keys.InputUnsupportedKey;
         public const string InputRebindPushPromptKey = SettingsLocalizationContract.Keys.InputRebindPushPrompt;
         public const string InputRebindFlipPromptKey = SettingsLocalizationContract.Keys.InputRebindFlipPrompt;
         public const string DisplayPreviewConfirmFullscreenBodyKey =
@@ -478,6 +480,32 @@ namespace Game.Feature.UI.Screens
             return new LocalizedTextDescriptor(
                 SettingsStaticTextDescriptors.Table,
                 InputAlreadyRebindingKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular);
+        }
+
+        public static LocalizedTextDescriptor InputActionConflict(
+            LocalizedTextDescriptor conflictingActionDisplayName)
+        {
+            if (string.IsNullOrEmpty(conflictingActionDisplayName.Table) ||
+                string.IsNullOrEmpty(conflictingActionDisplayName.Key))
+            {
+                return InputUnsupportedKey();
+            }
+
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                InputActionConflictKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular,
+                new object[] { conflictingActionDisplayName });
+        }
+
+        public static LocalizedTextDescriptor InputUnsupportedKey()
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                InputUnsupportedKeyKey,
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular);
         }

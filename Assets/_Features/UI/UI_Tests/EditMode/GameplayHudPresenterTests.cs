@@ -494,6 +494,63 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ObjectiveConditionSortOrder_HudGroupsUseMinimumWithoutChangingCompletionCounts()
+        {
+            var presenter = new ObjectiveHudPresenter();
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("generic-min", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("generic-other", false, UIObjectiveConditionRole.SecondaryGoal, 50, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("moon-min", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                    CreateCondition("moon-other", false, UIObjectiveConditionRole.SecondaryGoal, 60, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                }));
+
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.RowKind),
+                Is.EqualTo(new[] { ObjectiveHudRowKind.ButtonGroupGeneric, ObjectiveHudRowKind.ButtonGroupMoon }));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => (row.CompletedCount, row.RequiredCount)),
+                Is.EqualTo(new[] { (1, 2), (0, 2) }));
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("generic-min", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("generic-other", false, UIObjectiveConditionRole.SecondaryGoal, 70, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("moon-min", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                    CreateCondition("moon-other", false, UIObjectiveConditionRole.SecondaryGoal, 60, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                }));
+
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.RowKind),
+                Is.EqualTo(new[] { ObjectiveHudRowKind.ButtonGroupGeneric, ObjectiveHudRowKind.ButtonGroupMoon }));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => (row.CompletedCount, row.RequiredCount)),
+                Is.EqualTo(new[] { (1, 2), (0, 2) }));
+
+            presenter.Apply(CreateObjectiveSlice(
+                summary: "Activate all buttons.",
+                conditions: new[]
+                {
+                    CreateCondition("generic-min", true, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("generic-other", false, UIObjectiveConditionRole.SecondaryGoal, 70, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
+                    CreateCondition("moon-min", false, UIObjectiveConditionRole.SecondaryGoal, 20, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                    CreateCondition("moon-other", false, UIObjectiveConditionRole.SecondaryGoal, 60, GameplayObjectivePresentationKind.ActivateMoonButton, "activate-moon-button|role-2"),
+                }));
+
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => row.RowKind),
+                Is.EqualTo(new[] { ObjectiveHudRowKind.ButtonGroupMoon, ObjectiveHudRowKind.ButtonGroupGeneric }));
+            Assert.That(
+                presenter.ViewModel.Rows.Select(row => (row.CompletedCount, row.RequiredCount)),
+                Is.EqualTo(new[] { (0, 2), (1, 2) }));
+        }
+
+        [Test]
         public void ObjectiveHudPresenter_GroupedRow_StableId_DoesNotChangeWhenCompletedCountChanges()
         {
             var presenter = new ObjectiveHudPresenter();

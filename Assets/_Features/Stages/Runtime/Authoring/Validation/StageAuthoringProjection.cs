@@ -367,7 +367,7 @@ namespace Game.Feature.Stages
                     entries[i].Required,
                     entries[i].Role,
                     Normalize(entries[i].StableConditionId),
-                    Normalize(entries[i].DisplayText),
+                    Normalize(entries[i].AuthoringLabel),
                     entries[i].SortOrder);
             }
 

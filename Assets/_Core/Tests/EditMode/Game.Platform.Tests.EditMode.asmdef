@@ -1,0 +1,13 @@
+{
+  "name": "Game.Platform.Tests.EditMode",
+  "rootNamespace": "Game.Platform.Tests.EditMode",
+  "references": [
+    "Game.Platform.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

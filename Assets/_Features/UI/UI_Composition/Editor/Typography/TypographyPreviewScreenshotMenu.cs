@@ -75,12 +75,71 @@ namespace Game.Feature.UI.Composition.Editor
             result.ThrowIfFailed();
         }
 
+        public static void CaptureM2bPreviewScreenshotSliceFromCommandLine()
+        {
+            var args = Environment.GetCommandLineArgs();
+            var outputDirectory = ReadArg(args, "-typographyScreenshotOutput");
+            var targetName = ReadArg(args, "-typographyScreenshotTarget");
+            var localeCode = ReadArg(args, "-typographyScreenshotLocale");
+            var target = TypographyPreviewScreenshotUtility.M2bDiagnosticTargets.SingleOrDefault(
+                candidate => string.Equals(candidate.FileStem, targetName, StringComparison.Ordinal));
+            if (string.IsNullOrWhiteSpace(target.FileStem))
+            {
+                throw new InvalidOperationException(
+                    $"-typographyScreenshotTarget must be one of: " +
+                    $"{string.Join(", ", TypographyPreviewScreenshotUtility.M2bDiagnosticTargets.Select(candidate => candidate.FileStem))}.");
+            }
+
+            if (!TypographyThemeValidator.RequiredLocaleCodes.Contains(localeCode, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"-typographyScreenshotLocale must be one of: " +
+                    $"{string.Join(", ", TypographyThemeValidator.RequiredLocaleCodes)}.");
+            }
+
+            var result = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                new[] { target },
+                new[] { localeCode },
+                System.IO.Path.Combine(outputDirectory, "Diagnostics"),
+                ReadOptions(args));
+            LogResult(result);
+            result.ThrowIfFailed();
+        }
+
         private static void CaptureClimateDiagnosticsForSlice(
             string targetName,
             string localeCode,
             string outputDirectory,
             TypographyPreviewScreenshotOptions options)
         {
+            if ((string.Equals(localeCode, "en-US", StringComparison.Ordinal) &&
+                 string.IsNullOrWhiteSpace(targetName)) ||
+                (string.Equals(localeCode, "ko-KR", StringComparison.Ordinal) &&
+                 string.Equals(targetName, "MainMenu", StringComparison.Ordinal)))
+            {
+                var saveSlotDiagnosticResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                    TypographyPreviewScreenshotUtility.M1bDiagnosticTargets
+                        .Concat(TypographyPreviewScreenshotUtility.M2aDiagnosticTargets),
+                    new[] { localeCode },
+                    System.IO.Path.Combine(outputDirectory, "Diagnostics"),
+                    options);
+                LogResult(saveSlotDiagnosticResult);
+                saveSlotDiagnosticResult.ThrowIfFailed();
+            }
+
+            if (string.Equals(localeCode, "en-US", StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(targetName))
+            {
+                var confirmPopupResult = TypographyPreviewScreenshotUtility.CaptureScreenshots(
+                    TypographyPreviewScreenshotUtility.ClimateDiagnosticTargets
+                        .Where(target => string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal)),
+                    new[] { localeCode },
+                    System.IO.Path.Combine(outputDirectory, "Diagnostics"),
+                    options);
+                LogResult(confirmPopupResult);
+                confirmPopupResult.ThrowIfFailed();
+            }
+
             if (!string.Equals(localeCode, "ko-KR", StringComparison.Ordinal))
             {
                 return;
@@ -164,7 +223,8 @@ namespace Game.Feature.UI.Composition.Editor
                     "|---|---|---|---|---|---|---|",
                 }
                 .Concat(result.Captures.Select(capture =>
-                    $"| {capture.Target.Name} | {capture.LocaleCode} | {capture.FilePath} | {capture.Exists} | {capture.FileSizeBytes} | {capture.AppliedBindingCount} | {capture.LocalizedTextAppliedCount} |"))
+                    $"| {capture.Target.Name} | {capture.LocaleCode} | {capture.FilePath} | {capture.Exists} | {capture.FileSizeBytes} | {capture.AppliedBindingCount} | {capture.LocalizedTextAppliedCount} | " +
+                    $"PixelProof={capture.M1bPixelProofPassCount}/{capture.M1bPixelProofCount} |"))
                 .Concat(result.Errors.Select(error => $"ERROR: {error}"))
                 .Concat(result.Captures.SelectMany(capture => capture.Errors.Select(error => $"ERROR: {error}")));
 

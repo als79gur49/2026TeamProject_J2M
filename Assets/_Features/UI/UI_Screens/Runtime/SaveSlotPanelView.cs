@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.UI.ViewShared;
+using TMPro;
 using UnityEngine;
 
 namespace Game.Feature.UI.Screens
@@ -28,6 +30,20 @@ namespace Game.Feature.UI.Screens
         public int SelectedCardIndex => _selectedCardIndex;
 
         public SaveSlotActionSelection SelectedAction => _selectedAction;
+
+        public IReadOnlyList<TMP_Text> CreateTypographyTargets()
+        {
+            var targets = new List<TMP_Text>();
+            for (var i = 0; i < _slotCards.Length; i++)
+            {
+                if (_slotCards[i] != null)
+                {
+                    targets.AddRange(_slotCards[i].CreateTypographyTargets());
+                }
+            }
+
+            return targets;
+        }
 
         public void Bind(SaveSlotPanelViewModel viewModel)
         {

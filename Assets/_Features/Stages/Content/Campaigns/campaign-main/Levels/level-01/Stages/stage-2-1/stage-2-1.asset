@@ -2898,30 +2898,30 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the Exit Zone
+      AuthoringLabel: Reach the Exit Zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 06cb48c68c8d2c54c8db68ec9182cf25, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-16
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 10
     - Condition: {fileID: 11400000, guid: 6993b4458cf36134fbb6e077c7591ec7, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-33
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 20
     - Condition: {fileID: 11400000, guid: 92cc0f4014c062d4d841c1f8211b00d5, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-61
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 30
     - Condition: {fileID: 11400000, guid: b16611be9a59f8c4a88c1ea5ba15007b, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-63
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 40
   enemyUnitArchetypeCatalog: {fileID: 11400000, guid: 5c5a7223f24e45109bfa8c1c539cb6db, type: 2}

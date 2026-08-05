@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.Host;
 using UnityEditor;
+using UnityEngine;
 
 namespace Game.Feature.Stages.Editor
 {
@@ -8,7 +11,8 @@ namespace Game.Feature.Stages.Editor
     {
         public static void ApplyPlan(
             StageAuthoringGenerationPlan plan,
-            StageAuthoringGenerateOptions options)
+            StageAuthoringGenerateOptions options,
+            bool recordUndo = true)
         {
             if (plan == null || plan.Source == null || plan.BuildData == null || plan.Allocation == null)
             {
@@ -16,18 +20,18 @@ namespace Game.Feature.Stages.Editor
             }
 
             options ??= plan.Options ?? StageAuthoringGenerateOptions.WriteAll;
-            ApplyMappings(plan.Source, plan.Allocation.Mappings);
+            ApplyMappings(plan.Source, plan.Allocation.Mappings, recordUndo);
             if (options.WriteGameplay && plan.GameplayOutput != null)
             {
-                ApplyGameplayOutput(plan.GameplayOutput, plan.BuildData);
+                ApplyGameplayOutput(plan.GameplayOutput, plan.BuildData, recordUndo);
             }
 
             if (options.WritePresentationBindings && plan.PresentationOutput != null)
             {
-                ApplyPresentationOutput(plan.PresentationOutput, plan.BuildData);
+                ApplyPresentationOutput(plan.PresentationOutput, plan.BuildData, recordUndo);
             }
 
-            AssetDatabase.SaveAssets();
+            StageAuthoringGenerationSaveSet.SaveTouchedAssets(plan, options);
         }
 
         public static void ApplyGameplayOutput(
@@ -104,9 +108,14 @@ namespace Game.Feature.Stages.Editor
 
         private static void ApplyMappings(
             StageAuthoringDefinition source,
-            IReadOnlyList<StageAuthoringIdMapping> mappings)
+            IReadOnlyList<StageAuthoringIdMapping> mappings,
+            bool recordUndo)
         {
-            Undo.RecordObject(source, "Generate Stage Authoring Entity IDs");
+            if (recordUndo)
+            {
+                Undo.RecordObject(source, "Generate Stage Authoring Entity IDs");
+            }
+
             source.SetEntityIdMappings(mappings);
             EditorUtility.SetDirty(source);
         }
@@ -207,7 +216,7 @@ namespace Game.Feature.Stages.Editor
                 element.FindPropertyRelative("Required").boolValue = entries[i].Required;
                 element.FindPropertyRelative("Role").intValue = (int)entries[i].Role;
                 element.FindPropertyRelative("StableConditionId").stringValue = Normalize(entries[i].StableConditionId);
-                element.FindPropertyRelative("DisplayText").stringValue = Normalize(entries[i].DisplayText);
+                element.FindPropertyRelative("AuthoringLabel").stringValue = Normalize(entries[i].AuthoringLabel);
                 element.FindPropertyRelative("SortOrder").intValue = entries[i].SortOrder;
             }
         }
@@ -241,6 +250,55 @@ namespace Game.Feature.Stages.Editor
         private static string Normalize(string value)
         {
             return StageAuthoringGenerator.Normalize(value);
+        }
+    }
+
+    internal static class StageAuthoringGenerationSaveSet
+    {
+        public static void SaveTouchedAssets(
+            StageAuthoringGenerationPlan plan,
+            StageAuthoringGenerateOptions options)
+        {
+            if (plan == null)
+            {
+                return;
+            }
+
+            options ??= plan.Options ?? StageAuthoringGenerateOptions.WriteAll;
+            var assetsByPath = new Dictionary<string, UnityEngine.Object>(StringComparer.Ordinal);
+            AddPlanOwnedPersistentAsset(assetsByPath, plan.Source);
+            if (options.WriteGameplay)
+            {
+                AddPlanOwnedPersistentAsset(assetsByPath, plan.GameplayOutput);
+            }
+
+            if (options.WritePresentationBindings)
+            {
+                AddPlanOwnedPersistentAsset(assetsByPath, plan.PresentationOutput);
+            }
+
+            foreach (var path in assetsByPath.Keys.OrderBy(path => path, StringComparer.Ordinal))
+            {
+                AssetDatabase.SaveAssetIfDirty(assetsByPath[path]);
+            }
+        }
+
+        private static void AddPlanOwnedPersistentAsset(
+            IDictionary<string, UnityEngine.Object> assetsByPath,
+            UnityEngine.Object asset)
+        {
+            if (asset == null || !EditorUtility.IsPersistent(asset))
+            {
+                return;
+            }
+
+            var path = AssetDatabase.GetAssetPath(asset);
+            if (string.IsNullOrEmpty(path) || assetsByPath.ContainsKey(path))
+            {
+                return;
+            }
+
+            assetsByPath.Add(path, asset);
         }
     }
 }

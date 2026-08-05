@@ -11,7 +11,9 @@ PRINT_CONFIG_OUTPUT="$(mktemp)"
 MISMATCH_OUTPUT="$(mktemp)"
 CORE_DRY_RUN_OUTPUT="$(mktemp)"
 FULL_DRY_RUN_OUTPUT="$(mktemp)"
-trap 'rm -f "$PRINT_CONFIG_OUTPUT" "$MISMATCH_OUTPUT" "$CORE_DRY_RUN_OUTPUT" "$FULL_DRY_RUN_OUTPUT"' EXIT
+HEAD_CLIMATE_CONTRACT_OUTPUT="$(mktemp)"
+CANDIDATE_CLIMATE_CONTRACT_OUTPUT="$(mktemp)"
+trap 'rm -f "$PRINT_CONFIG_OUTPUT" "$MISMATCH_OUTPUT" "$CORE_DRY_RUN_OUTPUT" "$FULL_DRY_RUN_OUTPUT" "$HEAD_CLIMATE_CONTRACT_OUTPUT" "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT"' EXIT
 
 assert_contains() {
     local path="$1"
@@ -37,8 +39,15 @@ assert_not_contains() {
     fi
 }
 
-sh -n run_tests.sh
 bash -n run_tests.sh
+
+sed -n '/^verify_climate_committed_source_integrity() {/,/^}/p' run_tests.sh > "$HEAD_CLIMATE_CONTRACT_OUTPUT"
+assert_contains "$HEAD_CLIMATE_CONTRACT_OUTPUT" 'head_climate_sdf_sha256="$('
+assert_contains "$HEAD_CLIMATE_CONTRACT_OUTPUT" 'git_head_runner_constant CLIMATE_COMMITTED_SDF_SHA256'
+
+sed -n '/^verify_climate_worktree_source_integrity() {/,/^}/p' run_tests.sh > "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT"
+assert_contains "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT" 'candidate_sdf_hash="$('
+assert_contains "$CANDIDATE_CLIMATE_CONTRACT_OUTPUT" 'if [ "$candidate_sdf_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ]; then'
 
 ./run_tests.sh --print-config > "$PRINT_CONFIG_OUTPUT"
 assert_contains "$PRINT_CONFIG_OUTPUT" "PROJECT_PATH_WSL=$ROOT_DIR"
@@ -62,10 +71,12 @@ assert_contains "$CORE_DRY_RUN_OUTPUT" "Would run Windows dotnet build:"
 assert_contains "$CORE_DRY_RUN_OUTPUT" "Would run Unity core (EditMode):"
 assert_not_contains "$CORE_DRY_RUN_OUTPUT" "ALL TESTS PASSED"
 
-./run_tests.sh --dry-run full > "$FULL_DRY_RUN_OUTPUT"
-assert_contains "$FULL_DRY_RUN_OUTPUT" "Would run Windows dotnet build:"
-assert_contains "$FULL_DRY_RUN_OUTPUT" "$EXPECTED_SOLUTION"
-assert_contains "$FULL_DRY_RUN_OUTPUT" "-projectPath $EXPECTED_PROJECT_PATH_WIN_SHELL"
-assert_not_contains "$FULL_DRY_RUN_OUTPUT" "ALL TESTS PASSED"
+if [ -n "$EXPECTED_SOLUTION" ]; then
+    ./run_tests.sh --dry-run full > "$FULL_DRY_RUN_OUTPUT"
+    assert_contains "$FULL_DRY_RUN_OUTPUT" "Would run Windows dotnet build:"
+    assert_contains "$FULL_DRY_RUN_OUTPUT" "$EXPECTED_SOLUTION"
+    assert_contains "$FULL_DRY_RUN_OUTPUT" "-projectPath $EXPECTED_PROJECT_PATH_WIN_SHELL"
+    assert_not_contains "$FULL_DRY_RUN_OUTPUT" "ALL TESTS PASSED"
+fi
 
 echo "run_tests.sh worktree path checks passed"

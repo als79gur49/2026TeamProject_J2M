@@ -3583,25 +3583,25 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the exit zone
+      AuthoringLabel: Reach the exit zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: 6ad16eebe7a12a947a6b2b4505d1d34d, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-3
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 10
     - Condition: {fileID: 11400000, guid: b67bbfa79a3327a4a9e48ec94dc240f2, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-4
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 20
     - Condition: {fileID: 11400000, guid: e25d14e995225484486245d1529086e5, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-5
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 30
   entityIdMappings:
   - StableGuid: stage-0-1:Player:10

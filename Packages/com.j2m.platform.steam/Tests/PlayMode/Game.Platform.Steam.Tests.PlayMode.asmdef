@@ -1,0 +1,11 @@
+{
+  "name": "Game.Platform.Steam.Tests.PlayMode",
+  "rootNamespace": "Game.Platform.Steam.Tests.PlayMode",
+  "references": [
+    "Game.Platform.Runtime",
+    "Game.Platform.Steam"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

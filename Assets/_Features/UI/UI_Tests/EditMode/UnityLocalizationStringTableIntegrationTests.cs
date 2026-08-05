@@ -75,23 +75,23 @@ namespace Game.Feature.UI.Tests
                 .Cast<SettingsLocalizationEntryId>()
                 .ToArray();
 
-            Assert.That(entries, Has.Count.EqualTo(48));
+            Assert.That(entries, Has.Count.EqualTo(50));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor)),
                 Is.EqualTo(31));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor)),
-                Is.EqualTo(17));
-            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(7));
+                Is.EqualTo(19));
+            Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(8));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PercentArgument),
                 Is.EqualTo(2));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PositionalArgument),
-                Is.EqualTo(5));
+                Is.EqualTo(6));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.None),
-                Is.EqualTo(41));
+                Is.EqualTo(42));
             Assert.That(
                 entries.Select(entry => entry.Id).ToArray(),
                 Is.EquivalentTo(declaredIds),
@@ -149,6 +149,7 @@ namespace Game.Feature.UI.Tests
                     SettingsLocalizationContract.Keys.DisplayResolutionValue,
                     SettingsLocalizationContract.Keys.DisplayPreviewCountdown,
                     SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody,
                 }),
@@ -240,7 +241,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(67));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(111));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -353,20 +354,24 @@ namespace Game.Feature.UI.Tests
 
             AssertInputDynamicEntries(
                 collection.GetTable("en-US") as StringTable,
-                "Rebind canceled.",
+                "Key reassignment cancelled.",
                 "Input settings reset.",
-                "This key is reserved.",
-                "This key conflicts with movement keys.",
-                "Rebind already in progress.",
+                "This key cannot be used.",
+                "Movement keys cannot overlap.",
+                "Another key is already being reassigned.",
+                "This key is already used by {0}.",
+                "This key cannot be used.",
                 "Press a key for Push...",
                 "Press a key for Flip...");
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
-                "키 변경 취소됨",
+                "키 재지정을 취소했습니다.",
                 "입력 설정이 초기화되었습니다.",
-                "이 키는 예약되어 있습니다.",
-                "이 키는 이동 키와 충돌합니다.",
-                "키 변경이 이미 진행 중입니다.",
+                "이 키는 사용할 수 없습니다.",
+                "이동 키는 서로 중복될 수 없습니다.",
+                "다른 키를 이미 재지정하고 있습니다.",
+                "이 키는 이미 {0}에 사용 중입니다.",
+                "이 키는 사용할 수 없습니다.",
                 "밀기 키 입력하세요...",
                 "뒤집기 키 입력하세요...");
         }
@@ -459,15 +464,46 @@ namespace Game.Feature.UI.Tests
             var collection = LocalizationEditorSettings.GetStringTableCollection("Stage");
             Assert.That(collection, Is.Not.Null);
             var activeStageEntries = LoadActiveStageDisplayNameEntries();
+            var englishTable = collection.GetTable("en-US") as StringTable;
+            var koreanTable = collection.GetTable("ko-KR") as StringTable;
 
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).ToArray(),
                 Is.EquivalentTo(StageDisplayNameEntries.Select(entry => entry.Key).ToArray()));
+            Assert.That(activeStageEntries, Has.Length.EqualTo(9));
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(),
                 Is.EqualTo(activeStageEntries.Length));
-            AssertStageTable(collection.GetTable("en-US") as StringTable, activeStageEntries);
-            AssertStageTable(collection.GetTable("ko-KR") as StringTable, activeStageEntries);
+            AssertStageTable(englishTable, StageDisplayNameEntries, useKoreanValues: false);
+            AssertStageTable(koreanTable, StageDisplayNameEntries, useKoreanValues: true);
+
+            foreach (var entry in StageDisplayNameEntries)
+            {
+                var english = englishTable.GetEntry(entry.Key);
+                var korean = koreanTable.GetEntry(entry.Key);
+                var shared = collection.SharedData.Entries.Single(candidate =>
+                    string.Equals(candidate.Key, entry.Key, StringComparison.Ordinal));
+                Assert.That(english.KeyId, Is.EqualTo(shared.Id), entry.Key);
+                Assert.That(english.KeyId, Is.EqualTo(korean.KeyId), entry.Key);
+                Assert.That(
+                    ExtractPlaceholderTokens(korean.LocalizedValue),
+                    Is.EqualTo(ExtractPlaceholderTokens(english.LocalizedValue)),
+                    entry.Key);
+            }
+
+            var legacyEnglish = englishTable.GetEntry(LegacyStageDisplayNameKey);
+            var legacyKorean = koreanTable.GetEntry(LegacyStageDisplayNameKey);
+            var legacyShared = collection.SharedData.Entries.Single(candidate =>
+                string.Equals(candidate.Key, LegacyStageDisplayNameKey, StringComparison.Ordinal));
+            Assert.That(legacyEnglish, Is.Not.Null);
+            Assert.That(legacyKorean, Is.Not.Null);
+            Assert.That(legacyEnglish.KeyId, Is.EqualTo(legacyShared.Id));
+            Assert.That(legacyEnglish.KeyId, Is.EqualTo(legacyKorean.KeyId));
+            Assert.That(legacyEnglish.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameValue));
+            Assert.That(legacyKorean.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameValue));
+            Assert.That(
+                activeStageEntries.Select(entry => entry.Key),
+                Does.Not.Contain(LegacyStageDisplayNameKey));
         }
 
         [Test]
@@ -648,12 +684,79 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(MainMenuStaticTextDescriptors.Quit), Is.EqualTo("종료"));
             Assert.That(
                 resolver.Resolve(StageDisplayNameTextDescriptors.Create("stage.stage-0-1.display_name")),
-                Is.EqualTo("Lab-01"));
+                Is.EqualTo("연구실-01"));
             Assert.That(eventCount, Is.EqualTo(1));
 
             Assert.That(resolver.TrySetLocale("fr-FR"), Is.False);
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(resolver.Resolve(new LocalizedTextDescriptor("UI", "ui.settings.missing")), Is.EqualTo("[UI:ui.settings.missing]"));
+        }
+
+        [Test]
+        public void StageDisplayNameDescriptors_ResolveAllOfficialNamesAcrossLocaleRoundTrip()
+        {
+            using var resolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+
+            AssertStageDescriptorsResolve(resolver, useKoreanValues: false);
+            Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
+            AssertStageDescriptorsResolve(resolver, useKoreanValues: true);
+            Assert.That(resolver.TrySetLocale("en-US"), Is.True);
+            AssertStageDescriptorsResolve(resolver, useKoreanValues: false);
+
+            Assert.That(
+                resolver.Resolve(StageDisplayNameTextDescriptors.Create(LegacyStageDisplayNameKey)),
+                Is.EqualTo(LegacyStageDisplayNameValue));
+        }
+
+        [Test]
+        public void PackageFreeStageFallback_MatchesCompleteLocaleTablesAndPreservesUnknownKeys()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection(StageDisplayNameKeys.Table);
+            var englishTable = collection?.GetTable(PackageFreeLocalizedTextResolver.DefaultLocaleCode) as StringTable;
+            var koreanTable = collection?.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
+            Assert.That(englishTable, Is.Not.Null);
+            Assert.That(koreanTable, Is.Not.Null);
+
+            var fallbackResolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
+            using var unityResolver = CreateUnityResolver(new FakeUiLocalePreferenceStore());
+            var stageKeys = StageDisplayNameEntries
+                .Select(entry => entry.Key)
+                .Append(LegacyStageDisplayNameKey)
+                .ToArray();
+            Assert.That(stageKeys, Has.Length.EqualTo(10));
+
+            var englishFallbackValues = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var key in stageKeys)
+            {
+                var descriptor = StageDisplayNameTextDescriptors.Create(key);
+                var expected = englishTable.GetEntry(key)?.LocalizedValue;
+                Assert.That(expected, Is.Not.Null.And.Not.Empty, $"en-US table missing {key}");
+                Assert.That(fallbackResolver.Resolve(descriptor), Is.EqualTo(expected), $"en-US fallback {key}");
+                Assert.That(unityResolver.Resolve(descriptor), Is.EqualTo(expected), $"en-US String Table {key}");
+                englishFallbackValues.Add(key, fallbackResolver.Resolve(descriptor));
+            }
+
+            var unknown = StageDisplayNameTextDescriptors.Create("stage.unknown.display_name");
+            Assert.That(fallbackResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+            Assert.That(unityResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+
+            fallbackResolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
+            Assert.That(unityResolver.TrySetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode), Is.True);
+            foreach (var key in stageKeys)
+            {
+                var descriptor = StageDisplayNameTextDescriptors.Create(key);
+                var expected = koreanTable.GetEntry(key)?.LocalizedValue;
+                Assert.That(expected, Is.Not.Null.And.Not.Empty, $"ko-KR table missing {key}");
+                Assert.That(fallbackResolver.Resolve(descriptor), Is.EqualTo(expected), $"ko-KR fallback {key}");
+                Assert.That(unityResolver.Resolve(descriptor), Is.EqualTo(expected), $"ko-KR String Table {key}");
+                if (!string.Equals(expected, englishTable.GetEntry(key)?.LocalizedValue, StringComparison.Ordinal))
+                {
+                    Assert.That(fallbackResolver.Resolve(descriptor), Is.Not.EqualTo(englishFallbackValues[key]), key);
+                }
+            }
+
+            Assert.That(fallbackResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
+            Assert.That(unityResolver.Resolve(unknown), Is.EqualTo("[Stage:stage.unknown.display_name]"));
         }
 
         [Test]
@@ -731,19 +834,26 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
-                Is.EqualTo("Rebind canceled."));
+                Is.EqualTo("Key reassignment cancelled."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("Input settings reset."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
-                Is.EqualTo("This key is reserved."));
+                Is.EqualTo("This key cannot be used."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
-                Is.EqualTo("This key conflicts with movement keys."));
+                Is.EqualTo("Movement keys cannot overlap."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("Rebind already in progress."));
+                Is.EqualTo("Another key is already being reassigned."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
+                    SettingsStaticTextDescriptors.Flip)),
+                Is.EqualTo("This key is already used by Flip."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputUnsupportedKey()),
+                Is.EqualTo("This key cannot be used."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
                 Is.EqualTo("Press a key for Push..."));
@@ -755,19 +865,26 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
-                Is.EqualTo("키 변경 취소됨"));
+                Is.EqualTo("키 재지정을 취소했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("입력 설정이 초기화되었습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
-                Is.EqualTo("이 키는 예약되어 있습니다."));
+                Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputMovementConflict()),
-                Is.EqualTo("이 키는 이동 키와 충돌합니다."));
+                Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("키 변경이 이미 진행 중입니다."));
+                Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
+                    SettingsStaticTextDescriptors.Flip)),
+                Is.EqualTo("이 키는 이미 뒤집기에 사용 중입니다."));
+            Assert.That(
+                resolver.Resolve(SettingsDynamicTextDescriptors.InputUnsupportedKey()),
+                Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
                 Is.EqualTo("밀기 키 입력하세요..."));
@@ -921,13 +1038,17 @@ namespace Game.Feature.UI.Tests
             var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<MainMenuScreenView>(
                 UiTestPrefabAssetUtility.MainMenuScreenPrefabPath);
             var view = UnityEngine.Object.Instantiate(prefab);
+            var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
+                TypographyThemeValidator.ThemeAssetPath);
+            Assert.That(theme, Is.Not.Null);
 
             try
             {
                 view.BindStaticLocalization(
                     MainMenuStaticTextPayload.Default,
                     resolver,
-                    DefaultLocalizedTypographyResolver.Instance);
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
 
                 AssertMainMenuLabels(view, "Start", "Settings", "Quit");
 
@@ -1164,6 +1285,13 @@ namespace Game.Feature.UI.Tests
                             argumentSets.Add(arguments);
                         }
                     }
+                    else if (parameter.ParameterType == typeof(LocalizedTextDescriptor))
+                    {
+                        foreach (var arguments in argumentSets)
+                        {
+                            arguments[parameterIndex] = SettingsStaticTextDescriptors.Flip;
+                        }
+                    }
                     else
                     {
                         throw new InvalidOperationException(
@@ -1184,6 +1312,17 @@ namespace Game.Feature.UI.Tests
         private static LocalizedTextDescriptor CreateRepresentativeDescriptor(
             SettingsLocalizationContractEntry entry)
         {
+            if (string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
+                    StringComparison.Ordinal))
+            {
+                return new LocalizedTextDescriptor(
+                    entry.Table,
+                    entry.Key,
+                    arguments: new object[] { SettingsStaticTextDescriptors.Flip });
+            }
+
             if (string.Equals(
                     entry.Key,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
@@ -1211,6 +1350,14 @@ namespace Game.Feature.UI.Tests
             SettingsLocalizationContractEntry entry,
             string value)
         {
+            if (string.Equals(
+                    entry.Key,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
+                    StringComparison.Ordinal))
+            {
+                return value.Replace("{0}", "Flip");
+            }
+
             if (string.Equals(
                     entry.Key,
                     SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
@@ -1313,6 +1460,8 @@ namespace Game.Feature.UI.Tests
             string reservedKeyValue,
             string movementConflictValue,
             string alreadyRebindingValue,
+            string actionConflictValue,
+            string unsupportedKeyValue,
             string rebindPushPromptValue,
             string rebindFlipPromptValue)
         {
@@ -1346,6 +1495,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(entry.LocalizedValue, Is.EqualTo(alreadyRebindingValue));
             Assert.That(entry.LocalizedValue, Is.Not.Empty);
             Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputAlreadyRebindingKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputActionConflictKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputActionConflictKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(actionConflictValue));
+            Assert.That(entry.LocalizedValue, Does.Contain("{0}"));
+            Assert.That(entry.IsSmart, Is.True, SettingsDynamicTextDescriptors.InputActionConflictKey);
+
+            entry = table.GetEntry(SettingsDynamicTextDescriptors.InputUnsupportedKeyKey);
+            Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputUnsupportedKeyKey);
+            Assert.That(entry.LocalizedValue, Is.EqualTo(unsupportedKeyValue));
+            Assert.That(entry.LocalizedValue, Is.Not.Empty);
+            Assert.That(entry.IsSmart, Is.False, SettingsDynamicTextDescriptors.InputUnsupportedKeyKey);
 
             entry = table.GetEntry(SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
             Assert.That(entry, Is.Not.Null, SettingsDynamicTextDescriptors.InputRebindPushPromptKey);
@@ -1461,7 +1622,8 @@ namespace Game.Feature.UI.Tests
 
         private static void AssertStageTable(
             StringTable table,
-            IReadOnlyList<(string StageId, string Key, string Value)> expectedEntries)
+            IReadOnlyList<(string StageId, string Key, string English, string Korean)> expectedEntries,
+            bool useKoreanValues)
         {
             Assert.That(table, Is.Not.Null);
             var stageDisplayNameKeys = table.SharedData.Entries
@@ -1477,33 +1639,86 @@ namespace Game.Feature.UI.Tests
             {
                 var tableEntry = table.GetEntry(entry.Key);
                 Assert.That(tableEntry, Is.Not.Null, entry.Key);
-                Assert.That(tableEntry.LocalizedValue, Is.EqualTo(entry.Value), entry.StageId);
-                Assert.That(tableEntry.LocalizedValue, Is.Not.Empty);
+                Assert.That(
+                    tableEntry.LocalizedValue,
+                    Is.EqualTo(useKoreanValues ? entry.Korean : entry.English),
+                    entry.StageId);
+                Assert.That(tableEntry.LocalizedValue, Is.Not.Empty, entry.StageId);
             }
         }
 
-        private static (string StageId, string Key, string Value)[] LoadActiveStageDisplayNameEntries()
+        private static void AssertStageDescriptorsResolve(
+            ILocalizedTextResolver resolver,
+            bool useKoreanValues)
         {
-            var expectedValues = StageDisplayNameEntries.ToDictionary(
+            foreach (var entry in StageDisplayNameEntries)
+            {
+                var stageId = StageId.CreateOrThrow(entry.StageId);
+                var descriptor = StageDisplayNameTextDescriptors.ForStage(stageId);
+                Assert.That(descriptor.Key, Is.EqualTo(entry.Key), entry.StageId);
+                Assert.That(
+                    resolver.Resolve(descriptor),
+                    Is.EqualTo(useKoreanValues ? entry.Korean : entry.English),
+                    entry.StageId);
+            }
+        }
+
+        private static string[] ExtractPlaceholderTokens(string value)
+        {
+            var tokens = new List<string>();
+            for (var index = 0; index < value.Length; index++)
+            {
+                if (value[index] != '{')
+                {
+                    continue;
+                }
+
+                var closeIndex = value.IndexOf('}', index + 1);
+                if (closeIndex < 0)
+                {
+                    tokens.Add(value.Substring(index));
+                    break;
+                }
+
+                tokens.Add(value.Substring(index, closeIndex - index + 1));
+                index = closeIndex;
+            }
+
+            return tokens.ToArray();
+        }
+
+        private static (string StageId, string Key)[] LoadActiveStageDisplayNameEntries()
+        {
+            var expectedEntries = StageDisplayNameEntries.ToDictionary(
                 entry => entry.Key,
-                entry => entry.Value,
+                entry => entry.StageId,
                 StringComparer.Ordinal);
-            var entries = AssetDatabase
+            var contentEntries = AssetDatabase
                 .FindAssets($"t:{nameof(StageContentEntry)}", new[] { StageContentPaths.CampaignLevel01StagesRoot })
                 .Select(guid => AssetDatabase.LoadAssetAtPath<StageContentEntry>(AssetDatabase.GUIDToAssetPath(guid)))
                 .Where(entry => entry != null && entry.StageId.IsValid)
-                .OrderBy(entry => entry.StageId.Value, StringComparer.Ordinal)
-                .Select(entry =>
+                .ToDictionary(entry => entry.StageId.Value, StringComparer.Ordinal);
+            var sequence = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                StageContentPaths.CampaignStageSequenceAssetPath);
+            Assert.That(sequence, Is.Not.Null);
+            Assert.That(sequence.Entries.Count, Is.EqualTo(9));
+
+            var entries = sequence.Entries
+                .Select(sequenceEntry =>
                 {
+                    Assert.That(
+                        contentEntries.TryGetValue(sequenceEntry.StageId.Value, out var entry),
+                        Is.True,
+                        sequenceEntry.StageId.Value);
                     Assert.That(entry.PresentationDefinition, Is.Not.Null, entry.StageId.Value);
                     var key = entry.PresentationDefinition.DisplayNameKey;
                     Assert.That(key, Is.EqualTo(StageDisplayNameKeys.ForStage(entry.StageId)), entry.StageId.Value);
-                    Assert.That(expectedValues.TryGetValue(key, out var value), Is.True, entry.StageId.Value);
-                    return (entry.StageId.Value, key, value);
+                    Assert.That(expectedEntries.TryGetValue(key, out var expectedStageId), Is.True, entry.StageId.Value);
+                    Assert.That(expectedStageId, Is.EqualTo(entry.StageId.Value), entry.StageId.Value);
+                    return (entry.StageId.Value, key);
                 })
                 .ToArray();
 
-            Assert.That(entries, Is.Not.Empty);
             return entries;
         }
 
@@ -1514,19 +1729,22 @@ namespace Game.Feature.UI.Tests
                 Does.Not.Contain(referenceName));
         }
 
-        private static readonly (string Key, string Value)[] StageDisplayNameEntries =
+        private static readonly (string StageId, string Key, string English, string Korean)[] StageDisplayNameEntries =
         {
-            ("stage.stage-0-1.display_name", "Lab-01"),
-            ("stage.stage-0-2.display_name", "Lab-02"),
-            ("stage.stage-1-1.display_name", "Lobby-01"),
-            ("stage.stage-2-1.display_name", "Ward[A]-01"),
-            ("stage.stage-2-2.display_name", "Ward[A]-02"),
-            ("stage.stage-3-1.display_name", "Ward[B]-01"),
-            ("stage.stage-3-2.display_name", "Ward[B]-02"),
-            ("stage.stage-4-1.display_name", "Morgue-01"),
-            ("stage.stage-4-2.display_name", "Morgue-02"),
-            ("stage.legacy-stage-5-1.display_name", "Legacy 5-1"),
+            ("stage-0-1", "stage.stage-0-1.display_name", "Lab-01", "연구실-01"),
+            ("stage-0-2", "stage.stage-0-2.display_name", "Lab-02", "연구실-02"),
+            ("stage-1-1", "stage.stage-1-1.display_name", "Lobby-01", "로비-01"),
+            ("stage-2-1", "stage.stage-2-1.display_name", "Ward[A]-01", "병동[A]-01"),
+            ("stage-2-2", "stage.stage-2-2.display_name", "Ward[A]-02", "병동[A]-02"),
+            ("stage-3-1", "stage.stage-3-1.display_name", "Ward[B]-01", "병동[B]-01"),
+            ("stage-3-2", "stage.stage-3-2.display_name", "Ward[B]-02", "병동[B]-02"),
+            ("stage-4-1", "stage.stage-4-1.display_name", "Morgue-01", "영안실-01"),
+            ("stage-4-2", "stage.stage-4-2.display_name", "Morgue-02", "영안실-02"),
         };
+
+        private const string LegacyStageDisplayNameKey =
+            "stage.legacy-stage-5-1.display_name";
+        private const string LegacyStageDisplayNameValue = "Legacy 5-1";
 
         private static TMP_Text GetText(object target, string fieldName)
         {

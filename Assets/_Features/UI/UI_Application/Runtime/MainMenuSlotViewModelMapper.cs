@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Stages;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
 {
@@ -11,7 +12,11 @@ namespace Game.Feature.UI.Application
             IReadOnlyList<SaveSlotData> slots,
             CampaignStageSequenceResolver sequenceResolver)
         {
-            return Map(slots, sequenceResolver, validationService: null);
+            return Map(
+                slots,
+                sequenceResolver,
+                validationService: null,
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotPanelViewModel Map(
@@ -19,9 +24,27 @@ namespace Game.Feature.UI.Application
             CampaignStageSequenceResolver sequenceResolver,
             SaveSlotValidationService validationService)
         {
+            return Map(
+                slots,
+                sequenceResolver,
+                validationService,
+                InvariantSettingsLocalizedTextResolver.Instance);
+        }
+
+        public static SaveSlotPanelViewModel Map(
+            IReadOnlyList<SaveSlotData> slots,
+            CampaignStageSequenceResolver sequenceResolver,
+            SaveSlotValidationService validationService,
+            ILocalizedTextResolver localizedTextResolver)
+        {
             if (slots == null)
             {
                 throw new ArgumentNullException(nameof(slots));
+            }
+
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
             }
 
             var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
@@ -31,7 +54,11 @@ namespace Game.Feature.UI.Application
                 var validation = validationService != null
                     ? validationService.Validate(slot)
                     : default;
-                cards.Add(MapSlot(slot, sequenceResolver, validationService != null ? validation : (SaveSlotValidationResult?)null));
+                cards.Add(MapSlot(
+                    slot,
+                    sequenceResolver,
+                    validationService != null ? validation : (SaveSlotValidationResult?)null,
+                    localizedTextResolver));
             }
 
             return new SaveSlotPanelViewModel(cards);
@@ -39,21 +66,50 @@ namespace Game.Feature.UI.Application
 
         public static SaveSlotPanelViewModel MapCampaignAccessBlocked(CampaignSaveLoadReport report)
         {
+            return MapCampaignAccessBlocked(
+                report,
+                InvariantSettingsLocalizedTextResolver.Instance);
+        }
+
+        public static SaveSlotPanelViewModel MapCampaignAccessBlocked(
+            CampaignSaveLoadReport report,
+            ILocalizedTextResolver localizedTextResolver)
+        {
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
+            }
+
+            var failureKind = MapFailureKind(report.Status);
+            if (failureKind == SaveSlotFailurePresentationKind.None)
+            {
+                failureKind = SaveSlotFailurePresentationKind.NeedsRepair;
+            }
+
+            var failureText = MainMenuLocalization.FailureDescriptor(failureKind);
+            var failureTitle = localizedTextResolver.Resolve(failureText.Title);
+            var failureDetail = localizedTextResolver.Resolve(failureText.Detail);
             var cards = new List<SaveSlotCardViewModel>(SaveSlotStore.SlotCount);
             for (var slotNumber = 1; slotNumber <= SaveSlotStore.SlotCount; slotNumber++)
             {
                 cards.Add(new SaveSlotCardViewModel(
                     slotNumber,
-                    SaveSlotCardState.Corrupted,
-                    $"Slot {slotNumber}",
-                    ResolveBlockedStatusText(report.Status),
-                    ResolveBlockedDetailText(report),
+                    failureKind == SaveSlotFailurePresentationKind.UnsupportedVersion
+                        ? SaveSlotCardState.Unsupported
+                        : SaveSlotCardState.Corrupted,
+                    MainMenuLocalization.Resolve(
+                        localizedTextResolver,
+                        MainMenuLocalizationEntryId.SlotLabel,
+                        slotNumber),
+                    failureTitle,
+                    failureDetail,
                     string.Empty,
                     string.Empty,
                     string.Empty,
                     string.Empty,
                     SaveSlotIntentKind.None,
-                    showDelete: false));
+                    showDelete: false,
+                    failureKind: failureKind));
             }
 
             return new SaveSlotPanelViewModel(cards);
@@ -68,7 +124,11 @@ namespace Game.Feature.UI.Application
             SaveSlotData slot,
             CampaignStageSequenceResolver sequenceResolver)
         {
-            return MapSlot(slot, sequenceResolver, null);
+            return MapSlot(
+                slot,
+                sequenceResolver,
+                null,
+                InvariantSettingsLocalizedTextResolver.Instance);
         }
 
         public static SaveSlotCardViewModel MapSlot(
@@ -76,26 +136,51 @@ namespace Game.Feature.UI.Application
             CampaignStageSequenceResolver sequenceResolver,
             SaveSlotValidationResult? validationResult)
         {
+            return MapSlot(
+                slot,
+                sequenceResolver,
+                validationResult,
+                InvariantSettingsLocalizedTextResolver.Instance);
+        }
+
+        public static SaveSlotCardViewModel MapSlot(
+            SaveSlotData slot,
+            CampaignStageSequenceResolver sequenceResolver,
+            SaveSlotValidationResult? validationResult,
+            ILocalizedTextResolver localizedTextResolver)
+        {
             if (slot == null)
             {
                 throw new ArgumentNullException(nameof(slot));
             }
 
-            var title = $"Slot {slot.SlotNumber}";
+            if (localizedTextResolver == null)
+            {
+                throw new ArgumentNullException(nameof(localizedTextResolver));
+            }
+
+            var title = MainMenuLocalization.Resolve(
+                localizedTextResolver,
+                MainMenuLocalizationEntryId.SlotLabel,
+                slot.SlotNumber);
+            var deleteAction = MainMenuLocalization.Resolve(
+                localizedTextResolver,
+                MainMenuLocalizationEntryId.SlotDelete);
             if (slot.IsEmpty)
             {
                 return new SaveSlotCardViewModel(
                     slot.SlotNumber,
                     SaveSlotCardState.Empty,
                     title,
-                    "Empty",
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotEmpty),
                     string.Empty,
                     string.Empty,
                     string.Empty,
                     string.Empty,
-                    "New Game",
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotNewGame),
                     SaveSlotIntentKind.NewGame,
-                    showDelete: false);
+                    showDelete: false,
+                    deleteActionText: deleteAction);
             }
 
             var validation = validationResult ?? new SaveSlotValidationResult(
@@ -103,13 +188,9 @@ namespace Game.Feature.UI.Application
                 slot.CampaignCompleted ? SaveSlotValidationStatus.Completed : SaveSlotValidationStatus.Valid,
                 sequenceResolver != null ? sequenceResolver.GetLevelGroupId(slot.CurrentStageId) : slot.CurrentLevelGroupId,
                 levelGroupWasSynced: false);
-            var displayStage = sequenceResolver != null
-                ? sequenceResolver.GetDisplayName(slot.CurrentStageId)
-                : slot.CurrentStageId.Value;
-            if (string.IsNullOrWhiteSpace(displayStage) && slot.CurrentStageId.IsValid)
-            {
-                displayStage = slot.CurrentStageId.Value;
-            }
+            var displayStage = slot.CurrentStageId.IsValid
+                ? localizedTextResolver.Resolve(StageDisplayNameTextDescriptors.ForStage(slot.CurrentStageId))
+                : string.Empty;
 
             if (validation.Status == SaveSlotValidationStatus.Completed)
             {
@@ -117,117 +198,121 @@ namespace Game.Feature.UI.Application
                     slot.SlotNumber,
                     SaveSlotCardState.Completed,
                     title,
-                    "Completed",
-                    string.IsNullOrWhiteSpace(displayStage) ? string.Empty : $"Stage {displayStage}",
-                    $"Chances {slot.RemainingChances}",
-                    $"Deaths {slot.TotalDeaths}",
-                    FormatLastPlayedText(slot.LastPlayedAt),
-                    "Restart",
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotCompleted),
+                    FormatStageText(localizedTextResolver, displayStage),
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, slot.RemainingChances),
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, slot.TotalDeaths),
+                    FormatLastPlayedText(slot.LastPlayedAt, localizedTextResolver),
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotRestart),
                     SaveSlotIntentKind.Restart,
-                    showDelete: true);
+                    showDelete: true,
+                    deleteActionText: deleteAction);
             }
 
             if (!validation.CanContinue)
             {
-                var isUnsupported = validation.Status == SaveSlotValidationStatus.UnsupportedVersion;
+                var failureKind = MapFailureKind(validation.Status);
+                if (failureKind == SaveSlotFailurePresentationKind.None)
+                {
+                    failureKind = SaveSlotFailurePresentationKind.NeedsRepair;
+                }
+
+                var failureText = MainMenuLocalization.FailureDescriptor(failureKind);
                 return new SaveSlotCardViewModel(
                     slot.SlotNumber,
-                    isUnsupported ? SaveSlotCardState.Unsupported : SaveSlotCardState.Corrupted,
+                    failureKind == SaveSlotFailurePresentationKind.UnsupportedVersion
+                        ? SaveSlotCardState.Unsupported
+                        : SaveSlotCardState.Corrupted,
                     title,
-                    isUnsupported ? "Unsupported" : "Needs Repair",
-                    ResolveInvalidStageText(slot, displayStage, validation.Status),
+                    localizedTextResolver.Resolve(failureText.Title),
+                    localizedTextResolver.Resolve(failureText.Detail),
                     string.Empty,
-                    $"Deaths {slot.TotalDeaths}",
-                    FormatLastPlayedText(slot.LastPlayedAt),
-                    "Restart",
+                    string.Empty,
+                    string.Empty,
+                    MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotRestart),
                     SaveSlotIntentKind.Restart,
-                    showDelete: true);
+                    showDelete: true,
+                    deleteActionText: deleteAction,
+                    failureKind: failureKind);
             }
 
             return new SaveSlotCardViewModel(
                 slot.SlotNumber,
                 SaveSlotCardState.Existing,
                 title,
-                "Continue",
-                string.IsNullOrWhiteSpace(displayStage) ? string.Empty : $"Stage {displayStage}",
-                $"Chances {slot.RemainingChances}",
-                $"Deaths {slot.TotalDeaths}",
-                FormatLastPlayedText(slot.LastPlayedAt),
-                "Continue",
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotContinue),
+                FormatStageText(localizedTextResolver, displayStage),
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotChances, slot.RemainingChances),
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotDeaths, slot.TotalDeaths),
+                FormatLastPlayedText(slot.LastPlayedAt, localizedTextResolver),
+                MainMenuLocalization.Resolve(localizedTextResolver, MainMenuLocalizationEntryId.SlotContinue),
                 SaveSlotIntentKind.Continue,
-                showDelete: true);
+                showDelete: true,
+                deleteActionText: deleteAction);
         }
 
-        private static string FormatLastPlayedText(string lastPlayedAt)
+        private static string FormatStageText(
+            ILocalizedTextResolver localizedTextResolver,
+            string displayStage)
         {
-            if (string.IsNullOrWhiteSpace(lastPlayedAt))
+            return string.IsNullOrWhiteSpace(displayStage)
+                ? string.Empty
+                : MainMenuLocalization.Resolve(
+                    localizedTextResolver,
+                    MainMenuLocalizationEntryId.SlotStage,
+                    displayStage);
+        }
+
+        private static string FormatLastPlayedText(
+            string lastPlayedAt,
+            ILocalizedTextResolver localizedTextResolver)
+        {
+            var formattedDate = MainMenuLocalization.FormatPlayedDate(
+                lastPlayedAt,
+                localizedTextResolver.CurrentLocaleCode);
+            if (string.IsNullOrWhiteSpace(formattedDate))
             {
                 return string.Empty;
             }
 
-            if (DateTimeOffset.TryParse(lastPlayedAt, out var playedAt))
-            {
-                return $"Played {playedAt.LocalDateTime:yyyy-MM-dd HH:mm}";
-            }
-
-            return lastPlayedAt;
+            return MainMenuLocalization.Resolve(
+                localizedTextResolver,
+                MainMenuLocalizationEntryId.SlotPlayed,
+                formattedDate);
         }
 
-        private static string ResolveInvalidStageText(
-            SaveSlotData slot,
-            string displayStage,
-            SaveSlotValidationStatus status)
-        {
-            if (!slot.CurrentStageId.IsValid)
-            {
-                return "Invalid stage";
-            }
-
-            if (!string.IsNullOrWhiteSpace(displayStage))
-            {
-                return $"Stage {displayStage}";
-            }
-
-            return status == SaveSlotValidationStatus.StageMissingFromCatalog ||
-                   status == SaveSlotValidationStatus.StageMissingFromSequence
-                ? $"Stage {slot.CurrentStageId.Value}"
-                : "Invalid stage";
-        }
-
-        private static string ResolveBlockedStatusText(CampaignSaveLoadStatus status)
+        public static SaveSlotFailurePresentationKind MapFailureKind(
+            CampaignSaveLoadStatus status)
         {
             switch (status)
             {
-                case CampaignSaveLoadStatus.IoFailed:
-                    return "Load Blocked";
-                case CampaignSaveLoadStatus.Unauthorized:
-                    return "Permission Denied";
                 case CampaignSaveLoadStatus.CorruptRepairRequired:
+                    return SaveSlotFailurePresentationKind.CorruptedData;
                 case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
-                    return "Needs Repair";
+                    return SaveSlotFailurePresentationKind.NeedsRepair;
+                case CampaignSaveLoadStatus.Unauthorized:
+                    return SaveSlotFailurePresentationKind.PermissionDenied;
+                case CampaignSaveLoadStatus.IoFailed:
+                    return SaveSlotFailurePresentationKind.LoadFailed;
                 default:
-                    return "Unavailable";
+                    return SaveSlotFailurePresentationKind.None;
             }
         }
 
-        private static string ResolveBlockedDetailText(CampaignSaveLoadReport report)
+        public static SaveSlotFailurePresentationKind MapFailureKind(
+            SaveSlotValidationStatus status)
         {
-            if (!string.IsNullOrWhiteSpace(report.Reason))
+            switch (status)
             {
-                return report.Reason;
-            }
-
-            switch (report.Status)
-            {
-                case CampaignSaveLoadStatus.IoFailed:
-                    return "Save data cannot be loaded";
-                case CampaignSaveLoadStatus.Unauthorized:
-                    return "Save data permission denied";
-                case CampaignSaveLoadStatus.CorruptRepairRequired:
-                case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
-                    return "Save data needs repair";
+                case SaveSlotValidationStatus.UnsupportedVersion:
+                    return SaveSlotFailurePresentationKind.UnsupportedVersion;
+                case SaveSlotValidationStatus.Corrupted:
+                    return SaveSlotFailurePresentationKind.CorruptedData;
+                case SaveSlotValidationStatus.StageMissingFromSequence:
+                case SaveSlotValidationStatus.StageMissingFromCatalog:
+                    return SaveSlotFailurePresentationKind.NeedsRepair;
                 default:
-                    return "Campaign save unavailable";
+                    return SaveSlotFailurePresentationKind.None;
             }
         }
 

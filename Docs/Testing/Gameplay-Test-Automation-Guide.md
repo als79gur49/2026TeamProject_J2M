@@ -105,6 +105,7 @@
   - PlayMode escalation status
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`와 이 가이드는 같은 변경에서 함께 갱신해야 한다.
 - root `UI-Current-Structure-Source.md`도 current UI structure나 stale-token audit 기준이 바뀌는 변경에서는 함께 갱신해야 한다.
+- Scene transition payload decommission evidence는 `StageTransitionChanceLostPayload`와 `SceneTransitionOverlayModel`의 generic `Title` / `Message` 부재, coordinator resolver 부재, typed progress/chance-loss 보존, canonical content routing과 production-prefab smoke를 함께 검증해야 한다.
 
 ### English Original
 - The UI baseline note is not a count-only ledger.
@@ -117,6 +118,7 @@
   - PlayMode escalation status
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
 - Root `UI-Current-Structure-Source.md` must also be updated in the same change when current UI structure or stale-token audit policy changes.
+- Scene-transition payload decommission evidence must jointly verify the absence of generic `Title` / `Message` members from `StageTransitionChanceLostPayload` and `SceneTransitionOverlayModel`, the absence of coordinator copy resolvers, preservation of typed progress/chance-loss state, canonical content routing, and a production-prefab smoke.
 
 ## Gameplay audio verification wording / Gameplay audio verification wording
 ### 한국어

@@ -63,6 +63,9 @@ namespace Game.Feature.UI.Composition
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private GameplayPauseAudioBridge _gameplayPauseAudioBridge;
+        private GameplayHudLocalizationBinding _gameplayHudLocalizationBinding;
+        private GameplayWorldGuideLocalizationController _gameplayWorldGuideLocalizationController;
+        private GameplayWorldGuidePresenter _gameplayWorldGuidePresenter;
         private bool _isInstalled;
         private IKeyboardBindingSettingsPort _keyboardBindingSettingsPort;
         private ILocalizedTextResolver _localizedTextResolver;
@@ -78,6 +81,7 @@ namespace Game.Feature.UI.Composition
         private GameplaySceneHost _installedSceneHost;
         private bool _terminalSessionSubscribed;
         private bool _entryIrisClosedPrepared;
+        private SceneEntrySessionToken _failedEntryIrisSetupToken;
         private float _entryOpeningElapsed;
         private float _entryOpeningRadius;
         private Vector2 _entryFocusCenter;
@@ -475,21 +479,15 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
-            var expectedSceneEntryToken = default(SceneEntrySessionToken);
-            var expectedSceneEntryDestinationGeneration = 0L;
+            CaptureInstallAttemptLoadingSceneEntryOwnerIfApplicable(
+                out var expectedLoadingSceneEntryOwner,
+                out var expectedSceneEntryDestinationGeneration);
+            var expectedSceneEntryToken = expectedLoadingSceneEntryOwner.Token;
             try
             {
                 EnsureTerminalTransitionPort(sceneHost);
                 _installedSceneHost = sceneHost;
-                var sceneEntrySession = SceneEntryPresentationRegistry.Current;
-                if (sceneEntrySession.IsActive &&
-                    sceneEntrySession.Phase == SceneEntryPresentationPhase.Loading)
-                {
-                    expectedSceneEntryToken = sceneEntrySession.Token;
-                    expectedSceneEntryDestinationGeneration =
-                        TerminalSessionRegistry.Authority.CurrentSceneGeneration;
-                }
-
+                _gameplayWorldGuidePresenter = sceneHost.GetComponent<GameplayWorldGuidePresenter>();
                 RegisterSceneEntryDestinationIfApplicable();
                 _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
                 _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
@@ -509,6 +507,11 @@ namespace Game.Feature.UI.Composition
             {
                 try
                 {
+                    ReportCapturedLoadingSceneEntryFailureIfOwned(
+                        expectedLoadingSceneEntryOwner,
+                        expectedSceneEntryDestinationGeneration,
+                        "DESTINATION_ENTRY_INSTALL_FAILED",
+                        exception.Message);
                     ReportSceneEntryFailureIfOwned(
                         expectedSceneEntryToken,
                         expectedSceneEntryDestinationGeneration,
@@ -618,6 +621,23 @@ namespace Game.Feature.UI.Composition
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
             _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
+            _gameplayHudLocalizationBinding =
+                _rootView.HudView.GetComponent<GameplayHudLocalizationBinding>();
+            if (_gameplayHudLocalizationBinding == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplayHudRoot is missing GameplayHudLocalizationBinding.");
+            }
+
+            _gameplayHudLocalizationBinding.Initialize(_localizedTextResolver);
+            if (_gameplayWorldGuidePresenter != null)
+            {
+                _gameplayWorldGuideLocalizationController =
+                    new GameplayWorldGuideLocalizationController(
+                        _gameplayWorldGuidePresenter,
+                        _localizedTextResolver,
+                        _gameplayHudLocalizationBinding.Theme);
+            }
 
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
@@ -713,6 +733,10 @@ namespace Game.Feature.UI.Composition
             }
 
             _isDisposed = true;
+            _gameplayWorldGuideLocalizationController?.Dispose();
+            _gameplayWorldGuideLocalizationController = null;
+            _gameplayHudLocalizationBinding?.Dispose();
+            _gameplayHudLocalizationBinding = null;
             // Dispose the persistent HUD presenter before any view/controller teardown can
             // encounter a partially destroyed hidden HUD hierarchy.
             HudRootPresenter?.Dispose();
@@ -1222,6 +1246,11 @@ namespace Game.Feature.UI.Composition
             if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
                 !_entryIrisClosedPrepared)
             {
+                if (_failedEntryIrisSetupToken == session.Token)
+                {
+                    return;
+                }
+
                 if (!IsStrongGameplayDestinationReady(
                         session,
                         out var focus,
@@ -1248,24 +1277,7 @@ namespace Game.Feature.UI.Composition
                     return;
                 }
 
-                _terminalIrisMotionResolver ??=
-                    _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
-                var entryOpenPreset =
-                    _terminalIrisMotionResolver.ResolveStageEntryOpen();
-                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
-                    session.Token,
-                    session.TransitionIntent);
-                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
-                irisView.Show();
-                irisView.ApplyClosedEntry(focus.NormalizedCenter, entryOpenPreset);
-                _entryFocusCenter = focus.NormalizedCenter;
-                _entryOpeningRadius = irisView.CalculateFullyRevealedRadius(
-                    focus.NormalizedCenter,
-                    entryOpenPreset.FullOpenMargin);
-                _entryOpeningElapsed = 0f;
-                _entryOpenPreset = entryOpenPreset;
-                _preparedEntryToken = session.Token;
-                _entryIrisClosedPrepared = true;
+                PrepareGameplayDestinationIris(session, focus, irisView);
                 return;
             }
 
@@ -1334,6 +1346,7 @@ namespace Game.Feature.UI.Composition
 
             irisView.Hide();
             _entryIrisClosedPrepared = false;
+            _failedEntryIrisSetupToken = default;
             _entryOpenPreset = null;
             _preparedEntryToken = default;
             if (!SceneEntryPresentationRegistry.TryComplete(session.Token))
@@ -1343,6 +1356,112 @@ namespace Game.Feature.UI.Composition
             }
 
             GameplayEntryTransitionVisualSnapshotRegistry.Clear(session.Token);
+        }
+
+        private void PrepareGameplayDestinationIris(
+            SceneEntryPresentationSnapshot session,
+            TerminalFocusTarget focus,
+            TerminalIrisOverlayView irisView)
+        {
+            var expectedToken = session.Token;
+            var expectedDestinationGeneration =
+                session.DestinationSceneGeneration;
+            var expectedTerminalDestinationOwner =
+                TerminalSessionRegistry.Authority.Current;
+            try
+            {
+                _terminalIrisMotionResolver ??=
+                    _rootView.RequireTerminalIrisMotionProfile().CreateResolver();
+                var entryOpenPreset =
+                    _terminalIrisMotionResolver.ResolveStageEntryOpen();
+                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                    expectedToken,
+                    session.TransitionIntent);
+                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
+                irisView.Show();
+                irisView.ApplyClosedEntry(
+                    focus.NormalizedCenter,
+                    entryOpenPreset);
+                var openingRadius = irisView.CalculateFullyRevealedRadius(
+                    focus.NormalizedCenter,
+                    entryOpenPreset.FullOpenMargin);
+
+                _entryFocusCenter = focus.NormalizedCenter;
+                _entryOpeningRadius = openingRadius;
+                _entryOpeningElapsed = 0f;
+                _entryOpenPreset = entryOpenPreset;
+                _preparedEntryToken = expectedToken;
+                _failedEntryIrisSetupToken = default;
+                _entryIrisClosedPrepared = true;
+            }
+            catch (Exception setupException)
+            {
+                AbortGameplayDestinationIrisPreparation(
+                    expectedToken,
+                    expectedDestinationGeneration,
+                    expectedTerminalDestinationOwner,
+                    irisView,
+                    setupException);
+                throw;
+            }
+        }
+
+        private void AbortGameplayDestinationIrisPreparation(
+            SceneEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            TerminalSessionSnapshot expectedTerminalDestinationOwner,
+            TerminalIrisOverlayView irisView,
+            Exception primaryException)
+        {
+            _entryIrisClosedPrepared = false;
+            _failedEntryIrisSetupToken = expectedToken;
+            _entryOpenPreset = null;
+            _preparedEntryToken = default;
+            _entryOpeningElapsed = 0f;
+            _entryOpeningRadius = 0f;
+            _entryFocusCenter = default;
+            try
+            {
+                irisView?.Hide();
+            }
+            catch (Exception cleanupException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "DestinationEntryIrisCleanupFailure",
+                    cleanupException);
+            }
+
+            try
+            {
+                ReportSceneEntryIrisPreparationFailureIfOwned(
+                    expectedToken,
+                    expectedDestinationGeneration,
+                    "DESTINATION_ENTRY_IRIS_PREPARATION_FAILED",
+                    primaryException.Message);
+            }
+            catch (Exception reportException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "SceneEntryIrisFailureReportingFailure",
+                    reportException);
+            }
+
+            try
+            {
+                ReportTerminalDestinationIrisPreparationFailureIfOwned(
+                    expectedTerminalDestinationOwner,
+                    "DESTINATION_IRIS_PREPARATION_FAILED",
+                    primaryException.Message);
+            }
+            catch (Exception reportException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "TerminalDestinationIrisFailureReportingFailure",
+                    reportException);
+            }
         }
 
         private bool IsStrongGameplayDestinationReady(
@@ -1417,6 +1536,74 @@ namespace Game.Feature.UI.Composition
                 message);
         }
 
+        private static void CaptureInstallAttemptLoadingSceneEntryOwnerIfApplicable(
+            out SceneEntryPresentationSnapshot expectedOwner,
+            out long expectedDestinationGeneration)
+        {
+            expectedOwner = default;
+            expectedDestinationGeneration = 0;
+
+            var session = SceneEntryPresentationRegistry.Current;
+            var destinationGeneration =
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration;
+            if (!session.IsActive ||
+                !session.Token.IsValid ||
+                session.Phase != SceneEntryPresentationPhase.Loading ||
+                session.TransitionIntent == SceneTransitionIntent.Unknown ||
+                !session.DestinationStageId.IsValid ||
+                session.SourceSceneGeneration <= 0 ||
+                session.DestinationSceneGeneration != 0 ||
+                destinationGeneration <= 0 ||
+                destinationGeneration == session.SourceSceneGeneration)
+            {
+                return;
+            }
+
+            expectedOwner = session;
+            expectedDestinationGeneration = destinationGeneration;
+        }
+
+        private static void ReportCapturedLoadingSceneEntryFailureIfOwned(
+            SceneEntryPresentationSnapshot expectedOwner,
+            long expectedDestinationGeneration,
+            string code,
+            string message)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!expectedOwner.IsActive ||
+                !expectedOwner.Token.IsValid ||
+                expectedOwner.Phase != SceneEntryPresentationPhase.Loading ||
+                expectedOwner.DestinationSceneGeneration != 0 ||
+                expectedDestinationGeneration <= 0 ||
+                expectedDestinationGeneration ==
+                expectedOwner.SourceSceneGeneration ||
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration !=
+                expectedDestinationGeneration ||
+                !session.IsActive ||
+                session.Token != expectedOwner.Token ||
+                session.Phase != SceneEntryPresentationPhase.Loading ||
+                session.TransitionIntent != expectedOwner.TransitionIntent ||
+                !session.DestinationStageId.Equals(
+                    expectedOwner.DestinationStageId) ||
+                session.TransitionId != expectedOwner.TransitionId ||
+                session.SourceSceneGeneration !=
+                expectedOwner.SourceSceneGeneration ||
+                session.DestinationSceneGeneration != 0 ||
+                session.LaunchProvenance != expectedOwner.LaunchProvenance ||
+                session.LaunchSlotNumber != expectedOwner.LaunchSlotNumber ||
+                session.LaunchToken != expectedOwner.LaunchToken)
+            {
+                return;
+            }
+
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? "Gameplay destination UI installation failed without exception details."
+                : message;
+            SceneEntryPresentationRegistry.TryFailHoldingCover(
+                session.Token,
+                $"{code}: {detail}");
+        }
+
         private static void ReportSceneEntryFailureIfOwned(
             SceneEntrySessionToken expectedToken,
             long expectedDestinationGeneration,
@@ -1444,6 +1631,78 @@ namespace Game.Feature.UI.Composition
             SceneEntryPresentationRegistry.TryFailHoldingCover(
                 session.Token,
                 $"{code}: {detail}");
+        }
+
+        private static void ReportSceneEntryIrisPreparationFailureIfOwned(
+            SceneEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            string code,
+            string message)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                session.Token != expectedToken ||
+                session.DestinationSceneGeneration !=
+                expectedDestinationGeneration ||
+                session.DestinationSceneGeneration !=
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration ||
+                session.Phase !=
+                SceneEntryPresentationPhase.WaitingRuntimeReady)
+            {
+                return;
+            }
+
+            ReportSceneEntryFailureIfOwned(
+                expectedToken,
+                expectedDestinationGeneration,
+                code,
+                message);
+        }
+
+        private static void
+            ReportTerminalDestinationIrisPreparationFailureIfOwned(
+                TerminalSessionSnapshot expected,
+                string code,
+                string message)
+        {
+            var authority = TerminalSessionRegistry.Authority;
+            var current = authority.Current;
+            if (!expected.IsActive ||
+                expected.TerminalKind != TerminalTransitionKind.Defeat ||
+                expected.DestinationKind !=
+                TerminalDestinationKind.ReloadedGameplay ||
+                expected.DestinationSceneGeneration <= 0 ||
+                expected.Phase !=
+                TerminalSessionPhase.WaitingDestinationReady ||
+                !current.IsActive ||
+                current.Token != expected.Token ||
+                current.TerminalKind != expected.TerminalKind ||
+                current.DestinationKind != expected.DestinationKind ||
+                current.TransitionId != expected.TransitionId ||
+                current.SourceSceneGeneration !=
+                expected.SourceSceneGeneration ||
+                current.DestinationSceneGeneration !=
+                expected.DestinationSceneGeneration ||
+                current.Phase != expected.Phase ||
+                authority.CurrentSceneGeneration !=
+                expected.DestinationSceneGeneration)
+            {
+                return;
+            }
+
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? "Gameplay destination Iris preparation failed without exception details."
+                : message;
+            TerminalDestinationReadiness.Signal(new DestinationReadinessSignal(
+                expected.Token,
+                expected.TransitionId,
+                expected.SourceSceneGeneration,
+                expected.DestinationSceneGeneration,
+                expected.DestinationKind,
+                TerminalSessionPhase.WaitingDestinationReady,
+                TerminalDestinationProvenance.ReloadedGameplayBootstrap,
+                DestinationReadinessOutcome.Failed,
+                $"{code}: {detail}"));
         }
 
         private static void AttachSecondaryException(

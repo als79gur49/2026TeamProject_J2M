@@ -4,6 +4,15 @@ using System.Globalization;
 
 namespace Game.Feature.UI.ViewShared
 {
+    public static class HudWorldGuideLocalizationKeys
+    {
+        public const string Pause = "ui.hud.pause";
+        public const string Chances = "ui.hud.chances";
+        public const string Movement = "ui.world_guide.move";
+        public const string Push = "ui.world_guide.push";
+        public const string Flip = "ui.world_guide.flip";
+    }
+
     public enum LocalizedTextRole
     {
         Title,
@@ -60,6 +69,8 @@ namespace Game.Feature.UI.ViewShared
         InputReservedKey,
         InputMovementConflict,
         InputAlreadyRebinding,
+        InputActionConflict,
+        InputUnsupportedKey,
         InputRebindPushPrompt,
         InputRebindFlipPrompt,
         InputResetConfirmTitle,
@@ -175,6 +186,8 @@ namespace Game.Feature.UI.ViewShared
             public const string InputReservedKey = "ui.settings.input.reserved_key";
             public const string InputMovementConflict = "ui.settings.input.movement_conflict";
             public const string InputAlreadyRebinding = "ui.settings.input.already_rebinding";
+            public const string InputActionConflict = "ui.settings.input.action_conflict";
+            public const string InputUnsupportedKey = "ui.settings.input.unsupported_key";
             public const string InputRebindPushPrompt = "ui.settings.input.rebind_push_prompt";
             public const string InputRebindFlipPrompt = "ui.settings.input.rebind_flip_prompt";
             public const string InputResetConfirmTitle = "ui.settings.input.reset_confirm.title";
@@ -251,6 +264,11 @@ namespace Game.Feature.UI.ViewShared
                 Dynamic(SettingsLocalizationEntryId.InputReservedKey, Keys.InputReservedKey),
                 Dynamic(SettingsLocalizationEntryId.InputMovementConflict, Keys.InputMovementConflict),
                 Dynamic(SettingsLocalizationEntryId.InputAlreadyRebinding, Keys.InputAlreadyRebinding),
+                Dynamic(
+                    SettingsLocalizationEntryId.InputActionConflict,
+                    Keys.InputActionConflict,
+                    SettingsLocalizationFormatKind.PositionalArgument),
+                Dynamic(SettingsLocalizationEntryId.InputUnsupportedKey, Keys.InputUnsupportedKey),
                 Dynamic(SettingsLocalizationEntryId.InputRebindPushPrompt, Keys.InputRebindPushPrompt),
                 Dynamic(SettingsLocalizationEntryId.InputRebindFlipPrompt, Keys.InputRebindFlipPrompt),
                 Dynamic(
@@ -640,12 +658,13 @@ namespace Game.Feature.UI.ViewShared
             out string value)
         {
             value = null;
-            return string.Equals(descriptor.Table, SettingsLocalizationContract.Table, StringComparison.Ordinal) &&
+            return (string.Equals(descriptor.Table, SettingsLocalizationContract.Table, StringComparison.Ordinal) ||
+                    string.Equals(descriptor.Table, "Stage", StringComparison.Ordinal)) &&
                    _catalog.TryGetValue(localeCode, out var localeValues) &&
                    localeValues.TryGetValue(descriptor.Key, out value);
         }
 
-        private static string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
+        private string FormatKnownDynamicText(LocalizedTextDescriptor descriptor, string value)
         {
             if ((string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.AudioVolumeValue, StringComparison.Ordinal) ||
                  string.Equals(descriptor.Key, SettingsLocalizationContract.Keys.AudioVolumeValueMuted, StringComparison.Ordinal)) &&
@@ -671,6 +690,15 @@ namespace Game.Feature.UI.ViewShared
                     Convert.ToString(descriptor.Arguments[0], CultureInfo.InvariantCulture) ?? string.Empty);
             }
 
+            if (string.Equals(
+                    descriptor.Key,
+                    SettingsLocalizationContract.Keys.InputActionConflict,
+                    StringComparison.Ordinal) &&
+                descriptor.Arguments.Count > 0)
+            {
+                return value.Replace("{0}", ResolveArgument(descriptor.Arguments[0]));
+            }
+
             if ((string.Equals(
                      descriptor.Key,
                      SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody,
@@ -693,7 +721,24 @@ namespace Game.Feature.UI.ViewShared
                         Convert.ToString(descriptor.Arguments[2], CultureInfo.InvariantCulture) ?? string.Empty);
             }
 
+            if (descriptor.Key.StartsWith("ui.main_menu.", StringComparison.Ordinal))
+            {
+                for (var i = 0; i < descriptor.Arguments.Count; i++)
+                {
+                    value = value.Replace(
+                        $"{{{i}}}",
+                        Convert.ToString(descriptor.Arguments[i], CultureInfo.InvariantCulture) ?? string.Empty);
+                }
+            }
+
             return value;
+        }
+
+        private string ResolveArgument(object argument)
+        {
+            return argument is LocalizedTextDescriptor nestedDescriptor
+                ? Resolve(nestedDescriptor)
+                : Convert.ToString(argument, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         private static bool TryGetPercentArgument(LocalizedTextDescriptor descriptor, out int percent)
@@ -810,11 +855,13 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus] = "Preview reverted to the previous saved display settings.",
                     [SettingsLocalizationContract.Keys.DisplaySavedStatus] = "Display settings saved.",
                     [SettingsLocalizationContract.Keys.DisplayExternalDriftStatus] = "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.",
-                    [SettingsLocalizationContract.Keys.InputRebindCanceled] = "Rebind canceled.",
+                    [SettingsLocalizationContract.Keys.InputRebindCanceled] = "Key reassignment cancelled.",
                     [SettingsLocalizationContract.Keys.InputResetComplete] = "Input settings reset.",
-                    [SettingsLocalizationContract.Keys.InputReservedKey] = "This key is reserved.",
-                    [SettingsLocalizationContract.Keys.InputMovementConflict] = "This key conflicts with movement keys.",
-                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Rebind already in progress.",
+                    [SettingsLocalizationContract.Keys.InputReservedKey] = "This key cannot be used.",
+                    [SettingsLocalizationContract.Keys.InputMovementConflict] = "Movement keys cannot overlap.",
+                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "Another key is already being reassigned.",
+                    [SettingsLocalizationContract.Keys.InputActionConflict] = "This key is already used by {0}.",
+                    [SettingsLocalizationContract.Keys.InputUnsupportedKey] = "This key cannot be used.",
                     [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "Press a key for Push...",
                     [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "Press a key for Flip...",
                     [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "Reset Input Settings",
@@ -871,11 +918,13 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayPreviewRevertedStatus] = "미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다.",
                     [SettingsLocalizationContract.Keys.DisplaySavedStatus] = "화면 설정이 저장되었습니다.",
                     [SettingsLocalizationContract.Keys.DisplayExternalDriftStatus] = "현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다.",
-                    [SettingsLocalizationContract.Keys.InputRebindCanceled] = "키 변경 취소됨",
+                    [SettingsLocalizationContract.Keys.InputRebindCanceled] = "키 재지정을 취소했습니다.",
                     [SettingsLocalizationContract.Keys.InputResetComplete] = "입력 설정이 초기화되었습니다.",
-                    [SettingsLocalizationContract.Keys.InputReservedKey] = "이 키는 예약되어 있습니다.",
-                    [SettingsLocalizationContract.Keys.InputMovementConflict] = "이 키는 이동 키와 충돌합니다.",
-                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "키 변경이 이미 진행 중입니다.",
+                    [SettingsLocalizationContract.Keys.InputReservedKey] = "이 키는 사용할 수 없습니다.",
+                    [SettingsLocalizationContract.Keys.InputMovementConflict] = "이동 키는 서로 중복될 수 없습니다.",
+                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "다른 키를 이미 재지정하고 있습니다.",
+                    [SettingsLocalizationContract.Keys.InputActionConflict] = "이 키는 이미 {0}에 사용 중입니다.",
+                    [SettingsLocalizationContract.Keys.InputUnsupportedKey] = "이 키는 사용할 수 없습니다.",
                     [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "밀기 키 입력하세요...",
                     [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "뒤집기 키 입력하세요...",
                     [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "입력 설정 초기화",
@@ -901,9 +950,50 @@ namespace Game.Feature.UI.ViewShared
             };
 
             AddTerminalResultEntries(catalog);
+            AddMainMenuEntries(catalog);
+            AddStageEntries(catalog);
             ValidateSettingsCatalog(catalog);
             ValidateTerminalResultCatalog(catalog);
+            ValidateMainMenuCatalog(catalog);
             return catalog;
+        }
+
+        private static void AddMainMenuEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            foreach (var entry in MainMenuLocalizationContract.Entries)
+            {
+                english.Add(entry.Key, entry.English);
+                korean.Add(entry.Key, entry.Korean);
+            }
+        }
+
+        private static void AddStageEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            var stageEntries = new[]
+            {
+                (Key: "stage.stage-0-1.display_name", English: "Lab-01", Korean: "연구실-01"),
+                (Key: "stage.stage-0-2.display_name", English: "Lab-02", Korean: "연구실-02"),
+                (Key: "stage.stage-1-1.display_name", English: "Lobby-01", Korean: "로비-01"),
+                (Key: "stage.stage-2-1.display_name", English: "Ward[A]-01", Korean: "병동[A]-01"),
+                (Key: "stage.stage-2-2.display_name", English: "Ward[A]-02", Korean: "병동[A]-02"),
+                (Key: "stage.stage-3-1.display_name", English: "Ward[B]-01", Korean: "병동[B]-01"),
+                (Key: "stage.stage-3-2.display_name", English: "Ward[B]-02", Korean: "병동[B]-02"),
+                (Key: "stage.stage-4-1.display_name", English: "Morgue-01", Korean: "영안실-01"),
+                (Key: "stage.stage-4-2.display_name", English: "Morgue-02", Korean: "영안실-02"),
+                (Key: "stage.legacy-stage-5-1.display_name", English: "Legacy 5-1", Korean: "Legacy 5-1"),
+            };
+
+            for (var i = 0; i < stageEntries.Length; i++)
+            {
+                english.Add(stageEntries[i].Key, stageEntries[i].English);
+                korean.Add(stageEntries[i].Key, stageEntries[i].Korean);
+            }
         }
 
         private static void AddTerminalResultEntries(
@@ -935,6 +1025,29 @@ namespace Game.Feature.UI.ViewShared
                     {
                         throw new InvalidOperationException(
                             $"Package-free terminal-result catalog locale '{localeCode}' " +
+                            $"is missing key '{entry.Key}'.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidateMainMenuCatalog(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            foreach (var localeCode in SupportedLocaleCodes)
+            {
+                if (!catalog.TryGetValue(localeCode, out var localeValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Package-free Main Menu catalog is missing locale '{localeCode}'.");
+                }
+
+                foreach (var entry in MainMenuLocalizationContract.Entries)
+                {
+                    if (!localeValues.ContainsKey(entry.Key))
+                    {
+                        throw new InvalidOperationException(
+                            $"Package-free Main Menu catalog locale '{localeCode}' " +
                             $"is missing key '{entry.Key}'.");
                     }
                 }

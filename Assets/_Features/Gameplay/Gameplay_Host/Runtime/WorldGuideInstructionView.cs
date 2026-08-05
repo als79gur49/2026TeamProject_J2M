@@ -1,10 +1,11 @@
 using Game.Shared.Input;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public enum WorldGuideBindingKind
+    public enum WorldGuideInstructionKind
     {
         None = 0,
         Movement = 1,
@@ -12,30 +13,63 @@ namespace Game.Feature.Gameplay.Host
         Flip = 3,
     }
 
+    public interface IWorldGuideLocalizationTarget
+    {
+        WorldGuideInstructionKind InstructionKind { get; }
+
+        GameObject WasdDisplayRoot { get; }
+
+        GameObject ArrowDisplayRoot { get; }
+
+        TMP_Text ActionKeyLabel { get; }
+
+        TMP_Text ActionTextLabel { get; }
+
+        void ApplyActionText(string resolvedActionText);
+    }
+
     [DisallowMultipleComponent]
-    public sealed class WorldGuideInstructionView : MonoBehaviour
+    public sealed class WorldGuideInstructionView : MonoBehaviour, IWorldGuideLocalizationTarget
     {
         [SerializeField] private Canvas canvas;
-        [SerializeField] private WorldGuideBindingKind bindingKind = WorldGuideBindingKind.None;
+        [FormerlySerializedAs("bindingKind")]
+        [SerializeField] private WorldGuideInstructionKind instructionKind = WorldGuideInstructionKind.None;
         [SerializeField] private GameObject wasdDisplayRoot;
         [SerializeField] private GameObject arrowDisplayRoot;
         [SerializeField] private TMP_Text actionKeyLabel;
+        [SerializeField] private TMP_Text actionTextLabel;
 
-        public WorldGuideBindingKind BindingKind => bindingKind;
+        public WorldGuideInstructionKind InstructionKind => instructionKind;
+
+        public GameObject WasdDisplayRoot => wasdDisplayRoot;
+
+        public GameObject ArrowDisplayRoot => arrowDisplayRoot;
+
+        public TMP_Text ActionKeyLabel => actionKeyLabel;
+
+        public TMP_Text ActionTextLabel => actionTextLabel;
 
         public void ApplyKeyboardBindings(KeyboardBindingSettingsSnapshot snapshot)
         {
-            switch (bindingKind)
+            switch (instructionKind)
             {
-                case WorldGuideBindingKind.Movement:
+                case WorldGuideInstructionKind.Movement:
                     SetMovementScheme(snapshot.MovementScheme);
                     break;
-                case WorldGuideBindingKind.Push:
+                case WorldGuideInstructionKind.Push:
                     SetActionKey(snapshot.PushDisplayName);
                     break;
-                case WorldGuideBindingKind.Flip:
+                case WorldGuideInstructionKind.Flip:
                     SetActionKey(snapshot.FlipDisplayName);
                     break;
+            }
+        }
+
+        public void ApplyActionText(string resolvedActionText)
+        {
+            if (actionTextLabel != null)
+            {
+                actionTextLabel.text = resolvedActionText ?? string.Empty;
             }
         }
 
@@ -65,7 +99,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void ValidateReferences()
         {
-            if (bindingKind == WorldGuideBindingKind.Movement &&
+            if (instructionKind == WorldGuideInstructionKind.Movement &&
                 wasdDisplayRoot == null &&
                 arrowDisplayRoot == null)
             {
@@ -74,11 +108,19 @@ namespace Game.Feature.Gameplay.Host
                     this);
             }
 
-            if ((bindingKind == WorldGuideBindingKind.Push || bindingKind == WorldGuideBindingKind.Flip) &&
+            if ((instructionKind == WorldGuideInstructionKind.Push ||
+                 instructionKind == WorldGuideInstructionKind.Flip) &&
                 actionKeyLabel == null)
             {
                 UnityEngine.Debug.LogWarning(
-                    $"{nameof(WorldGuideInstructionView)} on '{name}' has {bindingKind} binding but no action key label.",
+                    $"{nameof(WorldGuideInstructionView)} on '{name}' has {instructionKind} instruction but no action key label.",
+                    this);
+            }
+
+            if (instructionKind != WorldGuideInstructionKind.None && actionTextLabel == null)
+            {
+                UnityEngine.Debug.LogWarning(
+                    $"{nameof(WorldGuideInstructionView)} on '{name}' has {instructionKind} instruction but no action text label.",
                     this);
             }
         }

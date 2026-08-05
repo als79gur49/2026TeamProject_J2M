@@ -3274,55 +3274,55 @@ MonoBehaviour:
       Required: 1
       Role: 1
       StableConditionId: primary-goal
-      DisplayText: Reach the exit zone
+      AuthoringLabel: Reach the exit zone
       SortOrder: 0
     - Condition: {fileID: 11400000, guid: d9ecb319a2175f04fbf47c25db120044, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-7
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 10
     - Condition: {fileID: 11400000, guid: f825f1b235f47604e864e8650b74d628, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-8
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 20
     - Condition: {fileID: 11400000, guid: 098650b18ee275648b7d685832a254ec, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-37
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 50
     - Condition: {fileID: 11400000, guid: a31091e71003c0a448ba6ca4f9f7d99b, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-51
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 70
     - Condition: {fileID: 11400000, guid: 15a79e549a4c48841ba68e489ee7ac95, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-64
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 90
     - Condition: {fileID: 11400000, guid: bc97c44e95aa72140a579d12606cbd1e, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-63
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 110
     - Condition: {fileID: 11400000, guid: 761df246942aa5949b7d41d238020ce6, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-36
-      DisplayText: Place a push box on the button
+      AuthoringLabel: Place a push box on the button
       SortOrder: 120
     - Condition: {fileID: 11400000, guid: 318361734f4d1f346ac8c47b102e0e86, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-50
-      DisplayText: Place the MoonBlock on the button
+      AuthoringLabel: Place the MoonBlock on the button
       SortOrder: 130
   entityIdMappings:
   - StableGuid: stage-3-1:Player:10

@@ -4,7 +4,18 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
+using ConfirmPopupPresenter = Game.Feature.UI.Application.ConfirmPopupPresenter;
+using MainMenuConfirmationKind = Game.Feature.UI.Application.MainMenuConfirmationKind;
+using MainMenuLocalization = Game.Feature.UI.Application.MainMenuLocalization;
+using MainMenuSlotViewModelMapper = Game.Feature.UI.Application.MainMenuSlotViewModelMapper;
+using IKeyboardBindingSettingsPort = Game.Feature.UI.Application.IKeyboardBindingSettingsPort;
+using KeyboardBindingSettingsSnapshot = Game.Feature.UI.Application.KeyboardBindingSettingsSnapshot;
+using KeyboardRebindResult = Game.Feature.UI.Application.KeyboardRebindResult;
+using KeyboardRebindStartResult = Game.Feature.UI.Application.KeyboardRebindStartResult;
+using SettingsInputPresenter = Game.Feature.UI.Application.SettingsInputPresenter;
+using SettingsInputPresenterInput = Game.Feature.UI.Application.SettingsInputPresenterInput;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -85,6 +96,10 @@ namespace Game.Feature.UI.Composition.Editor
         public string NonBlankValidationResult { get; set; } = "NOT_RUN";
 
         public string GlyphTofuValidationResult { get; set; } = "NOT_RUN";
+
+        public int M1bPixelProofCount { get; set; }
+
+        public int M1bPixelProofPassCount { get; set; }
 
         public IReadOnlyList<string> Errors => errors;
 
@@ -193,6 +208,82 @@ namespace Game.Feature.UI.Composition.Editor
                 "Confirm Popup",
                 "ConfirmPopup",
                 "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+        };
+
+        public static readonly TypographyPreviewScreenshotTarget[] M1bDiagnosticTargets =
+        {
+            new(
+                "Main Menu Save Slots",
+                "M1BSaveSlots",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Lobby Stage Save Slot",
+                "M3StageLobby",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Delete Slot Confirmation",
+                "M1BDeleteConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+            new(
+                "Restart Slot Confirmation",
+                "M1BRestartConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+            new(
+                "Overwrite Slot Confirmation",
+                "M1BOverwriteConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+            new(
+                "Quit Confirmation",
+                "M1BQuitConfirmation",
+                "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab"),
+        };
+
+        public static readonly TypographyPreviewScreenshotTarget[] M2aDiagnosticTargets =
+        {
+            new(
+                "Main Menu Corrupt Save",
+                "M2ACorrupt",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Save Permission Failure",
+                "M2APermission",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Save Load Failure",
+                "M2ALoadFailed",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+            new(
+                "Main Menu Save Needs Repair",
+                "M2ANeedsRepair",
+                "Assets/_Features/UI/UI_Screens/Prefabs/MainMenuScreen.prefab"),
+        };
+
+        public static readonly TypographyPreviewScreenshotTarget[] M2bDiagnosticTargets =
+        {
+            new(
+                "Settings Reserved Key",
+                "M2BReserved",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Action Conflict Flip",
+                "M2BActionConflictFlip",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Action Conflict Push",
+                "M2BActionConflictPush",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Movement Conflict",
+                "M2BMovementConflict",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Already Rebinding",
+                "M2BAlreadyRebinding",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
+            new(
+                "Settings Rebinding Prompt",
+                "M2BRebindingPrompt",
+                "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab"),
         };
 
         public static readonly string[] DirtyGuardAssetPaths =
@@ -369,6 +460,32 @@ namespace Game.Feature.UI.Composition.Editor
                 case "ConfirmPopup":
                     return 4;
 
+                case "M1BSaveSlots":
+                    return 24;
+
+                case "M3StageLobby":
+                    return 16;
+
+                case "M1BDeleteConfirmation":
+                case "M1BRestartConfirmation":
+                case "M1BOverwriteConfirmation":
+                case "M1BQuitConfirmation":
+                    return 5;
+
+                case "M2ACorrupt":
+                case "M2APermission":
+                case "M2ALoadFailed":
+                case "M2ANeedsRepair":
+                    return 9;
+
+                case "M2BReserved":
+                case "M2BActionConflictFlip":
+                case "M2BActionConflictPush":
+                case "M2BMovementConflict":
+                case "M2BAlreadyRebinding":
+                case "M2BRebindingPrompt":
+                    return 23;
+
                 default:
                     return 0;
             }
@@ -488,8 +605,8 @@ namespace Game.Feature.UI.Composition.Editor
                 assetMutationGuard?.IncludeFontAssets(prefabAsset);
                 previewScene = EditorSceneManager.NewScene(
                     NewSceneSetup.EmptyScene,
-                    Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
-                shouldClosePreviewScene = !Application.isBatchMode;
+                    UnityEngine.Application.isBatchMode ? NewSceneMode.Single : NewSceneMode.Additive);
+                shouldClosePreviewScene = !UnityEngine.Application.isBatchMode;
                 EditorSceneManager.SetActiveScene(previewScene);
                 prefabRoot = PrefabUtility.InstantiatePrefab(prefabAsset, previewScene) as GameObject;
                 if (prefabRoot == null)
@@ -538,6 +655,7 @@ namespace Game.Feature.UI.Composition.Editor
                     out _);
                 try
                 {
+                    var encodedPng = texture.EncodeToPNG();
                     ValidatePauseRenderedTargets(prefabRoot, capture);
                     ValidateLocaleInvariantPreview(prefabRoot, capture);
                     capture.OrientationValidationResult = "PASS_PIPELINE_CONTRACT";
@@ -547,7 +665,7 @@ namespace Game.Feature.UI.Composition.Editor
                     }
                     else
                     {
-                        var pixels = texture.GetPixels32();
+                        var pixels = DecodePngPixels(encodedPng, options);
                         capture.NonBlankValidationResult =
                             pixels.Length > 0 && pixels.Any(pixel => !pixel.Equals(pixels[0]))
                                 ? "PASS"
@@ -556,9 +674,17 @@ namespace Game.Feature.UI.Composition.Editor
                         {
                             capture.AddError($"{filePath}: Captured PNG is blank or single-color.");
                         }
+
+                        ValidateM1bRenderedTargets(
+                            prefabRoot,
+                            capture,
+                            camera,
+                            renderTexture,
+                            options,
+                            pixels);
                     }
 
-                    File.WriteAllBytes(filePath, texture.EncodeToPNG());
+                    File.WriteAllBytes(filePath, encodedPng);
                 }
                 finally
                 {
@@ -724,7 +850,8 @@ namespace Game.Feature.UI.Composition.Editor
             IDisposable scope = resolver;
             if (string.Equals(target.FileStem, "Settings", StringComparison.Ordinal) ||
                 string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal) ||
-                string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
+                string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal) ||
+                TryGetM2bVisualState(target.FileStem, out _))
             {
                 var view = prefabRoot.GetComponentInChildren<SettingsScreenView>(true);
                 if (view == null)
@@ -753,7 +880,8 @@ namespace Game.Feature.UI.Composition.Editor
                     target,
                     resolver,
                     capture,
-                    GetSettingsDescriptors(SettingsScreenPayload.Default),
+                    GetSettingsDescriptors(SettingsScreenPayload.Default)
+                        .Concat(GetM2bStatusDescriptors(target.FileStem)),
                     prefabRoot);
                 return new DisposableAction(() =>
                 {
@@ -830,6 +958,134 @@ namespace Game.Feature.UI.Composition.Editor
                 });
             }
 
+            if (IsStageSaveSlotTarget(target.FileStem))
+            {
+                var view = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: MainMenuScreenView was not found.");
+                    return scope;
+                }
+
+                var sequenceDefinition = CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+                var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
+                var slots = CreateStageVisualSaveSlots(target.FileStem);
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+                view.SaveSlotPanel.Bind(
+                    MainMenuSlotViewModelMapper.Map(slots, sequenceResolver, null, resolver));
+                view.SetVisible(true);
+                view.ShowSection(MainMenuSectionId.SaveSlots);
+
+                var localizedTargets = view.SaveSlotPanel
+                    .CreateTypographyTargets()
+                    .Where(text => text != null &&
+                                   text.gameObject.activeInHierarchy &&
+                                   !string.IsNullOrWhiteSpace(text.text))
+                    .ToArray();
+                RecordM1bLocalizedTargets(target, capture, localizedTargets);
+                ValidateStageSaveSlotCopy(target, capture, localizedTargets);
+                return new DisposableAction(() =>
+                {
+                    view.SaveSlotPanel.Bind(null);
+                    view.UnbindStaticLocalization();
+                    UnityEngine.Object.DestroyImmediate(sequenceDefinition);
+                    scope.Dispose();
+                });
+            }
+
+            if (TryGetM2aCampaignSaveStatus(target.FileStem, out var campaignSaveStatus))
+            {
+                var view = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: MainMenuScreenView was not found.");
+                    return scope;
+                }
+
+                const string diagnosticReason =
+                    "UnauthorizedAccessException: C:\\Users\\Player\\Saves\\profile.json";
+                view.BindStaticLocalization(
+                    MainMenuStaticTextPayload.Default,
+                    resolver,
+                    DefaultLocalizedTypographyResolver.Instance,
+                    typographyTheme: theme);
+                view.SaveSlotPanel.Bind(MainMenuSlotViewModelMapper.MapCampaignAccessBlocked(
+                    new CampaignSaveLoadReport(
+                        campaignSaveStatus,
+                        diagnosticReason,
+                        "CampaignProfileDocument"),
+                    resolver));
+                view.SetVisible(true);
+                view.ShowSection(MainMenuSectionId.SaveSlots);
+
+                var localizedTargets = view.SaveSlotPanel
+                    .CreateTypographyTargets()
+                    .Where(text => text != null &&
+                                   text.gameObject.activeInHierarchy &&
+                                   !string.IsNullOrWhiteSpace(text.text))
+                    .ToArray();
+                RecordM1bLocalizedTargets(target, capture, localizedTargets);
+                if (localizedTargets.Any(text =>
+                        text.text.Contains(diagnosticReason, StringComparison.Ordinal) ||
+                        text.text.Contains("C:\\Users\\", StringComparison.Ordinal)))
+                {
+                    capture.AddError(
+                        $"{target.Name}: raw diagnostic reason or file path reached player-facing text.");
+                }
+
+                var cards = view.SaveSlotPanel.GetComponentsInChildren<SaveSlotCardView>(true);
+                if (cards.Any(card => card.HasAnyFocusableAction))
+                {
+                    capture.AddError(
+                        $"{target.Name}: campaign-blocking failure exposed an unsupported action.");
+                }
+
+                return new DisposableAction(() =>
+                {
+                    view.SaveSlotPanel.Bind(null);
+                    view.UnbindStaticLocalization();
+                    scope.Dispose();
+                });
+            }
+
+            if (TryGetM1bConfirmationKind(target.FileStem, out var confirmationKind))
+            {
+                var view = prefabRoot.GetComponentInChildren<ConfirmPopupView>(true);
+                if (view == null)
+                {
+                    capture.AddError($"{target.Name}: ConfirmPopupView was not found.");
+                    return scope;
+                }
+
+                var presenter = new ConfirmPopupPresenter(resolver);
+                presenter.Apply(MainMenuLocalization.CreateConfirmationPayload(
+                    confirmationKind,
+                    confirmationKind == MainMenuConfirmationKind.QuitGame ? null : 2));
+                view.Bind(presenter.ViewModel);
+                var productionTypographyScope = ConfirmPopupProductionLocalizationComposer.Bind(
+                    view,
+                    resolver,
+                    theme);
+                view.IsVisible = true;
+                view.SetIsTopmost(true);
+                view.enabled = false;
+                RecordM1bLocalizedTargets(
+                    target,
+                    capture,
+                    view.CreateTypographyTargets().Where(text => text != null).ToArray());
+                return new DisposableAction(() =>
+                {
+                    productionTypographyScope.Dispose();
+                    view.Bind(null);
+                    presenter.Dispose();
+                    scope.Dispose();
+                });
+            }
+
             if (string.Equals(target.FileStem, "ConfirmPopup", StringComparison.Ordinal))
             {
                 var view = prefabRoot.GetComponentInChildren<ConfirmPopupView>(true);
@@ -882,6 +1138,653 @@ namespace Game.Feature.UI.Composition.Editor
 
             capture.AddError($"{target.Name}: No localized preview applicator exists for screenshot target '{target.FileStem}'.");
             return scope;
+        }
+
+        private static void RecordM1bLocalizedTargets(
+            TypographyPreviewScreenshotTarget target,
+            TypographyPreviewScreenshotCaptureResult capture,
+            IReadOnlyList<TMP_Text> localizedTargets)
+        {
+            capture.ExpectedLocalizedTextCount = GetExpectedLocalizedTextCount(target.FileStem);
+            capture.LocalizedTextAppliedCount = localizedTargets.Count;
+            foreach (var localizedTarget in localizedTargets)
+            {
+                capture.AddLocalizedText(localizedTarget.text);
+            }
+
+            if (capture.LocalizedTextAppliedCount != capture.ExpectedLocalizedTextCount)
+            {
+                capture.AddError(
+                    $"{target.Name}: expected {capture.ExpectedLocalizedTextCount} active localized targets, " +
+                    $"found {capture.LocalizedTextAppliedCount}.");
+            }
+        }
+
+        private static SaveSlotData[] CreateStageVisualSaveSlots(string fileStem)
+        {
+            if (string.Equals(fileStem, "M3StageLobby", StringComparison.Ordinal))
+            {
+                return new[]
+                {
+                    new SaveSlotData
+                    {
+                        SlotNumber = 1,
+                        CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                        CurrentLevelGroupId = "level-1",
+                        RemainingChances = 3,
+                        TotalDeaths = 1,
+                        LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                    },
+                    SaveSlotData.CreateEmpty(2),
+                    SaveSlotData.CreateEmpty(3),
+                };
+            }
+
+            return new[]
+            {
+                new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-0-1"),
+                    CurrentLevelGroupId = "level-0",
+                    RemainingChances = 3,
+                    TotalDeaths = 1,
+                    LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                },
+                new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-1"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = 2,
+                    TotalDeaths = 3,
+                    LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                },
+                new SaveSlotData
+                {
+                    SlotNumber = 3,
+                    CurrentStageId = StageId.CreateOrThrow("stage-4-1"),
+                    CurrentLevelGroupId = "level-4",
+                    RemainingChances = 1,
+                    TotalDeaths = 5,
+                    LastPlayedAt = "2026-07-29T12:34:00+09:00",
+                    CampaignCompleted = true,
+                },
+            };
+        }
+
+        private static void ValidateStageSaveSlotCopy(
+            TypographyPreviewScreenshotTarget target,
+            TypographyPreviewScreenshotCaptureResult capture,
+            IReadOnlyList<TMP_Text> localizedTargets)
+        {
+            var expectedStageNames = string.Equals(target.FileStem, "M3StageLobby", StringComparison.Ordinal)
+                ? string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
+                    ? new[] { "스테이지 로비-01" }
+                    : new[] { "Stage Lobby-01" }
+                : string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
+                    ? new[] { "스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01" }
+                    : new[] { "Stage Lab-01", "Stage Ward[A]-01", "Stage Morgue-01" };
+
+            foreach (var expectedStageName in expectedStageNames)
+            {
+                var matches = localizedTargets.Count(text =>
+                    string.Equals(text.text, expectedStageName, StringComparison.Ordinal));
+                if (matches != 1)
+                {
+                    capture.AddError(
+                        $"{target.Name} {capture.LocaleCode}: expected one production TMP with " +
+                        $"Stage name '{expectedStageName}', found {matches}.");
+                }
+            }
+        }
+
+        private static bool TryGetM1bConfirmationKind(
+            string fileStem,
+            out MainMenuConfirmationKind kind)
+        {
+            switch (fileStem)
+            {
+                case "M1BDeleteConfirmation":
+                    kind = MainMenuConfirmationKind.DeleteSlot;
+                    return true;
+                case "M1BRestartConfirmation":
+                    kind = MainMenuConfirmationKind.RestartSlot;
+                    return true;
+                case "M1BOverwriteConfirmation":
+                    kind = MainMenuConfirmationKind.OverwriteSlot;
+                    return true;
+                case "M1BQuitConfirmation":
+                    kind = MainMenuConfirmationKind.QuitGame;
+                    return true;
+                default:
+                    kind = default;
+                    return false;
+            }
+        }
+
+        private static bool TryGetM2aCampaignSaveStatus(
+            string fileStem,
+            out CampaignSaveLoadStatus status)
+        {
+            switch (fileStem)
+            {
+                case "M2ACorrupt":
+                    status = CampaignSaveLoadStatus.CorruptRepairRequired;
+                    return true;
+                case "M2APermission":
+                    status = CampaignSaveLoadStatus.Unauthorized;
+                    return true;
+                case "M2ALoadFailed":
+                    status = CampaignSaveLoadStatus.IoFailed;
+                    return true;
+                case "M2ANeedsRepair":
+                    status = CampaignSaveLoadStatus.SchemaInvalidRepairRequired;
+                    return true;
+                default:
+                    status = default;
+                    return false;
+            }
+        }
+
+        private static bool IsM1bDiagnosticTarget(string fileStem)
+        {
+            return IsStageSaveSlotTarget(fileStem) ||
+                   TryGetM1bConfirmationKind(fileStem, out _) ||
+                   TryGetM2aCampaignSaveStatus(fileStem, out _);
+        }
+
+        private static bool IsStageSaveSlotTarget(string fileStem)
+        {
+            return string.Equals(fileStem, "M1BSaveSlots", StringComparison.Ordinal) ||
+                   string.Equals(fileStem, "M3StageLobby", StringComparison.Ordinal);
+        }
+
+        private static bool TryGetM2bVisualState(
+            string fileStem,
+            out M2bRebindVisualState state)
+        {
+            switch (fileStem)
+            {
+                case "M2BReserved":
+                    state = M2bRebindVisualState.Reserved;
+                    return true;
+                case "M2BActionConflictFlip":
+                    state = M2bRebindVisualState.ActionConflictFlip;
+                    return true;
+                case "M2BActionConflictPush":
+                    state = M2bRebindVisualState.ActionConflictPush;
+                    return true;
+                case "M2BMovementConflict":
+                    state = M2bRebindVisualState.MovementConflict;
+                    return true;
+                case "M2BAlreadyRebinding":
+                    state = M2bRebindVisualState.AlreadyRebinding;
+                    return true;
+                case "M2BRebindingPrompt":
+                    state = M2bRebindVisualState.RebindingPrompt;
+                    return true;
+                default:
+                    state = default;
+                    return false;
+            }
+        }
+
+        private static IEnumerable<LocalizedTextDescriptor> GetM2bStatusDescriptors(
+            string fileStem)
+        {
+            if (!TryGetM2bVisualState(fileStem, out var state))
+            {
+                return Array.Empty<LocalizedTextDescriptor>();
+            }
+
+            return new[] { GetM2bStatusDescriptor(state) };
+        }
+
+        private static LocalizedTextDescriptor GetM2bStatusDescriptor(M2bRebindVisualState state)
+        {
+            switch (state)
+            {
+                case M2bRebindVisualState.Reserved:
+                    return SettingsDynamicTextDescriptors.InputReservedKey();
+                case M2bRebindVisualState.ActionConflictFlip:
+                    return SettingsDynamicTextDescriptors.InputActionConflict(
+                        SettingsStaticTextDescriptors.Flip);
+                case M2bRebindVisualState.ActionConflictPush:
+                    return SettingsDynamicTextDescriptors.InputActionConflict(
+                        SettingsStaticTextDescriptors.Push);
+                case M2bRebindVisualState.MovementConflict:
+                    return SettingsDynamicTextDescriptors.InputMovementConflict();
+                case M2bRebindVisualState.AlreadyRebinding:
+                    return SettingsDynamicTextDescriptors.InputAlreadyRebinding();
+                case M2bRebindVisualState.RebindingPrompt:
+                    return SettingsDynamicTextDescriptors.InputRebindPrompt(
+                        KeyboardBindableAction.Push);
+                default:
+                    return SettingsDynamicTextDescriptors.InputUnsupportedKey();
+            }
+        }
+
+        private static Color32[] DecodePngPixels(
+            byte[] encodedPng,
+            TypographyPreviewScreenshotOptions options)
+        {
+            var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!ImageConversion.LoadImage(decoded, encodedPng, markNonReadable: false) ||
+                    decoded.width != options.Width ||
+                    decoded.height != options.Height)
+                {
+                    throw new InvalidOperationException(
+                        "Encoded screenshot could not be decoded at the requested resolution.");
+                }
+
+                return decoded.GetPixels32();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(decoded);
+            }
+        }
+
+        private static void ValidateM1bRenderedTargets(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotCaptureResult capture,
+            Camera camera,
+            RenderTexture renderTexture,
+            TypographyPreviewScreenshotOptions options,
+            IReadOnlyList<Color32> enabledPixels)
+        {
+            var isM2bTarget = TryGetM2bVisualState(
+                capture.Target.FileStem,
+                out var m2bState);
+            if (!IsM1bDiagnosticTarget(capture.Target.FileStem) && !isM2bTarget)
+            {
+                return;
+            }
+
+            TMP_Text[] targets;
+            if (isM2bTarget)
+            {
+                var expectedStatus = GetM2bStatusDescriptor(m2bState);
+                var inputView = prefabRoot.GetComponentInChildren<SettingsInputView>(true);
+                var expectedText = capture.LocalizedTexts.LastOrDefault();
+                var activeTexts = prefabRoot
+                    .GetComponentsInChildren<TMP_Text>(true)
+                    .Where(text =>
+                        text != null &&
+                        text.gameObject.activeInHierarchy)
+                    .ToArray();
+                var statusTarget = activeTexts
+                    .SingleOrDefault(text =>
+                        string.Equals(text.text, expectedText, StringComparison.Ordinal));
+                var frameProofTargets = activeTexts
+                    .Where(text =>
+                        string.Equals(text.gameObject.name, "Title", StringComparison.Ordinal) ||
+                        string.Equals(text.text, "E", StringComparison.Ordinal) ||
+                        string.Equals(text.text, "Q", StringComparison.Ordinal))
+                    .ToArray();
+                targets = statusTarget == null
+                    ? frameProofTargets
+                    : new[] { statusTarget }
+                        .Concat(frameProofTargets)
+                        .Distinct()
+                        .ToArray();
+                ValidateM2bRenderedState(
+                    prefabRoot,
+                    capture,
+                    inputView,
+                    expectedStatus,
+                    expectedText,
+                    m2bState);
+                ValidateM2bFrameAnchors(capture, enabledPixels, options);
+            }
+            else if (IsStageSaveSlotTarget(capture.Target.FileStem) ||
+                TryGetM2aCampaignSaveStatus(capture.Target.FileStem, out _))
+            {
+                var panel = prefabRoot.GetComponentInChildren<MainMenuScreenView>(true)?.SaveSlotPanel;
+                targets = panel == null
+                    ? Array.Empty<TMP_Text>()
+                    : panel.CreateTypographyTargets()
+                        .Where(text => text != null &&
+                                       text.gameObject.activeInHierarchy &&
+                                       !string.IsNullOrWhiteSpace(text.text))
+                        .ToArray();
+            }
+            else
+            {
+                targets = prefabRoot
+                    .GetComponentInChildren<ConfirmPopupView>(true)
+                    ?.CreateTypographyTargets()
+                    .Where(text => text != null &&
+                                   text.gameObject.activeInHierarchy &&
+                                   !string.IsNullOrWhiteSpace(text.text))
+                    .ToArray()
+                    ?? Array.Empty<TMP_Text>();
+            }
+
+            var expectedCount = isM2bTarget
+                ? 4
+                : GetExpectedLocalizedTextCount(capture.Target.FileStem);
+            if (targets.Length != expectedCount)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: expected {expectedCount} rendered targets, " +
+                    $"found {targets.Length}.");
+                return;
+            }
+
+            foreach (var target in targets)
+            {
+                target.ForceMeshUpdate();
+                if (!target.isActiveAndEnabled ||
+                    target.canvasRenderer.cull ||
+                    target.color.a <= 0f ||
+                    target.font == null ||
+                    target.fontSharedMaterial == null)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        "is not an active production text renderer with font/material.");
+                    continue;
+                }
+
+                if (target.textInfo == null ||
+                    target.textInfo.characterCount == 0 ||
+                    target.textInfo.meshInfo == null ||
+                    target.textInfo.meshInfo.All(mesh => mesh.vertices == null || mesh.vertices.Length == 0))
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        "has no generated text mesh.");
+                    continue;
+                }
+
+                if (target.isTextOverflowing)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"overflows its authored bounds with text '{target.text}'.");
+                }
+
+                var corners = new Vector3[4];
+                target.rectTransform.GetWorldCorners(corners);
+                var screenCorners = corners
+                    .Select(corner => RectTransformUtility.WorldToScreenPoint(camera, corner))
+                    .ToArray();
+                var minX = screenCorners.Min(point => point.x);
+                var maxX = screenCorners.Max(point => point.x);
+                var minY = screenCorners.Min(point => point.y);
+                var maxY = screenCorners.Max(point => point.y);
+                if (minX < -0.5f ||
+                    minY < -0.5f ||
+                    maxX > options.Width + 0.5f ||
+                    maxY > options.Height + 0.5f ||
+                    maxX <= minX ||
+                    maxY <= minY)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"is outside screen bounds ({minX:F1},{minY:F1})-({maxX:F1},{maxY:F1}).");
+                }
+
+                var rasterTextPixels = CountBrightPixels(
+                    enabledPixels,
+                    options.Width,
+                    options.Height,
+                    minX,
+                    minY,
+                    maxX,
+                    maxY);
+
+                foreach (var character in target.text)
+                {
+                    if (char.IsControl(character) ||
+                        char.IsWhiteSpace(character) ||
+                        target.font.HasCharacter(character, searchFallbacks: false, tryAddCharacter: false))
+                    {
+                        continue;
+                    }
+
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"requires fallback for '{character}' U+{(int)character:X4}.");
+                }
+
+                target.enabled = false;
+                ForceGraphicUpdates(prefabRoot);
+                camera.Render();
+                var diagnostic = new Texture2D(
+                    options.Width,
+                    options.Height,
+                    TextureFormat.RGBA32,
+                    mipChain: false);
+                var previous = RenderTexture.active;
+                try
+                {
+                    RenderTexture.active = renderTexture;
+                    diagnostic.ReadPixels(
+                        new Rect(0f, 0f, options.Width, options.Height),
+                        0,
+                        0,
+                        recalculateMipMaps: false);
+                    diagnostic.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+                }
+                finally
+                {
+                    RenderTexture.active = previous;
+                    target.enabled = true;
+                }
+
+                var disabledPixels = diagnostic.GetPixels32();
+                UnityEngine.Object.DestroyImmediate(diagnostic);
+                var pixelDelta = 0;
+                for (var i = 0; i < enabledPixels.Count && i < disabledPixels.Length; i++)
+                {
+                    if (!enabledPixels[i].Equals(disabledPixels[i]))
+                    {
+                        pixelDelta++;
+                    }
+                }
+
+                capture.M1bPixelProofCount++;
+                var pixelProofPassed = pixelDelta > 4 && rasterTextPixels > 4;
+                if (pixelProofPassed)
+                {
+                    capture.M1bPixelProofPassCount++;
+                }
+                else
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: '{BuildHierarchyPath(target.transform)}' " +
+                        $"pixel proof failed with delta={pixelDelta}, " +
+                        $"raster_text_pixels={rasterTextPixels}.");
+                }
+
+                Debug.Log(
+                    "TYPOGRAPHY_PIXEL_PROOF " +
+                    $"target={capture.Target.FileStem} " +
+                    $"locale={capture.LocaleCode} " +
+                    $"renderer={BuildHierarchyPath(target.transform)} " +
+                    $"text={target.text} " +
+                    $"pixel_delta={pixelDelta} " +
+                    $"raster_text_pixels={rasterTextPixels} " +
+                    $"result={(pixelProofPassed ? "PASS" : "FAIL")}");
+            }
+
+            if (capture.M1bPixelProofPassCount != capture.M1bPixelProofCount)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: pixel proofs passed " +
+                    $"{capture.M1bPixelProofPassCount}/{capture.M1bPixelProofCount}.");
+            }
+        }
+
+        private static void ValidateM2bFrameAnchors(
+            TypographyPreviewScreenshotCaptureResult capture,
+            IReadOnlyList<Color32> pixels,
+            TypographyPreviewScreenshotOptions options)
+        {
+            var titlePixels = CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                options.Width * 0.43f,
+                options.Height * 0.79f,
+                options.Width * 0.56f,
+                options.Height * 0.87f);
+            var pushKeyPixels = CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                options.Width * 0.35f,
+                options.Height * 0.53f,
+                options.Width * 0.39f,
+                options.Height * 0.61f);
+            var flipKeyPixels = CountBrightPixels(
+                pixels,
+                options.Width,
+                options.Height,
+                options.Width * 0.35f,
+                options.Height * 0.46f,
+                options.Width * 0.39f,
+                options.Height * 0.54f);
+            var passed = titlePixels > 100 &&
+                pushKeyPixels > 20 &&
+                flipKeyPixels > 20;
+            Debug.Log(
+                "M2B_FRAME_ANCHOR " +
+                $"target={capture.Target.FileStem} " +
+                $"locale={capture.LocaleCode} " +
+                $"title_pixels={titlePixels} " +
+                $"push_key_pixels={pushKeyPixels} " +
+                $"flip_key_pixels={flipKeyPixels} " +
+                $"result={(passed ? "PASS" : "FAIL")}");
+            if (!passed)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: saved PNG frame anchors were incomplete " +
+                    $"(title={titlePixels}, push={pushKeyPixels}, flip={flipKeyPixels}).");
+            }
+        }
+
+        private static int CountBrightPixels(
+            IReadOnlyList<Color32> pixels,
+            int width,
+            int height,
+            float minX,
+            float minY,
+            float maxX,
+            float maxY)
+        {
+            const byte alphaThreshold = 64;
+            const byte colorThreshold = 128;
+            var startX = Mathf.Clamp(Mathf.FloorToInt(minX), 0, width - 1);
+            var endX = Mathf.Clamp(Mathf.CeilToInt(maxX), 0, width);
+            var startY = Mathf.Clamp(Mathf.FloorToInt(minY), 0, height - 1);
+            var endY = Mathf.Clamp(Mathf.CeilToInt(maxY), 0, height);
+            var count = 0;
+            for (var y = startY; y < endY; y++)
+            {
+                for (var x = startX; x < endX; x++)
+                {
+                    var index = y * width + x;
+                    if (index < 0 || index >= pixels.Count)
+                    {
+                        continue;
+                    }
+
+                    var pixel = pixels[index];
+                    if (pixel.a >= alphaThreshold &&
+                        pixel.r >= colorThreshold &&
+                        pixel.g >= colorThreshold &&
+                        pixel.b >= colorThreshold)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
+        private static void ValidateM2bRenderedState(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotCaptureResult capture,
+            SettingsInputView inputView,
+            LocalizedTextDescriptor expectedStatus,
+            string expectedText,
+            M2bRebindVisualState state)
+        {
+            if (inputView == null)
+            {
+                capture.AddError($"{capture.Target.Name}: SettingsInputView was not found.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(expectedText) ||
+                !string.Equals(inputView.StatusText, expectedText, StringComparison.Ordinal))
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: production status target does not contain " +
+                    $"the resolved {expectedStatus.Table}:{expectedStatus.Key} copy.");
+            }
+
+            var expectsActiveRebind =
+                state == M2bRebindVisualState.AlreadyRebinding ||
+                state == M2bRebindVisualState.RebindingPrompt;
+            if (inputView.IsRebindingActive != expectsActiveRebind)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: active rebind state was " +
+                    $"{inputView.IsRebindingActive}, expected {expectsActiveRebind}.");
+            }
+
+            var activeTexts = prefabRoot
+                .GetComponentsInChildren<TMP_Text>(true)
+                .Where(text => text != null && text.gameObject.activeInHierarchy)
+                .ToArray();
+            if (!activeTexts.Any(text => string.Equals(text.text, "E", StringComparison.Ordinal)) ||
+                !activeTexts.Any(text => string.Equals(text.text, "Q", StringComparison.Ordinal)))
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: invariant E/Q keycaps were not rendered.");
+            }
+
+            var forbiddenFragments = new[]
+            {
+                "KeyboardBindableAction",
+                "DuplicateAction",
+                "ReservedKey",
+                "MovementConflict",
+                "AlreadyRebinding",
+                "InvalidKey",
+                "MissingBinding",
+                "Exception:",
+                "[UI:",
+            };
+            foreach (var text in activeTexts)
+            {
+                if (forbiddenFragments.Any(fragment =>
+                        text.text.Contains(fragment, StringComparison.Ordinal)))
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: internal identifier or diagnostic " +
+                        $"reached '{BuildHierarchyPath(text.transform)}'.");
+                }
+            }
+        }
+
+        private static string BuildHierarchyPath(Transform transform)
+        {
+            var parts = new Stack<string>();
+            for (var current = transform; current != null; current = current.parent)
+            {
+                parts.Push(current.name);
+            }
+
+            return string.Join("/", parts);
         }
 
         private static void ValidatePauseRenderedTargets(
@@ -986,6 +1889,26 @@ namespace Game.Feature.UI.Composition.Editor
                     selectedResolutionWidth: 1920,
                     selectedResolutionHeight: 1080);
                 view.DisplayView.Bind(displayViewModel);
+                return;
+            }
+
+            if (TryGetM2bVisualState(target.FileStem, out var m2bState))
+            {
+                var port = new M2bKeyboardBindingSettingsPort(m2bState);
+                var presenter = new SettingsInputPresenter(port, resolver);
+                presenter.Apply(new SettingsInputPresenterInput(
+                    SettingsStaticTextDescriptors.MovementKeys,
+                    SettingsStaticTextDescriptors.UseArrowKeys,
+                    SettingsStaticTextDescriptors.Push,
+                    SettingsStaticTextDescriptors.Flip,
+                    SettingsStaticTextDescriptors.Change,
+                    SettingsStaticTextDescriptors.ResetInput));
+                var requestedAction = m2bState == M2bRebindVisualState.ActionConflictPush
+                    ? KeyboardBindableAction.Flip
+                    : KeyboardBindableAction.Push;
+                presenter.StartRebind(requestedAction);
+                port.CompleteConflictIfNeeded(requestedAction);
+                view.InputView.Bind(presenter.ViewModel);
                 return;
             }
 
@@ -1361,7 +2284,7 @@ namespace Game.Feature.UI.Composition.Editor
             out int captureFrameIndex)
         {
             const int maximumRenderPasses = 8;
-            renderTexture = new RenderTexture(options.Width, options.Height, 0, RenderTextureFormat.ARGB32)
+            renderTexture = new RenderTexture(options.Width, options.Height, 24, RenderTextureFormat.ARGB32)
             {
                 name = "TypographyPreviewScreenshotRT",
                 antiAliasing = 1,
@@ -1572,7 +2495,7 @@ namespace Game.Feature.UI.Composition.Editor
             {
             }
 
-            private static bool TryResolve(Locale locale, LocalizedTextDescriptor descriptor, out string value)
+            private bool TryResolve(Locale locale, LocalizedTextDescriptor descriptor, out string value)
             {
                 value = null;
                 var table = LocalizationSettings.StringDatabase.GetTable(descriptor.Table, locale);
@@ -1586,7 +2509,7 @@ namespace Game.Feature.UI.Composition.Editor
                 return !string.IsNullOrEmpty(value);
             }
 
-            private static string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
+            private string ResolveEntry(StringTableEntry entry, LocalizedTextDescriptor descriptor)
             {
                 if (descriptor.Arguments.Count == 0)
                 {
@@ -1596,10 +2519,129 @@ namespace Game.Feature.UI.Composition.Editor
                 var arguments = new object[descriptor.Arguments.Count];
                 for (var i = 0; i < descriptor.Arguments.Count; i++)
                 {
-                    arguments[i] = descriptor.Arguments[i];
+                    arguments[i] = descriptor.Arguments[i] is LocalizedTextDescriptor nestedDescriptor
+                        ? Resolve(nestedDescriptor)
+                        : descriptor.Arguments[i];
                 }
 
                 return entry.GetLocalizedString(arguments);
+            }
+        }
+
+        private enum M2bRebindVisualState
+        {
+            Reserved = 0,
+            ActionConflictFlip = 1,
+            ActionConflictPush = 2,
+            MovementConflict = 3,
+            AlreadyRebinding = 4,
+            RebindingPrompt = 5,
+        }
+
+        private sealed class M2bKeyboardBindingSettingsPort : IKeyboardBindingSettingsPort
+        {
+            private readonly M2bRebindVisualState state;
+            private Action<KeyboardRebindResult> completed;
+            private KeyboardBindingSettingsSnapshot snapshot;
+
+            public M2bKeyboardBindingSettingsPort(M2bRebindVisualState state)
+            {
+                this.state = state;
+                snapshot = CreateSnapshot(
+                    isRebinding: state == M2bRebindVisualState.AlreadyRebinding,
+                    rebindingAction: state == M2bRebindVisualState.AlreadyRebinding
+                        ? KeyboardBindableAction.Flip
+                        : null);
+            }
+
+            public bool IsRebinding => snapshot.IsRebinding;
+
+            public KeyboardBindingSettingsSnapshot Read()
+            {
+                return snapshot;
+            }
+
+            public KeyboardBindingValidationResult TrySetMovementScheme(
+                KeyboardMovementScheme scheme)
+            {
+                return KeyboardBindingValidationResult.Success;
+            }
+
+            public KeyboardRebindStartResult StartRebind(
+                KeyboardBindableAction action,
+                Action<KeyboardRebindResult> completed)
+            {
+                this.completed = completed;
+                switch (state)
+                {
+                    case M2bRebindVisualState.Reserved:
+                        return Reject(KeyboardBindingValidationResult.ReservedKey);
+                    case M2bRebindVisualState.MovementConflict:
+                        return Reject(KeyboardBindingValidationResult.MovementConflict);
+                    case M2bRebindVisualState.AlreadyRebinding:
+                        return Reject(KeyboardBindingValidationResult.AlreadyRebinding);
+                    default:
+                        snapshot = CreateSnapshot(isRebinding: true, rebindingAction: action);
+                        return new KeyboardRebindStartResult(
+                            true,
+                            KeyboardBindingValidationResult.Success,
+                            snapshot);
+                }
+            }
+
+            public void CompleteConflictIfNeeded(KeyboardBindableAction requestedAction)
+            {
+                KeyboardBindableAction? conflictingAction = null;
+                if (state == M2bRebindVisualState.ActionConflictFlip)
+                {
+                    conflictingAction = KeyboardBindableAction.Flip;
+                }
+                else if (state == M2bRebindVisualState.ActionConflictPush)
+                {
+                    conflictingAction = KeyboardBindableAction.Push;
+                }
+
+                if (!conflictingAction.HasValue)
+                {
+                    return;
+                }
+
+                snapshot = CreateSnapshot(isRebinding: false, rebindingAction: null);
+                completed?.Invoke(new KeyboardRebindResult(
+                    requestedAction,
+                    KeyboardBindingValidationResult.DuplicateAction,
+                    snapshot,
+                    conflictingAction));
+            }
+
+            public void CancelRebind()
+            {
+                snapshot = CreateSnapshot(isRebinding: false, rebindingAction: null);
+            }
+
+            public KeyboardBindingSettingsSnapshot ResetToDefaults()
+            {
+                snapshot = CreateSnapshot(isRebinding: false, rebindingAction: null);
+                return snapshot;
+            }
+
+            private KeyboardRebindStartResult Reject(
+                KeyboardBindingValidationResult validationResult)
+            {
+                return new KeyboardRebindStartResult(false, validationResult, snapshot);
+            }
+
+            private static KeyboardBindingSettingsSnapshot CreateSnapshot(
+                bool isRebinding,
+                KeyboardBindableAction? rebindingAction)
+            {
+                return new KeyboardBindingSettingsSnapshot(
+                    KeyboardMovementScheme.Wasd,
+                    "WASD",
+                    "E",
+                    "Q",
+                    isRebinding,
+                    rebindingAction);
             }
         }
 

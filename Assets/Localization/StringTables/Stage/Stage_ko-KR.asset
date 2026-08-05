@@ -19,39 +19,39 @@ MonoBehaviour:
     m_Items: []
   m_TableData:
   - m_Id: 2881628672
-    m_Localized: Lab-01
+    m_Localized: 연구실-01
     m_Metadata:
       m_Items: []
   - m_Id: 2881628673
-    m_Localized: Lab-02
+    m_Localized: 연구실-02
     m_Metadata:
       m_Items: []
   - m_Id: 2881628674
-    m_Localized: Lobby-01
+    m_Localized: 로비-01
     m_Metadata:
       m_Items: []
   - m_Id: 2881628675
-    m_Localized: Ward[A]-01
+    m_Localized: 병동[A]-01
     m_Metadata:
       m_Items: []
   - m_Id: 2881628676
-    m_Localized: Ward[A]-02
+    m_Localized: 병동[A]-02
     m_Metadata:
       m_Items: []
   - m_Id: 2881628677
-    m_Localized: Ward[B]-01
+    m_Localized: 병동[B]-01
     m_Metadata:
       m_Items: []
   - m_Id: 2881628678
-    m_Localized: Ward[B]-02
+    m_Localized: 병동[B]-02
     m_Metadata:
       m_Items: []
   - m_Id: 2881628679
-    m_Localized: Morgue-01
+    m_Localized: 영안실-01
     m_Metadata:
       m_Items: []
   - m_Id: 2881628680
-    m_Localized: Morgue-02
+    m_Localized: 영안실-02
     m_Metadata:
       m_Items: []
   - m_Id: 2881628681

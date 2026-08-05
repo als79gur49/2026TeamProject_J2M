@@ -134,6 +134,14 @@ path that persists `StableGuid -> EntityId` mappings, retires deleted mappings,
 writes generated gameplay data, writes presentation bindings, marks assets dirty,
 or saves assets.
 
+Write Generate owns a bounded save set. It saves the current
+`StageAuthoringDefinition` source plus only the gameplay and presentation outputs
+enabled by the applied plan. Persistent assets are de-duplicated by asset path,
+ordered ordinally, and saved with `AssetDatabase.SaveAssetIfDirty`. Referenced
+condition assets, catalogs, other stages, and unrelated dirty project assets are
+not part of this save contract. The canonical Generate path must not call the
+project-wide `AssetDatabase.SaveAssets` primitive.
+
 ## Grid Editor Presentation Selection
 
 The grid editor presentation dropdown only selects the placement

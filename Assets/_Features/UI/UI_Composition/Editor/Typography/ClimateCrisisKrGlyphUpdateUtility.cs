@@ -65,6 +65,7 @@ namespace Game.Feature.UI.Composition.Editor
             fontAsset.ReadFontAssetDefinition();
             EditorUtility.SetDirty(fontAsset);
             AssetDatabase.SaveAssets();
+            ImportAndPersistCanonicalSerialization(FontAssetPath);
 
             var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
             ValidateContractOrThrow(
@@ -113,6 +114,7 @@ namespace Game.Feature.UI.Composition.Editor
             fontAsset.ReadFontAssetDefinition();
             EditorUtility.SetDirty(fontAsset);
             AssetDatabase.SaveAssets();
+            ImportAndPersistCanonicalSerialization(NanumFontAssetPath);
 
             var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumFontAssetPath);
             ValidateContractOrThrow(
@@ -268,6 +270,14 @@ namespace Game.Feature.UI.Composition.Editor
 
             sourceFontProperty.objectReferenceValue = sourceFont;
             serializedFont.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void ImportAndPersistCanonicalSerialization(string assetPath)
+        {
+            AssetDatabase.ImportAsset(
+                assetPath,
+                ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+            AssetDatabase.SaveAssets();
         }
 
         private static void RestoreCanonicalClimateScaleRatios(TMP_FontAsset fontAsset)

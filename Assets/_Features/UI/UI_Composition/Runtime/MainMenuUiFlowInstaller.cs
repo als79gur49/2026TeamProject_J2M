@@ -77,6 +77,7 @@ namespace Game.Feature.UI.Composition
         private TerminalIrisMotionProfileResolver _mainMenuDestinationMotionResolver;
         private TerminalIrisRuntimeOpenPreset? _mainMenuDestinationOpenPreset;
         private MainMenuEntrySessionToken _preparedMainMenuEntryToken;
+        private MainMenuEntrySessionToken _failedMainMenuIrisSetupToken;
         private bool _mainMenuDestinationClosedPrepared;
         private float _mainMenuDestinationOpeningElapsed;
         private float _mainMenuDestinationOpeningRadius;
@@ -438,7 +439,9 @@ namespace Game.Feature.UI.Composition
                 sequenceResolver,
                 stageLaunchRouter,
                 _confirmPopupPort,
-                validationService);
+                validationService,
+                _localizedTextResolver,
+                new UnityMainMenuSaveDiagnosticPort());
 
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
@@ -579,6 +582,7 @@ namespace Game.Feature.UI.Composition
 
             _settingsOverlayController?.Dispose();
             _audioSettingsLifecycleRelay?.FlushNow();
+            Controller?.Dispose();
             PopupController?.Dispose();
             (_localizedTextResolver as IDisposable)?.Dispose();
         }
@@ -615,6 +619,11 @@ namespace Game.Feature.UI.Composition
             if (session.Phase == SceneEntryPresentationPhase.WaitingRuntimeReady &&
                 !_mainMenuDestinationClosedPrepared)
             {
+                if (_failedMainMenuIrisSetupToken == session.Token)
+                {
+                    return;
+                }
+
                 if (!IsStrongMainMenuDestinationReady(session))
                 {
                     return;
@@ -633,31 +642,7 @@ namespace Game.Feature.UI.Composition
                     return;
                 }
 
-                var destinationRoot = EnsureMainMenuDestinationRoot();
-                _mainMenuDestinationMotionResolver ??=
-                    destinationRoot.RequireTerminalIrisMotionProfile().CreateResolver();
-                var closePreset =
-                    _mainMenuDestinationMotionResolver.ResolveGameplayEntryClose();
-                var preparedOpenPreset =
-                    _mainMenuDestinationMotionResolver.ResolveStageEntryOpen();
-                var visual = MainMenuTransitionVisualPolicy.Require(
-                    session.Token,
-                    session.TransitionIntent);
-                var irisView = destinationRoot.TerminalIrisOverlayView;
-                _mainMenuDestinationCenter = closePreset.FallbackCenter;
-                irisView.ConfigureTransitionColor(visual.DestinationOpenColor);
-                irisView.Show();
-                irisView.ApplyClosedEntry(
-                    _mainMenuDestinationCenter,
-                    preparedOpenPreset);
-                _mainMenuDestinationOpeningRadius =
-                    irisView.CalculateFullyRevealedRadius(
-                        _mainMenuDestinationCenter,
-                        preparedOpenPreset.FullOpenMargin);
-                _mainMenuDestinationOpeningElapsed = 0f;
-                _mainMenuDestinationOpenPreset = preparedOpenPreset;
-                _preparedMainMenuEntryToken = session.Token;
-                _mainMenuDestinationClosedPrepared = true;
+                PrepareMainMenuDestinationIris(session);
                 return;
             }
 
@@ -727,6 +712,7 @@ namespace Game.Feature.UI.Composition
 
             _mainMenuDestinationRoot.TerminalIrisOverlayView.Hide();
             _mainMenuDestinationClosedPrepared = false;
+            _failedMainMenuIrisSetupToken = default;
             _mainMenuDestinationOpenPreset = null;
             _preparedMainMenuEntryToken = default;
             if (!MainMenuEntryPresentationRegistry.TryComplete(session.Token))
@@ -764,8 +750,99 @@ namespace Game.Feature.UI.Composition
                    canvas.gameObject.activeInHierarchy &&
                    eventSystem != null &&
                    eventSystem.isActiveAndEnabled &&
-                   eventSystem.currentInputModule != null &&
-                   EnsureMainMenuDestinationRoot() != null;
+                   eventSystem.currentInputModule != null;
+        }
+
+        private void PrepareMainMenuDestinationIris(
+            MainMenuEntryPresentationSnapshot session)
+        {
+            var expectedToken = session.Token;
+            var expectedDestinationGeneration =
+                session.DestinationSceneGeneration;
+            TerminalIrisOverlayView irisView = null;
+            try
+            {
+                var destinationRoot = EnsureMainMenuDestinationRoot();
+                _mainMenuDestinationMotionResolver ??=
+                    destinationRoot.RequireTerminalIrisMotionProfile()
+                        .CreateResolver();
+                var closePreset =
+                    _mainMenuDestinationMotionResolver
+                        .ResolveGameplayEntryClose();
+                var preparedOpenPreset =
+                    _mainMenuDestinationMotionResolver.ResolveStageEntryOpen();
+                var visual = MainMenuTransitionVisualPolicy.Require(
+                    expectedToken,
+                    session.TransitionIntent);
+                irisView = destinationRoot.TerminalIrisOverlayView;
+                var center = closePreset.FallbackCenter;
+                irisView.ConfigureTransitionColor(
+                    visual.DestinationOpenColor);
+                irisView.Show();
+                irisView.ApplyClosedEntry(center, preparedOpenPreset);
+                var openingRadius = irisView.CalculateFullyRevealedRadius(
+                    center,
+                    preparedOpenPreset.FullOpenMargin);
+
+                _mainMenuDestinationCenter = center;
+                _mainMenuDestinationOpeningRadius = openingRadius;
+                _mainMenuDestinationOpeningElapsed = 0f;
+                _mainMenuDestinationOpenPreset = preparedOpenPreset;
+                _preparedMainMenuEntryToken = expectedToken;
+                _failedMainMenuIrisSetupToken = default;
+                _mainMenuDestinationClosedPrepared = true;
+            }
+            catch (Exception setupException)
+            {
+                AbortMainMenuDestinationIrisPreparation(
+                    expectedToken,
+                    expectedDestinationGeneration,
+                    irisView,
+                    setupException);
+                throw;
+            }
+        }
+
+        private void AbortMainMenuDestinationIrisPreparation(
+            MainMenuEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            TerminalIrisOverlayView irisView,
+            Exception primaryException)
+        {
+            _mainMenuDestinationClosedPrepared = false;
+            _failedMainMenuIrisSetupToken = expectedToken;
+            _mainMenuDestinationOpenPreset = null;
+            _preparedMainMenuEntryToken = default;
+            _mainMenuDestinationOpeningElapsed = 0f;
+            _mainMenuDestinationOpeningRadius = 0f;
+            _mainMenuDestinationCenter = default;
+            try
+            {
+                irisView?.Hide();
+            }
+            catch (Exception cleanupException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "MainMenuDestinationIrisCleanupFailure",
+                    cleanupException);
+            }
+
+            try
+            {
+                ReportMainMenuEntryIrisPreparationFailureIfOwned(
+                    expectedToken,
+                    expectedDestinationGeneration,
+                    "MAIN_MENU_DESTINATION_IRIS_PREPARATION_FAILED",
+                    primaryException.Message);
+            }
+            catch (Exception reportException)
+            {
+                AttachSecondaryException(
+                    primaryException,
+                    "MainMenuDestinationIrisFailureReportingFailure",
+                    reportException);
+            }
         }
 
         private GameplayUiCanvasRootView EnsureMainMenuDestinationRoot()
@@ -799,6 +876,58 @@ namespace Game.Feature.UI.Composition
                 MainMenuEntryPresentationRegistry.TryFailHoldingCover(
                     session.Token,
                     failureReason);
+            }
+        }
+
+        private static void ReportMainMenuEntryIrisPreparationFailureIfOwned(
+            MainMenuEntrySessionToken expectedToken,
+            long expectedDestinationGeneration,
+            string code,
+            string message)
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (!expectedToken.IsValid ||
+                expectedDestinationGeneration <= 0 ||
+                !session.IsActive ||
+                session.Token != expectedToken ||
+                session.DestinationSceneGeneration !=
+                expectedDestinationGeneration ||
+                expectedDestinationGeneration !=
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration ||
+                session.Phase !=
+                SceneEntryPresentationPhase.WaitingRuntimeReady)
+            {
+                return;
+            }
+
+            var detail = string.IsNullOrWhiteSpace(message)
+                ? "Main Menu destination Iris preparation failed without exception details."
+                : message;
+            MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                expectedToken,
+                $"{code}: {detail}");
+        }
+
+        private static void AttachSecondaryException(
+            Exception primaryException,
+            string key,
+            Exception secondaryException)
+        {
+            if (primaryException == null || secondaryException == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!primaryException.Data.Contains(key))
+                {
+                    primaryException.Data[key] = secondaryException;
+                }
+            }
+            catch
+            {
+                // Keep the original setup exception primary.
             }
         }
 
@@ -1036,5 +1165,25 @@ namespace Game.Feature.UI.Composition
             }
         }
 
+    }
+
+    internal sealed class UnityMainMenuSaveDiagnosticPort : IMainMenuSaveDiagnosticPort
+    {
+        public void Report(SaveSlotFailureDiagnostic diagnostic)
+        {
+            var slot = diagnostic.SlotNumber > 0
+                ? diagnostic.SlotNumber.ToString()
+                : "all";
+            var reason = (diagnostic.Reason ?? string.Empty)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+            Debug.LogWarning(
+                "[CampaignSaveUI] " +
+                $"operation={diagnostic.Operation} " +
+                $"slot={slot} " +
+                $"failure={diagnostic.FailureKind} " +
+                $"status={diagnostic.LoadStatus} " +
+                $"reason={reason}");
+        }
     }
 }
