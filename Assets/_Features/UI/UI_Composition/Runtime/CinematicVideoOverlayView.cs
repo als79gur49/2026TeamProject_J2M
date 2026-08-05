@@ -8,7 +8,10 @@ using UnityEngine.Video;
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class CinematicVideoOverlayView : MonoBehaviour, IPointerClickHandler
+    public sealed class CinematicVideoOverlayView :
+        MonoBehaviour,
+        IPointerClickHandler,
+        ICinematicPlaybackOverlay
     {
         private const string UiMapName = "UI";
         private const string SubmitActionName = "Submit";
@@ -48,6 +51,9 @@ namespace Game.Feature.UI.Composition
         private bool _queuedSkip;
         private bool _skipEnabled;
         private float _audioFadeGain = 1f;
+        private CinematicOpaqueHandoffToken _opaqueHandoffToken;
+        private int _opaqueRenderRequestFrame = -1;
+        private bool _awaitingOpaqueRender;
 
         public bool IsPlaying { get; private set; }
 
@@ -209,6 +215,15 @@ namespace Game.Feature.UI.Composition
             SlotCinematicPlaybackOptions options,
             Action<CinematicPlaybackCompletion> completion)
         {
+            Play(clip, options, default, completion);
+        }
+
+        internal void Play(
+            VideoClip clip,
+            SlotCinematicPlaybackOptions options,
+            CinematicOpaqueHandoffToken opaqueHandoffToken,
+            Action<CinematicPlaybackCompletion> completion)
+        {
             if (clip == null)
             {
                 completion?.Invoke(new CinematicPlaybackCompletion(
@@ -229,6 +244,9 @@ namespace Game.Feature.UI.Composition
             _queuedSkip = false;
             _skipEnabled = options.SkipEnabled;
             _fadeSettings = options.FadeSettings;
+            _opaqueHandoffToken = opaqueHandoffToken;
+            _opaqueRenderRequestFrame = -1;
+            _awaitingOpaqueRender = false;
             IsPlaying = true;
 
             _canvasGroup.alpha = 1f;
@@ -247,6 +265,76 @@ namespace Game.Feature.UI.Composition
             LogCinematicDiagnosticsIfNeeded(clip, options);
             BindSkipActions();
             BeginEnterFadeToBlack();
+        }
+
+        void ICinematicPlaybackOverlay.Play(
+            VideoClip clip,
+            SlotCinematicPlaybackOptions options,
+            CinematicOpaqueHandoffToken opaqueHandoffToken,
+            Action<CinematicPlaybackCompletion> completion)
+        {
+            Play(clip, options, opaqueHandoffToken, completion);
+        }
+
+        internal bool AbortSetupAfterFailure(
+            CinematicOpaqueHandoffToken expectedToken)
+        {
+            if ((expectedToken.IsValid && expectedToken != _opaqueHandoffToken) ||
+                (!expectedToken.IsValid && _opaqueHandoffToken.IsValid))
+            {
+                return false;
+            }
+
+            _completion = null;
+            _completionDispatched = true;
+            _exitFadeRequested = false;
+            _pendingCompletion = default;
+            _queuedSkip = false;
+            _skipEnabled = false;
+            _awaitingOpaqueRender = false;
+            _opaqueRenderRequestFrame = -1;
+            _opaqueHandoffToken = default;
+            _currentClip = null;
+            _currentOptions = default;
+            IsPlaying = false;
+            _fadeRunner.Reset();
+            UnbindSkipActions();
+
+            if (_videoPlayer != null)
+            {
+                _videoPlayer.prepareCompleted -= HandlePrepareCompleted;
+                _videoPlayer.loopPointReached -= HandleLoopPointReached;
+                _videoPlayer.errorReceived -= HandleErrorReceived;
+                _videoPlayer.Stop();
+                _videoPlayer.clip = null;
+                _videoPlayer.targetTexture = null;
+            }
+
+            if (_cinematicAudioSource != null)
+            {
+                _cinematicAudioSource.Stop();
+            }
+
+            SetVideoImageVisible(false);
+            ReleaseRenderTexture();
+            ApplyAudioFadeGain(1f);
+            ApplyFadeAlpha(0f);
+            if (_canvasGroup != null)
+            {
+                _canvasGroup.alpha = 0f;
+                _canvasGroup.blocksRaycasts = false;
+                _canvasGroup.interactable = false;
+            }
+
+            CurrentPresentationState = CinematicPresentationState.Idle;
+            gameObject.SetActive(false);
+            return true;
+        }
+
+        bool ICinematicPlaybackOverlay.AbortSetupAfterFailure(
+            CinematicOpaqueHandoffToken expectedToken)
+        {
+            return AbortSetupAfterFailure(expectedToken);
         }
 
         public void RequestSkip()
@@ -310,6 +398,24 @@ namespace Game.Feature.UI.Composition
         internal void AdvanceFadeForTesting(float deltaSeconds)
         {
             AdvancePresentation(deltaSeconds);
+        }
+
+        internal bool AcknowledgeOpaqueRenderForTesting()
+        {
+            if (!_awaitingOpaqueRender ||
+                _completionDispatched ||
+                !_opaqueHandoffToken.IsValid ||
+                CurrentFadeAlpha < 0.9999f ||
+                !CinematicOpaqueHandoffRegistry
+                    .TryAcknowledgeCinematicOpaqueRendered(
+                        _opaqueHandoffToken))
+            {
+                return false;
+            }
+
+            _awaitingOpaqueRender = false;
+            CompleteOnce(_pendingCompletion);
+            return true;
         }
 
         private void Update()
@@ -482,7 +588,16 @@ namespace Game.Feature.UI.Composition
                 ApplyAudioFadeGain(0f);
             }
 
-            CompleteOnce(_pendingCompletion);
+            if (_opaqueHandoffToken.IsValid)
+            {
+                _opaqueRenderRequestFrame = Time.frameCount;
+                _awaitingOpaqueRender = true;
+                Canvas.ForceUpdateCanvases();
+            }
+            else
+            {
+                CompleteOnce(_pendingCompletion);
+            }
         }
 
         private void ApplyExitAudioFade()
@@ -1005,6 +1120,32 @@ namespace Game.Feature.UI.Composition
             SetVideoImageVisible(false);
             ReleaseRenderTexture();
 
+            if (!_opaqueHandoffToken.IsValid && _canvasGroup != null)
+            {
+                _canvasGroup.alpha = 0f;
+                _canvasGroup.blocksRaycasts = false;
+                _canvasGroup.interactable = false;
+                gameObject.SetActive(false);
+            }
+
+            var callback = _completion;
+            _completion = null;
+            CurrentPresentationState = CinematicPresentationState.Completed;
+            callback?.Invoke(completion);
+        }
+
+        internal void ReleaseOpaqueHandoff(CinematicOpaqueHandoffToken token)
+        {
+            if (!token.IsValid ||
+                token != _opaqueHandoffToken ||
+                !_completionDispatched ||
+                CurrentPresentationState != CinematicPresentationState.Completed ||
+                CurrentFadeAlpha < 0.9999f)
+            {
+                throw new InvalidOperationException(
+                    $"Cinematic opaque owner release rejected token {token}.");
+            }
+
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;
@@ -1012,11 +1153,52 @@ namespace Game.Feature.UI.Composition
                 _canvasGroup.interactable = false;
             }
 
-            var callback = _completion;
-            _completion = null;
-            CurrentPresentationState = CinematicPresentationState.Completed;
+            _opaqueHandoffToken = default;
+            _awaitingOpaqueRender = false;
             gameObject.SetActive(false);
-            callback?.Invoke(completion);
+        }
+
+        void ICinematicPlaybackOverlay.ReleaseOpaqueHandoff(
+            CinematicOpaqueHandoffToken token)
+        {
+            ReleaseOpaqueHandoff(token);
+        }
+
+        private void OnEnable()
+        {
+            Canvas.willRenderCanvases += HandleWillRenderCanvases;
+        }
+
+        private void OnDisable()
+        {
+            Canvas.willRenderCanvases -= HandleWillRenderCanvases;
+        }
+
+        private void HandleWillRenderCanvases()
+        {
+            if (!_awaitingOpaqueRender ||
+                _completionDispatched ||
+                !_opaqueHandoffToken.IsValid ||
+                Time.frameCount <= _opaqueRenderRequestFrame ||
+                CurrentFadeAlpha < 0.9999f ||
+                _blackFadeImage == null ||
+                _blackFadeImage.canvasRenderer == null ||
+                _blackFadeImage.canvasRenderer.cull)
+            {
+                return;
+            }
+
+            _awaitingOpaqueRender = false;
+            if (!CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(
+                    _opaqueHandoffToken))
+            {
+                CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                    _opaqueHandoffToken,
+                    "The cinematic exact-opaque render acknowledgement was stale.");
+                return;
+            }
+
+            CompleteOnce(_pendingCompletion);
         }
 
         private void OnDestroy()
@@ -1038,6 +1220,13 @@ namespace Game.Feature.UI.Composition
                 callback?.Invoke(new CinematicPlaybackCompletion(
                     CinematicPlaybackCompletionKind.Cancelled,
                     "Cinematic overlay was destroyed before playback completed."));
+            }
+
+            if (_opaqueHandoffToken.IsValid)
+            {
+                CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                    _opaqueHandoffToken,
+                    "Cinematic overlay was destroyed before persistent-cover ownership transfer.");
             }
 
             ReleaseRenderTexture();

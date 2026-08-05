@@ -14,6 +14,7 @@ using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
 using Game.Shared.Audio;
 using NUnit.Framework;
@@ -27,12 +28,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [SetUp]
         public void SetUp()
         {
+            TerminalSessionRegistry.ResetForTests();
             StageSaveSlotTestReset.ClearDefaultPlayerPrefs();
         }
 
         [TearDown]
         public void TearDown()
         {
+            TerminalSessionRegistry.ResetForTests();
             StageSaveSlotTestReset.ClearDefaultPlayerPrefs();
         }
 
@@ -723,6 +726,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 var inputHost = inputHostObject.AddComponent<GameplayInputHost>();
                 SetPrivateField(inputHost, "_isInitialized", true);
+                SetPrivateField(inputHost, "_playerEntityId", 10);
                 SetPrivateField(
                     host,
                     "_runtime",
@@ -742,6 +746,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         null,
                         null,
                         null,
+                        null,
                         null));
 
                 var controller = new CampaignGameplayFlowController(
@@ -749,13 +754,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    new FakeStageLaunchRouter());
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var method = typeof(CampaignGameplayFlowController).GetMethod(
                     "HandleStageClear",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(method, Is.Not.Null);
 
-                method.Invoke(controller, new object[] { null });
+                method.Invoke(controller, new object[] { null, null });
 
                 var slot = saveStore.LoadSlot(1);
                 Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
@@ -768,6 +775,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activeSlotProvider.ClearActiveSlot();
                 UnityEngine.Object.DestroyImmediate(hostObject);
                 UnityEngine.Object.DestroyImmediate(inputHostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignBootstrap_MissingTerminalPortFailsFastAndControllerRejectsNull()
+        {
+            var owner = new GameObject("campaign-missing-terminal-port");
+            var hostObject = new GameObject("campaign-null-terminal-controller");
+            var saveKey = CreatePrefsKey(nameof(CampaignBootstrap_MissingTerminalPortFailsFastAndControllerRejectsNull));
+            var saveStore = new SaveSlotStore(saveKey);
+            try
+            {
+                var createPort = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
+                    "CreateTerminalTransitionPort",
+                    BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.That(createPort, Is.Not.Null);
+                var bootstrapException = Assert.Throws<TargetInvocationException>(
+                    () => createPort.Invoke(null, new object[] { owner }));
+                Assert.That(bootstrapException?.InnerException, Is.TypeOf<InvalidOperationException>());
+                StringAssert.Contains(
+                    "requires a co-located ITerminalTransitionPortProvider",
+                    bootstrapException?.InnerException?.Message);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                Assert.Throws<ArgumentNullException>(() =>
+                    new CampaignGameplayFlowController(
+                        host,
+                        saveStore,
+                        new CampaignRunningSlotContext(1),
+                        CreateResolver(),
+                        new FakeStageLaunchRouter(),
+                        chanceDisplayOverride: null,
+                        terminalTransitionPort: null));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                UnityEngine.Object.DestroyImmediate(owner);
+                UnityEngine.Object.DestroyImmediate(hostObject);
             }
         }
 
@@ -807,14 +854,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    new FakeStageLaunchRouter());
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 activeSlotProvider.SetActiveSlot(2);
 
                 var method = typeof(CampaignGameplayFlowController).GetMethod(
                     "HandleStageClear",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(method, Is.Not.Null);
-                method.Invoke(controller, new object[] { CreateMinimalStageCompletionReadModel("stage-1-1", tickIndex: 10) });
+                method.Invoke(
+                    controller,
+                    new object[]
+                    {
+                        null,
+                        CreateMinimalStageCompletionReadModel("stage-1-1", tickIndex: 10),
+                    });
 
                 Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
                 Assert.That(saveStore.LoadSlot(2).CurrentStageId.Value, Is.EqualTo("stage-3-1"));
@@ -863,7 +918,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    new FakeStageLaunchRouter());
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 activeSlotProvider.SetActiveSlot(2);
 
                 GetHandleTickCompletedMethod().Invoke(
@@ -1279,7 +1336,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
@@ -1302,6 +1361,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [TestCase(3, 0, 2)]
+        [TestCase(3, 4, 2)]
+        [TestCase(2, 0, 1)]
+        [Category("Extended")]
+        public void CampaignDeath_RetryableMutationPublishesHudAudioSuppression(
+            int remainingBefore,
+            int totalDeathsBefore,
+            int remainingAfter)
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_RetryableMutationPublishesHudAudioSuppression));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-chance-audio-policy-host");
+            var router = new FakeStageLaunchRouter();
+            var chanceDisplayOverride = new CampaignChanceDisplayOverride();
+            var runningSlotContext = new CampaignRunningSlotContext(1);
+            var chancesReadSource = new SaveSlotCampaignChancesReadSource(
+                saveStore,
+                runningSlotContext,
+                chanceDisplayOverride);
+
+            try
+            {
+                TerminalSessionRegistry.ResetForTests();
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("stage-2-2"),
+                    CurrentLevelGroupId = "level-2",
+                    RemainingChances = remainingBefore,
+                    TotalDeaths = totalDeathsBefore,
+                });
+                activeSlotProvider.SetActiveSlot(1);
+
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    runningSlotContext,
+                    CreateResolver(),
+                    router,
+                    chanceDisplayOverride,
+                    new FakeTerminalTransitionPort());
+
+                GetHandleTickCompletedMethod().Invoke(
+                    controller,
+                    new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
+
+                Assert.That(
+                    chancesReadSource.TryReadChances(
+                        out var observedRemaining,
+                        out var observedMaximum,
+                        out var audioPolicy),
+                    Is.True);
+                Assert.That(observedRemaining, Is.EqualTo(remainingAfter));
+                Assert.That(observedMaximum, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.DeathRetryChanceLost));
+                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.PreviousRemainingChances, Is.EqualTo(remainingBefore));
+                Assert.That(router.LastRequest.TransitionHint.ChanceLostPayload.CurrentRemainingChances, Is.EqualTo(remainingAfter));
+                Assert.That(saveStore.LoadSlot(1).TotalDeaths, Is.EqualTo(totalDeathsBefore + 1));
+            }
+            finally
+            {
+                TerminalSessionRegistry.ResetForTests();
                 saveStore.ClearAll();
                 activeSlotProvider.ClearActiveSlot();
                 UnityEngine.Object.DestroyImmediate(hostObject);
@@ -1341,7 +1475,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    new FakeStageLaunchRouter());
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
 
                 GetHandleTickCompletedMethod().Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
 
@@ -1360,9 +1496,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CampaignDeath_LevelFailedWaitsForDeathRecoveryHold()
+        public void CampaignDeath_LevelFailedClaimsTerminalImmediatelyWithoutEligibleTick()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedWaitsForDeathRecoveryHold));
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedClaimsTerminalImmediatelyWithoutEligibleTick));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -1385,23 +1521,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var terminalPort = new FakeTerminalTransitionPort();
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    new FakeStageLaunchRouter());
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: terminalPort);
                 SetPrivateField(controller, "_presentationFeed", presentationFeed);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(52) });
 
+                Assert.That(terminalPort.Current, Is.Not.Null);
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
-                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                terminalPort.Current.Advance(terminalPort.Current.Preset.BlackAt);
 
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(54) });
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Null);
+                presentationFeed.Dispose();
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_LevelFailedPublishesOnlyAfterDefeatIrisBlackReached()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_LevelFailedPublishesOnlyAfterDefeatIrisBlackReached));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-level-failed-iris-host");
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 1);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var terminalPort = new FakeTerminalTransitionPort();
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: terminalPort);
+                SetPrivateField(controller, "_presentationFeed", presentationFeed);
+
+                GetHandleTickCompletedMethod().Invoke(
+                    controller,
+                    new object[] { CreateDeathTickResult(50, eligibleTick: 999) });
+
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
+                Assert.That(terminalPort.Current.Request.Kind, Is.EqualTo(TerminalTransitionKind.Defeat));
+
+                terminalPort.Current.Advance(terminalPort.Current.Preset.BlackAt);
 
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
                 Assert.That(
@@ -1415,6 +1603,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     presentationFeed.CurrentLevelFailed.RestartLevelRequest.TransitionHint.Kind,
                     Is.EqualTo(StageTransitionKind.LevelFailedRestart));
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(terminalPort.Current.State, Is.EqualTo(TerminalTransitionState.Black));
                 presentationFeed.Dispose();
             }
             finally
@@ -1454,23 +1643,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.AttachPresentationExtension(terminalExtension);
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3, presenter: presenter);
                 var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var terminalPort = new FakeTerminalTransitionPort();
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    new FakeStageLaunchRouter());
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: terminalPort);
                 SetPrivateField(controller, "_presentationFeed", presentationFeed);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
-
                 Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.True);
+                Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
+                terminalPort.Current.Advance(terminalPort.Current.Preset.BlackAt);
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
                 Assert.That(terminalExtension.ApplyCount, Is.EqualTo(1));
                 Assert.That(terminalExtension.LastReason, Is.EqualTo(GameplayStageTerminalPresentationReason.LevelFailed));
-                Assert.That(terminalExtension.LastTickIndex, Is.EqualTo(53));
+                Assert.That(terminalExtension.LastTickIndex, Is.EqualTo(50));
                 presentationFeed.Dispose();
             }
             finally
@@ -1506,7 +1698,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
                     new FakeStageLaunchRouter(),
-                    chanceDisplayOverride);
+                    chanceDisplayOverride,
+                    new FakeTerminalTransitionPort());
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                SetPrivateField(controller, "_presentationFeed", presentationFeed);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
@@ -1521,6 +1718,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(remainingChances, Is.EqualTo(0));
                 Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
                 Assert.That(audioPolicy, Is.EqualTo(GameplayChanceAudioPolicy.SuppressChanceChangeCue));
+                presentationFeed.Dispose();
             }
             finally
             {
@@ -1550,7 +1748,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
 
@@ -1582,10 +1782,217 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
-        public void CampaignDeath_PendingLevelFailed_IgnoresLaterStageClear()
+        [Category("Core")]
+        public void CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback()
         {
-            var saveKey = CreatePrefsKey(nameof(CampaignDeath_PendingLevelFailed_IgnoresLaterStageClear));
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_IrisSetupThrow_ReleasesExactHoldAndUsesNonIrisRetryFallback));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-death-iris-setup-fallback-host");
+            var router = new FakeStageLaunchRouter();
+            var setupException = new InvalidOperationException("defeat iris setup failed");
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 2);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(setupException));
+                var handler = (Action<TickResult>)Delegate.CreateDelegate(
+                    typeof(Action<TickResult>),
+                    controller,
+                    GetHandleTickCompletedMethod());
+
+                var thrown = Assert.Throws<InvalidOperationException>(
+                    () => handler(CreateDeathTickResult(50, eligibleTick: 53)));
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(TerminalSessionRegistry.Current.Phase, Is.EqualTo(TerminalSessionPhase.FailedBeforeCover));
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(router.LaunchCount, Is.EqualTo(1));
+                Assert.That(router.LastRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+                Assert.That(router.LastRequest.TransitionHint.HasTerminalClaim, Is.False);
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignLevelFailed_IrisSetupThrow_ReleasesExactHoldAndPublishesFallback));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-level-failed-iris-setup-fallback-host");
+            var setupException = new InvalidOperationException("level-failed iris setup failed");
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 1);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(
+                    hostObject,
+                    playerEntityId: 10,
+                    respawnDelayTicks: 3,
+                    presenter);
+                var feed = new GameplayHostPresentationFeed(host.InputHost, presenter);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(setupException));
+                SetPrivateField(controller, "_presentationFeed", feed);
+                var handler = (Action<TickResult>)Delegate.CreateDelegate(
+                    typeof(Action<TickResult>),
+                    controller,
+                    GetHandleTickCompletedMethod());
+
+                var thrown = Assert.Throws<InvalidOperationException>(
+                    () => handler(CreateDeathTickResult(50, eligibleTick: 53)));
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(feed.CurrentLevelFailed, Is.Not.Null);
+                Assert.That(
+                    feed.CurrentLevelFailed.RestartLevelRequest.StageId.Value,
+                    Is.EqualTo("stage-2-1"));
+                feed.Dispose();
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignVictory_IrisSetupThrow_ReleasesGateAndExactHoldWithCommittedOutcome));
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-victory-iris-setup-fallback-host");
+            var setupException = new InvalidOperationException("victory iris setup failed");
+            var entry = CreateEntry("stage-1-1");
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(
+                presentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(presentationDefinition);
+
+            try
+            {
+                SeedSaveSlot(saveStore, activeSlotProvider, "stage-1-1", "level-1", remainingChances: 3);
+                var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var host = CreateHostWithInput(
+                    hostObject,
+                    playerEntityId: 10,
+                    respawnDelayTicks: 3,
+                    presenter);
+                var feed = new GameplayHostPresentationFeed(host.InputHost, presenter, entry);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort(setupException));
+                SetPrivateField(controller, "_presentationFeed", feed);
+                var arbiter = ReadPrivateField<TerminalArbitrationOwner>(controller, "_terminalArbiter");
+                feed.ConfigureTerminalArbiter(arbiter);
+                var acceptedHandler = (Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult>)
+                    Delegate.CreateDelegate(
+                        typeof(Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult>),
+                        controller,
+                        typeof(CampaignGameplayFlowController).GetMethod(
+                            "HandleTerminalClaimAccepted",
+                            BindingFlags.Instance | BindingFlags.NonPublic));
+                feed.TerminalClaimAccepted += acceptedHandler;
+                var frames = new List<GameplayPresentationFrame>();
+                feed.FramePublished += frames.Add;
+
+                var thrown = Assert.Throws<InvalidOperationException>(
+                    () => feed.ForceClearCurrentStage());
+
+                Assert.That(thrown, Is.SameAs(setupException));
+                Assert.That(TerminalSessionRegistry.IsActive, Is.False);
+                Assert.That(ReadInputHostTerminalHold(host.InputHost), Is.False);
+                Assert.That(feed.CurrentMinimalStageCompletion, Is.Not.Null);
+                Assert.That(feed.HasPendingStageClearPresentation, Is.False);
+                Assert.That(frames, Has.Count.EqualTo(1));
+                Assert.That(frames[0].StageEvent.HasValue, Is.True);
+                Assert.That(
+                    frames[0].StageEvent.Value.EventKind,
+                    Is.EqualTo(GameplayStageEventKind.Cleared));
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                feed.TerminalClaimAccepted -= acceptedHandler;
+                feed.Dispose();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentationDefinition);
+                UnityEngine.Object.DestroyImmediate(entry);
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayInputHost_ExactTerminalHoldRelease_PreservesNewerOwner()
+        {
+            var hostObject = new GameObject("terminal-hold-newer-owner-host");
+            try
+            {
+                var inputHost = hostObject.AddComponent<GameplayInputHost>();
+                SetPrivateField(inputHost, "_isInitialized", true);
+                var oldToken = new TerminalSessionToken(81, 1);
+                var newerToken = new TerminalSessionToken(81, 2);
+
+                inputHost.EnterTerminalHold(newerToken);
+
+                Assert.That(inputHost.TryExitTerminalHold(oldToken), Is.False);
+                Assert.That(ReadInputHostTerminalHold(inputHost), Is.True);
+                Assert.That(inputHost.TryExitTerminalHold(newerToken), Is.True);
+                Assert.That(ReadInputHostTerminalHold(inputHost), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CampaignDeath_ClaimedLevelFailed_IgnoresLaterStageClear()
+        {
+            var saveKey = CreatePrefsKey(nameof(CampaignDeath_ClaimedLevelFailed_IgnoresLaterStageClear));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -1599,12 +2006,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
                 var router = new FakeStageLaunchRouter();
+                var terminalPort = new FakeTerminalTransitionPort();
                 var controller = new CampaignGameplayFlowController(
                     host,
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: terminalPort);
                 SetPrivateField(controller, "_presentationFeed", presentationFeed);
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
@@ -1622,8 +2032,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Null);
                 Assert.That(router.LaunchCount, Is.EqualTo(0));
 
-                handleTickCompleted.Invoke(controller, new object[] { CreateEmptyTickResult(53) });
-
+                terminalPort.Current.Advance(terminalPort.Current.Preset.BlackAt);
                 Assert.That(presentationFeed.CurrentLevelFailed, Is.Not.Null);
                 Assert.That(presentationFeed.CurrentLevelFailed.RestartLevelRequest.StageId.Value, Is.EqualTo("stage-2-1"));
                 Assert.That(router.LaunchCount, Is.EqualTo(0));
@@ -1657,7 +2066,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
                 var deathAndClearTick = CreateDeathTickResult(50, eligibleTick: 53);
@@ -1707,7 +2118,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var deathTick = CreateDeathTickResult(50, eligibleTick: 53);
 
@@ -1751,7 +2164,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
@@ -1795,7 +2210,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var elapsedTick = CreateElapsedSuppressedTickResult(53);
 
@@ -1866,7 +2283,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
@@ -1911,7 +2330,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
 
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
@@ -1949,7 +2370,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     saveStore,
                     new CampaignRunningSlotContext(1),
                     CreateResolver(),
-                    router);
+                    router,
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var elapsedTick = CreateElapsedSuppressedTickResult(53);
                 var elapsedEventLog = elapsedTick.EventLog.ToList();
@@ -2177,6 +2600,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     inputHost,
                     presenter,
                     GameplayTimingProfile.CreateDefault(),
+                    null,
                     null,
                     null,
                     null,
@@ -2465,6 +2889,114 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 router = Router;
                 return true;
+            }
+        }
+
+        private sealed class FakeTerminalTransitionPort : ITerminalTransitionPort
+        {
+            private readonly Exception _setupException;
+
+            internal FakeTerminalTransitionPort(Exception setupException = null)
+            {
+                _setupException = setupException;
+            }
+
+            public TerminalTransitionPlayback Current { get; private set; }
+
+            public bool TryBegin(
+                TerminalTransitionRequest request,
+                out TerminalTransitionPlayback playback)
+            {
+                if (_setupException != null)
+                {
+                    var authority = TerminalSessionRegistry.Authority;
+                    if (authority.IsActive &&
+                        authority.ActiveToken == request.Token &&
+                        authority.Phase == TerminalSessionPhase.Claimed)
+                    {
+                        authority.TryAdvancePhase(request.Token, TerminalSessionPhase.Iris);
+                    }
+
+                    authority.TryAbortIrisSetup(
+                        request.Token,
+                        new TerminalFailure("TestIrisSetup", _setupException.Message));
+                    playback = null;
+                    throw _setupException;
+                }
+
+                if (Current != null && !Current.IsTerminal)
+                {
+                    playback = Current;
+                    return false;
+                }
+
+                var preset = request.Kind == TerminalTransitionKind.Victory
+                    ? TerminalIrisTestPresetFactory.CreateVictory()
+                    : TerminalIrisTestPresetFactory.CreateDefeat();
+                Current = new TerminalTransitionPlayback(preset);
+                Current.TryBegin(
+                    request,
+                    new TerminalFocusTarget(
+                        new Vector2(0.5f, 0.5f),
+                        0.15f,
+                        isFallback: false));
+                playback = Current;
+                return true;
+            }
+        }
+
+        private static class TerminalIrisTestPresetFactory
+        {
+            internal static TerminalIrisRuntimePreset CreateVictory()
+            {
+                return new TerminalIrisRuntimePreset(
+                    0.24f,
+                    0.34f,
+                    0.42f,
+                    new Vector2(0.5f, 0.5f),
+                    0.22f,
+                    0.12f,
+                    0.035f,
+                    4f,
+                    CreateEdge(new Color(1f, 0.84f, 0.28f, 0f)),
+                    TerminalIrisEasing.Linear,
+                    TerminalIrisEasing.Linear);
+            }
+
+            internal static TerminalIrisRuntimePreset CreateDefeat()
+            {
+                var reveal = new TerminalIrisRuntimeOpenPreset(
+                    0f,
+                    0.3f,
+                    0.01f,
+                    4f,
+                    CreateEdge(new Color(0.86f, 0.12f, 0.1f, 0f)),
+                    TerminalIrisEasing.Linear);
+                return new TerminalIrisRuntimePreset(
+                    0.18f,
+                    0.2f,
+                    0.32f,
+                    new Vector2(0.5f, 0.5f),
+                    0.2f,
+                    0.11f,
+                    0.035f,
+                    4f,
+                    CreateEdge(new Color(0.86f, 0.12f, 0.1f, 0f)),
+                    TerminalIrisEasing.Linear,
+                    TerminalIrisEasing.Linear,
+                    reveal);
+            }
+
+            private static TerminalIrisRuntimeEdgeSettings CreateEdge(Color rimColor)
+            {
+                return new TerminalIrisRuntimeEdgeSettings(
+                    0.82f,
+                    0.82f,
+                    1f,
+                    0f,
+                    0.85f,
+                    3f,
+                    rimColor);
             }
         }
 

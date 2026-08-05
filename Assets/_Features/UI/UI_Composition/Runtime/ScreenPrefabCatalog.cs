@@ -13,6 +13,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private StageResultScreenView _stageResultPrefab;
         [SerializeField] private LevelFailedScreenView _levelFailedPrefab;
         [SerializeField] private GameClearScreenView _gameClearPrefab;
+        [SerializeField] private ResultTransitionVisualStyle _resultTransitionStyle;
 
         public SettingsScreenView SettingsPrefab => _settingsPrefab;
 
@@ -23,5 +24,7 @@ namespace Game.Feature.UI.Composition
         public LevelFailedScreenView LevelFailedPrefab => _levelFailedPrefab;
 
         public GameClearScreenView GameClearPrefab => _gameClearPrefab;
+
+        internal ResultTransitionVisualStyle ResultTransitionStyle => _resultTransitionStyle;
     }
 }

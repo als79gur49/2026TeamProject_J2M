@@ -15,6 +15,7 @@ namespace Game.Feature.UI.Composition
         public readonly int CurrentRemainingChances;
         public readonly int TotalChances;
         public readonly int DeathCount;
+        public readonly long TerminalClaimId;
 
         public SceneTransitionOverlayModel(
             TransitionOverlayKind overlayKind,
@@ -25,7 +26,8 @@ namespace Game.Feature.UI.Composition
             int previousRemainingChances,
             int currentRemainingChances,
             int totalChances,
-            int deathCount)
+            int deathCount,
+            long terminalClaimId = 0)
             : this(
                 StageTransitionKind.Unknown,
                 overlayKind,
@@ -36,7 +38,8 @@ namespace Game.Feature.UI.Composition
                 previousRemainingChances,
                 currentRemainingChances,
                 totalChances,
-                deathCount)
+                deathCount,
+                terminalClaimId)
         {
         }
 
@@ -50,7 +53,8 @@ namespace Game.Feature.UI.Composition
             int previousRemainingChances,
             int currentRemainingChances,
             int totalChances,
-            int deathCount)
+            int deathCount,
+            long terminalClaimId = 0)
         {
             TransitionKind = transitionKind;
             OverlayKind = overlayKind;
@@ -62,6 +66,7 @@ namespace Game.Feature.UI.Composition
             CurrentRemainingChances = Mathf.Max(0, currentRemainingChances);
             TotalChances = Mathf.Max(0, totalChances);
             DeathCount = Mathf.Max(0, deathCount);
+            TerminalClaimId = terminalClaimId > 0 ? terminalClaimId : 0;
         }
     }
 }

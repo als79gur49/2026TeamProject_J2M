@@ -47,9 +47,14 @@ namespace Game.Feature.UI.Tests
 
         public int ResumeCallCount { get; private set; }
 
+        public Action BeforePause { get; set; }
+
+        public Action BeforeResume { get; set; }
+
         public void Pause()
         {
             PauseCallCount++;
+            BeforePause?.Invoke();
             if (IsPaused)
             {
                 return;
@@ -62,6 +67,7 @@ namespace Game.Feature.UI.Tests
         public void Resume()
         {
             ResumeCallCount++;
+            BeforeResume?.Invoke();
             if (!IsPaused)
             {
                 return;
@@ -595,9 +601,25 @@ namespace Game.Feature.UI.Tests
 
         public IReadOnlyList<StageNavigationRequest> Requests => requests;
 
+        public int LaunchCallCount { get; private set; }
+
+        public Action<StageNavigationRequest> BeforeLaunch { get; set; }
+
+        public Action<StageNavigationRequest> AfterLaunch { get; set; }
+
+        public Exception ExceptionToThrow { get; set; }
+
         public void Launch(StageNavigationRequest request)
         {
+            LaunchCallCount++;
+            BeforeLaunch?.Invoke(request);
+            if (ExceptionToThrow != null)
+            {
+                throw ExceptionToThrow;
+            }
+
             requests.Add(request);
+            AfterLaunch?.Invoke(request);
         }
     }
 
@@ -605,9 +627,22 @@ namespace Game.Feature.UI.Tests
     {
         public int ReturnCallCount { get; private set; }
 
-        public void ReturnToMainMenu()
+        public SceneTransitionIntent LastTransitionIntent { get; private set; }
+
+        public Action BeforeReturn { get; set; }
+
+        public Exception ExceptionToThrow { get; set; }
+
+        public void ReturnToMainMenu(SceneTransitionIntent transitionIntent)
         {
             ReturnCallCount++;
+            BeforeReturn?.Invoke();
+            if (ExceptionToThrow != null)
+            {
+                throw ExceptionToThrow;
+            }
+
+            LastTransitionIntent = transitionIntent;
         }
     }
 

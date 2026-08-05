@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Application
 {
@@ -71,10 +72,12 @@ namespace Game.Feature.UI.Application
     {
         public UITickEvent(
             UITickEventKey key,
-            int damageAmount = 0)
+            int damageAmount = 0,
+            TerminalSessionToken terminalToken = default)
         {
             Key = key;
             DamageAmount = damageAmount;
+            TerminalToken = terminalToken;
         }
 
         public UITickEventKey Key { get; }
@@ -93,10 +96,15 @@ namespace Game.Feature.UI.Application
 
         public int DamageAmount { get; }
 
+        public TerminalSessionToken TerminalToken { get; }
+
+        public long TerminalClaimId => TerminalToken.Sequence;
+
         public bool Equals(UITickEvent other)
         {
             return Key.Equals(other.Key) &&
-                   DamageAmount == other.DamageAmount;
+                   DamageAmount == other.DamageAmount &&
+                   TerminalToken == other.TerminalToken;
         }
 
         public override bool Equals(object obj)
@@ -106,7 +114,22 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Key, DamageAmount);
+            return HashCode.Combine(Key, DamageAmount, TerminalToken);
+        }
+
+        public UITickEvent(
+            UITickEventKey key,
+            int damageAmount,
+            long terminalClaimId)
+            : this(
+                key,
+                damageAmount,
+                terminalClaimId > 0
+                    ? new TerminalSessionToken(
+                        TerminalSessionRegistry.Authority.AuthorityGeneration,
+                        terminalClaimId)
+                    : default)
+        {
         }
     }
 

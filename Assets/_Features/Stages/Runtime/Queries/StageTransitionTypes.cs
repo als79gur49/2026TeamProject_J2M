@@ -17,7 +17,7 @@ namespace Game.Feature.Stages
     public enum TransitionOverlayKind
     {
         None = 0,
-        GenericLoading = 1,
+        GameplayEntry = 1,
         ChanceLost = 2,
         StageClear = 3,
         Restart = 4,
@@ -38,21 +38,23 @@ namespace Game.Feature.Stages
             TransitionOverlayKind overlayKind,
             float preOverlayDelaySeconds = 0f,
             bool blockInputDuringPreOverlayDelay = false,
-            bool startAsyncLoadBeforeOverlay = false)
+            bool startAsyncLoadBeforeOverlay = false,
+            bool requiresExplicitContentCompletion = false,
+            bool requiresOpaqueTakeover = false)
         {
             Kind = kind;
             FromSceneName = Normalize(fromSceneName);
             ToSceneName = Normalize(toSceneName);
             MinimumVisibleSeconds = Math.Max(0f, minimumVisibleSeconds);
-            HoldSceneActivationUntilMinimumElapsed =
-                kind == StageTransitionKind.DeathRetryChanceLost ||
-                holdSceneActivationUntilMinimumElapsed;
+            HoldSceneActivationUntilMinimumElapsed = holdSceneActivationUntilMinimumElapsed;
             BlockInput = blockInput;
             ShowProgress = showProgress;
             OverlayKind = overlayKind;
             PreOverlayDelaySeconds = Math.Max(0f, preOverlayDelaySeconds);
             BlockInputDuringPreOverlayDelay = blockInputDuringPreOverlayDelay;
             StartAsyncLoadBeforeOverlay = startAsyncLoadBeforeOverlay;
+            RequiresExplicitContentCompletion = requiresExplicitContentCompletion;
+            RequiresOpaqueTakeover = requiresOpaqueTakeover;
         }
 
         public StageTransitionKind Kind { get; }
@@ -77,15 +79,9 @@ namespace Game.Feature.Stages
 
         public bool StartAsyncLoadBeforeOverlay { get; }
 
-        public static StageTransitionProfile Default { get; } = new(
-            StageTransitionKind.Unknown,
-            string.Empty,
-            string.Empty,
-            0.35f,
-            holdSceneActivationUntilMinimumElapsed: true,
-            blockInput: true,
-            showProgress: true,
-            TransitionOverlayKind.GenericLoading);
+        public bool RequiresExplicitContentCompletion { get; }
+
+        public bool RequiresOpaqueTakeover { get; }
 
         public StageTransitionProfile WithMinimumVisibleSeconds(float minimumVisibleSeconds)
         {
@@ -100,7 +96,9 @@ namespace Game.Feature.Stages
                 OverlayKind,
                 PreOverlayDelaySeconds,
                 BlockInputDuringPreOverlayDelay,
-                StartAsyncLoadBeforeOverlay);
+                StartAsyncLoadBeforeOverlay,
+                RequiresExplicitContentCompletion,
+                RequiresOpaqueTakeover);
         }
 
         internal static string Normalize(string sceneName)
@@ -151,13 +149,15 @@ namespace Game.Feature.Stages
             bool hasChanceLostPayload,
             StageTransitionChanceLostPayload chanceLostPayload,
             bool hasMinimumVisibleSecondsOverride,
-            float minimumVisibleSecondsOverride)
+            float minimumVisibleSecondsOverride,
+            TerminalSessionToken terminalToken)
         {
             Kind = kind;
             HasChanceLostPayload = hasChanceLostPayload;
             ChanceLostPayload = chanceLostPayload;
             HasMinimumVisibleSecondsOverride = hasMinimumVisibleSecondsOverride;
             MinimumVisibleSecondsOverride = Math.Max(0f, minimumVisibleSecondsOverride);
+            TerminalToken = terminalToken;
         }
 
         public StageTransitionKind Kind { get; }
@@ -172,16 +172,22 @@ namespace Game.Feature.Stages
 
         public float MinimumVisibleSecondsOverride { get; }
 
+        public TerminalSessionToken TerminalToken { get; }
+
+        public long TerminalClaimId => TerminalToken.Sequence;
+
+        public bool HasTerminalClaim => TerminalToken.IsValid;
+
         public static StageTransitionHint ForKind(StageTransitionKind kind)
         {
-            return new StageTransitionHint(kind, false, default, false, 0f);
+            return new StageTransitionHint(kind, false, default, false, 0f, default);
         }
 
         public static StageTransitionHint ForKindWithMinimum(
             StageTransitionKind kind,
             float minimumVisibleSeconds)
         {
-            return new StageTransitionHint(kind, false, default, true, minimumVisibleSeconds);
+            return new StageTransitionHint(kind, false, default, true, minimumVisibleSeconds, default);
         }
 
         public static StageTransitionHint ForChanceLost(
@@ -193,23 +199,35 @@ namespace Game.Feature.Stages
                 true,
                 payload,
                 minimumVisibleSecondsOverride >= 0f,
-                minimumVisibleSecondsOverride);
+                minimumVisibleSecondsOverride,
+                default);
         }
+
+        public StageTransitionHint WithTerminalClaim(TerminalSessionToken terminalToken)
+        {
+            if (!terminalToken.IsValid)
+            {
+                throw new ArgumentOutOfRangeException(nameof(terminalToken));
+            }
+
+            return new StageTransitionHint(
+                Kind,
+                HasChanceLostPayload,
+                ChanceLostPayload,
+                HasMinimumVisibleSecondsOverride,
+                MinimumVisibleSecondsOverride,
+                terminalToken);
+        }
+
     }
 
     public sealed class StageTransitionProfileResolver
     {
         private readonly Dictionary<StageTransitionKind, StageTransitionProfile> _profilesByKind = new();
-        private readonly Dictionary<string, StageTransitionProfile> _profilesByScenePair = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<string, StageTransitionProfile> _profilesByToScene = new(StringComparer.OrdinalIgnoreCase);
-        private readonly StageTransitionProfile _defaultProfile;
 
-        public StageTransitionProfileResolver(
-            IEnumerable<StageTransitionProfile> profiles = null,
-            StageTransitionProfile defaultProfile = null)
+        public StageTransitionProfileResolver(IEnumerable<StageTransitionProfile> profiles = null)
         {
-            _defaultProfile = defaultProfile ?? StageTransitionProfile.Default;
-            AddBuiltInDefaults();
+            AddCanonicalAuthoredProfiles();
             if (profiles == null)
             {
                 return;
@@ -226,76 +244,43 @@ namespace Game.Feature.Stages
             string fromSceneName,
             string toSceneName)
         {
-            if (request.TransitionHint.HasExplicitKind &&
-                TryGetKindProfile(request.TransitionHint.Kind, out var explicitProfile))
-            {
-                return ApplyOverrides(explicitProfile, request.TransitionHint);
-            }
-
-            var sourceKind = ResolveKindFromSource(request.Source, request.NavigationKind);
-            if (sourceKind != StageTransitionKind.Unknown &&
-                TryGetKindProfile(sourceKind, out var sourceProfile))
-            {
-                return ApplyOverrides(sourceProfile, request.TransitionHint);
-            }
-
-            var pairKey = BuildScenePairKey(fromSceneName, toSceneName);
-            if (_profilesByScenePair.TryGetValue(pairKey, out var pairProfile))
-            {
-                return ApplyOverrides(pairProfile, request.TransitionHint);
-            }
-
-            var normalizedToScene = StageTransitionProfile.Normalize(toSceneName);
-            if (!string.IsNullOrWhiteSpace(normalizedToScene) &&
-                _profilesByToScene.TryGetValue(normalizedToScene, out var toSceneProfile))
-            {
-                return ApplyOverrides(toSceneProfile, request.TransitionHint);
-            }
-
-            return ApplyOverrides(_defaultProfile, request.TransitionHint);
+            var routePolicy =
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent);
+            return Resolve(routePolicy, request, fromSceneName, toSceneName);
         }
 
-        public static StageTransitionKind ResolveKindFromSource(
-            string source,
-            StageNavigationKind navigationKind)
+        public StageTransitionProfile Resolve(
+            SceneTransitionRoutePolicy routePolicy,
+            StageNavigationRequest request,
+            string fromSceneName,
+            string toSceneName)
         {
-            var normalized = (source ?? string.Empty).Trim();
-            if (StartsWith(normalized, "campaign-death-retry"))
+            if (routePolicy.Classification != SceneTransitionRouteClassification.Production ||
+                routePolicy.Intent != request.TransitionIntent)
             {
-                return StageTransitionKind.DeathRetryChanceLost;
+                throw new InvalidOperationException(
+                    $"Scene transition request intent '{request.TransitionIntent}' does not match resolved production policy '{routePolicy.Intent}'.");
             }
 
-            if (StartsWith(normalized, "level-failed-restart-level"))
+            var transitionKind = request.TransitionHint.HasExplicitKind
+                ? request.TransitionHint.Kind
+                : routePolicy.PrimaryTransitionKind;
+            if (!routePolicy.AllowsTransitionKind(transitionKind))
             {
-                return StageTransitionKind.LevelFailedRestart;
+                throw new InvalidOperationException(
+                    $"Transition profile '{transitionKind}' is not registered for route intent '{routePolicy.Intent}'.");
             }
 
-            if (StartsWith(normalized, "campaign-auto-next") ||
-                StartsWith(normalized, "stage-result-continue"))
+            if (!_profilesByKind.TryGetValue(transitionKind, out var profile))
             {
-                return StageTransitionKind.StageClearNext;
+                throw new InvalidOperationException(
+                    $"Transition profile '{transitionKind}' required by route intent '{routePolicy.Intent}' is not configured.");
             }
 
-            if (StartsWith(normalized, "stage-result-retry"))
-            {
-                return StageTransitionKind.StageRetryManual;
-            }
-
-            if (StartsWith(normalized, "main-menu-continue") ||
-                StartsWith(normalized, "main-menu-new-game"))
-            {
-                return StageTransitionKind.MainToGameplay;
-            }
-
-            if (navigationKind == StageNavigationKind.NextStage)
-            {
-                return StageTransitionKind.StageClearNext;
-            }
-
-            return StageTransitionKind.Unknown;
+            return ApplyOverrides(profile, request.TransitionHint);
         }
 
-        private void AddBuiltInDefaults()
+        private void AddCanonicalAuthoredProfiles()
         {
             AddProfile(new StageTransitionProfile(
                 StageTransitionKind.MainToGameplay,
@@ -305,7 +290,7 @@ namespace Game.Feature.Stages
                 true,
                 true,
                 true,
-                TransitionOverlayKind.GenericLoading));
+                TransitionOverlayKind.GameplayEntry));
             AddProfile(new StageTransitionProfile(
                 StageTransitionKind.GameplayToMain,
                 string.Empty,
@@ -319,12 +304,12 @@ namespace Game.Feature.Stages
                 StageTransitionKind.StageClearNext,
                 string.Empty,
                 string.Empty,
-                0.45f,
+                0.25f,
                 true,
                 true,
                 true,
                 TransitionOverlayKind.StageClear,
-                preOverlayDelaySeconds: 1.0f));
+                preOverlayDelaySeconds: 0.15f));
             AddProfile(new StageTransitionProfile(
                 StageTransitionKind.StageRetryManual,
                 string.Empty,
@@ -338,14 +323,16 @@ namespace Game.Feature.Stages
                 StageTransitionKind.DeathRetryChanceLost,
                 string.Empty,
                 string.Empty,
-                1.75f,
-                true,
+                0f,
+                false,
                 true,
                 true,
                 TransitionOverlayKind.ChanceLost,
-                preOverlayDelaySeconds: 1.0f,
-                blockInputDuringPreOverlayDelay: true,
-                startAsyncLoadBeforeOverlay: true));
+                preOverlayDelaySeconds: 0f,
+                blockInputDuringPreOverlayDelay: false,
+                startAsyncLoadBeforeOverlay: true,
+                requiresExplicitContentCompletion: true,
+                requiresOpaqueTakeover: true));
             AddProfile(new StageTransitionProfile(
                 StageTransitionKind.LevelFailedRestart,
                 string.Empty,
@@ -370,27 +357,6 @@ namespace Game.Feature.Stages
                 _profilesByKind[profile.Kind] = profile;
             }
 
-            if (!string.IsNullOrWhiteSpace(profile.FromSceneName) &&
-                !string.IsNullOrWhiteSpace(profile.ToSceneName))
-            {
-                _profilesByScenePair[BuildScenePairKey(profile.FromSceneName, profile.ToSceneName)] = profile;
-            }
-
-            if (!string.IsNullOrWhiteSpace(profile.ToSceneName))
-            {
-                _profilesByToScene[profile.ToSceneName] = profile;
-            }
-        }
-
-        private bool TryGetKindProfile(StageTransitionKind kind, out StageTransitionProfile profile)
-        {
-            if (_profilesByKind.TryGetValue(kind, out profile))
-            {
-                return true;
-            }
-
-            profile = _defaultProfile;
-            return false;
         }
 
         private static StageTransitionProfile ApplyOverrides(
@@ -402,15 +368,6 @@ namespace Game.Feature.Stages
                 : profile;
         }
 
-        private static string BuildScenePairKey(string fromSceneName, string toSceneName)
-        {
-            return $"{StageTransitionProfile.Normalize(fromSceneName)}->{StageTransitionProfile.Normalize(toSceneName)}";
-        }
-
-        private static bool StartsWith(string value, string prefix)
-        {
-            return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
-        }
     }
 
     public sealed class StageTransitionLaunchGuard

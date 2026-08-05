@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class GameClearScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
+    public sealed class GameClearScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget, IResultTransitionScreenView
     {
         private const int MainSelectionIndex = 0;
 
@@ -15,14 +15,52 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private Button _mainButton;
         [SerializeField] private TMP_Text _mainButtonLabel;
+        [SerializeField] private CanvasGroup _backdropRoot;
+        [SerializeField] private Image _resultBackdrop;
+        [SerializeField] private Image _resultHandoffCover;
+        [SerializeField] private CanvasGroup _resultHandoffCoverGroup;
+        [SerializeField] private CanvasGroup _contentRoot;
         [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private GameClearScreenViewModel _viewModel;
         private bool _isVisible;
+        private ResultTransitionScreenPresentation _resultTransition;
 
         public event Action MainRequested;
 
-        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled;
+        public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && IsInteractionReady;
+
+        public bool IsBackdropReady => IsHandoffCoverRendered;
+
+        public bool IsHandoffCoverRendered => _resultTransition?.IsHandoffCoverRendered ?? false;
+
+        public bool CanBeginContentEntrance => _resultTransition?.CanBeginContentEntrance ?? false;
+
+        public bool IsHandoffFadeComplete => _resultTransition?.IsHandoffFadeComplete ?? false;
+
+        public bool IsContentEntranceComplete => _resultTransition?.IsContentEntranceComplete ?? false;
+
+        public bool IsInteractionReady => _resultTransition?.IsInteractionReady ?? false;
+
+        public Color BackdropColor => _resultTransition?.ResultBackdropColor ?? Color.clear;
+
+        public float HandoffCoverAlpha => _resultTransition?.ResultHandoffCoverAlpha ?? 0f;
+
+        public float ContentAlpha => _resultTransition?.ContentRootAlpha ?? 0f;
+
+        public bool IsHandoffCoverActive => _resultTransition?.IsHandoffCoverActive ?? false;
+
+        internal Color ResultBackdropColorForTests =>
+            BackdropColor;
+
+        internal float ResultHandoffCoverAlphaForTests =>
+            HandoffCoverAlpha;
+
+        internal float ContentRootAlphaForTests =>
+            ContentAlpha;
+
+        internal bool IsHandoffCoverActiveForTests =>
+            IsHandoffCoverActive;
 
         public bool IsVisible
         {
@@ -73,7 +111,7 @@ namespace Game.Feature.UI.Screens
 
         public void ClickMain()
         {
-            if (!IsVisible)
+            if (!IsVisible || !IsInteractionReady)
             {
                 return;
             }
@@ -115,12 +153,14 @@ namespace Game.Feature.UI.Screens
 
         private void OnEnable()
         {
+            Canvas.willRenderCanvases += HandleWillRenderCanvases;
             RebindButton(_mainButton, ClickMain);
             RefreshView();
         }
 
         private void OnDisable()
         {
+            Canvas.willRenderCanvases -= HandleWillRenderCanvases;
             UnbindButton(_mainButton, ClickMain);
         }
 
@@ -131,6 +171,11 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_mainButton, nameof(_mainButton));
             ValidateSerializedReference(_mainButtonLabel, nameof(_mainButtonLabel));
+            ValidateSerializedReference(_backdropRoot, nameof(_backdropRoot));
+            ValidateSerializedReference(_resultBackdrop, nameof(_resultBackdrop));
+            ValidateSerializedReference(_resultHandoffCover, nameof(_resultHandoffCover));
+            ValidateSerializedReference(_resultHandoffCoverGroup, nameof(_resultHandoffCoverGroup));
+            ValidateSerializedReference(_contentRoot, nameof(_contentRoot));
         }
 #endif
 
@@ -168,6 +213,57 @@ namespace Game.Feature.UI.Screens
             {
                 _mainButtonLabel.text = _viewModel.MainLabel;
             }
+
+            _resultTransition?.RefreshPrimaryAction();
+        }
+
+        public void ConfigureDimSnapshot(
+            ResultDimVisualSnapshot snapshot,
+            ResultTransitionRuntimeStyle runtimeStyle)
+        {
+            EnsureResultTransition().Configure(snapshot, runtimeStyle);
+        }
+
+        public void PrepareOpaqueHandoff()
+        {
+            EnsureResultTransition().PrepareOpaqueHandoff();
+        }
+
+        public bool BeginHandoffFade()
+        {
+            return EnsureResultTransition().BeginHandoffFade();
+        }
+
+        public bool BeginContentEntrance()
+        {
+            return EnsureResultTransition().BeginContentEntrance();
+        }
+
+        public void AdvanceResultTransition(float unscaledDeltaTime)
+        {
+            EnsureResultTransition().Tick(unscaledDeltaTime);
+        }
+
+        public void ResetTransitionState()
+        {
+            EnsureResultTransition().ResetTransitionState();
+        }
+
+        private void HandleWillRenderCanvases()
+        {
+            _resultTransition?.ObserveCanvasRender();
+        }
+
+        private ResultTransitionScreenPresentation EnsureResultTransition()
+        {
+            return _resultTransition ??= new ResultTransitionScreenPresentation(
+                _backdropRoot,
+                _resultBackdrop,
+                _resultHandoffCover,
+                _resultHandoffCoverGroup,
+                _contentRoot,
+                _mainButton,
+                () => true);
         }
 
         private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)

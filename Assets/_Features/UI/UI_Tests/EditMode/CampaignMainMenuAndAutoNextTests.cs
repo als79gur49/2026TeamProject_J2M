@@ -13,6 +13,20 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class CampaignMainMenuAndAutoNextTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+        }
+
         [Test]
         public void MainMenuSlotViewModelMapper_MapsEmptyExistingAndCompletedSlots()
         {
@@ -109,7 +123,7 @@ namespace Game.Feature.UI.Tests
                 StageNavigationRequest.None,
                 nextRequest);
 
-            screenController.Show(new ScreenRequest(ScreenId.StageResult, payload, "result"));
+            screenController.SetRoot(new ScreenRequest(ScreenId.StageResult, payload, "result"));
             driver.Tick(1f);
             Assert.That(router.Requests, Is.Empty);
 
@@ -118,6 +132,61 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(router.Requests.Count, Is.EqualTo(1));
             Assert.That(router.Requests[0].StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(driver.LaunchCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void StageResultAutoNextDriver_ExpiredDuringTerminalSessionWaitsThenLaunchesExactlyOnce()
+        {
+            var screenController = new ScreenController(new FakeScreenRuntimeFactory());
+            var popupController = new PopupController(new FakePopupRuntimeFactory());
+            var router = new FakeStageLaunchRouter();
+            using var driver = new StageResultAutoNextDriver(
+                screenController,
+                popupController,
+                request =>
+                {
+                    if (TerminalSessionRegistry.IsActive)
+                    {
+                        return false;
+                    }
+
+                    router.Launch(request);
+                    return true;
+                });
+            var nextRequest = new StageNavigationRequest(
+                StageId.CreateOrThrow("stage-2-1"),
+                StageNavigationKind.NextStage,
+                "terminal-admission-test");
+            var payload = new StageResultScreenPayload(
+                nextRequest,
+                StageNavigationRequest.None,
+                nextRequest);
+            var authority = TerminalSessionRegistry.Authority;
+            var sceneGeneration = authority.RegisterSceneBootstrap(81, "AutoNextScene");
+            var claim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Victory,
+                sceneGeneration,
+                TerminalDestinationKind.SameSceneStageResult));
+
+            screenController.SetRoot(new ScreenRequest(ScreenId.StageResult, payload, "result"));
+            driver.Tick(StageResultAutoNextDriver.DefaultCountdownSeconds);
+            driver.Tick(10f);
+
+            Assert.That(router.Requests, Is.Empty);
+            Assert.That(driver.LaunchCount, Is.Zero);
+            Assert.That(driver.IsArmed, Is.False);
+            Assert.That(
+                authority.TryAdvancePhase(
+                    claim.Token,
+                    TerminalSessionPhase.WaitingResultInteraction),
+                Is.True);
+            Assert.That(authority.TryComplete(claim.Token), Is.True);
+
+            driver.Tick(0f);
+            driver.Tick(10f);
+
+            Assert.That(router.Requests, Has.Count.EqualTo(1));
             Assert.That(driver.LaunchCount, Is.EqualTo(1));
         }
 

@@ -228,7 +228,10 @@ namespace Game.Feature.UI.Tests
             return new StageNavigationRequest(
                 StageId.CreateOrThrow("stage-1-1"),
                 navigationKind,
-                "ui-audio-test");
+                "ui-audio-test",
+                transitionIntent: navigationKind == StageNavigationKind.NextStage
+                    ? SceneTransitionIntent.StageAdvance
+                    : SceneTransitionIntent.ManualRetry);
         }
 
         private sealed class UiAudioHarness : System.IDisposable

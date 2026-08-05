@@ -26,6 +26,15 @@ namespace Game.Feature.Stages
 
         public void LoadScene(string sceneName)
         {
+            SceneTransitionRoutePolicyCatalog.ResolveException(
+                SceneTransitionIntent.EditorDirectSceneLoad,
+                SceneTransitionRouteClassification.EditorOnly);
+            if (UnityEngine.Application.isPlaying)
+            {
+                throw new InvalidOperationException(
+                    "UnitySceneLoadPort is an editor-only non-playing direct-load exception.");
+            }
+
             var operation = SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Single);
             if (operation == null)
             {
@@ -39,10 +48,13 @@ namespace Game.Feature.Stages
         private readonly ISceneLoadPort _sceneLoadPort;
         private readonly string _sceneName;
 
-        public SceneNameStageLaunchRouter(string sceneName, ISceneLoadPort sceneLoadPort = null)
+        public SceneNameStageLaunchRouter(string sceneName, ISceneLoadPort sceneLoadPort)
         {
             _sceneName = sceneName ?? string.Empty;
-            _sceneLoadPort = sceneLoadPort ?? UnitySceneLoadPort.Instance;
+            _sceneLoadPort = sceneLoadPort ??
+                throw new ArgumentNullException(
+                    nameof(sceneLoadPort),
+                    "SceneNameStageLaunchRouter is a test-only injected direct-load exception.");
         }
 
         public void Launch(StageNavigationRequest request)
@@ -50,6 +62,22 @@ namespace Game.Feature.Stages
             if (!request.IsValid)
             {
                 throw new ArgumentException("Stage launch router requires a valid StageNavigationRequest.", nameof(request));
+            }
+
+            SceneTransitionRoutePolicyCatalog.ResolveException(
+                SceneTransitionIntent.TestInjectedSceneLoad,
+                SceneTransitionRouteClassification.TestOnly);
+            if (UnityEngine.Application.isPlaying)
+            {
+                throw new InvalidOperationException(
+                    "SceneNameStageLaunchRouter is a test-only direct-load exception.");
+            }
+
+            if (request.TransitionIntent != SceneTransitionIntent.Unknown)
+            {
+                SceneTransitionRoutePolicyCatalog.RequireDestination(
+                    SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent),
+                    SceneTransitionDestinationKind.Gameplay);
             }
 
             if (string.IsNullOrWhiteSpace(_sceneName))

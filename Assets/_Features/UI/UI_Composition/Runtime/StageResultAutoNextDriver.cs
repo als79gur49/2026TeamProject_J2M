@@ -13,7 +13,7 @@ namespace Game.Feature.UI.Composition
         public const float DefaultCountdownSeconds = 3f;
 
         private readonly PopupController _popupController;
-        private readonly IStageLaunchRouter _stageLaunchRouter;
+        private readonly Func<StageNavigationRequest, bool> _tryLaunchStage;
         private readonly ScreenController _screenController;
         private bool _isArmed;
         private bool _launched;
@@ -23,11 +23,31 @@ namespace Game.Feature.UI.Composition
             ScreenController screenController,
             PopupController popupController,
             IStageLaunchRouter stageLaunchRouter)
+            : this(
+                screenController,
+                popupController,
+                request =>
+                {
+                    stageLaunchRouter.Launch(request);
+                    return true;
+                })
+        {
+            if (stageLaunchRouter == null)
+            {
+                throw new ArgumentNullException(nameof(stageLaunchRouter));
+            }
+        }
+
+        public StageResultAutoNextDriver(
+            ScreenController screenController,
+            PopupController popupController,
+            Func<StageNavigationRequest, bool> tryLaunchStage)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
-            _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
-            _screenController.ScreenTransitioned += HandleScreenTransitioned;
+            _tryLaunchStage = tryLaunchStage ?? throw new ArgumentNullException(nameof(tryLaunchStage));
+            _screenController.StateChanged += HandleScreenStateChanged;
+            TerminalSessionRegistry.Changed += HandleTerminalSessionChanged;
         }
 
         public float RemainingSeconds { get; private set; }
@@ -59,14 +79,32 @@ namespace Game.Feature.UI.Composition
 
         public void Dispose()
         {
-            _screenController.ScreenTransitioned -= HandleScreenTransitioned;
+            _screenController.StateChanged -= HandleScreenStateChanged;
+            TerminalSessionRegistry.Changed -= HandleTerminalSessionChanged;
         }
 
-        private void HandleScreenTransitioned(ScreenTransitionedEvent transitionEvent)
+        private void HandleScreenStateChanged()
         {
-            if (!transitionEvent.CurrentEntry.HasValue ||
-                transitionEvent.CurrentEntry.Value.ScreenId != ScreenId.StageResult ||
-                transitionEvent.CurrentEntry.Value.Payload is not StageResultScreenPayload payload ||
+            TryArmFromProductionRoot();
+        }
+
+        private void HandleTerminalSessionChanged(TerminalSessionSnapshot snapshot)
+        {
+            if (snapshot.IsActive)
+            {
+                _isArmed = false;
+                return;
+            }
+
+            TryArmFromProductionRoot();
+        }
+
+        private void TryArmFromProductionRoot()
+        {
+            var currentEntry = _screenController.CurrentEntry;
+            if (!currentEntry.HasValue ||
+                currentEntry.Value.ScreenId != ScreenId.StageResult ||
+                currentEntry.Value.Payload is not StageResultScreenPayload payload ||
                 !payload.NextStageRequest.IsValid)
             {
                 Disarm();
@@ -74,6 +112,14 @@ namespace Game.Feature.UI.Composition
             }
 
             _nextStageRequest = payload.NextStageRequest;
+            if (TerminalSessionRegistry.IsActive)
+            {
+                _isArmed = false;
+                _launched = false;
+                RemainingSeconds = 0f;
+                return;
+            }
+
             RemainingSeconds = DefaultCountdownSeconds;
             _isArmed = true;
             _launched = false;
@@ -86,9 +132,13 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            if (!_tryLaunchStage(_nextStageRequest))
+            {
+                return;
+            }
+
             _launched = true;
             LaunchCount++;
-            _stageLaunchRouter.Launch(_nextStageRequest);
         }
 
         private void Disarm()

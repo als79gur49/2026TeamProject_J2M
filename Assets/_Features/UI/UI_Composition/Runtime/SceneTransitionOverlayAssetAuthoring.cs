@@ -107,16 +107,16 @@ namespace Game.Feature.UI.Composition
             }
 
             var serialized = new SerializedObject(catalog);
-            serialized.FindProperty("_genericFallbackPrefab").objectReferenceValue = generic;
             var entries = serialized.FindProperty("_entries");
-            entries.arraySize = 7;
-            SetEntry(entries.GetArrayElementAtIndex(0), StageTransitionKind.MainToGameplay, TransitionOverlayKind.GenericLoading, generic);
-            SetEntry(entries.GetArrayElementAtIndex(1), StageTransitionKind.GameplayToMain, TransitionOverlayKind.MainMenuReturn, generic);
-            SetEntry(entries.GetArrayElementAtIndex(2), StageTransitionKind.StageClearNext, TransitionOverlayKind.StageClear, generic);
-            SetEntry(entries.GetArrayElementAtIndex(3), StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, generic);
-            SetEntry(entries.GetArrayElementAtIndex(4), StageTransitionKind.DeathRetryChanceLost, TransitionOverlayKind.ChanceLost, chanceLost);
-            SetEntry(entries.GetArrayElementAtIndex(5), StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic);
-            SetEntry(entries.GetArrayElementAtIndex(6), StageTransitionKind.Unknown, TransitionOverlayKind.GenericLoading, generic);
+            entries.arraySize = 2;
+            SetEntry(
+                entries.GetArrayElementAtIndex(0),
+                StageTransitionKind.StageClearNext,
+                generic);
+            SetEntry(
+                entries.GetArrayElementAtIndex(1),
+                StageTransitionKind.DeathRetryChanceLost,
+                chanceLost);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(catalog);
             AssetDatabase.SaveAssetIfDirty(catalog);
@@ -125,11 +125,9 @@ namespace Game.Feature.UI.Composition
         private static void SetEntry(
             SerializedProperty entry,
             StageTransitionKind transitionKind,
-            TransitionOverlayKind overlayKind,
             SceneTransitionOverlayContentView prefab)
         {
             entry.FindPropertyRelative("_transitionKind").enumValueIndex = (int)transitionKind;
-            entry.FindPropertyRelative("_fallbackOverlayKind").enumValueIndex = (int)overlayKind;
             entry.FindPropertyRelative("_contentPrefab").objectReferenceValue = prefab;
         }
     }

@@ -2157,6 +2157,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplaySceneHostConfiguration BuildConfiguration(StageBackedGameplaySceneInstaller installer)
         {
             EnsureCameraTopologyAuthoring(installer);
+            if (installer.GetComponent<TestTerminalSessionAuthorityProvider>() == null)
+            {
+                installer.gameObject.AddComponent<TestTerminalSessionAuthorityProvider>();
+            }
 
             var initialState = BuildInitialGameplayState(installer);
             var createConfigurationMethod = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
@@ -2789,6 +2793,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             entity.aiMode = aiMode;
             return entity;
+        }
+    }
+
+    internal sealed class TestTerminalSessionAuthorityProvider : MonoBehaviour,
+        ITerminalSessionAuthorityProvider
+    {
+        public bool TryGetTerminalSessionAuthority(
+            out ITerminalSessionReadModel readModel,
+            out ITerminalSessionAuthority authority)
+        {
+            authority = TerminalSessionRegistry.Authority;
+            readModel = authority;
+            return true;
         }
     }
 }

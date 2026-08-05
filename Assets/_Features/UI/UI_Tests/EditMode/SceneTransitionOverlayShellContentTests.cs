@@ -20,8 +20,8 @@ namespace Game.Feature.UI.Tests
             using var fallback = ContentHandle.Create<ChanceLostOverlayContentView>("FallbackRestart");
             using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
             using var catalog = CatalogHandle.Create(
-                Entry(StageTransitionKind.Unknown, TransitionOverlayKind.Restart, fallback.View),
-                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic.View));
+                Entry(StageTransitionKind.Unknown, fallback.View),
+                Entry(StageTransitionKind.LevelFailedRestart, generic.View));
             var resolver = new SceneTransitionOverlayContentResolver();
             var model = Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart);
 
@@ -35,8 +35,8 @@ namespace Game.Feature.UI.Tests
         {
             using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
             using var catalog = CatalogHandle.Create(
-                Entry(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, generic.View),
-                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic.View));
+                Entry(StageTransitionKind.StageRetryManual, generic.View),
+                Entry(StageTransitionKind.LevelFailedRestart, generic.View));
             var resolver = new SceneTransitionOverlayContentResolver();
 
             var manualResolved = resolver.Resolve(
@@ -51,18 +51,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SceneTransitionOverlayContentResolver_FallsBackToOverlayKind()
+        public void SceneTransitionOverlayContentResolver_UnmatchedKindFailsClosed()
         {
             using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
             using var catalog = CatalogHandle.Create(
-                Entry(StageTransitionKind.Unknown, TransitionOverlayKind.Restart, generic.View));
+                Entry(StageTransitionKind.StageClearNext, generic.View));
             var resolver = new SceneTransitionOverlayContentResolver();
 
             var resolved = resolver.Resolve(
                 Model(StageTransitionKind.Unknown, TransitionOverlayKind.Restart),
                 catalog.Catalog);
 
-            Assert.That(resolved, Is.SameAs(generic.View));
+            Assert.That(resolved, Is.Null);
         }
 
         [Test]
@@ -266,6 +266,136 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ChanceLostOverlayContent_RootSequenceAggregatesMultipleSlotsAndCompletesAfterShardsAndSettleExactlyOnce()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+            var completedCount = 0;
+            var cancelledCount = 0;
+            view.Completed += () => completedCount++;
+            view.Cancelled += () => cancelledCount++;
+            view.Bind(new SceneTransitionOverlayModel(
+                StageTransitionKind.DeathRetryChanceLost,
+                TransitionOverlayKind.ChanceLost,
+                blockInput: true,
+                showProgress: true,
+                progress01: 0f,
+                hasChanceLost: true,
+                previousRemainingChances: 3,
+                currentRemainingChances: 1,
+                totalChances: 3,
+                deathCount: 1));
+
+            view.Show();
+            var completedHandle = view.Playback;
+            var sequence = typeof(ChanceLostOverlayContentView)
+                .GetField("_lostChanceSequence", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(view);
+
+            Assert.That(sequence, Is.Not.Null);
+            Assert.That(view.CrackShardCountPerLostSlotForTests, Is.EqualTo(9));
+            Assert.That(view.PostShatterSettleDurationSecondsForTests, Is.EqualTo(0.15f));
+            Assert.That(view.IsCompleted, Is.False);
+            Assert.That(view.IsCancelled, Is.False);
+
+            var sequenceDuration = view.RootSequenceDurationSecondsForTests;
+            view.GotoRootSequenceForTests(
+                sequenceDuration - view.PostShatterSettleDurationSecondsForTests * 0.5f);
+            Assert.That(view.IsCompleted, Is.False);
+
+            view.GotoRootSequenceForTests(sequenceDuration);
+            view.GotoRootSequenceForTests(sequenceDuration);
+
+            Assert.That(view.IsCompleted, Is.True);
+            Assert.That(view.IsCancelled, Is.False);
+            Assert.That(completedCount, Is.EqualTo(1));
+            Assert.That(cancelledCount, Is.Zero);
+
+            view.Hide();
+            Assert.That(cancelledCount, Is.Zero);
+            Assert.That(
+                completedHandle.Outcome,
+                Is.EqualTo(TransitionContentPlaybackOutcome.Completed));
+            view.ResetView();
+            Assert.That(
+                completedHandle.Outcome,
+                Is.EqualTo(TransitionContentPlaybackOutcome.Completed));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContent_DuplicateShowDoesNotRestartAndResetCancels()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+            var cancelledCount = 0;
+            view.Cancelled += () => cancelledCount++;
+            view.Bind(new SceneTransitionOverlayModel(
+                StageTransitionKind.DeathRetryChanceLost,
+                TransitionOverlayKind.ChanceLost,
+                blockInput: true,
+                showProgress: true,
+                progress01: 0f,
+                hasChanceLost: true,
+                previousRemainingChances: 3,
+                currentRemainingChances: 1,
+                totalChances: 3,
+                deathCount: 1));
+
+            view.Show();
+            var cancelledHandle = view.Playback;
+            var firstSequence = typeof(ChanceLostOverlayContentView)
+                .GetField("_lostChanceSequence", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(view);
+            view.Show();
+            var duplicateSequence = typeof(ChanceLostOverlayContentView)
+                .GetField("_lostChanceSequence", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(view);
+
+            Assert.That(duplicateSequence, Is.SameAs(firstSequence));
+            Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.EqualTo(1));
+
+            view.ResetView();
+
+            Assert.That(view.IsCompleted, Is.False);
+            Assert.That(view.IsCancelled, Is.False);
+            Assert.That(cancelledCount, Is.EqualTo(1));
+            Assert.That(
+                cancelledHandle.Outcome,
+                Is.EqualTo(TransitionContentPlaybackOutcome.Cancelled));
+            view.ResetView();
+            Assert.That(
+                cancelledHandle.Outcome,
+                Is.EqualTo(TransitionContentPlaybackOutcome.Cancelled));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContent_InvalidPayloadCompletesImmediatelyWithoutDeadlock()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+            var completedCount = 0;
+            view.Completed += () => completedCount++;
+            view.Bind(new SceneTransitionOverlayModel(
+                StageTransitionKind.DeathRetryChanceLost,
+                TransitionOverlayKind.ChanceLost,
+                blockInput: true,
+                showProgress: true,
+                progress01: 0f,
+                hasChanceLost: false,
+                previousRemainingChances: 1,
+                currentRemainingChances: 1,
+                totalChances: 3,
+                deathCount: 1));
+
+            view.Show();
+
+            Assert.That(view.IsCompleted, Is.True);
+            Assert.That(view.IsCancelled, Is.False);
+            Assert.That(completedCount, Is.EqualTo(1));
+            Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.Zero);
+        }
+
+        [Test]
         public void ChanceLostOverlayContent_ShowWithoutChanceLost_DoesNotAnimate()
         {
             using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
@@ -308,6 +438,148 @@ namespace Game.Feature.UI.Tests
             new GameObject("EventSystem", typeof(EventSystem)).transform.SetParent(shell.Root.transform, false);
 
             Assert.That(shell.View.CollectValidationIssues(), Has.Some.Contains("EventSystem"));
+        }
+
+        [Test]
+        public void TransitionOverlayShell_OpaqueTakeoverRequiresExplicitFullScreenAcknowledgement()
+        {
+            using var shell = ShellHandle.Create();
+            var blockerRect = shell.Blocker.GetComponent<RectTransform>();
+            blockerRect.anchorMin = Vector2.zero;
+            blockerRect.anchorMax = Vector2.one;
+            blockerRect.offsetMin = Vector2.zero;
+            blockerRect.offsetMax = Vector2.zero;
+
+            shell.View.RequestOpaqueTakeover(Color.black);
+            var targetCanvas = shell.Root.GetComponent<Canvas>();
+            targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            targetCanvas.targetDisplay = 0;
+            targetCanvas.sortingOrder = 5000;
+            shell.Blocker.GetComponent<CanvasRenderer>().cull = false;
+
+            Assert.That(shell.Blocker.activeInHierarchy, Is.True);
+            Assert.That(shell.Blocker.GetComponent<Image>().color, Is.EqualTo(Color.black));
+            Assert.That(shell.View.IsOpaqueHandoffReady, Is.False);
+
+            Assert.Throws<InvalidOperationException>(
+                () => shell.View.AcknowledgeOpaqueHandoffReady(),
+                "Property setup in the request frame must not count as rendered coverage.");
+            typeof(SceneTransitionOverlayShellView)
+                .GetMethod(
+                    "HandleWillRenderCanvases",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(shell.View, null);
+            typeof(SceneTransitionOverlayShellView)
+                .GetField(
+                    "_opaqueRenderCallbackFrame",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(shell.View, Time.frameCount + 1);
+            shell.View.AcknowledgeOpaqueHandoffReady();
+
+            Assert.That(shell.View.IsOpaqueHandoffReady, Is.True);
+            shell.View.HideAll();
+            Assert.That(shell.View.IsOpaqueHandoffReady, Is.False);
+        }
+
+        [Test]
+        public void TransitionOverlayShell_AuthoredBlueTakeoverForcesOpaqueColorWithoutMutatingRgb()
+        {
+            using var shell = ShellHandle.Create();
+            var authoredBlue = new Color(0f, 0.25133762f, 0.4811321f, 0.2f);
+
+            shell.View.RequestOpaqueTakeover(authoredBlue);
+
+            var actual = shell.View.PersistentCoverColorForTests;
+            Assert.That(actual.r, Is.EqualTo(authoredBlue.r).Within(0.000001f));
+            Assert.That(actual.g, Is.EqualTo(authoredBlue.g).Within(0.000001f));
+            Assert.That(actual.b, Is.EqualTo(authoredBlue.b).Within(0.000001f));
+            Assert.That(actual.a, Is.EqualTo(1f));
+            Assert.That(shell.Blocker.GetComponent<Image>().raycastTarget, Is.True);
+        }
+
+        [Test]
+        public void TransitionOverlayShell_ContentPreservesExactAuthoredCoverColor()
+        {
+            using var shell = ShellHandle.Create();
+            using var content =
+                ContentHandle.Create<GenericLoadingOverlayContentView>(
+                    "GenericLoadingOverlayContent");
+            var authoredBlue = new Color(0f, 0.25133762f, 0.4811321f, 1f);
+
+            shell.View.RequestOpaqueTakeover(authoredBlue);
+            var mounted = shell.View.MountContent(content.View);
+            shell.View.ShowContent(
+                Model(
+                    StageTransitionKind.StageClearNext,
+                    TransitionOverlayKind.StageClear),
+                mounted);
+
+            Assert.That(
+                shell.View.PersistentCoverColorForTests,
+                Is.EqualTo(authoredBlue));
+        }
+
+        [Test]
+        public void TransitionOverlayShell_OtherCanvasRenderDoesNotAcknowledgeDisabledTransitionCanvas()
+        {
+            using var shell = ShellHandle.Create();
+            var blockerRect = shell.Blocker.GetComponent<RectTransform>();
+            blockerRect.anchorMin = Vector2.zero;
+            blockerRect.anchorMax = Vector2.one;
+            blockerRect.offsetMin = Vector2.zero;
+            blockerRect.offsetMax = Vector2.zero;
+            shell.View.RequestOpaqueTakeover(Color.black);
+            var transitionCanvas = shell.Root.GetComponent<Canvas>();
+            transitionCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            transitionCanvas.targetDisplay = 0;
+            transitionCanvas.sortingOrder = 5000;
+            shell.Blocker.GetComponent<CanvasRenderer>().cull = false;
+            transitionCanvas.enabled = false;
+
+            var otherCanvasRoot = new GameObject(
+                "OtherCanvas",
+                typeof(RectTransform),
+                typeof(Canvas));
+            try
+            {
+                otherCanvasRoot.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                typeof(SceneTransitionOverlayShellView)
+                    .GetMethod(
+                        "HandleWillRenderCanvases",
+                        BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(shell.View, null);
+                transitionCanvas.enabled = true;
+
+                Assert.Throws<InvalidOperationException>(
+                    () => shell.View.AcknowledgeOpaqueHandoffReady(),
+                    "A global callback caused only by another Canvas must not acknowledge the transition Canvas.");
+                Assert.That(shell.View.IsOpaqueHandoffReady, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(otherCanvasRoot);
+            }
+        }
+
+        [TestCase(false, true, true, false, false)]
+        [TestCase(true, false, true, false, false)]
+        [TestCase(true, true, false, false, false)]
+        [TestCase(true, true, true, true, false)]
+        [TestCase(true, true, true, false, true)]
+        public void SceneTransitionCoordinator_ExplicitActivationJoinsExactlyThreeReadinessFlags(
+            bool opaqueReady,
+            bool chanceLostCompleted,
+            bool asyncLoadReady,
+            bool cancelled,
+            bool expected)
+        {
+            Assert.That(
+                SceneTransitionCoordinator.CanActivateExplicitTransition(
+                    opaqueReady,
+                    chanceLostCompleted,
+                    asyncLoadReady,
+                    cancelled),
+                Is.EqualTo(expected));
         }
 
         private static SceneTransitionOverlayModel Model(
@@ -417,26 +689,22 @@ namespace Game.Feature.UI.Tests
 
         private static CatalogEntrySpec Entry(
             StageTransitionKind transitionKind,
-            TransitionOverlayKind overlayKind,
             SceneTransitionOverlayContentView prefab)
         {
-            return new CatalogEntrySpec(transitionKind, overlayKind, prefab);
+            return new CatalogEntrySpec(transitionKind, prefab);
         }
 
         private readonly struct CatalogEntrySpec
         {
             public CatalogEntrySpec(
                 StageTransitionKind transitionKind,
-                TransitionOverlayKind overlayKind,
                 SceneTransitionOverlayContentView prefab)
             {
                 TransitionKind = transitionKind;
-                OverlayKind = overlayKind;
                 Prefab = prefab;
             }
 
             public StageTransitionKind TransitionKind { get; }
-            public TransitionOverlayKind OverlayKind { get; }
             public SceneTransitionOverlayContentView Prefab { get; }
         }
 
@@ -459,7 +727,6 @@ namespace Game.Feature.UI.Tests
                 {
                     var entry = entries.GetArrayElementAtIndex(i);
                     entry.FindPropertyRelative("_transitionKind").enumValueIndex = (int)specs[i].TransitionKind;
-                    entry.FindPropertyRelative("_fallbackOverlayKind").enumValueIndex = (int)specs[i].OverlayKind;
                     entry.FindPropertyRelative("_contentPrefab").objectReferenceValue = specs[i].Prefab;
                 }
 

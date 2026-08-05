@@ -30,7 +30,9 @@ namespace Game.Feature.UI.Application
             if (frame.StageEvent.HasValue &&
                 frame.StageEvent.Value.EventKind == GameplayStageEventKind.Cleared)
             {
-                events.Add(CreateGlobalEvent(frame.TickIndex, UITickEventKind.StageCleared));
+                events.Add(new UITickEvent(
+                    CreateGlobalEvent(frame.TickIndex, UITickEventKind.StageCleared).Key,
+                    terminalToken: frame.StageEvent.Value.TerminalToken));
             }
 
             events.Sort(EventComparer);

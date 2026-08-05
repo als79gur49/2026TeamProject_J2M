@@ -6,6 +6,114 @@ using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal sealed class TerminalArbitrationOwner
+    {
+        private readonly PersistentTerminalSessionAuthority _authority;
+        private TerminalClaimResult? _acceptedClaim;
+
+        public TerminalArbitrationOwner(PersistentTerminalSessionAuthority authority = null)
+        {
+            _authority = authority ?? TerminalSessionRegistry.Authority;
+        }
+
+        public TerminalClaimResult? AcceptedClaim => _acceptedClaim;
+
+        public TerminalClaimResult Arbitrate(TickResult result, int playerEntityId)
+        {
+            if (result == null || playerEntityId <= 0)
+            {
+                return TerminalClaimResult.Reject(
+                    TerminalTransitionKind.Victory,
+                    TerminalClaimRejectionReason.InvalidRequest);
+            }
+
+            var hasDeath = ContainsPlayerDeathSignal(result, playerEntityId);
+            var hasClear = result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick;
+            if (!hasDeath && !hasClear)
+            {
+                return TerminalClaimResult.Reject(
+                    TerminalTransitionKind.Victory,
+                    TerminalClaimRejectionReason.InvalidRequest);
+            }
+
+            var requestedKind = hasDeath
+                ? TerminalTransitionKind.Defeat
+                : TerminalTransitionKind.Victory;
+            if (_acceptedClaim.HasValue)
+            {
+                return TerminalClaimResult.Reject(
+                    requestedKind,
+                    TerminalClaimRejectionReason.TerminalAlreadyClaimed,
+                    _acceptedClaim.Value.Token);
+            }
+
+            var sourceSceneGeneration = EnsureSceneGeneration();
+            var accepted = _authority.TryClaim(new TerminalClaimRequest(
+                requestedKind,
+                sourceSceneGeneration,
+                requestedKind == TerminalTransitionKind.Victory
+                    ? TerminalDestinationKind.SameSceneStageResult
+                    : TerminalDestinationKind.ReloadedGameplay));
+            _acceptedClaim = accepted;
+            return accepted;
+        }
+
+        public TerminalClaimResult RejectSameTickVictory(TerminalClaimResult acceptedDefeat)
+        {
+            if (!acceptedDefeat.Accepted ||
+                acceptedDefeat.TerminalKind != TerminalTransitionKind.Defeat)
+            {
+                throw new ArgumentException(
+                    "Same-tick victory rejection requires an accepted defeat claim.",
+                    nameof(acceptedDefeat));
+            }
+
+            return TerminalClaimResult.Reject(
+                TerminalTransitionKind.Victory,
+                TerminalClaimRejectionReason.LowerPrioritySameTick,
+                acceptedDefeat.Token);
+        }
+
+        public TerminalClaimResult ClaimVictory()
+        {
+            if (_acceptedClaim.HasValue)
+            {
+                return TerminalClaimResult.Reject(
+                    TerminalTransitionKind.Victory,
+                    TerminalClaimRejectionReason.TerminalAlreadyClaimed,
+                    _acceptedClaim.Value.Token);
+            }
+
+            var accepted = _authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Victory,
+                EnsureSceneGeneration(),
+                TerminalDestinationKind.SameSceneStageResult));
+            _acceptedClaim = accepted;
+            return accepted;
+        }
+
+        private long EnsureSceneGeneration()
+        {
+            return _authority.CurrentSceneGeneration > 0
+                ? _authority.CurrentSceneGeneration
+                : _authority.RegisterSceneBootstrap(0, "terminal-arbitration");
+        }
+
+        private static bool ContainsPlayerDeathSignal(TickResult result, int playerEntityId)
+        {
+            var signals = result.PresentationData.PlayerDeathSignals;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                if (signals[i].EntityId == playerEntityId && signals[i].DidDieThisTick)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     internal sealed class CampaignGameplayFlowController : IDisposable
     {
         private readonly CampaignChanceDisplayOverride _chanceDisplayOverride;
@@ -15,10 +123,11 @@ namespace Game.Feature.Gameplay.Host
         private readonly ICampaignSaveSlotStore _saveSlotStore;
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly StageRetryChanceTracker _retryChanceTracker;
+        private readonly ITerminalTransitionPort _terminalTransitionPort;
+        private readonly TerminalArbitrationOwner _terminalArbiter = new();
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
         private bool _handledDeath;
-        private PendingDeathRecoveryState _pendingDeathRecovery;
 
         public CampaignGameplayFlowController(
             GameplaySceneHost host,
@@ -26,7 +135,8 @@ namespace Game.Feature.Gameplay.Host
             CampaignRunningSlotContext runningSlotContext,
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
-            CampaignChanceDisplayOverride chanceDisplayOverride = null)
+            CampaignChanceDisplayOverride chanceDisplayOverride,
+            ITerminalTransitionPort terminalTransitionPort)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
@@ -34,6 +144,8 @@ namespace Game.Feature.Gameplay.Host
             _sequenceResolver = sequenceResolver ?? throw new ArgumentNullException(nameof(sequenceResolver));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _chanceDisplayOverride = chanceDisplayOverride;
+            _terminalTransitionPort = terminalTransitionPort ??
+                throw new ArgumentNullException(nameof(terminalTransitionPort));
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -44,59 +156,85 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("Campaign gameplay flow requires an initialized GameplayInputHost.");
             }
 
-            _host.InputHost.TickCompleted += HandleTickCompleted;
             _presentationFeed = _host.UiAccess?.PresentationFeed as GameplayHostPresentationFeed;
-            if (_presentationFeed != null)
+            if (_presentationFeed == null)
             {
-                _presentationFeed.StageClearCommitted += HandleStageClearCommitted;
+                throw new InvalidOperationException(
+                    "Campaign gameplay flow requires the canonical GameplayHostPresentationFeed.");
             }
+
+            _presentationFeed.ConfigureTerminalArbiter(_terminalArbiter);
+            _presentationFeed.TerminalClaimAccepted += HandleTerminalClaimAccepted;
         }
 
         public void Dispose()
         {
-            if (_host != null && _host.InputHost != null)
-            {
-                _host.InputHost.TickCompleted -= HandleTickCompleted;
-            }
-
             if (_presentationFeed != null)
             {
-                _presentationFeed.StageClearCommitted -= HandleStageClearCommitted;
+                _presentationFeed.TerminalClaimAccepted -= HandleTerminalClaimAccepted;
             }
         }
 
+        private void HandleTerminalClaimAccepted(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel,
+            TerminalClaimResult claim)
+        {
+            if (!claim.Accepted)
+            {
+                return;
+            }
+
+            if (claim.TerminalKind == TerminalTransitionKind.Defeat)
+            {
+                if (!_handledDeath)
+                {
+                    HandlePlayerDeath(result, claim);
+                }
+
+                return;
+            }
+
+            if (!_handledClear)
+            {
+                HandleAcceptedStageClear(result, readModel, claim);
+            }
+        }
+
+        // Narrow deterministic seam retained for existing headless campaign tests.
+        // Production ownership enters through GameplayHostPresentationFeed.TerminalClaimAccepted.
         private void HandleTickCompleted(TickResult result)
         {
-            if (result == null)
+            var claim = _terminalArbiter.Arbitrate(result, _host.InputHost.PlayerEntityId);
+            if (claim.Accepted)
             {
-                return;
+                HandleTerminalClaimAccepted(result, null, claim);
             }
-
-            if (!_handledDeath && ContainsPlayerDeathSignal(result))
-            {
-                HandlePlayerDeath(result);
-                return;
-            }
-
-            TryFlushPendingDeathRecovery(result);
         }
 
-        private bool ContainsPlayerDeathSignal(TickResult result)
+        private void HandleStageClearCommitted(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel)
         {
-            var signals = result.PresentationData.PlayerDeathSignals;
-            for (var i = 0; i < signals.Count; i++)
+            var claim = _terminalArbiter.Arbitrate(result, _host.InputHost.PlayerEntityId);
+            if (claim.Accepted)
             {
-                var signal = signals[i];
-                if (signal.EntityId == _host.InputHost.PlayerEntityId && signal.DidDieThisTick)
-                {
-                    return true;
-                }
+                HandleTerminalClaimAccepted(result, readModel, claim);
             }
-
-            return false;
         }
 
-        private void HandlePlayerDeath(TickResult result)
+        private void HandleStageClear(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel)
+        {
+            var claim = _terminalArbiter.ClaimVictory();
+            if (claim.Accepted)
+            {
+                HandleAcceptedStageClear(result, readModel, claim);
+            }
+        }
+
+        private void HandlePlayerDeath(TickResult result, TerminalClaimResult claim)
         {
             _handledDeath = true;
 
@@ -119,24 +257,26 @@ namespace Game.Feature.Gameplay.Host
                     mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                 });
 
+            _host.InputHost.EnterTerminalHold(claim.Token);
+            _chanceDisplayOverride?.Set(
+                route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage
+                    ? 0
+                    : route.RemainingChances,
+                SaveSlotStore.DefaultRemainingChances,
+                GameplayChanceAudioPolicy.SuppressChanceChangeCue);
             if (route.RouteKind == StageRetryRouteKind.ReturnToLevelGroupFirstStage)
             {
-                _chanceDisplayOverride?.Set(
-                    0,
-                    SaveSlotStore.DefaultRemainingChances,
-                    GameplayChanceAudioPolicy.SuppressChanceChangeCue);
-                _pendingDeathRecovery = PendingDeathRecoveryState.CreateLevelFailed(
-                    route,
-                    result.TickIndex,
-                    ResolveDeathRecoveryEligibleTick(result));
+                _host.Presenter?.ApplyStageTerminalPresentation(
+                    GameplayStageTerminalPresentationReason.LevelFailed,
+                    result);
+                BeginLevelFailedTerminal(route, claim);
                 return;
             }
 
-            _host.InputHost.EnterTerminalHold();
             _host.Presenter?.ApplyStageTerminalPresentation(
                 GameplayStageTerminalPresentationReason.PlayerDeathRetry,
                 result);
-            _stageLaunchRouter.Launch(new StageNavigationRequest(
+            var request = new StageNavigationRequest(
                 route.NextStageId,
                 StageNavigationKind.Retry,
                 "campaign-death-retry",
@@ -147,42 +287,83 @@ namespace Game.Feature.Gameplay.Host
                     slot.CurrentStageId,
                     route.NextStageId,
                     deathCount,
-                    "campaign-death-retry"))));
-        }
-
-        private int ResolveDeathRecoveryEligibleTick(TickResult result)
-        {
-            var playerEntityId = _host.InputHost.PlayerEntityId;
-            var holdSignals = result.PresentationData.PlayerDeathHoldSignals;
-            for (var i = 0; i < holdSignals.Count; i++)
+                    "campaign-death-retry")),
+                SceneTransitionIntent.DeathRetry);
+            try
             {
-                var signal = holdSignals[i];
-                if (signal.EntityId == playerEntityId)
+                if (!_terminalTransitionPort.TryBegin(
+                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SceneHandoff),
+                        out _))
                 {
-                    return signal.EligibleTick;
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
                 }
             }
-
-            return result.TickIndex + Math.Max(1, _host.PlayerRespawnDelayTicks);
-        }
-
-        private void TryFlushPendingDeathRecovery(TickResult result)
-        {
-            if (!_pendingDeathRecovery.HasValue ||
-                result.TickIndex < _pendingDeathRecovery.EligibleTick)
+            catch
             {
-                return;
+                if (TryRecoverIrisSetupFailure(claim.Token))
+                {
+                    _stageLaunchRouter.Launch(request);
+                }
+
+                throw;
             }
 
-            _host.InputHost.EnterTerminalHold();
-            _host.Presenter?.ApplyStageTerminalPresentation(
-                GameplayStageTerminalPresentationReason.LevelFailed,
-                result);
-            PublishLevelFailed(_pendingDeathRecovery.LevelFailedRoute);
-            _pendingDeathRecovery = default;
+            request = request.WithTransitionHint(
+                request.TransitionHint.WithTerminalClaim(claim.Token));
+            _stageLaunchRouter.Launch(request);
         }
 
-        private void PublishLevelFailed(StageRetryRouteResult route)
+        private void BeginLevelFailedTerminal(
+            StageRetryRouteResult route,
+            TerminalClaimResult claim)
+        {
+            if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
+                    claim.Token,
+                    TerminalDestinationKind.SameSceneLevelFailed))
+            {
+                throw new InvalidOperationException(
+                    $"Accepted terminal token {claim.Token} could not bind the LevelFailed destination.");
+            }
+
+            TerminalTransitionPlayback playback;
+            try
+            {
+                if (!_terminalTransitionPort.TryBegin(
+                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
+                        out playback))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
+                }
+            }
+            catch
+            {
+                if (TryRecoverIrisSetupFailure(claim.Token))
+                {
+                    PublishLevelFailed(route, claim.Token);
+                }
+
+                throw;
+            }
+
+            void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
+            {
+                completedPlayback.BlackReached -= HandleBlackReached;
+                if (completedPlayback.Request.Token != claim.Token)
+                {
+                    return;
+                }
+
+                PublishLevelFailed(route, claim.Token);
+            }
+
+            playback.BlackReached += HandleBlackReached;
+        }
+
+        private void PublishLevelFailed(
+            StageRetryRouteResult route,
+            TerminalSessionToken token)
         {
             if (_presentationFeed == null)
             {
@@ -195,26 +376,18 @@ namespace Game.Feature.Gameplay.Host
                     route.NextStageId,
                     StageNavigationKind.Retry,
                     "level-failed-restart-level",
-                    StageTransitionHint.ForKind(StageTransitionKind.LevelFailedRestart))));
+                    StageTransitionHint.ForKind(StageTransitionKind.LevelFailedRestart),
+                    SceneTransitionIntent.ManualRetry),
+                token));
         }
 
-        private void HandleStageClearCommitted(TickResult result, MinimalStageCompletionReadModel readModel)
-        {
-            if (_handledClear ||
-                _handledDeath ||
-                _pendingDeathRecovery.HasValue ||
-                (result != null && ContainsPlayerDeathSignal(result)))
-            {
-                return;
-            }
-
-            HandleStageClear(readModel);
-        }
-
-        private void HandleStageClear(MinimalStageCompletionReadModel readModel)
+        private void HandleAcceptedStageClear(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel,
+            TerminalClaimResult claim)
         {
             _handledClear = true;
-            _host.InputHost.EnterTerminalHold();
+            _host.InputHost.EnterTerminalHold(claim.Token);
 
             var completedStageId = readModel != null && readModel.StageId.IsValid
                 ? readModel.StageId
@@ -227,6 +400,14 @@ namespace Game.Feature.Gameplay.Host
             var runningSlotNumber = _runningSlotContext.SlotNumber;
             if (_sequenceResolver.IsFinal(completedStageId))
             {
+                if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
+                        claim.Token,
+                        TerminalDestinationKind.SameSceneGameClear))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not bind the GameClear destination.");
+                }
+
                 _saveSlotStore.UpdateSlot(
                     runningSlotNumber,
                     mutableSlot =>
@@ -236,25 +417,104 @@ namespace Game.Feature.Gameplay.Host
                         mutableSlot.CampaignCompleted = true;
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                     });
-                return;
             }
-
-            if (!_sequenceResolver.TryGetNext(completedStageId, out var nextStageId))
+            else
             {
-                throw new InvalidOperationException(
-                    $"Campaign sequence could not resolve a next stage for '{completedStageId.Value}'.");
+                if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
+                        claim.Token,
+                        TerminalDestinationKind.SameSceneStageResult))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not bind the StageResult destination.");
+                }
+
+                if (!_sequenceResolver.TryGetNext(completedStageId, out var nextStageId))
+                {
+                    throw new InvalidOperationException(
+                        $"Campaign sequence could not resolve a next stage for '{completedStageId.Value}'.");
+                }
+
+                var nextLevelGroupId = _sequenceResolver.GetLevelGroupId(nextStageId);
+                _saveSlotStore.UpdateSlot(
+                    runningSlotNumber,
+                    mutableSlot =>
+                    {
+                        mutableSlot.CurrentStageId = nextStageId;
+                        mutableSlot.CurrentLevelGroupId = nextLevelGroupId;
+                        mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
+                    });
             }
 
-            var nextLevelGroupId = _sequenceResolver.GetLevelGroupId(nextStageId);
-            _saveSlotStore.UpdateSlot(
-                runningSlotNumber,
-                mutableSlot =>
-                {
-                    mutableSlot.CurrentStageId = nextStageId;
-                    mutableSlot.CurrentLevelGroupId = nextLevelGroupId;
-                    mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
-                });
+            BeginVictoryTerminal(claim);
+        }
 
+        private void BeginVictoryTerminal(TerminalClaimResult claim)
+        {
+            TerminalTransitionPlayback playback;
+            try
+            {
+                if (!_terminalTransitionPort.TryBegin(
+                        CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SameScene),
+                        out playback))
+                {
+                    throw new InvalidOperationException(
+                        $"Accepted terminal token {claim.Token} could not start the required Victory Iris.");
+                }
+            }
+            catch
+            {
+                if (TryRecoverIrisSetupFailure(claim.Token))
+                {
+                    _presentationFeed?.ReleaseStageClearTerminalGate(claim.Token);
+                }
+
+                throw;
+            }
+
+            void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
+            {
+                completedPlayback.BlackReached -= HandleBlackReached;
+                if (completedPlayback.Request.Token != claim.Token)
+                {
+                    return;
+                }
+
+                if (_presentationFeed == null ||
+                    !_presentationFeed.ReleaseStageClearTerminalGate(claim.Token))
+                {
+                    throw new InvalidOperationException(
+                        $"Victory terminal token {claim.Token} reached black without a matching StageCleared gate.");
+                }
+            }
+
+            playback.BlackReached += HandleBlackReached;
+        }
+
+        private TerminalTransitionRequest CreateTerminalRequest(
+            TerminalClaimResult claim,
+            TerminalTransitionDestinationMode destinationMode)
+        {
+            if (!claim.Accepted)
+            {
+                throw new ArgumentException(
+                    "Terminal Iris requests require an accepted canonical claim.",
+                    nameof(claim));
+            }
+
+            return new TerminalTransitionRequest(
+                claim.TerminalKind,
+                _host.InputHost.PlayerEntityId,
+                claim.Token,
+                destinationMode);
+        }
+
+        private bool TryRecoverIrisSetupFailure(TerminalSessionToken token)
+        {
+            var session = TerminalSessionRegistry.Current;
+            return !session.IsActive &&
+                   session.Token == token &&
+                   session.Phase == TerminalSessionPhase.FailedBeforeCover &&
+                   _host.InputHost.TryExitTerminalHold(token);
         }
 
         private StageId ResolveCurrentSlotStageId()
@@ -262,46 +522,5 @@ namespace Game.Feature.Gameplay.Host
             return _saveSlotStore.LoadSlot(_runningSlotContext.SlotNumber).CurrentStageId;
         }
 
-        private enum PendingDeathRecoveryKind
-        {
-            LevelFailed,
-        }
-
-        private readonly struct PendingDeathRecoveryState
-        {
-            private PendingDeathRecoveryState(
-                PendingDeathRecoveryKind kind,
-                StageRetryRouteResult levelFailedRoute,
-                int deathTick,
-                int eligibleTick)
-            {
-                Kind = kind;
-                LevelFailedRoute = levelFailedRoute;
-                DeathTick = deathTick;
-                EligibleTick = eligibleTick;
-            }
-
-            public PendingDeathRecoveryKind Kind { get; }
-
-            public StageRetryRouteResult LevelFailedRoute { get; }
-
-            public int DeathTick { get; }
-
-            public int EligibleTick { get; }
-
-            public bool HasValue => EligibleTick > 0;
-
-            public static PendingDeathRecoveryState CreateLevelFailed(
-                StageRetryRouteResult route,
-                int deathTick,
-                int eligibleTick)
-            {
-                return new PendingDeathRecoveryState(
-                    PendingDeathRecoveryKind.LevelFailed,
-                    route,
-                    deathTick,
-                    eligibleTick);
-            }
-        }
     }
 }

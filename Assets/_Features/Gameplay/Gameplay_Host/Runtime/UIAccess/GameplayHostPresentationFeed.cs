@@ -17,6 +17,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private readonly GameplayTickViewPresenter _presenter;
         private readonly GameplayTimingProfile _timingProfile;
         private readonly GameplayPresentationBarrierTracker _barrierTracker;
+        private TerminalArbitrationOwner _terminalArbiter;
+        private bool _terminalOutcomesEnabled = true;
         private PendingStageClearPresentation _pendingStageClearPresentation;
         private TickResult _lastTickResult;
 
@@ -47,6 +49,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         internal event Action<TickResult, MinimalStageCompletionReadModel> StageClearCommitted;
 
+        internal event Action<TickResult, MinimalStageCompletionReadModel, TerminalClaimResult> TerminalClaimAccepted;
+
+        internal event Action<TerminalClaimResult> TerminalClaimRejected;
+
         public GameplayPresentationState CurrentState { get; private set; }
 
         public MinimalStageCompletionReadModel CurrentMinimalStageCompletion => _stageCompletionRuntime.CurrentMinimalStageCompletion;
@@ -59,12 +65,30 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         internal MinimalStageCompletionReadModel ForceClearCurrentStage()
         {
+            if (!_terminalOutcomesEnabled)
+            {
+                return _stageCompletionRuntime.ForceClearCurrentStage();
+            }
+
+            if (_terminalArbiter == null)
+            {
+                throw new InvalidOperationException(
+                    "Forced stage clear requires the canonical terminal arbiter.");
+            }
+
+            var claim = _terminalArbiter.ClaimVictory();
+            if (!claim.Accepted)
+            {
+                TerminalClaimRejected?.Invoke(claim);
+                return null;
+            }
+
             var readModel = _stageCompletionRuntime.ForceClearCurrentStage();
+            _pendingStageClearPresentation = new PendingStageClearPresentation(
+                result: null,
+                claim.Token);
             StageClearCommitted?.Invoke(null, readModel);
-            FramePublished?.Invoke(new GameplayPresentationFrame(
-                Math.Max(1, readModel.Result.FinalTickIndex),
-                CurrentState.CurrentTopology,
-                stageEvent: new GameplayStageEventPresentationSlice(GameplayStageEventKind.Cleared)));
+            TerminalClaimAccepted?.Invoke(null, readModel, claim);
             return readModel;
         }
 
@@ -72,6 +96,85 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         {
             CurrentLevelFailed = readModel ?? throw new ArgumentNullException(nameof(readModel));
             LevelFailedCommitted?.Invoke(CurrentLevelFailed);
+        }
+
+        internal void ConfigureTerminalArbiter(TerminalArbitrationOwner terminalArbiter)
+        {
+            if (!_terminalOutcomesEnabled)
+            {
+                throw new InvalidOperationException(
+                    "Terminal outcomes were explicitly disabled for this gameplay host.");
+            }
+
+            if (_terminalArbiter != null && !ReferenceEquals(_terminalArbiter, terminalArbiter))
+            {
+                throw new InvalidOperationException(
+                    "GameplayHostPresentationFeed already has a canonical terminal arbiter.");
+            }
+
+            _terminalArbiter = terminalArbiter ??
+                throw new ArgumentNullException(nameof(terminalArbiter));
+        }
+
+        internal void DisableTerminalOutcomes()
+        {
+            if (_terminalArbiter != null)
+            {
+                throw new InvalidOperationException(
+                    "Cannot disable terminal outcomes after the canonical arbiter was installed.");
+            }
+
+            _terminalOutcomesEnabled = false;
+            _pendingStageClearPresentation = default;
+        }
+
+        internal bool ReleaseStageClearTerminalGate(TerminalSessionToken token)
+        {
+            if (!_pendingStageClearPresentation.HasValue)
+            {
+                return false;
+            }
+
+            var pending = _pendingStageClearPresentation;
+            if (!token.IsValid || pending.Token != token)
+            {
+                return false;
+            }
+
+            _pendingStageClearPresentation = default;
+            TerminalRuntimeTrace.Record(
+                TerminalSessionRegistry.Current,
+                TerminalTraceEvent.StageClearGateReleased);
+            if (pending.Result != null)
+            {
+                TerminalRuntimeTrace.Record(
+                    TerminalSessionRegistry.Current,
+                    TerminalTraceEvent.StageClearedPublished);
+                FramePublished?.Invoke(CreateFrame(
+                    pending.Result,
+                    includeStageEvent: true,
+                    terminalToken: token));
+                return true;
+            }
+
+            var readModel = CurrentMinimalStageCompletion;
+            if (readModel != null)
+            {
+                var terminalTickIndex = Math.Max(
+                    Math.Max(1, readModel.Result.FinalTickIndex),
+                    (_lastTickResult?.TickIndex ?? 0) + 1);
+                TerminalRuntimeTrace.Record(
+                    TerminalSessionRegistry.Current,
+                    TerminalTraceEvent.StageClearedPublished);
+                FramePublished?.Invoke(new GameplayPresentationFrame(
+                    terminalTickIndex,
+                    CurrentState.CurrentTopology,
+                    stageEvent: new GameplayStageEventPresentationSlice(
+                        GameplayStageEventKind.Cleared,
+                        token)));
+            }
+
+            return true;
         }
 
         public void Dispose()
@@ -89,26 +192,61 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
 
             _lastTickResult = result;
-            var stageCompletion = _stageCompletionRuntime.ProcessTick(result);
-            var maxBarrierDelaySeconds = _barrierTracker.RegisterFromTick(result, _timingProfile);
-            var stageClearVictoryDelaySeconds = Math.Max(
-                0f,
-                _presenter.LastStageClearPlayerPresentationDelaySeconds);
-            if (result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick)
+            _barrierTracker.RegisterFromTick(result, _timingProfile);
+            var hasClear = result.ObjectiveResult != null && result.ObjectiveResult.ClearedThisTick;
+            var hasDeath = ContainsPlayerDeathSignal(result, _inputHost.PlayerEntityId);
+            if (!_terminalOutcomesEnabled)
             {
-                StageClearCommitted?.Invoke(result, stageCompletion);
-                var clearDelaySeconds = Math.Max(maxBarrierDelaySeconds, stageClearVictoryDelaySeconds);
-                if (clearDelaySeconds > 0f)
-                {
-                    _pendingStageClearPresentation = new PendingStageClearPresentation(
-                        result,
-                        clearDelaySeconds);
-                    FramePublished?.Invoke(CreateFrame(result, includeStageEvent: false));
-                    return;
-                }
+                FramePublished?.Invoke(CreateFrame(
+                    result,
+                    includeStageEvent: false));
+                return;
             }
 
-            FramePublished?.Invoke(CreateFrame(result, includeStageEvent: true));
+            if (_terminalArbiter != null && (hasDeath || hasClear))
+            {
+                var claim = _terminalArbiter.Arbitrate(result, _inputHost.PlayerEntityId);
+                if (claim.Accepted)
+                {
+                    MinimalStageCompletionReadModel stageCompletion = null;
+                    if (claim.TerminalKind == TerminalTransitionKind.Victory)
+                    {
+                        stageCompletion = _stageCompletionRuntime.ProcessTick(result);
+                        _pendingStageClearPresentation = new PendingStageClearPresentation(
+                            result,
+                            claim.Token);
+                        StageClearCommitted?.Invoke(result, stageCompletion);
+                    }
+                    else if (hasClear)
+                    {
+                        TerminalClaimRejected?.Invoke(
+                            _terminalArbiter.RejectSameTickVictory(claim));
+                    }
+
+                    TerminalClaimAccepted?.Invoke(result, stageCompletion, claim);
+                    FramePublished?.Invoke(CreateFrame(
+                        result,
+                        includeStageEvent: false));
+                    return;
+                }
+
+                TerminalClaimRejected?.Invoke(claim);
+                FramePublished?.Invoke(CreateFrame(
+                    result,
+                    includeStageEvent: false));
+                return;
+            }
+
+            if (hasDeath || hasClear)
+            {
+                throw new InvalidOperationException(
+                    "Stage-backed terminal outcomes require the canonical terminal arbiter. " +
+                    "Uncorrelated StageCleared/LevelFailed fallback is disabled.");
+            }
+
+            FramePublished?.Invoke(CreateFrame(
+                result,
+                includeStageEvent: false));
         }
 
         private void HandlePresentationAdvanced(float deltaTime)
@@ -124,15 +262,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return;
             }
 
-            var pending = _pendingStageClearPresentation.Advance(deltaTime);
-            if (pending.RemainingSeconds > 0f)
-            {
-                _pendingStageClearPresentation = pending;
-                return;
-            }
-
-            _pendingStageClearPresentation = default;
-            FramePublished?.Invoke(CreateFrame(pending.Result, includeStageEvent: true));
         }
 
         private void HandlePresentationStateChanged()
@@ -156,7 +285,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 _presenter.IsTopologyTransitionActive);
         }
 
-        private GameplayPresentationFrame CreateFrame(TickResult result, bool includeStageEvent)
+        private GameplayPresentationFrame CreateFrame(
+            TickResult result,
+            bool includeStageEvent,
+            TerminalSessionToken terminalToken = default)
         {
             GameplayTopologyPresentationSlice? topology = null;
             if (result.PresentationData.TopologyMotion.HasValue)
@@ -174,7 +306,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 result.ObjectiveResult != null &&
                 result.ObjectiveResult.ClearedThisTick)
             {
-                stageEvent = new GameplayStageEventPresentationSlice(GameplayStageEventKind.Cleared);
+                stageEvent = new GameplayStageEventPresentationSlice(
+                    GameplayStageEventKind.Cleared,
+                    terminalToken);
             }
 
             return new GameplayPresentationFrame(
@@ -300,22 +434,34 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         private readonly struct PendingStageClearPresentation
         {
-            public PendingStageClearPresentation(TickResult result, float remainingSeconds)
+            public PendingStageClearPresentation(
+                TickResult result,
+                TerminalSessionToken token)
             {
                 Result = result;
-                RemainingSeconds = Math.Max(0f, remainingSeconds);
+                Token = token;
+                HasValue = true;
             }
 
             public TickResult Result { get; }
 
-            public float RemainingSeconds { get; }
+            public TerminalSessionToken Token { get; }
 
-            public bool HasValue => Result != null;
+            public bool HasValue { get; }
+        }
 
-            public PendingStageClearPresentation Advance(float deltaTime)
+        private static bool ContainsPlayerDeathSignal(TickResult result, int playerEntityId)
+        {
+            var signals = result.PresentationData.PlayerDeathSignals;
+            for (var i = 0; i < signals.Count; i++)
             {
-                return new PendingStageClearPresentation(Result, RemainingSeconds - Math.Max(0f, deltaTime));
+                if (signals[i].EntityId == playerEntityId && signals[i].DidDieThisTick)
+                {
+                    return true;
+                }
             }
+
+            return false;
         }
     }
 

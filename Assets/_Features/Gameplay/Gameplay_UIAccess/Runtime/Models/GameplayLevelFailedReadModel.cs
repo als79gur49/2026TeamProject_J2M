@@ -13,7 +13,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
     {
         public GameplayLevelFailedReadModel(
             GameplayLevelFailureReason reason,
-            StageNavigationRequest restartLevelRequest)
+            StageNavigationRequest restartLevelRequest,
+            TerminalSessionToken terminalToken = default)
         {
             if (!restartLevelRequest.IsValid)
             {
@@ -24,10 +25,50 @@ namespace Game.Feature.Gameplay.UIAccess.Models
 
             Reason = reason;
             RestartLevelRequest = restartLevelRequest;
+            TerminalToken = terminalToken;
+        }
+
+        public GameplayLevelFailedReadModel(
+            string titleText,
+            string detailText,
+            string restartLevelLabel,
+            string mainLabel,
+            StageNavigationRequest restartLevelRequest,
+            TerminalSessionToken terminalToken = default)
+            : this(
+                GameplayLevelFailureReason.ChancesExhausted,
+                restartLevelRequest,
+                terminalToken)
+        {
         }
 
         public GameplayLevelFailureReason Reason { get; }
 
         public StageNavigationRequest RestartLevelRequest { get; }
+
+        public TerminalSessionToken TerminalToken { get; }
+
+        public long TerminalClaimId => TerminalToken.Sequence;
+
+        public GameplayLevelFailedReadModel(
+            string titleText,
+            string detailText,
+            string restartLevelLabel,
+            string mainLabel,
+            StageNavigationRequest restartLevelRequest,
+            long terminalClaimId)
+            : this(
+                titleText,
+                detailText,
+                restartLevelLabel,
+                mainLabel,
+                restartLevelRequest,
+                terminalClaimId > 0
+                    ? new TerminalSessionToken(
+                        TerminalSessionRegistry.Authority.AuthorityGeneration,
+                        terminalClaimId)
+                    : default)
+        {
+        }
     }
 }

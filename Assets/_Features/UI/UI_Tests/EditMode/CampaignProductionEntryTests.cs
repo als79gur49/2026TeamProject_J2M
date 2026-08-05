@@ -42,16 +42,96 @@ namespace Game.Feature.UI.Tests
         [TearDown]
         public void TearDown()
         {
+            GameplayEntryTransitionVisualSnapshotRegistry.ResetForTests();
+            MainMenuTransitionVisualPolicy.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            ResultTransitionVisualSnapshotRegistry.ResetForTests();
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             CampaignLaunchHandoffSessionStore.ResetForTests();
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.Clear();
+            SceneTransitionCoordinator.SetOverlayShellResourceLoaderForTests(null);
             var eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
             if (eventSystem != null)
             {
                 UnityEngine.Object.DestroyImmediate(eventSystem.gameObject);
+            }
+        }
+
+        [Test]
+        public void MainMenuGameplayEntrySource_UsesScreenCenterIrisAndBlocksAllMenuInteraction()
+        {
+            var root = new GameObject("main-menu-gameplay-entry-source");
+            var provider = CreateProvider("stage-0-1");
+            var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
+            var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
+            var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
+            var routeConfig = AssetDatabase.LoadAssetAtPath<GameplayStageLaunchRouteConfig>(RouteConfigPath);
+            try
+            {
+                TerminalSessionRegistry.ResetForTests();
+                SceneEntryPresentationRegistry.ResetForTests();
+                var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                root.AddComponent<AudioRuntimeInstaller>();
+                root.AddComponent<DisplayRuntimeInstaller>();
+                SetPrivateField(installer, "_installOnStart", false);
+                SetPrivateField(installer, "_mainMenuScreenPrefab", prefab);
+                SetPrivateField(installer, "_screenPrefabCatalog", UiTestPrefabAssetUtility.LoadScreenCatalog());
+                SetPrivateField(installer, "_popupPrefabCatalog", catalog);
+                SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
+                SetPrivateField(installer, "_routeConfig", routeConfig);
+                SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
+                SetPrivateField(
+                    installer,
+                    "_campaignStageSequenceDefinition",
+                    CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+                installer.Install();
+
+                var policy = SceneTransitionRoutePolicyCatalog.ResolveProduction(
+                    SceneTransitionIntent.GameplayEntry);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.GameplayEntry,
+                        StageId.CreateOrThrow("stage-0-1"),
+                        sourceSceneGeneration: 1,
+                        launchProvenance: "main-menu-new-game",
+                        launchSlotNumber: 1,
+                        launchToken: Guid.NewGuid(),
+                        out var token),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryBindTransition(token, transitionId: 301),
+                    Is.True);
+                var visual = GameplayEntryTransitionVisualSnapshotRegistry.Capture(
+                    token,
+                    policy);
+
+                Assert.That(
+                    installer.TryBeginGameplayEntrySourceClose(
+                        token,
+                        visual,
+                        out var playback),
+                    Is.True);
+                Assert.That(installer.IsGameplayEntryInteractionBlocked, Is.True);
+                Assert.That(installer.MainMenuScreenView.CanHandleUiNavigation, Is.False);
+                Assert.That(
+                    installer.MainMenuScreenView.SaveSlotPanel.HasFocusableCards,
+                    Is.False);
+                Assert.That(playback.FocusTarget.IsFallback, Is.True);
+                Assert.That(playback.FocusTarget.NormalizedCenter, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(visual.SourceFocusPolicy, Is.EqualTo(GameplayEntryFocusPolicy.AuthoredThenScreenCenter));
+                Assert.That(visual.SourceCloseColor, Is.EqualTo(visual.HoldColor));
+                Assert.That(visual.HoldColor, Is.EqualTo(visual.DestinationOpenColor));
+                Assert.That(visual.HoldColor.b, Is.GreaterThan(visual.HoldColor.r));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                provider.Dispose();
             }
         }
 
@@ -210,8 +290,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
                 Assert.That(harness.LaunchHandoffStore.TryPeek(out var handoff), Is.True);
                 Assert.That(handoff.SlotNumber, Is.EqualTo(1));
+                Assert.That(handoff.Source, Is.EqualTo("main-menu-new-game"));
                 Assert.That(harness.Router.Requests.Count, Is.EqualTo(1));
                 Assert.That(harness.Router.Requests[0].StageId.Value, Is.EqualTo("stage-0-1"));
+                Assert.That(
+                    harness.Router.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -238,7 +322,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.ActiveSlotProvider.TryGetActiveSlotNumber(out _), Is.False);
                 Assert.That(harness.LaunchHandoffStore.TryPeek(out var handoff), Is.True);
                 Assert.That(handoff.SlotNumber, Is.EqualTo(2));
+                Assert.That(handoff.Source, Is.EqualTo("main-menu-continue"));
                 Assert.That(harness.Router.Requests[0].StageId.Value, Is.EqualTo("stage-2-2"));
+                Assert.That(
+                    harness.Router.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -295,6 +383,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.SaveStore.LoadSlot(1).CampaignCompleted, Is.False);
                 Assert.That(harness.SaveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-0-1"));
                 Assert.That(harness.Router.Requests.Count, Is.EqualTo(1));
+                Assert.That(
+                    harness.Router.Requests[0].Source,
+                    Is.EqualTo("main-menu-completed-restart"));
+                Assert.That(
+                    harness.Router.Requests[0].TransitionIntent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
             }
             finally
             {
@@ -616,7 +710,8 @@ namespace Game.Feature.UI.Tests
                 activeSlotProvider.SetActiveSlot(2);
                 StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("stage-0-1"));
 
-                new ConfiguredMainMenuReturnRouter(routeConfig, sceneLoader).ReturnToMainMenu();
+                new ConfiguredMainMenuReturnRouter(routeConfig, sceneLoader).ReturnToMainMenu(
+                    SceneTransitionIntent.ReturnToMainMenu);
 
                 Assert.That(StageLaunchContextStore.TryGetCurrent(out _), Is.False);
                 Assert.That(activeSlotProvider.ActiveSlotNumber, Is.EqualTo(2));
@@ -811,6 +906,390 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SceneTransitionCoordinator_StageAdvanceMissingResultSnapshot_CancelsClaimAndReleasesGuard()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-2");
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                6101,
+                "stage-advance-missing-result-test");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.StageAdvance,
+                    stageId,
+                    generation,
+                    out _),
+                Is.True);
+            var coordinatorObject = new GameObject(nameof(
+                SceneTransitionCoordinator_StageAdvanceMissingResultSnapshot_CancelsClaimAndReleasesGuard));
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.NextStage,
+                    "campaign-auto-next",
+                    StageTransitionHint.ForKind(StageTransitionKind.StageClearNext),
+                    SceneTransitionIntent.StageAdvance);
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    coordinator.TryStartStageTransition(request, "unused-gameplay-scene"));
+
+                Assert.That(exception.Message, Does.Contain("Result transition visual"));
+                Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+                Assert.That(coordinator.IsTransitionInProgress, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_GameplayCaptureThrow_CancelsExactClaimAndPreservesOtherSnapshot()
+        {
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                6103,
+                "gameplay-capture-failure-test");
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.ManualRetry,
+                    stageId,
+                    generation,
+                    out var claimedToken),
+                Is.True);
+            var staleToken = new SceneEntrySessionToken(991);
+            Assert.That(staleToken, Is.Not.EqualTo(claimedToken));
+            var policy = SceneTransitionRoutePolicyCatalog.ResolveProduction(
+                SceneTransitionIntent.ManualRetry);
+            GameplayEntryTransitionVisualSnapshotRegistry.Capture(
+                staleToken,
+                policy);
+            var coordinatorObject = new GameObject(nameof(
+                SceneTransitionCoordinator_GameplayCaptureThrow_CancelsExactClaimAndPreservesOtherSnapshot));
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var request = new StageNavigationRequest(
+                    stageId,
+                    StageNavigationKind.Retry,
+                    "stage-result-retry",
+                    StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                    SceneTransitionIntent.ManualRetry);
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    coordinator.TryStartStageTransition(request, "unused-gameplay-scene"));
+
+                Assert.That(exception.Message, Does.Contain("still owns the immutable snapshot"));
+                Assert.That(SceneEntryPresentationRegistry.IsActive, Is.False);
+                Assert.That(coordinator.IsTransitionInProgress, Is.False);
+                Assert.DoesNotThrow(() =>
+                    GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                        staleToken,
+                        SceneTransitionIntent.ManualRetry));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_MainMenuCaptureThrow_CancelsExactClaimAndPreservesOtherSnapshot()
+        {
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                6104,
+                "main-menu-capture-failure-test");
+            Assert.That(
+                MainMenuEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.ReturnToMainMenu,
+                    generation,
+                    "capture-failure-test",
+                    out var claimedToken),
+                Is.True);
+            var staleToken = new MainMenuEntrySessionToken(992);
+            Assert.That(staleToken, Is.Not.EqualTo(claimedToken));
+            var policy = SceneTransitionRoutePolicyCatalog.ResolveProduction(
+                SceneTransitionIntent.ReturnToMainMenu);
+            MainMenuTransitionVisualPolicy.Capture(staleToken, policy);
+            var coordinatorObject = new GameObject(nameof(
+                SceneTransitionCoordinator_MainMenuCaptureThrow_CancelsExactClaimAndPreservesOtherSnapshot));
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    coordinator.TryStartMainMenuReturn(
+                        "unused-main-menu-scene",
+                        SceneTransitionIntent.ReturnToMainMenu));
+
+                Assert.That(exception.Message, Does.Contain("still owns the immutable snapshot"));
+                Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.False);
+                Assert.That(coordinator.IsTransitionInProgress, Is.False);
+                Assert.DoesNotThrow(() =>
+                    MainMenuTransitionVisualPolicy.Require(
+                        staleToken,
+                        SceneTransitionIntent.ReturnToMainMenu));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_TerminalBindFailure_TerminalizesBoundEntryAndKeepsGuardWithCover()
+        {
+            var authority = TerminalSessionRegistry.Authority;
+            var generation = authority.RegisterSceneBootstrap(
+                6102,
+                "terminal-bind-failure-test");
+            var terminalClaim = authority.TryClaim(new TerminalClaimRequest(
+                TerminalTransitionKind.Defeat,
+                generation,
+                TerminalDestinationKind.ReloadedGameplay));
+            Assert.That(terminalClaim.Accepted, Is.True);
+            Assert.That(
+                authority.TryBindTransition(
+                    terminalClaim.Token,
+                    transitionId: 777,
+                    TerminalDestinationKind.ReloadedGameplay),
+                Is.True);
+            SceneTransitionCoordinator.SetOverlayShellResourceLoaderForTests(() =>
+                AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayShellView>(
+                    "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayShell.prefab"));
+            var coordinatorObject = new GameObject(nameof(
+                SceneTransitionCoordinator_TerminalBindFailure_TerminalizesBoundEntryAndKeepsGuardWithCover));
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var request = new StageNavigationRequest(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Retry,
+                    "stage-result-retry",
+                    StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual)
+                        .WithTerminalClaim(terminalClaim.Token),
+                    SceneTransitionIntent.ManualRetry);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                    coordinator.TryStartStageTransition(request, "unused-gameplay-scene"));
+
+                Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.Current.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
+                Assert.That(coordinator.IsTransitionInProgress, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_PreCoroutineFailure_PreservesRouterAdvancedSessionAndExistingLaunchContext()
+        {
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                6105,
+                "advanced-session-preservation-test");
+            var requestedStage = StageId.CreateOrThrow("stage-0-1");
+            var existingStage = StageId.CreateOrThrow("stage-0-2");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.ManualRetry,
+                    requestedStage,
+                    generation,
+                    out var token),
+                Is.True);
+            StageLaunchContextStore.SetCurrent(existingStage);
+            void AdvanceAfterBind(SceneEntryPresentationSnapshot session)
+            {
+                if (session.Token == token &&
+                    session.Phase ==
+                    SceneEntryPresentationPhase.PersistentCoverRequested)
+                {
+                    SceneEntryPresentationRegistry.TryAdvance(
+                        token,
+                        SceneEntryPresentationPhase.PersistentCoverReady);
+                }
+            }
+
+            SceneEntryPresentationRegistry.ReadModel.Changed += AdvanceAfterBind;
+            var coordinatorObject = new GameObject(nameof(
+                SceneTransitionCoordinator_PreCoroutineFailure_PreservesRouterAdvancedSessionAndExistingLaunchContext));
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var request = new StageNavigationRequest(
+                    requestedStage,
+                    StageNavigationKind.Retry,
+                    "stage-result-retry",
+                    StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                    SceneTransitionIntent.ManualRetry);
+
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    coordinator.TryStartStageTransition(request, "unused-gameplay-scene"));
+
+                Assert.That(exception.Message, Does.Contain("already owns the context"));
+                Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.EqualTo(token));
+                Assert.That(
+                    SceneEntryPresentationRegistry.Current.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.PersistentCoverReady));
+                Assert.That(coordinator.IsTransitionInProgress, Is.True);
+                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(existingStage));
+            }
+            finally
+            {
+                SceneEntryPresentationRegistry.ReadModel.Changed -= AdvanceAfterBind;
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_PreCoroutineFailure_PreservesNewerSessionAndClearsOnlyFailedSnapshot()
+        {
+            var generation = TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                6106,
+                "newer-session-preservation-test");
+            var requestedStage = StageId.CreateOrThrow("stage-0-1");
+            var existingStage = StageId.CreateOrThrow("stage-0-2");
+            Assert.That(
+                SceneEntryPresentationRegistry.TryClaim(
+                    SceneTransitionIntent.ManualRetry,
+                    requestedStage,
+                    generation,
+                    out var failedToken),
+                Is.True);
+            StageLaunchContextStore.SetCurrent(existingStage);
+            var newerToken = default(SceneEntrySessionToken);
+            void ReplaceAfterBind(SceneEntryPresentationSnapshot session)
+            {
+                if (session.Token != failedToken ||
+                    session.Phase !=
+                    SceneEntryPresentationPhase.PersistentCoverRequested)
+                {
+                    return;
+                }
+
+                SceneEntryPresentationRegistry.ResetForTests();
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.ManualRetry,
+                        requestedStage,
+                        generation,
+                        out var supersededToken),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryCancelClaim(
+                        supersededToken),
+                    Is.True);
+                Assert.That(
+                    SceneEntryPresentationRegistry.TryClaim(
+                        SceneTransitionIntent.ManualRetry,
+                        requestedStage,
+                        generation,
+                        out newerToken),
+                    Is.True);
+            }
+
+            SceneEntryPresentationRegistry.ReadModel.Changed += ReplaceAfterBind;
+            var coordinatorObject = new GameObject(nameof(
+                SceneTransitionCoordinator_PreCoroutineFailure_PreservesNewerSessionAndClearsOnlyFailedSnapshot));
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                var request = new StageNavigationRequest(
+                    requestedStage,
+                    StageNavigationKind.Retry,
+                    "stage-result-retry",
+                    StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                    SceneTransitionIntent.ManualRetry);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                    coordinator.TryStartStageTransition(request, "unused-gameplay-scene"));
+
+                Assert.That(newerToken.IsValid, Is.True);
+                Assert.That(SceneEntryPresentationRegistry.Current.Token, Is.EqualTo(newerToken));
+                Assert.That(
+                    SceneEntryPresentationRegistry.Current.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.Claimed));
+                Assert.That(coordinator.IsTransitionInProgress, Is.False);
+                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(existingStage));
+                Assert.Throws<InvalidOperationException>(() =>
+                    GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                        failedToken,
+                        SceneTransitionIntent.ManualRetry));
+            }
+            finally
+            {
+                SceneEntryPresentationRegistry.ReadModel.Changed -= ReplaceAfterBind;
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionCoordinator_PreCoroutineSetup_CapturesBeforeBindInsideSharedFailureBoundary()
+        {
+            var source = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionCoordinator.cs");
+            var setupTryIndex = source.IndexOf(
+                "try\n            {\n                if (routePolicy.ImplementsSceneTransitionSession",
+                StringComparison.Ordinal);
+            var gameplayCaptureIndex = source.IndexOf(
+                "GameplayEntryTransitionVisualSnapshotRegistry.Capture(",
+                setupTryIndex,
+                StringComparison.Ordinal);
+            var gameplayBindIndex = source.IndexOf(
+                "SceneEntryPresentationRegistry.TryBindTransition(",
+                gameplayCaptureIndex,
+                StringComparison.Ordinal);
+            var mainMenuCaptureIndex = source.IndexOf(
+                "MainMenuTransitionVisualPolicy.Capture(",
+                gameplayBindIndex,
+                StringComparison.Ordinal);
+            var mainMenuBindIndex = source.IndexOf(
+                "MainMenuEntryPresentationRegistry.TryBindTransition(",
+                mainMenuCaptureIndex,
+                StringComparison.Ordinal);
+            var terminalBindIndex = source.IndexOf(
+                "TerminalSessionRegistry.Authority.TryBindTransition(",
+                mainMenuBindIndex,
+                StringComparison.Ordinal);
+            var coroutineStartIndex = source.IndexOf(
+                "StartCoroutine(RunTransition(",
+                terminalBindIndex,
+                StringComparison.Ordinal);
+            var setupCatchIndex = source.IndexOf(
+                "catch\n            {\n                ClearFailedCampaignLaunch(launchContext",
+                coroutineStartIndex,
+                StringComparison.Ordinal);
+
+            Assert.That(setupTryIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(gameplayCaptureIndex, Is.GreaterThan(setupTryIndex));
+            Assert.That(gameplayBindIndex, Is.GreaterThan(gameplayCaptureIndex));
+            Assert.That(mainMenuCaptureIndex, Is.GreaterThan(gameplayBindIndex));
+            Assert.That(mainMenuBindIndex, Is.GreaterThan(mainMenuCaptureIndex));
+            Assert.That(terminalBindIndex, Is.GreaterThan(mainMenuBindIndex));
+            Assert.That(coroutineStartIndex, Is.GreaterThan(terminalBindIndex));
+            Assert.That(setupCatchIndex, Is.GreaterThan(coroutineStartIndex));
+            Assert.That(source, Does.Contain("current.Token != expected.Token"));
+            Assert.That(
+                source,
+                Does.Contain(
+                    "current.Phase == SceneEntryPresentationPhase.Claimed"));
+            Assert.That(
+                source,
+                Does.Contain(
+                    "SceneEntryPresentationPhase.PersistentCoverRequested"));
+        }
+
+        [Test]
         public void LaunchGuard_PrecedesSetCurrent()
         {
             var source = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionCoordinator.cs");
@@ -875,11 +1354,16 @@ namespace Game.Feature.UI.Tests
                     new StageNavigationRequest(
                         rejectedStage,
                         StageNavigationKind.Continue,
-                        "guard-rejection"),
+                        "guard-rejection",
+                        transitionIntent: SceneTransitionIntent.GameplayEntry),
                     "unused-scene",
                     handoff.Token);
 
                 Assert.That(accepted, Is.False);
+                Assert.That(coordinator.LastResolvedRoutePolicy.HasValue, Is.True);
+                Assert.That(
+                    coordinator.LastResolvedRoutePolicy.Value.Intent,
+                    Is.EqualTo(SceneTransitionIntent.GameplayEntry));
                 Assert.That(handoffStore.TryPeek(out var stillPending), Is.True);
                 Assert.That(stillPending, Is.SameAs(handoff));
                 Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(firstStage));
@@ -920,7 +1404,8 @@ namespace Game.Feature.UI.Tests
                     new StageNavigationRequest(
                         mismatchedStage,
                         StageNavigationKind.Continue,
-                        "matching-token-mismatch"),
+                        "matching-token-mismatch",
+                        transitionIntent: SceneTransitionIntent.GameplayEntry),
                     "unused-scene",
                     handoff.Token);
 
@@ -1132,6 +1617,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(sceneLoader.LoadedScenes, Is.EqualTo(new[] { "UIAudioScene" }));
 
                 var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                var uiInstaller = installerObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(uiInstaller);
                 DisableAutoCreateViews(installer);
                 AssignStageCatalogProvider(installer);
                 AssignTimingPresets(installer);
@@ -1156,8 +1643,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(playerHud.HasRemainingChances, Is.True);
                 Assert.That(playerHud.MaxChances, Is.GreaterThan(0));
 
-                var uiInstaller = installerObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(uiInstaller);
                 uiInstaller.Install(host);
                 var chancePanelView = uiInstaller.HudView.ChancePanelView;
                 var chancePanelRoot = GetPrivateField<GameObject>(chancePanelView, "_root");

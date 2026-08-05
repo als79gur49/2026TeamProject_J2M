@@ -19,6 +19,24 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [SetUp]
+        public void ResetTransitionAuthorities()
+        {
+            TerminalDestinationReadiness.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+        }
+
+        [TearDown]
+        public void ClearTransitionAuthorities()
+        {
+            TerminalDestinationReadiness.ResetForTests();
+            TerminalSessionRegistry.ResetForTests();
+            SceneEntryPresentationRegistry.ResetForTests();
+            MainMenuEntryPresentationRegistry.ResetForTests();
+        }
+
         [Test]
         public void AudioRuntimeInstaller_IsGuardedAgainstSameRootDuplicates()
         {
@@ -292,6 +310,9 @@ namespace Game.Feature.UI.Tests
                 var pause = new FakeGameplayPauseService();
                 installer.Install(CreatePortsWithValidStage(pauseService: pause));
                 var pauseService = rootObject.GetComponent<AudioRuntimeInstaller>().AudioPlaybackPauseService;
+                TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
+                    sceneHandle: 7601,
+                    sceneName: "PauseRetryAudioCompositionSource");
 
                 installer.HudView.ClickPause();
                 installer.PausePopupView.ClickRetry();
@@ -309,7 +330,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_PauseMainMenu_SuppressesGameplayPresentationAudioResume()
+        public void GameplayUiFlowInstaller_PauseMainMenu_KeepsPausedSourceAndPresentationAudioUntilOpaqueHandoff()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_PauseMainMenu_SuppressesGameplayPresentationAudioResume");
 
@@ -324,7 +345,10 @@ namespace Game.Feature.UI.Tests
                 installer.HudView.ClickPause();
                 installer.PausePopupView.ClickMainMenu();
 
-                Assert.That(pause.IsPaused, Is.False);
+                Assert.That(
+                    pause.IsPaused,
+                    Is.True,
+                    "Pause remains owned until the unscaled source Iris reaches rendered opaque.");
                 Assert.That(
                     pauseService.IsGroupPaused(AudioPlaybackPauseGroup.GameplayPresentation, AudioPauseReason.GameplayPause),
                     Is.True);

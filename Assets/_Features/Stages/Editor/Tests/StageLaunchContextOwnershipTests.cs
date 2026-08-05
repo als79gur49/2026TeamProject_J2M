@@ -659,6 +659,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         [TestCase(StageNavigationKind.Retry, "stage-result-retry", true)]
         [TestCase(StageNavigationKind.Retry, "pause-retry", true)]
+        [TestCase(StageNavigationKind.Retry, "demo-stage-control-start-stage", true)]
         [TestCase(StageNavigationKind.Retry, "arbitrary", false)]
         [TestCase(StageNavigationKind.NextStage, "campaign-auto-next", true)]
         [TestCase(StageNavigationKind.NextStage, "arbitrary", false)]

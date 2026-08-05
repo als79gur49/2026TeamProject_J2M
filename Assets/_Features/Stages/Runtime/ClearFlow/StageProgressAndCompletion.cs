@@ -103,18 +103,26 @@ namespace Game.Feature.Stages
                 clearResult.FinalObjectiveProgress,
                 clearResult.ClearSource);
             var nextStageRequest = ResolveNextStageRequest(stageId);
+            if (nextStageRequest.IsValid)
+            {
+                nextStageRequest =
+                    nextStageRequest.WithTransitionIntent(SceneTransitionIntent.StageAdvance);
+            }
+
             var continueRequest = nextStageRequest.IsValid
                 ? nextStageRequest.WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
                 : new StageNavigationRequest(
                     stageId,
                     StageNavigationKind.Continue,
                     "stage-result-continue",
-                    StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
+                    StageTransitionHint.ForKind(StageTransitionKind.StageClearNext),
+                    SceneTransitionIntent.StageAdvance);
             var retryRequest = new StageNavigationRequest(
                 stageId,
                 StageNavigationKind.Retry,
                 "stage-result-retry",
-                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry);
 
             return new MinimalStageCompletionReadModel(
                 stageId,
@@ -149,7 +157,8 @@ namespace Game.Feature.Stages
                 nextStageId,
                 StageNavigationKind.NextStage,
                 "campaign-auto-next",
-                StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
+                StageTransitionHint.ForKind(StageTransitionKind.StageClearNext),
+                SceneTransitionIntent.StageAdvance);
         }
     }
 

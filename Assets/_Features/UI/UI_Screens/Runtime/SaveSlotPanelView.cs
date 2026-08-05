@@ -19,6 +19,7 @@ namespace Game.Feature.UI.Screens
         private int _selectedCardIndex;
         private SaveSlotActionSelection _selectedAction = SaveSlotActionSelection.Primary;
         private bool _navigationFrameVisible;
+        private bool _interactionBlocked;
 
         public event Action<SaveSlotIntent> SaveSlotIntentRequested;
 
@@ -49,6 +50,23 @@ namespace Game.Feature.UI.Screens
             _viewModel = viewModel;
             Refresh();
             RefreshNavigationAfterSlotDataChanged();
+        }
+
+        public void SetInteractionBlocked(bool blocked)
+        {
+            _interactionBlocked = blocked;
+            if (_slotCards != null)
+            {
+                for (var i = 0; i < _slotCards.Length; i++)
+                {
+                    _slotCards[i]?.SetInteractionBlocked(blocked);
+                }
+            }
+
+            if (blocked)
+            {
+                HideNavigationFrames();
+            }
         }
 
         public void ValidateAuthoredStructureOrThrow()
@@ -103,7 +121,7 @@ namespace Game.Feature.UI.Screens
 
         public bool HandleNavigate(UiNavigationCommand command)
         {
-            if (!HasFocusableCards)
+            if (_interactionBlocked || !HasFocusableCards)
             {
                 return false;
             }
@@ -135,6 +153,11 @@ namespace Game.Feature.UI.Screens
 
         public bool HandleSubmit()
         {
+            if (_interactionBlocked)
+            {
+                return false;
+            }
+
             WireSlotCards();
             var card = GetSelectedCard();
             return card != null && card.SubmitSelectedAction();
@@ -248,6 +271,11 @@ namespace Game.Feature.UI.Screens
 
         private void HandleCardIntentRequested(SaveSlotIntent intent)
         {
+            if (_interactionBlocked)
+            {
+                return;
+            }
+
             SaveSlotIntentRequested?.Invoke(intent);
         }
 
@@ -264,6 +292,7 @@ namespace Game.Feature.UI.Screens
                 if (_slotCards[i] != null)
                 {
                     _slotCards[i].Bind(_viewModel.SlotCards[i]);
+                    _slotCards[i].SetInteractionBlocked(_interactionBlocked);
                 }
             }
         }

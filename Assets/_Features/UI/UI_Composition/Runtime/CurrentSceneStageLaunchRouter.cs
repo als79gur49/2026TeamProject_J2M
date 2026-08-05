@@ -31,6 +31,17 @@ namespace Game.Feature.UI.Composition
                 throw new ArgumentException("Stage launch router requires a valid StageNavigationRequest.", nameof(request));
             }
 
+            if (request.TransitionIntent != SceneTransitionIntent.Unknown)
+            {
+                SceneTransitionRoutePolicyCatalog.RequireDestination(
+                    SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent),
+                    SceneTransitionDestinationKind.Gameplay);
+            }
+            else if (_sceneLoadPort == null && _tryStartStageTransition == null)
+            {
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent);
+            }
+
             if (string.IsNullOrWhiteSpace(_sceneName))
             {
                 return;
@@ -52,6 +63,9 @@ namespace Game.Feature.UI.Composition
 
             if (_sceneLoadPort != null)
             {
+                SceneTransitionRoutePolicyCatalog.ResolveException(
+                    SceneTransitionIntent.TestInjectedSceneLoad,
+                    SceneTransitionRouteClassification.TestOnly);
                 var contextRegisteredByThisAttempt = false;
                 try
                 {
@@ -93,6 +107,13 @@ namespace Game.Feature.UI.Composition
 
             if (_tryStartStageTransition != null || UnityEngine.Application.isPlaying)
             {
+                if (_tryStartStageTransition != null)
+                {
+                    SceneTransitionRoutePolicyCatalog.ResolveException(
+                        SceneTransitionIntent.TestInjectedSceneLoad,
+                        SceneTransitionRouteClassification.TestOnly);
+                }
+
                 var accepted = _tryStartStageTransition != null
                     ? _tryStartStageTransition(request, _sceneName)
                     : SceneTransitionCoordinator.Instance.TryStartStageTransition(request, _sceneName);

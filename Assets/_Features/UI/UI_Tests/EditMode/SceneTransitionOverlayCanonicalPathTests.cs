@@ -95,41 +95,30 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SceneTransitionOverlayContentCatalog_AllSemanticIdsResolveAfterSharedMapping()
+        public void SceneTransitionOverlayContentCatalog_ContainsOnlyExactAuthoredPlaybackKinds()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(CatalogPath);
             Assert.That(catalog, Is.Not.Null, CatalogPath);
-            Assert.That(catalog.GenericFallbackPrefab, Is.Not.Null);
 
             var coveredKinds = catalog.Entries
                 .Where(entry => entry != null && entry.ContentPrefab != null)
                 .Select(entry => entry.TransitionKind)
                 .ToArray();
-            Assert.That(coveredKinds, Does.Contain(StageTransitionKind.MainToGameplay));
-            Assert.That(coveredKinds, Does.Contain(StageTransitionKind.GameplayToMain));
-            Assert.That(coveredKinds, Does.Contain(StageTransitionKind.StageClearNext));
-            Assert.That(coveredKinds, Does.Contain(StageTransitionKind.StageRetryManual));
-            Assert.That(coveredKinds, Does.Contain(StageTransitionKind.DeathRetryChanceLost));
-            Assert.That(coveredKinds, Does.Contain(StageTransitionKind.LevelFailedRestart));
+            Assert.That(
+                coveredKinds,
+                Is.EqualTo(new[]
+                {
+                    StageTransitionKind.StageClearNext,
+                    StageTransitionKind.DeathRetryChanceLost,
+                }));
 
-            foreach (var transitionKind in CommonContentTransitionKinds)
-            {
-                var prefab = ResolveCatalogContent(catalog, transitionKind);
-
-                Assert.That(prefab, Is.SameAs(catalog.GenericFallbackPrefab), transitionKind.ToString());
-                Assert.That(prefab, Is.TypeOf<GenericLoadingOverlayContentView>(), transitionKind.ToString());
-            }
-
-            var levelFailed = ResolveCatalogContent(catalog, StageTransitionKind.LevelFailedRestart);
-            var manualRestart = ResolveCatalogContent(catalog, StageTransitionKind.StageRetryManual);
-
-            Assert.That(levelFailed, Is.SameAs(catalog.GenericFallbackPrefab));
-            Assert.That(levelFailed, Is.SameAs(manualRestart));
-            Assert.That(levelFailed.GetComponentsInChildren<TMPro.TMP_Text>(true).Select(text => text.name), Does.Not.Contain("Level" + "Restart" + "MessageText_TMP"));
+            var stageAdvance = ResolveCatalogContent(
+                catalog,
+                StageTransitionKind.StageClearNext);
+            Assert.That(stageAdvance, Is.TypeOf<GenericLoadingOverlayContentView>());
 
             var chanceLost = ResolveCatalogContent(catalog, StageTransitionKind.DeathRetryChanceLost);
 
-            Assert.That(chanceLost, Is.Not.SameAs(catalog.GenericFallbackPrefab));
             Assert.That(chanceLost, Is.TypeOf<ChanceLostOverlayContentView>());
 
             var catalogYaml = File.ReadAllText(CatalogPath);
@@ -185,6 +174,9 @@ namespace Game.Feature.UI.Tests
             var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
             Assert.That(chanceSlotRoots, Is.Not.Null);
             Assert.That(chanceSlotRoots.arraySize, Is.EqualTo(3));
+            var settleDuration = serialized.FindProperty("_postShatterSettleDurationSeconds");
+            Assert.That(settleDuration, Is.Not.Null);
+            Assert.That(settleDuration.floatValue, Is.EqualTo(0.15f).Within(0.0001f));
 
             var expectedNames = new[]
             {
@@ -483,7 +475,6 @@ namespace Game.Feature.UI.Tests
             "Continue",
             "Please wait",
         };
-
         private static readonly string[] DeletedDuplicatePrefabGuids =
         {
             "bb994410" + "0587cc84f9524c34a1745c93",
@@ -540,9 +531,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(catalog, Is.Not.Null, CatalogPath);
 
             var chanceLost = ResolveCatalogContent(catalog, StageTransitionKind.DeathRetryChanceLost);
+            var stageAdvance = ResolveCatalogContent(catalog, StageTransitionKind.StageClearNext);
             return new[]
             {
-                GlobalObjectId.GetGlobalObjectIdSlow(catalog.GenericFallbackPrefab).ToString(),
+                GlobalObjectId.GetGlobalObjectIdSlow(stageAdvance).ToString(),
                 GlobalObjectId.GetGlobalObjectIdSlow(chanceLost).ToString(),
             };
         }

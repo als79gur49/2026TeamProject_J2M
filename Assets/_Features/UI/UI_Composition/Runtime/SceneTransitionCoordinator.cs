@@ -8,6 +8,35 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Feature.UI.Composition
 {
+    internal interface ISceneTransitionLoadOperation
+    {
+        float Progress { get; }
+
+        bool IsDone { get; }
+
+        bool AllowSceneActivation { get; set; }
+    }
+
+    internal sealed class UnitySceneTransitionLoadOperation : ISceneTransitionLoadOperation
+    {
+        private readonly AsyncOperation _operation;
+
+        public UnitySceneTransitionLoadOperation(AsyncOperation operation)
+        {
+            _operation = operation ?? throw new ArgumentNullException(nameof(operation));
+        }
+
+        public float Progress => _operation.progress;
+
+        public bool IsDone => _operation.isDone;
+
+        public bool AllowSceneActivation
+        {
+            get => _operation.allowSceneActivation;
+            set => _operation.allowSceneActivation = value;
+        }
+    }
+
     internal sealed class SceneTransitionCoordinator : MonoBehaviour
     {
         private const string RootName = "[SceneTransitionCoordinator]";
@@ -16,6 +45,7 @@ namespace Game.Feature.UI.Composition
         private static SceneTransitionCoordinator _instance;
         private static Func<SceneTransitionOverlayShellView> _shellResourceLoaderForTests;
         private static Func<SceneTransitionOverlayContentCatalog> _contentCatalogResourceLoaderForTests;
+        private static Func<string, ISceneTransitionLoadOperation> _sceneLoaderForTests;
         private static IUiAudioPort _pendingUiAudioPort;
 
         private readonly StageTransitionLaunchGuard _guard = new();
@@ -55,6 +85,10 @@ namespace Game.Feature.UI.Composition
 
         public bool IsTransitionInProgress => _guard.IsTransitionInProgress;
 
+        internal int AcceptedTransitionCount { get; private set; }
+
+        internal SceneTransitionRoutePolicy? LastResolvedRoutePolicy { get; private set; }
+
         public bool TryStartStageTransition(
             StageNavigationRequest request,
             string targetSceneName,
@@ -65,6 +99,9 @@ namespace Game.Feature.UI.Composition
                 throw new ArgumentException("Scene transition requires a valid stage navigation request.", nameof(request));
             }
 
+            var routePolicy = SceneTransitionRoutePolicyCatalog.RequireDestination(
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(request.TransitionIntent),
+                SceneTransitionDestinationKind.Gameplay);
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             StageLaunchContext launchContext;
             if (launchHandoffStore.TryPeek(out var pendingHandoff))
@@ -100,6 +137,7 @@ namespace Game.Feature.UI.Composition
             return TryStartTransition(
                 request,
                 targetSceneName,
+                routePolicy,
                 beforeLoad: () =>
                 {
                     if (!StageLaunchContextStore.TrySetCurrent(launchContext))
@@ -121,15 +159,22 @@ namespace Game.Feature.UI.Composition
                 launchContext);
         }
 
-        public bool TryStartMainMenuReturn(string targetSceneName)
+        public bool TryStartMainMenuReturn(
+            string targetSceneName,
+            SceneTransitionIntent transitionIntent)
         {
+            var routePolicy = SceneTransitionRoutePolicyCatalog.RequireDestination(
+                SceneTransitionRoutePolicyCatalog.ResolveProduction(transitionIntent),
+                SceneTransitionDestinationKind.MainMenu);
             return TryStartTransition(
                 new StageNavigationRequest(
                     StageId.None,
                     StageNavigationKind.None,
                     "gameplay-to-main",
-                    StageTransitionHint.ForKind(StageTransitionKind.GameplayToMain)),
+                    StageTransitionHint.ForKind(StageTransitionKind.GameplayToMain),
+                    transitionIntent),
                 targetSceneName,
+                routePolicy,
                 beforeLoad: StageLaunchContextStore.Clear,
                 campaignLaunchToken: null,
                 launchContext: null);
@@ -158,6 +203,7 @@ namespace Game.Feature.UI.Composition
         private bool TryStartTransition(
             StageNavigationRequest request,
             string targetSceneName,
+            SceneTransitionRoutePolicy routePolicy,
             Action beforeLoad,
             Guid? campaignLaunchToken,
             StageLaunchContext launchContext)
@@ -168,7 +214,18 @@ namespace Game.Feature.UI.Composition
             }
 
             var fromSceneName = SceneManager.GetActiveScene().name;
-            var profile = _profileResolver.Resolve(request, fromSceneName, targetSceneName);
+            var profile = _profileResolver.Resolve(
+                routePolicy,
+                request,
+                fromSceneName,
+                targetSceneName);
+            LastResolvedRoutePolicy = routePolicy;
+            Debug.Log(
+                SceneTransitionRouteDiagnostic.Format(
+                    routePolicy,
+                    request.Source,
+                    profile.Kind),
+                this);
             if (!_guard.TryBegin(out var transitionId))
             {
                 Debug.LogWarning(
@@ -177,10 +234,184 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
+            if (routePolicy.Intent == SceneTransitionIntent.GameplayEntry)
+            {
+                var mainMenuSource =
+                    FindFirstObjectByType<MainMenuUiFlowInstaller>();
+                if (mainMenuSource == null)
+                {
+                    _guard.Complete(transitionId);
+                    throw new InvalidOperationException(
+                        "GameplayEntry requires the production Main Menu source Iris owner before session claim.");
+                }
+
+                try
+                {
+                    mainMenuSource.RequireGameplayEntrySourceReady();
+                }
+                catch
+                {
+                    _guard.Complete(transitionId);
+                    throw;
+                }
+            }
+
+            if (routePolicy.Intent == SceneTransitionIntent.GameplayEntry &&
+                StageLaunchContextStore.TryPeek(out _))
+            {
+                _guard.Complete(transitionId);
+                throw new InvalidOperationException(
+                    "GameplayEntry launch context is already owned; source Iris was not started.");
+            }
+
+            var cinematicHandoff = default(CinematicOpaqueHandoffSnapshot);
+            if (routePolicy.TargetRequiresOpaqueOwnerTransfer)
+            {
+                try
+                {
+                    cinematicHandoff = RequireCinematicOpaqueHandoff(
+                        routePolicy.Intent);
+                }
+                catch
+                {
+                    _guard.Complete(transitionId);
+                    throw;
+                }
+            }
+
+            var entrySession = SceneEntryPresentationRegistry.Current;
+            var mainMenuEntrySession = MainMenuEntryPresentationRegistry.Current;
+            var gameplayVisualCaptured = false;
+            var gameplayTransitionBound = false;
+            var mainMenuVisualCaptured = false;
+            var mainMenuTransitionBound = false;
             _currentCampaignLaunchToken = campaignLaunchToken;
             _currentLaunchContext = null;
             try
             {
+                if (routePolicy.ImplementsSceneTransitionSession &&
+                    routePolicy.DestinationKind ==
+                    SceneTransitionDestinationKind.Gameplay)
+                {
+                    if (routePolicy.Intent == SceneTransitionIntent.StageAdvance)
+                    {
+                        if (!entrySession.IsActive ||
+                            entrySession.TransitionIntent != routePolicy.Intent ||
+                            !entrySession.DestinationStageId.Equals(request.StageId))
+                        {
+                            throw new InvalidOperationException(
+                                "Next-stage transition requires the matching persistent SceneEntryPresentationSession claim.");
+                        }
+                    }
+                    else if (!entrySession.IsActive)
+                    {
+                        if (!SceneEntryPresentationRegistry.TryClaim(
+                                routePolicy.Intent,
+                                request.StageId,
+                                TerminalSessionRegistry.Authority
+                                    .CurrentSceneGeneration,
+                                launchContext?.Source ?? request.Source,
+                                launchContext?.SlotNumber ?? 0,
+                                launchContext?.Token ?? Guid.Empty,
+                                out _))
+                        {
+                            throw new InvalidOperationException(
+                                $"Retry route {routePolicy.Intent} could not claim gameplay entry session.");
+                        }
+
+                        entrySession = SceneEntryPresentationRegistry.Current;
+                    }
+
+                    if (entrySession.TransitionIntent != routePolicy.Intent ||
+                        !entrySession.DestinationStageId.Equals(request.StageId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Gameplay entry route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    GameplayEntryTransitionVisualSnapshotRegistry.Capture(
+                        entrySession.Token,
+                        routePolicy,
+                        routePolicy.Intent == SceneTransitionIntent.StageAdvance
+                            ? ResultTransitionVisualSnapshotRegistry
+                                .RequireCurrent()
+                                .Dim
+                                .OpaqueColor
+                            : null,
+                        routePolicy.Intent ==
+                        SceneTransitionIntent.CinematicToGameplay
+                            ? cinematicHandoff.OpaqueColor
+                            : null);
+                    gameplayVisualCaptured = true;
+                    if (!SceneEntryPresentationRegistry.TryBindTransition(
+                            entrySession.Token,
+                            transitionId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Gameplay entry route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    gameplayTransitionBound = true;
+                }
+
+                if (routePolicy.ImplementsSceneTransitionSession &&
+                    routePolicy.DestinationKind ==
+                    SceneTransitionDestinationKind.MainMenu)
+                {
+                    if (!mainMenuEntrySession.IsActive)
+                    {
+                        if (!MainMenuEntryPresentationRegistry.TryClaim(
+                                routePolicy.Intent,
+                                TerminalSessionRegistry.Authority
+                                    .CurrentSceneGeneration,
+                                request.Source,
+                                out _))
+                        {
+                            throw new InvalidOperationException(
+                                $"Main Menu route {routePolicy.Intent} could not claim its destination session.");
+                        }
+
+                        mainMenuEntrySession =
+                            MainMenuEntryPresentationRegistry.Current;
+                    }
+
+                    if (mainMenuEntrySession.TransitionIntent !=
+                        routePolicy.Intent)
+                    {
+                        throw new InvalidOperationException(
+                            $"Main Menu route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    MainMenuTransitionVisualPolicy.Capture(
+                        mainMenuEntrySession.Token,
+                        routePolicy,
+                        routePolicy.Intent ==
+                        SceneTransitionIntent.CinematicToMainMenu
+                            ? cinematicHandoff.OpaqueColor
+                            : null);
+                    mainMenuVisualCaptured = true;
+                    if (!MainMenuEntryPresentationRegistry.TryBindTransition(
+                            mainMenuEntrySession.Token,
+                            transitionId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Main Menu route {routePolicy.Intent} requires its matching current session.");
+                    }
+
+                    mainMenuTransitionBound = true;
+                }
+
+                var terminalToken = request.TransitionHint.TerminalToken;
+                if (terminalToken.IsValid &&
+                    !TerminalSessionRegistry.Authority.TryBindTransition(
+                        terminalToken,
+                        transitionId,
+                        TerminalSessionRegistry.Current.DestinationKind))
+                {
+                    throw new InvalidOperationException(
+                        $"Scene transition {transitionId} could not bind terminal token {terminalToken}.");
+                }
+
                 beforeLoad?.Invoke();
                 _currentLaunchContext = launchContext;
                 var shell = EnsureOverlayShell();
@@ -195,15 +426,34 @@ namespace Game.Feature.UI.Composition
                     request,
                     targetSceneName,
                     profile,
+                    routePolicy,
                     campaignLaunchToken,
                     launchContext));
+                AcceptedTransitionCount++;
                 return true;
             }
             catch
             {
-                ClearFailedCampaignLaunch(_currentLaunchContext, campaignLaunchToken);
-                TryHideOverlay();
-                _guard.Complete(transitionId);
+                ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
+                const string failureReason =
+                    "Scene transition failed before its scene load routine started.";
+                var holdingCover = HandleSceneEntryPreCoroutineFailure(
+                                       entrySession,
+                                       transitionId,
+                                       gameplayVisualCaptured,
+                                       gameplayTransitionBound,
+                                       failureReason) ||
+                                   HandleMainMenuEntryPreCoroutineFailure(
+                                       mainMenuEntrySession,
+                                       transitionId,
+                                       mainMenuVisualCaptured,
+                                       mainMenuTransitionBound,
+                                       failureReason);
+                if (!holdingCover)
+                {
+                    _guard.Complete(transitionId);
+                }
+
                 _currentCampaignLaunchToken = null;
                 _currentLaunchContext = null;
                 throw;
@@ -215,11 +465,23 @@ namespace Game.Feature.UI.Composition
             StageNavigationRequest request,
             string targetSceneName,
             StageTransitionProfile profile,
+            SceneTransitionRoutePolicy routePolicy,
             Guid? campaignLaunchToken,
             StageLaunchContext launchContext)
         {
-            var state = new TransitionExecutionState();
-            var routine = RunTransitionCore(transitionId, request, targetSceneName, profile, state);
+            var state = new TransitionExecutionState
+            {
+                Phase = SceneTransitionLifecycleState.Claimed,
+                TerminalToken = request.TransitionHint.TerminalToken,
+            };
+            var routine = RunTransitionCore(
+                transitionId,
+                request,
+                targetSceneName,
+                profile,
+                routePolicy,
+                state);
+            Exception failure = null;
             try
             {
                 while (true)
@@ -231,15 +493,10 @@ namespace Game.Feature.UI.Composition
                         hasNext = routine.MoveNext();
                         current = hasNext ? routine.Current : null;
                     }
-                    catch
+                    catch (Exception exception)
                     {
-                        if (!state.TerminalClaimed)
-                        {
-                            state.TerminalClaimed = true;
-                            ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
-                        }
-
-                        throw;
+                        failure = exception;
+                        break;
                     }
 
                     if (!hasNext)
@@ -254,23 +511,99 @@ namespace Game.Feature.UI.Composition
             {
                 EndDiagnostics(transitionId, state.Diagnostics);
                 (routine as IDisposable)?.Dispose();
-                if (state.Operation != null && !state.Operation.allowSceneActivation)
-                {
-                    state.Operation.allowSceneActivation = true;
-                }
 
-                TryHideOverlay();
-                _guard.Complete(transitionId);
-                if (_currentCampaignLaunchToken == campaignLaunchToken)
+                if (failure != null && profile.RequiresExplicitContentCompletion)
                 {
-                    _currentCampaignLaunchToken = null;
-                }
+                    state.Phase = SceneTransitionLifecycleState.FailedHoldingCover;
+                    if (state.TerminalToken.IsValid)
+                    {
+                        TerminalSessionRegistry.TryFailHoldingCover(
+                            state.TerminalToken,
+                            failure.Message);
+                    }
 
-                if (_currentLaunchContext != null &&
-                    launchContext != null &&
-                    _currentLaunchContext.Equals(launchContext))
+                    TryHoldSceneEntryCoverOnFailure(request, failure.Message);
+
+                    Debug.LogError(
+                        $"Terminal scene transition {transitionId} entered FailedHoldingCover. " +
+                        $"token={state.TerminalToken}, phase={state.Phase}, failure={failure.Message}. " +
+                        "The launch guard remains owned and scene activation remains blocked.",
+                        this);
+                }
+                else if (failure != null)
                 {
-                    _currentLaunchContext = null;
+                    ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
+                    var holdingCover = TryHoldSceneEntryCoverOnFailure(
+                                           request,
+                                           failure.Message) ||
+                                       TryHoldMainMenuEntryCoverOnFailure(
+                                           request,
+                                           failure.Message);
+                    if (holdingCover)
+                    {
+                        state.Phase = SceneTransitionLifecycleState.FailedHoldingCover;
+                        Debug.LogError(
+                            $"Scene transition {transitionId} entered FailedHoldingCover. " +
+                            $"intent={routePolicy.Intent}, failure={failure.Message}. " +
+                            "The launch guard remains owned and destination interaction remains blocked.",
+                            this);
+                    }
+                    else
+                    {
+                        _guard.Complete(transitionId);
+                        Debug.LogException(failure, this);
+                    }
+                }
+                else if (state.Phase != SceneTransitionLifecycleState.Completed)
+                {
+                    var incompleteFailure = new InvalidOperationException(
+                        $"Scene transition {transitionId} stopped without reaching Completed (phase={state.Phase}).");
+                    if (profile.RequiresExplicitContentCompletion)
+                    {
+                        state.Phase = SceneTransitionLifecycleState.FailedHoldingCover;
+                        TerminalSessionRegistry.TryFailHoldingCover(
+                            state.TerminalToken,
+                            incompleteFailure.Message);
+                        TryHoldSceneEntryCoverOnFailure(
+                            request,
+                            incompleteFailure.Message);
+                        Debug.LogException(incompleteFailure, this);
+                    }
+                    else
+                    {
+                        ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
+                        var holdingCover = TryHoldSceneEntryCoverOnFailure(
+                                               request,
+                                               incompleteFailure.Message) ||
+                                           TryHoldMainMenuEntryCoverOnFailure(
+                                               request,
+                                               incompleteFailure.Message);
+                        if (holdingCover)
+                        {
+                            state.Phase = SceneTransitionLifecycleState.FailedHoldingCover;
+                        }
+                        else
+                        {
+                            _guard.Complete(transitionId);
+                        }
+
+                        Debug.LogException(incompleteFailure, this);
+                    }
+                }
+                else
+                {
+                    _guard.Complete(transitionId);
+                    if (_currentCampaignLaunchToken == campaignLaunchToken)
+                    {
+                        _currentCampaignLaunchToken = null;
+                    }
+
+                    if (_currentLaunchContext != null &&
+                        launchContext != null &&
+                        _currentLaunchContext.Equals(launchContext))
+                    {
+                        _currentLaunchContext = null;
+                    }
                 }
             }
         }
@@ -280,13 +613,114 @@ namespace Game.Feature.UI.Composition
             StageNavigationRequest request,
             string targetSceneName,
             StageTransitionProfile profile,
+            SceneTransitionRoutePolicy routePolicy,
             TransitionExecutionState state)
         {
-            if (profile.StartAsyncLoadBeforeOverlay)
+            if (routePolicy.DestinationKind ==
+                    SceneTransitionDestinationKind.MainMenu &&
+                routePolicy.ImplementsSceneTransitionSession)
             {
+                var mainMenuRoutine = RunMainMenuDestinationTransition(
+                    transitionId,
+                    request,
+                    targetSceneName,
+                    routePolicy,
+                    state);
+                while (mainMenuRoutine.MoveNext())
+                {
+                    yield return mainMenuRoutine.Current;
+                }
+
+                yield break;
+            }
+
+            if (routePolicy.Intent == SceneTransitionIntent.DeathRetry)
+            {
+                if (!profile.StartAsyncLoadBeforeOverlay ||
+                    !profile.RequiresExplicitContentCompletion ||
+                    !profile.RequiresOpaqueTakeover)
+                {
+                    throw new InvalidOperationException(
+                        "DeathRetry requires its exact explicit-content opaque lifecycle profile.");
+                }
+
                 state.Diagnostics = BeginDiagnostics(transitionId, request, targetSceneName);
                 state.Operation = BeginLoad(targetSceneName);
-                ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.progress));
+                ObserveDiagnostics(
+                    state,
+                    ResolvePreActivationDiagnosticPhase(state.Operation.Progress));
+                var explicitRoutine = RunExplicitContentTransition(
+                    transitionId,
+                    request,
+                    targetSceneName,
+                    profile,
+                    state);
+                while (explicitRoutine.MoveNext())
+                {
+                    yield return explicitRoutine.Current;
+                }
+
+                yield break;
+            }
+
+            if (routePolicy.Intent == SceneTransitionIntent.StageAdvance)
+            {
+                var stageAdvanceRoutine = RunStageAdvanceTransition(
+                    transitionId,
+                    request,
+                    targetSceneName,
+                    profile,
+                    state);
+                while (stageAdvanceRoutine.MoveNext())
+                {
+                    yield return stageAdvanceRoutine.Current;
+                }
+
+                yield break;
+            }
+
+            if (UsesGameplayEntryIrisSourceLifecycle(routePolicy.Intent))
+            {
+                if (profile.RequiresExplicitContentCompletion ||
+                    profile.StartAsyncLoadBeforeOverlay)
+                {
+                    throw new InvalidOperationException(
+                        $"Gameplay entry route {routePolicy.Intent} cannot use the explicit-content loading lifecycle.");
+                }
+
+                var gameplayEntryRoutine = RunGameplayEntryIrisTransition(
+                    transitionId,
+                    request,
+                    targetSceneName,
+                    routePolicy,
+                    state);
+                while (gameplayEntryRoutine.MoveNext())
+                {
+                    yield return gameplayEntryRoutine.Current;
+                }
+
+                yield break;
+            }
+
+            throw new InvalidOperationException(
+                $"Scene transition intent {routePolicy.Intent} has no canonical executor.");
+        }
+
+        private IEnumerator RunStageAdvanceTransition(
+            int transitionId,
+            StageNavigationRequest request,
+            string targetSceneName,
+            StageTransitionProfile profile,
+            TransitionExecutionState state)
+        {
+            var entrySession = SceneEntryPresentationRegistry.Current;
+            if (!entrySession.IsActive ||
+                entrySession.TransitionIntent != SceneTransitionIntent.StageAdvance ||
+                entrySession.TransitionId != transitionId ||
+                !entrySession.DestinationStageId.Equals(request.StageId))
+            {
+                throw new InvalidOperationException(
+                    $"StageAdvance transition {transitionId} has no correlated gameplay entry session.");
             }
 
             var preOverlayDelaySeconds = Math.Max(0f, profile.PreOverlayDelaySeconds);
@@ -295,12 +729,13 @@ namespace Game.Feature.UI.Composition
             {
                 if (state.Operation != null)
                 {
-                    ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.progress));
+                    ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.Progress));
                 }
 
                 yield return null;
             }
 
+            state.Phase = SceneTransitionLifecycleState.Presenting;
             var overlay = EnsureOverlayShell();
             var viewModel = CreateViewModel(profile, request.TransitionHint, 0f);
             var contentPrefab = ResolveContentPrefab(viewModel);
@@ -313,7 +748,8 @@ namespace Game.Feature.UI.Composition
             {
                 state.Diagnostics = BeginDiagnostics(transitionId, request, targetSceneName);
                 state.Operation = BeginLoad(targetSceneName);
-                ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.progress));
+                state.Phase = SceneTransitionLifecycleState.Loading;
+                ObserveDiagnostics(state, ResolvePreActivationDiagnosticPhase(state.Operation.Progress));
             }
 
             var minimumVisibleSeconds = Math.Max(0f, profile.MinimumVisibleSeconds);
@@ -321,13 +757,13 @@ namespace Game.Feature.UI.Composition
             var minimumElapsed = !profile.HoldSceneActivationUntilMinimumElapsed;
             while (!loadReady || !minimumElapsed)
             {
-                loadReady = state.Operation.progress >= 0.9f;
+                loadReady = state.Operation.Progress >= 0.9f;
                 ObserveDiagnostics(
                     state,
                     loadReady
                         ? SceneTransitionDiagnosticPhase.ActivationPending
                         : SceneTransitionDiagnosticPhase.WaitingForReadiness);
-                overlay.SetProgress(loadReady ? 1f : NormalizeProgress(state.Operation.progress));
+                overlay.SetProgress(loadReady ? 1f : NormalizeProgress(state.Operation.Progress));
                 minimumElapsed = IsMinimumVisibleElapsedForActivation(
                     profile,
                     overlayShownAt,
@@ -335,11 +771,61 @@ namespace Game.Feature.UI.Composition
                 yield return null;
             }
 
+            var completedTerminal = TerminalSessionRegistry.Current;
+            var visualSnapshot =
+                ResultTransitionVisualSnapshotRegistry.RequireCurrent();
+            if (!completedTerminal.Token.IsValid ||
+                completedTerminal.Token != visualSnapshot.TerminalToken ||
+                completedTerminal.TerminalKind != TerminalTransitionKind.Victory ||
+                completedTerminal.DestinationKind !=
+                TerminalDestinationKind.SameSceneStageResult ||
+                completedTerminal.Phase != TerminalSessionPhase.Completed ||
+                entrySession.SourceSceneGeneration !=
+                completedTerminal.SourceSceneGeneration ||
+                (request.TransitionHint.TerminalToken.IsValid &&
+                 request.TransitionHint.TerminalToken != visualSnapshot.TerminalToken))
+            {
+                throw new InvalidOperationException(
+                    "Next-stage transition requires a destination-correlated entry session, the completed " +
+                    "StageResult Victory token/generation, and its matching immutable Result visual snapshot.");
+            }
+
+            overlay.RequestStyledCoverTakeover(
+                visualSnapshot.Dim.OpaqueColor,
+                visualSnapshot.RuntimeStyle.ResultExitCoverFadeDuration,
+                visualSnapshot.RuntimeStyle.ResultExitCoverEasing);
+            while (!overlay.IsStyledCoverFadeComplete)
+            {
+                overlay.TickStyledCoverTakeover(Time.unscaledDeltaTime);
+                yield return null;
+            }
+
+            while (!overlay.HasRenderedOpaqueFrame)
+            {
+                yield return null;
+            }
+
+            overlay.AcknowledgeOpaqueHandoffReady();
+            state.PersistentCoverRendered = true;
+            overlay.HideVisual();
+            if (!SceneEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.PersistentCoverReady) ||
+                !SceneEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.Loading))
+            {
+                throw new InvalidOperationException(
+                    $"Next-stage transition {transitionId} could not advance its persistent cover lifecycle.");
+            }
+
             overlay.SetProgress(1f);
             ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.ActivationPending);
-            state.Operation.allowSceneActivation = true;
+            state.Phase = SceneTransitionLifecycleState.ReadyToActivate;
+            state.Operation.AllowSceneActivation = true;
+            state.Phase = SceneTransitionLifecycleState.Activating;
             ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
-            while (!state.Operation.isDone)
+            while (!state.Operation.IsDone)
             {
                 yield return null;
                 ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
@@ -351,13 +837,586 @@ namespace Game.Feature.UI.Composition
             {
                 yield return null;
             }
+
+            state.Phase = SceneTransitionLifecycleState.WaitingDestinationReady;
+            while (SceneEntryPresentationRegistry.IsActive)
+            {
+                var current = SceneEntryPresentationRegistry.Current;
+                if (current.Token != entrySession.Token)
+                {
+                    throw new InvalidOperationException(
+                        $"StageAdvance destination entry token changed from {entrySession.Token} to {current.Token}.");
+                }
+
+                if (current.Phase == SceneEntryPresentationPhase.FailedHoldingCover)
+                {
+                    throw new InvalidOperationException(
+                        $"StageAdvance destination failed while holding opaque cover: {current.FailureReason}");
+                }
+
+                yield return null;
+            }
+
+            state.Phase = SceneTransitionLifecycleState.Completed;
+        }
+
+        private IEnumerator RunExplicitContentTransition(
+            int transitionId,
+            StageNavigationRequest request,
+            string targetSceneName,
+            StageTransitionProfile profile,
+            TransitionExecutionState state)
+        {
+            if (!profile.RequiresOpaqueTakeover)
+            {
+                throw new InvalidOperationException(
+                    $"Explicit transition {transitionId} requires persistent opaque takeover.");
+            }
+
+            var token = request.TransitionHint.TerminalToken;
+            if (!token.IsValid ||
+                !TerminalSessionRegistry.IsActive ||
+                TerminalSessionRegistry.Current.Token != token ||
+                TerminalSessionRegistry.Current.TerminalKind != TerminalTransitionKind.Defeat)
+            {
+                throw new InvalidOperationException(
+                    $"Explicit transition {transitionId} requires the active correlated Defeat terminal token. token={token}.");
+            }
+
+            var terminalPlayback = TerminalTransitionRegistry.Current;
+            while (terminalPlayback == null ||
+                   terminalPlayback.Request.Token != token ||
+                   terminalPlayback.Request.Kind != TerminalTransitionKind.Defeat ||
+                   terminalPlayback.State != TerminalTransitionState.Black)
+            {
+                terminalPlayback = TerminalTransitionRegistry.Current;
+                if (terminalPlayback != null &&
+                    terminalPlayback.Request.Token == token &&
+                    (terminalPlayback.State == TerminalTransitionState.Cancelled ||
+                     terminalPlayback.State == TerminalTransitionState.Disposed))
+                {
+                    throw new InvalidOperationException(
+                        $"Transition {transitionId} Terminal Iris for token {token} was cancelled before black.");
+                }
+
+                ObserveDiagnostics(
+                    state,
+                    state.Operation != null
+                        ? ResolvePreActivationDiagnosticPhase(state.Operation.Progress)
+                        : SceneTransitionDiagnosticPhase.WaitingForReadiness);
+                yield return null;
+            }
+
+            var overlay = EnsureOverlayShell();
+            TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.OpaqueHandoff);
+            var entrySession = SceneEntryPresentationRegistry.Current;
+            var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                entrySession.Token,
+                SceneTransitionIntent.DeathRetry);
+            overlay.RequestOpaqueTakeover(visual.HoldColor);
+            while (!overlay.HasRenderedOpaqueFrame)
+            {
+                yield return null;
+            }
+            overlay.AcknowledgeOpaqueHandoffReady();
+            state.PersistentCoverRendered = true;
+            if (!overlay.IsOpaqueHandoffReady)
+            {
+                throw new InvalidOperationException(
+                    $"Transition {transitionId} persistent opaque handoff was not acknowledged.");
+            }
+
+            if (!terminalPlayback.CompleteHandoff(token))
+            {
+                throw new InvalidOperationException(
+                    $"Transition {transitionId} could not release scene-local Iris after opaque handoff.");
+            }
+
+            if (!SceneEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.PersistentCoverReady) ||
+                !SceneEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.Loading))
+            {
+                throw new InvalidOperationException(
+                    $"DeathRetry transition {transitionId} could not enter gameplay destination loading.");
+            }
+
+            var viewModel = CreateViewModel(profile, request.TransitionHint, 0f);
+            var contentPrefab = ResolveContentPrefab(viewModel);
+            var content = overlay.MountContent(contentPrefab);
+            overlay.ShowContent(viewModel, content);
+            if (content is not ITransitionContentPlaybackProvider playbackProvider ||
+                playbackProvider.Playback == null)
+            {
+                throw new InvalidOperationException(
+                    $"Transition {transitionId} requires explicit content completion, but content '{contentPrefab.name}' does not provide it.");
+            }
+
+            var contentPlayback = playbackProvider.Playback;
+            var contentCompleted = contentPlayback.IsCompleted;
+            var contentCancelled = contentPlayback.IsCancelled;
+            var contentFailed = contentPlayback.IsFailed;
+            void HandleCompleted()
+            {
+                contentCompleted = true;
+            }
+
+            void HandleCancelled()
+            {
+                contentCancelled = true;
+            }
+
+            void HandleFailed()
+            {
+                contentFailed = true;
+            }
+
+            contentPlayback.Completed += HandleCompleted;
+            contentPlayback.Cancelled += HandleCancelled;
+            contentPlayback.Failed += HandleFailed;
+            try
+            {
+                state.Phase = SceneTransitionLifecycleState.Presenting;
+                TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.Presenting);
+                PlayTransitionAudio(viewModel);
+                contentCompleted = contentPlayback.IsCompleted;
+                contentCancelled = contentPlayback.IsCancelled;
+                contentFailed = contentPlayback.IsFailed;
+
+                if (state.Operation == null)
+                {
+                    state.Diagnostics = BeginDiagnostics(transitionId, request, targetSceneName);
+                    state.Operation = BeginLoad(targetSceneName);
+                }
+
+                state.Phase = SceneTransitionLifecycleState.Loading;
+                TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.Loading);
+                while (true)
+                {
+                    var asyncLoadReady = state.Operation.Progress >= 0.9f;
+                    var opaqueHandoffReady = overlay.IsOpaqueHandoffReady;
+                    overlay.SetProgress(asyncLoadReady ? 1f : NormalizeProgress(state.Operation.Progress));
+                    ObserveDiagnostics(
+                        state,
+                        CanActivateExplicitTransition(
+                            opaqueHandoffReady,
+                            contentCompleted,
+                            asyncLoadReady,
+                            contentCancelled || contentFailed)
+                            ? SceneTransitionDiagnosticPhase.ActivationPending
+                            : SceneTransitionDiagnosticPhase.WaitingForReadiness);
+
+                    if (CanActivateExplicitTransition(
+                            opaqueHandoffReady,
+                            contentCompleted,
+                            asyncLoadReady,
+                            contentCancelled || contentFailed))
+                    {
+                        break;
+                    }
+
+                    if (contentCancelled || contentFailed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Transition {transitionId} content playback ended without completion. " +
+                            $"outcome={contentPlayback.Outcome}, " +
+                            $"opaqueHandoffReady={opaqueHandoffReady}, " +
+                            $"chanceLostCompleted={contentCompleted}, " +
+                            $"asyncLoadReady={asyncLoadReady}, " +
+                            $"operationProgress={state.Operation.Progress.ToString("0.000", CultureInfo.InvariantCulture)}.");
+                    }
+
+                    yield return null;
+                }
+
+                overlay.SetProgress(1f);
+                state.Phase = SceneTransitionLifecycleState.ReadyToActivate;
+                TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.ReadyToActivate);
+                state.Phase = SceneTransitionLifecycleState.Activating;
+                TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.Activating);
+                state.Operation.AllowSceneActivation = true;
+                ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
+                while (!state.Operation.IsDone)
+                {
+                    yield return null;
+                    ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
+                }
+
+                EndDiagnostics(transitionId, state.Diagnostics);
+                state.Phase = SceneTransitionLifecycleState.WaitingDestinationReady;
+                TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.WaitingDestinationReady);
+                while (!TerminalDestinationReadiness.IsReady(token))
+                {
+                    var terminalSession = TerminalSessionRegistry.Current;
+                    if (terminalSession.Token == token &&
+                        terminalSession.Phase == TerminalSessionPhase.FailedHoldingCover)
+                    {
+                        throw new InvalidOperationException(
+                            $"Destination readiness failed for terminal token {token}: " +
+                            terminalSession.FailureReason);
+                    }
+
+                    yield return null;
+                }
+
+                while (SceneEntryPresentationRegistry.IsActive)
+                {
+                    var currentEntry = SceneEntryPresentationRegistry.Current;
+                    if (currentEntry.Token != entrySession.Token)
+                    {
+                        throw new InvalidOperationException(
+                            $"DeathRetry destination entry token changed from {entrySession.Token} to {currentEntry.Token}.");
+                    }
+
+                    if (currentEntry.Phase == SceneEntryPresentationPhase.FailedHoldingCover)
+                    {
+                        throw new InvalidOperationException(
+                            $"DeathRetry destination failed while holding black: {currentEntry.FailureReason}");
+                    }
+
+                    yield return null;
+                }
+
+                state.Phase = SceneTransitionLifecycleState.Revealing;
+                TerminalSessionRegistry.TryAdvance(token, TerminalSessionPhase.Revealing);
+                if (!TerminalSessionRegistry.TryComplete(token))
+                {
+                    throw new InvalidOperationException(
+                        $"Transition {transitionId} could not complete TerminalSession token {token} after reveal.");
+                }
+
+                state.Phase = SceneTransitionLifecycleState.Completed;
+            }
+            finally
+            {
+                contentPlayback.Completed -= HandleCompleted;
+                contentPlayback.Cancelled -= HandleCancelled;
+                contentPlayback.Failed -= HandleFailed;
+            }
+        }
+
+        private IEnumerator RunMainMenuDestinationTransition(
+            int transitionId,
+            StageNavigationRequest request,
+            string targetSceneName,
+            SceneTransitionRoutePolicy routePolicy,
+            TransitionExecutionState state)
+        {
+            var entrySession = MainMenuEntryPresentationRegistry.Current;
+            if (!entrySession.IsActive ||
+                entrySession.TransitionIntent != routePolicy.Intent ||
+                entrySession.TransitionId != transitionId)
+            {
+                throw new InvalidOperationException(
+                    $"Main Menu transition {transitionId} has no correlated destination session.");
+            }
+
+            var visual = MainMenuTransitionVisualPolicy.Require(
+                entrySession.Token,
+                routePolicy.Intent);
+            var usesCinematicOpaqueOwner =
+                routePolicy.Intent ==
+                SceneTransitionIntent.CinematicToMainMenu;
+            TerminalTransitionPlayback sourceClose = null;
+            GameplayUiFlowInstaller gameplaySourceInstaller = null;
+            if (!usesCinematicOpaqueOwner)
+            {
+                gameplaySourceInstaller =
+                    FindFirstObjectByType<GameplayUiFlowInstaller>();
+                if (gameplaySourceInstaller == null ||
+                    !gameplaySourceInstaller.TryBeginMainMenuReturnSourceClose(
+                        entrySession.Token,
+                        visual,
+                        out sourceClose))
+                {
+                    throw new InvalidOperationException(
+                        $"ReturnToMainMenu transition {transitionId} could not start its screen-center source Iris.");
+                }
+
+                while (!gameplaySourceInstaller.TickMainMenuReturnSourceClose(
+                           entrySession.Token,
+                           sourceClose,
+                           Time.unscaledDeltaTime))
+                {
+                    yield return null;
+                }
+            }
+
+            var overlay = EnsureOverlay();
+            overlay.RequestOpaqueTakeover(visual.HoldColor);
+            while (!overlay.HasRenderedOpaqueFrame)
+            {
+                yield return null;
+            }
+
+            overlay.AcknowledgeOpaqueHandoffReady();
+            state.PersistentCoverRendered = true;
+            if (usesCinematicOpaqueOwner)
+            {
+                var handoff = RequireCinematicOpaqueHandoff(
+                    routePolicy.Intent);
+                if (!CinematicOpaqueHandoffRegistry
+                        .TryTransferToPersistentCover(handoff.Token))
+                {
+                    throw new InvalidOperationException(
+                        $"CinematicToMainMenu transition {transitionId} could not transfer rendered opaque ownership.");
+                }
+            }
+            else if (!gameplaySourceInstaller.CompleteMainMenuReturnSourceClose(
+                         entrySession.Token,
+                         sourceClose))
+            {
+                throw new InvalidOperationException(
+                    $"ReturnToMainMenu transition {transitionId} could not transfer source Iris ownership.");
+            }
+
+            overlay.HideVisual();
+            if (!MainMenuEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.PersistentCoverReady) ||
+                !MainMenuEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.Loading))
+            {
+                throw new InvalidOperationException(
+                    $"Main Menu transition {transitionId} could not enter destination loading.");
+            }
+
+            state.Diagnostics = BeginDiagnostics(
+                transitionId,
+                request,
+                targetSceneName);
+            state.Operation = BeginLoad(targetSceneName);
+            state.Phase = SceneTransitionLifecycleState.Loading;
+            while (state.Operation.Progress < 0.9f)
+            {
+                ObserveDiagnostics(
+                    state,
+                    SceneTransitionDiagnosticPhase.WaitingForReadiness);
+                yield return null;
+            }
+
+            state.Phase = SceneTransitionLifecycleState.ReadyToActivate;
+            state.Operation.AllowSceneActivation = true;
+            ObserveDiagnostics(
+                state,
+                SceneTransitionDiagnosticPhase.WaitingForCompletion);
+            while (!state.Operation.IsDone)
+            {
+                yield return null;
+                ObserveDiagnostics(
+                    state,
+                    SceneTransitionDiagnosticPhase.WaitingForCompletion);
+            }
+
+            EndDiagnostics(transitionId, state.Diagnostics);
+            state.Phase =
+                SceneTransitionLifecycleState.WaitingDestinationReady;
+            while (MainMenuEntryPresentationRegistry.IsActive)
+            {
+                var current = MainMenuEntryPresentationRegistry.Current;
+                if (current.Token != entrySession.Token)
+                {
+                    throw new InvalidOperationException(
+                        $"Main Menu destination token changed from {entrySession.Token} to {current.Token}.");
+                }
+
+                if (current.Phase ==
+                    SceneEntryPresentationPhase.FailedHoldingCover)
+                {
+                    throw new InvalidOperationException(
+                        $"Main Menu destination failed while holding opaque cover: {current.FailureReason}");
+                }
+
+                yield return null;
+            }
+
+            state.Phase = SceneTransitionLifecycleState.Completed;
+        }
+
+        private IEnumerator RunGameplayEntryIrisTransition(
+            int transitionId,
+            StageNavigationRequest request,
+            string targetSceneName,
+            SceneTransitionRoutePolicy routePolicy,
+            TransitionExecutionState state)
+        {
+            var entrySession = SceneEntryPresentationRegistry.Current;
+            if (!entrySession.IsActive ||
+                entrySession.TransitionIntent != routePolicy.Intent ||
+                entrySession.TransitionId != transitionId)
+            {
+                throw new InvalidOperationException(
+                    $"Retry transition {transitionId} has no correlated gameplay entry session.");
+            }
+
+            var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
+                entrySession.Token,
+                routePolicy.Intent);
+            var usesCinematicOpaqueOwner =
+                routePolicy.Intent ==
+                SceneTransitionIntent.CinematicToGameplay;
+            var gameplaySourceInstaller =
+                routePolicy.Intent == SceneTransitionIntent.GameplayEntry ||
+                usesCinematicOpaqueOwner
+                    ? null
+                    : FindFirstObjectByType<GameplayUiFlowInstaller>();
+            var mainMenuSourceInstaller =
+                routePolicy.Intent == SceneTransitionIntent.GameplayEntry
+                    ? FindFirstObjectByType<MainMenuUiFlowInstaller>()
+                    : null;
+            TerminalTransitionPlayback sourceClose = null;
+            if (!usesCinematicOpaqueOwner)
+            {
+                var sourceStarted = mainMenuSourceInstaller != null
+                    ? mainMenuSourceInstaller.TryBeginGameplayEntrySourceClose(
+                        entrySession.Token,
+                        visual,
+                        out sourceClose)
+                    : gameplaySourceInstaller != null &&
+                      gameplaySourceInstaller.TryBeginGameplayEntrySourceClose(
+                          entrySession.Token,
+                          visual,
+                          out sourceClose);
+                if (!sourceStarted)
+                {
+                    throw new InvalidOperationException(
+                        $"Gameplay entry transition {transitionId} could not start its authored source Iris.");
+                }
+
+                while (!(mainMenuSourceInstaller != null
+                           ? mainMenuSourceInstaller.TickGameplayEntrySourceClose(
+                               entrySession.Token,
+                               sourceClose,
+                               Time.unscaledDeltaTime)
+                           : gameplaySourceInstaller.TickGameplayEntrySourceClose(
+                               entrySession.Token,
+                               sourceClose,
+                               Time.unscaledDeltaTime)))
+                {
+                    yield return null;
+                }
+            }
+
+            var overlay = EnsureOverlay();
+            overlay.RequestOpaqueTakeover(visual.HoldColor);
+            while (!overlay.HasRenderedOpaqueFrame)
+            {
+                yield return null;
+            }
+
+            overlay.AcknowledgeOpaqueHandoffReady();
+            state.PersistentCoverRendered = true;
+            if (usesCinematicOpaqueOwner)
+            {
+                var handoff = RequireCinematicOpaqueHandoff(
+                    routePolicy.Intent);
+                if (!CinematicOpaqueHandoffRegistry
+                        .TryTransferToPersistentCover(handoff.Token))
+                {
+                    throw new InvalidOperationException(
+                        $"CinematicToGameplay transition {transitionId} could not transfer rendered opaque ownership.");
+                }
+            }
+            else
+            {
+                var sourceCompleted = mainMenuSourceInstaller != null
+                    ? mainMenuSourceInstaller.CompleteGameplayEntrySourceClose(
+                        entrySession.Token,
+                        sourceClose)
+                    : gameplaySourceInstaller.CompleteGameplayEntrySourceClose(
+                        entrySession.Token,
+                        sourceClose);
+                if (!sourceCompleted)
+                {
+                    throw new InvalidOperationException(
+                        $"Gameplay entry transition {transitionId} could not hand source Iris ownership to the persistent cover.");
+                }
+            }
+
+            overlay.HideVisual();
+            if (!SceneEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.PersistentCoverReady) ||
+                !SceneEntryPresentationRegistry.TryAdvance(
+                    entrySession.Token,
+                    SceneEntryPresentationPhase.Loading))
+            {
+                throw new InvalidOperationException(
+                    $"Retry transition {transitionId} could not enter destination loading.");
+            }
+
+            state.Diagnostics = BeginDiagnostics(transitionId, request, targetSceneName);
+            state.Operation = BeginLoad(targetSceneName);
+            state.Phase = SceneTransitionLifecycleState.Loading;
+            while (state.Operation.Progress < 0.9f)
+            {
+                ObserveDiagnostics(
+                    state,
+                    SceneTransitionDiagnosticPhase.WaitingForReadiness);
+                yield return null;
+            }
+
+            state.Phase = SceneTransitionLifecycleState.ReadyToActivate;
+            state.Operation.AllowSceneActivation = true;
+            ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
+            while (!state.Operation.IsDone)
+            {
+                yield return null;
+                ObserveDiagnostics(state, SceneTransitionDiagnosticPhase.WaitingForCompletion);
+            }
+
+            EndDiagnostics(transitionId, state.Diagnostics);
+            state.Phase = SceneTransitionLifecycleState.WaitingDestinationReady;
+            while (SceneEntryPresentationRegistry.IsActive)
+            {
+                var current = SceneEntryPresentationRegistry.Current;
+                if (current.Token != entrySession.Token)
+                {
+                    throw new InvalidOperationException(
+                        $"Retry destination entry token changed from {entrySession.Token} to {current.Token}.");
+                }
+
+                if (current.Phase == SceneEntryPresentationPhase.FailedHoldingCover)
+                {
+                    throw new InvalidOperationException(
+                        $"Retry destination failed while holding opaque cover: {current.FailureReason}");
+                }
+
+                yield return null;
+            }
+
+            if (string.Equals(request.Source, "pause-retry", StringComparison.Ordinal))
+            {
+                Time.timeScale = 1f;
+            }
+
+            state.Phase = SceneTransitionLifecycleState.Completed;
+        }
+
+        private enum SceneTransitionLifecycleState
+        {
+            Idle = 0,
+            Claimed = 1,
+            Loading = 2,
+            Presenting = 3,
+            ReadyToActivate = 4,
+            Activating = 5,
+            WaitingDestinationReady = 6,
+            Revealing = 7,
+            Completed = 8,
+            FailedHoldingCover = 9,
         }
 
         private sealed class TransitionExecutionState
         {
-            public AsyncOperation Operation;
+            public ISceneTransitionLoadOperation Operation;
             public SceneTransitionDiagnosticsMonitor Diagnostics;
-            public bool TerminalClaimed;
+            public SceneTransitionLifecycleState Phase;
+            public TerminalSessionToken TerminalToken;
+            public bool PersistentCoverRendered;
         }
 
         private SceneTransitionDiagnosticsMonitor BeginDiagnostics(
@@ -389,9 +1448,9 @@ namespace Game.Feature.UI.Composition
 
             state.Diagnostics.Observe(
                 phase,
-                state.Operation.progress,
-                state.Operation.isDone,
-                state.Operation.allowSceneActivation);
+                state.Operation.Progress,
+                state.Operation.IsDone,
+                state.Operation.AllowSceneActivation);
         }
 
         private static SceneTransitionDiagnosticPhase ResolvePreActivationDiagnosticPhase(float progress)
@@ -453,10 +1512,10 @@ namespace Game.Feature.UI.Composition
             }
 
             EndCurrentDiagnostics();
-            ClearFailedCampaignLaunch(_currentLaunchContext, _currentCampaignLaunchToken);
-            if (_guard.IsTransitionInProgress)
+            if (!_guard.IsTransitionInProgress ||
+                TerminalSessionRegistry.Current.Phase != TerminalSessionPhase.FailedHoldingCover)
             {
-                _guard.Complete(_guard.CurrentTransitionId);
+                ClearFailedCampaignLaunch(_currentLaunchContext, _currentCampaignLaunchToken);
             }
 
             _currentLaunchContext = null;
@@ -464,8 +1523,15 @@ namespace Game.Feature.UI.Composition
             _instance = null;
         }
 
-        private static AsyncOperation BeginLoad(string targetSceneName)
+        private static ISceneTransitionLoadOperation BeginLoad(string targetSceneName)
         {
+            if (_sceneLoaderForTests != null)
+            {
+                return _sceneLoaderForTests(targetSceneName) ??
+                       throw new InvalidOperationException(
+                           $"Test scene loader returned null for scene '{targetSceneName}'.");
+            }
+
             var operation = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Single);
             if (operation == null)
             {
@@ -473,7 +1539,7 @@ namespace Game.Feature.UI.Composition
             }
 
             operation.allowSceneActivation = false;
-            return operation;
+            return new UnitySceneTransitionLoadOperation(operation);
         }
 
         private ISceneTransitionOverlayShellView EnsureOverlay()
@@ -503,21 +1569,241 @@ namespace Game.Feature.UI.Composition
             return _overlayShell;
         }
 
-        private void TryHideOverlay()
+        private bool HandleSceneEntryPreCoroutineFailure(
+            SceneEntryPresentationSnapshot expected,
+            long transitionId,
+            bool visualCaptured,
+            bool transitionBound,
+            string failureReason)
         {
+            if (!expected.IsActive)
+            {
+                return false;
+            }
+
+            var current = SceneEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != expected.Token ||
+                current.TransitionIntent != expected.TransitionIntent ||
+                !current.DestinationStageId.Equals(expected.DestinationStageId))
+            {
+                if (visualCaptured)
+                {
+                    GameplayEntryTransitionVisualSnapshotRegistry.Clear(
+                        expected.Token);
+                }
+
+                return false;
+            }
+
+            if (current.Phase == SceneEntryPresentationPhase.Claimed)
+            {
+                if (visualCaptured)
+                {
+                    GameplayEntryTransitionVisualSnapshotRegistry.Clear(
+                        expected.Token);
+                }
+
+                SceneEntryPresentationRegistry.TryCancelClaim(expected.Token);
+                return false;
+            }
+
+            if (!transitionBound || current.TransitionId != transitionId)
+            {
+                return false;
+            }
+
+            if (current.Phase !=
+                SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return true;
+            }
+
+            if (visualCaptured)
+            {
+                try
+                {
+                    var overlay = EnsureOverlay();
+                    overlay.RequestOpaqueTakeover(
+                        GameplayEntryTransitionVisualSnapshotRegistry
+                            .Require(expected.Token, expected.TransitionIntent)
+                            .HoldColor);
+                    overlay.HideVisual();
+                }
+                catch (Exception overlayFailure)
+                {
+                    Debug.LogException(overlayFailure, this);
+                }
+            }
+
+            return SceneEntryPresentationRegistry.TryFailHoldingCover(
+                expected.Token,
+                failureReason);
+        }
+
+        private bool HandleMainMenuEntryPreCoroutineFailure(
+            MainMenuEntryPresentationSnapshot expected,
+            long transitionId,
+            bool visualCaptured,
+            bool transitionBound,
+            string failureReason)
+        {
+            if (!expected.IsActive)
+            {
+                return false;
+            }
+
+            var current = MainMenuEntryPresentationRegistry.Current;
+            if (!current.IsActive ||
+                current.Token != expected.Token ||
+                current.TransitionIntent != expected.TransitionIntent)
+            {
+                if (visualCaptured)
+                {
+                    MainMenuTransitionVisualPolicy.Clear(expected.Token);
+                }
+
+                return false;
+            }
+
+            if (current.Phase == SceneEntryPresentationPhase.Claimed)
+            {
+                if (visualCaptured)
+                {
+                    MainMenuTransitionVisualPolicy.Clear(expected.Token);
+                }
+
+                MainMenuEntryPresentationRegistry.TryCancelClaim(expected.Token);
+                return false;
+            }
+
+            if (!transitionBound || current.TransitionId != transitionId)
+            {
+                return false;
+            }
+
+            if (current.Phase !=
+                SceneEntryPresentationPhase.PersistentCoverRequested)
+            {
+                return true;
+            }
+
+            if (visualCaptured)
+            {
+                try
+                {
+                    var overlay = EnsureOverlay();
+                    overlay.RequestOpaqueTakeover(
+                        MainMenuTransitionVisualPolicy
+                            .Require(expected.Token, expected.TransitionIntent)
+                            .HoldColor);
+                    overlay.HideVisual();
+                }
+                catch (Exception overlayFailure)
+                {
+                    Debug.LogException(overlayFailure, this);
+                }
+            }
+
+            return MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                expected.Token,
+                failureReason);
+        }
+
+        private bool TryHoldSceneEntryCoverOnFailure(
+            StageNavigationRequest request,
+            string failureReason)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                session.TransitionIntent != request.TransitionIntent)
+            {
+                return false;
+            }
+
             try
             {
-                EnsureOverlay().HideAll();
+                var overlay = EnsureOverlay();
+                overlay.RequestOpaqueTakeover(
+                    GameplayEntryTransitionVisualSnapshotRegistry
+                        .Require(session.Token, session.TransitionIntent)
+                        .HoldColor);
+                overlay.HideVisual();
+                SceneEntryPresentationRegistry.TryFailHoldingCover(
+                    session.Token,
+                    string.IsNullOrWhiteSpace(failureReason)
+                        ? "Next-stage transition failed while the persistent cover was active."
+                        : failureReason);
+                return true;
             }
-            catch (Exception exception)
+            catch (Exception overlayFailure)
             {
-                Debug.LogException(exception, this);
+                Debug.LogException(overlayFailure, this);
+                return false;
             }
+        }
+
+        private bool TryHoldMainMenuEntryCoverOnFailure(
+            StageNavigationRequest request,
+            string failureReason)
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (!session.IsActive ||
+                session.TransitionIntent != request.TransitionIntent)
+            {
+                return false;
+            }
+
+            try
+            {
+                var overlay = EnsureOverlay();
+                overlay.RequestOpaqueTakeover(
+                    MainMenuTransitionVisualPolicy
+                        .Require(session.Token, session.TransitionIntent)
+                        .HoldColor);
+                overlay.HideVisual();
+                MainMenuEntryPresentationRegistry.TryFailHoldingCover(
+                    session.Token,
+                    failureReason);
+                return true;
+            }
+            catch (Exception overlayFailure)
+            {
+                Debug.LogException(overlayFailure, this);
+                return false;
+            }
+        }
+
+        private static CinematicOpaqueHandoffSnapshot
+            RequireCinematicOpaqueHandoff(SceneTransitionIntent intent)
+        {
+            var handoff = CinematicOpaqueHandoffRegistry.Current;
+            if (!handoff.IsActive ||
+                handoff.Intent != intent ||
+                handoff.Phase !=
+                CinematicOpaqueHandoffPhase.CinematicOpaqueRendered ||
+                handoff.SourceSceneGeneration !=
+                TerminalSessionRegistry.Authority.CurrentSceneGeneration)
+            {
+                throw new InvalidOperationException(
+                    $"Cinematic route {intent} requires its current exact-opaque rendered owner.");
+            }
+
+            return handoff;
         }
 
         private static float NormalizeProgress(float progress)
         {
             return Mathf.Clamp01(progress / 0.9f);
+        }
+
+        private static bool UsesGameplayEntryIrisSourceLifecycle(
+            SceneTransitionIntent intent)
+        {
+            return intent == SceneTransitionIntent.GameplayEntry ||
+                   intent == SceneTransitionIntent.ManualRetry ||
+                   intent == SceneTransitionIntent.DemoStageRelaunch ||
+                   intent == SceneTransitionIntent.CinematicToGameplay;
         }
 
         internal static void SetOverlayShellResourceLoaderForTests(Func<SceneTransitionOverlayShellView> loader)
@@ -530,6 +1816,12 @@ namespace Game.Feature.UI.Composition
             _contentCatalogResourceLoaderForTests = loader;
         }
 
+        internal static void SetSceneLoaderForTests(
+            Func<string, ISceneTransitionLoadOperation> loader)
+        {
+            _sceneLoaderForTests = loader;
+        }
+
         internal void BindUiAudioPort(IUiAudioPort uiAudioPort)
         {
             _uiAudioPort = uiAudioPort;
@@ -539,6 +1831,37 @@ namespace Game.Feature.UI.Composition
         {
             _pendingUiAudioPort = uiAudioPort;
             _instance?.BindUiAudioPort(uiAudioPort);
+        }
+
+        internal static bool ReleaseSceneEntryCover(SceneEntrySessionToken token)
+        {
+            var session = SceneEntryPresentationRegistry.Current;
+            if (_instance == null ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.Phase != SceneEntryPresentationPhase.EntryIrisClosed)
+            {
+                return false;
+            }
+
+            _instance.EnsureOverlay().HideAll();
+            return true;
+        }
+
+        internal static bool ReleaseMainMenuEntryCover(
+            MainMenuEntrySessionToken token)
+        {
+            var session = MainMenuEntryPresentationRegistry.Current;
+            if (_instance == null ||
+                !session.IsActive ||
+                session.Token != token ||
+                session.Phase != SceneEntryPresentationPhase.EntryIrisClosed)
+            {
+                return false;
+            }
+
+            _instance.EnsureOverlay().HideAll();
+            return true;
         }
 
         internal void PlayTransitionAudio(SceneTransitionOverlayModel model)
@@ -615,7 +1938,8 @@ namespace Game.Feature.UI.Composition
                 hasChanceLost ? payload.PreviousRemainingChances : 0,
                 hasChanceLost ? payload.CurrentRemainingChances : 0,
                 hasChanceLost ? payload.TotalChances : 0,
-                hasChanceLost ? payload.DeathCount : 0);
+                hasChanceLost ? payload.DeathCount : 0,
+                hint.TerminalClaimId);
         }
 
         private static StageTransitionKind ResolveTransitionKind(StageTransitionProfile profile, StageTransitionHint hint)
@@ -639,6 +1963,18 @@ namespace Game.Feature.UI.Composition
             }
 
             return now - overlayShownAt >= Math.Max(0f, profile.MinimumVisibleSeconds);
+        }
+
+        internal static bool CanActivateExplicitTransition(
+            bool opaqueHandoffReady,
+            bool contentCompleted,
+            bool asyncLoadReady,
+            bool contentCancelled)
+        {
+            return opaqueHandoffReady &&
+                   contentCompleted &&
+                   asyncLoadReady &&
+                   !contentCancelled;
         }
 
     }

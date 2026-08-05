@@ -35,6 +35,7 @@ namespace Game.Feature.UI.Screens
         private SaveSlotCardViewModel _viewModel;
         private SaveSlotActionSelection _currentSelection;
         private bool _navigationFrameVisible;
+        private bool _interactionBlocked;
 
         public event Action<SaveSlotIntent> IntentRequested;
 
@@ -56,6 +57,13 @@ namespace Game.Feature.UI.Screens
         {
             _viewModel = viewModel;
             ValidateAuthoredStructureOrThrow();
+            Refresh();
+            RefreshNavigationVisuals();
+        }
+
+        public void SetInteractionBlocked(bool blocked)
+        {
+            _interactionBlocked = blocked;
             Refresh();
             RefreshNavigationVisuals();
         }
@@ -126,7 +134,9 @@ namespace Game.Feature.UI.Screens
 
         private void HandlePrimaryClicked()
         {
-            if (_viewModel == null || _viewModel.PrimaryIntentKind == SaveSlotIntentKind.None)
+            if (_interactionBlocked ||
+                _viewModel == null ||
+                _viewModel.PrimaryIntentKind == SaveSlotIntentKind.None)
             {
                 return;
             }
@@ -136,7 +146,7 @@ namespace Game.Feature.UI.Screens
 
         private void HandleDeleteClicked()
         {
-            if (_viewModel == null || !_viewModel.ShowDelete)
+            if (_interactionBlocked || _viewModel == null || !_viewModel.ShowDelete)
             {
                 return;
             }
@@ -282,7 +292,7 @@ namespace Game.Feature.UI.Screens
                     _viewModel.FailureKind != SaveSlotFailurePresentationKind.None &&
                     !hasPrimaryIntent;
                 _primaryButton.gameObject.SetActive(!hideUnavailableFailureAction);
-                _primaryButton.interactable = hasPrimaryIntent;
+                _primaryButton.interactable = !_interactionBlocked && hasPrimaryIntent;
             }
 
             if (_deleteButton != null)
@@ -293,7 +303,7 @@ namespace Game.Feature.UI.Screens
                     _viewModel.FailureKind != SaveSlotFailurePresentationKind.None &&
                     !showDelete;
                 _deleteButton.gameObject.SetActive(!hideUnavailableFailureAction);
-                _deleteButton.interactable = showDelete;
+                _deleteButton.interactable = !_interactionBlocked && showDelete;
             }
 
             if (_deleteButtonLabel != null)

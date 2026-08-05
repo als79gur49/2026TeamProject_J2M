@@ -240,7 +240,7 @@ namespace Game.Feature.UI.Application
                     slotNumber,
                     candidateValidation.Slot.CurrentStageId,
                     StageNavigationKind.Continue,
-                    "main-menu-new-game",
+                    ResolveLaunchSource(operationKind),
                     out var handoff))
             {
                 return;
@@ -408,7 +408,8 @@ namespace Game.Feature.UI.Application
                     handoff.StageId,
                     handoff.NavigationKind,
                     handoff.Source,
-                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay)));
+                    StageTransitionHint.ForKind(StageTransitionKind.MainToGameplay),
+                    SceneTransitionIntent.GameplayEntry));
                 return true;
             }
             catch
@@ -423,6 +424,20 @@ namespace Game.Feature.UI.Application
             return expected != null &&
                    _launchHandoffStore.TryPeek(out var current) &&
                    expected.Matches(current);
+        }
+
+        private static string ResolveLaunchSource(MainMenuLaunchOperationKind operationKind)
+        {
+            return operationKind switch
+            {
+                MainMenuLaunchOperationKind.NewGame => "main-menu-new-game",
+                MainMenuLaunchOperationKind.EmptyContinue => "main-menu-empty-continue",
+                MainMenuLaunchOperationKind.Restart => "main-menu-completed-restart",
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(operationKind),
+                    operationKind,
+                    "Main Menu launch operation has no governed provenance."),
+            };
         }
 
         private SaveSlotValidationResult Validate(int slotNumber)

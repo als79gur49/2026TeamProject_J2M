@@ -13,25 +13,7 @@ MonoBehaviour:
   m_Name: SceneTransitionOverlayContentCatalog
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.SceneTransitionOverlayContentCatalog
   _entries:
-  - _transitionKind: 1
-    _fallbackOverlayKind: 1
-    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
-  - _transitionKind: 2
-    _fallbackOverlayKind: 5
-    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 3
-    _fallbackOverlayKind: 3
-    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
-  - _transitionKind: 4
-    _fallbackOverlayKind: 4
     _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 5
-    _fallbackOverlayKind: 2
     _contentPrefab: {fileID: 7930234351575085631, guid: 61913cd1fdc828e4fb146d52ccc2d390, type: 3}
-  - _transitionKind: 6
-    _fallbackOverlayKind: 4
-    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
-  - _transitionKind: 0
-    _fallbackOverlayKind: 1
-    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
-  _genericFallbackPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}

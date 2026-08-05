@@ -233,7 +233,7 @@ namespace Game.Feature.UI.Flow
 
     public interface IMainMenuReturnRouter
     {
-        void ReturnToMainMenu();
+        void ReturnToMainMenu(SceneTransitionIntent transitionIntent);
     }
 
     public sealed class NoOpMainMenuReturnRouter : IMainMenuReturnRouter
@@ -244,7 +244,7 @@ namespace Game.Feature.UI.Flow
         {
         }
 
-        public void ReturnToMainMenu()
+        public void ReturnToMainMenu(SceneTransitionIntent transitionIntent)
         {
         }
     }
