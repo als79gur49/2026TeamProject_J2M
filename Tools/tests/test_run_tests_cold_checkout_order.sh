@@ -21,6 +21,12 @@ record_unity_and_generate_projects() {
     touch "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
 }
 
+record_terminal_iris_unity_and_generate_projects() {
+    CALLS+=(terminal-iris-unity)
+    touch "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"
+    touch "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
+}
+
 record_unity_failure() {
     CALLS+=(unity)
     return 42
@@ -61,6 +67,15 @@ assert_calls() {
 
 run_dotnet_and_unity_lane core record_dotnet record_unity_and_generate_projects
 assert_calls "unity dotnet"
+
+CALLS=()
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
+run_dotnet_and_unity_lane \
+    core \
+    record_dotnet \
+    record_terminal_iris_unity_and_generate_projects
+assert_calls "terminal-iris-unity dotnet"
 
 CALLS=()
 rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"

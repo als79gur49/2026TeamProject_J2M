@@ -3632,19 +3632,27 @@ run_terminal_iris_quality_lane() {
         prepare_terminal_iris_quality_output
     fi
     TEST_FILTER="${TEST_FILTER:-$default_filter}"
-    run_dotnet_core
+    TERMINAL_IRIS_QUALITY_STAGE_KEY="$stage_key"
+    TERMINAL_IRIS_QUALITY_STAGE_LABEL="$stage_label"
+    run_dotnet_and_unity_lane \
+        "core" \
+        run_dotnet_core \
+        run_terminal_iris_quality_unity_stage
+    write_terminal_iris_quality_manifest
+    echo "Terminal Iris quality evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
+}
+
+run_terminal_iris_quality_unity_stage() {
     UNITY_GRAPHICS=1 run_unity_stage \
         "full" \
-        "$stage_key" \
-        "$stage_label" \
+        "$TERMINAL_IRIS_QUALITY_STAGE_KEY" \
+        "$TERMINAL_IRIS_QUALITY_STAGE_LABEL" \
         "PlayMode" \
         "$UNITY_CORE_PLAYMODE_LOG" \
         "$UNITY_CORE_PLAYMODE_XML" \
         "TestRunnerCliBootstrap.RunPlayMode" \
         "Game.Feature.Gameplay.PlayModeTests" \
         "Full"
-    write_terminal_iris_quality_manifest
-    echo "Terminal Iris quality evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
 }
 
 run_terminal_iris_player_visual_quality() {
@@ -4313,17 +4321,12 @@ run_terminal_iris_quality_lane() {
         prepare_terminal_iris_quality_output
     fi
     TEST_FILTER="${TEST_FILTER:-$default_filter}"
-    run_dotnet_core
-    UNITY_GRAPHICS=1 run_unity_stage \
-        "full" \
-        "$stage_key" \
-        "$stage_label" \
-        "PlayMode" \
-        "$UNITY_CORE_PLAYMODE_LOG" \
-        "$UNITY_CORE_PLAYMODE_XML" \
-        "TestRunnerCliBootstrap.RunPlayMode" \
-        "Game.Feature.Gameplay.PlayModeTests" \
-        "Full"
+    TERMINAL_IRIS_QUALITY_STAGE_KEY="$stage_key"
+    TERMINAL_IRIS_QUALITY_STAGE_LABEL="$stage_label"
+    run_dotnet_and_unity_lane \
+        "core" \
+        run_dotnet_core \
+        run_terminal_iris_quality_unity_stage
     write_terminal_iris_quality_manifest
     echo "Terminal Iris quality evidence: $TERMINAL_IRIS_QUALITY_OUTPUT_DIR"
 }

@@ -322,6 +322,13 @@ def copy_fresh(
     return True
 
 
+def display_origin_path(source: Path) -> str:
+    try:
+        return str(source.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(source)
+
+
 def result_origins(lane: Lane) -> list[tuple[Path, str]]:
     root = resolve_test_results_root()
     if lane.lane_id == "architecture":
@@ -572,7 +579,7 @@ def run_lane(
         if copy_fresh(source, destination, start_ns):
             copied.append(name)
         else:
-            missing_or_stale.append(str(source.relative_to(PROJECT_ROOT)))
+            missing_or_stale.append(display_origin_path(source))
 
     player_result_path: str | None = None
     if lane.kind == "player-visual":

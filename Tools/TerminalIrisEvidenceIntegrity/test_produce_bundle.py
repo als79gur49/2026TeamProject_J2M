@@ -66,6 +66,15 @@ class ProduceBundleUnitTests(unittest.TestCase):
                 ).resolve(),
             )
 
+    def test_external_missing_result_origin_has_stable_absolute_path(self) -> None:
+        external = produce_bundle.Path(
+            "/mnt/d/J2M/evidence/terminal-transition/missing.xml"
+        )
+        self.assertEqual(
+            produce_bundle.display_origin_path(external),
+            str(external),
+        )
+
     def test_player_visual_lane_has_no_unrelated_test_result_origins(self) -> None:
         lane = produce_bundle.Lane(
             "player-visual-quality",
