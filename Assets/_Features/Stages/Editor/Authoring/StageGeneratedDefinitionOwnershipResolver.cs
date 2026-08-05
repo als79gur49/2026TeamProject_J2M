@@ -82,27 +82,110 @@ namespace Game.Feature.Stages.Editor
                     Array.Empty<StageGeneratedDefinitionOwner>());
             }
 
-            var owners = AssetDatabase
+            var owners = StageGeneratedDefinitionOwnershipIndex.GetOwners(target);
+
+            return new StageGeneratedDefinitionOwnership(target, targetPath, targetGuid, owners);
+        }
+    }
+
+    [InitializeOnLoad]
+    internal static class StageGeneratedDefinitionOwnershipIndex
+    {
+        private static IReadOnlyDictionary<StageDefinition, StageGeneratedDefinitionOwner[]> ownersByTarget;
+        private static int buildInvocationCount;
+
+        static StageGeneratedDefinitionOwnershipIndex()
+        {
+            EditorApplication.projectChanged -= Invalidate;
+            EditorApplication.projectChanged += Invalidate;
+        }
+
+        internal static int BuildInvocationCountForTests => buildInvocationCount;
+
+        internal static IReadOnlyList<StageGeneratedDefinitionOwner> GetOwners(StageDefinition target)
+        {
+            EnsureBuilt();
+            return target != null && ownersByTarget.TryGetValue(target, out var owners)
+                ? owners
+                : Array.Empty<StageGeneratedDefinitionOwner>();
+        }
+
+        internal static void Invalidate()
+        {
+            ownersByTarget = null;
+        }
+
+        internal static void ResetForTests()
+        {
+            ownersByTarget = null;
+            buildInvocationCount = 0;
+        }
+
+        internal static void NotifyProjectChangedForTests()
+        {
+            Invalidate();
+        }
+
+        private static void EnsureBuilt()
+        {
+            if (ownersByTarget != null)
+            {
+                return;
+            }
+
+            buildInvocationCount++;
+            var mutableIndex = new Dictionary<StageDefinition, List<StageGeneratedDefinitionOwner>>();
+            var paths = AssetDatabase
                 .FindAssets("t:StageAuthoringDefinition")
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Where(path => !string.IsNullOrEmpty(path))
                 .Distinct(StringComparer.Ordinal)
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .Select(path => new
+                .OrderBy(path => path, StringComparer.Ordinal);
+            foreach (var path in paths)
+            {
+                var authoring = AssetDatabase.LoadAssetAtPath<StageAuthoringDefinition>(path);
+                var target = authoring != null ? authoring.GeneratedGameplayDefinition : null;
+                if (target == null)
                 {
-                    Path = path,
-                    Authoring = AssetDatabase.LoadAssetAtPath<StageAuthoringDefinition>(path),
-                })
-                .Where(candidate =>
-                    candidate.Authoring != null &&
-                    candidate.Authoring.GeneratedGameplayDefinition == target)
-                .Select(candidate => new StageGeneratedDefinitionOwner(
-                    candidate.Authoring,
-                    candidate.Path,
-                    AssetDatabase.AssetPathToGUID(candidate.Path)))
-                .ToArray();
+                    continue;
+                }
 
-            return new StageGeneratedDefinitionOwnership(target, targetPath, targetGuid, owners);
+                if (!mutableIndex.TryGetValue(target, out var owners))
+                {
+                    owners = new List<StageGeneratedDefinitionOwner>();
+                    mutableIndex.Add(target, owners);
+                }
+
+                owners.Add(new StageGeneratedDefinitionOwner(
+                    authoring,
+                    path,
+                    AssetDatabase.AssetPathToGUID(path)));
+            }
+
+            ownersByTarget = mutableIndex.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.ToArray());
+        }
+    }
+
+    internal sealed class StageGeneratedDefinitionOwnershipAssetPostprocessor : AssetPostprocessor
+    {
+        private static void OnPostprocessAllAssets(
+            string[] importedAssets,
+            string[] deletedAssets,
+            string[] movedAssets,
+            string[] movedFromAssetPaths)
+        {
+            StageGeneratedDefinitionOwnershipIndex.Invalidate();
+        }
+    }
+
+    internal sealed class StageGeneratedDefinitionOwnershipSaveProcessor : AssetModificationProcessor
+    {
+        private static string[] OnWillSaveAssets(string[] paths)
+        {
+            StageGeneratedDefinitionOwnershipIndex.Invalidate();
+            return paths;
         }
     }
 }

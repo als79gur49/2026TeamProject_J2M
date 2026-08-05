@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -29,6 +30,12 @@ namespace Game.Feature.Stages.Editor.Tests
             "stage-4-2",
         };
 
+        [SetUp]
+        public void SetUp()
+        {
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -37,6 +44,125 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 AssetDatabase.DeleteAsset(TemporaryRoot);
             }
+
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+        }
+
+        [Test]
+        public void RepeatedResolve_DoesNotRescanAssetDatabase()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            CreateOwnerAsset($"{TemporaryRoot}/owner.asset", stage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ProjectChange_InvalidatesOwnershipIndex()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+            CreateOwnerAsset($"{TemporaryRoot}/owner.asset", stage);
+            StageGeneratedDefinitionOwnershipIndex.NotifyProjectChangedForTests();
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(StageGeneratedDefinitionOwnershipIndex.BuildInvocationCountForTests, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AssetDelete_InvalidatesOwnershipIndex()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            var ownerPath = $"{TemporaryRoot}/owner.asset";
+            CreateOwnerAsset(ownerPath, stage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+
+            Assert.That(AssetDatabase.DeleteAsset(ownerPath), Is.True);
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(stage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+        }
+
+        [Test]
+        public void SavedOwnershipReferenceChange_InvalidatesOwnershipIndex()
+        {
+            EnsureTemporaryRoot();
+            var firstStage = CreateAsset<StageDefinition>($"{TemporaryRoot}/first.asset");
+            var secondStage = CreateAsset<StageDefinition>($"{TemporaryRoot}/second.asset");
+            var owner = CreateOwnerAsset($"{TemporaryRoot}/owner.asset", firstStage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(firstStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+
+            owner.AssignGeneratedDefinitions(secondStage, null);
+            EditorUtility.SetDirty(owner);
+            AssetDatabase.SaveAssetIfDirty(owner);
+
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(firstStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+            Assert.That(StageGeneratedDefinitionOwnershipResolver.Resolve(secondStage).Kind,
+                Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+        }
+
+        [Test]
+        public void GeneratedOwnership_RemainsCorrectAfterRebuild()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            var owner = CreateOwnerAsset($"{TemporaryRoot}/owner.asset", stage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            var initial = StageGeneratedDefinitionOwnershipResolver.Resolve(stage);
+            StageGeneratedDefinitionOwnershipIndex.NotifyProjectChangedForTests();
+            var rebuilt = StageGeneratedDefinitionOwnershipResolver.Resolve(stage);
+
+            Assert.That(initial.Kind, Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(rebuilt.Kind, Is.EqualTo(StageDefinitionOwnershipKind.GeneratedOwned));
+            Assert.That(rebuilt.Owner, Is.SameAs(owner));
+        }
+
+        [Test]
+        public void AmbiguousOwnership_RemainsAmbiguous()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            CreateOwnerAsset($"{TemporaryRoot}/owner-b.asset", stage);
+            CreateOwnerAsset($"{TemporaryRoot}/owner-a.asset", stage);
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            var ownership = StageGeneratedDefinitionOwnershipResolver.Resolve(stage);
+
+            Assert.That(ownership.Kind, Is.EqualTo(StageDefinitionOwnershipKind.Ambiguous));
+            CollectionAssert.AreEqual(
+                new[] { $"{TemporaryRoot}/owner-a.asset", $"{TemporaryRoot}/owner-b.asset" },
+                ownership.Owners.Select(owner => owner.AssetPath));
+        }
+
+        [Test]
+        public void Standalone_RemainsStandalone()
+        {
+            EnsureTemporaryRoot();
+            var stage = CreateAsset<StageDefinition>($"{TemporaryRoot}/target.asset");
+            StageGeneratedDefinitionOwnershipIndex.ResetForTests();
+
+            var ownership = StageGeneratedDefinitionOwnershipResolver.Resolve(stage);
+
+            Assert.That(ownership.Kind, Is.EqualTo(StageDefinitionOwnershipKind.Standalone));
+            Assert.That(ownership.Owners, Is.Empty);
         }
 
         [Test]
@@ -187,6 +313,37 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void GeneratedGameplayCompanion_IsEditableWithoutUnlockingGeneratedFields()
+        {
+            var stage = ScriptableObject.CreateInstance<StageDefinition>();
+            var ownerA = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            var ownerB = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
+            try
+            {
+                var standalone = Ownership(stage);
+                var generated = Ownership(stage, Owner(ownerA, "Assets/owner-a.asset"));
+                var ambiguous = Ownership(
+                    stage,
+                    Owner(ownerA, "Assets/owner-a.asset"),
+                    Owner(ownerB, "Assets/owner-b.asset"));
+
+                Assert.That(StageDefinitionInspectorPolicy.CanEditGameplayCompanion(new[] { generated }), Is.True);
+                Assert.That(StageDefinitionInspectorPolicy.IsSelectionEditable(new[] { generated }), Is.False);
+                Assert.That(StageDefinitionInspectorPolicy.IsSelectionEditable(new[] { standalone }), Is.True);
+                Assert.That(StageDefinitionInspectorPolicy.CanEditGameplayCompanion(new[] { ambiguous }), Is.False);
+                Assert.That(
+                    StageDefinitionInspectorPolicy.CanEditGameplayCompanion(new[] { generated, standalone }),
+                    Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(ownerB);
+                UnityEngine.Object.DestroyImmediate(ownerA);
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
         public void OpenAuthoring_SelectsExactSingleOwnerWithoutMutation()
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
@@ -254,6 +411,163 @@ namespace Game.Feature.Stages.Editor.Tests
             }
             finally
             {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void InitialOpen_InvalidAuthoring_IsNotInSync()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var mappings = fixture.Authoring.EntityIdMappings.ToList();
+                mappings.Add(new StageAuthoringIdMapping
+                {
+                    StableGuid = string.Empty,
+                    EntityId = 999,
+                    LastKnownDisplayName = "invalid",
+                });
+                fixture.Authoring.SetEntityIdMappings(mappings);
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                Assert.That(
+                    StageDefinitionInspectorActions.ResolveSyncStatus(ownership),
+                    Is.EqualTo(StageDefinitionGeneratedSyncStatus.InvalidAuthoring));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void DuplicateOrInvalidEntityIdMapping_ReportsInvalidAuthoring()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var mappings = fixture.Authoring.EntityIdMappings.ToArray();
+                mappings[1].EntityId = mappings[0].EntityId;
+                fixture.Authoring.SetEntityIdMappings(mappings);
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                var report = StageDefinitionInspectorActions.ValidateAuthoring(ownership);
+
+                Assert.That(report.HasErrors, Is.True);
+                Assert.That(report.Issues.Any(issue => issue.Code == "authoring.entity-id-mapping.id-duplicate"), Is.True);
+                Assert.That(
+                    StageDefinitionInspectorActions.ResolveSyncStatus(ownership),
+                    Is.EqualTo(StageDefinitionGeneratedSyncStatus.InvalidAuthoring));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void ValidAuthoringAndMatchingOutputs_ReportsInSync()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                Assert.That(
+                    StageDefinitionInspectorActions.ResolveSyncStatus(ownership),
+                    Is.EqualTo(StageDefinitionGeneratedSyncStatus.InSync));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void PresentationOnlyDrift_ReportsGenerateRequired()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var serialized = new SerializedObject(fixture.Presentation);
+                var bindings = serialized.FindProperty("enemyPresentationBindings");
+                Assert.That(bindings.arraySize, Is.GreaterThan(0));
+                bindings.GetArrayElementAtIndex(0)
+                    .FindPropertyRelative("PresentationId")
+                    .stringValue = "stale-enemy-view";
+                Assert.That(serialized.ApplyModifiedPropertiesWithoutUndo(), Is.True);
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                Assert.That(
+                    StageDefinitionInspectorActions.ResolveSyncStatus(ownership),
+                    Is.EqualTo(StageDefinitionGeneratedSyncStatus.GenerateRequired));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void GameplayAndPresentationInSync_ReportsInSync()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                Assert.That(
+                    StageDefinitionInspectorActions.ResolveSyncStatus(ownership),
+                    Is.EqualTo(StageDefinitionGeneratedSyncStatus.InSync));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void GameplayDrift_StillReportsGenerateRequired()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            try
+            {
+                var changedBoard = fixture.Authoring.Board;
+                changedBoard.MaxInclusive = new Vector2Int(5, 5);
+                fixture.Authoring.SetBoard(changedBoard);
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                Assert.That(
+                    StageDefinitionInspectorActions.ResolveSyncStatus(ownership),
+                    Is.EqualTo(StageDefinitionGeneratedSyncStatus.GenerateRequired));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void GenerateFromAuthoring_PreservesEnemyUnitArchetypeCatalog()
+        {
+            var fixture = StageAuthoringTestFixture.CreateSynced();
+            var catalog = ScriptableObject.CreateInstance<EnemyUnitArchetypeCatalog>();
+            try
+            {
+                var serialized = new SerializedObject(fixture.Gameplay);
+                serialized.FindProperty("enemyUnitArchetypeCatalog").objectReferenceValue = catalog;
+                Assert.That(serialized.ApplyModifiedPropertiesWithoutUndo(), Is.True);
+                var ownership = Ownership(fixture.Gameplay, Owner(fixture.Authoring, "authoring"));
+
+                var report = StageDefinitionInspectorActions.GenerateFromAuthoring(ownership);
+
+                Assert.That(report.HasErrors, Is.False, StageAuthoringTestFixture.FormatGenerationIssues(report));
+                Assert.That(fixture.Gameplay.EnemyUnitArchetypeCatalog, Is.SameAs(catalog));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(catalog);
                 fixture.Destroy();
             }
         }
@@ -383,15 +697,20 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(inspectorSource, Does.Contain("using (new EditorGUI.DisabledScope(true))"));
             Assert.That(inspectorSource, Does.Contain("DrawReadOnlyDefaultInspector();"));
             Assert.That(Count(inspectorSource, "DrawDefaultInspector();"), Is.EqualTo(2));
-            Assert.That(resolverSource, Does.Contain("candidate.Authoring.GeneratedGameplayDefinition == target"));
+            Assert.That(resolverSource, Does.Contain("authoring.GeneratedGameplayDefinition"));
             Assert.That(resolverSource, Does.Not.Contain("GetFileName"));
             Assert.That(resolverSource, Does.Not.Contain("_generated"));
             Assert.That(resolverSource, Does.Not.Contain("StageId"));
             Assert.That(inspectorSource, Does.Not.Contain("AssetDatabase.SaveAssets"));
             Assert.That(inspectorSource, Does.Contain("StageAuthoringGenerateOptions.DryRunValidation"));
             Assert.That(inspectorSource, Does.Contain("StageAuthoringGenerateOptions.WriteAll"));
+            Assert.That(inspectorSource, Does.Contain("DrawPropertiesExcluding(serializedObject, \"enemyUnitArchetypeCatalog\")"));
+            Assert.That(inspectorSource, Does.Contain("serializedObject.FindProperty(\"enemyUnitArchetypeCatalog\")"));
+            Assert.That(resolverSource, Does.Contain("EditorApplication.projectChanged += Invalidate"));
+            Assert.That(resolverSource, Does.Contain("StageGeneratedDefinitionOwnershipIndex.GetOwners(target)"));
             Assert.That(writerSource, Does.Contain("StageAuthoringGenerationSaveSet.SaveTouchedAssets(plan, options);"));
             Assert.That(writerSource, Does.Not.Contain("AssetDatabase.SaveAssets"));
+            Assert.That(writerSource, Does.Not.Contain("enemyUnitArchetypeCatalog"));
         }
 
         private static StageGeneratedDefinitionOwnership Ownership(

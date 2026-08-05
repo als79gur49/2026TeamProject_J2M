@@ -55,35 +55,51 @@ namespace Game.Feature.Stages.Editor
         }
 
         public static StageDefinitionGeneratedSyncStatus ResolveSyncStatus(
-            StageGeneratedDefinitionOwnership ownership,
-            StageAuthoringGenerationReport latestReport = null)
+            StageGeneratedDefinitionOwnership ownership)
         {
             if (ownership?.Owner == null || ownership.Target == null)
             {
                 return StageDefinitionGeneratedSyncStatus.GeneratedOutputMissing;
             }
 
-            if (latestReport != null && latestReport.HasErrors)
+            var validationReport = ValidateAuthoring(ownership);
+            if (validationReport == null || validationReport.HasErrors)
             {
                 return StageDefinitionGeneratedSyncStatus.InvalidAuthoring;
             }
 
             var owner = ownership.Owner;
             var allocation = StageAuthoringProjection.BuildAllocationPlan(owner);
-            var expected = StageAuthoringProjection.ProjectExpectedGameplay(owner, allocation);
-            var actual = StageAuthoringProjection.ProjectActualGameplay(ownership.Target);
-            var issues = StageAuthoringDriftComparer.CompareGameplay(
-                expected,
-                actual,
-                new StageAuthoringDriftContext(
-                    StageValidationSeverity.Warning,
-                    StageValidationTiming.EditorAuthoring,
-                    owner,
-                    ownership.TargetPath,
-                    string.Empty,
-                    owner.name,
-                    ownership.Target.name));
-            return issues.Length == 0
+            var gameplayContext = new StageAuthoringDriftContext(
+                StageValidationSeverity.Warning,
+                StageValidationTiming.EditorAuthoring,
+                owner,
+                ownership.TargetPath,
+                string.Empty,
+                owner.name,
+                ownership.Target.name);
+            var gameplayIssues = StageAuthoringDriftComparer.CompareGameplay(
+                StageAuthoringProjection.ProjectExpectedGameplay(owner, allocation),
+                StageAuthoringProjection.ProjectActualGameplay(ownership.Target),
+                gameplayContext);
+
+            var presentation = owner.GeneratedPresentationDefinition;
+            var presentationContext = new StageAuthoringDriftContext(
+                StageValidationSeverity.Warning,
+                StageValidationTiming.EditorAuthoring,
+                owner,
+                presentation != null ? AssetDatabase.GetAssetPath(presentation) : string.Empty,
+                string.Empty,
+                owner.name,
+                presentation != null ? presentation.name : string.Empty);
+            var presentationIssues = StageAuthoringDriftComparer.ComparePresentation(
+                StageAuthoringProjection.ProjectExpectedPresentation(owner, allocation),
+                StageAuthoringProjection.ProjectActualPresentation(presentation),
+                presentationContext);
+
+            return gameplayIssues.Length == 0 &&
+                   presentation != null &&
+                   presentationIssues.Length == 0
                 ? StageDefinitionGeneratedSyncStatus.InSync
                 : StageDefinitionGeneratedSyncStatus.GenerateRequired;
         }
@@ -154,9 +170,9 @@ namespace Game.Feature.Stages.Editor
                 "Direct edits to this generated output are disabled.",
                 MessageType.Info);
 
-            var syncStatus = StageDefinitionInspectorActions.ResolveSyncStatus(ownership, lastReport);
+            var syncStatus = StageDefinitionInspectorActions.ResolveSyncStatus(ownership);
             EditorGUILayout.LabelField("Generated Output Status", FormatSyncStatus(syncStatus));
-            DrawReadOnlyDefaultInspector();
+            DrawGeneratedFieldsWithEditableGameplayCompanion(ownership);
 
             EditorGUILayout.Space();
             if (GUILayout.Button("Open Authoring Definition"))
@@ -243,6 +259,26 @@ namespace Game.Feature.Stages.Editor
             {
                 DrawDefaultInspector();
             }
+        }
+
+        private void DrawGeneratedFieldsWithEditableGameplayCompanion(
+            StageGeneratedDefinitionOwnership ownership)
+        {
+            serializedObject.Update();
+            using (new EditorGUI.DisabledScope(true))
+            {
+                DrawPropertiesExcluding(serializedObject, "enemyUnitArchetypeCatalog");
+            }
+
+            if (StageDefinitionInspectorPolicy.CanEditGameplayCompanion(new[] { ownership }))
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Gameplay Companion", EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(
+                    serializedObject.FindProperty("enemyUnitArchetypeCatalog"));
+            }
+
+            serializedObject.ApplyModifiedProperties();
         }
 
         private static string FormatSyncStatus(StageDefinitionGeneratedSyncStatus status)

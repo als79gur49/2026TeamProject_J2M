@@ -33,5 +33,15 @@ namespace Game.Feature.Stages.Editor
                    ownerships[0].Kind == StageDefinitionOwnershipKind.GeneratedOwned &&
                    ownerships[0].Owner != null;
         }
+
+        public static bool CanEditGameplayCompanion(
+            IReadOnlyList<StageGeneratedDefinitionOwnership> ownerships)
+        {
+            return ownerships != null &&
+                   ownerships.Count == 1 &&
+                   ownerships[0] != null &&
+                   ownerships[0].Kind == StageDefinitionOwnershipKind.GeneratedOwned &&
+                   ownerships[0].Owner != null;
+        }
     }
 }
