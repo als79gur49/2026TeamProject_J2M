@@ -91,7 +91,7 @@
         "SceneTransitionRoutePolicyCatalogTests;SceneTransitionRoutePolicyArchitectureTests;TerminalSessionAuthorityTests"
       ],
       "allowedExitCodes": [0],
-      "xml": [{"path": "unity-editmode.xml", "total": 66}],
+      "xml": [{"path": "unity-editmode.xml", "total": 69}],
       "logs": ["unity-editmode.log", "dotnet.log", "wrapper.log"]
     },
     "lifecycle": {
@@ -148,7 +148,7 @@
       "kind": "unity-test-framework",
       "commandArgv": ["./run_tests.sh", "ui"],
       "allowedExitCodes": [0],
-      "xml": [{"path": "unity-editmode.xml", "total": 1172}],
+      "xml": [{"path": "unity-editmode.xml", "total": 1341}],
       "logs": ["unity-editmode.log", "dotnet.log", "wrapper.log"]
     }
   },
