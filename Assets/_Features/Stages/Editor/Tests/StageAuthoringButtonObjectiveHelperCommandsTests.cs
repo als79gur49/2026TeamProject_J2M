@@ -100,7 +100,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void TryAddRequiredSecondaryGoal_DuplicateTileEntry_DoesNotAddAgain()
+        public void TryAddRequiredSecondaryGoal_NonCanonicalTileEntry_DoesNotReportLinked()
         {
             using var fixture = TempStageContentFixture.Create();
             var condition = CreateButtonActivatedCondition(901);
@@ -113,8 +113,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixture.Button,
                 fixture.Entry.StageId.Value);
 
-            Assert.That(result.Succeeded, Is.True, result.Message);
+            Assert.That(result.Succeeded, Is.False);
             Assert.That(fixture.Authoring.Objective.ConditionEntries, Has.Length.EqualTo(1));
+            Assert.That(StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(fixture.Authoring, fixture.Button).State,
+                Is.EqualTo(ButtonObjectiveLinkState.StableConditionIdConflict));
         }
 
         [Test]
@@ -228,6 +230,35 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void AllocateSortOrder_ConsidersEntriesAcrossAllGovernedRoles()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var primary = Condition(null, true, StageObjectiveConditionRole.PrimaryGoal, "primary");
+            primary.SortOrder = 10;
+            var secondary = Condition(null, true, StageObjectiveConditionRole.SecondaryGoal, "secondary");
+            secondary.SortOrder = 20;
+            var challenge = Condition(null, false, StageObjectiveConditionRole.Challenge, "challenge");
+            challenge.SortOrder = 30;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                primary,
+                secondary,
+                challenge));
+
+            var result = StageAuthoringButtonObjectiveHelperCommands.TryAddRequiredSecondaryGoal(
+                fixture.Authoring,
+                fixture.Button,
+                fixture.Entry.StageId.Value);
+
+            Assert.That(result.Succeeded, Is.True, result.Message);
+            var sortOrders = fixture.Authoring.Objective.ConditionEntries
+                .Select(entry => entry.SortOrder)
+                .ToArray();
+            Assert.That(sortOrders, Is.EqualTo(new[] { 10, 20, 30, 40 }));
+            Assert.That(sortOrders.Distinct().Count(), Is.EqualTo(sortOrders.Length));
+        }
+
+        [Test]
         public void TryRemoveRequiredSecondaryGoal_LinkedButton_RemovesEntryButKeepsAsset()
         {
             using var fixture = TempStageContentFixture.Create();
@@ -265,6 +296,191 @@ namespace Game.Feature.Stages.Editor.Tests
             var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(fixture.Authoring, fixture.Button);
 
             Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetInvalid));
+        }
+
+        [Test]
+        public void InvalidButtonConditionType_DoesNotNavigate()
+        {
+            var snapshot = CaptureInvalidButtonConditionTypeNavigation();
+
+            Assert.That(snapshot.LinkState, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetInvalid));
+            Assert.That(snapshot.SelectedRow, Is.False);
+        }
+
+        [Test]
+        public void InvalidButtonConditionType_PreservesWarning()
+        {
+            var snapshot = CaptureInvalidButtonConditionTypeNavigation();
+
+            Assert.That(snapshot.Warning,
+                Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+        }
+
+        [Test]
+        public void InvalidButtonConditionType_SelectsNoRow()
+        {
+            var snapshot = CaptureInvalidButtonConditionTypeNavigation();
+
+            Assert.That(snapshot.ConditionAssetWasNull, Is.True);
+            Assert.That(snapshot.SelectedRow, Is.False);
+        }
+
+        [Test]
+        public void ValidCanonicalButtonAsset_RemainsLinked()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                ButtonEntry(canonical, "button-901", "Canonical button", 10)));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+                window.BindForTests(fixture.Authoring);
+                Assert.That(window.SelectTileFeatureByIdForTests(901), Is.True);
+
+                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.Linked));
+                Assert.That(status.ConditionAsset, Is.SameAs(canonical));
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests()?.Condition,
+                    Is.SameAs(canonical));
+                Assert.That(window.ObjectiveContextWarningForTests, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
+        }
+
+        [Test]
+        public void ReferenceMismatch_RemainsConflict()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            fixture.CreateExpectedButtonCondition(901);
+            var mismatched = CreateButtonActivatedCondition(901);
+            try
+            {
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(mismatched, "button-901", "Mismatched reference", 10)));
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+                var plan = StageButtonObjectiveRemovalPlanner.Build(fixture.Authoring, fixture.Button);
+
+                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.ConditionReferenceMismatch));
+                Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(mismatched);
+            }
+        }
+
+        [Test]
+        public void DuplicateAssociation_RemainsConflict()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var duplicate = CreateButtonActivatedCondition(901);
+            try
+            {
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(canonical, "button-901", "Canonical", 10),
+                    ButtonEntry(duplicate, "alternate-button", "Duplicate", 20)));
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+                var plan = StageButtonObjectiveRemovalPlanner.Build(fixture.Authoring, fixture.Button);
+
+                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.DuplicateCondition));
+                Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicate);
+            }
+        }
+
+        [Test]
+        public void MissingCanonicalButtonAsset_IsNotLinked()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.LinkState, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetMissing));
+            Assert.That(snapshot.LinkState, Is.Not.EqualTo(ButtonObjectiveLinkState.Linked));
+        }
+
+        [Test]
+        public void MissingCanonicalButtonAsset_DoesNotNavigate()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.LinkState, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetMissing));
+            Assert.That(snapshot.SelectedRow, Is.False);
+        }
+
+        [Test]
+        public void MissingCanonicalButtonAsset_SelectsNoRow()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.SelectedRow, Is.False);
+        }
+
+        [Test]
+        public void MissingCanonicalButtonAsset_PreservesWarning()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.Warning,
+                Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+        }
+
+        [Test]
+        public void ExternalValidButtonAsset_DoesNotReplaceMissingCanonicalAsset()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.LinkState, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetMissing));
+            Assert.That(snapshot.ConditionAssetWasNull, Is.True);
+        }
+
+        [Test]
+        public void MissingCanonicalAsset_RemovalPlannerIsConflictRepair()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.RemovalMode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+        }
+
+        [Test]
+        public void LinkStatusNavigatorAndRemovalPlanner_AgreeWhenCanonicalAssetMissing()
+        {
+            var snapshot = CaptureMissingCanonicalButtonAssetNavigation();
+
+            Assert.That(snapshot.LinkState, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetMissing));
+            Assert.That(snapshot.SelectedRow, Is.False);
+            Assert.That(snapshot.Warning,
+                Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+            Assert.That(snapshot.RemovalMode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+        }
+
+        [Test]
+        public void NavigatorAndRemovalPlanner_AgreeForInvalidConditionAsset()
+        {
+            var snapshot = CaptureInvalidButtonConditionTypeNavigation();
+
+            Assert.That(snapshot.LinkState, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetInvalid));
+            Assert.That(snapshot.SelectedRow, Is.False);
+            Assert.That(snapshot.Warning,
+                Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+            Assert.That(snapshot.RemovalMode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
         }
 
         [Test]
@@ -396,6 +612,103 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PaddedStableConditionId_IsConflictRepairNotSingleCanonical()
+        {
+            var rawStableConditionIds = new[] { "button-901 ", " button-901" };
+            var linkStates = new ButtonObjectiveLinkState[rawStableConditionIds.Length];
+            var selectedFeatures = new bool[rawStableConditionIds.Length];
+            var selectedRows = new bool[rawStableConditionIds.Length];
+            var warnings = new string[rawStableConditionIds.Length];
+            var candidateCounts = new int[rawStableConditionIds.Length];
+            var candidateStableConditionIds = new string[rawStableConditionIds.Length];
+            var removalModes = new StageButtonObjectiveRemovalMode[rawStableConditionIds.Length];
+
+            for (var i = 0; i < rawStableConditionIds.Length; i++)
+            {
+                using var fixture = TempStageContentFixture.Create();
+                var canonical = fixture.CreateExpectedButtonCondition(901);
+                var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+                try
+                {
+                    fixture.Authoring.SetObjective(Objective(
+                        StageCompletionPolicy.RequireAllConditions,
+                        ButtonEntry(canonical, rawStableConditionIds[i], "Malformed stable ID", 30)));
+
+                    var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                        fixture.Authoring,
+                        fixture.Button);
+                    window.BindForTests(fixture.Authoring);
+                    selectedFeatures[i] = window.SelectTileFeatureByIdForTests(901);
+                    var plan = StageButtonObjectiveRemovalPlanner.Build(
+                        new SerializedObject(fixture.Authoring),
+                        fixture.Authoring,
+                        fixture.Button);
+
+                    linkStates[i] = status.State;
+                    selectedRows[i] = window.GetSelectedObjectiveConditionRowForTests() != null;
+                    warnings[i] = window.ObjectiveContextWarningForTests;
+                    candidateCounts[i] = plan.Candidates.Count;
+                    candidateStableConditionIds[i] = plan.Candidates[0].StableConditionId;
+                    removalModes[i] = plan.Mode;
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(window);
+                }
+            }
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    StageButtonObjectiveRemovalMode.ConflictRepair,
+                    StageButtonObjectiveRemovalMode.ConflictRepair,
+                },
+                removalModes);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    ButtonObjectiveLinkState.StableConditionIdConflict,
+                    ButtonObjectiveLinkState.StableConditionIdConflict,
+                },
+                linkStates);
+            CollectionAssert.AreEqual(new[] { true, true }, selectedFeatures);
+            CollectionAssert.AreEqual(new[] { false, false }, selectedRows);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved,
+                    StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved,
+                },
+                warnings);
+            CollectionAssert.AreEqual(new[] { 1, 1 }, candidateCounts);
+            CollectionAssert.AreEqual(rawStableConditionIds, candidateStableConditionIds);
+            CollectionAssert.DoesNotContain(removalModes, StageButtonObjectiveRemovalMode.SingleCanonical);
+        }
+
+        [Test]
+        public void ClassifySingleCanonical_ExcludesNonRequiredEntry()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var condition = fixture.CreateExpectedButtonCondition(901);
+            var entry = ButtonEntry(condition, "button-901", "Optional button", 30);
+            entry.Required = false;
+            fixture.Authoring.SetObjective(Objective(
+                StageCompletionPolicy.RequireAllConditions,
+                entry));
+
+            var plan = StageButtonObjectiveRemovalPlanner.Build(
+                new SerializedObject(fixture.Authoring),
+                fixture.Authoring,
+                fixture.Button);
+
+            Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+            Assert.That(plan.Candidates, Has.Count.EqualTo(1));
+            Assert.That(plan.Candidates[0].Required, Is.False);
+            Assert.That(StageButtonObjectiveRemovalConfirmationMessage.BuildRepair(plan),
+                Does.Contain("conflicting Button Objective entries"));
+        }
+
+        [Test]
         public void ObjectiveConditionRemoval_ConflictVariants_ClassifyConflictRepair()
         {
             using var fixture = TempStageContentFixture.Create();
@@ -439,6 +752,142 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
             Assert.That(plan.Candidates.Count, Is.EqualTo(1));
             Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.False);
+        }
+
+        [Test]
+        public void CanonicalButtonConditionReferenceMismatch_FailsClosedAcrossStatusNavigationAndRemoval()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var canonical = fixture.CreateExpectedButtonCondition(901);
+            var mismatched = CreateButtonActivatedCondition(901);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(mismatched, "button-901", "Mismatched reference", 30)));
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+
+                Assert.That(status.State,
+                    Is.EqualTo(ButtonObjectiveLinkState.ConditionReferenceMismatch));
+                Assert.That(status.ConditionAsset, Is.SameAs(canonical));
+                Assert.That(status.ExpectedConditionPath, Is.EqualTo(fixture.ExpectedButtonConditionPath));
+                Assert.That(status.MatchingEntryCount, Is.EqualTo(1));
+
+                window.BindForTests(fixture.Authoring);
+                Assert.That(window.SelectTileFeatureByIdForTests(901), Is.True);
+                Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                Assert.That(window.ObjectiveContextWarningForTests,
+                    Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+
+                var plan = StageButtonObjectiveRemovalPlanner.Build(
+                    new SerializedObject(fixture.Authoring),
+                    fixture.Authoring,
+                    fixture.Button);
+                Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                Assert.That(plan.CanonicalCondition, Is.SameAs(canonical));
+                Assert.That(plan.Candidates, Has.Count.EqualTo(1));
+                Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(mismatched);
+            }
+        }
+
+        [Test]
+        public void CanonicalButtonConditionPathResolutionFailure_FailsClosedAcrossStatusNavigationAndRemoval()
+        {
+            string stageFolder;
+            string externalConditionPath;
+            using (var fixture = TempStageContentFixture.Create())
+            {
+                stageFolder = fixture.StageFolder;
+                externalConditionPath = $"{stageFolder}/External_ButtonActivated.asset";
+                var externalCondition = CreateButtonActivatedCondition(901);
+                externalCondition.name = "External_ButtonActivated";
+                AssetDatabase.CreateAsset(externalCondition, externalConditionPath);
+                fixture.Authoring.SetOwnerMetadata(null, string.Empty);
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(
+                        externalCondition,
+                        "button-901",
+                        "External canonical-looking Button",
+                        10)));
+                EditorUtility.SetDirty(fixture.Authoring);
+                AssetDatabase.SaveAssets();
+
+                var authoringPath = AssetDatabase.GetAssetPath(fixture.Authoring);
+                var authoringJsonBefore = EditorJsonUtility.ToJson(fixture.Authoring);
+                var authoringBytesBefore = File.ReadAllBytes(ToAbsoluteProjectPath(authoringPath));
+                var externalConditionBytesBefore = File.ReadAllBytes(
+                    ToAbsoluteProjectPath(externalConditionPath));
+
+                Assert.That(
+                    StageAuthoringButtonObjectiveHelperCommands.TryGetExpectedButtonConditionPath(
+                        fixture.Authoring,
+                        fixture.Button.TileId,
+                        out var expectedConditionPath,
+                        out var pathError),
+                    Is.False);
+                Assert.That(expectedConditionPath, Is.Empty);
+                Assert.That(pathError, Is.Not.Empty);
+                Assert.That(EditorUtility.IsDirty(fixture.Authoring), Is.False);
+                Assert.That(EditorUtility.IsDirty(externalCondition), Is.False);
+
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+
+                Assert.That(status.State, Is.EqualTo(ButtonObjectiveLinkState.ConditionAssetMissing));
+                Assert.That(status.State, Is.Not.EqualTo(ButtonObjectiveLinkState.Linked));
+                Assert.That(status.ExpectedConditionPath, Is.Empty);
+                Assert.That(status.ConditionAsset, Is.Null);
+
+                var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+                try
+                {
+                    window.BindForTests(fixture.Authoring);
+                    Assert.That(window.SelectTileFeatureByIdForTests(901), Is.True);
+                    Assert.That(window.GetSelectedObjectiveConditionRowForTests(), Is.Null);
+                    Assert.That(window.ResolveObjectiveConditionSelectionForTests(),
+                        Is.EqualTo(StageObjectiveConditionSelectionResolution.None));
+                    Assert.That(window.ObjectiveHighlightCellForTests, Is.Null);
+                    Assert.That(window.ObjectiveContextWarningForTests,
+                        Is.EqualTo(StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved));
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(window);
+                }
+
+                var plan = StageButtonObjectiveRemovalPlanner.Build(
+                    new SerializedObject(fixture.Authoring),
+                    fixture.Authoring,
+                    fixture.Button);
+                Assert.That(plan.Mode, Is.EqualTo(StageButtonObjectiveRemovalMode.ConflictRepair));
+                Assert.That(plan.CanonicalCondition, Is.Null);
+                Assert.That(plan.Candidates, Has.Count.EqualTo(1));
+                Assert.That(plan.Candidates[0].Condition, Is.SameAs(externalCondition));
+                Assert.That(plan.Candidates[0].ConditionReferenceMatches, Is.False);
+
+                Assert.That(EditorJsonUtility.ToJson(fixture.Authoring), Is.EqualTo(authoringJsonBefore));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(authoringPath)),
+                    Is.EqualTo(authoringBytesBefore));
+                Assert.That(File.ReadAllBytes(ToAbsoluteProjectPath(externalConditionPath)),
+                    Is.EqualTo(externalConditionBytesBefore));
+                Assert.That(EditorUtility.IsDirty(fixture.Authoring), Is.False);
+                Assert.That(EditorUtility.IsDirty(externalCondition), Is.False);
+            }
+
+            Assert.That(AssetDatabase.IsValidFolder(stageFolder), Is.False);
+            Assert.That(AssetDatabase.LoadAssetAtPath<ButtonActivatedConditionAsset>(externalConditionPath),
+                Is.Null);
         }
 
         [Test]
@@ -1003,6 +1452,71 @@ namespace Game.Feature.Stages.Editor.Tests
             return condition;
         }
 
+        private static InvalidButtonNavigationSnapshot CaptureInvalidButtonConditionTypeNavigation()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            fixture.CreateInvalidExpectedButtonCondition();
+            var rowCondition = CreateButtonActivatedCondition(901);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(rowCondition, "button-901", "Canonical-looking row", 10)));
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+
+                window.BindForTests(fixture.Authoring);
+                window.SelectTileFeatureByIdForTests(901);
+                var plan = StageButtonObjectiveRemovalPlanner.Build(fixture.Authoring, fixture.Button);
+
+                return new InvalidButtonNavigationSnapshot(
+                    status.State,
+                    status.ConditionAsset == null,
+                    window.GetSelectedObjectiveConditionRowForTests() != null,
+                    window.ObjectiveContextWarningForTests,
+                    plan.Mode);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(rowCondition);
+            }
+        }
+
+        private static InvalidButtonNavigationSnapshot CaptureMissingCanonicalButtonAssetNavigation()
+        {
+            using var fixture = TempStageContentFixture.Create();
+            var externalCondition = CreateButtonActivatedCondition(901);
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            try
+            {
+                fixture.Authoring.SetObjective(Objective(
+                    StageCompletionPolicy.RequireAllConditions,
+                    ButtonEntry(externalCondition, "button-901", "External valid Button asset", 10)));
+                var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                    fixture.Authoring,
+                    fixture.Button);
+
+                window.BindForTests(fixture.Authoring);
+                window.SelectTileFeatureByIdForTests(901);
+                var plan = StageButtonObjectiveRemovalPlanner.Build(fixture.Authoring, fixture.Button);
+
+                return new InvalidButtonNavigationSnapshot(
+                    status.State,
+                    status.ConditionAsset == null,
+                    window.GetSelectedObjectiveConditionRowForTests() != null,
+                    window.ObjectiveContextWarningForTests,
+                    plan.Mode);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(externalCondition);
+            }
+        }
+
         private static void SetButtonConditionTileId(ButtonActivatedConditionAsset condition, int tileId)
         {
             var serializedObject = new SerializedObject(condition);
@@ -1078,6 +1592,16 @@ namespace Game.Feature.Stages.Editor.Tests
                 return condition;
             }
 
+            public StageConditionAsset CreateInvalidExpectedButtonCondition()
+            {
+                EnsureFolder(StageContentPaths.SharedConditionsRoot);
+                var condition = CreatePlayerAtAnyZone("goal");
+                condition.name = System.IO.Path.GetFileNameWithoutExtension(ExpectedButtonConditionPath);
+                AssetDatabase.CreateAsset(condition, ExpectedButtonConditionPath);
+                AssetDatabase.SaveAssets();
+                return condition;
+            }
+
             public void Dispose()
             {
                 AssetDatabase.DeleteAsset(ExpectedButtonConditionPath);
@@ -1108,6 +1632,33 @@ namespace Game.Feature.Stages.Editor.Tests
                     : string.Concat(value.Split('-', StringSplitOptions.RemoveEmptyEntries)
                         .Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
             }
+        }
+
+        private readonly struct InvalidButtonNavigationSnapshot
+        {
+            public InvalidButtonNavigationSnapshot(
+                ButtonObjectiveLinkState linkState,
+                bool conditionAssetWasNull,
+                bool selectedRow,
+                string warning,
+                StageButtonObjectiveRemovalMode removalMode)
+            {
+                LinkState = linkState;
+                ConditionAssetWasNull = conditionAssetWasNull;
+                SelectedRow = selectedRow;
+                Warning = warning;
+                RemovalMode = removalMode;
+            }
+
+            public ButtonObjectiveLinkState LinkState { get; }
+
+            public bool ConditionAssetWasNull { get; }
+
+            public bool SelectedRow { get; }
+
+            public string Warning { get; }
+
+            public StageButtonObjectiveRemovalMode RemovalMode { get; }
         }
     }
 }

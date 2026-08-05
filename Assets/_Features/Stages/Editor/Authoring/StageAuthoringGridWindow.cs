@@ -56,6 +56,7 @@ namespace Game.Feature.Stages.Editor
         private bool hasPendingButtonObjectiveRemovalGenerate;
         private int pendingButtonObjectiveRemovalTileId;
         private string pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
+        private StageButtonObjectiveRemovalPlan pendingButtonObjectiveRemovalPlan;
         private string zoneFeedback = string.Empty;
         private MessageType zoneFeedbackType = MessageType.Info;
         private string zoneCreateId = "zone";
@@ -184,6 +185,7 @@ namespace Game.Feature.Stages.Editor
             hasPendingButtonObjectiveRemovalGenerate = false;
             pendingButtonObjectiveRemovalTileId = 0;
             pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
+            pendingButtonObjectiveRemovalPlan = null;
             buttonObjectiveAuthoringLabel = string.Empty;
             zoneFeedback = string.Empty;
             zoneCreateId = "zone";
@@ -306,6 +308,16 @@ namespace Game.Feature.Stages.Editor
                 : null;
         }
 
+        internal bool RefreshObjectiveContextFromSelectedTileFeatureForTests()
+        {
+            return RefreshObjectiveContextFromSelectedTileFeatureIfChanged();
+        }
+
+        internal void HandleObjectiveUndoRedoForTests()
+        {
+            HandleObjectiveUndoRedo();
+        }
+
         internal void SelectCellForTests(FaceId face, Vector2Int cell)
         {
             selection.SelectCell(face, cell, authoring.Placements);
@@ -394,15 +406,17 @@ namespace Game.Feature.Stages.Editor
                 selection.TargetCell.y);
         }
 
-        internal void SelectTileFeatureByIdForTests(int tileId)
+        internal bool SelectTileFeatureByIdForTests(int tileId)
         {
             selection.SelectTileFeatureById(tileId, authoring.TileFeatures);
             var index = selection.ResolveSelectedTileFeatureIndex(authoring.TileFeatures);
             if (index >= 0 && index < authoring.TileFeatures.Count)
             {
                 LoadTileFeatureEditorState(authoring.TileFeatures[index]);
-                SelectObjectiveConditionForTileFeature(authoring.TileFeatures[index]);
+                return RefreshObjectiveContextFromSelectedTileFeatureIfChanged();
             }
+
+            return false;
         }
 
         internal void SelectZoneByIdForTests(string zoneId)
@@ -2565,6 +2579,7 @@ namespace Game.Feature.Stages.Editor
             hasPendingButtonObjectiveRemovalGenerate = true;
             pendingButtonObjectiveRemovalTileId = feature.TileId;
             pendingButtonObjectiveRemovalAuthoringSnapshot = EditorJsonUtility.ToJson(authoring);
+            pendingButtonObjectiveRemovalPlan = plan;
             MarkObjectiveConditionFeedbackDirty();
             SetTileFeatureFeedback(result.Message, MessageType.Info);
             Repaint();
@@ -2842,25 +2857,150 @@ namespace Game.Feature.Stages.Editor
 
         private void GenerateAndStoreReport()
         {
-            var isExactPendingRemovalState = hasPendingButtonObjectiveRemovalGenerate &&
-                                             string.Equals(
-                                                 pendingButtonObjectiveRemovalAuthoringSnapshot,
-                                                 EditorJsonUtility.ToJson(authoring),
-                                                 StringComparison.Ordinal);
+            var isProvenRemovalOnlyGeneration = IsProvenRemovalOnlyGeneration();
             lastReport = StageAuthoringGenerator.Generate(
                 authoring,
                 StageAuthoringGenerateOptions.WriteAll,
-                recordUndo: !isExactPendingRemovalState);
+                recordUndo: !isProvenRemovalOnlyGeneration);
             if (!lastReport.HasErrors)
             {
                 hasPendingButtonObjectiveRemovalGenerate = false;
                 pendingButtonObjectiveRemovalTileId = 0;
                 pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
+                pendingButtonObjectiveRemovalPlan = null;
             }
 
             MarkObjectiveConditionFeedbackDirty();
             RefreshObjectiveConditionFeedbackIfNeeded(lastReport);
             RestoreOrClearObjectiveConditionSelection();
+        }
+
+        private bool IsProvenRemovalOnlyGeneration()
+        {
+            if (!hasPendingButtonObjectiveRemovalGenerate ||
+                pendingButtonObjectiveRemovalPlan == null ||
+                !string.Equals(
+                    pendingButtonObjectiveRemovalAuthoringSnapshot,
+                    EditorJsonUtility.ToJson(authoring),
+                    StringComparison.Ordinal) ||
+                authoring.GeneratedGameplayDefinition == null ||
+                authoring.GeneratedPresentationDefinition == null)
+            {
+                return false;
+            }
+
+            var plan = StageAuthoringGenerator.BuildPlan(
+                authoring,
+                authoring.GeneratedGameplayDefinition,
+                authoring.GeneratedPresentationDefinition,
+                StageAuthoringGenerateOptions.WriteAll);
+            if (plan.Report.HasErrors || plan.Allocation == null || plan.BuildData == null)
+            {
+                return false;
+            }
+
+            var context = new StageAuthoringDriftContext(
+                StageValidationSeverity.Warning,
+                StageValidationTiming.EditorAuthoring,
+                authoring,
+                AssetDatabase.GetAssetPath(authoring),
+                authoring.name,
+                authoring.name,
+                authoring.GeneratedGameplayDefinition.name);
+            var gameplayIssues = StageAuthoringDriftComparer.CompareGameplay(
+                plan.ExpectedGameplaySnapshot,
+                StageAuthoringProjection.ProjectActualGameplay(authoring.GeneratedGameplayDefinition),
+                context);
+            if (gameplayIssues.Any(issue =>
+                    !issue.FieldName.StartsWith("Objective.ConditionEntries", StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            var presentationIssues = StageAuthoringDriftComparer.ComparePresentation(
+                plan.ExpectedPresentationSnapshot,
+                StageAuthoringProjection.ProjectActualPresentation(authoring.GeneratedPresentationDefinition),
+                context);
+            return presentationIssues.Length == 0 &&
+                   MappingsMatch(authoring.EntityIdMappings, plan.Allocation.Mappings) &&
+                   GeneratedObjectiveDiffMatchesPendingRemoval(
+                       authoring.GeneratedGameplayDefinition.Objective.GetConditionEntriesOrEmpty(),
+                       authoring.Objective.GetConditionEntriesOrEmpty(),
+                       pendingButtonObjectiveRemovalPlan.Candidates);
+        }
+
+        private static bool MappingsMatch(
+            IReadOnlyList<StageAuthoringIdMapping> current,
+            IReadOnlyList<StageAuthoringIdMapping> expected)
+        {
+            if (current.Count != expected.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < current.Count; i++)
+            {
+                if (!string.Equals(current[i].StableGuid, expected[i].StableGuid, StringComparison.Ordinal) ||
+                    current[i].EntityId != expected[i].EntityId ||
+                    current[i].Retired != expected[i].Retired ||
+                    !string.Equals(
+                        current[i].LastKnownDisplayName,
+                        expected[i].LastKnownDisplayName,
+                        StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool GeneratedObjectiveDiffMatchesPendingRemoval(
+            IReadOnlyList<StageObjectiveConditionEntry> generated,
+            IReadOnlyList<StageObjectiveConditionEntry> current,
+            IReadOnlyList<StageButtonObjectiveRemovalCandidate> removedCandidates)
+        {
+            var retainedGenerated = generated
+                .Where(entry => !removedCandidates.Any(candidate => EntryMatchesCandidate(entry, candidate)))
+                .ToArray();
+            if (retainedGenerated.Length != current.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < retainedGenerated.Length; i++)
+            {
+                if (!EntriesMatch(retainedGenerated[i], current[i]))
+                {
+                    return false;
+                }
+            }
+
+            return generated.Count > retainedGenerated.Length;
+        }
+
+        private static bool EntryMatchesCandidate(
+            StageObjectiveConditionEntry entry,
+            StageButtonObjectiveRemovalCandidate candidate)
+        {
+            return string.Equals(entry.StableConditionId, candidate.StableConditionId, StringComparison.Ordinal) &&
+                   entry.Required == candidate.Required &&
+                   entry.Role == candidate.Role &&
+                   string.Equals(entry.AuthoringLabel, candidate.AuthoringLabel, StringComparison.Ordinal) &&
+                   entry.SortOrder == candidate.SortOrder &&
+                   ReferenceEquals(entry.Condition, candidate.Condition);
+        }
+
+        private static bool EntriesMatch(
+            StageObjectiveConditionEntry left,
+            StageObjectiveConditionEntry right)
+        {
+            return string.Equals(left.StableConditionId, right.StableConditionId, StringComparison.Ordinal) &&
+                   left.Required == right.Required &&
+                   left.Role == right.Role &&
+                   string.Equals(left.AuthoringLabel, right.AuthoringLabel, StringComparison.Ordinal) &&
+                   left.SortOrder == right.SortOrder &&
+                   ReferenceEquals(left.Condition, right.Condition);
         }
 
         private void ValidateAndStoreReport()
@@ -2880,6 +3020,7 @@ namespace Game.Feature.Stages.Editor
 
             serializedAuthoring?.Update();
             RefreshPendingButtonObjectiveRemovalGenerateAfterUndoRedo();
+            lastObjectiveContextTileFeatureId = 0;
             MarkObjectiveConditionFeedbackDirty();
             RestoreOrClearObjectiveConditionSelection();
             RefreshObjectiveConditionFeedbackIfNeeded();
@@ -2901,6 +3042,7 @@ namespace Game.Feature.Stages.Editor
                 hasPendingButtonObjectiveRemovalGenerate = false;
                 pendingButtonObjectiveRemovalTileId = 0;
                 pendingButtonObjectiveRemovalAuthoringSnapshot = string.Empty;
+                pendingButtonObjectiveRemovalPlan = null;
                 return;
             }
 
@@ -2982,20 +3124,22 @@ namespace Game.Feature.Stages.Editor
                 : -1;
         }
 
-        private void RefreshObjectiveContextFromSelectedTileFeatureIfChanged()
+        private bool RefreshObjectiveContextFromSelectedTileFeatureIfChanged()
         {
             if (!TryGetSelectedTileFeature(out var feature))
             {
+                var changed = lastObjectiveContextTileFeatureId != 0;
                 lastObjectiveContextTileFeatureId = 0;
-                return;
+                return changed;
             }
 
             if (feature.TileId == lastObjectiveContextTileFeatureId)
             {
-                return;
+                return false;
             }
 
             SelectObjectiveConditionForTileFeature(feature);
+            return true;
         }
 
         private void SelectObjectiveConditionForTileFeature(StageTileFeatureDefinition feature)
@@ -3013,9 +3157,18 @@ namespace Game.Feature.Stages.Editor
             }
             else if (feature.Kind == TileFeatureKind.Button)
             {
-                expectedCondition = StageAuthoringButtonObjectiveHelperCommands
-                    .GetLinkStatus(authoring, feature)
-                    .ConditionAsset;
+                var linkStatus = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(authoring, feature);
+                if (linkStatus.State != ButtonObjectiveLinkState.Linked ||
+                    linkStatus.ConditionAsset is not ButtonActivatedConditionAsset)
+                {
+                    objectiveConditionSelection.Clear();
+                    objectiveContextWarning = StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved;
+                    lastObjectiveContextTileFeatureId = feature.TileId;
+                    Repaint();
+                    return;
+                }
+
+                expectedCondition = linkStatus.ConditionAsset;
             }
 
             var resolution = StageObjectiveConditionContextNavigator.SelectForTileFeature(
@@ -3024,11 +3177,7 @@ namespace Game.Feature.Stages.Editor
                 expectedCondition,
                 objectiveConditionSelection,
                 out objectiveContextWarning);
-            if (resolution != StageObjectiveConditionContextResolution.NotApplicable)
-            {
-                lastObjectiveContextTileFeatureId = feature.TileId;
-            }
-
+            lastObjectiveContextTileFeatureId = feature.TileId;
             Repaint();
         }
 

@@ -605,43 +605,44 @@ assert_no_generated_test_scenes() {
     return 1
 }
 
-find_solution_file() {
+find_generated_solution_file() {
+    local expected_basename
     local solution_candidates
-    local solution_count=0
-    local solution_file=""
-    local solution
+    local solution_count
+    local expected_sln
+    local expected_slnx
 
-    solution_candidates="$(find "$PROJECT_PATH_WSL" -maxdepth 1 -type f -name '*.sln' -printf '%f\n' | sort)"
-    while IFS= read -r solution; do
-        if [ -z "$solution" ]; then
-            continue
-        fi
-        solution_count=$((solution_count + 1))
-        solution_file="$solution"
-    done <<EOF
-$solution_candidates
-EOF
+    expected_basename="$(basename "$PROJECT_PATH_WSL")"
+    expected_sln="$PROJECT_PATH_WSL/$expected_basename.sln"
+    expected_slnx="$PROJECT_PATH_WSL/$expected_basename.slnx"
 
-    if [ "$solution_count" -ne 1 ]; then
-        echo "ERROR: Expected exactly one .sln in current worktree, found $solution_count."
-        echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL"
-        printf '  Solution candidates:'
-        if [ "$solution_count" -eq 0 ]; then
-            printf ' <none>'
-        else
-            while IFS= read -r solution; do
-                if [ -n "$solution" ]; then
-                    printf ' %s' "$solution"
-                fi
-            done <<EOF
-$solution_candidates
-EOF
-        fi
-        printf '\n'
-        exit 1
+    # Preserve the existing .sln preference when both canonical Unity inputs exist.
+    if [ -f "$expected_sln" ]; then
+        printf '%s\n' "$expected_basename.sln"
+        return 0
+    fi
+    if [ -f "$expected_slnx" ]; then
+        printf '%s\n' "$expected_basename.slnx"
+        return 0
     fi
 
-    printf '%s\n' "$solution_file"
+    solution_candidates="$(find "$PROJECT_PATH_WSL" -maxdepth 1 -type f \
+        \( -name '*.sln' -o -name '*.slnx' \) -printf '%f\n' | LC_ALL=C sort)"
+    if [ -z "$solution_candidates" ]; then
+        return 1
+    fi
+
+    solution_count="$(printf '%s\n' "$solution_candidates" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
+    if [ "$solution_count" -ne 1 ]; then
+        echo "ERROR: Generated solution input is ambiguous; expected canonical '$expected_basename.sln' or '$expected_basename.slnx'." >&2
+        echo "  PROJECT_PATH_WSL: $PROJECT_PATH_WSL" >&2
+        printf '  Solution candidates:' >&2
+        printf ' %s' $solution_candidates >&2
+        printf '\n' >&2
+        return 2
+    fi
+
+    printf '%s\n' "$solution_candidates"
 }
 
 normalize_windows_path_for_compare() {
@@ -3240,7 +3241,9 @@ run_dotnet_full() {
     if [ "$DRY_RUN" -eq 0 ]; then
         : > "$DOTNET_FULL_LOG"
     fi
-    solution_file="$(find_solution_file)"
+    if ! solution_file="$(find_generated_solution_file)"; then
+        return 1
+    fi
     echo "Running Windows dotnet full build..."
     run_dotnet_build "$DOTNET_FULL_LOG" "$solution_file" -c Debug
 }
@@ -3253,6 +3256,18 @@ run_dotnet_integration() {
     fi
     echo "Running Windows dotnet integration build..."
     run_dotnet_build "$log_path" Game.Feature.Gameplay.Tests.csproj -c Debug
+}
+
+run_dotnet_integration_simulation() {
+    run_dotnet_integration "$DOTNET_INTEGRATION_SIMULATION_LOG"
+}
+
+run_dotnet_integration_replay() {
+    run_dotnet_integration "$DOTNET_INTEGRATION_REPLAY_LOG"
+}
+
+run_dotnet_integration_fuzz() {
+    run_dotnet_integration "$DOTNET_INTEGRATION_FUZZ_LOG"
 }
 
 normalize_glyph_serialized_output() {
@@ -4836,6 +4851,71 @@ require_filtered_tests_if_needed() {
     fi
 }
 
+generated_dotnet_inputs_present() {
+    local mode="$1"
+
+    case "$mode" in
+        core|core-feature-gate|--integration-simulation|--integration-replay|--integration-fuzz)
+            [ -f "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj" ] &&
+                [ -f "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj" ]
+            ;;
+        ui)
+            [ -f "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj" ]
+            ;;
+        full)
+            find_generated_solution_file >/dev/null
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+run_dotnet_and_unity_lane() {
+    local mode="$1"
+    local dotnet_function="$2"
+    local unity_function="$3"
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        "$dotnet_function"
+        local dotnet_exit_code=$?
+        if [ "$dotnet_exit_code" -ne 0 ]; then
+            return "$dotnet_exit_code"
+        fi
+        "$unity_function"
+        return
+    fi
+
+    local readiness_exit_code
+    if generated_dotnet_inputs_present "$mode"; then
+        "$dotnet_function"
+        local dotnet_exit_code=$?
+        if [ "$dotnet_exit_code" -ne 0 ]; then
+            return "$dotnet_exit_code"
+        fi
+        "$unity_function"
+        return
+    else
+        readiness_exit_code=$?
+    fi
+
+    if [ "$readiness_exit_code" -ne 1 ]; then
+        return "$readiness_exit_code"
+    fi
+
+    echo "Generated dotnet project inputs are absent; running the Unity lane first for cold-checkout import."
+    "$unity_function"
+    local unity_exit_code=$?
+    if [ "$unity_exit_code" -ne 0 ]; then
+        return "$unity_exit_code"
+    fi
+    if ! generated_dotnet_inputs_present "$mode"; then
+        echo "ERROR: Unity bootstrap completed without generating required dotnet project inputs for lane '$mode'." >&2
+        return 1
+    fi
+    "$dotnet_function"
+}
+
 main() {
     local mode
 
@@ -4903,16 +4983,13 @@ main() {
 
     case "$mode" in
         core)
-            run_dotnet_core
-            run_unity_core
+            run_dotnet_and_unity_lane "$mode" run_dotnet_core run_unity_core
             ;;
         core-feature-gate)
-            run_dotnet_core
-            run_unity_core_feature_gate
+            run_dotnet_and_unity_lane "$mode" run_dotnet_core run_unity_core_feature_gate
             ;;
         ui)
-            run_dotnet_ui
-            run_unity_ui
+            run_dotnet_and_unity_lane "$mode" run_dotnet_ui run_unity_ui
             ;;
         climate-glyph-update)
             run_climate_glyph_update
@@ -4930,20 +5007,16 @@ main() {
             run_terminal_result_visual
             ;;
         full)
-            run_dotnet_full
-            run_unity_full
+            run_dotnet_and_unity_lane "$mode" run_dotnet_full run_unity_full
             ;;
         --integration-simulation)
-            run_dotnet_integration "$DOTNET_INTEGRATION_SIMULATION_LOG"
-            run_unity_integration_simulation
+            run_dotnet_and_unity_lane "$mode" run_dotnet_integration_simulation run_unity_integration_simulation
             ;;
         --integration-replay)
-            run_dotnet_integration "$DOTNET_INTEGRATION_REPLAY_LOG"
-            run_unity_integration_replay
+            run_dotnet_and_unity_lane "$mode" run_dotnet_integration_replay run_unity_integration_replay
             ;;
         --integration-fuzz)
-            run_dotnet_integration "$DOTNET_INTEGRATION_FUZZ_LOG"
-            run_unity_integration_fuzz
+            run_dotnet_and_unity_lane "$mode" run_dotnet_integration_fuzz run_unity_integration_fuzz
             ;;
         *)
             print_usage

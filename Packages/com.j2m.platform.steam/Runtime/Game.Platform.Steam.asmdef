@@ -1,0 +1,7 @@
+{
+  "name": "Game.Platform.Steam",
+  "rootNamespace": "Game.Platform.Steam",
+  "references": [
+    "Game.Platform.Runtime"
+  ]
+}

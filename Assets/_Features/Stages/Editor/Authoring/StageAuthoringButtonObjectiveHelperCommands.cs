@@ -21,6 +21,7 @@ namespace Game.Feature.Stages.Editor
         ConditionAssetInvalid,
         ConditionReferencesDifferentTile,
         ConditionReferencesNonButtonTile,
+        ConditionReferenceMismatch,
         DuplicateCondition,
         StableConditionIdConflict,
     }
@@ -138,10 +139,24 @@ namespace Game.Feature.Stages.Editor
                     stableConditionId);
             }
 
-            TryGetExpectedButtonConditionPath(definition, tileId, out var expectedConditionPath, out _);
-            var expectedAsset = !string.IsNullOrEmpty(expectedConditionPath)
-                ? AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(expectedConditionPath)
-                : null;
+            if (!TryGetExpectedButtonConditionPath(
+                    definition,
+                    tileId,
+                    out var expectedConditionPath,
+                    out var pathError) ||
+                string.IsNullOrEmpty(expectedConditionPath))
+            {
+                return CreateStatus(
+                    ButtonObjectiveLinkState.ConditionAssetMissing,
+                    string.IsNullOrEmpty(pathError)
+                        ? "Canonical Button condition path could not be resolved."
+                        : pathError,
+                    tileId,
+                    stableConditionId,
+                    expectedConditionPath);
+            }
+
+            var expectedAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(expectedConditionPath);
             if (expectedAsset != null && expectedAsset is not ButtonActivatedConditionAsset)
             {
                 return CreateStatus(
@@ -255,6 +270,42 @@ namespace Game.Feature.Stages.Editor
                         stableConditionId,
                         expectedConditionPath,
                         buttonCondition,
+                        1);
+                }
+
+                if (!string.Equals(entry.StableConditionId, stableConditionId, StringComparison.Ordinal))
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.StableConditionIdConflict,
+                        $"Button condition StableConditionId must be '{stableConditionId}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        buttonCondition,
+                        1);
+                }
+
+                if (!string.IsNullOrEmpty(expectedConditionPath) && expectedButton == null)
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.ConditionAssetMissing,
+                        $"Canonical condition asset is missing at '{expectedConditionPath}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        matchingEntryCount: 1);
+                }
+
+                if (!string.IsNullOrEmpty(expectedConditionPath) &&
+                    !ReferenceEquals(buttonCondition, expectedButton))
+                {
+                    return CreateStatus(
+                        ButtonObjectiveLinkState.ConditionReferenceMismatch,
+                        $"Condition reference does not match the canonical asset at '{expectedConditionPath}'.",
+                        tileId,
+                        stableConditionId,
+                        expectedConditionPath,
+                        expectedButton,
                         1);
                 }
 
@@ -671,23 +722,22 @@ namespace Game.Feature.Stages.Editor
             IReadOnlyList<StageObjectiveConditionEntry> entries,
             out int sortOrder)
         {
-            var maxSecondary = 0;
+            var maxSortOrder = 0;
             for (var i = 0; i < entries.Count; i++)
             {
-                if (entries[i].Role == StageObjectiveConditionRole.SecondaryGoal &&
-                    entries[i].SortOrder > maxSecondary)
+                if (entries[i].SortOrder > maxSortOrder)
                 {
-                    maxSecondary = entries[i].SortOrder;
+                    maxSortOrder = entries[i].SortOrder;
                 }
             }
 
-            if (maxSecondary > int.MaxValue - 10)
+            if (maxSortOrder > int.MaxValue - 10)
             {
                 sortOrder = 0;
                 return false;
             }
 
-            sortOrder = Math.Max(10, maxSecondary + 10);
+            sortOrder = Math.Max(10, maxSortOrder + 10);
             return true;
         }
 

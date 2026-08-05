@@ -1,0 +1,14 @@
+{
+  "name": "Game.Platform.Steam.Tests.EditMode",
+  "rootNamespace": "Game.Platform.Steam.Tests.EditMode",
+  "references": [
+    "Game.Platform.Runtime",
+    "Game.Platform.Steam"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
