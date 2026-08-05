@@ -346,7 +346,7 @@ namespace Game.Feature.Stages.Editor
                 .ToArray();
             var exactCount = candidates.Count(candidate =>
                 string.Equals(
-                    StageAuthoringButtonObjectiveHelperCommands.NormalizeStableConditionId(candidate.StableConditionId),
+                    candidate.StableConditionId,
                     expectedStableId,
                     StringComparison.Ordinal) &&
                 candidate.ConditionReferenceMatches &&

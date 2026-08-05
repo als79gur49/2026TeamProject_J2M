@@ -612,6 +612,80 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PaddedStableConditionId_IsConflictRepairNotSingleCanonical()
+        {
+            var rawStableConditionIds = new[] { "button-901 ", " button-901" };
+            var linkStates = new ButtonObjectiveLinkState[rawStableConditionIds.Length];
+            var selectedFeatures = new bool[rawStableConditionIds.Length];
+            var selectedRows = new bool[rawStableConditionIds.Length];
+            var warnings = new string[rawStableConditionIds.Length];
+            var candidateCounts = new int[rawStableConditionIds.Length];
+            var candidateStableConditionIds = new string[rawStableConditionIds.Length];
+            var removalModes = new StageButtonObjectiveRemovalMode[rawStableConditionIds.Length];
+
+            for (var i = 0; i < rawStableConditionIds.Length; i++)
+            {
+                using var fixture = TempStageContentFixture.Create();
+                var canonical = fixture.CreateExpectedButtonCondition(901);
+                var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+                try
+                {
+                    fixture.Authoring.SetObjective(Objective(
+                        StageCompletionPolicy.RequireAllConditions,
+                        ButtonEntry(canonical, rawStableConditionIds[i], "Malformed stable ID", 30)));
+
+                    var status = StageAuthoringButtonObjectiveHelperCommands.GetLinkStatus(
+                        fixture.Authoring,
+                        fixture.Button);
+                    window.BindForTests(fixture.Authoring);
+                    selectedFeatures[i] = window.SelectTileFeatureByIdForTests(901);
+                    var plan = StageButtonObjectiveRemovalPlanner.Build(
+                        new SerializedObject(fixture.Authoring),
+                        fixture.Authoring,
+                        fixture.Button);
+
+                    linkStates[i] = status.State;
+                    selectedRows[i] = window.GetSelectedObjectiveConditionRowForTests() != null;
+                    warnings[i] = window.ObjectiveContextWarningForTests;
+                    candidateCounts[i] = plan.Candidates.Count;
+                    candidateStableConditionIds[i] = plan.Candidates[0].StableConditionId;
+                    removalModes[i] = plan.Mode;
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(window);
+                }
+            }
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    StageButtonObjectiveRemovalMode.ConflictRepair,
+                    StageButtonObjectiveRemovalMode.ConflictRepair,
+                },
+                removalModes);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    ButtonObjectiveLinkState.StableConditionIdConflict,
+                    ButtonObjectiveLinkState.StableConditionIdConflict,
+                },
+                linkStates);
+            CollectionAssert.AreEqual(new[] { true, true }, selectedFeatures);
+            CollectionAssert.AreEqual(new[] { false, false }, selectedRows);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved,
+                    StageObjectiveConditionContextNavigator.ButtonSelectionUnresolved,
+                },
+                warnings);
+            CollectionAssert.AreEqual(new[] { 1, 1 }, candidateCounts);
+            CollectionAssert.AreEqual(rawStableConditionIds, candidateStableConditionIds);
+            CollectionAssert.DoesNotContain(removalModes, StageButtonObjectiveRemovalMode.SingleCanonical);
+        }
+
+        [Test]
         public void ClassifySingleCanonical_ExcludesNonRequiredEntry()
         {
             using var fixture = TempStageContentFixture.Create();
