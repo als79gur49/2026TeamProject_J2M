@@ -741,6 +741,20 @@ def restore_known_unity_import_drift(
     return True
 
 
+def run_lane_with_import_drift_closeout(
+    bundle_root: Path,
+    bundle_id: str,
+    source_freeze_id: str,
+    lane: Lane,
+    initial_baseline: dict[str, object],
+    known_import_drift_initial_bytes: bytes,
+) -> None:
+    run_lane(bundle_root, bundle_id, source_freeze_id, lane)
+    restore_known_unity_import_drift(
+        initial_baseline, known_import_drift_initial_bytes
+    )
+
+
 def main() -> int:
     if sys.argv[1:] != ["--produce"]:
         print("usage: produce_bundle.py --produce", file=sys.stderr)
@@ -815,7 +829,14 @@ def main() -> int:
     print(f"Source freeze {source_freeze_id}")
     for lane in LANES:
         print(f"\n[{lane.command_id}] {lane.lane_id}")
-        run_lane(bundle_root, bundle_id, source_freeze_id, lane)
+        run_lane_with_import_drift_closeout(
+            bundle_root,
+            bundle_id,
+            source_freeze_id,
+            lane,
+            initial_baseline,
+            known_import_drift_initial_bytes,
+        )
 
     restore_known_unity_import_drift(
         initial_baseline, known_import_drift_initial_bytes

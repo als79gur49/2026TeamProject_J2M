@@ -139,6 +139,24 @@ class ProduceBundleUnitTests(unittest.TestCase):
             )
         )
 
+    def test_lane_closeout_restores_documented_import_drift(self) -> None:
+        lane = produce_bundle.Lane("core", "CMD-11", ("./run_tests.sh", "core"))
+        with mock.patch.object(produce_bundle, "run_lane") as run_lane, mock.patch.object(
+            produce_bundle, "restore_known_unity_import_drift"
+        ) as restore:
+            produce_bundle.run_lane_with_import_drift_closeout(
+                produce_bundle.Path("/bundle"),
+                "TICEI-test",
+                "TISF-test",
+                lane,
+                {"trackedModified": []},
+                b"frozen-climate",
+            )
+        run_lane.assert_called_once()
+        restore.assert_called_once_with(
+            {"trackedModified": []}, b"frozen-climate"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
