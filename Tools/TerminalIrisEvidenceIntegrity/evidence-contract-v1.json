@@ -1,0 +1,223 @@
+{
+  "contractVersion": "terminal-iris-evidence-contract-v1",
+  "requiredSources": [
+    "Assets/_Features/UI/UI_Composition/Runtime/GameplayTerminalFocusTargetSource.cs",
+    "Assets/_Features/UI/UI_Composition/Runtime/GameplayTerminalTransitionPort.cs",
+    "Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisOverlayView.cs",
+    "Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisPlayerVisualQualityProbe.cs",
+    "Assets/_Features/UI/UI_Composition/Shaders/TerminalIris.shader",
+    "Assets/_Features/UI/UI_Composition/Shaders/TerminalIrisOverlay.mat",
+    "Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisMotionProfile.cs",
+    "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/TerminalIrisMotionProfile.asset",
+    "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/ResultTransitionVisualStyle.asset",
+    "Assets/_Features/Stages/Runtime/Queries/SceneTransitionRoutePolicy.cs",
+    "Assets/_Features/Stages/Runtime/Queries/TerminalTransitionTypes.cs",
+    "Assets/_Features/Gameplay/Gameplay_Tests/PlayMode/TerminalIrisEvidenceAnalyzer.cs",
+    "Assets/_Features/Gameplay/Gameplay_Tests/PlayMode/TerminalIrisVisualQualityPlayModeTests.cs",
+    "Assets/_Features/Gameplay/Gameplay_Tests/PlayMode/ActualSceneBootstrapSmokePlayModeTests.cs",
+    "Assets/_Features/Stages/Editor/Tests/SceneTransitionRoutePolicyCatalogTests.cs",
+    "Assets/_Features/UI/UI_Tests/EditMode/SceneTransitionRoutePolicyArchitectureTests.cs",
+    "Assets/_Features/Stages/Editor/Tests/TerminalSessionAuthorityTests.cs",
+    "Assets/_Features/Gameplay/Gameplay_Tests/PlayMode/Gameplay.PlayModeTests.asmdef",
+    "Assets/_Features/Stages/Stages.asmdef",
+    "Assets/_Features/Stages/Editor/Tests/Game.Feature.Stages.Editor.Tests.asmdef",
+    "Assets/_Features/UI/UI_Composition/UI.Composition.asmdef",
+    "Assets/_Features/UI/UI_Tests/EditMode/UI.Tests.asmdef",
+    "run_tests.sh",
+    "Tools/TerminalIrisEvidenceIntegrity/run_bundle.sh",
+    "Tools/TerminalIrisEvidenceIntegrity/produce_bundle.py",
+    "Tools/TerminalIrisEvidenceIntegrity/verify_bundle.py",
+    "Tools/TerminalIrisEvidenceIntegrity/run_negative_tests.py",
+    "Tools/TerminalIrisEvidenceIntegrity/test_verify_bundle.py",
+    "Tools/TerminalIrisEvidenceIntegrity/test_produce_bundle.py",
+    "Tools/TerminalIrisEvidenceIntegrity/evidence-contract-v1.json",
+    "Tools/TerminalIrisEvidenceIntegrity/README.md",
+    "ProjectSettings/ProjectVersion.txt",
+    "ProjectSettings/GraphicsSettings.asset",
+    "ProjectSettings/QualitySettings.asset",
+    "ProjectSettings/URPProjectSettings.asset",
+    "Assets/Settings/PC_RPAsset.asset",
+    "Assets/Settings/Mobile_RPAsset.asset"
+  ],
+  "requiredLaneIds": [
+    "legacy-analyzer-regression",
+    "known-center-analyzer",
+    "production-offcenter-focus",
+    "final-close-frames",
+    "architecture",
+    "lifecycle",
+    "static-edge",
+    "small-radius",
+    "temporal-stability",
+    "player-visual-quality",
+    "core",
+    "ui"
+  ],
+  "laneResultContracts": {
+    "legacy-analyzer-regression": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-legacy-analyzer-regression"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 1}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "known-center-analyzer": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-known-center-analyzer"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 1}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "production-offcenter-focus": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-production-offcenter-focus"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 1}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "final-close-frames": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-final-close-frames"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 3}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "architecture": {
+      "kind": "unity-test-framework",
+      "commandArgv": [
+        "./run_tests.sh",
+        "terminal-transition-architecture",
+        "--filter",
+        "SceneTransitionRoutePolicyCatalogTests;SceneTransitionRoutePolicyArchitectureTests;TerminalSessionAuthorityTests"
+      ],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-editmode.xml", "total": 69}],
+      "logs": ["unity-editmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "lifecycle": {
+      "kind": "unity-test-framework",
+      "commandArgv": [
+        "./run_tests.sh",
+        "terminal-production-render-coverage",
+        "--filter",
+        "TerminalVictoryBlueHandoff_ActualVictoryCreatesResultAndCleansBlockers;M2LevelFailedRestart_PreservesSourceScreenUntilOpaqueAndCompletesCanonicalEntry;TerminalStageEntryOpening_ActualStageResultLoadsNewSceneAndReleasesGameplay"
+      ],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 3}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "static-edge": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-static-edge-quality"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 1}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "small-radius": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-small-radius"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 1}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "temporal-stability": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-temporal-stability"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-playmode.xml", "total": 1}],
+      "logs": ["unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "player-visual-quality": {
+      "kind": "player-visual",
+      "commandArgv": ["./run_tests.sh", "terminal-iris-player-visual-quality"],
+      "allowedExitCodes": [0],
+      "json": "player-visual-result.json",
+      "logs": ["player-build.log", "wrapper.log"]
+    },
+    "core": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "core"],
+      "allowedExitCodes": [0],
+      "xml": [
+        {"path": "unity-editmode.xml", "total": 197},
+        {"path": "unity-playmode.xml", "total": 104}
+      ],
+      "logs": ["unity-editmode.log", "unity-playmode.log", "dotnet.log", "wrapper.log"]
+    },
+    "ui": {
+      "kind": "unity-test-framework",
+      "commandArgv": ["./run_tests.sh", "ui"],
+      "allowedExitCodes": [0],
+      "xml": [{"path": "unity-editmode.xml", "total": 1341}],
+      "logs": ["unity-editmode.log", "dotnet.log", "wrapper.log"]
+    }
+  },
+  "requiredGraphicsLanes": [
+    "legacy-analyzer-regression",
+    "known-center-analyzer",
+    "production-offcenter-focus",
+    "final-close-frames",
+    "static-edge",
+    "small-radius",
+    "temporal-stability",
+    "player-visual-quality"
+  ],
+  "requiredArtifactRules": [
+    {"pattern": "00-source/baseline.json", "count": 1, "nonZero": true},
+    {"pattern": "00-source/source-freeze.json", "count": 1, "nonZero": true},
+    {"pattern": "00-source/source-freeze.sha256", "count": 1, "nonZero": true},
+    {"pattern": "01-commands/*.json", "count": 12, "nonZero": true},
+    {"pattern": "02-lanes/*/lane-result.json", "count": 12, "nonZero": true},
+    {"pattern": "02-lanes/*/wrapper.log", "count": 12, "nonZero": true},
+    {"pattern": "02-lanes/*/lane-environment.json", "count": 8, "nonZero": true},
+    {"pattern": "02-lanes/known-center-analyzer/**/known-center-fixtures.csv", "count": 1, "nonZero": true},
+    {"pattern": "02-lanes/known-center-analyzer/**/cpu-fixtures/*.coverage.bin", "count": 96, "nonZero": true},
+    {"pattern": "02-lanes/known-center-analyzer/**/shader-captures/*.png", "count": 12, "nonZero": true},
+    {"pattern": "02-lanes/production-offcenter-focus/**/off-center-focus-trace.csv", "count": 1, "nonZero": true},
+    {"pattern": "02-lanes/production-offcenter-focus/**/focus-transport-trace.csv", "count": 1, "nonZero": true},
+    {"pattern": "02-lanes/production-offcenter-focus/**/production-offcenter/*.png", "count": 12, "nonZero": true},
+    {"pattern": "02-lanes/final-close-frames/**/frame-selection.json", "count": 2, "nonZero": true},
+    {"pattern": "02-lanes/final-close-frames/**/frame-metrics.csv", "count": 2, "nonZero": true},
+    {"pattern": "02-lanes/final-close-frames/**/heatmap-manifest.json", "count": 2, "nonZero": true},
+    {"pattern": "02-lanes/player-visual-quality/**/player-visual-result.json", "count": 1, "nonZero": true},
+    {"pattern": "02-lanes/player-visual-quality/**/Player-*/*.png", "count": 192, "nonZero": true}
+  ],
+  "allowedExplicitExclusions": [
+    "artifact-hashes.sha256",
+    "bundle-produced.json",
+    "BUNDLE_CLOSED"
+  ],
+  "approvedUiFailurePolicy": {
+    "mode": "exact-set",
+    "approvedExpectedFailureIds": []
+  },
+  "offCenterMatrix": {
+    "directions": ["Left", "Right", "Top", "Bottom"],
+    "repetitions": [1, 2, 3],
+    "terminalTokenUniquenessClaim": false,
+    "canonicalCorrelation": "EvidenceRunId+SampleId"
+  },
+  "finalCloseIntentSet": ["victory", "defeat"],
+  "requiredArtifactThresholds": {
+    "knownCenterRowCount": 108,
+    "knownCenterCpuFixtureCount": 96,
+    "knownCenterShaderFixtureCount": 12,
+    "centerErrorPixelsMaximum": 1.0,
+    "knownCenterRmsMaximum": 0.35,
+    "knownCenterMaximumRadialErrorMaximum": 1.0,
+    "offCenterRmsMaximum": 0.5,
+    "offCenterMaximumRadialErrorMaximum": 1.0,
+    "offCenterP99Maximum": 0.75,
+    "focusTransportTolerance": 0.0001,
+    "playerExpectedCaptureCount": 192
+  },
+  "heatmapPolicy": {
+    "optionalDiagnostic": false,
+    "differenceAlgorithmVersion": "max-rgba-delta-red-v1"
+  },
+  "hashAlgorithms": {
+    "artifact": "SHA-256",
+    "source": "SHA-256",
+    "aggregate": "SHA-256"
+  }
+}

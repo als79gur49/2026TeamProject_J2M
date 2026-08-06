@@ -1399,7 +1399,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         $"{evidenceRunId}-{positions[i].Key.ToLowerInvariant()}-{run}";
                     var artifactRelativePath =
                         $"production-offcenter/{positions[i].Key.ToLowerInvariant()}-" +
-                        $"{run}-{sampleId}-isolated.png";
+                        $"{run}-isolated.png";
                     var traceRowId = sampleId + "-focus-trace";
                     Assert.That(sampleIds.Add(sampleId), Is.True, identity);
                     Assert.That(artifactPaths.Add(artifactRelativePath), Is.True, identity);
@@ -4013,6 +4013,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 RenderTexture.active = target;
                 texture.ReadPixels(new Rect(0f, 0f, width, height), 0, 0);
                 texture.Apply();
+                Directory.CreateDirectory(Path.GetDirectoryName(capturePath));
                 File.WriteAllBytes(capturePath, texture.EncodeToPNG());
                 var pixels = texture.GetPixels32();
                 var coverage = TerminalIrisEvidenceAnalyzer.ResolveCoverage(
