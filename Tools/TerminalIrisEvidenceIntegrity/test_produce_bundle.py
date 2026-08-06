@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 import unittest
 from unittest import mock
 
@@ -24,14 +25,17 @@ class ProduceBundleUnitTests(unittest.TestCase):
                 f"documented direct entry point is not mode 100755: {relative}",
             )
 
-    def test_bundle_parent_defaults_to_repository_test_logs(self) -> None:
+    def test_bundle_parent_defaults_outside_repository(self) -> None:
         with mock.patch.dict(
             "os.environ",
             {produce_bundle.EVIDENCE_BUNDLE_ROOT_ENV: ""},
         ):
-            self.assertEqual(
-                produce_bundle.resolve_bundle_parent(),
-                produce_bundle.DEFAULT_BUNDLE_PARENT,
+            resolved = produce_bundle.resolve_bundle_parent()
+            self.assertEqual(resolved, produce_bundle.DEFAULT_BUNDLE_PARENT)
+            self.assertFalse(
+                resolved.is_relative_to(produce_bundle.PROJECT_ROOT.resolve()),
+                "the no-override producer dirties the repository that the strict "
+                "verifier requires to remain clean",
             )
 
     def test_bundle_parent_accepts_external_root_override(self) -> None:
@@ -44,6 +48,36 @@ class ProduceBundleUnitTests(unittest.TestCase):
                 produce_bundle.resolve_bundle_parent(),
                 produce_bundle.Path(external_root).resolve(),
             )
+
+    def test_bundle_parent_rejects_repository_internal_override(self) -> None:
+        internal_root = produce_bundle.PROJECT_ROOT / "TestLogs/internal"
+        with mock.patch.dict(
+            "os.environ",
+            {produce_bundle.EVIDENCE_BUNDLE_ROOT_ENV: str(internal_root)},
+        ):
+            with self.assertRaisesRegex(ValueError, "outside the repository"):
+                produce_bundle.resolve_bundle_parent()
+
+    def test_default_root_temporary_output_does_not_change_repo_status(self) -> None:
+        parent = produce_bundle.resolve_bundle_parent()
+        parent.mkdir(parents=True, exist_ok=True)
+        before = subprocess.check_output(
+            ["git", "status", "--porcelain=v1", "-uall"],
+            cwd=produce_bundle.PROJECT_ROOT,
+            text=True,
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="unit-output-", dir=parent
+        ) as temporary:
+            (produce_bundle.Path(temporary) / "small-fixture.txt").write_text(
+                "external\n", encoding="utf-8"
+            )
+            during = subprocess.check_output(
+                ["git", "status", "--porcelain=v1", "-uall"],
+                cwd=produce_bundle.PROJECT_ROOT,
+                text=True,
+            )
+            self.assertEqual(during, before)
 
     def test_player_visual_runner_supports_external_build_root(self) -> None:
         runner = (produce_bundle.PROJECT_ROOT / "run_tests.sh").read_text(

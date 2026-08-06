@@ -21,10 +21,26 @@ import xml.etree.ElementTree as ET
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
 CONTRACT_PATH = SCRIPT_DIR / "evidence-contract-v1.json"
-DEFAULT_BUNDLE_PARENT = (
-    PROJECT_ROOT
-    / "TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Bundles"
-)
+
+
+def default_evidence_root(project_root: Path) -> Path:
+    resolved = project_root.resolve()
+    if (
+        resolved.parent.name.casefold() == "worktrees"
+        and resolved.parent.parent.name.casefold() == "j2m"
+    ):
+        return (
+            resolved.parent.parent
+            / "evidence/TerminalIrisCoreArtEvidenceIntegrity"
+        )
+    return (
+        resolved.parent
+        / "J2M-Evidence/TerminalIrisCoreArtEvidenceIntegrity"
+    )
+
+
+DEFAULT_EVIDENCE_ROOT = default_evidence_root(PROJECT_ROOT)
+DEFAULT_BUNDLE_PARENT = DEFAULT_EVIDENCE_ROOT / "Bundles"
 EVIDENCE_BUNDLE_ROOT_ENV = "TERMINAL_IRIS_EVIDENCE_BUNDLE_ROOT"
 
 SOURCE_PATHS = [
@@ -82,9 +98,19 @@ class Lane:
 
 def resolve_bundle_parent() -> Path:
     override = os.environ.get(EVIDENCE_BUNDLE_ROOT_ENV, "").strip()
-    if not override:
-        return DEFAULT_BUNDLE_PARENT
-    return Path(override).expanduser().resolve()
+    resolved = (
+        Path(override).expanduser().resolve()
+        if override
+        else DEFAULT_BUNDLE_PARENT.resolve()
+    )
+    if resolved == PROJECT_ROOT.resolve() or resolved.is_relative_to(
+        PROJECT_ROOT.resolve()
+    ):
+        raise ValueError(
+            f"{EVIDENCE_BUNDLE_ROOT_ENV} must resolve outside the repository: "
+            f"{resolved}"
+        )
+    return resolved
 
 
 def resolve_test_results_root() -> Path:

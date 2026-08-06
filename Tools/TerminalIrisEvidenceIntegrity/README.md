@@ -20,11 +20,17 @@ Tools/TerminalIrisEvidenceIntegrity/run_bundle.sh --produce
 By default, the producer writes under:
 
 ```text
-TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId>/
+J2M worktree:
+<J2M-root>/evidence/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId>/
+
+Other repository layout:
+<repo-parent>/J2M-Evidence/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId>/
 ```
 
-Storage-policy or CI runs can keep the same behavior while selecting an
-external parent directory:
+The default is deliberately outside the repository so the strict clean-source
+gate cannot reject producer or verifier output as untracked source. Explicit
+overrides must also resolve outside the repository; repository-internal roots
+are rejected. Storage-policy or CI runs can select an external parent:
 
 ```bash
 TERMINAL_IRIS_EVIDENCE_BUNDLE_ROOT=/mnt/d/J2M/evidence/terminal-transition/bundles \
@@ -40,18 +46,18 @@ Verify a closed bundle into an external root:
 
 ```bash
 python3 Tools/TerminalIrisEvidenceIntegrity/verify_bundle.py \
-  --bundle TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId> \
+  --bundle /external/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId> \
   --contract Tools/TerminalIrisEvidenceIntegrity/evidence-contract-v1.json \
-  --output TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Verifications/<BundleId>/<VerificationId>
+  --output /external/TerminalIrisCoreArtEvidenceIntegrity/Verifications/<BundleId>/<VerificationId>
 ```
 
 Run verifier mutation tests after the primary verification:
 
 ```bash
 python3 Tools/TerminalIrisEvidenceIntegrity/run_negative_tests.py \
-  --bundle TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId> \
+  --bundle /external/TerminalIrisCoreArtEvidenceIntegrity/Bundles/<BundleId> \
   --contract Tools/TerminalIrisEvidenceIntegrity/evidence-contract-v1.json \
-  --output TestLogs/TerminalIrisCoreArtEvidenceIntegrity/Verifications/<BundleId>/<VerificationId>
+  --output /external/TerminalIrisCoreArtEvidenceIntegrity/Verifications/<BundleId>/<VerificationId>
 ```
 
 The verifier never writes inside the bundle. It snapshots every input file
@@ -61,4 +67,7 @@ bound to the exact clean repository, commit, and tree recorded by the source
 freeze; a different HEAD is rejected even when every required-source hash is
 unchanged. Unity XML is also rejected when a root or suite failure summary is
 nonzero, when a suite reports a failed result, or when any descendant test case
-is failed.
+is failed. Known-center aperture metrics are independently recalculated from
+raw coverage buffers or decoded shader PNGs. Final-close selectors are derived
+from decoded frame pixels and adjacent-frame deltas, and Player captures are
+bound to the exact labels and directory for each resolution/FPS/focus cell.
