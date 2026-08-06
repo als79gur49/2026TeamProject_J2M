@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import subprocess
 import unittest
 from unittest import mock
 
@@ -8,6 +9,21 @@ import produce_bundle
 
 
 class ProduceBundleUnitTests(unittest.TestCase):
+    def test_documented_entry_points_are_git_executable(self) -> None:
+        for relative in (
+            "Tools/TerminalIrisEvidenceIntegrity/run_bundle.sh",
+            "run_tests.sh",
+        ):
+            stage = subprocess.check_output(
+                ["git", "ls-files", "--stage", "--", relative],
+                cwd=produce_bundle.PROJECT_ROOT,
+                text=True,
+            )
+            self.assertTrue(
+                stage.startswith("100755 "),
+                f"documented direct entry point is not mode 100755: {relative}",
+            )
+
     def test_bundle_parent_defaults_to_repository_test_logs(self) -> None:
         with mock.patch.dict(
             "os.environ",
