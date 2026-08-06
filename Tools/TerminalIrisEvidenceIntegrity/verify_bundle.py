@@ -225,19 +225,71 @@ def snapshot_difference(
 
 def parse_xml(path: Path) -> dict[str, object]:
     root = ET.parse(path).getroot()
+    summary_failures: list[dict[str, object]] = []
+
+    for node in root.iter():
+        local_name = node.tag.rsplit("}", 1)[-1]
+        if local_name not in {
+            "test-run",
+            "test-results",
+            "test-suite",
+            "result-summary",
+            "counters",
+        }:
+            continue
+        for attribute in ("failed", "failures"):
+            if attribute not in node.attrib:
+                continue
+            raw_value = node.attrib[attribute]
+            if not raw_value.isdigit():
+                raise ValueError(
+                    f"invalid non-negative XML failure summary "
+                    f"{local_name}@{attribute}={raw_value!r}"
+                )
+            value = int(raw_value)
+            if value > 0:
+                summary_failures.append(
+                    {
+                        "node": local_name,
+                        "attribute": attribute,
+                        "value": value,
+                    }
+                )
+        if local_name in {"test-run", "test-suite"} and node.attrib.get(
+            "result"
+        ) in {"Failed", "Failure", "Error"}:
+            summary_failures.append(
+                {
+                    "node": local_name,
+                    "attribute": "result",
+                    "value": node.attrib["result"],
+                }
+            )
+
     return {
         "total": int(root.attrib.get("total", "0")),
         "passed": int(root.attrib.get("passed", "0")),
-        "failed": int(root.attrib.get("failed", "0")),
+        "failed": int(
+            root.attrib.get("failed", root.attrib.get("failures", "0"))
+        ),
         "skipped": int(
             root.attrib.get("skipped", root.attrib.get("inconclusive", "0"))
         ),
+        "failedSummaryNodes": summary_failures,
         "failedTestIds": sorted(
             node.attrib.get("fullname", "")
             for node in root.iter("test-case")
             if node.attrib.get("result") == "Failed"
         ),
     }
+
+
+def xml_report_has_failure(report: dict[str, object]) -> bool:
+    return (
+        int(report["failed"]) > 0
+        or bool(report["failedSummaryNodes"])
+        or bool(report["failedTestIds"])
+    )
 
 
 def decode_png_rgba(path: Path) -> tuple[int, int, bytes]:
@@ -366,6 +418,60 @@ def repository_for_contract(contract_path: Path) -> Path:
     return Path(result.decode().strip()).resolve()
 
 
+def source_identity_failures(
+    freeze: dict[str, object],
+    repo: Path,
+    actual_head: str,
+    actual_tree: str,
+) -> list[Failure]:
+    failures: list[Failure] = []
+    expected_head = str(freeze.get("head", ""))
+    expected_tree = str(freeze.get("tree", ""))
+    expected_repository = str(freeze.get("repository", ""))
+    if not expected_head or not expected_tree or not expected_repository:
+        failures.append(
+            Failure(
+                "SOURCE_FREEZE_DRIFT",
+                "source freeze is missing repository, head, or tree identity",
+                str(repo),
+            )
+        )
+        return failures
+    try:
+        frozen_repo = Path(expected_repository).resolve(strict=True)
+    except (OSError, RuntimeError):
+        frozen_repo = Path(expected_repository).resolve()
+    if frozen_repo != repo.resolve():
+        failures.append(
+            Failure(
+                "SOURCE_REPOSITORY_MISMATCH",
+                f"expected frozen repository {frozen_repo}; "
+                f"actual repository {repo.resolve()}",
+                str(repo),
+            )
+        )
+    if actual_head != expected_head:
+        failures.append(
+            Failure(
+                "SOURCE_HEAD_MISMATCH",
+                f"expected frozen head {expected_head}; "
+                f"actual repository head {actual_head}; "
+                f"expected tree {expected_tree}; actual tree {actual_tree}",
+                str(repo),
+            )
+        )
+    if actual_tree != expected_tree:
+        failures.append(
+            Failure(
+                "SOURCE_TREE_MISMATCH",
+                f"expected frozen tree {expected_tree}; "
+                f"actual repository tree {actual_tree}",
+                str(repo),
+            )
+        )
+    return failures
+
+
 def verify_source_freeze(
     bundle: Path,
     contract_path: Path,
@@ -386,6 +492,31 @@ def verify_source_freeze(
         )
         return {}, {}, repo
     freeze = json.loads(freeze_path.read_text(encoding="utf-8"))
+    actual_head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=repo
+    ).decode().strip()
+    actual_tree = subprocess.check_output(
+        ["git", "rev-parse", "HEAD^{tree}"], cwd=repo
+    ).decode().strip()
+    repository_status = subprocess.check_output(
+        ["git", "status", "--porcelain=v1", "-uall"], cwd=repo
+    ).decode().splitlines()
+    failures.extend(
+        source_identity_failures(
+            freeze,
+            repo,
+            actual_head,
+            actual_tree,
+        )
+    )
+    if any(not line.startswith("??") for line in repository_status):
+        failures.append(
+            Failure(
+                "SOURCE_FREEZE_DRIFT",
+                "repository has tracked or staged changes",
+                str(repo),
+            )
+        )
     if not hash_path.is_file():
         failures.append(
             Failure(
@@ -515,6 +646,10 @@ def verify_source_freeze(
                 str(repo),
             )
         )
+    checks.append(
+        f"source identity checked: head={actual_head} tree={actual_tree} "
+        f"repository={repo}"
+    )
     checks.append(f"required source exact set checked: {len(required)}")
     return freeze, source_map, repo
 
@@ -1179,6 +1314,15 @@ def verify_lanes(
                             "COMMAND_RESULT_MISMATCH",
                             f"XML total {report['total']} != exact contract "
                             f"{xml_contract['total']}",
+                            str(xml_path),
+                        )
+                    )
+                if xml_report_has_failure(report):
+                    failures.append(
+                        Failure(
+                            "XML_FAILURE_SUMMARY_NONZERO",
+                            "Unity XML reports a failed root/suite summary "
+                            "or failed descendant test case",
                             str(xml_path),
                         )
                     )

@@ -218,6 +218,101 @@ class VerifyBundleUnitTests(unittest.TestCase):
             report = verify_bundle.parse_xml(path)
             self.assertEqual(report["total"], 2)
             self.assertEqual(report["failedTestIds"], ["B"])
+            self.assertTrue(verify_bundle.xml_report_has_failure(report))
+
+    def test_xml_failure_matrix(self) -> None:
+        cases = (
+            (
+                "root-summary-only",
+                "<test-run total='1' passed='0' failed='1'>"
+                "<test-suite><test-case fullname='A' result='Passed'/>"
+                "</test-suite></test-run>",
+                True,
+            ),
+            (
+                "descendant-only",
+                "<test-run total='1' passed='1' failed='0'>"
+                "<test-suite><test-case fullname='A' result='Failed'/>"
+                "</test-suite></test-run>",
+                True,
+            ),
+            (
+                "root-and-descendant",
+                "<test-run total='1' passed='0' failed='1'>"
+                "<test-suite><test-case fullname='A' result='Failed'/>"
+                "</test-suite></test-run>",
+                True,
+            ),
+            (
+                "passing",
+                "<test-run total='1' passed='1' failed='0'>"
+                "<test-suite><test-case fullname='A' result='Passed'/>"
+                "</test-suite></test-run>",
+                False,
+            ),
+            (
+                "suite-setup-failure",
+                "<test-run total='1' passed='1' failed='0'>"
+                "<test-suite result='Failed' failed='1'>"
+                "<test-case fullname='A' result='Passed'/>"
+                "</test-suite></test-run>",
+                True,
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "result.xml"
+            for name, xml, expected in cases:
+                with self.subTest(name=name):
+                    path.write_text(xml, encoding="utf-8")
+                    report = verify_bundle.parse_xml(path)
+                    self.assertEqual(
+                        verify_bundle.xml_report_has_failure(report), expected
+                    )
+
+    def test_invalid_xml_failure_summary_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "result.xml"
+            path.write_text(
+                "<test-run total='1' failed='not-a-number'/>",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "failure summary"):
+                verify_bundle.parse_xml(path)
+
+    def test_source_identity_requires_exact_repository_head_and_tree(self) -> None:
+        repo = Path("/repo").resolve()
+        freeze = {
+            "repository": str(repo),
+            "head": "a" * 40,
+            "tree": "b" * 40,
+        }
+        self.assertEqual(
+            verify_bundle.source_identity_failures(
+                freeze, repo, "a" * 40, "b" * 40
+            ),
+            [],
+        )
+        head_codes = {
+            failure.code
+            for failure in verify_bundle.source_identity_failures(
+                freeze, repo, "c" * 40, "b" * 40
+            )
+        }
+        self.assertEqual(head_codes, {"SOURCE_HEAD_MISMATCH"})
+        tree_codes = {
+            failure.code
+            for failure in verify_bundle.source_identity_failures(
+                freeze, repo, "a" * 40, "d" * 40
+            )
+        }
+        self.assertEqual(tree_codes, {"SOURCE_TREE_MISMATCH"})
+        repository_codes = {
+            failure.code
+            for failure in verify_bundle.source_identity_failures(
+                freeze, Path("/different-repo"), "a" * 40, "b" * 40
+            )
+        }
+        self.assertEqual(repository_codes, {"SOURCE_REPOSITORY_MISMATCH"})
 
     def test_ui_failure_policy_requires_exact_equality(self) -> None:
         approved = {"A", "B"}

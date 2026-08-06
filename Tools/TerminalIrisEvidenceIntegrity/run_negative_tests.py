@@ -174,6 +174,29 @@ def mutation_cases() -> list[tuple[str, str, str, Callable[[Path], None], bool]]
         )
         mutate_json(path, lambda data: data.__setitem__("exitCode", 1))
 
+    def source_head_changed(bundle: Path) -> None:
+        path = bundle / "00-source/source-freeze.json"
+        mutate_json(path, lambda data: data.__setitem__("head", "0" * 40))
+        refresh_freeze_hash(bundle)
+
+    def xml_root_failure_summary(bundle: Path) -> None:
+        path = lane_root(bundle, "known-center-analyzer") / "unity-playmode.xml"
+        original_stat = path.stat()
+        tree = ET.parse(path)
+        root = tree.getroot()
+        root.set("failed", "1")
+        root.set("passed", str(max(0, int(root.get("total", "0")) - 1)))
+        for test_case in root.iter("test-case"):
+            if test_case.get("result") == "Failed":
+                test_case.set("result", "Passed")
+        if path.exists():
+            path.unlink()
+        tree.write(path, encoding="utf-8", xml_declaration=True)
+        os.utime(
+            path,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+
     def environment_deleted(bundle: Path) -> None:
         (
             lane_root(bundle, "known-center-analyzer") / "lane-environment.json"
@@ -341,6 +364,8 @@ def mutation_cases() -> list[tuple[str, str, str, Callable[[Path], None], bool]]
         ("NEG-23", "unmanifested filesystem file added", "UNMANIFESTED_FILE", unmanifested_file, False),
         ("NEG-24", "artifact manifest itself changed", "ARTIFACT_MANIFEST_MISMATCH", manifest_changed, False),
         ("NEG-25", "verifier attempts to mutate input bundle", "VERIFIER_MUTATED_INPUT", verifier_mutates, False),
+        ("NEG-26", "source freeze HEAD differs from repository HEAD", "SOURCE_HEAD_MISMATCH", source_head_changed, True),
+        ("NEG-27", "XML root failure summary is nonzero without failed descendants", "XML_FAILURE_SUMMARY_NONZERO", xml_root_failure_summary, True),
     ]
 
 

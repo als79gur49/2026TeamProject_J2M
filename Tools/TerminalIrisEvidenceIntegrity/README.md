@@ -53,4 +53,9 @@ python3 Tools/TerminalIrisEvidenceIntegrity/run_negative_tests.py \
 
 The verifier never writes inside the bundle. It snapshots every input file
 before and after verification, validates the producer-created manifest, and
-writes all reports under the supplied external output root.
+writes all reports under the supplied external output root. Verification is
+bound to the exact clean repository, commit, and tree recorded by the source
+freeze; a different HEAD is rejected even when every required-source hash is
+unchanged. Unity XML is also rejected when a root or suite failure summary is
+nonzero, when a suite reports a failed result, or when any descendant test case
+is failed.
