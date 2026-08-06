@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import fnmatch
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import platform
@@ -52,6 +53,27 @@ FAILURE_CODES = {
     "MISSING_MANIFESTED_FILE",
     "VERIFIER_MUTATED_INPUT",
 }
+
+EXPECTED_PLAYER_CAPTURE_LABELS = frozenset(
+    {
+        "victory-close-large",
+        "victory-close-mid",
+        "victory-close-small",
+        "victory-close-last-visible",
+        "victory-close-fully-closed",
+        "defeat-close-mid",
+        "defeat-close-small",
+        "defeat-close-last-visible",
+        "defeat-close-fully-closed",
+        "defeat-reveal-first-visible",
+        "defeat-reveal-mid",
+        "defeat-reveal-fully-open",
+        "stage-entry-fully-closed",
+        "stage-entry-first-visible",
+        "stage-entry-mid",
+        "stage-entry-fully-open",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -384,6 +406,251 @@ def png_to_unity_pixel_order(width: int, height: int, pixels: bytes) -> bytes:
         pixels[row * stride : (row + 1) * stride]
         for row in range(height - 1, -1, -1)
     )
+
+
+def count_components(
+    mask: list[bool], width: int, height: int
+) -> int:
+    if len(mask) != width * height:
+        raise ValueError("component mask dimensions do not match")
+    visited = bytearray(len(mask))
+    components = 0
+    for start, enabled in enumerate(mask):
+        if not enabled or visited[start]:
+            continue
+        components += 1
+        visited[start] = 1
+        pending = [start]
+        while pending:
+            current = pending.pop()
+            x = current % width
+            y = current // width
+            for neighbor_x, neighbor_y in (
+                (x - 1, y),
+                (x + 1, y),
+                (x, y - 1),
+                (x, y + 1),
+            ):
+                if (
+                    neighbor_x < 0
+                    or neighbor_x >= width
+                    or neighbor_y < 0
+                    or neighbor_y >= height
+                ):
+                    continue
+                neighbor = neighbor_y * width + neighbor_x
+                if mask[neighbor] and not visited[neighbor]:
+                    visited[neighbor] = 1
+                    pending.append(neighbor)
+    return components
+
+
+def dominant_rgb(pixels: bytes) -> tuple[int, int, int]:
+    if len(pixels) % 4:
+        raise ValueError("RGBA buffer length is invalid")
+    counts: dict[tuple[int, int, int], int] = {}
+    for index in range(0, len(pixels), 4):
+        value = (pixels[index], pixels[index + 1], pixels[index + 2])
+        counts[value] = counts.get(value, 0) + 1
+    if not counts:
+        raise ValueError("RGBA buffer is empty")
+    return max(counts, key=lambda value: counts[value])
+
+
+def resolve_coverage_from_rgba(
+    pixels: bytes,
+    opaque_cover: tuple[int, int, int] | None = None,
+) -> list[float]:
+    cover = opaque_cover or dominant_rgb(pixels)
+    background = (255, 255, 255)
+    delta = tuple((cover[channel] - background[channel]) / 255.0 for channel in range(3))
+    denominator = sum(value * value for value in delta)
+    if denominator <= 0.000001:
+        raise ValueError("opaque cover cannot equal the white capture background")
+    coverage: list[float] = []
+    for index in range(0, len(pixels), 4):
+        sample = tuple(pixels[index + channel] / 255.0 for channel in range(3))
+        projected = sum(
+            (sample[channel] - background[channel] / 255.0) * delta[channel]
+            for channel in range(3)
+        ) / denominator
+        coverage.append(min(1.0, max(0.0, projected)))
+    return coverage
+
+
+def dominant_non_background_rgb(
+    decoded_frames: list[tuple[int, int, bytes]],
+) -> tuple[int, int, int]:
+    counts: dict[tuple[int, int, int], int] = {}
+    for _, _, pixels in decoded_frames:
+        for index in range(0, len(pixels), 4):
+            value = (pixels[index], pixels[index + 1], pixels[index + 2])
+            if value == (255, 255, 255):
+                continue
+            counts[value] = counts.get(value, 0) + 1
+    if not counts:
+        raise ValueError(
+            "raw frame sequence contains no non-background opaque-cover color"
+        )
+    return max(counts, key=lambda value: counts[value])
+
+
+def expected_synthetic_coverage_bytes(
+    width: int,
+    height: int,
+    center: tuple[float, float],
+    radius_viewport_height: float,
+    edge_width_pixels: float,
+) -> bytes:
+    center_x = center[0] * (width - 1)
+    center_y = center[1] * (height - 1)
+    radius = radius_viewport_height * height
+    output = bytearray(width * height)
+    for y in range(height):
+        for x in range(width):
+            signed_distance = math.hypot(x - center_x, y - center_y) - radius
+            if edge_width_pixels <= 0.0:
+                value = 1.0 if signed_distance >= 0.0 else 0.0
+            else:
+                t = min(
+                    1.0,
+                    max(
+                        0.0,
+                        (signed_distance + edge_width_pixels * 0.5)
+                        / edge_width_pixels,
+                    ),
+                )
+                value = t * t * (3.0 - 2.0 * t)
+            output[y * width + x] = round(
+                min(1.0, max(0.0, value)) * 255.0
+            )
+    return bytes(output)
+
+
+def solve_linear3(matrix: list[list[float]], vector: list[float]) -> list[float]:
+    augmented = [matrix[row][:] + [vector[row]] for row in range(3)]
+    for pivot in range(3):
+        largest = max(range(pivot, 3), key=lambda row: abs(augmented[row][pivot]))
+        if abs(augmented[largest][pivot]) <= 1e-9:
+            raise ValueError("coverage contour circle-fit matrix is singular")
+        if largest != pivot:
+            augmented[pivot], augmented[largest] = (
+                augmented[largest],
+                augmented[pivot],
+            )
+        divisor = augmented[pivot][pivot]
+        for column in range(pivot, 4):
+            augmented[pivot][column] /= divisor
+        for row in range(3):
+            if row == pivot:
+                continue
+            factor = augmented[row][pivot]
+            for column in range(pivot, 4):
+                augmented[row][column] -= factor * augmented[pivot][column]
+    return [augmented[row][3] for row in range(3)]
+
+
+def percentile(sorted_values: list[float], fraction: float) -> float:
+    position = min(1.0, max(0.0, fraction)) * (len(sorted_values) - 1)
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    return sorted_values[lower] + (
+        sorted_values[upper] - sorted_values[lower]
+    ) * (position - lower)
+
+
+def analyze_coverage(
+    coverage: list[float],
+    width: int,
+    height: int,
+    expected_center: tuple[float, float],
+) -> dict[str, float | int]:
+    if width <= 1 or height <= 1 or len(coverage) != width * height:
+        raise ValueError("coverage dimensions are invalid")
+    contour: list[tuple[float, float]] = []
+    for y in range(height):
+        for x in range(width - 1):
+            first = coverage[y * width + x]
+            second = coverage[y * width + x + 1]
+            if (first < 0.5 <= second) or (second < 0.5 <= first):
+                difference = second - first
+                fraction = 0.5 if abs(difference) <= 0.000001 else min(
+                    1.0, max(0.0, (0.5 - first) / difference)
+                )
+                contour.append((x + fraction, float(y)))
+    for x in range(width):
+        for y in range(height - 1):
+            first = coverage[y * width + x]
+            second = coverage[(y + 1) * width + x]
+            if (first < 0.5 <= second) or (second < 0.5 <= first):
+                difference = second - first
+                fraction = 0.5 if abs(difference) <= 0.000001 else min(
+                    1.0, max(0.0, (0.5 - first) / difference)
+                )
+                contour.append((float(x), y + fraction))
+    if len(contour) < 16:
+        raise ValueError(
+            f"alpha-0.5 coverage contour has only {len(contour)} points"
+        )
+    count = float(len(contour))
+    sum_x = sum(point[0] for point in contour)
+    sum_y = sum(point[1] for point in contour)
+    sum_xx = sum(point[0] * point[0] for point in contour)
+    sum_xy = sum(point[0] * point[1] for point in contour)
+    sum_yy = sum(point[1] * point[1] for point in contour)
+    radii_squared = [point[0] * point[0] + point[1] * point[1] for point in contour]
+    sum_radius_squared = sum(radii_squared)
+    solution = solve_linear3(
+        [
+            [count, sum_x, sum_y],
+            [sum_x, sum_xx, sum_xy],
+            [sum_y, sum_xy, sum_yy],
+        ],
+        [
+            -sum_radius_squared,
+            -sum(point[0] * radius for point, radius in zip(contour, radii_squared)),
+            -sum(point[1] * radius for point, radius in zip(contour, radii_squared)),
+        ],
+    )
+    center_x = -0.5 * solution[1]
+    center_y = -0.5 * solution[2]
+    radius = math.sqrt(max(0.0, center_x * center_x + center_y * center_y - solution[0]))
+    radial_errors = sorted(
+        abs(math.hypot(point[0] - center_x, point[1] - center_y) - radius)
+        for point in contour
+    )
+    expected_x = expected_center[0] * max(1, width - 1)
+    expected_y = expected_center[1] * max(1, height - 1)
+    inner_radius = max(0.0, radius - 2.0)
+    outer_radius = radius + 2.0
+    opaque_pinholes = 0
+    transparent_artifacts = 0
+    transparent_mask = [value < 0.1 for value in coverage]
+    for index, value in enumerate(coverage):
+        distance = math.hypot(index % width - center_x, index // width - center_y)
+        if distance < inner_radius and value > 0.9:
+            opaque_pinholes += 1
+        elif distance > outer_radius and value < 0.1:
+            transparent_artifacts += 1
+    transparent_components = count_components(
+        transparent_mask, width, height
+    )
+    return {
+        "measured_x": center_x / max(1, width - 1),
+        "measured_y": center_y / max(1, height - 1),
+        "center_error_pixels": math.hypot(center_x - expected_x, center_y - expected_y),
+        "rms_radial_error_pixels": math.sqrt(
+            sum(error * error for error in radial_errors) / len(radial_errors)
+        ),
+        "max_radial_error_pixels": radial_errors[-1],
+        "p99_radial_error_pixels": percentile(radial_errors, 0.99),
+        "transparent_pixel_count": sum(transparent_mask),
+        "unexpected_components": max(0, transparent_components - 1),
+        "opaque_pinholes": opaque_pinholes,
+        "transparent_artifacts": transparent_artifacts,
+        "contour_point_count": len(contour),
+        "contour_radius": radius,
+    }
 
 
 def one_match(
@@ -1098,6 +1365,71 @@ def verify_player_result(
                 str(result),
             )
         )
+    captures_by_cell: dict[
+        tuple[int, int, int, str], list[dict[str, object]]
+    ] = {}
+    for row in captures:
+        key = (
+            int(row.get("width", 0)),
+            int(row.get("height", 0)),
+            int(row.get("frameRate", 0)),
+            str(row.get("focus", "")),
+        )
+        captures_by_cell.setdefault(key, []).append(row)
+    if expected_count != len(expected_matrix) * len(
+        EXPECTED_PLAYER_CAPTURE_LABELS
+    ):
+        failures.append(
+            Failure(
+                "PLAYER_RESULT_INCOMPLETE",
+                "player expected capture count differs from the canonical "
+                "matrix-by-label product",
+                str(result),
+            )
+        )
+    if set(captures_by_cell) != expected_matrix:
+        failures.append(
+            Failure(
+                "PLAYER_RESULT_INCOMPLETE",
+                "player capture cells are not the exact matrix",
+                str(result),
+            )
+        )
+    for key in sorted(expected_matrix):
+        width, height, frame_rate, focus = key
+        rows = captures_by_cell.get(key, [])
+        labels = [str(row.get("label", "")) for row in rows]
+        expected_directory = (
+            f"Player-{width}x{height}-{frame_rate}fps-{focus}"
+        )
+        if (
+            len(rows) != len(EXPECTED_PLAYER_CAPTURE_LABELS)
+            or len(labels) != len(set(labels))
+            or set(labels) != EXPECTED_PLAYER_CAPTURE_LABELS
+        ):
+            failures.append(
+                Failure(
+                    "PLAYER_RESULT_INCOMPLETE",
+                    "player capture labels are missing, duplicated, or "
+                    "unexpected for matrix cell",
+                    f"{result}:{key}",
+                )
+            )
+        for row in rows:
+            label = str(row.get("label", ""))
+            try:
+                relative = normalize_relative(str(row.get("path", "")))
+            except ValueError:
+                relative = ""
+            if relative != f"{expected_directory}/{label}.png":
+                failures.append(
+                    Failure(
+                        "PLAYER_RESULT_INCOMPLETE",
+                        "player capture path is not bound to its matrix cell "
+                        "and label",
+                        str(row.get("path", "")),
+                    )
+                )
     for row in captures:
         try:
             path = result.parent / normalize_relative(str(row.get("path", "")))
@@ -1522,6 +1854,7 @@ def verify_known_center(
             )
         width = int(row["width"])
         height = int(row["height"])
+        coverage: list[float] | None = None
         if row["fixture"] == "synthetic":
             data = capture.read_bytes()
             if (
@@ -1536,6 +1869,29 @@ def verify_known_center(
                         str(capture),
                     )
                 )
+            else:
+                coverage = [value / 255.0 for value in data]
+                expected_buffer = expected_synthetic_coverage_bytes(
+                    width,
+                    height,
+                    (float(row["center_x"]), float(row["center_y"])),
+                    float(row["radius"]),
+                    float(row["edge_pixels"]),
+                )
+                mismatch_count = sum(
+                    (actual < 128) != (expected < 128)
+                    for actual, expected in zip(data, expected_buffer)
+                )
+                if mismatch_count:
+                    failures.append(
+                        Failure(
+                            "PIXEL_ARTIFACT_HASH_MISMATCH",
+                            "synthetic raw aperture mask differs from the "
+                            "recorded center/radius/edge aperture at "
+                            f"{mismatch_count} pixels",
+                            str(capture),
+                        )
+                    )
         else:
             try:
                 png_width, png_height, pixels = decode_png_rgba(capture)
@@ -1552,9 +1908,7 @@ def verify_known_center(
                 png_width != width
                 or png_height != height
                 or hashlib.sha256(
-                    png_to_unity_pixel_order(
-                        png_width, png_height, pixels
-                    )
+                    png_to_unity_pixel_order(png_width, png_height, pixels)
                 ).hexdigest()
                 != row.get("pixel_buffer_sha256")
             ):
@@ -1565,6 +1919,20 @@ def verify_known_center(
                         str(capture),
                     )
                 )
+            else:
+                unity_pixels = png_to_unity_pixel_order(
+                    png_width, png_height, pixels
+                )
+                try:
+                    coverage = resolve_coverage_from_rgba(unity_pixels)
+                except ValueError as exc:
+                    failures.append(
+                        Failure(
+                            "PIXEL_ARTIFACT_HASH_MISMATCH",
+                            f"shader raw coverage reconstruction failed: {exc}",
+                            str(capture),
+                        )
+                    )
             if (
                 row.get("shader_sha256") != shader_source
                 or row.get("material_sha256") != material_source
@@ -1576,7 +1944,7 @@ def verify_known_center(
                         str(capture),
                     )
                 )
-        accepted = (
+        declared_accepted = (
             float(row["center_error_pixels"])
             <= float(thresholds["centerErrorPixelsMaximum"])
             and float(row["rms_radial_error_pixels"])
@@ -1587,11 +1955,68 @@ def verify_known_center(
             and int(row["opaque_pinholes"]) == 0
             and int(row["transparent_artifacts"]) == 0
         )
-        if (row.get("verdict") == "PASS") != accepted:
+        if (row.get("verdict") == "PASS") != declared_accepted:
             failures.append(
                 Failure(
                     "PIXEL_ARTIFACT_HASH_MISMATCH",
                     "known-center verdict differs from recalculated thresholds",
+                    row.get("fixture_id", ""),
+                )
+            )
+        if coverage is None:
+            continue
+        try:
+            derived = analyze_coverage(
+                coverage,
+                width,
+                height,
+                (float(row["center_x"]), float(row["center_y"])),
+            )
+        except (KeyError, ValueError, ZeroDivisionError) as exc:
+            failures.append(
+                Failure(
+                    "PIXEL_ARTIFACT_HASH_MISMATCH",
+                    f"independent raw coverage analysis failed: {exc}",
+                    str(capture),
+                )
+            )
+            continue
+        integer_mismatches = {
+            field: (int(row[field]), int(derived[field]))
+            for field in (
+                "unexpected_components",
+                "opaque_pinholes",
+                "transparent_artifacts",
+            )
+            if int(row[field]) != int(derived[field])
+        }
+        radius_error_pixels = abs(
+            float(derived["contour_radius"])
+            - float(row["radius"]) * height
+        )
+        derived_accepted = (
+            float(derived["center_error_pixels"])
+            <= float(thresholds["centerErrorPixelsMaximum"])
+            and float(derived["rms_radial_error_pixels"])
+            <= float(thresholds["knownCenterRmsMaximum"])
+            and float(derived["max_radial_error_pixels"])
+            <= float(thresholds["knownCenterMaximumRadialErrorMaximum"])
+            and radius_error_pixels
+            <= float(thresholds["knownCenterMaximumRadialErrorMaximum"])
+            and int(derived["unexpected_components"]) == 0
+            and int(derived["opaque_pinholes"]) == 0
+            and int(derived["transparent_artifacts"]) == 0
+        )
+        if integer_mismatches or (
+            row.get("verdict") == "PASS"
+        ) != derived_accepted:
+            failures.append(
+                Failure(
+                    "PIXEL_ARTIFACT_HASH_MISMATCH",
+                    "producer metrics/verdict differ from independently "
+                    f"derived raw coverage metrics: integers={integer_mismatches}; "
+                    f"radiusErrorPixels={radius_error_pixels}; "
+                    f"derivedAccepted={derived_accepted}",
                     row.get("fixture_id", ""),
                 )
             )
@@ -1839,6 +2264,118 @@ def canonical_difference(first: bytes, second: bytes) -> bytes:
     return bytes(output)
 
 
+def frame_delta_metrics(
+    first: bytes,
+    second: bytes,
+    width: int,
+    height: int,
+    opaque_cover: tuple[int, int, int],
+) -> dict[str, int]:
+    if len(first) != len(second) or len(first) != width * height * 4:
+        raise ValueError("frame RGBA buffers are not comparable")
+    changed_mask = [False] * (width * height)
+    changed_pixels = 0
+    max_channel_delta = 0
+    unexpected_chroma = 0
+    for pixel_index, index in enumerate(range(0, len(first), 4)):
+        deltas = [
+            abs(second[index + channel] - first[index + channel])
+            for channel in range(4)
+        ]
+        maximum = max(deltas)
+        if maximum == 0:
+            continue
+        changed_mask[pixel_index] = True
+        changed_pixels += 1
+        max_channel_delta = max(max_channel_delta, maximum)
+        before_distance = sum(
+            (first[index + channel] - opaque_cover[channel]) ** 2
+            for channel in range(3)
+        )
+        after_distance = sum(
+            (second[index + channel] - opaque_cover[channel]) ** 2
+            for channel in range(3)
+        )
+        if after_distance > before_distance + 1:
+            unexpected_chroma += 1
+    return {
+        "next_changed_pixels": changed_pixels,
+        "next_max_channel_delta": max_channel_delta,
+        "next_unexpected_chroma_pixels": unexpected_chroma,
+        "next_changed_components": count_components(
+            changed_mask, width, height
+        ),
+    }
+
+
+def derive_final_close_rows(
+    rows: list[dict[str, str]],
+    decoded_frames: list[tuple[int, int, bytes]],
+    reference_pixels: bytes,
+) -> list[dict[str, str]]:
+    if len(rows) != len(decoded_frames):
+        raise ValueError("frame rows and decoded frame count differ")
+    opaque_cover = dominant_non_background_rgb(decoded_frames)
+    if dominant_rgb(reference_pixels) != opaque_cover:
+        raise ValueError(
+            "persistent-cover color differs from the cover independently "
+            "derived from raw frames"
+        )
+    derived_rows: list[dict[str, str]] = []
+    for index, row in enumerate(rows):
+        width, height, pixels = decoded_frames[index]
+        if len(reference_pixels) != len(pixels):
+            raise ValueError("persistent-cover dimensions differ from raw frame")
+        coverage = resolve_coverage_from_rgba(pixels, opaque_cover)
+        transparent_pixels = sum(value < 0.1 for value in coverage)
+        contour_radius = 0.0
+        if any(value < 0.5 for value in coverage) and any(
+            value >= 0.5 for value in coverage
+        ):
+            try:
+                contour_radius = float(
+                    analyze_coverage(
+                        coverage,
+                        width,
+                        height,
+                        (
+                            float(row.get("material_center_x", "0.5")),
+                            float(row.get("material_center_y", "0.5")),
+                        ),
+                    )["contour_radius"]
+                )
+            except ValueError:
+                # A sub-16-point open region is still independently open even
+                # though it is too small for a stable circle fit.
+                contour_radius = 1.0
+        derived = dict(row)
+        derived["transparent_pixel_count"] = str(transparent_pixels)
+        derived["contour_radius"] = repr(contour_radius)
+        derived["authoring_exact_closed"] = (
+            "true"
+            if transparent_pixels == 0 and contour_radius <= 0.0
+            else "false"
+        )
+        if index + 1 < len(decoded_frames):
+            next_width, next_height, next_pixels = decoded_frames[index + 1]
+            if (width, height) != (next_width, next_height):
+                raise ValueError("adjacent frame dimensions differ")
+            delta = frame_delta_metrics(
+                pixels, next_pixels, width, height, opaque_cover
+            )
+        else:
+            delta = {
+                "next_changed_pixels": 0,
+                "next_max_channel_delta": 0,
+                "next_unexpected_chroma_pixels": 0,
+                "next_changed_components": 0,
+            }
+        for field, value in delta.items():
+            derived[field] = str(value)
+        derived_rows.append(derived)
+    return derived_rows
+
+
 def verify_final_close(
     bundle: Path,
     contract: dict[str, object],
@@ -1865,6 +2402,7 @@ def verify_final_close(
         rows = read_csv(metrics_path)
         by_index = {int(row["render_sequence_index"]): row for row in rows}
         capture_paths: list[str] = []
+        decoded_frames: list[tuple[int, int, bytes]] = []
         for row in rows:
             relative = row.get("capture_path", "")
             capture_paths.append(relative)
@@ -1890,7 +2428,7 @@ def verify_final_close(
                     )
                 )
             try:
-                width, height, _ = decode_png_rgba(capture)
+                width, height, pixels = decode_png_rgba(capture)
             except Exception as exc:
                 failures.append(
                     Failure(
@@ -1900,6 +2438,7 @@ def verify_final_close(
                     )
                 )
                 continue
+            decoded_frames.append((width, height, pixels))
             if width != int(row["render_width"]) or height != int(row["render_height"]):
                 failures.append(
                     Failure(
@@ -1916,7 +2455,70 @@ def verify_final_close(
                     str(metrics_path),
                 )
             )
-        recomputed = recompute_selector(rows)
+        reference_path = selection_path.parent / "persistent-cover-first-rendered.png"
+        derived_rows: list[dict[str, str]] | None = None
+        if not reference_path.is_file():
+            failures.append(
+                Failure(
+                    "FINAL_SELECTOR_MISMATCH",
+                    "opaque persistent-cover reference is missing",
+                    str(reference_path),
+                )
+            )
+        elif len(decoded_frames) == len(rows):
+            try:
+                reference_width, reference_height, reference_pixels = (
+                    decode_png_rgba(reference_path)
+                )
+                if decoded_frames and (
+                    reference_width,
+                    reference_height,
+                ) != decoded_frames[0][:2]:
+                    raise ValueError(
+                        "opaque persistent-cover dimensions differ from raw frames"
+                    )
+                derived_rows = derive_final_close_rows(
+                    rows, decoded_frames, reference_pixels
+                )
+            except Exception as exc:
+                failures.append(
+                    Failure(
+                        "FINAL_SELECTOR_MISMATCH",
+                        f"pixel-derived frame metric calculation failed: {exc}",
+                        str(reference_path),
+                    )
+                )
+        if derived_rows is None:
+            derived_rows = rows
+        else:
+            integer_fields = (
+                "transparent_pixel_count",
+                "next_changed_pixels",
+                "next_max_channel_delta",
+                "next_unexpected_chroma_pixels",
+                "next_changed_components",
+            )
+            for declared, derived in zip(rows, derived_rows):
+                mismatches = {
+                    field: (int(declared[field]), int(derived[field]))
+                    for field in integer_fields
+                    if int(declared[field]) != int(derived[field])
+                }
+                contour_closedness_differs = (
+                    float(declared["contour_radius"]) <= 0.0
+                ) != (float(derived["contour_radius"]) <= 0.0)
+                if mismatches or contour_closedness_differs:
+                    failures.append(
+                        Failure(
+                            "FINAL_SELECTOR_MISMATCH",
+                            "producer frame metrics differ from decoded pixels: "
+                            f"integers={mismatches}; "
+                            "contourClosednessDiffers="
+                            f"{contour_closedness_differs}",
+                            str(declared.get("capture_path", "")),
+                        )
+                    )
+        recomputed = recompute_selector(derived_rows)
         reported = {
             key: selection.get(key)
             for key in recomputed
@@ -2105,6 +2707,12 @@ def run_verification(
     output = output.resolve()
     if output == bundle or output.is_relative_to(bundle):
         raise ValueError("verification output must be outside the input bundle")
+    repository = repository_for_contract(contract_path)
+    if output == repository or output.is_relative_to(repository):
+        raise ValueError(
+            "verification output must resolve outside the repository: "
+            f"{output}"
+        )
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
     output.mkdir(parents=True, exist_ok=False)
     verification_id = f"TICEIV-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
