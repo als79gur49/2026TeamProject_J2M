@@ -1,0 +1,18 @@
+{
+  "name": "com.j2m.thirdparty.steamworksnet",
+  "displayName": "Steamworks.NET 1.65 - J2M Windows x64",
+  "version": "2025.165.0-j2m.1",
+  "unity": "2019.4",
+  "author": {
+    "name": "Riley Labrecque",
+    "email": "support@rileylabrecque.com",
+    "url": "https://steamworks.github.io"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rlabrecque/Steamworks.NET.git",
+    "revision": "3c236146fe55e48eb8776a6b912a7675ef591b08"
+  },
+  "description": "Steamworks.NET 2025.165.0 from the pinned official upstream commit, curated to the J2M Windows x64 dependency boundary."
+}
