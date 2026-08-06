@@ -1,0 +1,14 @@
+{
+  "name": "Game.Platform.Steam.SteamworksNet.Tests.EditMode",
+  "rootNamespace": "Game.Platform.Steam.SteamworksNet.Tests.EditMode",
+  "references": [
+    "Game.Platform.Steam.SteamworksNet",
+    "com.rlabrecque.steamworks.net"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

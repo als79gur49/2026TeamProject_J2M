@@ -134,6 +134,12 @@ STEAM_PROVIDER_PACKAGE_REMOVAL_FEASIBLE
 STEAM_PHYSICAL_REMOVAL_TEST_DEFINED
 ```
 
-Steamworks.NET dependency와 native payload의 delivery/license gate는 이 source-only 범위에서 승인되지 않았다. Steam distribution, SteamPipe, VDF/depot과 store artifact promotion은 후속 distribution 범위로 남긴다.
+M7B-2I는 optional adapter 경계 뒤에 official Steamworks.NET `2025.165.0`
+(upstream commit `3c236146fe55e48eb8776a6b912a7675ef591b08`)과 Valve Steamworks SDK
+`1.65` Windows x64 native payload 하나를 승인한다. Dependency가 있어도 no-selection과
+explicit Local의 의미는 바뀌지 않으며, dependency를 제거한 disposable project에서는
+explicit Steam이 다시 `RequestedProviderNotRegistered`로 fail closed해야 한다.
+Steam distribution, AppID/Overlay 기능 검증, SteamPipe, VDF/depot과 store artifact
+promotion은 후속 distribution 범위로 남긴다.
 
 이 main-based semantic port의 validated reference lineage는 `608c5badf6a8f3b7de7179d6f0b87d892d60f461`이다. Commit ancestry는 이식하지 않고 현재 main에서 필요한 contract 의미만 이식한다.
