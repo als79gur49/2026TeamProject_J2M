@@ -6,8 +6,6 @@ namespace Game.Feature.UI.ViewShared
 {
     public static class HudWorldGuideLocalizationKeys
     {
-        public const string Pause = "ui.hud.pause";
-        public const string Chances = "ui.hud.chances";
         public const string Movement = "ui.world_guide.move";
         public const string Push = "ui.world_guide.push";
         public const string Flip = "ui.world_guide.flip";
@@ -879,7 +877,6 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.main_menu.start"] = "Start",
                     ["ui.main_menu.quit"] = "Quit",
                     ["ui.pause.title"] = "Paused",
-                    ["ui.pause.description"] = "Pausing modal popup",
                     ["ui.pause.resume"] = "Resume",
                     ["ui.pause.retry"] = "Retry",
                     ["ui.pause.main_menu"] = "Main Menu",
@@ -942,7 +939,6 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.main_menu.start"] = "시작",
                     ["ui.main_menu.quit"] = "종료",
                     ["ui.pause.title"] = "일시 정지",
-                    ["ui.pause.description"] = "일시 정지 팝업",
                     ["ui.pause.resume"] = "계속하기",
                     ["ui.pause.retry"] = "다시 시도",
                     ["ui.pause.main_menu"] = "메인 메뉴",

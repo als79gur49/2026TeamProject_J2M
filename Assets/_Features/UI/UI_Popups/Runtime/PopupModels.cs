@@ -41,14 +41,12 @@ namespace Game.Feature.UI.Popups
 
         public PausePopupPayload(
             LocalizedTextDescriptor titleTextDescriptor = default,
-            LocalizedTextDescriptor descriptionTextDescriptor = default,
             LocalizedTextDescriptor resumeLabelDescriptor = default,
             LocalizedTextDescriptor settingsLabelDescriptor = default,
             LocalizedTextDescriptor retryLabelDescriptor = default,
             LocalizedTextDescriptor mainMenuLabelDescriptor = default)
         {
             TitleTextDescriptor = OrDefault(titleTextDescriptor, PauseStaticTextDescriptors.Title);
-            DescriptionTextDescriptor = OrDefault(descriptionTextDescriptor, PauseStaticTextDescriptors.Description);
             ResumeLabelDescriptor = OrDefault(resumeLabelDescriptor, PauseStaticTextDescriptors.Resume);
             SettingsLabelDescriptor = OrDefault(settingsLabelDescriptor, PauseStaticTextDescriptors.Settings);
             RetryLabelDescriptor = OrDefault(retryLabelDescriptor, PauseStaticTextDescriptors.Retry);
@@ -56,8 +54,6 @@ namespace Game.Feature.UI.Popups
         }
 
         public LocalizedTextDescriptor TitleTextDescriptor { get; }
-
-        public LocalizedTextDescriptor DescriptionTextDescriptor { get; }
 
         public LocalizedTextDescriptor ResumeLabelDescriptor { get; }
 
@@ -86,12 +82,6 @@ namespace Game.Feature.UI.Popups
             "ui.pause.title",
             LocalizedTextRole.Title,
             LocalizedTextWeight.Bold);
-
-        public static readonly LocalizedTextDescriptor Description = new(
-            Table,
-            "ui.pause.description",
-            LocalizedTextRole.Body,
-            LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor Resume = new(
             Table,
@@ -218,8 +208,6 @@ namespace Game.Feature.UI.Popups
 
         public string TitleText { get; private set; } = string.Empty;
 
-        public string DescriptionText { get; private set; } = string.Empty;
-
         public string ResumeLabel { get; private set; } = string.Empty;
 
         public string SettingsLabel { get; private set; } = string.Empty;
@@ -230,14 +218,12 @@ namespace Game.Feature.UI.Popups
 
         public void SetContent(
             string titleText,
-            string descriptionText,
             string resumeLabel,
             string settingsLabel,
             string retryLabel,
             string mainMenuLabel)
         {
             TitleText = titleText ?? string.Empty;
-            DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
             RetryLabel = retryLabel ?? string.Empty;

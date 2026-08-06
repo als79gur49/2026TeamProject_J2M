@@ -98,8 +98,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayHudLocalizationBinding
   _theme: {fileID: 11400000, guid: e414ca8f5dbd4575ad144ce41643de05, type: 2}
   _stageNameText: {fileID: 8334920515211009974}
-  _pauseText: {fileID: 114104}
-  _chancesText: {fileID: 2976350271432765329}
 --- !u!1 &100102
 GameObject:
   m_ObjectHideFlags: 0
@@ -143,7 +141,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
   m_AnchoredPosition: {x: -20, y: 20}
-  m_SizeDelta: {x: 140, y: 60}
+  m_SizeDelta: {x: 50, y: 60}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!222 &222102
 CanvasRenderer:
@@ -242,7 +240,7 @@ MonoBehaviour:
   m_IgnoreLayout: 0
   m_MinWidth: -1
   m_MinHeight: -1
-  m_PreferredWidth: 140
+  m_PreferredWidth: 50
   m_PreferredHeight: 60
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
@@ -313,7 +311,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &224103
 RectTransform:
   m_ObjectHideFlags: 0
@@ -361,7 +359,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Pause
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b8aa923455f5a64468504293db7cef18, type: 2}
   m_sharedMaterial: {fileID: -6429523705279460953, guid: b8aa923455f5a64468504293db7cef18, type: 2}
@@ -3941,7 +3939,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &6639168752398536618
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3989,7 +3987,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: CHANCES
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -5275,7 +5273,6 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.HUD::Game.Feature.UI.HUD.ChancePanelView
   _root: {fileID: 7224404504311381914}
-  _labelText: {fileID: 2976350271432765329}
   _slotContainer: {fileID: 7591615400257134846}
   _slotViews:
   - {fileID: 3237857958096464971}

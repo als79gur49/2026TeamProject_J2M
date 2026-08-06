@@ -87,10 +87,6 @@ MonoBehaviour:
     m_Key: ui.pause.title
     m_Metadata:
       m_Items: []
-  - m_Id: 1881628684
-    m_Key: ui.pause.description
-    m_Metadata:
-      m_Items: []
   - m_Id: 1881628685
     m_Key: ui.pause.resume
     m_Metadata:
@@ -281,14 +277,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4971587610693656
     m_Key: ui.result.game_clear.title
-    m_Metadata:
-      m_Items: []
-  - m_Id: 4971587610693657
-    m_Key: ui.hud.pause
-    m_Metadata:
-      m_Items: []
-  - m_Id: 4971587610693658
-    m_Key: ui.hud.chances
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693659

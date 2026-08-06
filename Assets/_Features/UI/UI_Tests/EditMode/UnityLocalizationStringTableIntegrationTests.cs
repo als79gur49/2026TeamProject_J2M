@@ -241,7 +241,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(111));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(108));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -1017,11 +1017,11 @@ namespace Game.Feature.UI.Tests
                     DefaultLocalizedTypographyResolver.Instance);
                 view.IsVisible = true;
 
-                AssertPauseLabels(view, "Paused", "Pausing modal popup", "Resume", "Settings", "Retry", "Main Menu");
+                AssertPauseLabels(view, "Paused", "Resume", "Settings", "Retry", "Main Menu");
 
                 Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
-                AssertPauseLabels(view, "일시 정지", "일시 정지 팝업", "계속하기", "설정", "다시 시도", "메인 메뉴");
+                AssertPauseLabels(view, "일시 정지", "계속하기", "설정", "다시 시도", "메인 메뉴");
             }
             finally
             {
@@ -1844,14 +1844,12 @@ namespace Game.Feature.UI.Tests
         private static void AssertPauseLabels(
             PausePopupView view,
             string title,
-            string description,
             string resume,
             string settings,
             string retry,
             string mainMenu)
         {
             Assert.That(GetText(view, "_titleLabel").text, Is.EqualTo(title));
-            Assert.That(GetText(view, "_descriptionLabel").text, Is.EqualTo(description));
             Assert.That(GetText(view, "_resumeButtonLabel").text, Is.EqualTo(resume));
             Assert.That(GetText(view, "_settingsButtonLabel").text, Is.EqualTo(settings));
             Assert.That(GetText(view, "_retryButtonLabel").text, Is.EqualTo(retry));

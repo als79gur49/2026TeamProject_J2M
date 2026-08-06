@@ -42,7 +42,6 @@ namespace Game.Feature.UI.Tests
         public static readonly string[] PauseKoreanLabels =
         {
             "일시 정지",
-            "일시 정지 팝업",
             "계속하기",
             "다시 시도",
             "메인 메뉴",

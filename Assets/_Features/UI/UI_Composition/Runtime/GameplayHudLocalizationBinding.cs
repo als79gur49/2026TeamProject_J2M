@@ -14,12 +14,8 @@ namespace Game.Feature.UI.Composition
     {
         [SerializeField] private GameplayUiTypographyTheme _theme;
         [SerializeField] private TMP_Text _stageNameText;
-        [SerializeField] private TMP_Text _pauseText;
-        [SerializeField] private TMP_Text _chancesText;
 
         private TmpTypographyAuthoredState _stageNameAuthoredState;
-        private TmpTypographyAuthoredState _pauseAuthoredState;
-        private TmpTypographyAuthoredState _chancesAuthoredState;
         private ILocalizedTextResolver _textResolver;
         private bool _isDisposed;
         private bool _isInitialized;
@@ -27,10 +23,6 @@ namespace Game.Feature.UI.Composition
         public GameplayUiTypographyTheme Theme => _theme;
 
         public TMP_Text StageNameText => _stageNameText;
-
-        public TMP_Text PauseText => _pauseText;
-
-        public TMP_Text ChancesText => _chancesText;
 
         public void Initialize(ILocalizedTextResolver textResolver)
         {
@@ -43,8 +35,6 @@ namespace Game.Feature.UI.Composition
             ValidateAuthoredStructureOrThrow();
             _textResolver = textResolver ?? throw new ArgumentNullException(nameof(textResolver));
             _stageNameAuthoredState = TmpTypographyAuthoredState.Capture(_stageNameText);
-            _pauseAuthoredState = TmpTypographyAuthoredState.Capture(_pauseText);
-            _chancesAuthoredState = TmpTypographyAuthoredState.Capture(_chancesText);
             _textResolver.LocaleChanged += HandleLocaleChanged;
             _isDisposed = false;
             _isInitialized = true;
@@ -64,16 +54,6 @@ namespace Game.Feature.UI.Composition
                 _textResolver.CurrentLocaleCode,
                 TypographyStyleTag.HeaderSmall,
                 _stageNameAuthoredState);
-            Apply(
-                _pauseText,
-                HudWorldGuideLocalization.PauseDescriptor,
-                TypographyStyleTag.Button,
-                _pauseAuthoredState);
-            Apply(
-                _chancesText,
-                HudWorldGuideLocalization.ChancesDescriptor,
-                TypographyStyleTag.HeaderSmall,
-                _chancesAuthoredState);
         }
 
         public void ValidateAuthoredStructureOrThrow()
@@ -84,10 +64,10 @@ namespace Game.Feature.UI.Composition
                     $"{nameof(GameplayHudLocalizationBinding)} is missing the production typography theme.");
             }
 
-            if (_stageNameText == null || _pauseText == null || _chancesText == null)
+            if (_stageNameText == null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(GameplayHudLocalizationBinding)} requires Stage name, Pause, and Chances TMP targets.");
+                    $"{nameof(GameplayHudLocalizationBinding)} requires a Stage name TMP target.");
             }
         }
 
@@ -120,21 +100,6 @@ namespace Game.Feature.UI.Composition
         private void HandleLocaleChanged()
         {
             Refresh();
-        }
-
-        private void Apply(
-            TMP_Text target,
-            LocalizedTextDescriptor descriptor,
-            TypographyStyleTag styleTag,
-            TmpTypographyAuthoredState authoredState)
-        {
-            target.text = _textResolver.Resolve(descriptor) ?? string.Empty;
-            ApplyTypography(
-                target,
-                _theme,
-                _textResolver.CurrentLocaleCode,
-                styleTag,
-                authoredState);
         }
 
         internal static void ApplyTypography(

@@ -47,7 +47,6 @@ namespace Game.Feature.UI.Tests
         private static readonly LocalizedTextDescriptor[] ExpectedPauseDescriptors =
         {
             PauseStaticTextDescriptors.Title,
-            PauseStaticTextDescriptors.Description,
             PauseStaticTextDescriptors.Resume,
             PauseStaticTextDescriptors.Settings,
             PauseStaticTextDescriptors.Retry,
@@ -542,7 +541,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ui.pause.title",
-                    "ui.pause.description",
                     "ui.pause.resume",
                     "ui.common.settings",
                     "ui.pause.retry",
@@ -583,7 +581,6 @@ namespace Game.Feature.UI.Tests
             presenter.Apply(PausePopupPayload.Default);
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("일시 정지"));
-            Assert.That(presenter.ViewModel.DescriptionText, Is.EqualTo("일시 정지 팝업"));
             Assert.That(presenter.ViewModel.ResumeLabel, Is.EqualTo("계속하기"));
             Assert.That(presenter.ViewModel.SettingsLabel, Is.EqualTo("설정"));
             Assert.That(presenter.ViewModel.RetryLabel, Is.EqualTo("다시 시도"));
@@ -1549,7 +1546,6 @@ namespace Game.Feature.UI.Tests
             return new[]
             {
                 payload.TitleTextDescriptor,
-                payload.DescriptionTextDescriptor,
                 payload.ResumeLabelDescriptor,
                 payload.SettingsLabelDescriptor,
                 payload.RetryLabelDescriptor,
@@ -1783,7 +1779,6 @@ namespace Game.Feature.UI.Tests
                         ["ui.main_menu.start"] = "Start",
                         ["ui.main_menu.quit"] = "Quit",
                         ["ui.pause.title"] = "Paused",
-                        ["ui.pause.description"] = "Pausing modal popup",
                         ["ui.pause.resume"] = "Resume",
                         ["ui.pause.retry"] = "Retry",
                         ["ui.pause.main_menu"] = "Main Menu",
@@ -1817,7 +1812,6 @@ namespace Game.Feature.UI.Tests
                         ["ui.main_menu.start"] = "시작",
                         ["ui.main_menu.quit"] = "종료",
                         ["ui.pause.title"] = "일시 정지",
-                        ["ui.pause.description"] = "일시 정지 팝업",
                         ["ui.pause.resume"] = "계속하기",
                         ["ui.pause.retry"] = "다시 시도",
                         ["ui.pause.main_menu"] = "메인 메뉴",

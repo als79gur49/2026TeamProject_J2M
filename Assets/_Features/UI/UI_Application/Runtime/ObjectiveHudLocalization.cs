@@ -76,11 +76,9 @@ namespace Game.Feature.UI.Application
 
     public enum HudWorldGuideLocalizationEntryId
     {
-        Pause = 0,
-        Chances = 1,
-        Movement = 2,
-        Push = 3,
-        Flip = 4,
+        Movement = 0,
+        Push = 1,
+        Flip = 2,
     }
 
     public enum WorldGuideActionLocalizationKind
@@ -125,8 +123,6 @@ namespace Game.Feature.UI.Application
 
         public static class Keys
         {
-            public const string Pause = HudWorldGuideLocalizationKeys.Pause;
-            public const string Chances = HudWorldGuideLocalizationKeys.Chances;
             public const string Movement = HudWorldGuideLocalizationKeys.Movement;
             public const string Push = HudWorldGuideLocalizationKeys.Push;
             public const string Flip = HudWorldGuideLocalizationKeys.Flip;
@@ -135,10 +131,6 @@ namespace Game.Feature.UI.Application
         private static readonly IReadOnlyList<HudWorldGuideLocalizationContractEntry> ContractEntries =
             Array.AsReadOnly(new[]
             {
-                Entry(HudWorldGuideLocalizationEntryId.Pause, Keys.Pause, "Pause", "일시 정지",
-                    LocalizedTextRole.Button, LocalizedTextWeight.Bold),
-                Entry(HudWorldGuideLocalizationEntryId.Chances, Keys.Chances, "CHANCES", "기회",
-                    LocalizedTextRole.Title, LocalizedTextWeight.Bold),
                 Entry(HudWorldGuideLocalizationEntryId.Movement, Keys.Movement, "Move", "이동",
                     LocalizedTextRole.Body, LocalizedTextWeight.Regular),
                 Entry(HudWorldGuideLocalizationEntryId.Push, Keys.Push, "Push", "밀기",
@@ -148,12 +140,6 @@ namespace Game.Feature.UI.Application
             });
 
         public static IReadOnlyList<HudWorldGuideLocalizationContractEntry> Entries => ContractEntries;
-
-        public static LocalizedTextDescriptor PauseDescriptor =>
-            ContractEntries[(int)HudWorldGuideLocalizationEntryId.Pause].Descriptor;
-
-        public static LocalizedTextDescriptor ChancesDescriptor =>
-            ContractEntries[(int)HudWorldGuideLocalizationEntryId.Chances].Descriptor;
 
         public static bool TryCreateWorldGuideDescriptor(
             WorldGuideActionLocalizationKind kind,

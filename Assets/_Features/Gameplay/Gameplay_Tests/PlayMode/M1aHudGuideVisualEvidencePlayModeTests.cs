@@ -45,8 +45,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static readonly LocaleScenario[] Scenarios =
         {
-            new("en-US", "Lab-01", "Pause", "CHANCES", "Move", "Push", "Flip"),
-            new("ko-KR", "연구실-01", "일시 정지", "기회", "이동", "밀기", "뒤집기"),
+            new("en-US", "Lab-01", "Move", "Push", "Flip"),
+            new("ko-KR", "연구실-01", "이동", "밀기", "뒤집기"),
         };
 
         private static readonly StageHudScenario[] WardScenarios =
@@ -394,11 +394,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var chanceView = installer.HudView.ChancePanelView;
                 var chanceRoot = ReadPrivateField<GameObject>(chanceView, "_root");
                 var stageNameLabel = ReadPrivateField<TMP_Text>(installer.HudView, "_stageNameLabel");
-                var pauseButton = hudBinding.PauseText.GetComponentInParent<Button>(includeInactive: true);
+                var pauseButton = ReadPrivateField<Button>(installer.HudView, "_pauseButton");
                 if (pauseButton == null)
                 {
                     throw new InvalidOperationException(
-                        "Pause TMP is not owned by the production pause Button.");
+                        "Production HUD is missing its authored Pause button reference.");
                 }
 
                 var guideTargets = new List<IWorldGuideLocalizationTarget>();
@@ -431,8 +431,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var targets = new Dictionary<string, TMP_Text>(StringComparer.Ordinal)
                 {
                     ["StageName"] = stageNameLabel,
-                    ["Pause"] = hudBinding.PauseText,
-                    ["Chance"] = hudBinding.ChancesText,
                     ["Movement"] = guides[WorldGuideInstructionKind.Movement].ActionTextLabel,
                     ["Push"] = guides[WorldGuideInstructionKind.Push].ActionTextLabel,
                     ["Flip"] = guides[WorldGuideInstructionKind.Flip].ActionTextLabel,
@@ -440,8 +438,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var expectedTexts = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["StageName"] = scenario.StageName,
-                    ["Pause"] = scenario.Pause,
-                    ["Chance"] = scenario.Chance,
                     ["Movement"] = scenario.Movement,
                     ["Push"] = scenario.Push,
                     ["Flip"] = scenario.Flip,
@@ -467,8 +463,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     installer.HudView,
                     evidence["StageName"].ScreenBounds,
                     pauseButton.GetComponent<RectTransform>(),
-                    evidence["Pause"].ScreenBounds,
-                    evidence["Chance"].ScreenBounds,
                     chanceSlotBounds);
                 var keycaps = ValidateWorldGuideLayoutAndKeycaps(
                     guides,
@@ -517,7 +511,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var hudPngDimensions = WriteCrop(canonicalFrame, hudBounds, 48, hudPath);
                 var guidePngDimensions = WriteCrop(canonicalFrame, guideBounds, 72, guidePath);
 
-                foreach (var key in new[] { "StageName", "Pause", "Chance", "Movement", "Push", "Flip" })
+                foreach (var key in new[] { "StageName", "Movement", "Push", "Flip" })
                 {
                     var delta = -1L;
                     var proof = CapturePixelProof(
@@ -685,8 +679,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         $"pixel variation={canonicalFrame != null && HasPixelVariation(canonicalFrame)}.");
                 }
 
-                var hudBinding = installer.HudView.GetComponent<GameplayHudLocalizationBinding>();
-                var pauseButton = hudBinding?.PauseText?.GetComponentInParent<Button>(includeInactive: true);
+                var pauseButton = ReadPrivateField<Button>(installer.HudView, "_pauseButton");
                 if (pauseButton == null)
                 {
                     throw new InvalidOperationException(
@@ -1039,8 +1032,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             HUDRootView hudView,
             Rect stageName,
             RectTransform pauseButton,
-            Rect pauseText,
-            Rect chanceHeader,
             Rect chanceSlots)
         {
             var authoredRoot = ReadPrivateField<GameObject>(hudView, "_root");
@@ -1058,16 +1049,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     "Stage name overlaps the production Pause control.");
             }
 
-            if (!Contains(buttonBounds, pauseText, 1f))
+            if (buttonBounds.Overlaps(chanceSlots))
             {
                 throw new InvalidOperationException(
-                    "Pause localized text escapes the production Button bounds.");
-            }
-
-            if (chanceHeader.Overlaps(chanceSlots))
-            {
-                throw new InvalidOperationException(
-                    "Chance localized header overlaps the chance slot count graphics.");
+                    "Pause control overlaps the chance slot graphics.");
             }
         }
 
@@ -1922,16 +1907,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             public LocaleScenario(
                 string locale,
                 string stageName,
-                string pause,
-                string chance,
                 string movement,
                 string push,
                 string flip)
             {
                 Locale = locale;
                 StageName = stageName;
-                Pause = pause;
-                Chance = chance;
                 Movement = movement;
                 Push = push;
                 Flip = flip;
@@ -1939,8 +1920,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             public string Locale { get; }
             public string StageName { get; }
-            public string Pause { get; }
-            public string Chance { get; }
             public string Movement { get; }
             public string Push { get; }
             public string Flip { get; }

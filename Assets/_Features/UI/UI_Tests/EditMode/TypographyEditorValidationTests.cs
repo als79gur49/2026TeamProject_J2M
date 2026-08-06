@@ -1236,7 +1236,7 @@ namespace Game.Feature.UI.Tests
                     return 22;
 
                 case "Pause":
-                    return 6;
+                    return 5;
 
                 case "MainMenu":
                     return 3;

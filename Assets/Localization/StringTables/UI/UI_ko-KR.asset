@@ -91,10 +91,6 @@ MonoBehaviour:
     m_Localized: "\uC77C\uC2DC \uC815\uC9C0"
     m_Metadata:
       m_Items: []
-  - m_Id: 1881628684
-    m_Localized: "\uC77C\uC2DC \uC815\uC9C0 \uD31D\uC5C5"
-    m_Metadata:
-      m_Items: []
   - m_Id: 1881628685
     m_Localized: "\uACC4\uC18D\uD558\uAE30"
     m_Metadata:
@@ -303,14 +299,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4971587610693656
     m_Localized: "게임 클리어"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 4971587610693657
-    m_Localized: "\uC77C\uC2DC \uC815\uC9C0"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 4971587610693658
-    m_Localized: "\uAE30\uD68C"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693659

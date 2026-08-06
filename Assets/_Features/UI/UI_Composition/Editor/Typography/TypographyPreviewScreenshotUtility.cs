@@ -452,7 +452,7 @@ namespace Game.Feature.UI.Composition.Editor
                     return 22;
 
                 case "Pause":
-                    return 6;
+                    return 5;
 
                 case "MainMenu":
                     return 3;
@@ -1804,7 +1804,7 @@ namespace Game.Feature.UI.Composition.Editor
             if (targets.Length != GetExpectedLocalizedTextCount("Pause"))
             {
                 capture.AddError(
-                    $"{capture.Target.Name} {capture.LocaleCode}: expected 6 rendered TMP targets, found {targets.Length}.");
+                    $"{capture.Target.Name} {capture.LocaleCode}: expected 5 rendered TMP targets, found {targets.Length}.");
                 return;
             }
 
@@ -2055,7 +2055,6 @@ namespace Game.Feature.UI.Composition.Editor
             return new[]
             {
                 payload.TitleTextDescriptor,
-                payload.DescriptionTextDescriptor,
                 payload.ResumeLabelDescriptor,
                 payload.SettingsLabelDescriptor,
                 payload.RetryLabelDescriptor,
