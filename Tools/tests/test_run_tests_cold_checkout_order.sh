@@ -27,6 +27,12 @@ record_terminal_iris_unity_and_generate_projects() {
     touch "$PROJECT_PATH_WSL/Game.Feature.Gameplay.PlayModeTests.csproj"
 }
 
+record_terminal_architecture_unity_and_generate_projects() {
+    CALLS+=(terminal-architecture-unity)
+    touch "$PROJECT_PATH_WSL/Game.Feature.Stages.Editor.Tests.csproj"
+    touch "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj"
+}
+
 record_unity_failure() {
     CALLS+=(unity)
     return 42
@@ -76,6 +82,50 @@ run_dotnet_and_unity_lane \
     record_dotnet \
     record_terminal_iris_unity_and_generate_projects
 assert_calls "terminal-iris-unity dotnet"
+
+CALLS=()
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Stages.Editor.Tests.csproj"
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj"
+run_dotnet_and_unity_lane \
+    terminal-transition-architecture \
+    record_dotnet \
+    record_terminal_architecture_unity_and_generate_projects
+assert_calls "terminal-architecture-unity dotnet"
+
+CALLS=()
+run_dotnet_and_unity_lane \
+    terminal-transition-architecture \
+    record_dotnet \
+    record_terminal_architecture_unity_and_generate_projects
+assert_calls "dotnet terminal-architecture-unity"
+
+CALLS=()
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Stages.Editor.Tests.csproj"
+rm -f -- "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj"
+if run_dotnet_and_unity_lane \
+    terminal-transition-architecture \
+    record_dotnet \
+    record_unity_failure; then
+    echo "Expected terminal architecture Unity bootstrap failure to be preserved." >&2
+    exit 1
+else
+    status=$?
+fi
+if [ "$status" -ne 42 ]; then
+    echo "Expected terminal architecture Unity bootstrap exit 42 but observed $status." >&2
+    exit 1
+fi
+assert_calls "unity"
+
+CALLS=()
+if run_dotnet_and_unity_lane \
+    terminal-transition-architecture \
+    record_dotnet \
+    record_unity_without_projects; then
+    echo "Expected missing terminal architecture project inputs to fail." >&2
+    exit 1
+fi
+assert_calls "unity"
 
 CALLS=()
 rm -f -- "$PROJECT_PATH_WSL/Game.Feature.Gameplay.Tests.csproj"

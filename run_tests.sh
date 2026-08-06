@@ -6248,13 +6248,16 @@ run_unity_full() {
     run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
 }
 
-run_terminal_transition_architecture() {
+run_dotnet_terminal_transition_architecture() {
     if [ "$DRY_RUN" -eq 0 ]; then
         : > "$DOTNET_FULL_LOG"
     fi
     echo "Running Windows terminal transition architecture builds..."
     run_dotnet_build "$DOTNET_FULL_LOG" Game.Feature.Stages.Editor.Tests.csproj -c Debug
     run_dotnet_build "$DOTNET_FULL_LOG" Game.Feature.UI.Tests.csproj -c Debug
+}
+
+run_unity_terminal_transition_architecture() {
     run_unity_stage \
         "full" \
         "terminal-transition-architecture" \
@@ -6265,6 +6268,13 @@ run_terminal_transition_architecture() {
         "TestRunnerCliBootstrap.RunEditMode" \
         "" \
         ""
+}
+
+run_terminal_transition_architecture() {
+    run_dotnet_and_unity_lane \
+        "terminal-transition-architecture" \
+        run_dotnet_terminal_transition_architecture \
+        run_unity_terminal_transition_architecture
 }
 
 run_unity_integration_simulation() {
@@ -6371,6 +6381,10 @@ generated_dotnet_inputs_present() {
             ;;
         ui)
             [ -f "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj" ]
+            ;;
+        terminal-transition-architecture)
+            [ -f "$PROJECT_PATH_WSL/Game.Feature.Stages.Editor.Tests.csproj" ] &&
+                [ -f "$PROJECT_PATH_WSL/Game.Feature.UI.Tests.csproj" ]
             ;;
         full)
             find_generated_solution_file >/dev/null
