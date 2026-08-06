@@ -979,8 +979,14 @@ namespace Game.Feature.UI.Tests
 
             foreach (var target in TypographyPreviewScreenshotUtility.RequiredTargets)
             {
-                var expectedLocalizedCount =
-                    TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem);
+                // The recorded canonical set predates retirement of the Pause description.
+                // Current captures are validated separately against the five-target contract.
+                var expectedLocalizedCount = string.Equals(
+                    target.FileStem,
+                    "Pause",
+                    System.StringComparison.Ordinal)
+                    ? 6
+                    : TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem);
                 foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
                 {
                     var expectedFileName =
