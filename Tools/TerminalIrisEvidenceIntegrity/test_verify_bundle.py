@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
 import unittest
 import zlib
@@ -306,6 +307,16 @@ class VerifyBundleUnitTests(unittest.TestCase):
             )
         }
         self.assertEqual(tree_codes, {"SOURCE_TREE_MISMATCH"})
+        unrelated_commit_codes = {
+            failure.code
+            for failure in verify_bundle.source_identity_failures(
+                freeze, repo, "c" * 40, "d" * 40
+            )
+        }
+        self.assertEqual(
+            unrelated_commit_codes,
+            {"SOURCE_HEAD_MISMATCH", "SOURCE_TREE_MISMATCH"},
+        )
         repository_codes = {
             failure.code
             for failure in verify_bundle.source_identity_failures(
@@ -313,6 +324,132 @@ class VerifyBundleUnitTests(unittest.TestCase):
             )
         }
         self.assertEqual(repository_codes, {"SOURCE_REPOSITORY_MISMATCH"})
+
+    def test_source_worktree_failures_report_status_and_path(self) -> None:
+        failures = verify_bundle.source_worktree_failures(
+            (
+                " M Assets/TrackedProbe.cs",
+                "M  Assets/StagedProbe.cs",
+                "?? Packages/UntrackedProbe.txt",
+            )
+        )
+        self.assertEqual(
+            [(failure.code, failure.path) for failure in failures],
+            [
+                ("SOURCE_TRACKED_MODIFICATION", "Assets/TrackedProbe.cs"),
+                ("SOURCE_STAGED_MODIFICATION", "Assets/StagedProbe.cs"),
+                ("SOURCE_UNTRACKED_ENTRY", "Packages/UntrackedProbe.txt"),
+            ],
+        )
+        self.assertEqual(
+            [failure.message for failure in failures],
+            [
+                "repository status ' M' is not clean",
+                "repository status 'M ' is not clean",
+                "repository status '??' is not clean",
+            ],
+        )
+        self.assertEqual(verify_bundle.source_worktree_failures(()), [])
+
+    def test_source_freeze_rejects_every_untracked_repository_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repo = root / "repo"
+            bundle = root / "bundle"
+            source_root = bundle / "00-source"
+            repo.mkdir()
+            source_root.mkdir(parents=True)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "config", "user.email", "verifier@example.invalid"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Verifier Fixture"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "Assets").mkdir()
+            seed = repo / "Assets/Seed.cs"
+            seed.write_text("sealed class Seed {}\n", encoding="utf-8")
+            contract_path = repo / "contract.json"
+            contract = {
+                "contractVersion": "source-cleanliness-test-v1",
+                "requiredSources": ["Assets/Seed.cs"],
+            }
+            contract_path.write_text(
+                json.dumps(contract, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-qm", "fixture"], cwd=repo, check=True
+            )
+            head = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=repo, text=True
+            ).strip()
+            tree = subprocess.check_output(
+                ["git", "rev-parse", "HEAD^{tree}"], cwd=repo, text=True
+            ).strip()
+            sources = [
+                {
+                    "path": "Assets/Seed.cs",
+                    "size": seed.stat().st_size,
+                    "sha256": verify_bundle.sha256_file(seed),
+                    "state": "tracked",
+                }
+            ]
+            source_freeze_id = "TISF-" + hashlib.sha256(
+                json.dumps(
+                    sources, sort_keys=True, separators=(",", ":")
+                ).encode("utf-8")
+            ).hexdigest()[:24]
+            empty_diff_sha = hashlib.sha256(b"").hexdigest()
+            freeze = {
+                "sourceFreezeId": source_freeze_id,
+                "contractVersion": contract["contractVersion"],
+                "contractSha256": verify_bundle.sha256_file(contract_path),
+                "repository": str(repo.resolve()),
+                "head": head,
+                "tree": tree,
+                "trackedDiffSha256": empty_diff_sha,
+                "cachedDiffSha256": empty_diff_sha,
+                "sources": sources,
+            }
+            freeze_path = source_root / "source-freeze.json"
+            freeze_path.write_text(json.dumps(freeze), encoding="utf-8")
+            (source_root / "source-freeze.sha256").write_text(
+                verify_bundle.sha256_file(freeze_path) + "\n", encoding="utf-8"
+            )
+
+            def source_failures() -> list[verify_bundle.Failure]:
+                failures: list[verify_bundle.Failure] = []
+                verify_bundle.verify_source_freeze(
+                    bundle, contract_path, contract, failures, []
+                )
+                return failures
+
+            self.assertEqual(source_failures(), [])
+            for relative in (
+                "Assets/VerifierUntrackedProbe.cs",
+                "Assets/VerifierUntrackedProbe.asset",
+                "Packages/VerifierUntrackedProbe.txt",
+            ):
+                with self.subTest(relative=relative):
+                    probe = repo / relative
+                    probe.parent.mkdir(parents=True, exist_ok=True)
+                    probe.write_text("untracked\n", encoding="utf-8")
+                    failures = source_failures()
+                    matching = [
+                        failure
+                        for failure in failures
+                        if failure.code == "SOURCE_UNTRACKED_ENTRY"
+                        and failure.path == relative
+                    ]
+                    self.assertEqual(len(matching), 1)
+                    self.assertIn("??", matching[0].message)
+                    probe.unlink()
+            self.assertEqual(source_failures(), [])
 
     def test_ui_failure_policy_requires_exact_equality(self) -> None:
         approved = {"A", "B"}

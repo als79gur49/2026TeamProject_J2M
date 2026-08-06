@@ -24,6 +24,9 @@ FAILURE_CODES = {
     "MISSING_REQUIRED_SOURCE",
     "SOURCE_HASH_MISMATCH",
     "SOURCE_FREEZE_DRIFT",
+    "SOURCE_TRACKED_MODIFICATION",
+    "SOURCE_STAGED_MODIFICATION",
+    "SOURCE_UNTRACKED_ENTRY",
     "MISSING_REQUIRED_LANE",
     "DUPLICATE_LANE",
     "UNKNOWN_LANE",
@@ -418,6 +421,27 @@ def repository_for_contract(contract_path: Path) -> Path:
     return Path(result.decode().strip()).resolve()
 
 
+def source_worktree_failures(status_lines: Iterable[str]) -> list[Failure]:
+    failures: list[Failure] = []
+    for line in status_lines:
+        status = line[:2]
+        path = line[3:] if len(line) > 3 else ""
+        if status == "??":
+            code = "SOURCE_UNTRACKED_ENTRY"
+        elif status[:1] != " ":
+            code = "SOURCE_STAGED_MODIFICATION"
+        else:
+            code = "SOURCE_TRACKED_MODIFICATION"
+        failures.append(
+            Failure(
+                code,
+                f"repository status {status!r} is not clean",
+                path,
+            )
+        )
+    return failures
+
+
 def source_identity_failures(
     freeze: dict[str, object],
     repo: Path,
@@ -509,14 +533,7 @@ def verify_source_freeze(
             actual_tree,
         )
     )
-    if any(not line.startswith("??") for line in repository_status):
-        failures.append(
-            Failure(
-                "SOURCE_FREEZE_DRIFT",
-                "repository has tracked or staged changes",
-                str(repo),
-            )
-        )
+    failures.extend(source_worktree_failures(repository_status))
     if not hash_path.is_file():
         failures.append(
             Failure(

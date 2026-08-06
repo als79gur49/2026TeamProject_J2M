@@ -5,7 +5,10 @@ The evidence workflow has two independent execution units.
 Run producer and verifier unit tests:
 
 ```bash
-python3 -m unittest -v test_produce_bundle.py test_verify_bundle.py
+(
+  cd Tools/TerminalIrisEvidenceIntegrity
+  python3 -m unittest discover -p 'test_*.py' -v
+)
 ```
 
 Produce and close a fresh bundle:
