@@ -7,7 +7,7 @@
 Evidence:
 
 - `Assets/InputSystem_Actions.inputactions` has action `Player/Push`.
-- Bindings found: `<Keyboard>/e` and `<Gamepad>/buttonNorth`.
+- Bindings found: `<Keyboard>/j` and `<Gamepad>/buttonNorth`.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs` resolves `Player/Push`, subscribes `_pushAction.started`, buffers Push, and emits `PlayerTickCommand.PushPressed`.
 - `Assets/_Shared/Input/Runtime/KeyboardBindingSettingsService.cs` uses `PushActionPath = "Player/Push"` for display/rebinding.
 - PlayMode tests press the keyboard Push binding and verify edge-triggered Push behavior.
@@ -23,7 +23,7 @@ Delete action: remove the UI Push/Flip action request methods, input buffers, fa
 Evidence:
 
 - `Assets/InputSystem_Actions.inputactions` has action `Player/Flip`.
-- Binding found: `<Keyboard>/q`.
+- Binding found: `<Keyboard>/k`.
 - The inspected action entry keeps Flip keyboard-only by current product policy.
 - `GameplayInputHost` resolves `Player/Flip`, subscribes `started` and `performed`, buffers Flip, and emits `PlayerTickCommand.FlipPressed`.
 - `KeyboardBindingSettingsService` uses `FlipActionPath = "Player/Flip"`.
@@ -51,9 +51,9 @@ Delete action: none.
 
 | Binding | Status | Classification | Delete action |
 | --- | --- | --- | --- |
-| Push `<Keyboard>/e` | Current runtime binding | KEEP_CURRENTLY_USED | None |
+| Push `<Keyboard>/j` | Current runtime binding | KEEP_CURRENTLY_USED | None |
 | Push `<Gamepad>/buttonNorth` | Current runtime binding | KEEP_CURRENTLY_USED | None |
-| Flip `<Keyboard>/q` | Current runtime binding | KEEP_CURRENTLY_USED | None |
+| Flip `<Keyboard>/k` | Current runtime binding | KEEP_CURRENTLY_USED | None |
 | Flip controller binding | Not observed | DOCUMENTED_CURRENT_POLICY | Do not add in this cleanup PR |
 | Old Push key binding | No separate old binding found | No artifact | None |
 | Old Flip key binding | No separate old binding found | No artifact | None |

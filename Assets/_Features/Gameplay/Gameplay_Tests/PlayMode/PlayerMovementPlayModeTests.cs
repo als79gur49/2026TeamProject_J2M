@@ -848,7 +848,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushInputLockDurationTicks: 1));
 
             Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
+            Press(_keyboard.jKey);
             yield return null;
 
             var startTick = host.InputHost.RunSingleTick();
@@ -882,7 +882,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(heldSnapshot.TryGetEntity(30, out var heldBox), Is.True);
             Assert.That(heldBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
         }
@@ -906,7 +906,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushInputLockDurationTicks: 1));
 
             Press(_keyboard.aKey);
-            Press(_keyboard.eKey);
+            Press(_keyboard.jKey);
             yield return null;
 
             var startTick = host.InputHost.RunSingleTick();
@@ -928,7 +928,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(rightBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
             Assert.That(leftBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.aKey);
             yield return DestroyHost(host, actions);
         }
@@ -1342,7 +1342,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushInputLockDurationTicks: 3));
 
             Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
+            Press(_keyboard.jKey);
             yield return null;
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
@@ -1361,7 +1361,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(heldAfterRecoverySnapshot.TryGetEntity(30, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
         }
@@ -1521,14 +1521,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushInputLockDurationTicks: 1));
 
             Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
+            Press(_keyboard.jKey);
             yield return null;
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             yield return null;
 
             var releasedTick = host.InputHost.RunSingleTick();
@@ -1541,7 +1541,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Release(_keyboard.dKey);
             yield return null;
             Press(_keyboard.aKey);
-            Press(_keyboard.eKey);
+            Press(_keyboard.jKey);
             yield return null;
 
             TickResult restartTick = null;
@@ -1577,7 +1577,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(secondExecuteSnapshot.TryGetEntity(31, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.aKey);
             yield return DestroyHost(host, actions);
         }
@@ -2547,8 +2547,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     .With("Right", "<Keyboard>/rightArrow");
             }
 
-            pushAction.AddBinding("<Keyboard>/e");
-            flipAction.AddBinding("<Keyboard>/q");
+            pushAction.AddBinding("<Keyboard>/j");
+            flipAction.AddBinding("<Keyboard>/k");
             actions.AddActionMap(map);
 
             var uiMap = new InputActionMap(GameplayInputActionPaths.UiActionMap);

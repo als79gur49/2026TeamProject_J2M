@@ -4,8 +4,8 @@
 
 `Assets/InputSystem_Actions.inputactions` currently defines:
 
-- `Player/Push`: `<Keyboard>/e`, `<Gamepad>/buttonNorth`
-- `Player/Flip`: `<Keyboard>/q`
+- `Player/Push`: `<Keyboard>/j`, `<Gamepad>/buttonNorth`
+- `Player/Flip`: `<Keyboard>/k`
 
 `GameplayInputHost` treats all Push/Flip physical input as one-tick buffered action requests. It requires both `Player/Push` and `Player/Flip` actions at bind time through the shared `GameplayInputActionPaths` contract.
 

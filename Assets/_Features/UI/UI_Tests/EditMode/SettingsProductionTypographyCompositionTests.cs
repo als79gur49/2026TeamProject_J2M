@@ -254,10 +254,10 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(GetField<TMP_Text>(view, "_titleLabel").text, Is.EqualTo("Settings"));
             Assert.That(GetField<TMP_Text>(view.InputView, "_movementCurrentText").text, Is.EqualTo("WASD"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_pushCurrentText").text, Is.EqualTo("E"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("Q"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_pushCurrentText").text, Is.EqualTo("J"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("K"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("K"));
             AssertTypography(inventory, theme, "en-US");
             AssertSettingsStatusPreservesAuthoredSizing(view.DisplayView, theme, "en-US");
             AssertEnglishAuthoredPreservation(inventory, authoredInventory, theme);

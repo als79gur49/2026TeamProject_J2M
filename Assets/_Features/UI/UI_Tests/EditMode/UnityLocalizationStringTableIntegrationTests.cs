@@ -957,7 +957,7 @@ namespace Game.Feature.UI.Tests
                 "On",
                 "Apply",
                 "Revert");
-            AssertRawInputNames(harness.SettingsView, "WASD", "E", "Q");
+            AssertRawInputNames(harness.SettingsView, "WASD", "J", "K");
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
@@ -974,7 +974,7 @@ namespace Game.Feature.UI.Tests
                 "켜짐",
                 "적용",
                 "되돌리기");
-            AssertRawInputNames(harness.SettingsView, "WASD", "E", "Q");
+            AssertRawInputNames(harness.SettingsView, "WASD", "J", "K");
         }
 
         [Test]

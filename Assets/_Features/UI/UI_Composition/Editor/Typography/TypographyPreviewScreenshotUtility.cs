@@ -1422,8 +1422,8 @@ namespace Game.Feature.UI.Composition.Editor
                 var frameProofTargets = activeTexts
                     .Where(text =>
                         string.Equals(text.gameObject.name, "Title", StringComparison.Ordinal) ||
-                        string.Equals(text.text, "E", StringComparison.Ordinal) ||
-                        string.Equals(text.text, "Q", StringComparison.Ordinal))
+                        string.Equals(text.text, "J", StringComparison.Ordinal) ||
+                        string.Equals(text.text, "K", StringComparison.Ordinal))
                     .ToArray();
                 targets = statusTarget == null
                     ? frameProofTargets
@@ -1745,11 +1745,11 @@ namespace Game.Feature.UI.Composition.Editor
                 .GetComponentsInChildren<TMP_Text>(true)
                 .Where(text => text != null && text.gameObject.activeInHierarchy)
                 .ToArray();
-            if (!activeTexts.Any(text => string.Equals(text.text, "E", StringComparison.Ordinal)) ||
-                !activeTexts.Any(text => string.Equals(text.text, "Q", StringComparison.Ordinal)))
+            if (!activeTexts.Any(text => string.Equals(text.text, "J", StringComparison.Ordinal)) ||
+                !activeTexts.Any(text => string.Equals(text.text, "K", StringComparison.Ordinal)))
             {
                 capture.AddError(
-                    $"{capture.Target.Name} {capture.LocaleCode}: invariant E/Q keycaps were not rendered.");
+                    $"{capture.Target.Name} {capture.LocaleCode}: invariant J/K keycaps were not rendered.");
             }
 
             var forbiddenFragments = new[]
@@ -1925,10 +1925,10 @@ namespace Game.Feature.UI.Composition.Editor
                 false,
                 "WASD",
                 string.Empty,
-                "E",
+                "J",
                 string.Empty,
                 string.Empty,
-                "Q",
+                "K",
                 string.Empty,
                 string.Empty,
                 string.Empty,
@@ -2638,8 +2638,8 @@ namespace Game.Feature.UI.Composition.Editor
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     isRebinding,
                     rebindingAction);
             }
