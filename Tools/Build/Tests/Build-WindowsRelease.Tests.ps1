@@ -463,6 +463,16 @@ Invoke-Case "direct SHA256 implementation preserves canonical lowercase hash" {
         Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
     }
 }
+Invoke-Case "manifest existence check shares extended-length path semantics" {
+    $path = Join-Path ([IO.Path]::GetTempPath()) "$([Guid]::NewGuid().ToString('N')).txt"
+    try {
+        [IO.File]::WriteAllText($path, 'payload', [Text.UTF8Encoding]::new($false))
+        Assert-True (Test-ExtendedLengthFileExists -Path $path)
+        Assert-False (Test-ExtendedLengthFileExists -Path "$path.missing")
+    } finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
 Invoke-Case "multiple porcelain lines remain independently fail-closed" {
     $changes = Get-GitChangeClassification @(
         "?? TestLogs/MainReReview/approved.txt",

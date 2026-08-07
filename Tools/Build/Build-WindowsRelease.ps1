@@ -664,6 +664,11 @@ function Get-Sha256 {
     }
 }
 
+function Test-ExtendedLengthFileExists {
+    param([Parameter(Mandatory)][string]$Path)
+    return [IO.File]::Exists((Convert-ToExtendedLengthPath -Path $Path))
+}
+
 function Test-JsonProperty {
     param([Parameter(Mandatory)]$Value, [Parameter(Mandatory)][string]$Name)
     return $null -ne $Value.PSObject.Properties[$Name]
@@ -1317,7 +1322,7 @@ function Test-PayloadManifest {
     if (($expectedPaths -join "`n") -cne ($ordinalSorted -join "`n")) { return $false }
     foreach ($entry in $entries) {
         $candidate = Join-Path $PayloadRoot $entry.RelativePath.Replace('/', '\')
-        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $false }
+        if (-not (Test-ExtendedLengthFileExists -Path $candidate)) { return $false }
         if ((Get-Sha256 -Path $candidate) -cne $entry.Hash) { return $false }
     }
     $selfLine = (Get-Content -LiteralPath $selfPath -Raw).Trim()
