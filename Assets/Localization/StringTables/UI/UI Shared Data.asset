@@ -447,6 +447,18 @@ MonoBehaviour:
     m_Key: ui.settings.input.unsupported_key
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693701
+    m_Key: ui.result.stage_clear.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693702
+    m_Key: ui.transition.chance_lost.remaining_chances
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693703
+    m_Key: ui.transition.loading
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

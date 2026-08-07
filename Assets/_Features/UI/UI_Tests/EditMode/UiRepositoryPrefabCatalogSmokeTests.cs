@@ -1215,7 +1215,7 @@ namespace Game.Feature.UI.Tests
         private static void AssertStageResultMinimalNavigationEndpointPrefab(StageResultScreenView stageResult)
         {
             var serialized = new SerializedObject(stageResult);
-            Assert.That(serialized.FindProperty("_titleLabel"), Is.Null);
+            AssertRequiredObjectReference(serialized, "_titleLabel", nameof(StageResultScreenView));
             Assert.That(serialized.FindProperty("_summaryLabel"), Is.Null);
             Assert.That(serialized.FindProperty("_detailLabel"), Is.Null);
             AssertRequiredObjectReference(serialized, "_continueButton", nameof(StageResultScreenView));

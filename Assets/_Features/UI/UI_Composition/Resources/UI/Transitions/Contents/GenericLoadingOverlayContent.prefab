@@ -66,6 +66,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GenericLoadingOverlayContentView
   _rootGroup: {fileID: 196550348840182990}
   _progressText: {fileID: 3489250244111849092}
+  _loadingLabel: {fileID: 9000000000000001204}
+  _typographyTheme: {fileID: 11400000, guid: e414ca8f5dbd4575ad144ce41643de05, type: 2}
 --- !u!1001 &1203209197136732588
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -669,3 +671,14 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 5653609736151194444, guid: f2d6806c24bc53e48a9938d92bd2170e, type: 3}
   m_PrefabInstance: {fileID: 3610309975285878395}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &9000000000000001204 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4956142874063242989, guid: 32fbb693732aad942a2a5ea125380427, type: 3}
+  m_PrefabInstance: {fileID: 1741685015154784544}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:

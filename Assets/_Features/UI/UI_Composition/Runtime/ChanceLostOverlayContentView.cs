@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using DG.Tweening;
+using Game.Feature.UI.ViewShared;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -47,6 +49,11 @@ namespace Game.Feature.UI.Composition
             new(new Vector2(-66f, -14f), new Vector2(8f, 10f), 28f, -10f, -1f, 0.82f, 0f, 0.74f),
             new(new Vector2(0f, -88f), new Vector2(12f, 8f), -6f, 3f, 1f, 0.5f, 0f, 0.88f),
         };
+
+        [Header("Localized Text")]
+        [SerializeField] private TMP_Text _remainingChancesLabel;
+        [SerializeField] private TMP_Text _loadingLabel;
+        [SerializeField] private GameplayUiTypographyTheme _typographyTheme;
 
         [Header("Slot Roots")]
         [Tooltip("Explicitly bound ChanceLost slot roots. Order matters; ChanceSlotView name fallback is only a safety net.")]
@@ -224,6 +231,9 @@ namespace Game.Feature.UI.Composition
         private bool _playbackStarted;
         private TransitionContentPlaybackHandle _playback = new();
         private int _playbackGeneration;
+        private bool _hasCapturedLocalizedTextTypography;
+        private TmpTypographyAuthoredState _remainingChancesAuthoredState;
+        private TmpTypographyAuthoredState _loadingAuthoredState;
 
         public event Action Completed;
 
@@ -245,6 +255,7 @@ namespace Game.Feature.UI.Composition
             BeginNewPlayback();
             RestoreChanceSlots();
             base.Bind(model);
+            ApplyLocalizedText(model.Text);
             _boundModel = model;
             _hasBoundModel = true;
 
@@ -287,6 +298,9 @@ namespace Game.Feature.UI.Composition
         internal override IReadOnlyList<string> CollectValidationIssues()
         {
             var issues = new List<string>(base.CollectValidationIssues());
+            AddMissing(issues, _remainingChancesLabel, nameof(_remainingChancesLabel));
+            AddMissing(issues, _loadingLabel, nameof(_loadingLabel));
+            AddMissing(issues, _typographyTheme, nameof(_typographyTheme));
             var hasExplicitSlotRoots = _chanceSlotRoots != null && _chanceSlotRoots.Length > 0;
             var fallbackSlots = new List<RectTransform>();
             CollectFallbackChanceSlots(fallbackSlots);
@@ -329,6 +343,41 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation(signalCancellation: true);
             RestoreChanceSlots();
+        }
+
+        private void ApplyLocalizedText(SceneTransitionOverlayTextSnapshot text)
+        {
+            CaptureLocalizedTextTypography();
+            SetText(_remainingChancesLabel, text.RemainingChancesLabel);
+            SetText(_loadingLabel, text.LoadingLabel);
+
+            var localeCode = string.IsNullOrWhiteSpace(text.LocaleCode)
+                ? UnityStringTableTextResolver.DefaultLocaleCode
+                : text.LocaleCode;
+            GameplayHudLocalizationBinding.ApplyTypography(
+                _remainingChancesLabel,
+                _typographyTheme,
+                localeCode,
+                TypographyStyleTag.HeaderLarge,
+                _remainingChancesAuthoredState);
+            GameplayHudLocalizationBinding.ApplyTypography(
+                _loadingLabel,
+                _typographyTheme,
+                localeCode,
+                TypographyStyleTag.Label,
+                _loadingAuthoredState);
+        }
+
+        private void CaptureLocalizedTextTypography()
+        {
+            if (_hasCapturedLocalizedTextTypography)
+            {
+                return;
+            }
+
+            _remainingChancesAuthoredState = TmpTypographyAuthoredState.Capture(_remainingChancesLabel);
+            _loadingAuthoredState = TmpTypographyAuthoredState.Capture(_loadingLabel);
+            _hasCapturedLocalizedTextTypography = true;
         }
 
         internal int ActiveLostChanceAnimationCountForTests => _lostChanceSequence != null && _lostChanceSequence.IsActive() ? 1 : 0;

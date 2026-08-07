@@ -1291,6 +1291,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.ChanceLostOverlayContentView
   _rootGroup: {fileID: 385952753538008467}
   _progressText: {fileID: 8278884233307019214}
+  _remainingChancesLabel: {fileID: 9000000000000001203}
+  _loadingLabel: {fileID: 9000000000000001202}
+  _typographyTheme: {fileID: 11400000, guid: e414ca8f5dbd4575ad144ce41643de05, type: 2}
   _chanceSlotRoots:
   - {fileID: 7502457683128176618}
   - {fileID: 8919764447178324836}
@@ -2464,7 +2467,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6602461449889388176, guid: 245761631d578524998f497ddc213d24, type: 3}
       propertyPath: m_text
-      value: Remainig Lives
+      value: Remaining Chances
       objectReference: {fileID: 0}
     - target: {fileID: 6602461449889388176, guid: 245761631d578524998f497ddc213d24, type: 3}
       propertyPath: m_fontSize
@@ -2496,3 +2499,25 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 6404006028667992988, guid: 245761631d578524998f497ddc213d24, type: 3}
   m_PrefabInstance: {fileID: 8853858525102326027}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &9000000000000001202 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4956142874063242989, guid: 32fbb693732aad942a2a5ea125380427, type: 3}
+  m_PrefabInstance: {fileID: 8465603984851288193}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+--- !u!114 &9000000000000001203 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6602461449889388176, guid: 245761631d578524998f497ddc213d24, type: 3}
+  m_PrefabInstance: {fileID: 8853858525102326027}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:

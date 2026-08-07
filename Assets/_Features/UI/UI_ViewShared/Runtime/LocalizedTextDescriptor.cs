@@ -310,6 +310,7 @@ namespace Game.Feature.UI.ViewShared
     public enum TerminalResultLocalizationEntryId
     {
         Continue,
+        StageClearTitle,
         LevelFailedTitle,
         ChancesExhaustedDetail,
         RestartStage,
@@ -359,6 +360,7 @@ namespace Game.Feature.UI.ViewShared
         public static class Keys
         {
             public const string Continue = "ui.result.action.continue";
+            public const string StageClearTitle = "ui.result.stage_clear.title";
             public const string LevelFailedTitle = "ui.result.level_failed.title";
             public const string ChancesExhaustedDetail =
                 "ui.result.level_failed.detail.chances_exhausted";
@@ -377,6 +379,13 @@ namespace Game.Feature.UI.ViewShared
                     "계속",
                     LocalizedTextRole.Button,
                     LocalizedTextWeight.Regular),
+                Entry(
+                    TerminalResultLocalizationEntryId.StageClearTitle,
+                    Keys.StageClearTitle,
+                    "Stage Clear",
+                    "스테이지 클리어",
+                    LocalizedTextRole.Title,
+                    LocalizedTextWeight.Bold),
                 Entry(
                     TerminalResultLocalizationEntryId.LevelFailedTitle,
                     Keys.LevelFailedTitle,
@@ -432,6 +441,80 @@ namespace Game.Feature.UI.ViewShared
                 role,
                 weight);
         }
+    }
+
+    public enum SceneTransitionLocalizationEntryId
+    {
+        RemainingChances,
+        Loading,
+    }
+
+    public readonly struct SceneTransitionLocalizationContractEntry
+    {
+        public SceneTransitionLocalizationContractEntry(
+            SceneTransitionLocalizationEntryId id,
+            string key,
+            string english,
+            string korean,
+            LocalizedTextRole role,
+            LocalizedTextWeight weight)
+        {
+            Id = id;
+            Key = key ?? string.Empty;
+            English = english ?? string.Empty;
+            Korean = korean ?? string.Empty;
+            Role = role;
+            Weight = weight;
+        }
+
+        public SceneTransitionLocalizationEntryId Id { get; }
+
+        public string Table => SceneTransitionLocalizationContract.Table;
+
+        public string Key { get; }
+
+        public string English { get; }
+
+        public string Korean { get; }
+
+        public LocalizedTextRole Role { get; }
+
+        public LocalizedTextWeight Weight { get; }
+
+        public bool IsSmart => false;
+    }
+
+    public static class SceneTransitionLocalizationContract
+    {
+        public const string Table = "UI";
+
+        public static class Keys
+        {
+            public const string RemainingChances =
+                "ui.transition.chance_lost.remaining_chances";
+            public const string Loading = "ui.transition.loading";
+        }
+
+        private static readonly IReadOnlyList<SceneTransitionLocalizationContractEntry> ContractEntries =
+            Array.AsReadOnly(new[]
+            {
+                new SceneTransitionLocalizationContractEntry(
+                    SceneTransitionLocalizationEntryId.RemainingChances,
+                    Keys.RemainingChances,
+                    "Remaining Chances",
+                    "재시도 기회",
+                    LocalizedTextRole.Title,
+                    LocalizedTextWeight.Bold),
+                new SceneTransitionLocalizationContractEntry(
+                    SceneTransitionLocalizationEntryId.Loading,
+                    Keys.Loading,
+                    "Loading...",
+                    "불러오는 중...",
+                    LocalizedTextRole.Label,
+                    LocalizedTextWeight.Bold),
+            });
+
+        public static IReadOnlyList<SceneTransitionLocalizationContractEntry> Entries => ContractEntries;
     }
 
     public readonly struct LocalizedTextDescriptor : IEquatable<LocalizedTextDescriptor>
@@ -946,10 +1029,12 @@ namespace Game.Feature.UI.ViewShared
             };
 
             AddTerminalResultEntries(catalog);
+            AddSceneTransitionEntries(catalog);
             AddMainMenuEntries(catalog);
             AddStageEntries(catalog);
             ValidateSettingsCatalog(catalog);
             ValidateTerminalResultCatalog(catalog);
+            ValidateSceneTransitionCatalog(catalog);
             ValidateMainMenuCatalog(catalog);
             return catalog;
         }
@@ -1004,6 +1089,18 @@ namespace Game.Feature.UI.ViewShared
             }
         }
 
+        private static void AddSceneTransitionEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
+            {
+                english.Add(entry.Key, entry.English);
+                korean.Add(entry.Key, entry.Korean);
+            }
+        }
+
         private static void ValidateTerminalResultCatalog(
             IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
         {
@@ -1021,6 +1118,29 @@ namespace Game.Feature.UI.ViewShared
                     {
                         throw new InvalidOperationException(
                             $"Package-free terminal-result catalog locale '{localeCode}' " +
+                            $"is missing key '{entry.Key}'.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidateSceneTransitionCatalog(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            foreach (var localeCode in SupportedLocaleCodes)
+            {
+                if (!catalog.TryGetValue(localeCode, out var localeValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Package-free scene-transition catalog is missing locale '{localeCode}'.");
+                }
+
+                foreach (var entry in SceneTransitionLocalizationContract.Entries)
+                {
+                    if (!localeValues.ContainsKey(entry.Key))
+                    {
+                        throw new InvalidOperationException(
+                            $"Package-free scene-transition catalog locale '{localeCode}' " +
                             $"is missing key '{entry.Key}'.");
                     }
                 }

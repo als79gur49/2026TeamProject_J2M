@@ -621,6 +621,11 @@ namespace Game.Feature.UI.Composition
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
             _localizedTextResolver = UiSettingsBridgeAssembly.CreatePersistentSettingsLocalizedTextResolver();
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.BindLocalizedTextResolverForCurrentScene(
+                    _localizedTextResolver);
+            }
             _gameplayHudLocalizationBinding =
                 _rootView.HudView.GetComponent<GameplayHudLocalizationBinding>();
             if (_gameplayHudLocalizationBinding == null)
@@ -766,6 +771,11 @@ namespace Game.Feature.UI.Composition
             _gameplayEntrySourceClosePlayback = null;
             _installedSceneHost = null;
             (PresentationSource as IDisposable)?.Dispose();
+            if (UnityEngine.Application.isPlaying)
+            {
+                SceneTransitionCoordinator.UnbindLocalizedTextResolverForCurrentScene(
+                    _localizedTextResolver);
+            }
             (_localizedTextResolver as IDisposable)?.Dispose();
             _localizedTextResolver = null;
         }

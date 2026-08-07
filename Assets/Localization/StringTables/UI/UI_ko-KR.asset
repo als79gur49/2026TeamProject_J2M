@@ -478,6 +478,18 @@ MonoBehaviour:
     m_Localized: 이 키는 사용할 수 없습니다.
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693701
+    m_Localized: 스테이지 클리어
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693702
+    m_Localized: 재시도 기회
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693703
+    m_Localized: 불러오는 중...
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

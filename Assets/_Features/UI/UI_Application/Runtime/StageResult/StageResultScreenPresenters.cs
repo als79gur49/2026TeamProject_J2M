@@ -128,6 +128,7 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
+                _localizedTextResolver.Resolve(TerminalResultTextDescriptors.StageClearTitle),
                 _localizedTextResolver.Resolve(TerminalResultTextDescriptors.Continue),
                 payload.IsContinueEnabled);
         }

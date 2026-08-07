@@ -8,6 +8,9 @@ namespace Game.Feature.UI.Application
         public static readonly LocalizedTextDescriptor Continue =
             Create(TerminalResultLocalizationEntryId.Continue);
 
+        public static readonly LocalizedTextDescriptor StageClearTitle =
+            Create(TerminalResultLocalizationEntryId.StageClearTitle);
+
         public static readonly LocalizedTextDescriptor LevelFailedTitle =
             Create(TerminalResultLocalizationEntryId.LevelFailedTitle);
 
@@ -33,6 +36,32 @@ namespace Game.Feature.UI.Application
         private static LocalizedTextDescriptor Create(TerminalResultLocalizationEntryId id)
         {
             foreach (var entry in TerminalResultLocalizationContract.Entries)
+            {
+                if (entry.Id == id)
+                {
+                    return new LocalizedTextDescriptor(
+                        entry.Table,
+                        entry.Key,
+                        entry.Role,
+                        entry.Weight);
+                }
+            }
+
+            return default;
+        }
+    }
+
+    public static class SceneTransitionTextDescriptors
+    {
+        public static readonly LocalizedTextDescriptor RemainingChances =
+            Create(SceneTransitionLocalizationEntryId.RemainingChances);
+
+        public static readonly LocalizedTextDescriptor Loading =
+            Create(SceneTransitionLocalizationEntryId.Loading);
+
+        private static LocalizedTextDescriptor Create(SceneTransitionLocalizationEntryId id)
+        {
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
             {
                 if (entry.Id == id)
                 {
