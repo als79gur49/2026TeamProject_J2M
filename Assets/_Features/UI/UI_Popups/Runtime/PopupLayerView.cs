@@ -8,7 +8,7 @@ namespace Game.Feature.UI.Popups
 {
     public sealed class PopupLayerView : MonoBehaviour
     {
-        private const float BackdropDimAlpha = 0.58f;
+        private const float BackdropDimAlpha = 0.9f;
         private const float BackdropOpenFadeDurationSeconds = 0.15f;
         private const Ease BackdropOpenFadeEase = Ease.OutQuad;
         private const bool BackdropOpenUseUnscaledTime = true;
