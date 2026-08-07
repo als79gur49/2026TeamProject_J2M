@@ -172,7 +172,7 @@ namespace Game.Feature.UI.Composition
             StretchToParent(blockerRect);
             blockerCanvasGroup = blockerObject.AddComponent<CanvasGroup>();
             blockerImage = blockerObject.AddComponent<Image>();
-            blockerImage.color = new Color(0f, 0f, 0f, 0.48f);
+            blockerImage.color = new Color(0f, 0f, 0f, 0.9f);
 
             var contentObject = new GameObject(ContentRootName, typeof(RectTransform));
             contentObject.transform.SetParent(overlayLayer, false);

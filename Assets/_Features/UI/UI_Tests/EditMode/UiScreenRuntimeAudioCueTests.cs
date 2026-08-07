@@ -394,8 +394,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     isRebinding,
                     isRebinding ? (KeyboardBindableAction?)KeyboardBindableAction.Push : null);
             }

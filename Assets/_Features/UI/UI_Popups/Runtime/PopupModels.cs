@@ -40,24 +40,24 @@ namespace Game.Feature.UI.Popups
         public static readonly PausePopupPayload Default = new();
 
         public PausePopupPayload(
+            PauseProgressionSnapshot progression = null,
             LocalizedTextDescriptor titleTextDescriptor = default,
-            LocalizedTextDescriptor descriptionTextDescriptor = default,
             LocalizedTextDescriptor resumeLabelDescriptor = default,
             LocalizedTextDescriptor settingsLabelDescriptor = default,
             LocalizedTextDescriptor retryLabelDescriptor = default,
             LocalizedTextDescriptor mainMenuLabelDescriptor = default)
         {
+            Progression = progression ?? PauseProgressionSnapshot.Unavailable;
             TitleTextDescriptor = OrDefault(titleTextDescriptor, PauseStaticTextDescriptors.Title);
-            DescriptionTextDescriptor = OrDefault(descriptionTextDescriptor, PauseStaticTextDescriptors.Description);
             ResumeLabelDescriptor = OrDefault(resumeLabelDescriptor, PauseStaticTextDescriptors.Resume);
             SettingsLabelDescriptor = OrDefault(settingsLabelDescriptor, PauseStaticTextDescriptors.Settings);
             RetryLabelDescriptor = OrDefault(retryLabelDescriptor, PauseStaticTextDescriptors.Retry);
             MainMenuLabelDescriptor = OrDefault(mainMenuLabelDescriptor, PauseStaticTextDescriptors.MainMenu);
         }
 
-        public LocalizedTextDescriptor TitleTextDescriptor { get; }
+        public PauseProgressionSnapshot Progression { get; }
 
-        public LocalizedTextDescriptor DescriptionTextDescriptor { get; }
+        public LocalizedTextDescriptor TitleTextDescriptor { get; }
 
         public LocalizedTextDescriptor ResumeLabelDescriptor { get; }
 
@@ -87,12 +87,6 @@ namespace Game.Feature.UI.Popups
             LocalizedTextRole.Title,
             LocalizedTextWeight.Bold);
 
-        public static readonly LocalizedTextDescriptor Description = new(
-            Table,
-            "ui.pause.description",
-            LocalizedTextRole.Body,
-            LocalizedTextWeight.Regular);
-
         public static readonly LocalizedTextDescriptor Resume = new(
             Table,
             "ui.pause.resume",
@@ -116,6 +110,114 @@ namespace Game.Feature.UI.Popups
             "ui.pause.main_menu",
             LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
+    }
+
+    public readonly struct PauseProgressionStageSnapshot
+    {
+        public PauseProgressionStageSnapshot(string stageKey, string groupKey)
+        {
+            StageKey = stageKey ?? string.Empty;
+            GroupKey = groupKey ?? string.Empty;
+        }
+
+        public string StageKey { get; }
+
+        public string GroupKey { get; }
+    }
+
+    public sealed class PauseProgressionSnapshot
+    {
+        public static readonly PauseProgressionSnapshot Unavailable = new(
+            isAvailable: false,
+            Array.Empty<PauseProgressionStageSnapshot>(),
+            string.Empty);
+
+        private readonly IReadOnlyList<PauseProgressionStageSnapshot> _stages;
+
+        public PauseProgressionSnapshot(
+            bool isAvailable,
+            IReadOnlyList<PauseProgressionStageSnapshot> stages,
+            string currentStageKey)
+        {
+            IsAvailable = isAvailable;
+            CurrentStageKey = currentStageKey ?? string.Empty;
+            if (stages == null || stages.Count == 0)
+            {
+                _stages = Array.Empty<PauseProgressionStageSnapshot>();
+                return;
+            }
+
+            var copiedStages = new PauseProgressionStageSnapshot[stages.Count];
+            for (var i = 0; i < stages.Count; i++)
+            {
+                copiedStages[i] = stages[i];
+            }
+
+            _stages = Array.AsReadOnly(copiedStages);
+        }
+
+        public bool IsAvailable { get; }
+
+        public IReadOnlyList<PauseProgressionStageSnapshot> Stages => _stages;
+
+        public string CurrentStageKey { get; }
+    }
+
+    public enum PauseProgressionMarkerKind
+    {
+        GroupStart = 0,
+        Stage = 1,
+    }
+
+    public readonly struct PauseProgressionMarkerModel
+    {
+        public PauseProgressionMarkerModel(string stageKey, PauseProgressionMarkerKind kind)
+        {
+            StageKey = stageKey ?? string.Empty;
+            Kind = kind;
+        }
+
+        public string StageKey { get; }
+
+        public PauseProgressionMarkerKind Kind { get; }
+    }
+
+    public sealed class PauseProgressionViewModel
+    {
+        public static readonly PauseProgressionViewModel Hidden = new(
+            isVisible: false,
+            Array.Empty<PauseProgressionMarkerModel>(),
+            currentIndex: -1);
+
+        private readonly IReadOnlyList<PauseProgressionMarkerModel> _markers;
+
+        public PauseProgressionViewModel(
+            bool isVisible,
+            IReadOnlyList<PauseProgressionMarkerModel> markers,
+            int currentIndex)
+        {
+            IsVisible = isVisible;
+            CurrentIndex = currentIndex;
+            if (markers == null || markers.Count == 0)
+            {
+                _markers = Array.Empty<PauseProgressionMarkerModel>();
+                return;
+            }
+
+            var copiedMarkers = new PauseProgressionMarkerModel[markers.Count];
+            for (var i = 0; i < markers.Count; i++)
+            {
+                copiedMarkers[i] = markers[i];
+            }
+
+            _markers = Array.AsReadOnly(copiedMarkers);
+        }
+
+        public bool IsVisible { get; }
+
+        public IReadOnlyList<PauseProgressionMarkerModel> Markers => _markers;
+
+        public int CurrentIndex { get; }
     }
 
     public sealed class ConfirmPopupPayload : IPopupPayload
@@ -218,8 +320,6 @@ namespace Game.Feature.UI.Popups
 
         public string TitleText { get; private set; } = string.Empty;
 
-        public string DescriptionText { get; private set; } = string.Empty;
-
         public string ResumeLabel { get; private set; } = string.Empty;
 
         public string SettingsLabel { get; private set; } = string.Empty;
@@ -228,20 +328,22 @@ namespace Game.Feature.UI.Popups
 
         public string MainMenuLabel { get; private set; } = string.Empty;
 
+        public PauseProgressionViewModel Progression { get; private set; } = PauseProgressionViewModel.Hidden;
+
         public void SetContent(
             string titleText,
-            string descriptionText,
             string resumeLabel,
             string settingsLabel,
             string retryLabel,
-            string mainMenuLabel)
+            string mainMenuLabel,
+            PauseProgressionViewModel progression)
         {
             TitleText = titleText ?? string.Empty;
-            DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
             RetryLabel = retryLabel ?? string.Empty;
             MainMenuLabel = mainMenuLabel ?? string.Empty;
+            Progression = progression ?? PauseProgressionViewModel.Hidden;
             Changed?.Invoke();
         }
     }

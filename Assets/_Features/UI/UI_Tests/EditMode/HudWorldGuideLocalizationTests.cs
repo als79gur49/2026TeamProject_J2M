@@ -156,8 +156,8 @@ namespace Game.Feature.UI.Tests
             var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
             var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimatePath);
             var movement = new LocalizationTarget(WorldGuideInstructionKind.Movement, "WASD");
-            var push = new LocalizationTarget(WorldGuideInstructionKind.Push, "E");
-            var flip = new LocalizationTarget(WorldGuideInstructionKind.Flip, "Q");
+            var push = new LocalizationTarget(WorldGuideInstructionKind.Push, "J");
+            var flip = new LocalizationTarget(WorldGuideInstructionKind.Flip, "K");
             var source = new LocalizationSource(movement, push, flip);
             GameplayWorldGuideLocalizationController controller = null;
 
@@ -180,8 +180,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(push.ActionTextLabel.text, Is.EqualTo("Push"));
                 Assert.That(flip.ActionTextLabel.text, Is.EqualTo("Flip"));
                 Assert.That(movement.Keycap, Is.EqualTo("WASD"));
-                Assert.That(push.Keycap, Is.EqualTo("E"));
-                Assert.That(flip.Keycap, Is.EqualTo("Q"));
+                Assert.That(push.Keycap, Is.EqualTo("J"));
+                Assert.That(flip.Keycap, Is.EqualTo("K"));
 
                 resolver.SetLocale("ko-KR");
 
@@ -189,8 +189,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(push.ActionTextLabel.text, Is.EqualTo("밀기"));
                 Assert.That(flip.ActionTextLabel.text, Is.EqualTo("뒤집기"));
                 Assert.That(movement.Keycap, Is.EqualTo("WASD"));
-                Assert.That(push.Keycap, Is.EqualTo("E"));
-                Assert.That(flip.Keycap, Is.EqualTo("Q"));
+                Assert.That(push.Keycap, Is.EqualTo("J"));
+                Assert.That(flip.Keycap, Is.EqualTo("K"));
                 Assert.That(movement.ActionTextLabel.font, Is.SameAs(climate));
                 Assert.That(push.ActionTextLabel.font, Is.SameAs(climate));
                 Assert.That(flip.ActionTextLabel.font, Is.SameAs(climate));

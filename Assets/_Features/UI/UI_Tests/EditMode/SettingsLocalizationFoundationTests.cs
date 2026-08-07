@@ -47,7 +47,6 @@ namespace Game.Feature.UI.Tests
         private static readonly LocalizedTextDescriptor[] ExpectedPauseDescriptors =
         {
             PauseStaticTextDescriptors.Title,
-            PauseStaticTextDescriptors.Description,
             PauseStaticTextDescriptors.Resume,
             PauseStaticTextDescriptors.Settings,
             PauseStaticTextDescriptors.Retry,
@@ -542,7 +541,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ui.pause.title",
-                    "ui.pause.description",
                     "ui.pause.resume",
                     "ui.common.settings",
                     "ui.pause.retry",
@@ -583,7 +581,6 @@ namespace Game.Feature.UI.Tests
             presenter.Apply(PausePopupPayload.Default);
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("일시 정지"));
-            Assert.That(presenter.ViewModel.DescriptionText, Is.EqualTo("일시 정지 팝업"));
             Assert.That(presenter.ViewModel.ResumeLabel, Is.EqualTo("계속하기"));
             Assert.That(presenter.ViewModel.SettingsLabel, Is.EqualTo("설정"));
             Assert.That(presenter.ViewModel.RetryLabel, Is.EqualTo("다시 시도"));
@@ -1024,19 +1021,19 @@ namespace Game.Feature.UI.Tests
             presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Press a key for Push..."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             keyboardPort.Complete();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Key reassignment cancelled."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("키 재지정을 취소했습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [TestCase(
@@ -1105,14 +1102,14 @@ namespace Game.Feature.UI.Tests
             presenter.InputPresenter.ResetToDefaults();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Input settings reset."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1132,14 +1129,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1159,14 +1156,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Movement keys cannot overlap."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1185,14 +1182,14 @@ namespace Game.Feature.UI.Tests
             presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Another key is already being reassigned."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1332,14 +1329,14 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("Another key is already being reassigned."));
                 Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
-                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
+                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("J"));
 
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
                 Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
-                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
+                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("J"));
             }
             finally
             {
@@ -1549,7 +1546,6 @@ namespace Game.Feature.UI.Tests
             return new[]
             {
                 payload.TitleTextDescriptor,
-                payload.DescriptionTextDescriptor,
                 payload.ResumeLabelDescriptor,
                 payload.SettingsLabelDescriptor,
                 payload.RetryLabelDescriptor,
@@ -1700,8 +1696,8 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
-            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
 
             resolver.SetLocale("en-US");
             presenter.Apply(new SettingsInputPresenterInput(
@@ -1713,8 +1709,8 @@ namespace Game.Feature.UI.Tests
                 SettingsStaticTextDescriptors.ResetInput));
 
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
-            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         private static string ResolveDefaultInputValidationStatus(
@@ -1783,7 +1779,6 @@ namespace Game.Feature.UI.Tests
                         ["ui.main_menu.start"] = "Start",
                         ["ui.main_menu.quit"] = "Quit",
                         ["ui.pause.title"] = "Paused",
-                        ["ui.pause.description"] = "Pausing modal popup",
                         ["ui.pause.resume"] = "Resume",
                         ["ui.pause.retry"] = "Retry",
                         ["ui.pause.main_menu"] = "Main Menu",
@@ -1817,7 +1812,6 @@ namespace Game.Feature.UI.Tests
                         ["ui.main_menu.start"] = "시작",
                         ["ui.main_menu.quit"] = "종료",
                         ["ui.pause.title"] = "일시 정지",
-                        ["ui.pause.description"] = "일시 정지 팝업",
                         ["ui.pause.resume"] = "계속하기",
                         ["ui.pause.retry"] = "다시 시도",
                         ["ui.pause.main_menu"] = "메인 메뉴",
@@ -1953,8 +1947,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     _isRebinding,
                     _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
             }
@@ -2002,8 +1996,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     false,
                     null);
             }

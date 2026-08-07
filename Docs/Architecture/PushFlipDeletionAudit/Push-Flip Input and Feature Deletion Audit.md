@@ -30,8 +30,8 @@ Primary evidence:
 
 | Step | Production code exists? | Asset/prefab/scene connected? | Runtime enabled? | Tests only? | Docs only? | Delete? |
 | --- | --- | --- | --- | --- | --- | --- |
-| Physical keyboard Push | Yes: `Player/Push` InputAction, `<Keyboard>/e` | Yes: input asset referenced by project settings and scenes | Yes: `GameplayInputHost.BindActions()` calls `_actions.Enable()` | No | No | No |
-| Physical keyboard Flip | Yes: `Player/Flip` InputAction, `<Keyboard>/q` | Yes | Yes | No | No | No |
+| Physical keyboard Push | Yes: `Player/Push` InputAction, `<Keyboard>/j` | Yes: input asset referenced by project settings and scenes | Yes: `GameplayInputHost.BindActions()` calls `_actions.Enable()` | No | No | No |
+| Physical keyboard Flip | Yes: `Player/Flip` InputAction, `<Keyboard>/k` | Yes | Yes | No | No | No |
 | Gamepad Push | Yes: `Player/Push`, `<Gamepad>/buttonNorth` | Yes | Yes | No | No | No |
 | Flip controller binding | No matching controller binding observed in the inspected `Player/Flip` action | Not applicable | Not applicable | No | No | Keyboard-only by current product policy |
 | Generated input wrapper | No: `generateWrapperCode: 0`, wrapper class/path empty | No wrapper refs found | No | No | No | Nothing to delete |
@@ -47,8 +47,8 @@ Input source trace:
 
 ```text
 Assets/InputSystem_Actions.inputactions
-  Player/Push (<Keyboard>/e, <Gamepad>/buttonNorth)
-  Player/Flip (<Keyboard>/q)
+  Player/Push (<Keyboard>/j, <Gamepad>/buttonNorth)
+  Player/Flip (<Keyboard>/k)
     -> GameplayInputHost.BindActions()
     -> OnPushStarted / OnFlipStarted / OnFlipPerformed
     -> buffered Push/Flip flags

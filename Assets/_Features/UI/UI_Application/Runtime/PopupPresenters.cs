@@ -27,11 +27,45 @@ namespace Game.Feature.UI.Application
 
             ViewModel.SetContent(
                 Resolve(payload.TitleTextDescriptor),
-                Resolve(payload.DescriptionTextDescriptor),
                 Resolve(payload.ResumeLabelDescriptor),
                 Resolve(payload.SettingsLabelDescriptor),
                 Resolve(payload.RetryLabelDescriptor),
-                Resolve(payload.MainMenuLabelDescriptor));
+                Resolve(payload.MainMenuLabelDescriptor),
+                MapProgression(payload.Progression));
+        }
+
+        internal static PauseProgressionViewModel MapProgression(PauseProgressionSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.IsAvailable || snapshot.Stages.Count == 0)
+            {
+                return PauseProgressionViewModel.Hidden;
+            }
+
+            var markers = new PauseProgressionMarkerModel[snapshot.Stages.Count];
+            var currentIndex = -1;
+            for (var i = 0; i < snapshot.Stages.Count; i++)
+            {
+                var stage = snapshot.Stages[i];
+                var isGroupStart = i == 0 ||
+                                   !string.Equals(
+                                       stage.GroupKey,
+                                       snapshot.Stages[i - 1].GroupKey,
+                                       StringComparison.Ordinal);
+                markers[i] = new PauseProgressionMarkerModel(
+                    stage.StageKey,
+                    isGroupStart
+                        ? PauseProgressionMarkerKind.GroupStart
+                        : PauseProgressionMarkerKind.Stage);
+                if (string.Equals(stage.StageKey, snapshot.CurrentStageKey, StringComparison.Ordinal))
+                {
+                    currentIndex = i;
+                }
+            }
+
+            return new PauseProgressionViewModel(
+                isVisible: true,
+                markers,
+                currentIndex);
         }
 
         private string Resolve(LocalizedTextDescriptor descriptor)

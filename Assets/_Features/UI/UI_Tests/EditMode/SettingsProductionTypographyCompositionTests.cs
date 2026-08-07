@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Screens;
+using Game.Shared.Input;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
@@ -23,9 +24,13 @@ namespace Game.Feature.UI.Tests
         private const string LocalePreferenceKey = "ui.selected_locale";
 
         private Locale _previousLocale;
+        private bool _hadBindingOverridesPreference;
         private bool _hadLocalePreference;
+        private bool _hadMovementSchemePreference;
         private MonoBehaviour _installedSceneInstaller;
+        private string _previousBindingOverridesPreference;
         private string _previousLocalePreference;
+        private string _previousMovementSchemePreference;
 
         [SetUp]
         public void SetUp()
@@ -33,7 +38,17 @@ namespace Game.Feature.UI.Tests
             _previousLocale = LocalizationSettings.SelectedLocale;
             _hadLocalePreference = PlayerPrefs.HasKey(LocalePreferenceKey);
             _previousLocalePreference = PlayerPrefs.GetString(LocalePreferenceKey, string.Empty);
+            _hadMovementSchemePreference = PlayerPrefs.HasKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            _previousMovementSchemePreference = PlayerPrefs.GetString(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                string.Empty);
+            _hadBindingOverridesPreference = PlayerPrefs.HasKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            _previousBindingOverridesPreference = PlayerPrefs.GetString(
+                PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
+                string.Empty);
             PlayerPrefs.SetString(LocalePreferenceKey, "en-US");
+            PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
             PlayerPrefs.Save();
             SetExternalLocale("en-US");
         }
@@ -53,10 +68,31 @@ namespace Game.Feature.UI.Tests
                 PlayerPrefs.DeleteKey(LocalePreferenceKey);
             }
 
+            RestorePlayerPrefsValue(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                _hadMovementSchemePreference,
+                _previousMovementSchemePreference);
+            RestorePlayerPrefsValue(
+                PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
+                _hadBindingOverridesPreference,
+                _previousBindingOverridesPreference);
+
             PlayerPrefs.Save();
             if (_previousLocale != null)
             {
                 LocalizationSettings.SelectedLocale = _previousLocale;
+            }
+        }
+
+        private static void RestorePlayerPrefsValue(string key, bool hadValue, string previousValue)
+        {
+            if (hadValue)
+            {
+                PlayerPrefs.SetString(key, previousValue);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(key);
             }
         }
 
@@ -218,10 +254,10 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(GetField<TMP_Text>(view, "_titleLabel").text, Is.EqualTo("Settings"));
             Assert.That(GetField<TMP_Text>(view.InputView, "_movementCurrentText").text, Is.EqualTo("WASD"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_pushCurrentText").text, Is.EqualTo("E"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("Q"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_pushCurrentText").text, Is.EqualTo("J"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("K"));
+            Assert.That(GetField<TMP_Text>(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("K"));
             AssertTypography(inventory, theme, "en-US");
             AssertSettingsStatusPreservesAuthoredSizing(view.DisplayView, theme, "en-US");
             AssertEnglishAuthoredPreservation(inventory, authoredInventory, theme);

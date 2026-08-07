@@ -75,7 +75,6 @@ namespace Game.Feature.UI.Composition.Editor
             ("ui.main_menu.start", "Start", "시작", false),
             ("ui.main_menu.quit", "Quit", "종료", false),
             ("ui.pause.title", "Paused", "일시 정지", false),
-            ("ui.pause.description", "Pausing modal popup", "일시 정지 팝업", false),
             ("ui.pause.resume", "Resume", "계속하기", false),
             ("ui.pause.retry", "Retry", "다시 시도", false),
             ("ui.pause.main_menu", "Main Menu", "메인 메뉴", false),

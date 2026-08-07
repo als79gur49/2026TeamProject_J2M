@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Game.Shared.Input;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,6 +11,10 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class KeyboardBindingSettingsServiceTests
     {
+        private const string ProductionActionsPath = "Assets/InputSystem_Actions.inputactions";
+        private const string ProductionPushKeyboardBindingId = "1c04ea5f-b012-41d1-a6f7-02e963b52893";
+        private const string ProductionFlipKeyboardBindingId = "f6403135-b3d4-4300-bf3e-9a0ae3dbec40";
+
         private readonly List<InputActionAsset> _createdActions = new List<InputActionAsset>();
 
         [TearDown]
@@ -24,7 +29,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void KeyboardBindingSettingsService_DefaultSnapshot_IsWasdPushEFlipQ()
+        public void KeyboardBindingSettingsService_DefaultSnapshot_IsWasdPushJFlipK()
         {
             var actions = CreateActions();
             var store = new FakeKeyboardBindingStore();
@@ -34,8 +39,26 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(snapshot.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
             Assert.That(snapshot.MovementDisplayName, Is.EqualTo("WASD"));
-            Assert.That(snapshot.PushDisplayName, Is.EqualTo("E"));
-            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("Q"));
+            Assert.That(snapshot.PushDisplayName, Is.EqualTo("J"));
+            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("K"));
+        }
+
+        [Test]
+        public void ProductionInputActions_DefaultKeyboardBindings_ArePushJFlipK_WithPersistentBindingIds()
+        {
+            var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ProductionActionsPath);
+
+            Assert.That(actions, Is.Not.Null, ProductionActionsPath);
+            AssertProductionKeyboardBinding(
+                actions,
+                GameplayInputActionPaths.PlayerPush,
+                "<Keyboard>/j",
+                ProductionPushKeyboardBindingId);
+            AssertProductionKeyboardBinding(
+                actions,
+                GameplayInputActionPaths.PlayerFlip,
+                "<Keyboard>/k",
+                ProductionFlipKeyboardBindingId);
         }
 
         [Test]
@@ -109,8 +132,8 @@ namespace Game.Feature.UI.Tests
             using var service = new KeyboardBindingSettingsService(actions, new FakeKeyboardBindingStore());
 
             var snapshot = service.Read();
-            Assert.That(snapshot.PushDisplayName, Is.EqualTo("E"));
-            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("Q"));
+            Assert.That(snapshot.PushDisplayName, Is.EqualTo("J"));
+            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("K"));
         }
 
         [Test]
@@ -157,7 +180,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void KeyboardBindingSettingsService_ResetToDefaults_RestoresWasdPushEFlipQ()
+        public void KeyboardBindingSettingsService_ResetToDefaults_RestoresWasdPushJFlipK()
         {
             var actions = CreateActions();
             var store = new FakeKeyboardBindingStore
@@ -171,8 +194,8 @@ namespace Game.Feature.UI.Tests
             var snapshot = service.ResetToDefaults();
 
             Assert.That(snapshot.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
-            Assert.That(snapshot.PushDisplayName, Is.EqualTo("E"));
-            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("Q"));
+            Assert.That(snapshot.PushDisplayName, Is.EqualTo("J"));
+            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("K"));
             Assert.That(store.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
             Assert.That(store.BindingOverridesJson, Is.Null);
             Assert.That(IsEffective(actions, GameplayInputActionPaths.PlayerMove, "<Keyboard>/w"), Is.True);
@@ -232,8 +255,8 @@ namespace Game.Feature.UI.Tests
             using var service = new KeyboardBindingSettingsService(actions, store);
             var snapshot = service.Read();
 
-            Assert.That(snapshot.PushDisplayName, Is.EqualTo("E"));
-            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("Q"));
+            Assert.That(snapshot.PushDisplayName, Is.EqualTo("J"));
+            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("K"));
             Assert.That(store.BindingOverridesJson, Is.Null);
             Assert.That(store.SaveCount, Is.GreaterThanOrEqualTo(1));
         }
@@ -253,6 +276,22 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.MovementConflict));
             Assert.That(service.Read().MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
+        }
+
+        private static void AssertProductionKeyboardBinding(
+            InputActionAsset actions,
+            string actionPath,
+            string expectedPath,
+            string expectedBindingId)
+        {
+            var action = actions.FindAction(actionPath, throwIfNotFound: true);
+            var binding = action.bindings.Single(candidate =>
+                !candidate.isComposite &&
+                !candidate.isPartOfComposite &&
+                candidate.path.StartsWith("<Keyboard>/", StringComparison.OrdinalIgnoreCase));
+
+            Assert.That(binding.path, Is.EqualTo(expectedPath));
+            Assert.That(binding.id.ToString(), Is.EqualTo(expectedBindingId));
         }
 
         private InputActionAsset CreateActions(
@@ -286,7 +325,7 @@ namespace Game.Feature.UI.Tests
                 var push = player.AddAction(GameplayInputActionPaths.PushAction, InputActionType.Button);
                 if (pushKeyboardBinding)
                 {
-                    push.AddBinding("<Keyboard>/e")
+                    push.AddBinding("<Keyboard>/j")
                         .WithGroup("Keyboard&Mouse");
                 }
 
@@ -302,7 +341,7 @@ namespace Game.Feature.UI.Tests
                 var flip = player.AddAction(GameplayInputActionPaths.FlipAction, InputActionType.Button);
                 if (flipKeyboardBinding)
                 {
-                    flip.AddBinding("<Keyboard>/q")
+                    flip.AddBinding("<Keyboard>/k")
                         .WithGroup("Keyboard&Mouse");
                 }
             }

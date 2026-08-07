@@ -91,10 +91,6 @@ MonoBehaviour:
     m_Localized: Paused
     m_Metadata:
       m_Items: []
-  - m_Id: 1881628684
-    m_Localized: Pausing modal popup
-    m_Metadata:
-      m_Items: []
   - m_Id: 1881628685
     m_Localized: Resume
     m_Metadata:

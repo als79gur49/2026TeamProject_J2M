@@ -848,12 +848,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
-            SetKeyboardState(_keyboard, Key.D, Key.E);
+            SetKeyboardState(_keyboard, Key.D, Key.J);
 
             var startTick = host.InputHost.RunSingleTick();
             var startSnapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(startTick, Is.Not.Null);
-            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+            Assert.That(startTick.PresentationData.PlayerActionSignals[0].StartedThisTick, Is.True);
             Assert.That(startSnapshot.TryGetPlayerControlState(10, out var startedState), Is.True);
             Assert.That(startedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(startedState.activeAction.sequence, Is.EqualTo(1));
@@ -881,7 +882,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(heldSnapshot.TryGetEntity(30, out var heldBox), Is.True);
             Assert.That(heldBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
         }
@@ -904,7 +905,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
-            SetKeyboardState(_keyboard, Key.A, Key.E);
+            SetKeyboardState(_keyboard, Key.A, Key.J);
 
             var startTick = host.InputHost.RunSingleTick();
             var startSnapshot = CaptureAuthoritativeSnapshot(host);
@@ -925,7 +926,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(rightBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
             Assert.That(leftBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.aKey);
             yield return DestroyHost(host, actions);
         }
@@ -1338,7 +1339,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 3));
 
-            SetKeyboardState(_keyboard, Key.D, Key.E);
+            SetKeyboardState(_keyboard, Key.D, Key.J);
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
@@ -1356,7 +1357,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(heldAfterRecoverySnapshot.TryGetEntity(30, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
         }
@@ -1515,7 +1516,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
-            SetKeyboardState(_keyboard, Key.D, Key.E);
+            SetKeyboardState(_keyboard, Key.D, Key.J);
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
@@ -1529,7 +1530,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(releasedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(releasedState.actionSequenceCounter, Is.EqualTo(1));
 
-            SetKeyboardState(_keyboard, Key.A, Key.E);
+            SetKeyboardState(_keyboard, Key.A, Key.J);
 
             TickResult restartTick = null;
             TickPlayerActionPresentationSignal restartSignal = default;
@@ -1564,7 +1565,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(secondExecuteSnapshot.TryGetEntity(31, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
 
-            Release(_keyboard.eKey);
+            Release(_keyboard.jKey);
             Release(_keyboard.aKey);
             yield return DestroyHost(host, actions);
         }
@@ -1762,7 +1763,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TileFeatureState[] initialTileFeatures = null,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null,
             CubeTopologyState? initialTopology = null,
-            EnemyAiProfile defaultEnemyAiProfile = null)
+            EnemyAiProfile defaultEnemyAiProfile = null,
+            IKeyboardBindingStore keyboardBindingStore = null)
         {
             return CreateHostCore(
                 initialEntities,
@@ -1785,7 +1787,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 initialTileFeatures,
                 tileFeatureDefinitions,
                 initialTopology,
-                defaultEnemyAiProfile);
+                defaultEnemyAiProfile,
+                keyboardBindingStore);
         }
 
         private static GameplaySceneHost CreateHostCore(
@@ -1809,7 +1812,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TileFeatureState[] initialTileFeatures,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
             CubeTopologyState? initialTopology,
-            EnemyAiProfile defaultEnemyAiProfile)
+            EnemyAiProfile defaultEnemyAiProfile,
+            IKeyboardBindingStore keyboardBindingStore)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1840,6 +1844,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var configuration = new GameplaySceneHostConfiguration
             {
                 Actions = actions,
+                KeyboardBindingStore = keyboardBindingStore ?? new PlayModeKeyboardBindingStore(),
                 AutoAdvanceTicks = false,
                 AutoCreateViews = true,
                 BoxSlideStepIntervalSeconds = 0.2f,
@@ -1884,16 +1889,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             host.Initialize(configuration);
-
-            if (actions != null)
-            {
-                using var keyboardSettings = new KeyboardBindingSettingsService(
-                    actions,
-                    new PlayModeKeyboardBindingStore());
-                Assert.That(
-                    keyboardSettings.SetMovementScheme(KeyboardMovementScheme.Wasd),
-                    Is.EqualTo(KeyboardBindingValidationStatus.Success));
-            }
 
             return host;
         }
@@ -2550,8 +2545,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     .With("Right", "<Keyboard>/rightArrow");
             }
 
-            pushAction.AddBinding("<Keyboard>/e");
-            flipAction.AddBinding("<Keyboard>/q");
+            pushAction.AddBinding("<Keyboard>/j");
+            flipAction.AddBinding("<Keyboard>/k");
             actions.AddActionMap(map);
 
             var uiMap = new InputActionMap(GameplayInputActionPaths.UiActionMap);
