@@ -43,12 +43,15 @@ function New-RawFixture {
     Write-FixtureFile $Root "VectorQuake.exe" "exe"
     Write-FixtureFile $Root "UnityPlayer.dll" "unity"
     Write-FixtureFile $Root "VectorQuake_Data\globalgamemanagers" "managers"
+    Write-FixtureFile $Root "MonoBleedingEdge\etc\mono\config" "mono-runtime"
     Write-FixtureFile $Root `
         "VectorQuake_Data\Managed\com.rlabrecque.steamworks.net.dll" "managed"
     Write-FixtureFile $Root `
         "VectorQuake_Data\Plugins\x86_64\steam_api64.dll" "native"
     Write-FixtureFile $Root "VectorQuake_Data\TestLogs\player.log" "denied"
     Write-FixtureFile $Root "steam_appid.txt" "480"
+    Write-FixtureFile $Root "build-metadata.json" `
+        '{"sourceSha":"metadata-sha","sourceTree":"metadata-tree","artifactId":"metadata-artifact","scriptingBackend":"Mono2x"}'
 }
 
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) `
@@ -61,6 +64,10 @@ try {
 
     Invoke-Case "wrapper stages SteamWindows with canonical C# contracts" {
         $output = Join-Path $fixtureRoot "steam"
+        $statuses = [Collections.Generic.Queue[string]]::new()
+        $statuses.Enqueue("stable")
+        $statuses.Enqueue("stable")
+        $statusProvider = { param([string]$Root) $statuses.Dequeue() }.GetNewClosure()
         $result = Invoke-WindowsDistributionStaging `
             -SourceBuildRoot $rawRoot `
             -DistributionTarget "steam-windows" `
@@ -69,12 +76,15 @@ try {
             -SourceSha "sha" `
             -SourceTree "tree" `
             -ArtifactId "artifact" `
-            -RunId "steam-run"
+            -RunId "steam-run" `
+            -RepositoryStatusProvider $statusProvider
         Assert-Equal 1 $result.SteamNativeCount
         Assert-Equal 1 $result.SteamManagedCount
         Assert-Equal 0 $result.SteamAppIdCount
         Assert-True (Test-Path -LiteralPath $result.ManifestPath -PathType Leaf)
         Assert-True (Test-Path -LiteralPath $result.SuccessPath -PathType Leaf)
+        Assert-True ((Get-Content -LiteralPath $result.SuccessPath -Raw).Contains(
+            '"scriptingBackend": "Mono2x"'))
     }
 
     Invoke-Case "wrapper stages DirectWindows without Steam dependencies" {
@@ -88,6 +98,30 @@ try {
         Assert-Equal 0 $result.SteamManagedCount
         Assert-Equal 0 $result.SteamAppIdCount
         Assert-Equal 0 $result.DeniedArtifactCount
+    }
+
+    Invoke-Case "repository drift fails before final promotion" {
+        $output = Join-Path $fixtureRoot "drift"
+        $statuses = [Collections.Generic.Queue[string]]::new()
+        $statuses.Enqueue("initial")
+        $statuses.Enqueue("changed")
+        $statusProvider = { param([string]$Root) $statuses.Dequeue() }.GetNewClosure()
+        $threw = $false
+        try {
+            Invoke-WindowsDistributionStaging `
+                -SourceBuildRoot $rawRoot `
+                -DistributionTarget "direct-windows" `
+                -OutputRoot $output `
+                -RepositoryRoot $repositoryRoot `
+                -RunId "drift-run" `
+                -RepositoryStatusProvider $statusProvider | Out-Null
+        } catch {
+            $threw = $_.Exception.Message.Contains("STAGING_REPOSITORY_MUTATED")
+        }
+        Assert-True $threw
+        Assert-True (-not (Test-Path -LiteralPath $output))
+        Assert-True (-not (Test-Path -LiteralPath `
+            (Join-Path $output "evidence\SUCCESS.json") -PathType Leaf))
     }
 
     Invoke-Case "wrapper rejects unknown target" {
