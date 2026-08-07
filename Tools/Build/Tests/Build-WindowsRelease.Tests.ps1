@@ -410,6 +410,22 @@ Invoke-Case "detached git command fixes LF checkout process-locally" {
     Assert-Equal "C:\repo" $arguments[7]
     Assert-Equal "status" $arguments[8]
 }
+Invoke-Case "WSL gitdir marker is detected without Windows Git interpretation" {
+    $root = Join-Path ([IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Path $root | Out-Null
+        Set-Content -LiteralPath (Join-Path $root ".git") `
+            -Value "gitdir: /mnt/c/repo/.git/worktrees/prepared" -NoNewline
+        Assert-True (Test-WslGitWorktreeMarker -Root $root)
+    } finally {
+        Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+Invoke-Case "WSL worktree list paths become Windows process-gate paths" {
+    Assert-Equal "D:\J2M\worktrees\prepared release" `
+        (Convert-GitWorktreePathToWindows "/mnt/d/J2M/worktrees/prepared release")
+    Assert-Equal "C:\repo" (Convert-GitWorktreePathToWindows "C:/repo")
+}
 Invoke-Case "multiple porcelain lines remain independently fail-closed" {
     $changes = Get-GitChangeClassification @(
         "?? TestLogs/MainReReview/approved.txt",

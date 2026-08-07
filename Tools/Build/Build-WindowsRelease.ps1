@@ -1749,11 +1749,46 @@ function Get-GitCommandArguments {
     return $configuration + @("-C", $Root) + @($Arguments)
 }
 
+function Test-WslGitWorktreeMarker {
+    param([Parameter(Mandatory)][string]$Root)
+    $marker = Join-Path $Root ".git"
+    return (Test-Path -LiteralPath $marker -PathType Leaf) -and
+        ((Get-Content -LiteralPath $marker -Raw) -match '^gitdir: /mnt/')
+}
+
+function Convert-ToWslPath {
+    param([Parameter(Mandatory)][string]$WindowsPath)
+    $output = @(& wsl.exe -e wslpath -u $WindowsPath 2>&1)
+    $exitCode = $LASTEXITCODE
+    $resolved = [string]($output | Select-Object -First 1)
+    if ($exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($resolved)) {
+        throw "wslpath failed for '$WindowsPath': $($output -join ' ')"
+    }
+    return $resolved.Trim()
+}
+
+function Convert-GitWorktreePathToWindows {
+    param([Parameter(Mandatory)][string]$Path)
+    if ($Path -match '^/mnt/([A-Za-z])(?:/(.*))?$') {
+        $drive = $Matches[1].ToUpperInvariant()
+        $tail = [string]$Matches[2]
+        if ([string]::IsNullOrWhiteSpace($tail)) { return "${drive}:\" }
+        return "${drive}:\$($tail.Replace('/', '\'))"
+    }
+    return $Path.Replace('/', '\')
+}
+
 function Invoke-GitText {
     param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
-    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
+    $usesWslGit = Test-WslGitWorktreeMarker -Root $Root
+    $gitRoot = if ($usesWslGit) { Convert-ToWslPath -WindowsPath $Root } else { $Root }
+    $gitArguments = @(Get-GitCommandArguments -Root $gitRoot -Arguments $Arguments `
         -DisableAutoCrlf:$DisableAutoCrlf)
-    $output = & git @gitArguments 2>&1
+    $output = if ($usesWslGit) {
+        & wsl.exe -e git @gitArguments 2>&1
+    } else {
+        & git @gitArguments 2>&1
+    }
     if ($LASTEXITCODE -ne 0) { throw "git $($Arguments -join ' ') failed: $output" }
     return ($output -join "`n").Trim()
 }
@@ -1768,9 +1803,15 @@ function ConvertFrom-GitPathOutput {
 
 function Invoke-GitPathList {
     param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
-    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
+    $usesWslGit = Test-WslGitWorktreeMarker -Root $Root
+    $gitRoot = if ($usesWslGit) { Convert-ToWslPath -WindowsPath $Root } else { $Root }
+    $gitArguments = @(Get-GitCommandArguments -Root $gitRoot -Arguments $Arguments `
         -DisableAutoCrlf:$DisableAutoCrlf)
-    $output = & git @gitArguments 2>$null
+    $output = if ($usesWslGit) {
+        & wsl.exe -e git @gitArguments 2>$null
+    } else {
+        & git @gitArguments 2>$null
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
     }
@@ -1843,7 +1884,9 @@ function Get-RepositoryFamilyPaths {
     $lines = @(Invoke-GitPathList -Root $Root `
         -Arguments @("worktree", "list", "--porcelain"))
     return @($lines | Where-Object { $_ -like "worktree *" } |
-        ForEach-Object { $_.Substring(9).Replace('/', '\') })
+        ForEach-Object {
+            Convert-GitWorktreePathToWindows -Path $_.Substring(9)
+        })
 }
 
 function Write-FailureEvidence {
