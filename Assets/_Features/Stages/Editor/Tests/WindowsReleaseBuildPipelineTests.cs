@@ -168,6 +168,140 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void DistributionTargets_ResolveDirectAndSteamContracts()
+        {
+            Assert.That(WindowsDistributionTargetPolicy.TryResolve(
+                "direct-windows", out var direct), Is.True);
+            Assert.That(direct.ProviderSelectionMode,
+                Is.EqualTo(ProviderSelectionMode.DefaultWhenUnspecified));
+            Assert.That(direct.ExpectedProviderId, Is.EqualTo("local"));
+            Assert.That(direct.ExpectedLaunchArguments, Is.Empty);
+            Assert.That(direct.ArtifactDirectoryName, Is.EqualTo("DirectWindows"));
+
+            Assert.That(WindowsDistributionTargetPolicy.TryResolve(
+                "steam-windows", out var steam), Is.True);
+            Assert.That(steam.ProviderSelectionMode,
+                Is.EqualTo(ProviderSelectionMode.ExternalLaunchArgumentRequired));
+            Assert.That(steam.ExpectedProviderId, Is.EqualTo("steam"));
+            Assert.That(steam.ExpectedLaunchArguments,
+                Is.EqualTo(new[] { "-j2mPlatformProvider", "steam" }));
+            Assert.That(steam.ExpectedStoreLaunch,
+                Is.EqualTo("VectorQuake.exe -j2mPlatformProvider steam"));
+            Assert.That(steam.ArtifactDirectoryName, Is.EqualTo("SteamWindows"));
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("unknown-windows")]
+        [TestCase("Steam-Windows")]
+        public void DistributionTarget_MissingUnknownOrNonCanonicalValueIsRejected(
+            string targetId)
+        {
+            Assert.That(WindowsDistributionTargetPolicy.TryResolve(targetId, out _),
+                Is.False);
+        }
+
+        [Test]
+        public void SteamDistributionLaunchArguments_AreExactOrderedTokens()
+        {
+            var target = WindowsDistributionTargetPolicy.SteamWindows;
+            Assert.That(WindowsDistributionTargetPolicy.ValidateLaunchArguments(
+                    target, new[] { "-j2mPlatformProvider", "steam" }),
+                Is.EqualTo(WindowsDistributionValidationFailure.None));
+            Assert.That(WindowsDistributionTargetPolicy.ValidateLaunchArguments(
+                    target, new[] { "steam", "-j2mPlatformProvider" }),
+                Is.EqualTo(
+                    WindowsDistributionValidationFailure.LaunchArgumentContractMismatch));
+            Assert.That(WindowsDistributionTargetPolicy.ValidateLaunchArguments(
+                    target, new[] { "-j2mPlatformProvider=steam" }),
+                Is.EqualTo(
+                    WindowsDistributionValidationFailure.LaunchArgumentContractMismatch));
+            Assert.That(WindowsDistributionTargetPolicy.ValidateLaunchArguments(
+                    target, new[] { "-j2mPlatformProvider", "local" }),
+                Is.EqualTo(
+                    WindowsDistributionValidationFailure.LaunchArgumentContractMismatch));
+        }
+
+        [Test]
+        public void SteamPromotedArtifactContract_RequiresNativeAndManagedAndForbidsAppId()
+        {
+            var target = WindowsDistributionTargetPolicy.SteamWindows;
+            var valid = new[]
+            {
+                "payload/VectorQuake.exe",
+                "payload/steam_api64.dll",
+                "payload/VectorQuake_Data/Managed/com.rlabrecque.steamworks.net.dll",
+            };
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    target, valid),
+                Is.EqualTo(WindowsDistributionValidationFailure.None));
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    target, valid.Where(path => !path.EndsWith("steam_api64.dll"))),
+                Is.EqualTo(WindowsDistributionValidationFailure.RequiredArtifactMissing));
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    target, valid.Where(path =>
+                        !path.EndsWith("com.rlabrecque.steamworks.net.dll"))),
+                Is.EqualTo(WindowsDistributionValidationFailure.RequiredArtifactMissing));
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    target, valid.Concat(new[] { "payload/steam_appid.txt" })),
+                Is.EqualTo(WindowsDistributionValidationFailure.ForbiddenArtifactPresent));
+        }
+
+        [TestCase("payload/steam_api64.dll")]
+        [TestCase("payload/VectorQuake_Data/Managed/com.rlabrecque.steamworks.net.dll")]
+        [TestCase("payload/steam_appid.txt")]
+        public void DirectPromotedArtifactContract_ForbidsSteamDependencies(string artifact)
+        {
+            Assert.That(WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                    WindowsDistributionTargetPolicy.DirectWindows,
+                    new[] { "payload/VectorQuake.exe", artifact }),
+                Is.EqualTo(WindowsDistributionValidationFailure.ForbiddenArtifactPresent));
+        }
+
+        [Test]
+        public void DistributionConfiguration_RemainsProviderNeutralForFutureStore()
+        {
+            var future = new WindowsDistributionTargetConfiguration(
+                "future-store-windows",
+                "FutureStoreWindows",
+                ProviderSelectionMode.ExternalLaunchArgumentRequired,
+                "future-store",
+                new[] { "-j2mPlatformProvider", "future-store" },
+                new[] { "future_store.dll" },
+                new[] { "future_store_dev.txt" });
+
+            Assert.That(WindowsDistributionTargetPolicy.ValidateConfiguration(future),
+                Is.EqualTo(WindowsDistributionValidationFailure.None));
+            Assert.That(future.ExpectedProviderId, Is.EqualTo("future-store"));
+        }
+
+        [Test]
+        public void DistributionOwnership_DoesNotLeakIntoPlatformCoreOrSteamRuntime()
+        {
+            var forbiddenTokens = new[]
+            {
+                WindowsDistributionTargetPolicy.DirectWindowsTargetId,
+                WindowsDistributionTargetPolicy.SteamWindowsTargetId,
+                nameof(WindowsDistributionTargetConfiguration),
+            };
+            var productionRoots = new[]
+            {
+                "Assets/_Core/Runtime/Platform",
+                "Packages/com.j2m.platform.steam/Runtime",
+                "Packages/com.j2m.platform.steam.steamworksnet/Runtime",
+            };
+            foreach (var root in productionRoots)
+            {
+                var source = string.Join("\n", System.IO.Directory.GetFiles(
+                        root, "*.cs", System.IO.SearchOption.AllDirectories)
+                    .Select(System.IO.File.ReadAllText));
+                Assert.That(source, Does.Not.Contain(forbiddenTokens[0]), root);
+                Assert.That(source, Does.Not.Contain(forbiddenTokens[1]), root);
+                Assert.That(source, Does.Not.Contain(forbiddenTokens[2]), root);
+            }
+        }
+
+        [Test]
         public void Policy_WarningStackTraceIsScriptOnly()
         {
             Assert.That(WindowsReleaseBuildPolicy.WarningStackTrace,
@@ -234,6 +368,14 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             Assert.That(WindowsReleaseBuildPolicy.ValidateArguments(
                     new Dictionary<string, string>()),
+                Is.EqualTo(WindowsReleaseExitCodes.InvalidArguments));
+
+            var otherwiseValid = WindowsReleaseBuildCli.RequiredArgumentNames
+                .ToDictionary(name => name, _ => "value", StringComparer.Ordinal);
+            otherwiseValid[WindowsReleaseBuildCli.OutputPathArgument] =
+                "C:/release/.staging-run/VectorQuake.exe";
+            otherwiseValid.Remove(WindowsReleaseBuildCli.DistributionTargetArgument);
+            Assert.That(WindowsReleaseBuildPolicy.ValidateArguments(otherwiseValid),
                 Is.EqualTo(WindowsReleaseExitCodes.InvalidArguments));
         }
 
@@ -398,7 +540,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void MetadataSchemaV2_ContainsAllRequiredFields()
+        public void MetadataSchemaV4_ContainsAllRequiredFields()
         {
             var required = new[]
             {
@@ -413,7 +555,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 "deepProfiling", "allowDebugging", "scriptDebugging",
                 "waitForPlayerConnection", "waitForDebugger", "forceAssertions",
                 "effectiveScenes", "playerLogEnabled", "logPolicyId",
-                "automaticLogUpload", "payloadAudience", "stackTracePolicy",
+                "automaticLogUpload", "payloadAudience", "distributionTargetId",
+                "providerSelectionMode", "expectedProviderId", "expectedLaunchArguments",
+                "requiredArtifacts", "forbiddenArtifacts", "expectedStoreLaunch",
+                "stackTracePolicy",
                 "incrementalGC", "productName", "companyName", "productVersion", "buildNumber",
                 "applicationIdentifier", "buildEntry", "entrySourceSha256", "policySourceSha256",
                 "wrapperSourceSha256", "buildResult", "warningCount", "errorCount",
@@ -425,11 +570,11 @@ namespace Game.Feature.Stages.Editor.Tests
             var fields = typeof(WindowsReleaseMetadataV2).GetFields()
                 .Select(field => field.Name).ToArray();
             Assert.That(fields, Is.EquivalentTo(required));
-            Assert.That(WindowsReleaseBuildPolicy.MetadataSchemaVersion, Is.EqualTo("3.0"));
+            Assert.That(WindowsReleaseBuildPolicy.MetadataSchemaVersion, Is.EqualTo("4.0"));
         }
 
         [Test]
-        public void StructuredBuildReportSchemaV1_ContainsRequiredFields()
+        public void StructuredBuildReportSchemaV3_ContainsRequiredFields()
         {
             Assert.That(typeof(BuildReportDetailsV1).GetFields().Select(field => field.Name),
                 Is.EquivalentTo(new[]
@@ -439,6 +584,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     "storeConfigurationSchema", "storeConfigurationId", "backend",
                     "scriptingBackend", "managedStrippingLevel", "playerLogEnabled",
                     "logPolicyId", "automaticLogUpload", "payloadAudience",
+                    "distributionTargetId", "providerSelectionMode", "expectedProviderId",
+                    "expectedLaunchArguments", "requiredArtifacts", "forbiddenArtifacts",
+                    "expectedStoreLaunch",
                     "backendComparisonId",
                     "comparisonRole", "result", "totalErrors", "totalWarnings",
                     "errorRecordCount", "warningRecordCount", "captureLimitation", "steps",
@@ -455,11 +603,11 @@ namespace Game.Feature.Stages.Editor.Tests
                     "stackTrace",
                 }));
             Assert.That(WindowsReleaseBuildPolicy.BuildReportDetailsSchemaVersion,
-                Is.EqualTo("2.0"));
+                Is.EqualTo("3.0"));
         }
 
         [Test]
-        public void BuildReportSummarySchemaV2_BindsCanonicalIdentityAndCounts()
+        public void BuildReportSummarySchemaV4_BindsCanonicalIdentityAndCounts()
         {
             Assert.That(typeof(BuildReportSummaryV2).GetFields().Select(field => field.Name),
                 Is.EquivalentTo(new[]
@@ -469,7 +617,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     "storeConfigurationId", "backend", "scriptingBackend",
                     "managedStrippingLevel", "playerLogEnabled", "logPolicyId",
                     "automaticLogUpload", "payloadAudience", "backendComparisonId",
-                    "comparisonRole",
+                    "distributionTargetId", "providerSelectionMode", "expectedProviderId",
+                    "expectedLaunchArguments", "requiredArtifacts", "forbiddenArtifacts",
+                    "expectedStoreLaunch", "comparisonRole",
                     "result", "totalErrors", "totalWarnings", "totalSize",
                     "totalTimeSeconds", "outputPath", "detailsFile", "detailsSha256",
                     "errorRecordCount", "warningRecordCount", "distinctErrorMessageHashes",
@@ -477,9 +627,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(typeof(BuildReportSummaryV2).GetFields().Select(field => field.Name),
                 Does.Not.Contain("steps"));
             Assert.That(WindowsReleaseBuildPolicy.BuildReportSummarySchemaVersion,
-                Is.EqualTo("3.0"));
+                Is.EqualTo("4.0"));
             Assert.That(WindowsReleaseBuildPolicy.BuildReportDetailsSchemaVersion,
-                Is.EqualTo("2.0"));
+                Is.EqualTo("3.0"));
         }
 
         [Test]
@@ -488,7 +638,9 @@ namespace Game.Feature.Stages.Editor.Tests
             var evidence = CreateMatchingEvidence();
 
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                    evidence.Metadata, evidence.Summary, evidence.Details),
+                    evidence.Metadata, evidence.Summary, evidence.Details,
+                    WindowsReleaseBackendConfiguration.CanonicalStoreMono,
+                    WindowsDistributionTargetPolicy.DirectWindows),
                 Is.EqualTo(WindowsReleaseExitCodes.Success));
         }
 
@@ -524,7 +676,9 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                    evidence.Metadata, evidence.Summary, evidence.Details),
+                    evidence.Metadata, evidence.Summary, evidence.Details,
+                    WindowsReleaseBackendConfiguration.CanonicalStoreMono,
+                    WindowsDistributionTargetPolicy.DirectWindows),
                 Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
         }
 
@@ -537,6 +691,10 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("payloadAudience")]
         [TestCase("backendComparisonId")]
         [TestCase("comparisonRole")]
+        [TestCase("distributionTargetId")]
+        [TestCase("providerSelectionMode")]
+        [TestCase("expectedProviderId")]
+        [TestCase("expectedLaunchArguments")]
         public void BuildReportIdentityAndCounts_ConfigurationIdentityMismatch_IsRejected(
             string field)
         {
@@ -572,10 +730,27 @@ namespace Game.Feature.Stages.Editor.Tests
                     evidence.Summary.comparisonRole =
                         StoreBackendComparisonRole.IL2CPPCandidate.ToString();
                     break;
+                case "distributionTargetId":
+                    evidence.Summary.distributionTargetId =
+                        WindowsDistributionTargetPolicy.SteamWindowsTargetId;
+                    break;
+                case "providerSelectionMode":
+                    evidence.Summary.providerSelectionMode =
+                        ProviderSelectionMode.ExternalLaunchArgumentRequired.ToString();
+                    break;
+                case "expectedProviderId":
+                    evidence.Summary.expectedProviderId = "steam";
+                    break;
+                case "expectedLaunchArguments":
+                    evidence.Summary.expectedLaunchArguments =
+                        new[] { "-j2mPlatformProvider", "steam" };
+                    break;
             }
 
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                    evidence.Metadata, evidence.Summary, evidence.Details),
+                    evidence.Metadata, evidence.Summary, evidence.Details,
+                    WindowsReleaseBackendConfiguration.CanonicalStoreMono,
+                    WindowsDistributionTargetPolicy.DirectWindows),
                 Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
         }
 
@@ -610,7 +785,9 @@ namespace Game.Feature.Stages.Editor.Tests
             evidence.Details.runId = string.Empty;
 
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                    evidence.Metadata, evidence.Summary, evidence.Details),
+                    evidence.Metadata, evidence.Summary, evidence.Details,
+                    WindowsReleaseBackendConfiguration.CanonicalStoreMono,
+                    WindowsDistributionTargetPolicy.DirectWindows),
                 Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
         }
 
@@ -646,7 +823,9 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.That(WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                    evidence.Metadata, evidence.Summary, evidence.Details),
+                    evidence.Metadata, evidence.Summary, evidence.Details,
+                    WindowsReleaseBackendConfiguration.CanonicalStoreMono,
+                    WindowsDistributionTargetPolicy.DirectWindows),
                 Is.EqualTo(WindowsReleaseExitCodes.BuildReportCountMismatch));
         }
 
@@ -818,6 +997,7 @@ namespace Game.Feature.Stages.Editor.Tests
             const int warnings = 7;
             const string comparisonId = "comparison";
             var configuration = WindowsReleaseBackendConfiguration.CanonicalStoreMono;
+            var distribution = WindowsDistributionTargetPolicy.DirectWindows;
 
             return new EvidenceSet
             {
@@ -839,6 +1019,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     logPolicyId = configuration.LogPolicyId,
                     automaticLogUpload = false,
                     payloadAudience = configuration.PayloadAudience,
+                    distributionTargetId = distribution.TargetId,
+                    providerSelectionMode = distribution.ProviderSelectionMode.ToString(),
+                    expectedProviderId = distribution.ExpectedProviderId,
+                    expectedLaunchArguments = distribution.CopyExpectedLaunchArguments(),
+                    requiredArtifacts = distribution.CopyRequiredArtifacts(),
+                    forbiddenArtifacts = distribution.CopyForbiddenArtifacts(),
+                    expectedStoreLaunch = distribution.ExpectedStoreLaunch,
                     backendComparisonId = comparisonId,
                     comparisonRole = configuration.ComparisonRole.ToString(),
                     buildResult = result,
@@ -862,6 +1049,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     logPolicyId = configuration.LogPolicyId,
                     automaticLogUpload = false,
                     payloadAudience = configuration.PayloadAudience,
+                    distributionTargetId = distribution.TargetId,
+                    providerSelectionMode = distribution.ProviderSelectionMode.ToString(),
+                    expectedProviderId = distribution.ExpectedProviderId,
+                    expectedLaunchArguments = distribution.CopyExpectedLaunchArguments(),
+                    requiredArtifacts = distribution.CopyRequiredArtifacts(),
+                    forbiddenArtifacts = distribution.CopyForbiddenArtifacts(),
+                    expectedStoreLaunch = distribution.ExpectedStoreLaunch,
                     backendComparisonId = comparisonId,
                     comparisonRole = configuration.ComparisonRole.ToString(),
                     result = result,
@@ -887,6 +1081,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     logPolicyId = configuration.LogPolicyId,
                     automaticLogUpload = false,
                     payloadAudience = configuration.PayloadAudience,
+                    distributionTargetId = distribution.TargetId,
+                    providerSelectionMode = distribution.ProviderSelectionMode.ToString(),
+                    expectedProviderId = distribution.ExpectedProviderId,
+                    expectedLaunchArguments = distribution.CopyExpectedLaunchArguments(),
+                    requiredArtifacts = distribution.CopyRequiredArtifacts(),
+                    forbiddenArtifacts = distribution.CopyForbiddenArtifacts(),
+                    expectedStoreLaunch = distribution.ExpectedStoreLaunch,
                     backendComparisonId = comparisonId,
                     comparisonRole = configuration.ComparisonRole.ToString(),
                     result = result,
@@ -900,8 +1101,16 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private static ReleaseStoreIdentityV1 CreateCanonicalStoreIdentity()
         {
+            var distribution = WindowsDistributionTargetPolicy.DirectWindows;
             return new ReleaseStoreIdentityV1
             {
+                distributionTargetId = distribution.TargetId,
+                providerSelectionMode = distribution.ProviderSelectionMode.ToString(),
+                expectedProviderId = distribution.ExpectedProviderId,
+                expectedLaunchArguments = distribution.CopyExpectedLaunchArguments(),
+                requiredArtifacts = distribution.CopyRequiredArtifacts(),
+                forbiddenArtifacts = distribution.CopyForbiddenArtifacts(),
+                expectedStoreLaunch = distribution.ExpectedStoreLaunch,
                 storeConfigurationSchema =
                     WindowsReleaseBuildPolicy.StoreConfigurationSchema,
                 storeConfigurationId = WindowsReleaseBuildPolicy.StoreConfigurationId,

@@ -9,6 +9,7 @@ param(
     [string]$BuildIntent = "CanonicalStore",
     [string]$Backend = "Mono",
     [string]$BackendComparisonId = "",
+    [string]$DistributionTarget = "",
     [ValidateSet("InternalRc", "StoreDistributable")]
     [string]$PayloadAudience = "StoreDistributable",
     [string[]]$AllowUntrackedRoot = @(
@@ -19,6 +20,45 @@ param(
         "TestLogs/UndoPreflight-MainVfxDuplication"
     )
 )
+
+function Resolve-WindowsDistributionTargetPolicy {
+    param([Parameter(Mandatory)][string]$TargetId)
+    switch -CaseSensitive ($TargetId) {
+        "direct-windows" {
+            return [pscustomobject][ordered]@{
+                TargetId = "direct-windows"
+                ArtifactDirectoryName = "DirectWindows"
+                ProviderSelectionMode = "DefaultWhenUnspecified"
+                ExpectedProviderId = "local"
+                ExpectedLaunchArguments = @()
+                RequiredArtifacts = @()
+                ForbiddenArtifacts = @(
+                    "steam_api64.dll",
+                    "com.rlabrecque.steamworks.net.dll",
+                    "steam_appid.txt"
+                )
+                ExpectedStoreLaunch = "VectorQuake.exe"
+            }
+        }
+        "steam-windows" {
+            return [pscustomobject][ordered]@{
+                TargetId = "steam-windows"
+                ArtifactDirectoryName = "SteamWindows"
+                ProviderSelectionMode = "ExternalLaunchArgumentRequired"
+                ExpectedProviderId = "steam"
+                ExpectedLaunchArguments = @("-j2mPlatformProvider", "steam")
+                RequiredArtifacts = @(
+                    "steam_api64.dll",
+                    "com.rlabrecque.steamworks.net.dll"
+                )
+                ForbiddenArtifacts = @("steam_appid.txt")
+                ExpectedStoreLaunch =
+                    "VectorQuake.exe -j2mPlatformProvider steam"
+            }
+        }
+        default { throw "Unsupported Windows distribution target: $TargetId" }
+    }
+}
 
 function Resolve-StoreBackendPolicy {
     param(
@@ -113,6 +153,8 @@ $script:ReleaseExitCodes = [ordered]@{
 }
 try {
     $script:BackendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
+    $script:DistributionPolicy =
+        Resolve-WindowsDistributionTargetPolicy $DistributionTarget
 } catch {
     if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -eq "1") { throw }
     Write-Error "[configuration][$($script:ReleaseExitCodes.UnsupportedConfiguration)] $($_.Exception.Message)"
@@ -120,11 +162,14 @@ try {
 }
 $script:ConfigurationName = [string]$script:BackendPolicy.Configuration
 $script:ExecutingWrapperSourcePath = $PSCommandPath
-$script:ConfigurationPathName = [string]$script:BackendPolicy.Configuration
-$script:MetadataSchemaVersion = "3.0"
-$script:ReportSummarySchemaVersion = "3.0"
-$script:ReportDetailsSchemaVersion = "2.0"
-$script:ProvenanceSchemaVersion = "3.0"
+$script:ConfigurationPathName = Join-Path `
+    ([string]$script:BackendPolicy.Configuration) `
+    ([string]$script:DistributionPolicy.ArtifactDirectoryName)
+$script:MetadataSchemaVersion = "4.0"
+$script:ReportSummarySchemaVersion = "4.0"
+$script:ReportDetailsSchemaVersion = "3.0"
+$script:ConfigurationSummarySchemaVersion = "2.0"
+$script:ProvenanceSchemaVersion = "4.0"
 $script:MaxLegacyWindowsPathLength = 259
 $script:CriticalImporterRelativePaths = @(
     (
@@ -190,7 +235,16 @@ function New-ReleaseEvidenceExpectation {
         [bool]$PlayerLogEnabled = $script:BackendPolicy.PlayerLogEnabled,
         [string]$LogPolicyId = $script:BackendPolicy.LogPolicyId,
         [bool]$AutomaticLogUpload = $script:BackendPolicy.AutomaticLogUpload,
-        [string]$PayloadAudience = $script:BackendPolicy.PayloadAudience
+        [string]$PayloadAudience = $script:BackendPolicy.PayloadAudience,
+        [string]$DistributionTargetId = $script:DistributionPolicy.TargetId,
+        [string]$ProviderSelectionMode =
+            $script:DistributionPolicy.ProviderSelectionMode,
+        [string]$ExpectedProviderId = $script:DistributionPolicy.ExpectedProviderId,
+        [string[]]$ExpectedLaunchArguments =
+            @($script:DistributionPolicy.ExpectedLaunchArguments),
+        [string[]]$RequiredArtifacts = @($script:DistributionPolicy.RequiredArtifacts),
+        [string[]]$ForbiddenArtifacts = @($script:DistributionPolicy.ForbiddenArtifacts),
+        [string]$ExpectedStoreLaunch = $script:DistributionPolicy.ExpectedStoreLaunch
     )
     foreach ($path in @(
         $EntrySourcePath,
@@ -226,6 +280,13 @@ function New-ReleaseEvidenceExpectation {
         LogPolicyId = $LogPolicyId
         AutomaticLogUpload = $AutomaticLogUpload
         PayloadAudience = $PayloadAudience
+        DistributionTargetId = $DistributionTargetId
+        ProviderSelectionMode = $ProviderSelectionMode
+        ExpectedProviderId = $ExpectedProviderId
+        ExpectedLaunchArguments = @($ExpectedLaunchArguments)
+        RequiredArtifacts = @($RequiredArtifacts)
+        ForbiddenArtifacts = @($ForbiddenArtifacts)
+        ExpectedStoreLaunch = $ExpectedStoreLaunch
         EntrySourcePath = $EntrySourcePath
         PolicySourcePath = $PolicySourcePath
         DetachedWrapperSourcePath = $DetachedWrapperSourcePath
@@ -568,6 +629,19 @@ function Test-JsonProperty {
     return $null -ne $Value.PSObject.Properties[$Name]
 }
 
+function Test-OrdinalArrayEqual {
+    param($Actual, $Expected)
+    $actualValues = @($Actual)
+    $expectedValues = @($Expected)
+    if ($actualValues.Count -ne $expectedValues.Count) { return $false }
+    for ($index = 0; $index -lt $actualValues.Count; $index++) {
+        if ([string]$actualValues[$index] -cne [string]$expectedValues[$index]) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function New-BuildEvidenceResult {
     param([bool]$Allowed, [string]$Reason, $Metadata = $null,
         $Summary = $null, $Details = $null)
@@ -644,6 +718,20 @@ function Test-BuildEvidence {
             Reason = "MetadataAutomaticLogUploadMissing" },
         @{ Value = $metadata; Name = "payloadAudience";
             Reason = "MetadataPayloadAudienceMissing" },
+        @{ Value = $metadata; Name = "distributionTargetId";
+            Reason = "MetadataDistributionTargetMissing" },
+        @{ Value = $metadata; Name = "providerSelectionMode";
+            Reason = "MetadataProviderSelectionModeMissing" },
+        @{ Value = $metadata; Name = "expectedProviderId";
+            Reason = "MetadataExpectedProviderMissing" },
+        @{ Value = $metadata; Name = "expectedLaunchArguments";
+            Reason = "MetadataExpectedLaunchArgumentsMissing" },
+        @{ Value = $metadata; Name = "requiredArtifacts";
+            Reason = "MetadataRequiredArtifactsMissing" },
+        @{ Value = $metadata; Name = "forbiddenArtifacts";
+            Reason = "MetadataForbiddenArtifactsMissing" },
+        @{ Value = $metadata; Name = "expectedStoreLaunch";
+            Reason = "MetadataExpectedStoreLaunchMissing" },
         @{ Value = $metadata; Name = "development";
             Reason = "MetadataBuildFlagMissing" },
         @{ Value = $metadata; Name = "connectWithProfiler";
@@ -694,6 +782,20 @@ function Test-BuildEvidence {
             Reason = "ReportAutomaticLogUploadMissing" },
         @{ Value = $summary; Name = "payloadAudience";
             Reason = "ReportPayloadAudienceMissing" },
+        @{ Value = $summary; Name = "distributionTargetId";
+            Reason = "ReportDistributionTargetMissing" },
+        @{ Value = $summary; Name = "providerSelectionMode";
+            Reason = "ReportProviderSelectionModeMissing" },
+        @{ Value = $summary; Name = "expectedProviderId";
+            Reason = "ReportExpectedProviderMissing" },
+        @{ Value = $summary; Name = "expectedLaunchArguments";
+            Reason = "ReportExpectedLaunchArgumentsMissing" },
+        @{ Value = $summary; Name = "requiredArtifacts";
+            Reason = "ReportRequiredArtifactsMissing" },
+        @{ Value = $summary; Name = "forbiddenArtifacts";
+            Reason = "ReportForbiddenArtifactsMissing" },
+        @{ Value = $summary; Name = "expectedStoreLaunch";
+            Reason = "ReportExpectedStoreLaunchMissing" },
         @{ Value = $summary; Name = "backendComparisonId";
             Reason = "ReportComparisonIdMissing" },
         @{ Value = $summary; Name = "comparisonRole";
@@ -728,6 +830,20 @@ function Test-BuildEvidence {
             Reason = "DetailsAutomaticLogUploadMissing" },
         @{ Value = $details; Name = "payloadAudience";
             Reason = "DetailsPayloadAudienceMissing" },
+        @{ Value = $details; Name = "distributionTargetId";
+            Reason = "DetailsDistributionTargetMissing" },
+        @{ Value = $details; Name = "providerSelectionMode";
+            Reason = "DetailsProviderSelectionModeMissing" },
+        @{ Value = $details; Name = "expectedProviderId";
+            Reason = "DetailsExpectedProviderMissing" },
+        @{ Value = $details; Name = "expectedLaunchArguments";
+            Reason = "DetailsExpectedLaunchArgumentsMissing" },
+        @{ Value = $details; Name = "requiredArtifacts";
+            Reason = "DetailsRequiredArtifactsMissing" },
+        @{ Value = $details; Name = "forbiddenArtifacts";
+            Reason = "DetailsForbiddenArtifactsMissing" },
+        @{ Value = $details; Name = "expectedStoreLaunch";
+            Reason = "DetailsExpectedStoreLaunchMissing" },
         @{ Value = $details; Name = "backendComparisonId";
             Reason = "DetailsComparisonIdMissing" },
         @{ Value = $details; Name = "comparisonRole";
@@ -795,6 +911,14 @@ function Test-BuildEvidence {
                 Expected = $ExpectedIdentity.AutomaticLogUpload },
             @{ Value = $metadata; Name = "payloadAudience";
                 Expected = $ExpectedIdentity.PayloadAudience },
+            @{ Value = $metadata; Name = "distributionTargetId";
+                Expected = $ExpectedIdentity.DistributionTargetId },
+            @{ Value = $metadata; Name = "providerSelectionMode";
+                Expected = $ExpectedIdentity.ProviderSelectionMode },
+            @{ Value = $metadata; Name = "expectedProviderId";
+                Expected = $ExpectedIdentity.ExpectedProviderId },
+            @{ Value = $metadata; Name = "expectedStoreLaunch";
+                Expected = $ExpectedIdentity.ExpectedStoreLaunch },
             @{ Value = $summary; Name = "runId"; Expected = $ExpectedIdentity.RunId },
             @{ Value = $summary; Name = "artifactId"; Expected = $ExpectedIdentity.ArtifactId },
             @{ Value = $summary; Name = "sourceSha"; Expected = $ExpectedIdentity.SourceSha },
@@ -820,6 +944,14 @@ function Test-BuildEvidence {
                 Expected = $ExpectedIdentity.AutomaticLogUpload },
             @{ Value = $summary; Name = "payloadAudience";
                 Expected = $ExpectedIdentity.PayloadAudience },
+            @{ Value = $summary; Name = "distributionTargetId";
+                Expected = $ExpectedIdentity.DistributionTargetId },
+            @{ Value = $summary; Name = "providerSelectionMode";
+                Expected = $ExpectedIdentity.ProviderSelectionMode },
+            @{ Value = $summary; Name = "expectedProviderId";
+                Expected = $ExpectedIdentity.ExpectedProviderId },
+            @{ Value = $summary; Name = "expectedStoreLaunch";
+                Expected = $ExpectedIdentity.ExpectedStoreLaunch },
             @{ Value = $summary; Name = "backendComparisonId";
                 Expected = $ExpectedIdentity.BackendComparisonId },
             @{ Value = $summary; Name = "comparisonRole";
@@ -849,6 +981,14 @@ function Test-BuildEvidence {
                 Expected = $ExpectedIdentity.AutomaticLogUpload },
             @{ Value = $details; Name = "payloadAudience";
                 Expected = $ExpectedIdentity.PayloadAudience },
+            @{ Value = $details; Name = "distributionTargetId";
+                Expected = $ExpectedIdentity.DistributionTargetId },
+            @{ Value = $details; Name = "providerSelectionMode";
+                Expected = $ExpectedIdentity.ProviderSelectionMode },
+            @{ Value = $details; Name = "expectedProviderId";
+                Expected = $ExpectedIdentity.ExpectedProviderId },
+            @{ Value = $details; Name = "expectedStoreLaunch";
+                Expected = $ExpectedIdentity.ExpectedStoreLaunch },
             @{ Value = $details; Name = "backendComparisonId";
                 Expected = $ExpectedIdentity.BackendComparisonId },
             @{ Value = $details; Name = "comparisonRole";
@@ -856,6 +996,17 @@ function Test-BuildEvidence {
         )) {
             if (-not (Test-JsonProperty $binding.Value $binding.Name) -or
                 [string]$binding.Value.($binding.Name) -cne [string]$binding.Expected) {
+                return New-BuildEvidenceResult $false "EvidenceIdentityMismatch" `
+                    $metadata $summary $details
+            }
+        }
+        foreach ($carrier in @($metadata, $summary, $details)) {
+            if (-not (Test-OrdinalArrayEqual $carrier.expectedLaunchArguments `
+                    $ExpectedIdentity.ExpectedLaunchArguments) -or
+                -not (Test-OrdinalArrayEqual $carrier.requiredArtifacts `
+                    $ExpectedIdentity.RequiredArtifacts) -or
+                -not (Test-OrdinalArrayEqual $carrier.forbiddenArtifacts `
+                    $ExpectedIdentity.ForbiddenArtifacts)) {
                 return New-BuildEvidenceResult $false "EvidenceIdentityMismatch" `
                     $metadata $summary $details
             }
@@ -932,15 +1083,19 @@ function Test-ConfigurationSummary {
     try { $value = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json }
     catch { return $false }
     foreach ($name in @(
-        "storeConfigurationSchema", "storeConfigurationId", "buildIntent",
+        "schemaVersion", "storeConfigurationSchema", "storeConfigurationId", "buildIntent",
         "configuration", "backend", "scriptingBackend", "managedStrippingLevel",
         "playerLogEnabled", "logPolicyId", "automaticLogUpload", "payloadAudience",
+        "distributionTargetId", "providerSelectionMode", "expectedProviderId",
+        "expectedLaunchArguments", "requiredArtifacts", "forbiddenArtifacts",
+        "expectedStoreLaunch",
         "development", "connectWithProfiler", "deepProfiling", "allowDebugging",
         "waitForPlayerConnection", "forceEnableAssertions", "scenes"
     )) {
         if (-not (Test-JsonProperty $value $name)) { return $false }
     }
-    return $value.storeConfigurationSchema -ceq
+    return $value.schemaVersion -ceq $script:ConfigurationSummarySchemaVersion -and
+        $value.storeConfigurationSchema -ceq
             $Expectation.StoreConfigurationSchema -and
         $value.storeConfigurationId -ceq $Expectation.StoreConfigurationId -and
         $value.buildIntent -ceq $Expectation.BuildIntent -and
@@ -952,6 +1107,16 @@ function Test-ConfigurationSummary {
         $value.logPolicyId -ceq $Expectation.LogPolicyId -and
         [bool]$value.automaticLogUpload -eq $Expectation.AutomaticLogUpload -and
         $value.payloadAudience -ceq $Expectation.PayloadAudience -and
+        $value.distributionTargetId -ceq $Expectation.DistributionTargetId -and
+        $value.providerSelectionMode -ceq $Expectation.ProviderSelectionMode -and
+        $value.expectedProviderId -ceq $Expectation.ExpectedProviderId -and
+        (Test-OrdinalArrayEqual $value.expectedLaunchArguments `
+            $Expectation.ExpectedLaunchArguments) -and
+        (Test-OrdinalArrayEqual $value.requiredArtifacts `
+            $Expectation.RequiredArtifacts) -and
+        (Test-OrdinalArrayEqual $value.forbiddenArtifacts `
+            $Expectation.ForbiddenArtifacts) -and
+        $value.expectedStoreLaunch -ceq $Expectation.ExpectedStoreLaunch -and
         -not [bool]$value.development -and
         -not [bool]$value.connectWithProfiler -and
         -not [bool]$value.deepProfiling -and
@@ -1181,6 +1346,13 @@ function New-ArtifactProvenance {
         payloadManifestSha256 = [string]$Manifest.Sha256
         payloadFileCount = [int]$Manifest.FileCount
         payloadAudience = [string]$PayloadPolicy.Audience
+        distributionTargetId = [string]$BuildEvidence.Metadata.distributionTargetId
+        providerSelectionMode = [string]$BuildEvidence.Metadata.providerSelectionMode
+        expectedProviderId = [string]$BuildEvidence.Metadata.expectedProviderId
+        expectedLaunchArguments = @($BuildEvidence.Metadata.expectedLaunchArguments)
+        requiredArtifacts = @($BuildEvidence.Metadata.requiredArtifacts)
+        forbiddenArtifacts = @($BuildEvidence.Metadata.forbiddenArtifacts)
+        expectedStoreLaunch = [string]$BuildEvidence.Metadata.expectedStoreLaunch
         excludedPayloadPaths = @($PayloadPolicy.ExcludedRelativePaths)
         payloadPrivacyGatePassed = [bool]$PayloadPolicy.PrivacyGatePassed
         zeroErrorGatePassed = $true
@@ -1221,7 +1393,10 @@ function Test-ArtifactProvenance {
         "buildReportSummaryFile", "buildReportSummarySha256",
         "buildReportDetailsFile", "buildReportDetailsSha256",
         "payloadManifestFile", "payloadManifestSha256", "payloadFileCount",
-        "payloadAudience", "payloadPrivacyGatePassed", "entrySourceSha256",
+        "payloadAudience", "distributionTargetId", "providerSelectionMode",
+        "expectedProviderId", "expectedLaunchArguments", "requiredArtifacts",
+        "forbiddenArtifacts", "expectedStoreLaunch", "payloadPrivacyGatePassed",
+        "entrySourceSha256",
         "policySourceSha256", "wrapperSourceSha256"
     )) {
         if (-not (Test-JsonProperty $value $name)) { return $false }
@@ -1247,6 +1422,16 @@ function Test-ArtifactProvenance {
         $value.logPolicyId -cne $Expectation.LogPolicyId -or
         [bool]$value.automaticLogUpload -ne $Expectation.AutomaticLogUpload -or
         $value.payloadAudience -cne $Expectation.PayloadAudience -or
+        $value.distributionTargetId -cne $Expectation.DistributionTargetId -or
+        $value.providerSelectionMode -cne $Expectation.ProviderSelectionMode -or
+        $value.expectedProviderId -cne $Expectation.ExpectedProviderId -or
+        -not (Test-OrdinalArrayEqual $value.expectedLaunchArguments `
+            $Expectation.ExpectedLaunchArguments) -or
+        -not (Test-OrdinalArrayEqual $value.requiredArtifacts `
+            $Expectation.RequiredArtifacts) -or
+        -not (Test-OrdinalArrayEqual $value.forbiddenArtifacts `
+            $Expectation.ForbiddenArtifacts) -or
+        $value.expectedStoreLaunch -cne $Expectation.ExpectedStoreLaunch -or
         [string]$value.buildResult -cne "Succeeded" -or
         -not $value.zeroErrorGatePassed -or
         -not $value.metadataReportCountMatched -or
@@ -1372,6 +1557,13 @@ function New-SuccessControl {
         payloadManifestSha256 = $Manifest.Sha256
         payloadFileCount = [int]$Manifest.FileCount
         payloadAudience = [string]$PayloadPolicy.Audience
+        distributionTargetId = [string]$BuildEvidence.Metadata.distributionTargetId
+        providerSelectionMode = [string]$BuildEvidence.Metadata.providerSelectionMode
+        expectedProviderId = [string]$BuildEvidence.Metadata.expectedProviderId
+        expectedLaunchArguments = @($BuildEvidence.Metadata.expectedLaunchArguments)
+        requiredArtifacts = @($BuildEvidence.Metadata.requiredArtifacts)
+        forbiddenArtifacts = @($BuildEvidence.Metadata.forbiddenArtifacts)
+        expectedStoreLaunch = [string]$BuildEvidence.Metadata.expectedStoreLaunch
         payloadPrivacyGatePassed = [bool]$PayloadPolicy.PrivacyGatePassed
         artifactProvenanceFile = "artifact-provenance.json"
         artifactProvenanceSha256 =
@@ -1404,6 +1596,9 @@ function Test-SuccessControl {
         "buildResult", "totalErrors", "totalWarnings", "errorRecordCount",
         "warningRecordCount", "payloadManifestFile", "payloadManifestSha256",
         "payloadFileCount", "payloadAudience", "payloadPrivacyGatePassed",
+        "distributionTargetId", "providerSelectionMode", "expectedProviderId",
+        "expectedLaunchArguments", "requiredArtifacts", "forbiddenArtifacts",
+        "expectedStoreLaunch",
         "artifactProvenanceFile", "artifactProvenanceSha256", "promotionReady"
     )) {
         if (-not (Test-JsonProperty $success $name)) { return $false }
@@ -1434,6 +1629,16 @@ function Test-SuccessControl {
         $success.logPolicyId -cne $Expectation.LogPolicyId -or
         [bool]$success.automaticLogUpload -ne $Expectation.AutomaticLogUpload -or
         $success.payloadAudience -cne $Expectation.PayloadAudience -or
+        $success.distributionTargetId -cne $Expectation.DistributionTargetId -or
+        $success.providerSelectionMode -cne $Expectation.ProviderSelectionMode -or
+        $success.expectedProviderId -cne $Expectation.ExpectedProviderId -or
+        -not (Test-OrdinalArrayEqual $success.expectedLaunchArguments `
+            $Expectation.ExpectedLaunchArguments) -or
+        -not (Test-OrdinalArrayEqual $success.requiredArtifacts `
+            $Expectation.RequiredArtifacts) -or
+        -not (Test-OrdinalArrayEqual $success.forbiddenArtifacts `
+            $Expectation.ForbiddenArtifacts) -or
+        $success.expectedStoreLaunch -cne $Expectation.ExpectedStoreLaunch -or
         [string]$success.buildResult -cne "Succeeded" -or
         ([string]$success.payloadAudience -ceq "StoreDistributable" -and
             -not $success.payloadPrivacyGatePassed) -or
@@ -1470,7 +1675,17 @@ function Test-SuccessControl {
         [int]$success.errorRecordCount -eq [int]$provenance.errorRecordCount -and
         [int]$success.warningRecordCount -eq
             [int]$provenance.warningRecordCount -and
-        $success.payloadAudience -ceq $provenance.payloadAudience
+        $success.payloadAudience -ceq $provenance.payloadAudience -and
+        $success.distributionTargetId -ceq $provenance.distributionTargetId -and
+        $success.providerSelectionMode -ceq $provenance.providerSelectionMode -and
+        $success.expectedProviderId -ceq $provenance.expectedProviderId -and
+        (Test-OrdinalArrayEqual $success.expectedLaunchArguments `
+            $provenance.expectedLaunchArguments) -and
+        (Test-OrdinalArrayEqual $success.requiredArtifacts `
+            $provenance.requiredArtifacts) -and
+        (Test-OrdinalArrayEqual $success.forbiddenArtifacts `
+            $provenance.forbiddenArtifacts) -and
+        $success.expectedStoreLaunch -ceq $provenance.expectedStoreLaunch
     return $crossBindingsMatch -and
         $success.payloadManifestSha256 -ceq (Get-Sha256 -Path $manifestPath) -and
         [int]$success.payloadFileCount -eq $entries.Count -and
@@ -1689,6 +1904,7 @@ function Invoke-WindowsReleasePipeline {
         [string]$BuildIntent = $script:BackendPolicy.BuildIntent,
         [string]$Backend = $script:BackendPolicy.Backend,
         [string]$BackendComparisonId = "",
+        [string]$DistributionTarget = $script:DistributionPolicy.TargetId,
         [ValidateSet("InternalRc", "StoreDistributable")]
         [string]$PayloadAudience = $script:BackendPolicy.PayloadAudience,
         [string[]]$AllowUntrackedRoot
@@ -1705,9 +1921,15 @@ function Invoke-WindowsReleasePipeline {
     $exitCode = $script:ReleaseExitCodes.WrapperInternalError
     try {
         $backendPolicy = Resolve-StoreBackendPolicy $Backend $BuildIntent $PayloadAudience
+        $distributionPolicy =
+            Resolve-WindowsDistributionTargetPolicy $DistributionTarget
         if ($backendPolicy.Configuration -cne $script:ConfigurationName) {
             $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
             throw "Invocation backend does not match the loaded wrapper policy."
+        }
+        if ($distributionPolicy.TargetId -cne $script:DistributionPolicy.TargetId) {
+            $exitCode = $script:ReleaseExitCodes.UnsupportedConfiguration
+            throw "Invocation distribution target does not match the loaded wrapper policy."
         }
         if (-not (Test-Path -LiteralPath $UnityExe -PathType Leaf)) {
             throw "Unity executable not found: $UnityExe"
@@ -1740,6 +1962,7 @@ function Invoke-WindowsReleasePipeline {
             "Packages/packages-lock.json",
             "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildCli.cs",
             "Assets/_Features/Stages/Editor/Build/WindowsReleaseBuildPolicy.cs",
+            "Assets/_Features/Stages/Editor/Build/WindowsDistributionTargetPolicy.cs",
             "Tools/Build/Build-WindowsRelease.ps1"
         )
         $invocationPre = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
@@ -1825,7 +2048,14 @@ function Invoke-WindowsReleasePipeline {
             -PlayerLogEnabled $backendPolicy.PlayerLogEnabled `
             -LogPolicyId $backendPolicy.LogPolicyId `
             -AutomaticLogUpload $backendPolicy.AutomaticLogUpload `
-            -PayloadAudience $backendPolicy.PayloadAudience
+            -PayloadAudience $backendPolicy.PayloadAudience `
+            -DistributionTargetId $distributionPolicy.TargetId `
+            -ProviderSelectionMode $distributionPolicy.ProviderSelectionMode `
+            -ExpectedProviderId $distributionPolicy.ExpectedProviderId `
+            -ExpectedLaunchArguments $distributionPolicy.ExpectedLaunchArguments `
+            -RequiredArtifacts $distributionPolicy.RequiredArtifacts `
+            -ForbiddenArtifacts $distributionPolicy.ForbiddenArtifacts `
+            -ExpectedStoreLaunch $distributionPolicy.ExpectedStoreLaunch
 
         $payload = Join-Path $staging "payload"
         New-Item -ItemType Directory -Path $payload -Force | Out-Null
@@ -1850,6 +2080,7 @@ function Invoke-WindowsReleasePipeline {
             "-releaseBackend", $Backend,
             "-releaseBackendComparisonId", $comparisonId,
             "-releasePayloadAudience", $PayloadAudience,
+            "-releaseDistributionTarget", $DistributionTarget,
             "-releaseIntermediateMetadataPath", $metadataPath,
             "-releaseBuildReportPath", $reportPath,
             "-releaseBuildReportDetailsPath", $reportDetailsPath,
@@ -1936,6 +2167,7 @@ function Invoke-WindowsReleasePipeline {
         }
         $configurationSummaryPath = Join-Path $payload "configuration-summary.json"
         [ordered]@{
+            schemaVersion = $script:ConfigurationSummarySchemaVersion
             storeConfigurationSchema = $backendPolicy.StoreConfigurationSchema
             storeConfigurationId = $backendPolicy.StoreConfigurationId
             buildIntent = $backendPolicy.BuildIntent
@@ -1958,6 +2190,13 @@ function Invoke-WindowsReleasePipeline {
             automaticLogUpload = $backendPolicy.AutomaticLogUpload
             stackTracePolicy = "ScriptOnly"
             payloadAudience = $backendPolicy.PayloadAudience
+            distributionTargetId = $distributionPolicy.TargetId
+            providerSelectionMode = $distributionPolicy.ProviderSelectionMode
+            expectedProviderId = $distributionPolicy.ExpectedProviderId
+            expectedLaunchArguments = @($distributionPolicy.ExpectedLaunchArguments)
+            requiredArtifacts = @($distributionPolicy.RequiredArtifacts)
+            forbiddenArtifacts = @($distributionPolicy.ForbiddenArtifacts)
+            expectedStoreLaunch = $distributionPolicy.ExpectedStoreLaunch
             scenes = @(
                 "Assets/Scenes/MainMenuScene.unity",
                 "Assets/Scenes/UIAudioScene.unity"
@@ -2023,7 +2262,9 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.PromotionFailure
             throw "Final verification after promotion failed."
         }
-        Write-Host "WINDOWS_X64_NONDEVELOPMENT_$($Backend.ToUpperInvariant())_BUILD_PASS"
+        Write-Host (
+            "WINDOWS_X64_NONDEVELOPMENT_$($Backend.ToUpperInvariant())_" +
+            "$($DistributionTarget.ToUpperInvariant())_BUILD_PASS")
         Write-Host "FinalArtifact=$final"
         Write-WrapperLog $wrapperLog "complete" "Artifact promoted and reverified."
         return 0
@@ -2072,6 +2313,7 @@ if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -ne "1") {
         -BuildIntent $BuildIntent `
         -Backend $Backend `
         -BackendComparisonId $BackendComparisonId `
+        -DistributionTarget $DistributionTarget `
         -PayloadAudience $PayloadAudience `
         -AllowUntrackedRoot $AllowUntrackedRoot
     exit $pipelineExit

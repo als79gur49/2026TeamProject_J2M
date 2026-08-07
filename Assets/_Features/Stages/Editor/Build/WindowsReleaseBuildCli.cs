@@ -26,13 +26,14 @@ public static class WindowsReleaseBuildCli
     public const string BackendArgument = "-releaseBackend";
     public const string BackendComparisonIdArgument = "-releaseBackendComparisonId";
     public const string PayloadAudienceArgument = "-releasePayloadAudience";
+    public const string DistributionTargetArgument = "-releaseDistributionTarget";
 
     public static readonly string[] RequiredArgumentNames =
     {
         OutputPathArgument, RunIdArgument, ArtifactIdArgument,
         SourceShaArgument, SourceTreeArgument, MetadataPathArgument,
         BuildReportPathArgument, BuildReportDetailsPathArgument,
-        SettingsTransactionPathArgument,
+        SettingsTransactionPathArgument, DistributionTargetArgument,
     };
 
     public static readonly string[] KnownArgumentNames =
@@ -70,6 +71,15 @@ public static class WindowsReleaseBuildCli
         if (validation != WindowsReleaseExitCodes.Success)
         {
             return validation;
+        }
+
+        if (!WindowsDistributionTargetPolicy.TryResolve(
+                arguments[DistributionTargetArgument], out var distribution) ||
+            WindowsDistributionTargetPolicy.ValidateConfiguration(distribution) !=
+                WindowsDistributionValidationFailure.None)
+        {
+            Debug.LogError("UNSUPPORTED_WINDOWS_RELEASE_DISTRIBUTION_TARGET");
+            return WindowsReleaseExitCodes.UnsupportedDistributionTarget;
         }
 
         if (!WindowsReleaseBuildPolicy.TryResolveConfiguration(
@@ -135,7 +145,8 @@ public static class WindowsReleaseBuildCli
         Debug.Log("UNITY_VERSION_CONTRACT_CONFIRMED");
         Debug.Log("EXACT_RELEASE_SCENE_LIST_CONFIRMED");
 
-        var metadata = CreateMetadata(arguments, configuration, comparisonId);
+        var metadata = CreateMetadata(
+            arguments, configuration, distribution, comparisonId);
         var settings = new UnityWindowsReleaseSettings(configuration);
         var settingsTransaction = new ReleaseSettingsTransactionRecordV1();
         var started = DateTime.UtcNow;
@@ -180,6 +191,7 @@ public static class WindowsReleaseBuildCli
                 arguments[SourceShaArgument],
                 arguments[SourceTreeArgument],
                 configuration,
+                distribution,
                 comparisonId);
             structuredErrorCount = details.errorRecordCount;
             var detailsHash = string.Empty;
@@ -202,6 +214,7 @@ public static class WindowsReleaseBuildCli
                     Path.GetFileName(arguments[BuildReportDetailsPathArgument]),
                     detailsHash,
                     configuration,
+                    distribution,
                     comparisonId);
                 WriteJson(arguments[BuildReportPathArgument], summary);
                 summaryWritten = true;
@@ -224,7 +237,7 @@ public static class WindowsReleaseBuildCli
             report != null && structuredErrorCount == reportErrorCount;
         var evidenceIdentityAndCounts =
             WindowsReleaseBuildPolicy.ValidateBuildReportIdentityAndCounts(
-                metadata, summary, details, configuration);
+                metadata, summary, details, configuration, distribution);
         var intendedResult = WindowsReleaseBuildPolicy.ResolvePostBuildExitCode(
             result,
             summaryWritten,
@@ -297,6 +310,7 @@ public static class WindowsReleaseBuildCli
     private static WindowsReleaseMetadataV2 CreateMetadata(
         IReadOnlyDictionary<string, string> arguments,
         WindowsReleaseBackendConfiguration configuration,
+        WindowsDistributionTargetConfiguration distribution,
         string comparisonId)
     {
         return new WindowsReleaseMetadataV2
@@ -336,6 +350,13 @@ public static class WindowsReleaseBuildCli
             logPolicyId = configuration.LogPolicyId,
             automaticLogUpload = WindowsReleaseBuildPolicy.AutomaticLogUpload,
             payloadAudience = configuration.PayloadAudience,
+            distributionTargetId = distribution.TargetId,
+            providerSelectionMode = distribution.ProviderSelectionMode.ToString(),
+            expectedProviderId = distribution.ExpectedProviderId,
+            expectedLaunchArguments = distribution.CopyExpectedLaunchArguments(),
+            requiredArtifacts = distribution.CopyRequiredArtifacts(),
+            forbiddenArtifacts = distribution.CopyForbiddenArtifacts(),
+            expectedStoreLaunch = distribution.ExpectedStoreLaunch,
             stackTracePolicy = WindowsReleaseBuildPolicy.WarningStackTrace.ToString(),
             incrementalGC = PlayerSettings.gcIncremental,
             productName = PlayerSettings.productName,
@@ -445,6 +466,8 @@ public static class WindowsReleaseBuildCli
                 return "BuildReportCountMismatch";
             case WindowsReleaseExitCodes.BuildReportIdentityMismatch:
                 return "BuildReportIdentityMismatch";
+            case WindowsReleaseExitCodes.UnsupportedDistributionTarget:
+                return "UnsupportedDistributionTarget";
             case WindowsReleaseExitCodes.SettingsRestoreFailure:
                 return "SettingsRestoreFailure";
             default:
@@ -560,6 +583,13 @@ internal sealed class BuildReportSummaryV2
     public string logPolicyId;
     public bool automaticLogUpload;
     public string payloadAudience;
+    public string distributionTargetId;
+    public string providerSelectionMode;
+    public string expectedProviderId;
+    public string[] expectedLaunchArguments;
+    public string[] requiredArtifacts;
+    public string[] forbiddenArtifacts;
+    public string expectedStoreLaunch;
     public string backendComparisonId;
     public string comparisonRole;
     public string result;
@@ -584,6 +614,7 @@ internal sealed class BuildReportSummaryV2
         string detailsFileName,
         string detailsHash,
         WindowsReleaseBackendConfiguration configuration,
+        WindowsDistributionTargetConfiguration distribution,
         string comparisonId)
     {
         runId = details.runId;
@@ -601,6 +632,13 @@ internal sealed class BuildReportSummaryV2
         logPolicyId = configuration.LogPolicyId;
         automaticLogUpload = WindowsReleaseBuildPolicy.AutomaticLogUpload;
         payloadAudience = configuration.PayloadAudience;
+        distributionTargetId = distribution.TargetId;
+        providerSelectionMode = distribution.ProviderSelectionMode.ToString();
+        expectedProviderId = distribution.ExpectedProviderId;
+        expectedLaunchArguments = distribution.CopyExpectedLaunchArguments();
+        requiredArtifacts = distribution.CopyRequiredArtifacts();
+        forbiddenArtifacts = distribution.CopyForbiddenArtifacts();
+        expectedStoreLaunch = distribution.ExpectedStoreLaunch;
         backendComparisonId = comparisonId;
         comparisonRole = configuration.ComparisonRole.ToString();
         result = report.summary.result.ToString();
@@ -642,6 +680,13 @@ internal sealed class BuildReportDetailsV1
     public string logPolicyId;
     public bool automaticLogUpload;
     public string payloadAudience;
+    public string distributionTargetId;
+    public string providerSelectionMode;
+    public string expectedProviderId;
+    public string[] expectedLaunchArguments;
+    public string[] requiredArtifacts;
+    public string[] forbiddenArtifacts;
+    public string expectedStoreLaunch;
     public string backendComparisonId;
     public string comparisonRole;
     public string unityVersion;
@@ -664,6 +709,7 @@ internal sealed class BuildReportDetailsV1
         string releaseSourceSha,
         string releaseSourceTree,
         WindowsReleaseBackendConfiguration configuration,
+        WindowsDistributionTargetConfiguration distribution,
         string comparisonId)
     {
         runId = releaseRunId;
@@ -681,6 +727,13 @@ internal sealed class BuildReportDetailsV1
         logPolicyId = configuration.LogPolicyId;
         automaticLogUpload = WindowsReleaseBuildPolicy.AutomaticLogUpload;
         payloadAudience = configuration.PayloadAudience;
+        distributionTargetId = distribution.TargetId;
+        providerSelectionMode = distribution.ProviderSelectionMode.ToString();
+        expectedProviderId = distribution.ExpectedProviderId;
+        expectedLaunchArguments = distribution.CopyExpectedLaunchArguments();
+        requiredArtifacts = distribution.CopyRequiredArtifacts();
+        forbiddenArtifacts = distribution.CopyForbiddenArtifacts();
+        expectedStoreLaunch = distribution.ExpectedStoreLaunch;
         backendComparisonId = comparisonId;
         comparisonRole = configuration.ComparisonRole.ToString();
         unityVersion = Application.unityVersion;

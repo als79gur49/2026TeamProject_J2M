@@ -70,6 +70,46 @@ Every file must agree on configuration schema/ID, intent, backend,
 and payload audience. A matching Store ID with different effective values is
 rejected.
 
+## Windows distribution target contract
+
+Build configuration and distribution target are orthogonal identities. The existing
+`windows-x64-store-mono-logon-v1` ID continues to describe backend/logging policy and
+must not be interpreted as Steam identity. Every canonical or backend-comparison
+invocation must pass exactly one `-DistributionTarget`; omission and unknown values
+fail closed.
+
+| Target | Provider selection mode | Expected provider | Canonical arguments |
+|---|---|---|---|
+| `direct-windows` (`DirectWindows`) | `DefaultWhenUnspecified` | `local` | none |
+| `steam-windows` (`SteamWindows`) | `ExternalLaunchArgumentRequired` | `steam` | `-j2mPlatformProvider`, `steam` |
+
+The repository expectation for Steamworks admin is therefore derived as
+`VectorQuake.exe -j2mPlatformProvider steam`. The authoritative value remains the
+ordered token sequence in `WindowsDistributionTargetPolicy`; the joined text is a
+human-readable derivative. `-j2mPlatformProvider=steam` is not the canonical
+production launch contract even though the generic runtime parser accepts it.
+
+Distribution metadata is evidence, not a runtime selection source. With no selector,
+the runtime continues to choose Local. A SteamWindows executable started directly
+from Explorer without the expected arguments is a diagnostic/unsupported Steam
+production path; supported Steam production launch is Steam Library launch with the
+canonical argument tokens. Steam initialization failure continues to fail closed
+without Local fallback.
+
+The promoted-payload contracts are:
+
+- `DirectWindows`: forbids `steam_api64.dll`,
+  `com.rlabrecque.steamworks.net.dll`, and `steam_appid.txt`.
+- `SteamWindows`: requires `steam_api64.dll` and the managed binding
+  `com.rlabrecque.steamworks.net.dll`, and forbids `steam_appid.txt`.
+
+`ValidatePromotedArtifactInventory` is a pure validation seam for the follow-up
+staging implementation. This slice does not toggle PluginImporter state, remove a
+package, copy Steam DLLs, or sanitize the raw Unity build. Consequently the raw Unity
+output must not be mistaken for an already separated promoted distribution payload.
+Actual Steamworks admin/AppID comparison and SteamPipe remain deferred until the real
+AppID milestone.
+
 ## Backend intent boundary
 
 | Intent | Backend | Result | Configuration identity |
@@ -144,6 +184,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -UnityExe "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe" `
   -BuildIntent "CanonicalStore" `
   -Backend "Mono" `
+  -DistributionTarget "steam-windows" `
   -PayloadAudience "StoreDistributable"
 ```
 
@@ -208,7 +249,7 @@ any content or canary drift.
 Output is written outside the repository:
 
 ```text
-<OutputRoot>/<sourceSha>/Windows-x64-Store-Mono-LogOn/
+<OutputRoot>/<sourceSha>/Windows-x64-Store-Mono-LogOn/<DirectWindows|SteamWindows>/
   .staging-<runId>/
   failed/<runId>/
   <runId>/
@@ -231,14 +272,18 @@ the exact candidate bytes. A payload that has not passed this policy may remain
 private reference evidence, but it cannot be described as distributable,
 Store-ready, or Store accepted.
 
-`payload/build-metadata.json` schema v3 contains Unity build-time facts and no
-manifest placeholders. `payload/build-report-summary.json` schema v3 contains
+`payload/build-metadata.json` schema v4 contains Unity build-time facts and no
+manifest placeholders. `payload/build-report-summary.json` schema v4 contains
 the BuildReport summary plus only the shareable structured-detail reference:
 filename, SHA-256, error/warning record counts, and distinct error message
 hashes. Full steps, original messages, normalized messages, message hashes, and
-stack text remain in private `build-report-details.json` schema v2. The summary
-schema bump adds the correction's cross-binding fields without promoting raw
-details or changing the private-details schema.
+stack text remain in private `build-report-details.json` schema v3. The summary is
+schema v4. Metadata, summary, details, provenance, configuration summary, and
+`SUCCESS.json` carry the same distribution target, selection mode, expected provider,
+ordered launch arguments, required/forbidden artifact expectations, and derived
+launch text. Any mismatch rejects promotion as an identity failure.
+`configuration-summary.json` now has an explicit schema v2 for this expanded
+identity surface.
 
 After manifest generation, `artifact-provenance.json` immutably binds source
 SHA/tree, metadata, report summary, private report details, payload manifest,
@@ -247,9 +292,9 @@ binds that provenance file and its SHA-256. A staging `SUCCESS.json` is not
 success: only same-volume rename to the final run directory followed by
 manifest, provenance, and control verification is accepted.
 
-In `SUCCESS.json` schema v3, the canonical payload-manifest filename property is
+In `SUCCESS.json` schema v4, the canonical payload-manifest filename property is
 `payloadManifestFile`. The legacy alias `payloadManifest` is not emitted or
-accepted for a new schema-v3 artifact. Existing immutable artifacts retain the
+accepted for a new schema-v4 artifact. Existing immutable artifacts retain the
 bytes and schema they were created with; they are not migrated in place.
 
 Before `SUCCESS.json` creation and again from the final promoted directory, the
