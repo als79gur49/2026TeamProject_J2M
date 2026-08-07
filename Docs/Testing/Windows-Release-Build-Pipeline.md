@@ -228,6 +228,8 @@ The clean Windows build may generate the established Addressables residue set
 content-state pair). The wrapper removes only that exact untracked set after
 validating its complete inventory and records the action in private evidence.
 Any tracked change or new generated path still fails the source-drift gate.
+Payload manifests hash destination bytes through Windows extended-length paths,
+so deeply nested Addressables bundles remain inside the deterministic SHA-256 gate.
 
 Path-budget tests must exercise the full predicted critical path, not only the
 source-root string. The required matrix is:

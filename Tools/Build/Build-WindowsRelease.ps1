@@ -639,9 +639,29 @@ function Write-WrapperLog {
         "{0} [{1}] {2}" -f [DateTime]::UtcNow.ToString("o"), $Stage, $Message)
 }
 
+function Convert-ToExtendedLengthPath {
+    param([Parameter(Mandatory)][string]$Path)
+    $full = [IO.Path]::GetFullPath($Path)
+    if ($full.StartsWith('\\?\', [StringComparison]::Ordinal)) { return $full }
+    if ($full.StartsWith('\\', [StringComparison]::Ordinal)) {
+        return '\\?\UNC\' + $full.Substring(2)
+    }
+    return '\\?\' + $full
+}
+
 function Get-Sha256 {
     param([Parameter(Mandatory)][string]$Path)
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stream = $null
+    $algorithm = $null
+    try {
+        $stream = [IO.File]::OpenRead((Convert-ToExtendedLengthPath -Path $Path))
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        $bytes = $algorithm.ComputeHash($stream)
+        return ([BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant())
+    } finally {
+        if ($null -ne $algorithm) { $algorithm.Dispose() }
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
 }
 
 function Test-JsonProperty {

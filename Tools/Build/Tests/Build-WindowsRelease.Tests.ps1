@@ -446,6 +446,23 @@ Invoke-Case "new Addressables residue remains fail-closed" {
         "Assets/AddressableAssetsData/Windows/unexpected.bin"
     ))
 }
+Invoke-Case "manifest hashing uses Windows extended-length paths" {
+    Assert-Equal '\\?\D:\release\payload\file.bundle' `
+        (Convert-ToExtendedLengthPath 'D:\release\payload\file.bundle')
+    Assert-Equal '\\?\UNC\server\share\file.bundle' `
+        (Convert-ToExtendedLengthPath '\\server\share\file.bundle')
+}
+Invoke-Case "direct SHA256 implementation preserves canonical lowercase hash" {
+    $path = Join-Path ([IO.Path]::GetTempPath()) "$([Guid]::NewGuid().ToString('N')).txt"
+    try {
+        [IO.File]::WriteAllText($path, 'abc', [Text.UTF8Encoding]::new($false))
+        Assert-Equal `
+            'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad' `
+            (Get-Sha256 -Path $path)
+    } finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
 Invoke-Case "multiple porcelain lines remain independently fail-closed" {
     $changes = Get-GitChangeClassification @(
         "?? TestLogs/MainReReview/approved.txt",
