@@ -54,12 +54,12 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("UnityPlayer.dll"), Is.True);
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("MonoBleedingEdge/etc/mono/config"), Is.True);
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("GameAssembly.dll"), Is.True);
-            Assert.That(IsSteamPipeRuntimeIncludeCandidate("StreamingAssets/catalog.json"), Is.True);
+            Assert.That(IsSteamPipeRuntimeIncludeCandidate("VectorQuake_Data/StreamingAssets/catalog.json"), Is.True);
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("Assets/_Features/Stages/file.asset"), Is.False);
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("Docs/Architecture/README.md"), Is.False);
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("Packages/manifest.json"), Is.False);
             Assert.That(IsSteamPipeRuntimeIncludeCandidate("ProjectSettings/ProjectSettings.asset"), Is.False);
-            Assert.That(doc, Does.Contain("Windows x64 Unity release runtime include candidates"));
+            Assert.That(doc, Does.Contain("Windows x64 Unity release runtime include rules"));
             Assert.That(doc, Does.Contain("`<Game>.exe`"));
             Assert.That(doc, Does.Contain("`<Game>_Data/**`"));
             Assert.That(doc, Does.Contain("`UnityPlayer.dll`"));
@@ -68,7 +68,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(doc, Does.Contain("required managed assemblies"));
             Assert.That(doc, Does.Contain("required native plugins"));
             Assert.That(doc, Does.Contain("`StreamingAssets/**`, only if generated and production-required"));
-            Assert.That(doc, Does.Contain("These are candidates only"));
+            Assert.That(doc, Does.Contain("implemented by"));
+            Assert.That(doc, Does.Contain("WindowsDistributionStager"));
             Assert.That(doc, Does.Contain("required"));
             Assert.That(doc, Does.Contain("runtime files manifest"));
             Assert.That(doc, Does.Contain("denied pattern scan"));
@@ -94,7 +95,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private static bool IsAllowedSteamPipeStagingRoot(string candidate)
         {
-            var value = Normalize(candidate).TrimEnd('/');
+            var value = SteamPipeStagingSanitizerPolicy.Normalize(candidate).TrimEnd('/');
             if (string.IsNullOrWhiteSpace(value) || value == ".")
             {
                 return false;
@@ -118,69 +119,19 @@ namespace Game.Feature.Stages.Editor.Tests
                 }
             }
 
-            return !IsDeniedSteamPipeContent(value);
+            return !SteamPipeStagingSanitizerPolicy.IsDeniedContent(value);
         }
 
         private static bool IsSteamPipeRuntimeIncludeCandidate(string candidate)
         {
-            var value = Normalize(candidate);
-            if (IsDeniedSteamPipeContent(value))
-            {
-                return false;
-            }
-
-            return value.EndsWith(".exe", StringComparison.Ordinal) ||
-                   value == "UnityPlayer.dll" ||
-                   value == "GameAssembly.dll" ||
-                   value.Contains("_Data/", StringComparison.Ordinal) ||
-                   IsPathOrChildOf(value, "MonoBleedingEdge") ||
-                   IsPathOrChildOf(value, "StreamingAssets") ||
-                   value.EndsWith(".dll", StringComparison.Ordinal);
-        }
-
-        public static bool IsDeniedSteamPipeContent(string candidate)
-        {
-            var value = Normalize(candidate);
-            return value == "steam_appid.txt" ||
-                   value == "CampaignProfileReadiness.md" ||
-                   value == "campaign-save-seed.json" ||
-                   value == "Saves/profile.json" ||
-                   value == "Saves/profile.json.bak" ||
-                   (value.StartsWith("Saves/profile.", StringComparison.Ordinal) &&
-                    value.EndsWith(".tmp", StringComparison.Ordinal)) ||
-                   value.StartsWith("Saves/profile.json.corrupt.", StringComparison.Ordinal) ||
-                   value == "Settings/local-settings.json" ||
-                   value == "Saves/local-launch-state.json" ||
-                   value == "Saves/editor-direct-play.json" ||
-                   value == "Saves/direct-play-temp.json" ||
-                   value.EndsWith(".pdb", StringComparison.Ordinal) ||
-                   value.EndsWith(".mdb", StringComparison.Ordinal) ||
-                   value.EndsWith(".log", StringComparison.Ordinal) ||
-                   value.EndsWith(".tmp", StringComparison.Ordinal) ||
-                   IsPathOrChildOf(value, "TestLogs") ||
-                   IsPathOrChildOf(value, "TestResult") ||
-                   IsPathOrChildOf(value, "TestResults") ||
-                   IsPathOrChildOf(value, "Logs") ||
-                   IsPathOrChildOf(value, "ProfilerCaptures") ||
-                   IsPathOrChildOf(value, "Library") ||
-                   IsPathOrChildOf(value, "UserSettings") ||
-                   IsPathOrChildOf(value, "obj") ||
-                   IsPathOrChildOf(value, "Temp") ||
-                   IsPathOrChildOf(value, ".git") ||
-                   IsPathOrChildOf(value, ".github") ||
-                   IsPathOrChildOf(value, ".vs") ||
-                   IsPathOrChildOf(value, "Docs") ||
-                   IsPathOrChildOf(value, "Assets") ||
-                   IsPathOrChildOf(value, "Packages") ||
-                   IsPathOrChildOf(value, "ProjectSettings") ||
-                   IsUnderSteamPipeGeneratedDirectory(value, "cache") ||
-                   IsUnderSteamPipeGeneratedDirectory(value, "output") ||
-                   IsUnderSteamPipeGeneratedDirectory(value, "login");
+            var value = SteamPipeStagingSanitizerPolicy.Normalize(candidate);
+            return !SteamPipeStagingSanitizerPolicy.IsDeniedContent(value) &&
+                   WindowsDistributionStager.IsRuntimeIncludeCandidate(value);
         }
 
         public static string PolicyDocTokenForDeniedCandidate(string candidate)
         {
-            var value = Normalize(candidate);
+            var value = SteamPipeStagingSanitizerPolicy.Normalize(candidate);
             if (value.StartsWith("TestLogs/SaveReadiness/", StringComparison.Ordinal))
             {
                 return "`TestLogs/SaveReadiness/`";
@@ -309,11 +260,6 @@ namespace Game.Feature.Stages.Editor.Tests
             yield return "Tools/SteamPipe/app/login/token";
         }
 
-        private static string Normalize(string candidate)
-        {
-            return (candidate ?? string.Empty).Replace('\\', '/').TrimStart('/');
-        }
-
         private static bool IsPathOrChildOf(string value, string directory)
         {
             return value == directory ||
@@ -339,7 +285,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var doc = File.ReadAllText("Docs/Architecture/Steam-Cloud-File-Inventory-Policy.md");
 
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent(candidate), Is.True, candidate);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent(candidate), Is.True, candidate);
             Assert.That(
                 doc,
                 Does.Contain(SteamPipeStagingSanitizerPolicyTests.PolicyDocTokenForDeniedCandidate(candidate)),
@@ -352,10 +298,10 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void SteamPipeContentPolicy_DoesNotIncludeRepositorySourcesAsRuntimeContent()
         {
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent("Assets/Runtime/file.cs"), Is.True);
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent("Docs/Architecture/README.md"), Is.True);
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent("Packages/manifest.json"), Is.True);
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent("ProjectSettings/ProjectSettings.asset"), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent("Assets/Runtime/file.cs"), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent("Docs/Architecture/README.md"), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent("Packages/manifest.json"), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent("ProjectSettings/ProjectSettings.asset"), Is.True);
         }
     }
 
@@ -379,7 +325,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var doc = File.ReadAllText("Docs/Architecture/Steam-Cloud-File-Inventory-Policy.md");
 
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent(
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent(
                 "TestLogs/SaveReadiness/run/commit/CampaignProfileReadiness.md"), Is.True);
             Assert.That(doc, Does.Contain("Readiness artifacts are CI artifacts only"));
         }
@@ -390,7 +336,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void SteamPipePolicy_ExcludesSteamAppIdTxt()
         {
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent("steam_appid.txt"), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent("steam_appid.txt"), Is.True);
         }
     }
 
@@ -400,7 +346,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("Game.mdb")]
         public void SteamPipePolicy_ExcludesDebugSymbols(string candidate)
         {
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent(candidate), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent(candidate), Is.True);
         }
     }
 
@@ -416,7 +362,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("Saves/direct-play-temp.json")]
         public void SteamPipePolicy_ExcludesLocalUserSaveFiles(string candidate)
         {
-            Assert.That(SteamPipeStagingSanitizerPolicyTests.IsDeniedSteamPipeContent(candidate), Is.True);
+            Assert.That(SteamPipeStagingSanitizerPolicy.IsDeniedContent(candidate), Is.True);
         }
     }
 }

@@ -4,6 +4,7 @@ param(
     [string]$UnityExe = "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe",
     [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
     [string]$BuildSourceRoot = "C:\VQBuildSources",
+    [string]$PreparedBuildSourceRoot = "",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
     [ValidateSet("CanonicalStore", "BackendComparison")]
     [string]$BuildIntent = "CanonicalStore",
@@ -208,6 +209,25 @@ function Get-BuildSourceCriticalPathLength {
     return @($script:CriticalImporterRelativePaths | ForEach-Object {
         [IO.Path]::GetFullPath((Join-Path $DetachedSourcePath $_)).Length
     } | Measure-Object -Maximum).Maximum
+}
+
+function Resolve-BuildSourcePlan {
+    param(
+        [Parameter(Mandatory)][string]$BuildSourceRoot,
+        [string]$PreparedBuildSourceRoot = "",
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$RunId
+    )
+    if (-not [string]::IsNullOrWhiteSpace($PreparedBuildSourceRoot)) {
+        return [pscustomobject][ordered]@{
+            Path = [IO.Path]::GetFullPath($PreparedBuildSourceRoot)
+            RequiresCreation = $false
+        }
+    }
+    return [pscustomobject][ordered]@{
+        Path = Join-Path (Join-Path $BuildSourceRoot $SourceSha) $RunId
+        RequiresCreation = $true
+    }
 }
 
 function New-ReleaseEvidenceExpectation {
@@ -619,9 +639,34 @@ function Write-WrapperLog {
         "{0} [{1}] {2}" -f [DateTime]::UtcNow.ToString("o"), $Stage, $Message)
 }
 
+function Convert-ToExtendedLengthPath {
+    param([Parameter(Mandatory)][string]$Path)
+    $full = [IO.Path]::GetFullPath($Path)
+    if ($full.StartsWith('\\?\', [StringComparison]::Ordinal)) { return $full }
+    if ($full.StartsWith('\\', [StringComparison]::Ordinal)) {
+        return '\\?\UNC\' + $full.Substring(2)
+    }
+    return '\\?\' + $full
+}
+
 function Get-Sha256 {
     param([Parameter(Mandatory)][string]$Path)
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stream = $null
+    $algorithm = $null
+    try {
+        $stream = [IO.File]::OpenRead((Convert-ToExtendedLengthPath -Path $Path))
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        $bytes = $algorithm.ComputeHash($stream)
+        return ([BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant())
+    } finally {
+        if ($null -ne $algorithm) { $algorithm.Dispose() }
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+
+function Test-ExtendedLengthFileExists {
+    param([Parameter(Mandatory)][string]$Path)
+    return [IO.File]::Exists((Convert-ToExtendedLengthPath -Path $Path))
 }
 
 function Test-JsonProperty {
@@ -1277,7 +1322,7 @@ function Test-PayloadManifest {
     if (($expectedPaths -join "`n") -cne ($ordinalSorted -join "`n")) { return $false }
     foreach ($entry in $entries) {
         $candidate = Join-Path $PayloadRoot $entry.RelativePath.Replace('/', '\')
-        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $false }
+        if (-not (Test-ExtendedLengthFileExists -Path $candidate)) { return $false }
         if ((Get-Sha256 -Path $candidate) -cne $entry.Hash) { return $false }
     }
     $selfLine = (Get-Content -LiteralPath $selfPath -Raw).Trim()
@@ -1729,11 +1774,46 @@ function Get-GitCommandArguments {
     return $configuration + @("-C", $Root) + @($Arguments)
 }
 
+function Test-WslGitWorktreeMarker {
+    param([Parameter(Mandatory)][string]$Root)
+    $marker = Join-Path $Root ".git"
+    return (Test-Path -LiteralPath $marker -PathType Leaf) -and
+        ((Get-Content -LiteralPath $marker -Raw) -match '^gitdir: /mnt/')
+}
+
+function Convert-ToWslPath {
+    param([Parameter(Mandatory)][string]$WindowsPath)
+    $output = @(& wsl.exe -e wslpath -u $WindowsPath 2>&1)
+    $exitCode = $LASTEXITCODE
+    $resolved = [string]($output | Select-Object -First 1)
+    if ($exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($resolved)) {
+        throw "wslpath failed for '$WindowsPath': $($output -join ' ')"
+    }
+    return $resolved.Trim()
+}
+
+function Convert-GitWorktreePathToWindows {
+    param([Parameter(Mandatory)][string]$Path)
+    if ($Path -match '^/mnt/([A-Za-z])(?:/(.*))?$') {
+        $drive = $Matches[1].ToUpperInvariant()
+        $tail = [string]$Matches[2]
+        if ([string]::IsNullOrWhiteSpace($tail)) { return "${drive}:\" }
+        return "${drive}:\$($tail.Replace('/', '\'))"
+    }
+    return $Path.Replace('/', '\')
+}
+
 function Invoke-GitText {
     param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
-    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
+    $usesWslGit = Test-WslGitWorktreeMarker -Root $Root
+    $gitRoot = if ($usesWslGit) { Convert-ToWslPath -WindowsPath $Root } else { $Root }
+    $gitArguments = @(Get-GitCommandArguments -Root $gitRoot -Arguments $Arguments `
         -DisableAutoCrlf:$DisableAutoCrlf)
-    $output = & git @gitArguments 2>&1
+    $output = if ($usesWslGit) {
+        & wsl.exe -e git @gitArguments 2>&1
+    } else {
+        & git @gitArguments 2>&1
+    }
     if ($LASTEXITCODE -ne 0) { throw "git $($Arguments -join ' ') failed: $output" }
     return ($output -join "`n").Trim()
 }
@@ -1748,9 +1828,15 @@ function ConvertFrom-GitPathOutput {
 
 function Invoke-GitPathList {
     param([string]$Root, [string[]]$Arguments, [switch]$DisableAutoCrlf)
-    $gitArguments = @(Get-GitCommandArguments -Root $Root -Arguments $Arguments `
+    $usesWslGit = Test-WslGitWorktreeMarker -Root $Root
+    $gitRoot = if ($usesWslGit) { Convert-ToWslPath -WindowsPath $Root } else { $Root }
+    $gitArguments = @(Get-GitCommandArguments -Root $gitRoot -Arguments $Arguments `
         -DisableAutoCrlf:$DisableAutoCrlf)
-    $output = & git @gitArguments 2>$null
+    $output = if ($usesWslGit) {
+        & wsl.exe -e git @gitArguments 2>$null
+    } else {
+        & git @gitArguments 2>$null
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
     }
@@ -1818,12 +1904,80 @@ function Get-GitSnapshot {
     }
 }
 
+function Test-EstablishedAddressablesResidueSet {
+    param(
+        [string[]]$UntrackedPaths,
+        [string[]]$WindowsFiles = @()
+    )
+    $allowedUntracked = @(
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset",
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset.meta",
+        "Assets/AddressableAssetsData/Windows.meta",
+        "Assets/AddressableAssetsData/link.xml",
+        "Assets/AddressableAssetsData/link.xml.meta"
+    )
+    $allowedWindowsFiles = @(
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin",
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin.meta"
+    )
+    return @($UntrackedPaths | Where-Object {
+        $allowedUntracked -cnotcontains $_
+    }).Count -eq 0 -and @($WindowsFiles | Where-Object {
+        $allowedWindowsFiles -cnotcontains $_
+    }).Count -eq 0
+}
+
+function Remove-EstablishedAddressablesResidue {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)]$Snapshot
+    )
+    $windowsRoot = Join-Path $Root "Assets\AddressableAssetsData\Windows"
+    $windowsFiles = if (Test-Path -LiteralPath $windowsRoot -PathType Container) {
+        @(Get-ChildItem -LiteralPath $windowsRoot -File -Recurse -Force |
+            ForEach-Object {
+                $_.FullName.Substring($Root.Length).TrimStart('\').Replace('\', '/')
+            })
+    } else { @() }
+    $recognized = @($Snapshot.Tracked).Count -eq 0 -and
+        @($Snapshot.Staged).Count -eq 0 -and
+        (Test-EstablishedAddressablesResidueSet `
+            -UntrackedPaths @($Snapshot.Untracked) -WindowsFiles $windowsFiles)
+    $removed = @()
+    if ($recognized -and (@($Snapshot.Untracked).Count -ne 0 -or
+        @($windowsFiles).Count -ne 0)) {
+        $candidates = @(
+            "Assets\AddressableAssetsData\Windows",
+            "Assets\AddressableAssetsData\Windows.meta",
+            "Assets\AddressableAssetsData\ProfileDataSourceSettings.asset",
+            "Assets\AddressableAssetsData\ProfileDataSourceSettings.asset.meta",
+            "Assets\AddressableAssetsData\link.xml",
+            "Assets\AddressableAssetsData\link.xml.meta"
+        )
+        foreach ($relative in $candidates) {
+            $path = Join-Path $Root $relative
+            if (Test-Path -LiteralPath $path) {
+                Remove-Item -LiteralPath $path -Recurse -Force
+                $removed += $relative.Replace('\', '/')
+            }
+        }
+    }
+    return [pscustomobject][ordered]@{
+        recognized = [bool]$recognized
+        detectedUntrackedPaths = @($Snapshot.Untracked)
+        detectedWindowsFiles = @($windowsFiles)
+        removedPaths = @($removed)
+    }
+}
+
 function Get-RepositoryFamilyPaths {
     param([string]$Root)
     $lines = @(Invoke-GitPathList -Root $Root `
         -Arguments @("worktree", "list", "--porcelain"))
     return @($lines | Where-Object { $_ -like "worktree *" } |
-        ForEach-Object { $_.Substring(9).Replace('/', '\') })
+        ForEach-Object {
+            Convert-GitWorktreePathToWindows -Path $_.Substring(9)
+        })
 }
 
 function Write-FailureEvidence {
@@ -1899,6 +2053,7 @@ function Invoke-WindowsReleasePipeline {
         [string]$UnityExe,
         [string]$OutputRoot,
         [string]$BuildSourceRoot,
+        [string]$PreparedBuildSourceRoot = "",
         [string]$RunId,
         [ValidateSet("CanonicalStore", "BackendComparison")]
         [string]$BuildIntent = $script:BackendPolicy.BuildIntent,
@@ -1989,7 +2144,12 @@ function Invoke-WindowsReleasePipeline {
         $staging = Join-Path $parent ".staging-$RunId"
         $final = Join-Path $parent $RunId
         $failed = Join-Path (Join-Path $parent "failed") $RunId
-        $detached = Join-Path (Join-Path $BuildSourceRoot $sourceSha) $RunId
+        $buildSourcePlan = Resolve-BuildSourcePlan `
+            -BuildSourceRoot $BuildSourceRoot `
+            -PreparedBuildSourceRoot $PreparedBuildSourceRoot `
+            -SourceSha $sourceSha `
+            -RunId $RunId
+        $detached = [string]$buildSourcePlan.Path
         if (-not (Test-BuildSourcePathBudget $detached)) {
             $exitCode = $script:ReleaseExitCodes.BuildSourcePathBudgetFailure
             throw "Detached source path exceeds the URP importer path budget."
@@ -1999,20 +2159,26 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.OutputCollision
             throw "Output collision or cross-volume promotion plan."
         }
-        if (Test-Path -LiteralPath $detached) {
+        if ($buildSourcePlan.RequiresCreation -and (Test-Path -LiteralPath $detached)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source collision."
         }
         New-Item -ItemType Directory -Path $staging -Force | Out-Null
-        New-Item -ItemType Directory -Path (Split-Path $detached -Parent) -Force | Out-Null
         $stage = "detached-source"
-        try {
-            Invoke-GitText -Root $RepositoryRoot -Arguments @(
-                "worktree", "add", "--detach", $detached, $sourceSha
-            ) -DisableAutoCrlf | Out-Null
-        } catch {
+        if ($buildSourcePlan.RequiresCreation) {
+            New-Item -ItemType Directory -Path (Split-Path $detached -Parent) -Force |
+                Out-Null
+            try {
+                Invoke-GitText -Root $RepositoryRoot -Arguments @(
+                    "worktree", "add", "--detach", $detached, $sourceSha
+                ) -DisableAutoCrlf | Out-Null
+            } catch {
+                $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
+                throw "Detached worktree creation failed: $($_.Exception.Message)"
+            }
+        } elseif (-not (Test-Path -LiteralPath $detached -PathType Container)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
-            throw "Detached worktree creation failed: $($_.Exception.Message)"
+            throw "Prepared detached source does not exist."
         }
         $buildPre = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
         Write-PrivateJson (Join-Path $privateRoot "build-source-pre.json") $buildPre
@@ -2129,6 +2295,12 @@ function Invoke-WindowsReleasePipeline {
         }
 
         $stage = "drift"
+        $preCleanupBuildSnapshot = Get-GitSnapshot -Root $detached `
+            -CanaryPaths $canaries -Detached
+        $addressablesCleanup = Remove-EstablishedAddressablesResidue `
+            -Root $detached -Snapshot $preCleanupBuildSnapshot
+        Write-PrivateJson (Join-Path $privateRoot "addressables-residue-cleanup.json") `
+            $addressablesCleanup
         $invocationPost = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
         $buildPost = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
         Write-PrivateJson (Join-Path $privateRoot "invocation-source-post.json") `
@@ -2309,6 +2481,7 @@ if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -ne "1") {
         -UnityExe $UnityExe `
         -OutputRoot $OutputRoot `
         -BuildSourceRoot $BuildSourceRoot `
+        -PreparedBuildSourceRoot $PreparedBuildSourceRoot `
         -RunId $RunId `
         -BuildIntent $BuildIntent `
         -Backend $Backend `

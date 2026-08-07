@@ -410,6 +410,69 @@ Invoke-Case "detached git command fixes LF checkout process-locally" {
     Assert-Equal "C:\repo" $arguments[7]
     Assert-Equal "status" $arguments[8]
 }
+Invoke-Case "WSL gitdir marker is detected without Windows Git interpretation" {
+    $root = Join-Path ([IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Path $root | Out-Null
+        Set-Content -LiteralPath (Join-Path $root ".git") `
+            -Value "gitdir: /mnt/c/repo/.git/worktrees/prepared" -NoNewline
+        Assert-True (Test-WslGitWorktreeMarker -Root $root)
+    } finally {
+        Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+Invoke-Case "WSL worktree list paths become Windows process-gate paths" {
+    Assert-Equal "D:\J2M\worktrees\prepared release" `
+        (Convert-GitWorktreePathToWindows "/mnt/d/J2M/worktrees/prepared release")
+    Assert-Equal "C:\repo" (Convert-GitWorktreePathToWindows "C:/repo")
+}
+Invoke-Case "established Addressables build residue is classified exactly" {
+    Assert-True (Test-EstablishedAddressablesResidueSet @(
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset",
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset.meta",
+        "Assets/AddressableAssetsData/Windows.meta",
+        "Assets/AddressableAssetsData/link.xml",
+        "Assets/AddressableAssetsData/link.xml.meta"
+    ) @(
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin",
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin.meta"
+    ))
+}
+Invoke-Case "new Addressables residue remains fail-closed" {
+    Assert-False (Test-EstablishedAddressablesResidueSet @(
+        "Assets/AddressableAssetsData/new-generated-state.asset"
+    ))
+    Assert-False (Test-EstablishedAddressablesResidueSet @() @(
+        "Assets/AddressableAssetsData/Windows/unexpected.bin"
+    ))
+}
+Invoke-Case "manifest hashing uses Windows extended-length paths" {
+    Assert-Equal '\\?\D:\release\payload\file.bundle' `
+        (Convert-ToExtendedLengthPath 'D:\release\payload\file.bundle')
+    Assert-Equal '\\?\UNC\server\share\file.bundle' `
+        (Convert-ToExtendedLengthPath '\\server\share\file.bundle')
+}
+Invoke-Case "direct SHA256 implementation preserves canonical lowercase hash" {
+    $path = Join-Path ([IO.Path]::GetTempPath()) "$([Guid]::NewGuid().ToString('N')).txt"
+    try {
+        [IO.File]::WriteAllText($path, 'abc', [Text.UTF8Encoding]::new($false))
+        Assert-Equal `
+            'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad' `
+            (Get-Sha256 -Path $path)
+    } finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
+Invoke-Case "manifest existence check shares extended-length path semantics" {
+    $path = Join-Path ([IO.Path]::GetTempPath()) "$([Guid]::NewGuid().ToString('N')).txt"
+    try {
+        [IO.File]::WriteAllText($path, 'payload', [Text.UTF8Encoding]::new($false))
+        Assert-True (Test-ExtendedLengthFileExists -Path $path)
+        Assert-False (Test-ExtendedLengthFileExists -Path "$path.missing")
+    } finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
 Invoke-Case "multiple porcelain lines remain independently fail-closed" {
     $changes = Get-GitChangeClassification @(
         "?? TestLogs/MainReReview/approved.txt",
@@ -453,6 +516,23 @@ Invoke-Case "legacy detached source root exceeds URP importer path budget" {
 }
 Invoke-Case "default detached source root is short and deterministic" {
     Assert-Equal "C:\VQBuildSources" $BuildSourceRoot
+}
+Invoke-Case "prepared build source is reused without direct worktree creation" {
+    $plan = Resolve-BuildSourcePlan `
+        -BuildSourceRoot "C:\VQBuildSources" `
+        -PreparedBuildSourceRoot "D:\J2M\worktrees\prepared-release" `
+        -SourceSha ("a" * 40) `
+        -RunId "run"
+    Assert-Equal "D:\J2M\worktrees\prepared-release" $plan.Path
+    Assert-False $plan.RequiresCreation
+}
+Invoke-Case "default build source plan retains legacy creation path" {
+    $plan = Resolve-BuildSourcePlan `
+        -BuildSourceRoot "C:\VQBuildSources" `
+        -SourceSha ("b" * 40) `
+        -RunId "run"
+    Assert-Equal "C:\VQBuildSources\$("b" * 40)\run" $plan.Path
+    Assert-True $plan.RequiresCreation
 }
 Invoke-Case "critical path length 259 is accepted" {
     $candidate = "C:\x"
