@@ -25,9 +25,11 @@ namespace Game.Feature.UI.Tests
 
         private Locale _previousLocale;
         private bool _hadKeyboardBindingOverrides;
+        private bool _hadKeyboardMovementScheme;
         private bool _hadLocalePreference;
         private MonoBehaviour _installedSceneInstaller;
         private string _previousKeyboardBindingOverrides;
+        private string _previousKeyboardMovementScheme;
         private string _previousLocalePreference;
 
         [SetUp]
@@ -39,9 +41,15 @@ namespace Game.Feature.UI.Tests
             _previousKeyboardBindingOverrides = PlayerPrefs.GetString(
                 PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
                 string.Empty);
+            _hadKeyboardMovementScheme = PlayerPrefs.HasKey(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            _previousKeyboardMovementScheme = PlayerPrefs.GetString(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                string.Empty);
             _hadLocalePreference = PlayerPrefs.HasKey(LocalePreferenceKey);
             _previousLocalePreference = PlayerPrefs.GetString(LocalePreferenceKey, string.Empty);
             PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
             PlayerPrefs.SetString(LocalePreferenceKey, "en-US");
             PlayerPrefs.Save();
             SetExternalLocale("en-US");
@@ -62,6 +70,17 @@ namespace Game.Feature.UI.Tests
             else
             {
                 PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            }
+
+            if (_hadKeyboardMovementScheme)
+            {
+                PlayerPrefs.SetString(
+                    PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                    _previousKeyboardMovementScheme);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
             }
 
             if (_hadLocalePreference)
