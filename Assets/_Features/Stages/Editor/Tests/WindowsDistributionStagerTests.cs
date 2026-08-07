@@ -32,7 +32,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             if (Directory.Exists(fixtureRoot))
             {
-                Directory.Delete(fixtureRoot, recursive: true);
+                Directory.Delete(ToExtendedPath(fixtureRoot), recursive: true);
             }
         }
 
@@ -217,6 +217,23 @@ namespace Game.Feature.Stages.Editor.Tests
                 result.PayloadRoot, WindowsDistributionStager.SuccessFileName)), Is.False);
         }
 
+        [Test]
+        public void LongNestedRuntimePath_IsCopiedHashedAndManifested()
+        {
+            var segment = new string('a', 90);
+            var relative = "VectorQuake_Data/StreamingAssets/aa/" +
+                segment + "/" + segment + "/content.bundle";
+            WriteFileExtended(relative, "long-runtime-content");
+
+            var result = Stage("direct-windows", "long-path-output");
+            var destination = Path.Combine(
+                result.PayloadRoot,
+                relative.Replace('/', Path.DirectorySeparatorChar));
+
+            Assert.That(File.Exists(ToExtendedPath(destination)), Is.True);
+            Assert.That(File.ReadAllText(result.ManifestPath), Does.Contain(relative));
+        }
+
         private WindowsDistributionStagingResult Stage(
             string target,
             string outputName,
@@ -275,6 +292,22 @@ namespace Game.Feature.Stages.Editor.Tests
                 sourceRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(path, content);
+        }
+
+        private void WriteFileExtended(string relativePath, string content)
+        {
+            var path = Path.Combine(
+                sourceRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(ToExtendedPath(Path.GetDirectoryName(path)));
+            File.WriteAllText(ToExtendedPath(path), content);
+        }
+
+        private static string ToExtendedPath(string path)
+        {
+            var full = Path.GetFullPath(path);
+            return full.StartsWith(@"\\", StringComparison.Ordinal)
+                ? @"\\?\UNC\" + full.Substring(2)
+                : @"\\?\" + full;
         }
 
         private static string[] FindFileNames(string root)

@@ -90,7 +90,7 @@ public static class WindowsDistributionStager
         RejectReparsePoint(sourceRoot, "SourceBuildRoot");
         RejectReparseAncestors(outputRoot);
 
-        if (Directory.Exists(outputRoot) || File.Exists(outputRoot))
+        if (IoDirectoryExists(outputRoot) || IoFileExists(outputRoot))
         {
             throw Failure(
                 "STAGING_OUTPUT_COLLISION",
@@ -106,7 +106,7 @@ public static class WindowsDistributionStager
             throw Failure("STAGING_PATH_ESCAPE_DETECTED", "OutputRoot has no parent.");
         }
 
-        Directory.CreateDirectory(parent);
+        IoCreateDirectory(parent);
         var runId = string.IsNullOrWhiteSpace(request.RunId)
             ? Guid.NewGuid().ToString("N")
             : request.RunId.Trim();
@@ -115,7 +115,7 @@ public static class WindowsDistributionStager
             ".staging-" + Path.GetFileName(outputRoot) + "-" +
             SanitizePathToken(runId));
 
-        if (Directory.Exists(temporaryRoot) || File.Exists(temporaryRoot))
+        if (IoDirectoryExists(temporaryRoot) || IoFileExists(temporaryRoot))
         {
             throw Failure(
                 "STAGING_OUTPUT_COLLISION",
@@ -126,8 +126,8 @@ public static class WindowsDistributionStager
         {
             var payloadRoot = Path.Combine(temporaryRoot, "payload");
             var evidenceRoot = Path.Combine(temporaryRoot, "evidence");
-            Directory.CreateDirectory(payloadRoot);
-            Directory.CreateDirectory(evidenceRoot);
+            IoCreateDirectory(payloadRoot);
+            IoCreateDirectory(evidenceRoot);
 
             CopyIncludedFiles(sourceRoot, payloadRoot, target, sourceBefore);
 
@@ -178,7 +178,7 @@ public static class WindowsDistributionStager
                 destinationInventory.Count,
                 totalBytes);
 
-            Directory.Move(temporaryRoot, outputRoot);
+            Directory.Move(ToIoPath(temporaryRoot), ToIoPath(outputRoot));
 
             var finalPayloadRoot = Path.Combine(outputRoot, "payload");
             var finalEvidenceRoot = Path.Combine(outputRoot, "evidence");
@@ -268,8 +268,8 @@ public static class WindowsDistributionStager
                     "Destination file has no parent: " + source.RelativePath);
             }
 
-            Directory.CreateDirectory(destinationParent);
-            File.Copy(source.FullPath, destination, overwrite: false);
+            IoCreateDirectory(destinationParent);
+            File.Copy(ToIoPath(source.FullPath), ToIoPath(destination), overwrite: false);
             var destinationHash = GetSha256(destination);
             if (!string.Equals(
                     source.Sha256, destinationHash, StringComparison.OrdinalIgnoreCase))
@@ -299,7 +299,7 @@ public static class WindowsDistributionStager
         RequireDirectoryContent(sourceInventory, "VectorQuake_Data");
 
         var monoRoot = Path.Combine(sourceRoot, "MonoBleedingEdge");
-        if (Directory.Exists(monoRoot))
+        if (IoDirectoryExists(monoRoot))
         {
             RequireDirectoryContent(sourceInventory, "MonoBleedingEdge");
         }
@@ -314,10 +314,10 @@ public static class WindowsDistributionStager
         RequireExactFile(destinationInventory, "UnityPlayer.dll");
         RequireDirectoryContent(destinationInventory, "VectorQuake_Data");
 
-        if (Directory.Exists(Path.Combine(sourceRoot, "MonoBleedingEdge")))
+        if (IoDirectoryExists(Path.Combine(sourceRoot, "MonoBleedingEdge")))
         {
             RequireDirectoryContent(destinationInventory, "MonoBleedingEdge");
-            if (!Directory.Exists(Path.Combine(payloadRoot, "MonoBleedingEdge")))
+            if (!IoDirectoryExists(Path.Combine(payloadRoot, "MonoBleedingEdge")))
             {
                 throw Failure(
                     "STAGING_REQUIRED_RUNTIME_MISSING",
@@ -367,7 +367,7 @@ public static class WindowsDistributionStager
         var result = new List<StagedFile>(paths.Count);
         foreach (var path in paths)
         {
-            var info = new FileInfo(path);
+            var info = new FileInfo(ToIoPath(path));
             result.Add(new StagedFile
             {
                 FullPath = path,
@@ -388,13 +388,15 @@ public static class WindowsDistributionStager
         IList<string> files,
         bool rejectReparsePoints)
     {
-        var entries = Directory.GetFileSystemEntries(directory);
+        var entries = Directory.GetFileSystemEntries(ToIoPath(directory))
+            .Select(FromIoPath)
+            .ToArray();
         Array.Sort(entries, StringComparer.Ordinal);
         foreach (var entry in entries)
         {
             var full = Path.GetFullPath(entry);
             EnsureContained(root, full);
-            var attributes = File.GetAttributes(full);
+            var attributes = File.GetAttributes(ToIoPath(full));
             if (rejectReparsePoints &&
                 (attributes & FileAttributes.ReparsePoint) != 0)
             {
@@ -589,12 +591,12 @@ public static class WindowsDistributionStager
 
     private static void WriteUtf8WithoutBom(string path, string content)
     {
-        File.WriteAllText(path, content, new UTF8Encoding(false));
+        File.WriteAllText(ToIoPath(path), content, new UTF8Encoding(false));
     }
 
     private static string GetSha256(string path)
     {
-        using (var stream = File.OpenRead(path))
+        using (var stream = File.OpenRead(ToIoPath(path)))
         using (var hash = SHA256.Create())
         {
             return string.Concat(hash.ComputeHash(stream)
@@ -626,7 +628,7 @@ public static class WindowsDistributionStager
         var full = Path.GetFullPath(value).TrimEnd(
             Path.DirectorySeparatorChar,
             Path.AltDirectorySeparatorChar);
-        if (mustExist && !Directory.Exists(full))
+        if (mustExist && !IoDirectoryExists(full))
         {
             throw Failure(
                 "STAGING_INVALID_ARGUMENT",
@@ -730,7 +732,7 @@ public static class WindowsDistributionStager
 
     private static void RejectReparsePoint(string path, string name)
     {
-        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+        if ((File.GetAttributes(ToIoPath(path)) & FileAttributes.ReparsePoint) != 0)
         {
             throw Failure(
                 "STAGING_REPARSE_POINT_REJECTED",
@@ -743,7 +745,7 @@ public static class WindowsDistributionStager
         var current = Path.GetDirectoryName(outputRoot);
         while (!string.IsNullOrEmpty(current))
         {
-            if (Directory.Exists(current))
+            if (IoDirectoryExists(current))
             {
                 RejectReparsePoint(current, "OutputRoot ancestor");
             }
@@ -771,9 +773,9 @@ public static class WindowsDistributionStager
     {
         try
         {
-            if (Directory.Exists(path))
+            if (IoDirectoryExists(path))
             {
-                Directory.Delete(path, recursive: true);
+                Directory.Delete(ToIoPath(path), recursive: true);
             }
         }
         catch
@@ -787,6 +789,49 @@ public static class WindowsDistributionStager
         string message)
     {
         return new WindowsDistributionStagingException(code, message);
+    }
+
+    private static bool IoFileExists(string path)
+    {
+        return File.Exists(ToIoPath(path));
+    }
+
+    private static bool IoDirectoryExists(string path)
+    {
+        return Directory.Exists(ToIoPath(path));
+    }
+
+    private static void IoCreateDirectory(string path)
+    {
+        Directory.CreateDirectory(ToIoPath(path));
+    }
+
+    private static string ToIoPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        if (full.StartsWith(@"\\?\", StringComparison.Ordinal))
+        {
+            return full;
+        }
+
+        if (full.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return @"\\?\UNC\" + full.Substring(2);
+        }
+
+        return @"\\?\" + full;
+    }
+
+    private static string FromIoPath(string path)
+    {
+        if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+        {
+            return @"\\" + path.Substring(8);
+        }
+
+        return path.StartsWith(@"\\?\", StringComparison.Ordinal)
+            ? path.Substring(4)
+            : path;
     }
 
     private sealed class StagedFile
