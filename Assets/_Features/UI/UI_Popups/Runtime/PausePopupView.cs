@@ -13,7 +13,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private TMP_Text _titleLabel;
-        [SerializeField] private TMP_Text _descriptionLabel;
+        [SerializeField] private PauseProgressionStripView _progressionView;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private TMP_Text _resumeButtonLabel;
         [SerializeField] private Button _settingsButton;
@@ -40,8 +40,6 @@ namespace Game.Feature.UI.Popups
         public bool CanHandleUiNavigation => IsVisible && isActiveAndEnabled && _canvasGroup != null && _canvasGroup.interactable;
 
         public string TitleText => _titleLabel != null ? _titleLabel.text : _viewModel != null ? _viewModel.TitleText : string.Empty;
-
-        public string DescriptionText => _descriptionLabel != null ? _descriptionLabel.text : _viewModel != null ? _viewModel.DescriptionText : string.Empty;
 
         public bool IsVisible
         {
@@ -83,7 +81,6 @@ namespace Game.Feature.UI.Popups
             _localizedStaticBindings = new List<PausePopupLocalizedTmpTextBinding>
             {
                 new(_titleLabel, payload.TitleTextDescriptor, textResolver, typographyResolver),
-                new(_descriptionLabel, payload.DescriptionTextDescriptor, textResolver, typographyResolver),
                 new(_resumeButtonLabel, payload.ResumeLabelDescriptor, textResolver, typographyResolver),
                 new(_settingsButtonLabel, payload.SettingsLabelDescriptor, textResolver, typographyResolver),
                 new(_retryButtonLabel, payload.RetryLabelDescriptor, textResolver, typographyResolver),
@@ -101,7 +98,6 @@ namespace Game.Feature.UI.Popups
             return new[]
             {
                 new PausePopupLocalizedTextTarget(_titleLabel, payload.TitleTextDescriptor),
-                new PausePopupLocalizedTextTarget(_descriptionLabel, payload.DescriptionTextDescriptor),
                 new PausePopupLocalizedTextTarget(_resumeButtonLabel, payload.ResumeLabelDescriptor),
                 new PausePopupLocalizedTextTarget(_settingsButtonLabel, payload.SettingsLabelDescriptor),
                 new PausePopupLocalizedTextTarget(_retryButtonLabel, payload.RetryLabelDescriptor),
@@ -136,6 +132,7 @@ namespace Game.Feature.UI.Popups
         private void OnDisable()
         {
             StopRootEnterMotion();
+            _progressionView?.SetNavigationFocus(false);
             UnbindButton(_resumeButton, ClickResume);
             UnbindButton(_settingsButton, ClickSettings);
             UnbindButton(_retryButton, ClickRetry);
@@ -202,6 +199,12 @@ namespace Game.Feature.UI.Popups
 
             switch (command)
             {
+                case UiNavigationCommand.Left:
+                    return _progressionView != null && _progressionView.TryMoveViewedIndex(-1);
+
+                case UiNavigationCommand.Right:
+                    return _progressionView != null && _progressionView.TryMoveViewedIndex(1);
+
                 case UiNavigationCommand.Up:
                     return _navigationGroup.TryMove(-1);
 
@@ -258,11 +261,13 @@ namespace Game.Feature.UI.Popups
         public void OnNavigationFocusGained()
         {
             _navigationGroup?.SetSelectedIndex(0);
+            _progressionView?.SetNavigationFocus(true);
         }
 
         public void OnNavigationFocusLost()
         {
             _navigationGroup?.HideAllFrames();
+            _progressionView?.SetNavigationFocus(false);
         }
 
         private void OnDestroy()
@@ -291,8 +296,14 @@ namespace Game.Feature.UI.Popups
 
             if (_viewModel == null)
             {
+                _progressionView?.Bind(null);
                 return;
             }
+
+            _progressionView?.Bind(
+                IsVisible
+                    ? _viewModel.Progression
+                    : PauseProgressionViewModel.Hidden);
 
             if (HasStaticLocalization)
             {
@@ -302,11 +313,6 @@ namespace Game.Feature.UI.Popups
             if (_titleLabel != null)
             {
                 _titleLabel.text = _viewModel.TitleText;
-            }
-
-            if (_descriptionLabel != null)
-            {
-                _descriptionLabel.text = _viewModel.DescriptionText;
             }
 
             if (_resumeButtonLabel != null)

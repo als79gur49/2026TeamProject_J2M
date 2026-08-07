@@ -34,6 +34,7 @@ namespace Game.Feature.UI.Flow
 
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly IMainMenuReturnRouter _mainMenuReturnRouter;
+        private readonly IPauseProgressionReadSource _pauseProgressionReadSource;
         private readonly IUiFlowPauseService _pauseService;
         private readonly PopupController _popupController;
         private readonly ScreenController _screenController;
@@ -55,7 +56,8 @@ namespace Game.Feature.UI.Flow
             IGameplayUiPresentationSource presentationSource,
             IUiAudioPort uiAudioPort,
             IStageLaunchRouter stageLaunchRouter,
-            IMainMenuReturnRouter mainMenuReturnRouter = null)
+            IMainMenuReturnRouter mainMenuReturnRouter = null,
+            IPauseProgressionReadSource pauseProgressionReadSource = null)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
@@ -65,6 +67,7 @@ namespace Game.Feature.UI.Flow
             _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _mainMenuReturnRouter = mainMenuReturnRouter ?? NoOpMainMenuReturnRouter.Instance;
+            _pauseProgressionReadSource = pauseProgressionReadSource ?? EmptyPauseProgressionReadSource.Instance;
 
             _screenController.StateChanged += HandleFlowStateChanged;
             _screenController.ActionRequested += HandleScreenActionRequested;
@@ -501,10 +504,13 @@ namespace Game.Feature.UI.Flow
                 return false;
             }
 
+            var progression = _pauseProgressionReadSource.TryRead(out var snapshot)
+                ? snapshot
+                : PauseProgressionSnapshot.Unavailable;
             if (!_popupController.Push(
                     new PopupRequest(
                         PopupId.Pause,
-                        PausePopupPayload.Default,
+                        new PausePopupPayload(progression),
                         HandlePausePopupCompletion),
                     out _))
             {

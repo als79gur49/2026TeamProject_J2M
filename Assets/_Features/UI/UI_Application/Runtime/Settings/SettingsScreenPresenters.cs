@@ -995,7 +995,6 @@ namespace Game.Feature.UI.Application
             ["ui.main_menu.start"] = "Start",
             ["ui.main_menu.quit"] = "Quit",
             ["ui.pause.title"] = "Paused",
-            ["ui.pause.description"] = "Pausing modal popup",
             ["ui.pause.resume"] = "Resume",
             ["ui.pause.retry"] = "Retry",
             ["ui.pause.main_menu"] = "Main Menu",

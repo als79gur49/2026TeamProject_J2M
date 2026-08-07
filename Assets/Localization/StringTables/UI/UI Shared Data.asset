@@ -87,10 +87,6 @@ MonoBehaviour:
     m_Key: ui.pause.title
     m_Metadata:
       m_Items: []
-  - m_Id: 1881628684
-    m_Key: ui.pause.description
-    m_Metadata:
-      m_Items: []
   - m_Id: 1881628685
     m_Key: ui.pause.resume
     m_Metadata:

@@ -2055,7 +2055,6 @@ namespace Game.Feature.UI.Composition.Editor
             return new[]
             {
                 payload.TitleTextDescriptor,
-                payload.DescriptionTextDescriptor,
                 payload.ResumeLabelDescriptor,
                 payload.SettingsLabelDescriptor,
                 payload.RetryLabelDescriptor,

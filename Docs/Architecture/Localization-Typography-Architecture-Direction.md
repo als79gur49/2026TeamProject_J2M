@@ -96,7 +96,7 @@ Current baseline captured for this cleanup pass:
 
 | Area | Status | Current state |
 |---|---|---|
-| Pause popup static shell | Done | Pause title, description, resume, settings, retry, and main-menu labels localize and refresh on locale changes. |
+| Pause popup static shell | Done | Pause title, resume, settings, retry, and main-menu labels localize and refresh on locale changes. The removed description slot is now occupied by the runtime campaign progression strip. |
 | Main Menu command shell | Done | Start, Settings, and Quit command labels localize and refresh on locale changes. |
 
 ### Typography Production Wiring
@@ -116,7 +116,7 @@ Current baseline captured for this cleanup pass:
 | Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, Nanum preservation, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
 | Climate glyph coverage | Done | Managed ko-KR tables resolve 127/127 distinct non-ASCII codepoints natively in `ClimateCrisisKR-2000 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
-| Pause description visibility fix | Done | Pause description visibility was restored after visual QA. |
+| Pause progression strip | Done | The pause popup uses authored marker templates for a campaign sequence strip; group starts are tall, later stages are short, the current stage is color-highlighted, and horizontal navigation does not change the selected command button. |
 
 ### Localization Blocker Closeout
 
@@ -391,7 +391,7 @@ Initial examples:
 | Settings value | `Value` |
 | Settings status | `Status` |
 | Pause title | `HeaderMedium` |
-| Pause description | `BodySmall` |
+| Pause progression strip | Non-text marker presentation; no typography role. |
 | Main Menu command button | `Button` |
 
 ## 6. Stage 2: Deferred High-Performance Architecture
