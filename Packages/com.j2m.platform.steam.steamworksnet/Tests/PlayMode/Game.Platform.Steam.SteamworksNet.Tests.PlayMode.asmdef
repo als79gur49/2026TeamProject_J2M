@@ -1,0 +1,13 @@
+{
+  "name": "Game.Platform.Steam.SteamworksNet.Tests.PlayMode",
+  "rootNamespace": "Game.Platform.Steam.SteamworksNet.Tests.PlayMode",
+  "references": [
+    "Game.Platform.Runtime",
+    "Game.Platform.Steam",
+    "Game.Platform.Steam.SteamworksNet",
+    "com.rlabrecque.steamworks.net"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

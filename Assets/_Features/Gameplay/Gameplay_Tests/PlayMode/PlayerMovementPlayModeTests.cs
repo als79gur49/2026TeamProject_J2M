@@ -18,6 +18,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.TestTools;
@@ -847,9 +848,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
-            Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
-            yield return null;
+            SetKeyboardState(_keyboard, Key.D, Key.E);
 
             var startTick = host.InputHost.RunSingleTick();
             var startSnapshot = CaptureAuthoritativeSnapshot(host);
@@ -906,9 +905,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
-            Press(_keyboard.aKey);
-            Press(_keyboard.eKey);
-            yield return null;
+            SetKeyboardState(_keyboard, Key.A, Key.E);
 
             var startTick = host.InputHost.RunSingleTick();
             var startSnapshot = CaptureAuthoritativeSnapshot(host);
@@ -1342,9 +1339,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 3));
 
-            Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
-            yield return null;
+            SetKeyboardState(_keyboard, Key.D, Key.E);
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
@@ -1521,16 +1516,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushExecuteDelayTicks: 1,
                     pushInputLockDurationTicks: 1));
 
-            Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
-            yield return null;
+            SetKeyboardState(_keyboard, Key.D, Key.E);
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            SetKeyboardState(_keyboard);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
-
-            Release(_keyboard.eKey);
-            yield return null;
 
             var releasedTick = host.InputHost.RunSingleTick();
             var releasedSnapshot = CaptureAuthoritativeSnapshot(host);
@@ -1539,11 +1530,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(releasedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(releasedState.actionSequenceCounter, Is.EqualTo(1));
 
-            Release(_keyboard.dKey);
-            yield return null;
-            Press(_keyboard.aKey);
-            Press(_keyboard.eKey);
-            yield return null;
+            SetKeyboardState(_keyboard, Key.A, Key.E);
 
             TickResult restartTick = null;
             TickPlayerActionPresentationSignal restartSignal = default;
@@ -1903,7 +1890,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.Initialize(configuration);
 
+            if (actions != null)
+            {
+                using var keyboardSettings = new KeyboardBindingSettingsService(
+                    actions,
+                    new PlayModeKeyboardBindingStore());
+                Assert.That(
+                    keyboardSettings.SetMovementScheme(KeyboardMovementScheme.Wasd),
+                    Is.EqualTo(KeyboardBindingValidationStatus.Success));
+            }
+
             return host;
+        }
+
+        private static void SetKeyboardState(Keyboard keyboard, params Key[] pressedKeys)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(pressedKeys));
+            InputSystem.Update();
         }
 
         private static EntityState CreateUnit(int entityId, Vector2Int position)
