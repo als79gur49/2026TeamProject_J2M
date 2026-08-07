@@ -139,10 +139,11 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void Il2CppBackend_WithGameAssembly_PromotesSuccess()
+        public void Il2CppBackend_WithRequiredRuntimeFiles_PromotesSuccess()
         {
             Directory.Delete(Path.Combine(sourceRoot, "MonoBleedingEdge"), recursive: true);
             WriteFile("GameAssembly.dll", "il2cpp-runtime");
+            WriteFile("baselib.dll", "il2cpp-baselib");
 
             var result = Stage(
                 "direct-windows",
@@ -150,6 +151,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 scriptingBackend: "IL2CPP");
 
             Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "GameAssembly.dll")),
+                Is.True);
+            Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "baselib.dll")),
                 Is.True);
             Assert.That(File.ReadAllText(result.SuccessPath),
                 Does.Contain("\"scriptingBackend\": \"IL2CPP\""));
@@ -159,6 +162,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void Il2CppBackend_WithoutGameAssembly_FailsBeforePromotion()
         {
             Directory.Delete(Path.Combine(sourceRoot, "MonoBleedingEdge"), recursive: true);
+            WriteFile("baselib.dll", "il2cpp-baselib");
             var output = Path.Combine(fixtureRoot, "missing-il2cpp-output");
 
             var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
@@ -168,6 +172,24 @@ namespace Game.Feature.Stages.Editor.Tests
                     scriptingBackend: "IL2CPP"));
 
             Assert.That(exception.Code, Is.EqualTo("STAGING_REQUIRED_RUNTIME_MISSING"));
+            AssertPromotedOutputAbsent(output);
+        }
+
+        [Test]
+        public void Il2CppBackend_WithoutBaselib_FailsBeforePromotion()
+        {
+            Directory.Delete(Path.Combine(sourceRoot, "MonoBleedingEdge"), recursive: true);
+            WriteFile("GameAssembly.dll", "il2cpp-runtime");
+            var output = Path.Combine(fixtureRoot, "missing-il2cpp-baselib-output");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(
+                    "direct-windows",
+                    "missing-il2cpp-baselib-output",
+                    scriptingBackend: "IL2CPP"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_REQUIRED_RUNTIME_MISSING"));
+            Assert.That(exception.Message, Does.Contain("baselib.dll"));
             AssertPromotedOutputAbsent(output);
         }
 
@@ -318,6 +340,40 @@ namespace Game.Feature.Stages.Editor.Tests
                 result.PayloadRoot, WindowsDistributionStager.ManifestFileName)), Is.False);
             Assert.That(File.Exists(Path.Combine(
                 result.PayloadRoot, WindowsDistributionStager.SuccessFileName)), Is.False);
+        }
+
+        [Test]
+        public void PrePromotionValidationFailure_AfterEvidenceWrite_PreventsFinalPromotion()
+        {
+            const string outputName = "pre-promotion-drift-output";
+            const string runId = "pre-promotion-drift-run";
+            var output = Path.Combine(fixtureRoot, outputName);
+            var temporaryRoot = Path.Combine(
+                fixtureRoot,
+                ".staging-" + outputName + "-" + runId);
+            var temporaryEvidenceRoot = Path.Combine(temporaryRoot, "evidence");
+            var observedManifest = false;
+            var observedSuccess = false;
+            var request = CreateRequest("direct-windows", output, runId);
+            request.PrePromotionValidation = () =>
+            {
+                observedManifest = File.Exists(Path.Combine(
+                    temporaryEvidenceRoot,
+                    WindowsDistributionStager.ManifestFileName));
+                observedSuccess = File.Exists(Path.Combine(
+                    temporaryEvidenceRoot,
+                    WindowsDistributionStager.SuccessFileName));
+                throw new InvalidOperationException("synthetic repository drift");
+            };
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                WindowsDistributionStager.Stage(request));
+
+            Assert.That(exception.Message, Does.Contain("synthetic repository drift"));
+            Assert.That(observedManifest, Is.True);
+            Assert.That(observedSuccess, Is.True);
+            AssertPromotedOutputAbsent(output);
+            Assert.That(Directory.Exists(temporaryRoot), Is.False);
         }
 
         [Test]

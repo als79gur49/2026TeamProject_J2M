@@ -165,11 +165,6 @@ public static class WindowsDistributionStager
             }
 
             AssertSourceUnchanged(sourceRoot, sourceBefore);
-            if (request.PrePromotionValidation != null)
-            {
-                request.PrePromotionValidation();
-            }
-
             var manifestPath = Path.Combine(evidenceRoot, ManifestFileName);
             WriteManifest(
                 manifestPath,
@@ -188,6 +183,11 @@ public static class WindowsDistributionStager
                 manifestHash,
                 destinationInventory.Count,
                 totalBytes);
+
+            if (request.PrePromotionValidation != null)
+            {
+                request.PrePromotionValidation();
+            }
 
             Directory.Move(ToIoPath(temporaryRoot), ToIoPath(outputRoot));
 
@@ -337,6 +337,7 @@ public static class WindowsDistributionStager
         }
 
         RequireExactFile(sourceInventory, "GameAssembly.dll");
+        RequireExactFile(sourceInventory, "baselib.dll");
     }
 
     private static void ValidateDestinationRuntimeCompleteness(
@@ -362,6 +363,7 @@ public static class WindowsDistributionStager
         }
 
         RequireExactFile(destinationInventory, "GameAssembly.dll");
+        RequireExactFile(destinationInventory, "baselib.dll");
     }
 
     private static void RequireExactFile(IList<StagedFile> inventory, string path)
