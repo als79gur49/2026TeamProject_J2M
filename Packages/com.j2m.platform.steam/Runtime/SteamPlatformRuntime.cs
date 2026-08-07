@@ -6,8 +6,12 @@ namespace Game.Platform.Steam
     public sealed class SteamPlatformRuntime : IPlatformRuntime
     {
         private const string NotInitializedDetail = "Steam provider has not been initialized.";
+        internal const string SmokeResultPrefix = "J2M_STEAM_SMOKE_RESULT";
+        private const int MaximumOverlayEnabledSmokeObservations = 300;
 
         private readonly ISteamNativeApi nativeApi;
+        private readonly bool smokeRequested;
+        private readonly Action<string> smokeLogger;
 
         private SteamPlatformRuntimeState state = SteamPlatformRuntimeState.NotInitialized;
         private SteamPlatformAvailability steamAvailability =
@@ -23,17 +27,35 @@ namespace Game.Platform.Steam
         private bool shutdownAttempted;
         private uint observedAppId;
         private bool steamIdentityValid;
+        private bool loggedOn;
         private bool overlayObservationAvailable;
         private bool overlayEnabled;
+        private bool overlayEnabledEverObserved;
+        private int overlayEnabledSmokeObservationCount;
+        private bool overlayCallbackRegistered;
+        private int overlayActiveCount;
+        private int overlayInactiveCount;
+        private bool lastOverlayActive;
         private int callbackPumpCount;
         private int callbackAttemptCount;
         private int shutdownCallCount;
         private SteamPlatformFailureReason lastFailureReason;
         private string lastExceptionType = string.Empty;
+        private bool smokeResultEmitted;
 
         public SteamPlatformRuntime(ISteamNativeApi nativeApi)
+            : this(nativeApi, smokeRequested: false, smokeLogger: null)
+        {
+        }
+
+        internal SteamPlatformRuntime(
+            ISteamNativeApi nativeApi,
+            bool smokeRequested,
+            Action<string> smokeLogger)
         {
             this.nativeApi = nativeApi ?? throw new ArgumentNullException(nameof(nativeApi));
+            this.smokeRequested = smokeRequested;
+            this.smokeLogger = smokeLogger;
         }
 
         public static PlatformProviderId ProviderId { get; } = new PlatformProviderId("steam");
@@ -51,8 +73,13 @@ namespace Game.Platform.Steam
             nativeInitializationResult,
             observedAppId,
             steamIdentityValid,
+            loggedOn,
             overlayObservationAvailable,
             overlayEnabled,
+            overlayEnabledEverObserved,
+            overlayActiveCount,
+            overlayInactiveCount,
+            lastOverlayActive,
             callbackPumpCount,
             callbackAttemptCount,
             shutdownCallCount,
@@ -119,6 +146,7 @@ namespace Game.Platform.Steam
                         "SteamAPI initialized but returned AppID 0.");
                 }
 
+                RegisterOverlayCallback();
                 ObserveOptionalRuntimeDiagnostics();
 
                 state = SteamPlatformRuntimeState.Available;
@@ -151,6 +179,7 @@ namespace Game.Platform.Steam
             {
                 nativeApi.RunCallbacks();
                 callbackPumpCount++;
+                ObserveDelayedOverlayEnabledForSmoke();
             }
             catch (Exception exception)
             {
@@ -174,9 +203,11 @@ namespace Game.Platform.Steam
             if (!nativeInitialized)
             {
                 state = SteamPlatformRuntimeState.Shutdown;
+                EmitSmokeResultOnce();
                 return;
             }
 
+            DisposeOverlayCallback();
             shutdownCallCount++;
             try
             {
@@ -190,6 +221,10 @@ namespace Game.Platform.Steam
                     SteamPlatformFailureReason.ShutdownException,
                     FormatException(exception),
                     exception);
+            }
+            finally
+            {
+                EmitSmokeResultOnce();
             }
         }
 
@@ -220,7 +255,84 @@ namespace Game.Platform.Steam
 
             try
             {
+                loggedOn = nativeApi.IsLoggedOn();
+            }
+            catch (Exception exception)
+            {
+                lastExceptionType = exception.GetType().Name;
+            }
+
+            ObserveOverlayEnabled();
+        }
+
+        private void RegisterOverlayCallback()
+        {
+            try
+            {
+                nativeApi.RegisterOverlayActivationCallback(ObserveOverlayActivation);
+                overlayCallbackRegistered = true;
+            }
+            catch (Exception exception)
+            {
+                lastExceptionType = exception.GetType().Name;
+                overlayCallbackRegistered = false;
+            }
+        }
+
+        private void DisposeOverlayCallback()
+        {
+            if (!overlayCallbackRegistered)
+            {
+                return;
+            }
+
+            overlayCallbackRegistered = false;
+            try
+            {
+                nativeApi.DisposeOverlayActivationCallback();
+            }
+            catch (Exception exception)
+            {
+                lastExceptionType = exception.GetType().Name;
+            }
+        }
+
+        private void ObserveOverlayActivation(bool active)
+        {
+            lastOverlayActive = active;
+            if (active)
+            {
+                overlayActiveCount++;
+            }
+            else
+            {
+                overlayInactiveCount++;
+            }
+        }
+
+        private void ObserveDelayedOverlayEnabledForSmoke()
+        {
+            if (!smokeRequested ||
+                overlayEnabledEverObserved ||
+                overlayEnabledSmokeObservationCount >= MaximumOverlayEnabledSmokeObservations)
+            {
+                return;
+            }
+
+            ObserveOverlayEnabled();
+        }
+
+        private void ObserveOverlayEnabled()
+        {
+            if (smokeRequested)
+            {
+                overlayEnabledSmokeObservationCount++;
+            }
+
+            try
+            {
                 overlayEnabled = nativeApi.IsOverlayEnabled();
+                overlayEnabledEverObserved |= overlayEnabled;
                 overlayObservationAvailable = true;
             }
             catch (Exception exception)
@@ -228,6 +340,51 @@ namespace Game.Platform.Steam
                 lastExceptionType = exception.GetType().Name;
                 overlayObservationAvailable = false;
             }
+        }
+
+        private void EmitSmokeResultOnce()
+        {
+            if (!smokeRequested || smokeResultEmitted)
+            {
+                return;
+            }
+
+            smokeResultEmitted = true;
+            var selectionStatus = initializationSucceeded
+                ? PlatformRuntimeSelectionStatus.ExplicitProviderSelected
+                : PlatformRuntimeSelectionStatus.RequestedProviderUnavailable;
+            var failureKind = initializationSucceeded
+                ? SteamPlatformFailureReason.None
+                : lastFailureReason;
+            var exceptionType = string.IsNullOrEmpty(lastExceptionType)
+                ? "none"
+                : lastExceptionType;
+            var result = SmokeResultPrefix + " {" +
+                "\"requestedProvider\":\"steam\"," +
+                "\"selectedProvider\":\"steam\"," +
+                "\"selectionStatus\":\"" + selectionStatus + "\"," +
+                "\"fallbackUsed\":false," +
+                "\"initSucceeded\":" + ToJsonBoolean(initializationSucceeded) + "," +
+                "\"initializationFailureKind\":\"" + failureKind + "\"," +
+                "\"observedAppId\":" + observedAppId + "," +
+                "\"steamIdValid\":" + ToJsonBoolean(steamIdentityValid) + "," +
+                "\"loggedOn\":" + ToJsonBoolean(loggedOn) + "," +
+                "\"callbackPumpAttemptCount\":" + callbackAttemptCount + "," +
+                "\"callbackPumpSuccessCount\":" + callbackPumpCount + "," +
+                "\"overlayEnabledEverObserved\":" +
+                    ToJsonBoolean(overlayEnabledEverObserved) + "," +
+                "\"overlayActiveCount\":" + overlayActiveCount + "," +
+                "\"overlayInactiveCount\":" + overlayInactiveCount + "," +
+                "\"lastOverlayActive\":" + ToJsonBoolean(lastOverlayActive) + "," +
+                "\"nativeExceptionType\":\"" + exceptionType + "\"," +
+                "\"shutdownNativeCallCount\":" + shutdownCallCount +
+                "}";
+            (smokeLogger ?? UnityEngine.Debug.Log)(result);
+        }
+
+        private static string ToJsonBoolean(bool value)
+        {
+            return value ? "true" : "false";
         }
 
         private void SetFailure(

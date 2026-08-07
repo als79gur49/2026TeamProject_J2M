@@ -1,9 +1,13 @@
+using System;
 using Steamworks;
 
 namespace Game.Platform.Steam.SteamworksNet
 {
     public sealed class SteamworksNetNativeApi : ISteamNativeApi
     {
+        private Callback<GameOverlayActivated_t> overlayActivatedCallback;
+        private Action<bool> overlayActivationObserver;
+
         public bool IsPacksizeCompatible()
         {
             return Packsize.Test();
@@ -40,9 +44,53 @@ namespace Game.Platform.Steam.SteamworksNet
             return SteamUser.GetSteamID().IsValid();
         }
 
+        public bool IsLoggedOn()
+        {
+            return SteamUser.BLoggedOn();
+        }
+
         public bool IsOverlayEnabled()
         {
             return SteamUtils.IsOverlayEnabled();
+        }
+
+        public void RegisterOverlayActivationCallback(Action<bool> observer)
+        {
+            if (observer == null)
+            {
+                throw new ArgumentNullException(nameof(observer));
+            }
+
+            if (overlayActivatedCallback != null)
+            {
+                throw new InvalidOperationException(
+                    "Steam overlay activation callback is already registered.");
+            }
+
+            overlayActivationObserver = observer;
+            try
+            {
+                overlayActivatedCallback =
+                    Callback<GameOverlayActivated_t>.Create(OnOverlayActivated);
+            }
+            catch
+            {
+                overlayActivationObserver = null;
+                throw;
+            }
+        }
+
+        public void DisposeOverlayActivationCallback()
+        {
+            var callback = overlayActivatedCallback;
+            overlayActivatedCallback = null;
+            overlayActivationObserver = null;
+            callback?.Dispose();
+        }
+
+        private void OnOverlayActivated(GameOverlayActivated_t observation)
+        {
+            overlayActivationObserver?.Invoke(observation.m_bActive != 0);
         }
     }
 }
