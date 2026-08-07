@@ -234,7 +234,9 @@ namespace Game.Feature.Gameplay.Host
                 presenter.VisibleCubeBounds);
             var viewCamera = visualRuntime.ViewCamera;
             var viewCameraRig = visualRuntime.ViewCameraRig;
-            KeyboardBindingSettingsService.ApplySavedSettings(configuration.Actions);
+            KeyboardBindingSettingsService.ApplySavedSettings(
+                configuration.Actions,
+                configuration.KeyboardBindingStore);
             AttachWorldGuidePresenter(
                 hostObject,
                 configuration,
