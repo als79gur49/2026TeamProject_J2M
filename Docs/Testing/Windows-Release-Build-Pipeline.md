@@ -103,12 +103,31 @@ The promoted-payload contracts are:
 - `SteamWindows`: requires `steam_api64.dll` and the managed binding
   `com.rlabrecque.steamworks.net.dll`, and forbids `steam_appid.txt`.
 
-`ValidatePromotedArtifactInventory` is a pure validation seam for the follow-up
-staging implementation. This slice does not toggle PluginImporter state, remove a
-package, copy Steam DLLs, or sanitize the raw Unity build. Consequently the raw Unity
-output must not be mistaken for an already separated promoted distribution payload.
-Actual Steamworks admin/AppID comparison and SteamPipe remain deferred until the real
-AppID milestone.
+`ValidatePromotedArtifactInventory` remains the canonical final-inventory validation
+seam and is called by `WindowsDistributionStager`. The stager starts from one raw
+Unity Player, performs include-list copy into a fresh external transaction directory,
+applies the shared SteamPipe deny policy as a secondary guard, and creates separate
+DirectWindows and SteamWindows promoted payloads. It never mutates PluginImporter
+state, removes a package from the project, or edits the raw build.
+
+The distribution command is intentionally separate from the build command:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File "Tools\Build\Stage-WindowsDistribution.ps1" `
+  -SourceBuildRoot "D:\J2M\builds\raw\payload" `
+  -DistributionTarget "steam-windows" `
+  -OutputRoot "D:\J2M\builds\distribution\<sha>\steam-windows\<run>"
+```
+
+The output is a run root with `payload/` for shipping bytes and `evidence/` for
+`distribution-manifest.json` plus `SUCCESS.json`. Every payload file is hashed from
+the destination, compared with its source hash, ordinal-sorted by forward-slash
+relative path, and validated against the target contract. `SUCCESS.json` is written
+only after runtime completeness, denied-content, copy-integrity, source-immutability,
+and promoted-artifact checks pass; the transaction is then renamed atomically to the
+requested fresh output root. Actual Steamworks admin/AppID comparison and SteamPipe
+upload remain deferred.
 
 ## Backend intent boundary
 
