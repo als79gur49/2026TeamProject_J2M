@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.Build;
@@ -7,9 +8,9 @@ using UnityEngine;
 
 public static class WindowsReleaseBuildPolicy
 {
-    public const string MetadataSchemaVersion = "3.0";
-    public const string BuildReportSummarySchemaVersion = "3.0";
-    public const string BuildReportDetailsSchemaVersion = "2.0";
+    public const string MetadataSchemaVersion = "4.0";
+    public const string BuildReportSummarySchemaVersion = "4.0";
+    public const string BuildReportDetailsSchemaVersion = "3.0";
     public const string StoreConfigurationSchema = "1.0";
     public const string StoreConfigurationId =
         "windows-x64-store-mono-logon-v1";
@@ -207,6 +208,11 @@ public static class WindowsReleaseBuildPolicy
         foreach (var identity in identities)
         {
             if (identity == null ||
+                !WindowsDistributionTargetPolicy.TryResolve(
+                    identity.distributionTargetId, out var distribution) ||
+                WindowsDistributionTargetPolicy.ValidateConfiguration(distribution) !=
+                    WindowsDistributionValidationFailure.None ||
+                !DistributionIdentityMatches(identity, distribution) ||
                 !string.Equals(identity.storeConfigurationSchema,
                     StoreConfigurationSchema, StringComparison.Ordinal) ||
                 !string.Equals(identity.storeConfigurationId,
@@ -237,19 +243,13 @@ public static class WindowsReleaseBuildPolicy
     internal static int ValidateBuildReportIdentityAndCounts(
         WindowsReleaseMetadataV2 metadata,
         BuildReportSummaryV2 summary,
-        BuildReportDetailsV1 details)
-    {
-        return ValidateBuildReportIdentityAndCounts(
-            metadata, summary, details, DefaultConfiguration);
-    }
-
-    internal static int ValidateBuildReportIdentityAndCounts(
-        WindowsReleaseMetadataV2 metadata,
-        BuildReportSummaryV2 summary,
         BuildReportDetailsV1 details,
-        WindowsReleaseBackendConfiguration configuration)
+        WindowsReleaseBackendConfiguration configuration,
+        WindowsDistributionTargetConfiguration distribution)
     {
-        if (configuration == null ||
+        if (configuration == null || distribution == null ||
+            WindowsDistributionTargetPolicy.ValidateConfiguration(distribution) !=
+                WindowsDistributionValidationFailure.None ||
             metadata == null || summary == null || details == null ||
             !string.Equals(metadata.schemaVersion, MetadataSchemaVersion,
                 StringComparison.Ordinal) ||
@@ -299,6 +299,31 @@ public static class WindowsReleaseBuildPolicy
                 details.payloadAudience) ||
             !string.Equals(summary.payloadAudience, configuration.PayloadAudience,
                 StringComparison.Ordinal) ||
+            !Same(metadata.distributionTargetId, summary.distributionTargetId,
+                details.distributionTargetId) ||
+            !string.Equals(summary.distributionTargetId, distribution.TargetId,
+                StringComparison.Ordinal) ||
+            !Same(metadata.providerSelectionMode, summary.providerSelectionMode,
+                details.providerSelectionMode) ||
+            !string.Equals(summary.providerSelectionMode,
+                distribution.ProviderSelectionMode.ToString(), StringComparison.Ordinal) ||
+            !Same(metadata.expectedProviderId, summary.expectedProviderId,
+                details.expectedProviderId) ||
+            !string.Equals(summary.expectedProviderId, distribution.ExpectedProviderId,
+                StringComparison.Ordinal) ||
+            !SameSequence(metadata.expectedLaunchArguments,
+                summary.expectedLaunchArguments, details.expectedLaunchArguments,
+                distribution.ExpectedLaunchArguments) ||
+            !SameSequence(metadata.requiredArtifacts,
+                summary.requiredArtifacts, details.requiredArtifacts,
+                distribution.RequiredArtifacts) ||
+            !SameSequence(metadata.forbiddenArtifacts,
+                summary.forbiddenArtifacts, details.forbiddenArtifacts,
+                distribution.ForbiddenArtifacts) ||
+            !Same(metadata.expectedStoreLaunch, summary.expectedStoreLaunch,
+                details.expectedStoreLaunch) ||
+            !string.Equals(summary.expectedStoreLaunch, distribution.ExpectedStoreLaunch,
+                StringComparison.Ordinal) ||
             !Same(metadata.backendComparisonId, summary.backendComparisonId,
                 details.backendComparisonId) ||
             !Same(metadata.comparisonRole, summary.comparisonRole, details.comparisonRole) ||
@@ -326,6 +351,44 @@ public static class WindowsReleaseBuildPolicy
         return !string.IsNullOrWhiteSpace(first) &&
                string.Equals(first, second, StringComparison.Ordinal) &&
                string.Equals(second, third, StringComparison.Ordinal);
+    }
+
+    private static bool SameSequence(
+        IEnumerable<string> first,
+        IEnumerable<string> second,
+        IEnumerable<string> third,
+        IEnumerable<string> expected)
+    {
+        if (first == null || second == null || third == null || expected == null)
+        {
+            return false;
+        }
+
+        var canonical = new List<string>(expected);
+        return new List<string>(first).SequenceEqual(canonical) &&
+               new List<string>(second).SequenceEqual(canonical) &&
+               new List<string>(third).SequenceEqual(canonical);
+    }
+
+    private static bool DistributionIdentityMatches(
+        ReleaseStoreIdentityV1 identity,
+        WindowsDistributionTargetConfiguration distribution)
+    {
+        return string.Equals(identity.providerSelectionMode,
+                   distribution.ProviderSelectionMode.ToString(), StringComparison.Ordinal) &&
+               string.Equals(identity.expectedProviderId,
+                   distribution.ExpectedProviderId, StringComparison.Ordinal) &&
+               SameSequence(identity.expectedLaunchArguments,
+                   identity.expectedLaunchArguments, identity.expectedLaunchArguments,
+                   distribution.ExpectedLaunchArguments) &&
+               SameSequence(identity.requiredArtifacts,
+                   identity.requiredArtifacts, identity.requiredArtifacts,
+                   distribution.RequiredArtifacts) &&
+               SameSequence(identity.forbiddenArtifacts,
+                   identity.forbiddenArtifacts, identity.forbiddenArtifacts,
+                   distribution.ForbiddenArtifacts) &&
+               string.Equals(identity.expectedStoreLaunch,
+                   distribution.ExpectedStoreLaunch, StringComparison.Ordinal);
     }
 
     public static int ResolvePostBuildExitCode(
@@ -490,6 +553,13 @@ public readonly struct ReleaseSceneDescriptor
 [Serializable]
 public sealed class ReleaseStoreIdentityV1
 {
+    public string distributionTargetId;
+    public string providerSelectionMode;
+    public string expectedProviderId;
+    public string[] expectedLaunchArguments;
+    public string[] requiredArtifacts;
+    public string[] forbiddenArtifacts;
+    public string expectedStoreLaunch;
     public string storeConfigurationSchema;
     public string storeConfigurationId;
     public string buildIntent;
@@ -510,6 +580,7 @@ public static class WindowsReleaseExitCodes
     public const int ActiveBuildTargetMismatch = 12;
     public const int UnityVersionMismatch = 13;
     public const int SceneContractMismatch = 14;
+    public const int UnsupportedDistributionTarget = 15;
     public const int PlayerSettingsContractMismatch = 20;
     public const int SettingsApplyFailure = 21;
     public const int SettingsRestoreFailure = 22;
@@ -528,7 +599,8 @@ public static class WindowsReleaseExitCodes
         new[]
         {
             Success, InvalidArguments, UnsupportedConfiguration, ActiveBuildTargetMismatch,
-            UnityVersionMismatch, SceneContractMismatch, PlayerSettingsContractMismatch,
+            UnityVersionMismatch, SceneContractMismatch, UnsupportedDistributionTarget,
+            PlayerSettingsContractMismatch,
             SettingsApplyFailure, SettingsRestoreFailure, BuildFailed, BuildCancelled,
             BuildUnknownResult, BuildErrorsRecorded, MetadataWriteFailure,
             BuildReportWriteFailure, BuildReportDetailsWriteFailure,
@@ -742,6 +814,13 @@ public sealed class WindowsReleaseMetadataV2
     public string logPolicyId;
     public bool automaticLogUpload;
     public string payloadAudience;
+    public string distributionTargetId;
+    public string providerSelectionMode;
+    public string expectedProviderId;
+    public string[] expectedLaunchArguments;
+    public string[] requiredArtifacts;
+    public string[] forbiddenArtifacts;
+    public string expectedStoreLaunch;
     public string stackTracePolicy;
     public bool incrementalGC;
     public string productName;

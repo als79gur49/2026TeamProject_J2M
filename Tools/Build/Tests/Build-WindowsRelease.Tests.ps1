@@ -6,7 +6,8 @@ $script:TestStartedUtc = [DateTime]::UtcNow.ToString("o")
 $script:TestCommandLine = [Environment]::CommandLine
 $ErrorActionPreference = "Stop"
 $env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE = "1"
-. (Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1")
+. (Join-Path $PSScriptRoot "..\Build-WindowsRelease.ps1") `
+    -DistributionTarget "direct-windows"
 
 $script:Passed = 0
 $script:Failed = 0
@@ -69,13 +70,24 @@ function New-ZeroErrorEvidenceFixture {
         [bool]$PlayerLogEnabled = $true,
         [string]$LogPolicyId = "local-player-log-no-auto-upload-v1",
         [bool]$AutomaticLogUpload = $false,
-        [string]$PayloadAudience = "StoreDistributable"
+        [string]$PayloadAudience = "StoreDistributable",
+        [string]$DistributionTargetId = "direct-windows",
+        [string]$ProviderSelectionMode = "DefaultWhenUnspecified",
+        [string]$ExpectedProviderId = "local",
+        [string[]]$ExpectedLaunchArguments = @(),
+        [string[]]$RequiredArtifacts = @(),
+        [string[]]$ForbiddenArtifacts = @(
+            "steam_api64.dll",
+            "com.rlabrecque.steamworks.net.dll",
+            "steam_appid.txt"
+        ),
+        [string]$ExpectedStoreLaunch = "VectorQuake.exe"
     )
     $metadataPath = Join-Path $Root "payload\build-metadata.json"
     $summaryPath = Join-Path $Root "payload\build-report-summary.json"
     $detailsPath = Join-Path $Root "private\build-report-details.json"
     Write-JsonFixture $detailsPath ([ordered]@{
-        schemaVersion = "2.0"
+        schemaVersion = "3.0"
         runId = $RunId
         artifactId = $ArtifactId
         sourceSha = $SourceSha
@@ -93,6 +105,13 @@ function New-ZeroErrorEvidenceFixture {
         logPolicyId = $LogPolicyId
         automaticLogUpload = $AutomaticLogUpload
         payloadAudience = $PayloadAudience
+        distributionTargetId = $DistributionTargetId
+        providerSelectionMode = $ProviderSelectionMode
+        expectedProviderId = $ExpectedProviderId
+        expectedLaunchArguments = @($ExpectedLaunchArguments)
+        requiredArtifacts = @($RequiredArtifacts)
+        forbiddenArtifacts = @($ForbiddenArtifacts)
+        expectedStoreLaunch = $ExpectedStoreLaunch
         backendComparisonId = $BackendComparisonId
         comparisonRole = $ComparisonRole
         result = "Succeeded"
@@ -103,7 +122,7 @@ function New-ZeroErrorEvidenceFixture {
         steps = @()
     })
     Write-JsonFixture $metadataPath ([ordered]@{
-        schemaVersion = "3.0"
+        schemaVersion = "4.0"
         runId = $RunId
         artifactId = $ArtifactId
         sourceSha = $SourceSha
@@ -126,6 +145,13 @@ function New-ZeroErrorEvidenceFixture {
         logPolicyId = $LogPolicyId
         automaticLogUpload = $AutomaticLogUpload
         payloadAudience = $PayloadAudience
+        distributionTargetId = $DistributionTargetId
+        providerSelectionMode = $ProviderSelectionMode
+        expectedProviderId = $ExpectedProviderId
+        expectedLaunchArguments = @($ExpectedLaunchArguments)
+        requiredArtifacts = @($RequiredArtifacts)
+        forbiddenArtifacts = @($ForbiddenArtifacts)
+        expectedStoreLaunch = $ExpectedStoreLaunch
         development = $false
         connectWithProfiler = $false
         deepProfiling = $false
@@ -149,7 +175,7 @@ function New-ZeroErrorEvidenceFixture {
         structuredErrorCountMatched = $true
     })
     Write-JsonFixture $summaryPath ([ordered]@{
-        schemaVersion = "3.0"
+        schemaVersion = "4.0"
         runId = $RunId
         artifactId = $ArtifactId
         sourceSha = $SourceSha
@@ -165,6 +191,13 @@ function New-ZeroErrorEvidenceFixture {
         logPolicyId = $LogPolicyId
         automaticLogUpload = $AutomaticLogUpload
         payloadAudience = $PayloadAudience
+        distributionTargetId = $DistributionTargetId
+        providerSelectionMode = $ProviderSelectionMode
+        expectedProviderId = $ExpectedProviderId
+        expectedLaunchArguments = @($ExpectedLaunchArguments)
+        requiredArtifacts = @($RequiredArtifacts)
+        forbiddenArtifacts = @($ForbiddenArtifacts)
+        expectedStoreLaunch = $ExpectedStoreLaunch
         backendComparisonId = $BackendComparisonId
         comparisonRole = $ComparisonRole
         result = "Succeeded"
@@ -203,6 +236,17 @@ function New-CanonicalEvidenceExpectation {
         LogPolicyId = "local-player-log-no-auto-upload-v1"
         AutomaticLogUpload = $false
         PayloadAudience = "StoreDistributable"
+        DistributionTargetId = "direct-windows"
+        ProviderSelectionMode = "DefaultWhenUnspecified"
+        ExpectedProviderId = "local"
+        ExpectedLaunchArguments = @()
+        RequiredArtifacts = @()
+        ForbiddenArtifacts = @(
+            "steam_api64.dll",
+            "com.rlabrecque.steamworks.net.dll",
+            "steam_appid.txt"
+        )
+        ExpectedStoreLaunch = "VectorQuake.exe"
     }
 }
 
@@ -249,6 +293,40 @@ Invoke-Case "canonical Store configuration path and policy are frozen" {
     Assert-False $policy.AutomaticLogUpload
     Assert-Equal "local-player-log-no-auto-upload-v1" $policy.LogPolicyId
     Assert-Equal "StoreDistributable" $policy.PayloadAudience
+}
+Invoke-Case "DirectWindows distribution expects Local without selector" {
+    $target = Resolve-WindowsDistributionTargetPolicy "direct-windows"
+    Assert-Equal "direct-windows" $target.TargetId
+    Assert-Equal "DirectWindows" $target.ArtifactDirectoryName
+    Assert-Equal "DefaultWhenUnspecified" $target.ProviderSelectionMode
+    Assert-Equal "local" $target.ExpectedProviderId
+    Assert-Equal 0 (@($target.ExpectedLaunchArguments).Count)
+    Assert-Equal "VectorQuake.exe" $target.ExpectedStoreLaunch
+}
+Invoke-Case "SteamWindows distribution expects canonical external selector" {
+    $target = Resolve-WindowsDistributionTargetPolicy "steam-windows"
+    Assert-Equal "steam-windows" $target.TargetId
+    Assert-Equal "SteamWindows" $target.ArtifactDirectoryName
+    Assert-Equal "ExternalLaunchArgumentRequired" $target.ProviderSelectionMode
+    Assert-Equal "steam" $target.ExpectedProviderId
+    Assert-True (Test-OrdinalArrayEqual $target.ExpectedLaunchArguments `
+        @("-j2mPlatformProvider", "steam"))
+    Assert-Equal "VectorQuake.exe -j2mPlatformProvider steam" `
+        $target.ExpectedStoreLaunch
+}
+Invoke-Case "missing and unknown distribution targets are rejected" {
+    foreach ($targetId in @("", "unknown-windows", "Steam-Windows")) {
+        $threw = $false
+        try {
+            Resolve-WindowsDistributionTargetPolicy $targetId | Out-Null
+        } catch { $threw = $true }
+        Assert-True $threw
+    }
+}
+Invoke-Case "DirectWindows and SteamWindows output paths are separated" {
+    $direct = Resolve-WindowsDistributionTargetPolicy "direct-windows"
+    $steam = Resolve-WindowsDistributionTargetPolicy "steam-windows"
+    Assert-False ($direct.ArtifactDirectoryName -ceq $steam.ArtifactDirectoryName)
 }
 Invoke-Case "canonical Store IL2CPP is rejected" {
     $threw = $false
@@ -573,6 +651,17 @@ try {
         Assert-False (Test-BuildEvidence $fixture.MetadataPath $fixture.SummaryPath `
             $fixture.DetailsPath -ExpectedIdentity (
                 New-CanonicalEvidenceExpectation)).Allowed
+    }
+    Invoke-Case "distribution identity mismatch across evidence is rejected" {
+        $fixture = New-ZeroErrorEvidenceFixture `
+            (Join-Path $temp "distribution-identity-mismatch")
+        $summary = Get-Content $fixture.SummaryPath -Raw | ConvertFrom-Json
+        $summary.expectedProviderId = "steam"
+        Write-JsonFixture $fixture.SummaryPath $summary
+        $result = Test-BuildEvidence $fixture.MetadataPath $fixture.SummaryPath `
+            $fixture.DetailsPath -ExpectedIdentity (New-CanonicalEvidenceExpectation)
+        Assert-False $result.Allowed
+        Assert-Equal "EvidenceIdentityMismatch" $result.Reason
     }
     Invoke-Case "build evidence identity mismatch is rejected" {
         $expectedIdentity = [pscustomobject]@{
@@ -965,6 +1054,7 @@ try {
         -Destination (Join-Path $payload "build-report-summary.json")
     $configurationSummaryPath = Join-Path $payload "configuration-summary.json"
     Write-JsonFixture $configurationSummaryPath ([ordered]@{
+        schemaVersion = "2.0"
         storeConfigurationSchema = "1.0"
         storeConfigurationId = "windows-x64-store-mono-logon-v1"
         buildIntent = "CanonicalStore"
@@ -976,6 +1066,17 @@ try {
         logPolicyId = "local-player-log-no-auto-upload-v1"
         automaticLogUpload = $false
         payloadAudience = "StoreDistributable"
+        distributionTargetId = "direct-windows"
+        providerSelectionMode = "DefaultWhenUnspecified"
+        expectedProviderId = "local"
+        expectedLaunchArguments = @()
+        requiredArtifacts = @()
+        forbiddenArtifacts = @(
+            "steam_api64.dll",
+            "com.rlabrecque.steamworks.net.dll",
+            "steam_appid.txt"
+        )
+        expectedStoreLaunch = "VectorQuake.exe"
         development = $false
         connectWithProfiler = $false
         deepProfiling = $false
@@ -989,6 +1090,15 @@ try {
     })
     Invoke-Case "configuration summary canonical identity is accepted" {
         Assert-True (Test-ConfigurationSummary $configurationSummaryPath $expectation)
+    }
+    Invoke-Case "configuration summary schema mismatch is rejected" {
+        $configurationSummary = Get-Content $configurationSummaryPath -Raw |
+            ConvertFrom-Json
+        $configurationSummary.schemaVersion = "1.0"
+        Write-JsonFixture $configurationSummaryPath $configurationSummary
+        Assert-False (Test-ConfigurationSummary $configurationSummaryPath $expectation)
+        $configurationSummary.schemaVersion = "2.0"
+        Write-JsonFixture $configurationSummaryPath $configurationSummary
     }
     Invoke-Case "configuration summary logging identity mismatch is rejected" {
         $configurationSummary = Get-Content $configurationSummaryPath -Raw |

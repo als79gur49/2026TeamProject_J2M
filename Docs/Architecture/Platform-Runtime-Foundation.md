@@ -116,14 +116,14 @@ Architecture guard는 production Platform Core source/asmdef의 vendor token과 
 
 ## Runtime provider와 distribution target
 
-Runtime provider 선택과 distribution artifact 구성은 별도 문제다. M7B-1은 runtime selection만 제공하며 다음을 구성하지 않는다.
+Runtime provider 선택과 distribution artifact 구성은 별도 문제다. M7B-2D의 Windows release distribution layer는 `direct-windows`와 `steam-windows` identity, expected provider, canonical launch argument token, promoted-payload expectation을 소유한다. 이 metadata는 runtime selector가 아니며 Platform Core는 distribution target을 읽지 않는다.
 
-- DirectWindows 또는 store별 distribution profile
-- build-time provider selection
-- native payload 포함/제외
-- store upload, depot, manifest, provenance, promotion
+- DirectWindows는 selector 없는 현재 runtime default를 사용하므로 expected provider가 `local`이다.
+- SteamWindows는 Steam Library가 `-j2mPlatformProvider steam`을 전달해야 하는 `ExternalLaunchArgumentRequired` contract다.
+- Steam dependency, Steam client process, Windows platform, 또는 `SteamAPI_Init` 결과를 provider intent로 자동 해석하지 않는다.
+- no selector는 distribution metadata와 무관하게 계속 Local을 선택한다.
 
-Distribution 정책과 store artifact 검증은 후속 milestone에서 다룬다.
+M7B-2D의 artifact validator는 promoted payload inventory를 위한 pure contract다. Raw Unity build의 PluginImporter/package를 변경하거나 Direct/Steam physical staging을 수행하지 않는다. 실제 AppID 기반 Steamworks admin 대조와 SteamPipe도 후속 milestone 범위다.
 
 ## 제거 정책과 후속 단계
 
