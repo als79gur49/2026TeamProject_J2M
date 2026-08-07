@@ -101,9 +101,14 @@ namespace Game.Feature.UI.Tests
                 var chanceModel = new ChancePanelViewModel();
                 Assert.That(
                     binding.StageNameText.rectTransform.offsetMax.x,
-                    Is.LessThanOrEqualTo(-160f),
-                    "Stage name must reserve the authored Pause control lane.");
+                    Is.EqualTo(-97.1592f).Within(0.01f),
+                    "Stage name must use the expanded authored single-line lane.");
+                Assert.That(
+                    binding.StageNameText.textWrappingMode,
+                    Is.EqualTo(TextWrappingModes.NoWrap));
                 Assert.That(binding.StageNameText.enableAutoSizing, Is.True);
+                Assert.That(binding.StageNameText.fontSizeMin, Is.EqualTo(14f));
+                Assert.That(binding.StageNameText.fontSizeMax, Is.EqualTo(30f));
                 Assert.That(
                     binding.StageNameText.overflowMode,
                     Is.EqualTo(TextOverflowModes.Overflow),

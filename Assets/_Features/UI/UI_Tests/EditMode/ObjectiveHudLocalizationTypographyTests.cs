@@ -149,12 +149,20 @@ namespace Game.Feature.UI.Tests
                 var objectiveWidth = objectiveView.GetComponent<LayoutElement>().preferredWidth;
                 var availableWidth = objectiveWidth + label.rectTransform.sizeDelta.x;
                 var availableHeight = rowClone.GetComponent<LayoutElement>().preferredHeight;
-                var preferred = label.GetPreferredValues(text, availableWidth, 0f);
 
                 Assert.That(availableWidth, Is.GreaterThan(0f));
                 Assert.That(availableHeight, Is.GreaterThan(0f));
-                Assert.That(preferred.x, Is.LessThanOrEqualTo(availableWidth + 0.01f));
-                Assert.That(preferred.y, Is.LessThanOrEqualTo(availableHeight + 0.01f));
+                Assert.That(label.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
+                Assert.That(label.enableAutoSizing, Is.True);
+                Assert.That(label.fontSizeMin, Is.EqualTo(12f));
+
+                label.enableAutoSizing = false;
+                label.fontSize = label.fontSizeMin;
+                var minimumSizePreferred =
+                    label.GetPreferredValues(text, Mathf.Infinity, Mathf.Infinity);
+
+                Assert.That(minimumSizePreferred.x, Is.LessThanOrEqualTo(availableWidth + 0.01f));
+                Assert.That(minimumSizePreferred.y, Is.LessThanOrEqualTo(availableHeight + 0.01f));
             }
             finally
             {
