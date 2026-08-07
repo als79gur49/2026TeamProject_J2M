@@ -91,6 +91,7 @@ function Get-StagingSourceIdentity {
         SourceSha = $RequestedSourceSha
         SourceTree = $RequestedSourceTree
         ArtifactId = $RequestedArtifactId
+        ScriptingBackend = ""
     }
     $metadataPath = Join-Path $Root "build-metadata.json"
     if (Test-Path -LiteralPath $metadataPath -PathType Leaf) {
@@ -104,6 +105,7 @@ function Get-StagingSourceIdentity {
         if ([string]::IsNullOrWhiteSpace($identity.ArtifactId)) {
             $identity.ArtifactId = [string]$metadata.artifactId
         }
+        $identity.ScriptingBackend = [string]$metadata.scriptingBackend
     }
 
     return [pscustomobject]$identity
@@ -141,7 +143,11 @@ function Invoke-WindowsDistributionStaging {
         [string]$SourceSha = "",
         [string]$SourceTree = "",
         [string]$ArtifactId = "",
-        [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ"))
+        [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
+        [scriptblock]$RepositoryStatusProvider = {
+            param([string]$Root)
+            Get-RepositoryStatusSnapshot $Root
+        }
     )
 
     if ([string]::IsNullOrWhiteSpace($SourceBuildRoot) -or
@@ -153,7 +159,7 @@ function Invoke-WindowsDistributionStaging {
     $repositoryFull = (Resolve-Path -LiteralPath $RepositoryRoot).Path
     $sourceFull = (Resolve-Path -LiteralPath $SourceBuildRoot).Path
     $outputFull = [IO.Path]::GetFullPath($OutputRoot)
-    $statusBefore = Get-RepositoryStatusSnapshot $repositoryFull
+    $statusBefore = & $RepositoryStatusProvider $repositoryFull
 
     Import-WindowsDistributionStagerTypes $repositoryFull
     $identity = Get-StagingSourceIdentity `
@@ -171,13 +177,17 @@ function Invoke-WindowsDistributionStaging {
     $request.SourceTree = $identity.SourceTree
     $request.ArtifactId = $identity.ArtifactId
     $request.RunId = $RunId
+    $request.ScriptingBackend = $identity.ScriptingBackend
+
+    $prePromotionValidation = {
+        $statusAfter = & $RepositoryStatusProvider $repositoryFull
+        if ($statusBefore -cne $statusAfter) {
+            throw "STAGING_REPOSITORY_MUTATED: repository status changed during staging."
+        }
+    }.GetNewClosure()
+    $request.PrePromotionValidation = [Action]$prePromotionValidation
 
     $result = [WindowsDistributionStager]::Stage($request)
-    $statusAfter = Get-RepositoryStatusSnapshot $repositoryFull
-    if ($statusBefore -cne $statusAfter) {
-        throw "STAGING_REPOSITORY_MUTATED: repository status changed during staging."
-    }
-
     return $result
 }
 

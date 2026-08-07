@@ -99,6 +99,109 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(Directory.Exists(output), Is.False);
         }
 
+        [Test]
+        public void MonoBackend_WithRuntimeContent_PromotesSuccess()
+        {
+            var result = Stage("direct-windows", "valid-mono-output");
+
+            Assert.That(File.Exists(Path.Combine(
+                result.PayloadRoot, "MonoBleedingEdge", "etc", "mono", "config")), Is.True);
+            Assert.That(File.ReadAllText(result.SuccessPath),
+                Does.Contain("\"scriptingBackend\": \"Mono2x\""));
+        }
+
+        [Test]
+        public void MonoBackend_WithoutRuntime_FailsBeforePromotion()
+        {
+            Directory.Delete(Path.Combine(sourceRoot, "MonoBleedingEdge"), recursive: true);
+            var output = Path.Combine(fixtureRoot, "missing-mono-output");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "missing-mono-output"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_REQUIRED_RUNTIME_MISSING"));
+            AssertPromotedOutputAbsent(output);
+        }
+
+        [Test]
+        public void MonoBackend_WithEmptyRuntimeDirectory_FailsBeforePromotion()
+        {
+            var monoRoot = Path.Combine(sourceRoot, "MonoBleedingEdge");
+            Directory.Delete(monoRoot, recursive: true);
+            Directory.CreateDirectory(monoRoot);
+            var output = Path.Combine(fixtureRoot, "empty-mono-output");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage("direct-windows", "empty-mono-output"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_REQUIRED_RUNTIME_MISSING"));
+            AssertPromotedOutputAbsent(output);
+        }
+
+        [Test]
+        public void Il2CppBackend_WithGameAssembly_PromotesSuccess()
+        {
+            Directory.Delete(Path.Combine(sourceRoot, "MonoBleedingEdge"), recursive: true);
+            WriteFile("GameAssembly.dll", "il2cpp-runtime");
+
+            var result = Stage(
+                "direct-windows",
+                "valid-il2cpp-output",
+                scriptingBackend: "IL2CPP");
+
+            Assert.That(File.Exists(Path.Combine(result.PayloadRoot, "GameAssembly.dll")),
+                Is.True);
+            Assert.That(File.ReadAllText(result.SuccessPath),
+                Does.Contain("\"scriptingBackend\": \"IL2CPP\""));
+        }
+
+        [Test]
+        public void Il2CppBackend_WithoutGameAssembly_FailsBeforePromotion()
+        {
+            Directory.Delete(Path.Combine(sourceRoot, "MonoBleedingEdge"), recursive: true);
+            var output = Path.Combine(fixtureRoot, "missing-il2cpp-output");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(
+                    "direct-windows",
+                    "missing-il2cpp-output",
+                    scriptingBackend: "IL2CPP"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_REQUIRED_RUNTIME_MISSING"));
+            AssertPromotedOutputAbsent(output);
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        public void MissingBackend_FailsBeforePromotion(string scriptingBackend)
+        {
+            var output = Path.Combine(fixtureRoot, "missing-backend-output");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(
+                    "direct-windows",
+                    "missing-backend-output",
+                    scriptingBackend: scriptingBackend));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_BACKEND_MISSING"));
+            AssertPromotedOutputAbsent(output);
+        }
+
+        [Test]
+        public void UnsupportedBackend_FailsBeforePromotion()
+        {
+            var output = Path.Combine(fixtureRoot, "unsupported-backend-output");
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                Stage(
+                    "direct-windows",
+                    "unsupported-backend-output",
+                    scriptingBackend: "Unknown"));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_BACKEND_UNSUPPORTED"));
+            AssertPromotedOutputAbsent(output);
+        }
+
         [TestCase(null)]
         [TestCase("")]
         [TestCase("unknown-windows")]
@@ -237,18 +340,21 @@ namespace Game.Feature.Stages.Editor.Tests
         private WindowsDistributionStagingResult Stage(
             string target,
             string outputName,
-            string runId = "fixture-run")
+            string runId = "fixture-run",
+            string scriptingBackend = "Mono2x")
         {
             return WindowsDistributionStager.Stage(CreateRequest(
                 target,
                 Path.Combine(fixtureRoot, outputName),
-                runId));
+                runId,
+                scriptingBackend));
         }
 
         private WindowsDistributionStagingRequest CreateRequest(
             string target,
             string output,
-            string runId)
+            string runId,
+            string scriptingBackend = "Mono2x")
         {
             return new WindowsDistributionStagingRequest
             {
@@ -260,6 +366,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 SourceTree = "source-tree",
                 ArtifactId = "artifact-id",
                 RunId = runId,
+                ScriptingBackend = scriptingBackend,
             };
         }
 
@@ -270,6 +377,7 @@ namespace Game.Feature.Stages.Editor.Tests
             WriteFile("UnityCrashHandler64.exe", "crash-handler");
             WriteFile("VectorQuake_Data/globalgamemanagers", "managers");
             WriteFile("VectorQuake_Data/Managed/Game.dll", "game-managed");
+            WriteFile("MonoBleedingEdge/etc/mono/config", "mono-runtime");
             WriteFile("VectorQuake_Data/TestLogs/a.log", "denied-log");
             WriteFile("VectorQuake_Data/Saves/profile.json", "denied-save");
             WriteFile("debug.pdb", "denied-symbol");
@@ -300,6 +408,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 sourceRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(ToExtendedPath(Path.GetDirectoryName(path)));
             File.WriteAllText(ToExtendedPath(path), content);
+        }
+
+        private static void AssertPromotedOutputAbsent(string outputRoot)
+        {
+            Assert.That(Directory.Exists(outputRoot), Is.False);
+            Assert.That(File.Exists(Path.Combine(
+                outputRoot, "evidence", WindowsDistributionStager.SuccessFileName)), Is.False);
         }
 
         private static string ToExtendedPath(string path)

@@ -16,6 +16,8 @@ public sealed class WindowsDistributionStagingRequest
     public string SourceTree { get; set; }
     public string ArtifactId { get; set; }
     public string RunId { get; set; }
+    public string ScriptingBackend { get; set; }
+    public Action PrePromotionValidation { get; set; }
 }
 
 public sealed class WindowsDistributionStagingResult
@@ -51,6 +53,8 @@ public static class WindowsDistributionStager
 {
     public const string ManifestFileName = "distribution-manifest.json";
     public const string SuccessFileName = "SUCCESS.json";
+    private const string MonoScriptingBackend = "Mono2x";
+    private const string Il2CppScriptingBackend = "IL2CPP";
 
     public static WindowsDistributionStagingResult Stage(
         WindowsDistributionStagingRequest request)
@@ -79,6 +83,8 @@ public static class WindowsDistributionStager
                 contractFailure.ToString());
         }
 
+        ValidateScriptingBackend(request.ScriptingBackend);
+
         var sourceRoot = ResolveInputRoot(
             request.SourceBuildRoot, "SourceBuildRoot", mustExist: true);
         var outputRoot = ResolveInputRoot(
@@ -98,7 +104,8 @@ public static class WindowsDistributionStager
         }
 
         var sourceBefore = InventorySource(sourceRoot);
-        ValidateSourceRuntimeCompleteness(sourceRoot, sourceBefore);
+        ValidateSourceRuntimeCompleteness(
+            sourceBefore, request.ScriptingBackend);
 
         var parent = Path.GetDirectoryName(outputRoot);
         if (string.IsNullOrEmpty(parent))
@@ -133,7 +140,7 @@ public static class WindowsDistributionStager
 
             var destinationInventory = InventoryDestination(payloadRoot);
             ValidateDestinationRuntimeCompleteness(
-                sourceRoot, payloadRoot, destinationInventory);
+                payloadRoot, destinationInventory, request.ScriptingBackend);
 
             var denied = destinationInventory
                 .Where(file => SteamPipeStagingSanitizerPolicy.IsDeniedContent(
@@ -158,6 +165,10 @@ public static class WindowsDistributionStager
             }
 
             AssertSourceUnchanged(sourceRoot, sourceBefore);
+            if (request.PrePromotionValidation != null)
+            {
+                request.PrePromotionValidation();
+            }
 
             var manifestPath = Path.Combine(evidenceRoot, ManifestFileName);
             WriteManifest(
@@ -290,31 +301,55 @@ public static class WindowsDistributionStager
             forbidden, fileName, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static void ValidateScriptingBackend(string scriptingBackend)
+    {
+        if (string.IsNullOrWhiteSpace(scriptingBackend))
+        {
+            throw Failure(
+                "STAGING_BACKEND_MISSING",
+                "build-metadata.json scriptingBackend is required.");
+        }
+
+        if (!string.Equals(
+                scriptingBackend, MonoScriptingBackend, StringComparison.Ordinal) &&
+            !string.Equals(
+                scriptingBackend, Il2CppScriptingBackend, StringComparison.Ordinal))
+        {
+            throw Failure(
+                "STAGING_BACKEND_UNSUPPORTED",
+                "Unsupported scriptingBackend: " + scriptingBackend);
+        }
+    }
+
     private static void ValidateSourceRuntimeCompleteness(
-        string sourceRoot,
-        IList<StagedFile> sourceInventory)
+        IList<StagedFile> sourceInventory,
+        string scriptingBackend)
     {
         RequireExactFile(sourceInventory, WindowsDistributionTargetPolicy.ExecutableName);
         RequireExactFile(sourceInventory, "UnityPlayer.dll");
         RequireDirectoryContent(sourceInventory, "VectorQuake_Data");
 
-        var monoRoot = Path.Combine(sourceRoot, "MonoBleedingEdge");
-        if (IoDirectoryExists(monoRoot))
+        if (string.Equals(
+                scriptingBackend, MonoScriptingBackend, StringComparison.Ordinal))
         {
             RequireDirectoryContent(sourceInventory, "MonoBleedingEdge");
+            return;
         }
+
+        RequireExactFile(sourceInventory, "GameAssembly.dll");
     }
 
     private static void ValidateDestinationRuntimeCompleteness(
-        string sourceRoot,
         string payloadRoot,
-        IList<StagedFile> destinationInventory)
+        IList<StagedFile> destinationInventory,
+        string scriptingBackend)
     {
         RequireExactFile(destinationInventory, WindowsDistributionTargetPolicy.ExecutableName);
         RequireExactFile(destinationInventory, "UnityPlayer.dll");
         RequireDirectoryContent(destinationInventory, "VectorQuake_Data");
 
-        if (IoDirectoryExists(Path.Combine(sourceRoot, "MonoBleedingEdge")))
+        if (string.Equals(
+                scriptingBackend, MonoScriptingBackend, StringComparison.Ordinal))
         {
             RequireDirectoryContent(destinationInventory, "MonoBleedingEdge");
             if (!IoDirectoryExists(Path.Combine(payloadRoot, "MonoBleedingEdge")))
@@ -323,7 +358,10 @@ public static class WindowsDistributionStager
                     "STAGING_REQUIRED_RUNTIME_MISSING",
                     "MonoBleedingEdge directory is missing from payload.");
             }
+            return;
         }
+
+        RequireExactFile(destinationInventory, "GameAssembly.dll");
     }
 
     private static void RequireExactFile(IList<StagedFile> inventory, string path)
@@ -463,6 +501,7 @@ public static class WindowsDistributionStager
         AppendJsonProperty(builder, "sourceTree", request.SourceTree ?? string.Empty, true);
         AppendJsonProperty(builder, "artifactId", request.ArtifactId ?? string.Empty, true);
         AppendJsonProperty(builder, "runId", runId, true);
+        AppendJsonProperty(builder, "scriptingBackend", request.ScriptingBackend, true);
         AppendJsonProperty(builder, "expectedProviderId", target.ExpectedProviderId, true);
         AppendJsonArray(
             builder,
@@ -512,6 +551,7 @@ public static class WindowsDistributionStager
         AppendJsonProperty(builder, "distributionTarget", target.TargetId, true);
         AppendJsonProperty(builder, "sourceSha", request.SourceSha ?? string.Empty, true);
         AppendJsonProperty(builder, "sourceTree", request.SourceTree ?? string.Empty, true);
+        AppendJsonProperty(builder, "scriptingBackend", request.ScriptingBackend, true);
         builder.Append("  \"fileCount\": ")
             .Append(fileCount.ToString(CultureInfo.InvariantCulture)).AppendLine(",");
         builder.Append("  \"totalBytes\": ")
