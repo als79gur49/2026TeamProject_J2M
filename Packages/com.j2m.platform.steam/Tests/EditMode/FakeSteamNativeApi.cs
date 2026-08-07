@@ -10,6 +10,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal bool InitializeResult { get; set; } = true;
         internal uint AppId { get; set; } = 480;
         internal bool SteamIdValid { get; set; } = true;
+        internal bool LoggedOn { get; set; } = true;
         internal bool OverlayEnabled { get; set; }
         internal Exception PacksizeException { get; set; }
         internal Exception InitializeException { get; set; }
@@ -23,6 +24,11 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal int ShutdownCount { get; private set; }
         internal int AppIdCount { get; private set; }
         internal int IdentityCount { get; private set; }
+        internal int LoggedOnCount { get; private set; }
+        internal int OverlayCallbackRegistrationCount { get; private set; }
+        internal int OverlayCallbackDisposeCount { get; private set; }
+
+        private Action<bool> overlayObserver;
 
         public bool IsPacksizeCompatible()
         {
@@ -85,6 +91,29 @@ namespace Game.Platform.Steam.Tests.EditMode
         public bool IsOverlayEnabled()
         {
             return OverlayEnabled;
+        }
+
+        public bool IsLoggedOn()
+        {
+            LoggedOnCount++;
+            return LoggedOn;
+        }
+
+        public void RegisterOverlayActivationCallback(Action<bool> observer)
+        {
+            OverlayCallbackRegistrationCount++;
+            overlayObserver = observer;
+        }
+
+        public void DisposeOverlayActivationCallback()
+        {
+            OverlayCallbackDisposeCount++;
+            overlayObserver = null;
+        }
+
+        internal void RaiseOverlayActivation(bool active)
+        {
+            overlayObserver?.Invoke(active);
         }
     }
 }

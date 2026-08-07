@@ -9,8 +9,13 @@ namespace Game.Platform.Steam
             SteamNativeInitializationResult nativeInitializationResult,
             uint observedAppId,
             bool steamIdentityValid,
+            bool loggedOn,
             bool overlayObservationAvailable,
             bool overlayEnabled,
+            bool overlayEnabledEverObserved,
+            int overlayActiveCount,
+            int overlayInactiveCount,
+            bool lastOverlayActive,
             int callbackPumpCount,
             int callbackAttemptCount,
             int shutdownCallCount,
@@ -24,8 +29,13 @@ namespace Game.Platform.Steam
             NativeInitializationResult = nativeInitializationResult;
             ObservedAppId = observedAppId;
             SteamIdentityValid = steamIdentityValid;
+            LoggedOn = loggedOn;
             OverlayObservationAvailable = overlayObservationAvailable;
             OverlayEnabled = overlayEnabled;
+            OverlayEnabledEverObserved = overlayEnabledEverObserved;
+            OverlayActiveCount = overlayActiveCount;
+            OverlayInactiveCount = overlayInactiveCount;
+            LastOverlayActive = lastOverlayActive;
             CallbackPumpCount = callbackPumpCount;
             CallbackAttemptCount = callbackAttemptCount;
             ShutdownCallCount = shutdownCallCount;
@@ -48,9 +58,19 @@ namespace Game.Platform.Steam
 
         public bool SteamIdentityValid { get; }
 
+        public bool LoggedOn { get; }
+
         public bool OverlayObservationAvailable { get; }
 
         public bool OverlayEnabled { get; }
+
+        public bool OverlayEnabledEverObserved { get; }
+
+        public int OverlayActiveCount { get; }
+
+        public int OverlayInactiveCount { get; }
+
+        public bool LastOverlayActive { get; }
 
         public int CallbackPumpCount { get; }
 

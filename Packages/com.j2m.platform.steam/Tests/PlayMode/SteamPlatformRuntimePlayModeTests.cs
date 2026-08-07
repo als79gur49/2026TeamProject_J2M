@@ -314,7 +314,17 @@ namespace Game.Platform.Steam.Tests.PlayMode
 
             public bool IsSteamIdValid() => true;
 
+            public bool IsLoggedOn() => true;
+
             public bool IsOverlayEnabled() => false;
+
+            public void RegisterOverlayActivationCallback(System.Action<bool> observer)
+            {
+            }
+
+            public void DisposeOverlayActivationCallback()
+            {
+            }
         }
     }
 }

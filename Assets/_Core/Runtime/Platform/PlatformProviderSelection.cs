@@ -100,6 +100,34 @@ namespace Game.Platform.Runtime
                 CommandLineSource);
         }
 
+        public static bool HasExactOptInFlag(
+            IReadOnlyList<string> arguments,
+            string flag)
+        {
+            if (string.IsNullOrWhiteSpace(flag) ||
+                !flag.StartsWith("-", StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Command-line opt-in flag must be a non-empty option token.",
+                    nameof(flag));
+            }
+
+            if (arguments == null)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < arguments.Count; index++)
+            {
+                if (string.Equals(arguments[index], flag, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         internal static void ResetFromArguments(IReadOnlyList<string> arguments)
         {
             currentRequest = ParseArguments(arguments);
