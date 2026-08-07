@@ -1879,6 +1879,72 @@ function Get-GitSnapshot {
     }
 }
 
+function Test-EstablishedAddressablesResidueSet {
+    param(
+        [string[]]$UntrackedPaths,
+        [string[]]$WindowsFiles = @()
+    )
+    $allowedUntracked = @(
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset",
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset.meta",
+        "Assets/AddressableAssetsData/Windows.meta",
+        "Assets/AddressableAssetsData/link.xml",
+        "Assets/AddressableAssetsData/link.xml.meta"
+    )
+    $allowedWindowsFiles = @(
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin",
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin.meta"
+    )
+    return @($UntrackedPaths | Where-Object {
+        $allowedUntracked -cnotcontains $_
+    }).Count -eq 0 -and @($WindowsFiles | Where-Object {
+        $allowedWindowsFiles -cnotcontains $_
+    }).Count -eq 0
+}
+
+function Remove-EstablishedAddressablesResidue {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)]$Snapshot
+    )
+    $windowsRoot = Join-Path $Root "Assets\AddressableAssetsData\Windows"
+    $windowsFiles = if (Test-Path -LiteralPath $windowsRoot -PathType Container) {
+        @(Get-ChildItem -LiteralPath $windowsRoot -File -Recurse -Force |
+            ForEach-Object {
+                $_.FullName.Substring($Root.Length).TrimStart('\').Replace('\', '/')
+            })
+    } else { @() }
+    $recognized = @($Snapshot.Tracked).Count -eq 0 -and
+        @($Snapshot.Staged).Count -eq 0 -and
+        (Test-EstablishedAddressablesResidueSet `
+            -UntrackedPaths @($Snapshot.Untracked) -WindowsFiles $windowsFiles)
+    $removed = @()
+    if ($recognized -and (@($Snapshot.Untracked).Count -ne 0 -or
+        @($windowsFiles).Count -ne 0)) {
+        $candidates = @(
+            "Assets\AddressableAssetsData\Windows",
+            "Assets\AddressableAssetsData\Windows.meta",
+            "Assets\AddressableAssetsData\ProfileDataSourceSettings.asset",
+            "Assets\AddressableAssetsData\ProfileDataSourceSettings.asset.meta",
+            "Assets\AddressableAssetsData\link.xml",
+            "Assets\AddressableAssetsData\link.xml.meta"
+        )
+        foreach ($relative in $candidates) {
+            $path = Join-Path $Root $relative
+            if (Test-Path -LiteralPath $path) {
+                Remove-Item -LiteralPath $path -Recurse -Force
+                $removed += $relative.Replace('\', '/')
+            }
+        }
+    }
+    return [pscustomobject][ordered]@{
+        recognized = [bool]$recognized
+        detectedUntrackedPaths = @($Snapshot.Untracked)
+        detectedWindowsFiles = @($windowsFiles)
+        removedPaths = @($removed)
+    }
+}
+
 function Get-RepositoryFamilyPaths {
     param([string]$Root)
     $lines = @(Invoke-GitPathList -Root $Root `
@@ -2204,6 +2270,12 @@ function Invoke-WindowsReleasePipeline {
         }
 
         $stage = "drift"
+        $preCleanupBuildSnapshot = Get-GitSnapshot -Root $detached `
+            -CanaryPaths $canaries -Detached
+        $addressablesCleanup = Remove-EstablishedAddressablesResidue `
+            -Root $detached -Snapshot $preCleanupBuildSnapshot
+        Write-PrivateJson (Join-Path $privateRoot "addressables-residue-cleanup.json") `
+            $addressablesCleanup
         $invocationPost = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries
         $buildPost = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
         Write-PrivateJson (Join-Path $privateRoot "invocation-source-post.json") `

@@ -426,6 +426,26 @@ Invoke-Case "WSL worktree list paths become Windows process-gate paths" {
         (Convert-GitWorktreePathToWindows "/mnt/d/J2M/worktrees/prepared release")
     Assert-Equal "C:\repo" (Convert-GitWorktreePathToWindows "C:/repo")
 }
+Invoke-Case "established Addressables build residue is classified exactly" {
+    Assert-True (Test-EstablishedAddressablesResidueSet @(
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset",
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset.meta",
+        "Assets/AddressableAssetsData/Windows.meta",
+        "Assets/AddressableAssetsData/link.xml",
+        "Assets/AddressableAssetsData/link.xml.meta"
+    ) @(
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin",
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin.meta"
+    ))
+}
+Invoke-Case "new Addressables residue remains fail-closed" {
+    Assert-False (Test-EstablishedAddressablesResidueSet @(
+        "Assets/AddressableAssetsData/new-generated-state.asset"
+    ))
+    Assert-False (Test-EstablishedAddressablesResidueSet @() @(
+        "Assets/AddressableAssetsData/Windows/unexpected.bin"
+    ))
+}
 Invoke-Case "multiple porcelain lines remain independently fail-closed" {
     $changes = Get-GitChangeClassification @(
         "?? TestLogs/MainReReview/approved.txt",
