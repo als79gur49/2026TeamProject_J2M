@@ -369,11 +369,11 @@ namespace Game.Feature.UI.Tests
                 "입력 설정이 초기화되었습니다.",
                 "이 키는 사용할 수 없습니다.",
                 "이동 키는 서로 중복될 수 없습니다.",
-                "다른 키를 이미 재지정하고 있습니다.",
-                "이 키는 이미 {0}에 사용 중입니다.",
+                "다른 키를 설정하는 중입니다.",
+                "이 키는 이미 {0}에 할당되어 있습니다.",
                 "이 키는 사용할 수 없습니다.",
-                "밀기 키 입력하세요...",
-                "뒤집기 키 입력하세요...");
+                "밀기에 사용할 키를 누르세요...",
+                "뒤집기에 사용할 키를 누르세요...");
         }
 
         [Test]
@@ -445,6 +445,57 @@ namespace Game.Feature.UI.Tests
                     Is.EqualTo(ExtractPlaceholderTokens(english.LocalizedValue)),
                     entry.Key);
             }
+        }
+
+        [Test]
+        public void UiStringTable_PriorityKoreanCopyPolishPass2_HasExactFiveValuesPreservesEnglishAndExcludesCurrentDisplay()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
+            Assert.That(collection, Is.Not.Null);
+            var englishTable = collection.GetTable("en-US") as StringTable;
+            var koreanTable = collection.GetTable("ko-KR") as StringTable;
+            Assert.That(englishTable, Is.Not.Null);
+            Assert.That(koreanTable, Is.Not.Null);
+
+            var expected = new[]
+            {
+                (Key: "ui.settings.input.already_rebinding", English: "Another key is already being reassigned.", Korean: "다른 키를 설정하는 중입니다."),
+                (Key: "ui.settings.display.fullscreen_window", English: "Fullscreen Window", Korean: "테두리 없는 전체 화면"),
+                (Key: "ui.settings.input.rebind_push_prompt", English: "Press a key for Push...", Korean: "밀기에 사용할 키를 누르세요..."),
+                (Key: "ui.settings.input.rebind_flip_prompt", English: "Press a key for Flip...", Korean: "뒤집기에 사용할 키를 누르세요..."),
+                (Key: "ui.settings.input.action_conflict", English: "This key is already used by {0}.", Korean: "이 키는 이미 {0}에 할당되어 있습니다."),
+            };
+
+            Assert.That(expected, Has.Length.EqualTo(5));
+            Assert.That(expected.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(5));
+
+            foreach (var entry in expected)
+            {
+                var english = englishTable.GetEntry(entry.Key);
+                var korean = koreanTable.GetEntry(entry.Key);
+                var shared = collection.SharedData.Entries.Single(candidate =>
+                    string.Equals(candidate.Key, entry.Key, StringComparison.Ordinal));
+
+                Assert.That(english, Is.Not.Null, $"en-US missing: {entry.Key}");
+                Assert.That(korean, Is.Not.Null, $"ko-KR missing: {entry.Key}");
+                Assert.That(english.KeyId, Is.EqualTo(shared.Id), entry.Key);
+                Assert.That(korean.KeyId, Is.EqualTo(shared.Id), entry.Key);
+                Assert.That(english.LocalizedValue, Is.EqualTo(entry.English), entry.Key);
+                Assert.That(korean.LocalizedValue, Is.EqualTo(entry.Korean), entry.Key);
+                Assert.That(
+                    ExtractPlaceholderTokens(korean.LocalizedValue),
+                    Is.EqualTo(ExtractPlaceholderTokens(english.LocalizedValue)),
+                    entry.Key);
+            }
+
+            Assert.That(
+                koreanTable.GetEntry("ui.settings.display.current")?.LocalizedValue,
+                Is.EqualTo("현재 디스플레이"),
+                "Pass 2 explicitly excludes Current Display.");
+            Assert.That(
+                englishTable.GetEntry("ui.settings.display.current")?.LocalizedValue,
+                Is.EqualTo("Current Display"),
+                "Pass 2 must not change the excluded English entry.");
         }
 
         [Test]
@@ -926,20 +977,20 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+                Is.EqualTo("다른 키를 설정하는 중입니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
                     SettingsStaticTextDescriptors.Flip)),
-                Is.EqualTo("이 키는 이미 뒤집기에 사용 중입니다."));
+                Is.EqualTo("이 키는 이미 뒤집기에 할당되어 있습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputUnsupportedKey()),
                 Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
-                Is.EqualTo("밀기 키 입력하세요..."));
+                Is.EqualTo("밀기에 사용할 키를 누르세요..."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
-                Is.EqualTo("뒤집기 키 입력하세요..."));
+                Is.EqualTo("뒤집기에 사용할 키를 누르세요..."));
         }
 
         [Test]
@@ -1019,7 +1070,7 @@ namespace Game.Feature.UI.Tests
                 "현재 디스플레이",
                 "해상도",
                 "자동으로 감지된 해상도만 표시됩니다.",
-                "전체 화면 창",
+                "테두리 없는 전체 화면",
                 "켜짐",
                 "적용",
                 "되돌리기");

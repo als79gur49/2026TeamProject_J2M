@@ -140,7 +140,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195390517248
-    m_Localized: 다른 키를 이미 재지정하고 있습니다.
+    m_Localized: 다른 키를 설정하는 중입니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
@@ -173,7 +173,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499334
-    m_Localized: "\uC804\uCCB4 \uD654\uBA74 \uCC3D"
+    m_Localized: "\uD14C\uB450\uB9AC \uC5C6\uB294 \uC804\uCCB4 \uD654\uBA74"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499335
@@ -212,11 +212,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693636
-    m_Localized: "\uBC00\uAE30 \uD0A4 \uC785\uB825\uD558\uC138\uC694..."
+    m_Localized: "\uBC00\uAE30\uC5D0 \uC0AC\uC6A9\uD560 \uD0A4\uB97C \uB204\uB974\uC138\uC694..."
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693637
-    m_Localized: "\uB4A4\uC9D1\uAE30 \uD0A4 \uC785\uB825\uD558\uC138\uC694..."
+    m_Localized: "\uB4A4\uC9D1\uAE30\uC5D0 \uC0AC\uC6A9\uD560 \uD0A4\uB97C \uB204\uB974\uC138\uC694..."
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693638
@@ -470,7 +470,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693699
-    m_Localized: 이 키는 이미 {0}에 사용 중입니다.
+    m_Localized: 이 키는 이미 {0}에 할당되어 있습니다.
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345

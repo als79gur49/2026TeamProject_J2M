@@ -516,7 +516,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15초"));
             Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
             Assert.That(keyboardPort.IsRebinding, Is.True);
-            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기 키 입력하세요..."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기에 사용할 키를 누르세요..."));
             Assert.That(GetField<SettingsScreenViewModel>(view, "_viewModel"), Is.SameAs(screenModel));
             Assert.That(GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel"), Is.SameAs(audioModel));
             Assert.That(GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel"), Is.SameAs(displayModel));
@@ -536,10 +536,10 @@ namespace Game.Feature.UI.Tests
 
         [TestCase(
             KeyboardBindableAction.Push,
-            "밀기 키 입력하세요...")]
+            "밀기에 사용할 키를 누르세요...")]
         [TestCase(
             KeyboardBindableAction.Flip,
-            "뒤집기 키 입력하세요...")]
+            "뒤집기에 사용할 키를 누르세요...")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindPromptStartedInKoreanUsesCurrentLocale(
             KeyboardBindableAction action,
             string expectedPrompt)
@@ -561,11 +561,11 @@ namespace Game.Feature.UI.Tests
         [TestCase(
             KeyboardBindableAction.Push,
             "Press a key for Push...",
-            "밀기 키 입력하세요...")]
+            "밀기에 사용할 키를 누르세요...")]
         [TestCase(
             KeyboardBindableAction.Flip,
             "Press a key for Flip...",
-            "뒤집기 키 입력하세요...")]
+            "뒤집기에 사용할 키를 누르세요...")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ActiveRebindPromptFollowsLocaleRoundTrip(
             KeyboardBindableAction action,
             string englishPrompt,
@@ -658,18 +658,18 @@ namespace Game.Feature.UI.Tests
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(view.InputView.StatusText, Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
         }
 
         [TestCase(
             KeyboardBindableAction.Push,
             "This key is already used by Flip.",
-            "이 키는 이미 뒤집기에 사용 중입니다.")]
+            "이 키는 이미 뒤집기에 할당되어 있습니다.")]
         [TestCase(
             KeyboardBindableAction.Flip,
             "This key is already used by Push.",
-            "이 키는 이미 밀기에 사용 중입니다.")]
+            "이 키는 이미 밀기에 할당되어 있습니다.")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ActionConflictLocalizesActionAcrossLocaleRoundTrip(
             KeyboardBindableAction action,
             string englishStatus,
@@ -989,7 +989,7 @@ namespace Game.Feature.UI.Tests
                     SettingsStaticTextDescriptors.DisplayResolutionHint,
                     "Only automatically detected resolutions are shown.",
                     "자동으로 감지된 해상도만 표시됩니다."),
-                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Fullscreen Window", "전체 화면 창"),
+                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Fullscreen Window", "테두리 없는 전체 화면"),
                 (SettingsStaticTextDescriptors.DisplayFullscreenOn, "On", "켜짐"),
                 (SettingsStaticTextDescriptors.DisplayApply, "Apply", "적용"),
                 (SettingsStaticTextDescriptors.DisplayRevert, "Revert", "되돌리기"),
