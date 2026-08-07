@@ -216,6 +216,13 @@ legacy 259-character Windows budget. This avoids relying on machine-wide long
 path registry policy while preserving clean-import determinism. The first
 acceptance run keeps that worktree for provenance inspection.
 
+For storage-policy compliant J2M worktrees, pre-create the exact detached source
+with `j2m-worktree-add` under `D:\J2M\worktrees` and pass it through
+`-PreparedBuildSourceRoot`. The wrapper then validates the prepared worktree's
+clean status, HEAD, tree, canaries, and path budget without invoking direct
+`git worktree add`; its `Library` remains private to that worktree. The legacy
+internal creation path remains available only for grandfathered release sources.
+
 Path-budget tests must exercise the full predicted critical path, not only the
 source-root string. The required matrix is:
 

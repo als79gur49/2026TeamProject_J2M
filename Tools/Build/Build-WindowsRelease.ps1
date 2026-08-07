@@ -4,6 +4,7 @@ param(
     [string]$UnityExe = "C:\Users\user\Desktop\6000.3.11f1\Editor\Unity.exe",
     [string]$OutputRoot = "C:\Users\user\Documents\VectorQuake-Release-Builds",
     [string]$BuildSourceRoot = "C:\VQBuildSources",
+    [string]$PreparedBuildSourceRoot = "",
     [string]$RunId = ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")),
     [ValidateSet("CanonicalStore", "BackendComparison")]
     [string]$BuildIntent = "CanonicalStore",
@@ -208,6 +209,25 @@ function Get-BuildSourceCriticalPathLength {
     return @($script:CriticalImporterRelativePaths | ForEach-Object {
         [IO.Path]::GetFullPath((Join-Path $DetachedSourcePath $_)).Length
     } | Measure-Object -Maximum).Maximum
+}
+
+function Resolve-BuildSourcePlan {
+    param(
+        [Parameter(Mandatory)][string]$BuildSourceRoot,
+        [string]$PreparedBuildSourceRoot = "",
+        [Parameter(Mandatory)][string]$SourceSha,
+        [Parameter(Mandatory)][string]$RunId
+    )
+    if (-not [string]::IsNullOrWhiteSpace($PreparedBuildSourceRoot)) {
+        return [pscustomobject][ordered]@{
+            Path = [IO.Path]::GetFullPath($PreparedBuildSourceRoot)
+            RequiresCreation = $false
+        }
+    }
+    return [pscustomobject][ordered]@{
+        Path = Join-Path (Join-Path $BuildSourceRoot $SourceSha) $RunId
+        RequiresCreation = $true
+    }
 }
 
 function New-ReleaseEvidenceExpectation {
@@ -1899,6 +1919,7 @@ function Invoke-WindowsReleasePipeline {
         [string]$UnityExe,
         [string]$OutputRoot,
         [string]$BuildSourceRoot,
+        [string]$PreparedBuildSourceRoot = "",
         [string]$RunId,
         [ValidateSet("CanonicalStore", "BackendComparison")]
         [string]$BuildIntent = $script:BackendPolicy.BuildIntent,
@@ -1989,7 +2010,12 @@ function Invoke-WindowsReleasePipeline {
         $staging = Join-Path $parent ".staging-$RunId"
         $final = Join-Path $parent $RunId
         $failed = Join-Path (Join-Path $parent "failed") $RunId
-        $detached = Join-Path (Join-Path $BuildSourceRoot $sourceSha) $RunId
+        $buildSourcePlan = Resolve-BuildSourcePlan `
+            -BuildSourceRoot $BuildSourceRoot `
+            -PreparedBuildSourceRoot $PreparedBuildSourceRoot `
+            -SourceSha $sourceSha `
+            -RunId $RunId
+        $detached = [string]$buildSourcePlan.Path
         if (-not (Test-BuildSourcePathBudget $detached)) {
             $exitCode = $script:ReleaseExitCodes.BuildSourcePathBudgetFailure
             throw "Detached source path exceeds the URP importer path budget."
@@ -1999,20 +2025,26 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.OutputCollision
             throw "Output collision or cross-volume promotion plan."
         }
-        if (Test-Path -LiteralPath $detached) {
+        if ($buildSourcePlan.RequiresCreation -and (Test-Path -LiteralPath $detached)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source collision."
         }
         New-Item -ItemType Directory -Path $staging -Force | Out-Null
-        New-Item -ItemType Directory -Path (Split-Path $detached -Parent) -Force | Out-Null
         $stage = "detached-source"
-        try {
-            Invoke-GitText -Root $RepositoryRoot -Arguments @(
-                "worktree", "add", "--detach", $detached, $sourceSha
-            ) -DisableAutoCrlf | Out-Null
-        } catch {
+        if ($buildSourcePlan.RequiresCreation) {
+            New-Item -ItemType Directory -Path (Split-Path $detached -Parent) -Force |
+                Out-Null
+            try {
+                Invoke-GitText -Root $RepositoryRoot -Arguments @(
+                    "worktree", "add", "--detach", $detached, $sourceSha
+                ) -DisableAutoCrlf | Out-Null
+            } catch {
+                $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
+                throw "Detached worktree creation failed: $($_.Exception.Message)"
+            }
+        } elseif (-not (Test-Path -LiteralPath $detached -PathType Container)) {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
-            throw "Detached worktree creation failed: $($_.Exception.Message)"
+            throw "Prepared detached source does not exist."
         }
         $buildPre = Get-GitSnapshot -Root $detached -CanaryPaths $canaries -Detached
         Write-PrivateJson (Join-Path $privateRoot "build-source-pre.json") $buildPre
@@ -2309,6 +2341,7 @@ if ($env:VECTORQUAKE_RELEASE_WRAPPER_TEST_MODE -ne "1") {
         -UnityExe $UnityExe `
         -OutputRoot $OutputRoot `
         -BuildSourceRoot $BuildSourceRoot `
+        -PreparedBuildSourceRoot $PreparedBuildSourceRoot `
         -RunId $RunId `
         -BuildIntent $BuildIntent `
         -Backend $Backend `

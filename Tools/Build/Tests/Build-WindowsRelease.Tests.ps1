@@ -454,6 +454,23 @@ Invoke-Case "legacy detached source root exceeds URP importer path budget" {
 Invoke-Case "default detached source root is short and deterministic" {
     Assert-Equal "C:\VQBuildSources" $BuildSourceRoot
 }
+Invoke-Case "prepared build source is reused without direct worktree creation" {
+    $plan = Resolve-BuildSourcePlan `
+        -BuildSourceRoot "C:\VQBuildSources" `
+        -PreparedBuildSourceRoot "D:\J2M\worktrees\prepared-release" `
+        -SourceSha ("a" * 40) `
+        -RunId "run"
+    Assert-Equal "D:\J2M\worktrees\prepared-release" $plan.Path
+    Assert-False $plan.RequiresCreation
+}
+Invoke-Case "default build source plan retains legacy creation path" {
+    $plan = Resolve-BuildSourcePlan `
+        -BuildSourceRoot "C:\VQBuildSources" `
+        -SourceSha ("b" * 40) `
+        -RunId "run"
+    Assert-Equal "C:\VQBuildSources\$("b" * 40)\run" $plan.Path
+    Assert-True $plan.RequiresCreation
+}
 Invoke-Case "critical path length 259 is accepted" {
     $candidate = "C:\x"
     while ((Get-BuildSourceCriticalPathLength $candidate) -lt 259) {
