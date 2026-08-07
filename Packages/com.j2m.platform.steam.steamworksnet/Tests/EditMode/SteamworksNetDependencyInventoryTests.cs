@@ -68,6 +68,22 @@ namespace Game.Platform.Steam.SteamworksNet.Tests.EditMode
             Assert.That(pluginMeta, Does.Contain("Standalone: OSXUniversal\n    second:\n      enabled: 0"));
         }
 
+        [Test]
+        public void Adapter_UsesBooleanLoggedOnAndOwnedOverlayCallbackLifecycle()
+        {
+            var source = File.ReadAllText(
+                "Packages/com.j2m.platform.steam.steamworksnet/Runtime/SteamworksNetNativeApi.cs");
+
+            Assert.That(source, Does.Contain("return SteamUser.BLoggedOn();"));
+            Assert.That(source, Does.Contain(
+                "private Callback<GameOverlayActivated_t> overlayActivatedCallback;"));
+            Assert.That(source, Does.Contain(
+                "Callback<GameOverlayActivated_t>.Create(OnOverlayActivated)"));
+            Assert.That(source, Does.Contain("callback?.Dispose();"));
+            Assert.That(source, Does.Not.Contain("GetPersonaName"));
+            Assert.That(source, Does.Not.Contain("GetFriendPersonaName"));
+        }
+
         private static bool IsSteamNativeCandidate(string path)
         {
             var fileName = Path.GetFileName(path);

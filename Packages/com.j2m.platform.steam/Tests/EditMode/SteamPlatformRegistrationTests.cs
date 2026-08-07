@@ -33,6 +33,27 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
+        public void SmokeArgument_IsExplicitOptInAndDefaultOff()
+        {
+            Assert.That(
+                SteamPlatformRegistration.IsSmokeRequested(Array.Empty<string>()),
+                Is.False);
+            Assert.That(
+                SteamPlatformRegistration.IsSmokeRequested(new[]
+                {
+                    "VectorQuake.exe",
+                    SteamPlatformRegistration.SmokeArgument,
+                }),
+                Is.True);
+            Assert.That(
+                SteamPlatformRegistration.IsSmokeRequested(new[]
+                {
+                    SteamPlatformRegistration.SmokeArgument + "=true",
+                }),
+                Is.False);
+        }
+
+        [Test]
         public void RegisterFactory_RejectsNullNativeApiFactory()
         {
             Assert.That(
@@ -78,6 +99,29 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(selection.SelectedProviderId, Is.EqualTo(SteamPlatformRuntime.ProviderId));
             Assert.That(selection.Runtime, Is.TypeOf<SteamPlatformRuntime>());
             Assert.That(selection.FallbackUsed, Is.False);
+            Assert.That(nativeFactoryCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SmokeOptIn_UsesTheSingleSelectedSteamRuntime()
+        {
+            var nativeFactoryCount = 0;
+            Assert.That(
+                SteamPlatformRegistration.RegisterFactory(
+                    () =>
+                    {
+                        nativeFactoryCount++;
+                        return new FakeSteamNativeApi();
+                    },
+                    smokeRequested: true).IsSuccess,
+                Is.True);
+            InvokeRegistryMember("Seal");
+
+            var selection = Select(ParseSelection("steam"));
+
+            Assert.That(selection.Status,
+                Is.EqualTo(PlatformRuntimeSelectionStatus.ExplicitProviderSelected));
+            Assert.That(selection.Runtime, Is.TypeOf<SteamPlatformRuntime>());
             Assert.That(nativeFactoryCount, Is.EqualTo(1));
         }
 

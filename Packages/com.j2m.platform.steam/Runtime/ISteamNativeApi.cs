@@ -1,3 +1,5 @@
+using System;
+
 namespace Game.Platform.Steam
 {
     public interface ISteamNativeApi
@@ -16,6 +18,12 @@ namespace Game.Platform.Steam
 
         bool IsSteamIdValid();
 
+        bool IsLoggedOn();
+
         bool IsOverlayEnabled();
+
+        void RegisterOverlayActivationCallback(Action<bool> observer);
+
+        void DisposeOverlayActivationCallback();
     }
 }

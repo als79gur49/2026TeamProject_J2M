@@ -16,6 +16,26 @@ namespace Game.Platform.Tests.EditMode
             Assert.That(request.Source, Is.EqualTo(PlatformProviderSelection.CommandLineSource));
         }
 
+        [Test]
+        public void ExactOptInFlag_IsDefaultOffAndMatchesOnlyExactToken()
+        {
+            const string flag = "-j2mOptionalProbe";
+
+            Assert.That(
+                PlatformProviderSelection.HasExactOptInFlag(Array.Empty<string>(), flag),
+                Is.False);
+            Assert.That(
+                PlatformProviderSelection.HasExactOptInFlag(
+                    new[] { "player.exe", flag },
+                    flag),
+                Is.True);
+            Assert.That(
+                PlatformProviderSelection.HasExactOptInFlag(
+                    new[] { flag + "=true", flag + "Extra" },
+                    flag),
+                Is.False);
+        }
+
         [TestCase("local")]
         [TestCase("steam")]
         [TestCase("unknown-store")]
