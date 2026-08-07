@@ -391,11 +391,60 @@ namespace Game.Feature.UI.Tests
                 "Place the MoonBlock on the button ({0}/{1})");
             AssertObjectiveHudEntries(
                 collection.GetTable("ko-KR") as StringTable,
-                "과업",
-                "종료 장소로 이동하기 ({0}/{1})",
-                "지정 장소로 이동하기 ({0}/{1})",
-                "밀기 상자 지정 장소로 이동하기 ({0}/{1})",
-                "전용 상자 지정 장소로 이동하기 ({0}/{1})");
+                "목표",
+                "탈출 지점에 도달하기 ({0}/{1})",
+                "지정 구역에 도달하기 ({0}/{1})",
+                "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})",
+                "달 문양 상자를 버튼 위에 놓기 ({0}/{1})");
+        }
+
+        [Test]
+        public void UiStringTable_PriorityKoreanCopyPolishPass1_HasExactTwelveValuesAndPreservesEnglishAndPlaceholders()
+        {
+            var collection = LocalizationEditorSettings.GetStringTableCollection("UI");
+            Assert.That(collection, Is.Not.Null);
+            var englishTable = collection.GetTable("en-US") as StringTable;
+            var koreanTable = collection.GetTable("ko-KR") as StringTable;
+            Assert.That(englishTable, Is.Not.Null);
+            Assert.That(koreanTable, Is.Not.Null);
+
+            var expected = new[]
+            {
+                (Key: "ui.hud.objectives.title", English: "Objectives", Korean: "목표"),
+                (Key: "ui.hud.objective.reach_exit", English: "Reach the Exit Zone ({0}/{1})", Korean: "탈출 지점에 도달하기 ({0}/{1})"),
+                (Key: "ui.hud.objective.activate_button", English: "Place a push box on the button ({0}/{1})", Korean: "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"),
+                (Key: "ui.hud.objective.activate_moon_button", English: "Place the MoonBlock on the button ({0}/{1})", Korean: "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"),
+                (Key: "ui.hud.objective.reach_zone", English: "Reach the designated zone ({0}/{1})", Korean: "지정 구역에 도달하기 ({0}/{1})"),
+                (Key: "ui.settings.input.reset_confirm.body", English: "Reset input settings to defaults?", Korean: "입력 설정을 기본값으로 초기화할까요?"),
+                (Key: "ui.settings.display.preview_confirm.title", English: "Confirm Display Preview", Korean: "화면 설정을 유지할까요?"),
+                (Key: "ui.settings.display.preview_confirm.fullscreen_body", English: "Preview {0} x {1} in Fullscreen Window. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} x {1} 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."),
+                (Key: "ui.settings.display.preview_confirm.windowed_body", English: "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} x {1} 해상도로 창 모드를 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."),
+                (Key: "ui.main_menu.slot.confirm.restart.warning", English: "Existing progress will be replaced.", Korean: "기존 진행 상황이 초기화됩니다."),
+                (Key: "ui.main_menu.slot.confirm.overwrite.warning", English: "Existing progress will be overwritten.", Korean: "기존 진행 상황을 덮어씁니다."),
+                (Key: "ui.main_menu.quit_confirm.body", English: "Quit to desktop?", Korean: "게임을 종료하고 바탕 화면으로 나갈까요?"),
+            };
+
+            Assert.That(expected, Has.Length.EqualTo(12));
+            Assert.That(expected.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(12));
+
+            foreach (var entry in expected)
+            {
+                var english = englishTable.GetEntry(entry.Key);
+                var korean = koreanTable.GetEntry(entry.Key);
+                var shared = collection.SharedData.Entries.Single(candidate =>
+                    string.Equals(candidate.Key, entry.Key, StringComparison.Ordinal));
+
+                Assert.That(english, Is.Not.Null, $"en-US missing: {entry.Key}");
+                Assert.That(korean, Is.Not.Null, $"ko-KR missing: {entry.Key}");
+                Assert.That(english.KeyId, Is.EqualTo(shared.Id), entry.Key);
+                Assert.That(korean.KeyId, Is.EqualTo(shared.Id), entry.Key);
+                Assert.That(english.LocalizedValue, Is.EqualTo(entry.English), entry.Key);
+                Assert.That(korean.LocalizedValue, Is.EqualTo(entry.Korean), entry.Key);
+                Assert.That(
+                    ExtractPlaceholderTokens(korean.LocalizedValue),
+                    Is.EqualTo(ExtractPlaceholderTokens(english.LocalizedValue)),
+                    entry.Key);
+            }
         }
 
         [Test]
@@ -414,11 +463,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
             AssertObjectiveHudResolvedText(
                 resolver,
-                "과업",
-                "종료 장소로 이동하기",
-                "지정 장소로 이동하기",
-                "밀기 상자 지정 장소로 이동하기",
-                "전용 상자 지정 장소로 이동하기");
+                "목표",
+                "탈출 지점에 도달하기",
+                "지정 구역에 도달하기",
+                "밀 수 있는 상자를 버튼 위에 놓기",
+                "달 문양 상자를 버튼 위에 놓기");
 
             Assert.That(resolver.TrySetLocale("en-US"), Is.True);
             AssertObjectiveHudResolvedText(

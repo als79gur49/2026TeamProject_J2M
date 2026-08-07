@@ -124,7 +124,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [TestCase("en-US", "Place the MoonBlock on the button (99/99)")]
-        [TestCase("ko-KR", "밀기 상자 지정 장소로 이동하기 (99/99)")]
+        [TestCase("ko-KR", "밀 수 있는 상자를 버튼 위에 놓기 (99/99)")]
         public void ObjectiveRow_LongApprovedCopy_FitsAuthoredRow(string localeCode, string text)
         {
             var parentObject = new GameObject("ObjectiveTypographyTestRoot", typeof(RectTransform));

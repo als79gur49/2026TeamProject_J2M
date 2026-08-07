@@ -924,7 +924,7 @@ namespace Game.Feature.UI.Tests
             FontStyles englishRowStyle)
         {
             var expectedHeader = string.Equals(scenario.Locale, "ko-KR", StringComparison.Ordinal)
-                ? "과업"
+                ? "목표"
                 : "Objectives";
             if (!string.Equals(view.HeaderLabel.text, expectedHeader, StringComparison.Ordinal))
             {

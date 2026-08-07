@@ -150,7 +150,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(values, Does.Contain("로비-01"));
             Assert.That(values, Does.Contain("병동[A]-01"));
             Assert.That(values, Does.Contain("영안실-01"));
-            Assert.That(codepoints, Has.Length.EqualTo(170));
+            Assert.That(codepoints, Has.Length.EqualTo(184));
             Assert.That(missing, Is.Empty, FormatCharacters(missing));
             Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
             Assert.That(TMP_Settings.fallbackFontAssets, Is.Empty);

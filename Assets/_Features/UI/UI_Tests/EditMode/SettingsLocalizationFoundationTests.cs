@@ -189,7 +189,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("입력 설정 초기화"));
-            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("입력 설정 초기화 확인"));
+            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("입력 설정을 기본값으로 초기화할까요?"));
             Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo("초기화"));
             Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("취소"));
 

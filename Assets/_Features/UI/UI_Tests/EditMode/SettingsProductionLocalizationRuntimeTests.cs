@@ -64,7 +64,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "입력 설정 초기화",
-                "입력 설정 초기화 확인",
+                "입력 설정을 기본값으로 초기화할까요?",
                 "초기화",
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -86,7 +86,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "입력 설정 초기화",
-                "입력 설정 초기화 확인",
+                "입력 설정을 기본값으로 초기화할까요?",
                 "초기화",
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -107,8 +107,8 @@ namespace Game.Feature.UI.Tests
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
-                "화면 설정 미리 보기 확인",
-                "1280 x 720 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
+                "화면 설정을 유지할까요?",
+                "1280 x 720 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 15초 후 이전 설정으로 돌아갑니다.",
                 "유지",
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -127,8 +127,8 @@ namespace Game.Feature.UI.Tests
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
-                "화면 설정 미리 보기 확인",
-                "1280 x 720 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 15초 후 되돌아갑니다.",
+                "화면 설정을 유지할까요?",
+                "1280 x 720 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 15초 후 이전 설정으로 돌아갑니다.",
                 "유지",
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);

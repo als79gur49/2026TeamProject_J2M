@@ -340,9 +340,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [TestCase(MainMenuConfirmationKind.DeleteSlot, "슬롯 삭제", "2번 슬롯을 삭제할까요?", "이 작업은 되돌릴 수 없습니다.", "삭제")]
-        [TestCase(MainMenuConfirmationKind.RestartSlot, "슬롯 다시 시작", "2번 슬롯을 처음부터 다시 시작할까요?", "기존 진행 상황은 교체됩니다.", "다시 시작")]
-        [TestCase(MainMenuConfirmationKind.OverwriteSlot, "슬롯 덮어쓰기", "2번 슬롯에서 새 게임을 시작할까요?", "기존 진행 상황은 덮어씌워집니다.", "새 게임")]
-        [TestCase(MainMenuConfirmationKind.QuitGame, "게임 종료", "데스크톱으로 종료할까요?", "저장되지 않은 진행 상황은 사라질 수 있습니다.", "종료")]
+        [TestCase(MainMenuConfirmationKind.RestartSlot, "슬롯 다시 시작", "2번 슬롯을 처음부터 다시 시작할까요?", "기존 진행 상황이 초기화됩니다.", "다시 시작")]
+        [TestCase(MainMenuConfirmationKind.OverwriteSlot, "슬롯 덮어쓰기", "2번 슬롯에서 새 게임을 시작할까요?", "기존 진행 상황을 덮어씁니다.", "새 게임")]
+        [TestCase(MainMenuConfirmationKind.QuitGame, "게임 종료", "게임을 종료하고 바탕 화면으로 나갈까요?", "저장되지 않은 진행 상황은 사라질 수 있습니다.", "종료")]
         public void ConfirmationPresenter_ResolvesKoreanCopy(
             MainMenuConfirmationKind kind,
             string title,
@@ -491,7 +491,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("슬롯 다시 시작"));
             Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("3번 슬롯을 처음부터 다시 시작할까요?"));
-            Assert.That(presenter.ViewModel.WarningText, Is.EqualTo("기존 진행 상황은 교체됩니다."));
+            Assert.That(presenter.ViewModel.WarningText, Is.EqualTo("기존 진행 상황이 초기화됩니다."));
 
             resolver.SetLocale("en-US");
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("Restart Slot"));
