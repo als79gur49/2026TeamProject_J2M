@@ -384,18 +384,18 @@ HUD classification notes:
 Scene transition content notes:
 
 - Scene transition semantic ids remain distinct, but semantic ids and physical content prefab files are not one-to-one.
-- `StageClearNext` resolves exactly to `GenericLoadingOverlayContent`; the content is the authored StageAdvance primitive and is not a generic fallback.
-- `DeathRetryChanceLost` resolves exactly to the dedicated `ChanceLostOverlayContent` path because chance-loss visuals are slot/effect-driven and do not expose dynamic previous/current/total/death chance text bindings; its current authored slots use explicit inspector-bound slot roots, and `ChanceSlotView*` name fallback exists only as a safety net.
+- `StageClearNext` resolves exactly to `GenericLoadingOverlayContent`; the content is the authored StageAdvance primitive and is not a generic fallback. Its loading label consumes the bounded localized transition text snapshot through an explicit inspector binding.
+- `DeathRetryChanceLost` resolves exactly to the dedicated `ChanceLostOverlayContent` path because chance-loss visuals are slot/effect-driven and do not expose dynamic previous/current/total/death chance text bindings; its current authored slots use explicit inspector-bound slot roots, its localized remaining-chances/loading labels use explicit inspector bindings, and `ChanceSlotView*` name fallback exists only as a safety net.
 - Other canonical transition kinds use their typed Iris executor and do not infer catalog content from an overlay kind or fallback entry.
 - Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
-- Scene transition overlay model composition carries transition semantic identity, input/progress state, and typed chance-loss numeric state only. Generic `Title` / `Message` payload and model surfaces are retired, and the coordinator must not resolve display copy that no renderer consumes.
+- Scene transition overlay model composition carries transition semantic identity, input/progress state, typed chance-loss numeric state, and the bounded localized text snapshot consumed by dedicated chance-loss labels. Generic `Title` / `Message` payload and model surfaces remain retired, and the coordinator must not resolve display copy that no renderer consumes.
 - `LevelFailedRestart` does not own a current dedicated transition message/text content contract.
 
 Deletion protection notes:
 
 - Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
-- `StageResult` is a minimal stage-completion navigation endpoint. It no longer carries or displays title/summary/detail result text; continue, retry, and next-stage paths remain `StageNavigationRequest` intent boundaries.
+- `StageResult` is a minimal stage-completion navigation endpoint. Its payload does not carry title/summary/detail result schema; the localized stage-clear title is presentation-owned, while continue, retry, and next-stage paths remain `StageNavigationRequest` intent boundaries.
 - UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision. It is not a hidden or dev-only retained runtime path.
 - Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
 

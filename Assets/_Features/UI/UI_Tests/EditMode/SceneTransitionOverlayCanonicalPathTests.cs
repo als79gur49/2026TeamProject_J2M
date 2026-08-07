@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -77,6 +78,7 @@ namespace Game.Feature.UI.Tests
             SceneTransitionCoordinator.SetOverlayShellResourceLoaderForTests(null);
             SceneTransitionCoordinator.SetContentCatalogResourceLoaderForTests(null);
             SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(null);
+            SceneTransitionCoordinator.BindLocalizedTextResolverForCurrentScene(null);
         }
 
         [Test]
@@ -158,8 +160,17 @@ namespace Game.Feature.UI.Tests
                     }
 
                     Assert.That(yaml, Does.Contain("_chanceSlotRoots:"), "PR-T4 must not remove the slot root inspector array.");
+                    Assert.That(yaml, Does.Contain("_remainingChancesLabel:"));
+                    Assert.That(yaml, Does.Contain("_loadingLabel:"));
+                    Assert.That(yaml, Does.Contain("_typographyTheme:"));
+                    Assert.That(yaml, Does.Not.Contain("Remainig Lives"));
                     Assert.That(yaml, Does.Not.Contain("_chanceSlotRoots: []"), "PR-T5 requires explicit ChanceLost slot root inspector bindings.");
                     Assert.That(yaml, Does.Contain("ChanceSlotView"), "PR-T4 must preserve the slot visual hierarchy.");
+                }
+                else if (path == GenericLoadingContentPrefabPath)
+                {
+                    Assert.That(yaml, Does.Contain("_loadingLabel:"));
+                    Assert.That(yaml, Does.Contain("_typographyTheme:"));
                 }
             }
         }
@@ -387,6 +398,41 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void SceneTransitionCoordinator_StageClearNextModelCarriesLocalizedLoadingText()
+        {
+            var coordinatorObject = new GameObject("Coordinator");
+            coordinatorObject.SetActive(false);
+            try
+            {
+                var coordinator = coordinatorObject.AddComponent<SceneTransitionCoordinator>();
+                coordinator.BindLocalizedTextResolver(
+                    PackageFreeLocalizedTextResolver.CreateSettingsDefault("ko-KR"));
+                var profile = new StageTransitionProfile(
+                    StageTransitionKind.StageClearNext,
+                    string.Empty,
+                    string.Empty,
+                    minimumVisibleSeconds: 0.25f,
+                    holdSceneActivationUntilMinimumElapsed: true,
+                    blockInput: true,
+                    showProgress: true,
+                    overlayKind: TransitionOverlayKind.StageClear);
+
+                var model = InvokeCreateViewModel(
+                    coordinator,
+                    profile,
+                    StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
+
+                Assert.That(model.Text.LocaleCode, Is.EqualTo("ko-KR"));
+                Assert.That(model.Text.RemainingChancesLabel, Is.Empty);
+                Assert.That(model.Text.LoadingLabel, Is.EqualTo("불러오는 중..."));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(coordinatorObject);
+            }
+        }
+
         private static ISceneTransitionOverlayShellView InvokeEnsureOverlay(SceneTransitionCoordinator coordinator)
         {
             var method = typeof(SceneTransitionCoordinator).GetMethod(
@@ -405,6 +451,18 @@ namespace Game.Feature.UI.Tests
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             return (SceneTransitionOverlayContentView)Invoke(method, coordinator, model);
+        }
+
+        private static SceneTransitionOverlayModel InvokeCreateViewModel(
+            SceneTransitionCoordinator coordinator,
+            StageTransitionProfile profile,
+            StageTransitionHint hint)
+        {
+            var method = typeof(SceneTransitionCoordinator).GetMethod(
+                "CreateViewModel",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (SceneTransitionOverlayModel)Invoke(method, coordinator, profile, hint, 0f);
         }
 
         private static object Invoke(MethodInfo method, object target, params object[] args)

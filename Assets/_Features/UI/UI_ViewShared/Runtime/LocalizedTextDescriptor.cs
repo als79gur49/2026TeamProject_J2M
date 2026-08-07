@@ -6,8 +6,6 @@ namespace Game.Feature.UI.ViewShared
 {
     public static class HudWorldGuideLocalizationKeys
     {
-        public const string Pause = "ui.hud.pause";
-        public const string Chances = "ui.hud.chances";
         public const string Movement = "ui.world_guide.move";
         public const string Push = "ui.world_guide.push";
         public const string Flip = "ui.world_guide.flip";
@@ -312,6 +310,7 @@ namespace Game.Feature.UI.ViewShared
     public enum TerminalResultLocalizationEntryId
     {
         Continue,
+        StageClearTitle,
         LevelFailedTitle,
         ChancesExhaustedDetail,
         RestartStage,
@@ -361,6 +360,7 @@ namespace Game.Feature.UI.ViewShared
         public static class Keys
         {
             public const string Continue = "ui.result.action.continue";
+            public const string StageClearTitle = "ui.result.stage_clear.title";
             public const string LevelFailedTitle = "ui.result.level_failed.title";
             public const string ChancesExhaustedDetail =
                 "ui.result.level_failed.detail.chances_exhausted";
@@ -379,6 +379,13 @@ namespace Game.Feature.UI.ViewShared
                     "계속",
                     LocalizedTextRole.Button,
                     LocalizedTextWeight.Regular),
+                Entry(
+                    TerminalResultLocalizationEntryId.StageClearTitle,
+                    Keys.StageClearTitle,
+                    "Stage Clear",
+                    "스테이지 클리어",
+                    LocalizedTextRole.Title,
+                    LocalizedTextWeight.Bold),
                 Entry(
                     TerminalResultLocalizationEntryId.LevelFailedTitle,
                     Keys.LevelFailedTitle,
@@ -434,6 +441,80 @@ namespace Game.Feature.UI.ViewShared
                 role,
                 weight);
         }
+    }
+
+    public enum SceneTransitionLocalizationEntryId
+    {
+        RemainingChances,
+        Loading,
+    }
+
+    public readonly struct SceneTransitionLocalizationContractEntry
+    {
+        public SceneTransitionLocalizationContractEntry(
+            SceneTransitionLocalizationEntryId id,
+            string key,
+            string english,
+            string korean,
+            LocalizedTextRole role,
+            LocalizedTextWeight weight)
+        {
+            Id = id;
+            Key = key ?? string.Empty;
+            English = english ?? string.Empty;
+            Korean = korean ?? string.Empty;
+            Role = role;
+            Weight = weight;
+        }
+
+        public SceneTransitionLocalizationEntryId Id { get; }
+
+        public string Table => SceneTransitionLocalizationContract.Table;
+
+        public string Key { get; }
+
+        public string English { get; }
+
+        public string Korean { get; }
+
+        public LocalizedTextRole Role { get; }
+
+        public LocalizedTextWeight Weight { get; }
+
+        public bool IsSmart => false;
+    }
+
+    public static class SceneTransitionLocalizationContract
+    {
+        public const string Table = "UI";
+
+        public static class Keys
+        {
+            public const string RemainingChances =
+                "ui.transition.chance_lost.remaining_chances";
+            public const string Loading = "ui.transition.loading";
+        }
+
+        private static readonly IReadOnlyList<SceneTransitionLocalizationContractEntry> ContractEntries =
+            Array.AsReadOnly(new[]
+            {
+                new SceneTransitionLocalizationContractEntry(
+                    SceneTransitionLocalizationEntryId.RemainingChances,
+                    Keys.RemainingChances,
+                    "Remaining Chances",
+                    "재시도 기회",
+                    LocalizedTextRole.Title,
+                    LocalizedTextWeight.Bold),
+                new SceneTransitionLocalizationContractEntry(
+                    SceneTransitionLocalizationEntryId.Loading,
+                    Keys.Loading,
+                    "Loading...",
+                    "불러오는 중...",
+                    LocalizedTextRole.Label,
+                    LocalizedTextWeight.Bold),
+            });
+
+        public static IReadOnlyList<SceneTransitionLocalizationContractEntry> Entries => ContractEntries;
     }
 
     public readonly struct LocalizedTextDescriptor : IEquatable<LocalizedTextDescriptor>
@@ -879,7 +960,6 @@ namespace Game.Feature.UI.ViewShared
                     ["ui.main_menu.start"] = "Start",
                     ["ui.main_menu.quit"] = "Quit",
                     ["ui.pause.title"] = "Paused",
-                    ["ui.pause.description"] = "Pausing modal popup",
                     ["ui.pause.resume"] = "Resume",
                     ["ui.pause.retry"] = "Retry",
                     ["ui.pause.main_menu"] = "Main Menu",
@@ -897,7 +977,7 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayCurrent] = "현재 디스플레이",
                     [SettingsLocalizationContract.Keys.DisplayResolution] = "해상도",
                     [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "자동으로 감지된 해상도만 표시됩니다.",
-                    [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "전체 화면 창",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "테두리 없는 전체 화면",
                     [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "켜짐",
                     [SettingsLocalizationContract.Keys.DisplayApply] = "적용",
                     [SettingsLocalizationContract.Keys.DisplayRevert] = "되돌리기",
@@ -922,27 +1002,26 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.InputResetComplete] = "입력 설정이 초기화되었습니다.",
                     [SettingsLocalizationContract.Keys.InputReservedKey] = "이 키는 사용할 수 없습니다.",
                     [SettingsLocalizationContract.Keys.InputMovementConflict] = "이동 키는 서로 중복될 수 없습니다.",
-                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "다른 키를 이미 재지정하고 있습니다.",
-                    [SettingsLocalizationContract.Keys.InputActionConflict] = "이 키는 이미 {0}에 사용 중입니다.",
+                    [SettingsLocalizationContract.Keys.InputAlreadyRebinding] = "다른 키를 설정하는 중입니다.",
+                    [SettingsLocalizationContract.Keys.InputActionConflict] = "이 키는 이미 {0}에 할당되어 있습니다.",
                     [SettingsLocalizationContract.Keys.InputUnsupportedKey] = "이 키는 사용할 수 없습니다.",
-                    [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "밀기 키 입력하세요...",
-                    [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "뒤집기 키 입력하세요...",
+                    [SettingsLocalizationContract.Keys.InputRebindPushPrompt] = "밀기에 사용할 키를 누르세요...",
+                    [SettingsLocalizationContract.Keys.InputRebindFlipPrompt] = "뒤집기에 사용할 키를 누르세요...",
                     [SettingsLocalizationContract.Keys.InputResetConfirmTitle] = "입력 설정 초기화",
-                    [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "입력 설정 초기화 확인",
+                    [SettingsLocalizationContract.Keys.InputResetConfirmBody] = "입력 설정을 기본값으로 초기화할까요?",
                     [SettingsLocalizationContract.Keys.InputResetConfirmLabel] = "초기화",
                     [SettingsLocalizationContract.Keys.Cancel] = "취소",
-                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "화면 설정 미리 보기 확인",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle] = "화면 설정을 유지할까요?",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody] =
-                        "{0} x {1} 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+                        "{0} x {1} 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다.",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
-                        "{0} x {1} 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다.",
+                        "{0} x {1} 해상도로 창 모드를 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다.",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "유지",
                     [SettingsLocalizationContract.Keys.Back] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",
                     ["ui.main_menu.quit"] = "종료",
                     ["ui.pause.title"] = "일시 정지",
-                    ["ui.pause.description"] = "일시 정지 팝업",
                     ["ui.pause.resume"] = "계속하기",
                     ["ui.pause.retry"] = "다시 시도",
                     ["ui.pause.main_menu"] = "메인 메뉴",
@@ -950,10 +1029,12 @@ namespace Game.Feature.UI.ViewShared
             };
 
             AddTerminalResultEntries(catalog);
+            AddSceneTransitionEntries(catalog);
             AddMainMenuEntries(catalog);
             AddStageEntries(catalog);
             ValidateSettingsCatalog(catalog);
             ValidateTerminalResultCatalog(catalog);
+            ValidateSceneTransitionCatalog(catalog);
             ValidateMainMenuCatalog(catalog);
             return catalog;
         }
@@ -1008,6 +1089,18 @@ namespace Game.Feature.UI.ViewShared
             }
         }
 
+        private static void AddSceneTransitionEntries(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            var english = (IDictionary<string, string>)catalog[DefaultLocaleCode];
+            var korean = (IDictionary<string, string>)catalog[KoreanLocaleCode];
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
+            {
+                english.Add(entry.Key, entry.English);
+                korean.Add(entry.Key, entry.Korean);
+            }
+        }
+
         private static void ValidateTerminalResultCatalog(
             IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
         {
@@ -1025,6 +1118,29 @@ namespace Game.Feature.UI.ViewShared
                     {
                         throw new InvalidOperationException(
                             $"Package-free terminal-result catalog locale '{localeCode}' " +
+                            $"is missing key '{entry.Key}'.");
+                    }
+                }
+            }
+        }
+
+        private static void ValidateSceneTransitionCatalog(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+        {
+            foreach (var localeCode in SupportedLocaleCodes)
+            {
+                if (!catalog.TryGetValue(localeCode, out var localeValues))
+                {
+                    throw new InvalidOperationException(
+                        $"Package-free scene-transition catalog is missing locale '{localeCode}'.");
+                }
+
+                foreach (var entry in SceneTransitionLocalizationContract.Entries)
+                {
+                    if (!localeValues.ContainsKey(entry.Key))
+                    {
+                        throw new InvalidOperationException(
+                            $"Package-free scene-transition catalog locale '{localeCode}' " +
                             $"is missing key '{entry.Key}'.");
                     }
                 }

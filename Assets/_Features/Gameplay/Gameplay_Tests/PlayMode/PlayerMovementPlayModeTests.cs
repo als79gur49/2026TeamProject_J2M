@@ -853,7 +853,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var startTick = host.InputHost.RunSingleTick();
             var startSnapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(startTick, Is.Not.Null);
-            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+            Assert.That(startTick.PresentationData.PlayerActionSignals[0].StartedThisTick, Is.True);
             Assert.That(startSnapshot.TryGetPlayerControlState(10, out var startedState), Is.True);
             Assert.That(startedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(startedState.activeAction.sequence, Is.EqualTo(1));
@@ -1762,7 +1763,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TileFeatureState[] initialTileFeatures = null,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null,
             CubeTopologyState? initialTopology = null,
-            EnemyAiProfile defaultEnemyAiProfile = null)
+            EnemyAiProfile defaultEnemyAiProfile = null,
+            IKeyboardBindingStore keyboardBindingStore = null)
         {
             return CreateHostCore(
                 initialEntities,
@@ -1785,7 +1787,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 initialTileFeatures,
                 tileFeatureDefinitions,
                 initialTopology,
-                defaultEnemyAiProfile);
+                defaultEnemyAiProfile,
+                keyboardBindingStore);
         }
 
         private static GameplaySceneHost CreateHostCore(
@@ -1809,7 +1812,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TileFeatureState[] initialTileFeatures,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
             CubeTopologyState? initialTopology,
-            EnemyAiProfile defaultEnemyAiProfile)
+            EnemyAiProfile defaultEnemyAiProfile,
+            IKeyboardBindingStore keyboardBindingStore)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1840,6 +1844,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var configuration = new GameplaySceneHostConfiguration
             {
                 Actions = actions,
+                KeyboardBindingStore = keyboardBindingStore ?? new PlayModeKeyboardBindingStore(),
                 AutoAdvanceTicks = false,
                 AutoCreateViews = true,
                 BoxSlideStepIntervalSeconds = 0.2f,

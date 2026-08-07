@@ -11,7 +11,6 @@ namespace Game.Feature.UI.HUD
         private const int AuthoredSlotCount = 3;
 
         [SerializeField] private GameObject _root;
-        [SerializeField] private TMP_Text _labelText;
         [SerializeField] private RectTransform _slotContainer;
         [SerializeField] private ChanceSlotView[] _slotViews;
         [SerializeField] private TMP_Text _countText;
@@ -52,7 +51,6 @@ namespace Game.Feature.UI.HUD
         public void ValidateAuthoredStructureOrThrow()
         {
             RequireReference(_root, nameof(_root));
-            RequireReference(_labelText, nameof(_labelText));
             RequireReference(_slotContainer, nameof(_slotContainer));
             RequireReference(_floatingFeedbackRoot, nameof(_floatingFeedbackRoot));
             if (_slotViews == null || _slotViews.Length != AuthoredSlotCount)

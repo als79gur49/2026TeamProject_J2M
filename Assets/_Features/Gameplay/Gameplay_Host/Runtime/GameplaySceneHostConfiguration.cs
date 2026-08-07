@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
+using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -183,6 +184,7 @@ namespace Game.Feature.Gameplay.Host
         public Texture2D BoardSurfaceTexture;
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
+        [NonSerialized] public IKeyboardBindingStore KeyboardBindingStore;
         public ITerminalSessionReadModel TerminalSessionReadModel = TerminalSessionRegistry.ReadModel;
         public ISceneEntryPresentationReadModel SceneEntryPresentationReadModel = SceneEntryPresentationRegistry.ReadModel;
         public GameplayPresentationAudioConfig GameplayPresentationAudioConfig;

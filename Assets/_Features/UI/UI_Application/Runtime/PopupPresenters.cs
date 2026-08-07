@@ -27,7 +27,6 @@ namespace Game.Feature.UI.Application
 
             ViewModel.SetContent(
                 Resolve(payload.TitleTextDescriptor),
-                Resolve(payload.DescriptionTextDescriptor),
                 Resolve(payload.ResumeLabelDescriptor),
                 Resolve(payload.SettingsLabelDescriptor),
                 Resolve(payload.RetryLabelDescriptor),

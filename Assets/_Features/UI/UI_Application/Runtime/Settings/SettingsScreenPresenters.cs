@@ -995,13 +995,17 @@ namespace Game.Feature.UI.Application
             ["ui.main_menu.start"] = "Start",
             ["ui.main_menu.quit"] = "Quit",
             ["ui.pause.title"] = "Paused",
-            ["ui.pause.description"] = "Pausing modal popup",
             ["ui.pause.resume"] = "Resume",
             ["ui.pause.retry"] = "Retry",
             ["ui.pause.main_menu"] = "Main Menu",
             };
 
             foreach (var entry in TerminalResultLocalizationContract.Entries)
+            {
+                values.Add(entry.Key, entry.English);
+            }
+
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
             {
                 values.Add(entry.Key, entry.English);
             }

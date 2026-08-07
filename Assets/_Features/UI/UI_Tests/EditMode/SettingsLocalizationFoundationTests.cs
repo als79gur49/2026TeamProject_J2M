@@ -47,7 +47,6 @@ namespace Game.Feature.UI.Tests
         private static readonly LocalizedTextDescriptor[] ExpectedPauseDescriptors =
         {
             PauseStaticTextDescriptors.Title,
-            PauseStaticTextDescriptors.Description,
             PauseStaticTextDescriptors.Resume,
             PauseStaticTextDescriptors.Settings,
             PauseStaticTextDescriptors.Retry,
@@ -190,7 +189,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("입력 설정 초기화"));
-            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("입력 설정 초기화 확인"));
+            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("입력 설정을 기본값으로 초기화할까요?"));
             Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo("초기화"));
             Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("취소"));
 
@@ -477,20 +476,20 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+                Is.EqualTo("다른 키를 설정하는 중입니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
                     SettingsStaticTextDescriptors.Flip)),
-                Is.EqualTo("이 키는 이미 뒤집기에 사용 중입니다."));
+                Is.EqualTo("이 키는 이미 뒤집기에 할당되어 있습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputUnsupportedKey()),
                 Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
-                Is.EqualTo("밀기 키 입력하세요..."));
+                Is.EqualTo("밀기에 사용할 키를 누르세요..."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
-                Is.EqualTo("뒤집기 키 입력하세요..."));
+                Is.EqualTo("뒤집기에 사용할 키를 누르세요..."));
         }
 
         [Test]
@@ -542,7 +541,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ui.pause.title",
-                    "ui.pause.description",
                     "ui.pause.resume",
                     "ui.common.settings",
                     "ui.pause.retry",
@@ -583,7 +581,6 @@ namespace Game.Feature.UI.Tests
             presenter.Apply(PausePopupPayload.Default);
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("일시 정지"));
-            Assert.That(presenter.ViewModel.DescriptionText, Is.EqualTo("일시 정지 팝업"));
             Assert.That(presenter.ViewModel.ResumeLabel, Is.EqualTo("계속하기"));
             Assert.That(presenter.ViewModel.SettingsLabel, Is.EqualTo("설정"));
             Assert.That(presenter.ViewModel.RetryLabel, Is.EqualTo("다시 시도"));
@@ -1043,12 +1040,12 @@ namespace Game.Feature.UI.Tests
             KeyboardBindableAction.Push,
             "ui.settings.input.rebind_push_prompt",
             "Press a key for Push...",
-            "밀기 키 입력하세요...")]
+            "밀기에 사용할 키를 누르세요...")]
         [TestCase(
             KeyboardBindableAction.Flip,
             "ui.settings.input.rebind_flip_prompt",
             "Press a key for Flip...",
-            "뒤집기 키 입력하세요...")]
+            "뒤집기에 사용할 키를 누르세요...")]
         public void SettingsInputPresenter_ActiveRebindRetainsDescriptorAndReResolvesCurrentLocale(
             KeyboardBindableAction action,
             string expectedKey,
@@ -1190,7 +1187,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
-            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
             Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
             Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
         }
@@ -1337,7 +1334,7 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
-                Assert.That(fixture.InputView.StatusText, Is.EqualTo("다른 키를 이미 재지정하고 있습니다."));
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
                 Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
                 Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
             }
@@ -1420,11 +1417,11 @@ namespace Game.Feature.UI.Tests
 
             presenter.StartRebind(KeyboardBindableAction.Push);
 
-            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("밀기 키 입력하세요..."));
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("밀기에 사용할 키를 누르세요..."));
 
             keyboardPort.Complete();
 
-            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("이 키는 이미 뒤집기에 사용 중입니다."));
+            Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("이 키는 이미 뒤집기에 할당되어 있습니다."));
 
             resolver.SetLocale("en-US");
             presenter.RefreshLocalization();
@@ -1549,7 +1546,6 @@ namespace Game.Feature.UI.Tests
             return new[]
             {
                 payload.TitleTextDescriptor,
-                payload.DescriptionTextDescriptor,
                 payload.ResumeLabelDescriptor,
                 payload.SettingsLabelDescriptor,
                 payload.RetryLabelDescriptor,
@@ -1783,7 +1779,6 @@ namespace Game.Feature.UI.Tests
                         ["ui.main_menu.start"] = "Start",
                         ["ui.main_menu.quit"] = "Quit",
                         ["ui.pause.title"] = "Paused",
-                        ["ui.pause.description"] = "Pausing modal popup",
                         ["ui.pause.resume"] = "Resume",
                         ["ui.pause.retry"] = "Retry",
                         ["ui.pause.main_menu"] = "Main Menu",
@@ -1807,17 +1802,16 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
                         ["ui.settings.input.reserved_key"] = "이 키는 사용할 수 없습니다.",
                         ["ui.settings.input.movement_conflict"] = "이동 키는 서로 중복될 수 없습니다.",
-                        ["ui.settings.input.already_rebinding"] = "다른 키를 이미 재지정하고 있습니다.",
-                        ["ui.settings.input.action_conflict"] = "이 키는 이미 {0}에 사용 중입니다.",
+                        ["ui.settings.input.already_rebinding"] = "다른 키를 설정하는 중입니다.",
+                        ["ui.settings.input.action_conflict"] = "이 키는 이미 {0}에 할당되어 있습니다.",
                         ["ui.settings.input.unsupported_key"] = "이 키는 사용할 수 없습니다.",
-                        ["ui.settings.input.rebind_push_prompt"] = "밀기 키 입력하세요...",
-                        ["ui.settings.input.rebind_flip_prompt"] = "뒤집기 키 입력하세요...",
+                        ["ui.settings.input.rebind_push_prompt"] = "밀기에 사용할 키를 누르세요...",
+                        ["ui.settings.input.rebind_flip_prompt"] = "뒤집기에 사용할 키를 누르세요...",
                         ["ui.common.back"] = "뒤로",
                         ["ui.common.settings"] = "설정",
                         ["ui.main_menu.start"] = "시작",
                         ["ui.main_menu.quit"] = "종료",
                         ["ui.pause.title"] = "일시 정지",
-                        ["ui.pause.description"] = "일시 정지 팝업",
                         ["ui.pause.resume"] = "계속하기",
                         ["ui.pause.retry"] = "다시 시도",
                         ["ui.pause.main_menu"] = "메인 메뉴",

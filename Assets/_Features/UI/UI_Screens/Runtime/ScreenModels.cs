@@ -805,14 +805,18 @@ namespace Game.Feature.UI.Screens
     {
         public event Action Changed;
 
+        public string TitleText { get; private set; } = string.Empty;
+
         public string ContinueLabel { get; private set; } = string.Empty;
 
         public bool IsContinueEnabled { get; private set; } = true;
 
         public void SetContent(
+            string titleText,
             string continueLabel,
             bool isContinueEnabled = true)
         {
+            TitleText = titleText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
             IsContinueEnabled = isContinueEnabled;
             Changed?.Invoke();

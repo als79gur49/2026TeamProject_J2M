@@ -204,16 +204,17 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PausePrefab_DescriptionTextIsVisibleSurface()
+        public void PausePrefab_DoesNotExposeDescriptionCopy()
         {
             var prefab = LoadPausePrefab();
-            var description = GetField<TMP_Text>(prefab, "_descriptionLabel");
+            var description = prefab.transform.Find("Description");
 
-            Assert.That(description.gameObject.activeSelf, Is.True, "Pause description is product copy, not a hidden template.");
-            Assert.That(description.enabled, Is.True);
-            Assert.That(description.color.a, Is.GreaterThan(0f));
-            Assert.That(description.rectTransform.rect.width, Is.GreaterThan(0f));
-            Assert.That(description.rectTransform.rect.height, Is.GreaterThan(0f));
+            Assert.That(
+                typeof(PausePopupView).GetField("_descriptionLabel", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(description, Is.Not.Null);
+            Assert.That(description.gameObject.activeSelf, Is.False);
+            Assert.That(description.GetComponent<TMP_Text>().text, Is.Empty);
         }
 
         [Test]
@@ -362,7 +363,6 @@ namespace Game.Feature.UI.Tests
             var root = UnityEngine.Object.Instantiate(LoadPausePrefab().gameObject);
             var view = root.GetComponent<PausePopupView>();
             var title = GetField<TMP_Text>(view, "_titleLabel");
-            var description = GetField<TMP_Text>(view, "_descriptionLabel");
             var binding = TypographyBinding.FindFor(title);
             var authoredFontSize = title.fontSize;
             var authoredAutoSizing = title.enableAutoSizing;
@@ -402,7 +402,6 @@ namespace Game.Feature.UI.Tests
 
                 AssertPauseTitleLayout(
                     title,
-                    description,
                     "Pause",
                     authoredFontSize,
                     authoredAutoSizing,
@@ -414,7 +413,6 @@ namespace Game.Feature.UI.Tests
 
                 AssertPauseTitleLayout(
                     title,
-                    description,
                     "일시 정지",
                     authoredFontSize,
                     authoredAutoSizing,
@@ -428,7 +426,6 @@ namespace Game.Feature.UI.Tests
 
                 AssertPauseTitleLayout(
                     title,
-                    description,
                     "Pause",
                     authoredFontSize,
                     authoredAutoSizing,
@@ -637,7 +634,6 @@ namespace Game.Feature.UI.Tests
             return new[]
             {
                 ("Pause title", GetField<TMP_Text>(prefab, "_titleLabel"), TypographyStyleTag.HeaderMedium),
-                ("Pause description", GetField<TMP_Text>(prefab, "_descriptionLabel"), TypographyStyleTag.BodySmall),
                 ("Resume button", GetField<TMP_Text>(prefab, "_resumeButtonLabel"), TypographyStyleTag.Button),
                 ("Settings button", GetField<TMP_Text>(prefab, "_settingsButtonLabel"), TypographyStyleTag.Button),
                 ("Retry button", GetField<TMP_Text>(prefab, "_retryButtonLabel"), TypographyStyleTag.Button),
@@ -844,7 +840,6 @@ namespace Game.Feature.UI.Tests
 
         private static void AssertPauseTitleLayout(
             TMP_Text title,
-            TMP_Text description,
             string expectedText,
             float expectedFontSize,
             bool expectedAutoSizing,
@@ -876,12 +871,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(title.enableAutoSizing, Is.EqualTo(expectedAutoSizing), $"{stage} Auto Size");
             Assert.That(title.fontSizeMin, Is.EqualTo(expectedFontSizeMin), $"{stage} min");
             Assert.That(title.fontSizeMax, Is.EqualTo(expectedFontSizeMax), $"{stage} max");
-
-            var root = (RectTransform)title.transform.parent;
-            var titleBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(root, title.rectTransform);
-            var descriptionBounds =
-                RectTransformUtility.CalculateRelativeRectTransformBounds(root, description.rectTransform);
-            Assert.That(titleBounds.Intersects(descriptionBounds), Is.False, $"{stage} title/description overlap");
         }
 
         private static void AssertSameAssetIdentity(
@@ -1013,7 +1002,6 @@ namespace Game.Feature.UI.Tests
                     ["en-US"] = new Dictionary<string, string>
                     {
                         ["ui.pause.title"] = "Pause",
-                        ["ui.pause.description"] = "Game paused",
                         ["ui.pause.resume"] = "Resume",
                         ["ui.common.settings"] = "Settings",
                         ["ui.pause.retry"] = "Retry",
@@ -1024,7 +1012,6 @@ namespace Game.Feature.UI.Tests
                     ["ko-KR"] = new Dictionary<string, string>
                     {
                         ["ui.pause.title"] = "일시 정지",
-                        ["ui.pause.description"] = "게임 일시정지",
                         ["ui.pause.resume"] = "계속",
                         ["ui.common.settings"] = "설정",
                         ["ui.pause.retry"] = "다시 시도",

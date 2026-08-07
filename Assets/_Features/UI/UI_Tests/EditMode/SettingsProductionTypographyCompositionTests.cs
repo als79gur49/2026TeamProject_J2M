@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Screens;
+using Game.Shared.Input;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
@@ -23,16 +24,32 @@ namespace Game.Feature.UI.Tests
         private const string LocalePreferenceKey = "ui.selected_locale";
 
         private Locale _previousLocale;
+        private bool _hadKeyboardBindingOverrides;
+        private bool _hadKeyboardMovementScheme;
         private bool _hadLocalePreference;
         private MonoBehaviour _installedSceneInstaller;
+        private string _previousKeyboardBindingOverrides;
+        private string _previousKeyboardMovementScheme;
         private string _previousLocalePreference;
 
         [SetUp]
         public void SetUp()
         {
             _previousLocale = LocalizationSettings.SelectedLocale;
+            _hadKeyboardBindingOverrides = PlayerPrefs.HasKey(
+                PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            _previousKeyboardBindingOverrides = PlayerPrefs.GetString(
+                PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
+                string.Empty);
+            _hadKeyboardMovementScheme = PlayerPrefs.HasKey(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            _previousKeyboardMovementScheme = PlayerPrefs.GetString(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                string.Empty);
             _hadLocalePreference = PlayerPrefs.HasKey(LocalePreferenceKey);
             _previousLocalePreference = PlayerPrefs.GetString(LocalePreferenceKey, string.Empty);
+            PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
             PlayerPrefs.SetString(LocalePreferenceKey, "en-US");
             PlayerPrefs.Save();
             SetExternalLocale("en-US");
@@ -44,6 +61,28 @@ namespace Game.Feature.UI.Tests
             CloseAndDestroyLiveDropdownLists();
             DisposeInstalledSceneRuntime();
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            if (_hadKeyboardBindingOverrides)
+            {
+                PlayerPrefs.SetString(
+                    PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
+                    _previousKeyboardBindingOverrides);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            }
+
+            if (_hadKeyboardMovementScheme)
+            {
+                PlayerPrefs.SetString(
+                    PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                    _previousKeyboardMovementScheme);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            }
+
             if (_hadLocalePreference)
             {
                 PlayerPrefs.SetString(LocalePreferenceKey, _previousLocalePreference);

@@ -593,7 +593,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 400, y: 340}
+  m_SizeDelta: {x: 400, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8482222884413709022
 CanvasRenderer:
@@ -660,7 +660,6 @@ MonoBehaviour:
   _root: {fileID: 3062262817607147490}
   _canvasGroup: {fileID: 345567595097072712}
   _titleLabel: {fileID: 8453535842778186484}
-  _descriptionLabel: {fileID: 2581567651527016550}
   _resumeButton: {fileID: 3602179882493590805}
   _resumeButtonLabel: {fileID: 5903951643069850275}
   _settingsButton: {fileID: 1796191660059802174}
@@ -699,7 +698,7 @@ MonoBehaviour:
   m_MinWidth: -1
   m_MinHeight: -1
   m_PreferredWidth: 400
-  m_PreferredHeight: 340
+  m_PreferredHeight: 300
   m_FlexibleWidth: 0
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
@@ -1275,7 +1274,6 @@ GameObject:
   - component: {fileID: 5541989269488137899}
   - component: {fileID: 4676996895970801950}
   - component: {fileID: 2581567651527016550}
-  - component: {fileID: -7200000000000000002}
   - component: {fileID: 4471707247054539103}
   m_Layer: 0
   m_Name: Description
@@ -1283,7 +1281,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5541989269488137899
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1331,7 +1329,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Description
+  m_text:
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: b8aa923455f5a64468504293db7cef18, type: 2}
   m_sharedMaterial: {fileID: -6429523705279460953, guid: b8aa923455f5a64468504293db7cef18, type: 2}
@@ -2225,23 +2223,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
   target: {fileID: 8453535842778186484}
   styleTag: 2
-  sizingSourceOverride: 2
-  applyMaskOverride: 0
-  useApplyMaskOverride: 0
---- !u!114 &-7200000000000000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5419800651837946030}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
-  target: {fileID: 2581567651527016550}
-  styleTag: 5
   sizingSourceOverride: 2
   applyMaskOverride: 0
   useApplyMaskOverride: 0
