@@ -12,6 +12,7 @@ namespace Game.Platform.Steam
         private readonly ISteamNativeApi nativeApi;
         private readonly bool smokeRequested;
         private readonly Action<string> smokeLogger;
+        private readonly SteamAchievementSmokeCoordinator achievementSmokeCoordinator;
 
         private SteamPlatformRuntimeState state = SteamPlatformRuntimeState.NotInitialized;
         private SteamPlatformAvailability steamAvailability =
@@ -52,10 +53,36 @@ namespace Game.Platform.Steam
             ISteamNativeApi nativeApi,
             bool smokeRequested,
             Action<string> smokeLogger)
+            : this(
+                new SteamRuntimeDependencies(nativeApi, achievements: null),
+                smokeRequested,
+                achievementSmokeRequested: false,
+                monotonicSeconds: null,
+                smokeLogger)
         {
-            this.nativeApi = nativeApi ?? throw new ArgumentNullException(nameof(nativeApi));
+        }
+
+        internal SteamPlatformRuntime(
+            SteamRuntimeDependencies dependencies,
+            bool smokeRequested,
+            bool achievementSmokeRequested,
+            Func<double> monotonicSeconds,
+            Action<string> smokeLogger)
+        {
+            if (dependencies == null)
+            {
+                throw new ArgumentNullException(nameof(dependencies));
+            }
+
+            nativeApi = dependencies.Lifecycle;
             this.smokeRequested = smokeRequested;
             this.smokeLogger = smokeLogger;
+            achievementSmokeCoordinator = new SteamAchievementSmokeCoordinator(
+                dependencies.Achievements,
+                smokeRequested,
+                achievementSmokeRequested,
+                monotonicSeconds,
+                smokeLogger);
         }
 
         public static PlatformProviderId ProviderId { get; } = new PlatformProviderId("steam");
@@ -65,6 +92,9 @@ namespace Game.Platform.Steam
         public PlatformAvailability Availability => steamAvailability.ToPlatformAvailability();
 
         public SteamPlatformAvailability SteamAvailability => steamAvailability;
+
+        public SteamAchievementSmokeDiagnostics AchievementSmokeDiagnostics =>
+            achievementSmokeCoordinator.Diagnostics;
 
         public SteamPlatformDiagnostics Diagnostics => new SteamPlatformDiagnostics(
             state,
@@ -154,6 +184,11 @@ namespace Game.Platform.Steam
                 lastFailureReason = SteamPlatformFailureReason.None;
                 steamAvailability = SteamPlatformAvailability.Available();
                 initializationResult = PlatformInitializationResult.Success;
+                achievementSmokeCoordinator.BeginSession(
+                    initializationSucceeded: true,
+                    observedAppId,
+                    steamIdentityValid,
+                    loggedOn);
                 return initializationResult;
             }
             catch (Exception exception)
@@ -179,6 +214,7 @@ namespace Game.Platform.Steam
             {
                 nativeApi.RunCallbacks();
                 callbackPumpCount++;
+                achievementSmokeCoordinator.Tick();
                 ObserveDelayedOverlayEnabledForSmoke();
             }
             catch (Exception exception)
@@ -200,6 +236,7 @@ namespace Game.Platform.Steam
 
             shutdownAttempted = true;
             state = SteamPlatformRuntimeState.ShuttingDown;
+            achievementSmokeCoordinator.Shutdown();
             if (!nativeInitialized)
             {
                 state = SteamPlatformRuntimeState.Shutdown;
@@ -237,6 +274,11 @@ namespace Game.Platform.Steam
                 ? SteamPlatformRuntimeState.Faulted
                 : SteamPlatformRuntimeState.Unavailable;
             SetFailure(failureReason, detail, exception);
+            achievementSmokeCoordinator.BeginSession(
+                initializationSucceeded: false,
+                observedAppId,
+                steamIdentityValid,
+                loggedOn);
             initializationResult = PlatformInitializationResult.Failure(
                 failureReason + ": " + detail);
             return initializationResult;

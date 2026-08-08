@@ -17,6 +17,12 @@ generic provider arguments or decide fallback. The always-compiled Foundation ow
 resolves this factory only for an explicit `steam` request. Package or DLL presence alone
 therefore never changes the Local provider default.
 
+Each selected runtime creates one `SteamworksNetNativeApi` instance. That instance
+implements both the lifecycle interface and the narrow achievement transport interface.
+It translates `UserStatsStored_t` and `UserAchievementStored_t` into Steamworks-free,
+privacy-bounded observations. Both handles are registered transactionally and are driven
+only by the existing runtime-owned `SteamAPI.RunCallbacks` pump.
+
 When this assembly is excluded because the verified dependency is absent, Foundation still
 preserves an explicit `steam` request and reports `RequestedProviderNotRegistered`; Local is
 not selected. The adapter does not call `RestartAppIfNecessary`, create `steam_appid.txt`, or

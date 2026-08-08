@@ -54,6 +54,51 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
+        public void AchievementSmokeArgument_IsExactExplicitOptInAndDefaultOff()
+        {
+            Assert.That(
+                SteamPlatformRegistration.IsAchievementSmokeRequested(
+                    Array.Empty<string>()),
+                Is.False);
+            Assert.That(
+                SteamPlatformRegistration.IsAchievementSmokeRequested(new[]
+                {
+                    "VectorQuake.exe",
+                    SteamPlatformRegistration.AchievementSmokeArgument,
+                }),
+                Is.True);
+            Assert.That(
+                SteamPlatformRegistration.IsAchievementSmokeRequested(new[]
+                {
+                    SteamPlatformRegistration.AchievementSmokeArgument + "=true",
+                }),
+                Is.False);
+        }
+
+        [Test]
+        public void DependenciesFactory_IsInvokedOnceOnlyForSelectedSteamRuntime()
+        {
+            var dependencyFactoryCount = 0;
+            var adapter = new FakeSteamAdapter();
+            Assert.That(
+                SteamPlatformRegistration.RegisterDependenciesFactory(
+                    () =>
+                    {
+                        dependencyFactoryCount++;
+                        return new SteamRuntimeDependencies(adapter, adapter);
+                    },
+                    smokeRequested: true,
+                    achievementSmokeRequested: true).IsSuccess,
+                Is.True);
+            InvokeRegistryMember("Seal");
+
+            var selection = Select(ParseSelection("steam"));
+
+            Assert.That(selection.Runtime, Is.TypeOf<SteamPlatformRuntime>());
+            Assert.That(dependencyFactoryCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void RegisterFactory_RejectsNullNativeApiFactory()
         {
             Assert.That(
@@ -255,6 +300,35 @@ namespace Game.Platform.Steam.Tests.EditMode
                 null);
             Assert.That(method, Is.Not.Null);
             return method.Invoke(null, null);
+        }
+
+        private sealed class FakeSteamAdapter : ISteamNativeApi, ISteamAchievementApi
+        {
+            public bool IsPacksizeCompatible() => true;
+            public SteamDllCheckObservation ObserveDllCheck() =>
+                SteamDllCheckObservation.UpstreamDisabled(true);
+            public bool Initialize() => true;
+            public void RunCallbacks() { }
+            public void Shutdown() { }
+            public uint GetAppId() => 480;
+            public bool IsSteamIdValid() => true;
+            public bool IsLoggedOn() => true;
+            public bool IsOverlayEnabled() => false;
+            public void RegisterOverlayActivationCallback(Action<bool> observer) { }
+            public void DisposeOverlayActivationCallback() { }
+            public uint GetNumAchievements() => 0;
+            public string GetAchievementName(uint index) => string.Empty;
+            public bool GetAchievement(string achievementName, out bool achieved)
+            {
+                achieved = false;
+                return false;
+            }
+            public bool SetAchievement(string achievementName) => false;
+            public bool StoreStats() => false;
+            public void RegisterAchievementStoreCallbacks(
+                Action<SteamStatsStoredObservation> statsStoredObserver,
+                Action<SteamAchievementStoredObservation> achievementStoredObserver) { }
+            public void DisposeAchievementStoreCallbacks() { }
         }
     }
 }

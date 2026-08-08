@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Game.Platform.Steam.Tests.EditMode
 {
@@ -16,6 +17,8 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal Exception InitializeException { get; set; }
         internal Exception CallbackException { get; set; }
         internal Exception ShutdownException { get; set; }
+        internal Action CallbackAction { get; set; }
+        internal List<string> CallOrder { get; set; }
 
         internal int PacksizeCount { get; private set; }
         internal int DllCheckCount { get; private set; }
@@ -61,15 +64,19 @@ namespace Game.Platform.Steam.Tests.EditMode
         public void RunCallbacks()
         {
             CallbackCount++;
+            CallOrder?.Add("run-callbacks");
             if (CallbackException != null)
             {
                 throw CallbackException;
             }
+
+            CallbackAction?.Invoke();
         }
 
         public void Shutdown()
         {
             ShutdownCount++;
+            CallOrder?.Add("native-shutdown");
             if (ShutdownException != null)
             {
                 throw ShutdownException;
@@ -108,6 +115,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         public void DisposeOverlayActivationCallback()
         {
             OverlayCallbackDisposeCount++;
+            CallOrder?.Add("overlay-dispose");
             overlayObserver = null;
         }
 
