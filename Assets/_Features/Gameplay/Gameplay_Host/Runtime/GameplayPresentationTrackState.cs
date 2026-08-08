@@ -1080,6 +1080,11 @@ namespace Game.Feature.Gameplay.Host
         {
             if (_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType))
             {
+                if (entityType == EntityType.None)
+                {
+                    return PresentationOwnerRole.Static;
+                }
+
                 if (entityType == EntityType.Box)
                 {
                     return PresentationOwnerRole.Box;
@@ -1390,6 +1395,11 @@ namespace Game.Feature.Gameplay.Host
         {
             if (_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType))
             {
+                if (entityType == EntityType.None)
+                {
+                    return PresentationOwnerRole.Static;
+                }
+
                 if (entityType == EntityType.Box)
                 {
                     return PresentationOwnerRole.Box;
