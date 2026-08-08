@@ -109,7 +109,7 @@ Current baseline captured for this cleanup pass:
 | `LocaleFontSet` | Done | Per-locale font/material mappings are centralized by locale, category, and weight. |
 | Resolved style cache | Done | `ResolvedTypographyStyleCache` resolves `locale + styleTag` to `ResolvedTmpTypographyStyle`. |
 | `TypographyBinding` | Done | Prefabs/views carry style tag, sizing-source override, and optional apply-mask override without owning text keys. |
-| Locale participation | Done | `LocaleThemed` is the serialized default. The 13 Settings physical-key TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
+| Locale participation | Done | `LocaleThemed` is the serialized default. The 10 Settings binding-display TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
 | Pause / Main Menu typography migration | Done | Pause uses its existing semantic rules. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR resolves through the all-role Climate policy, and generic en-US `Button` remains SciFiSoldier. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
@@ -661,10 +661,10 @@ Typography validation:
 | Invalid material/font pair warning or fail | Incompatible material preset is reported before runtime. |
 | PreserveAuthored sizing keeps `fontSize` / auto-size / min/max | Hybrid or authored sizing does not overwrite prefab sizing. |
 | `ko-KR` NanumGothic application | Korean locale applies `NanumGothic SDF` where mapped. |
-| `en-US` original font/category preservation | Every one of the 36 governed Settings targets resolves to the prefab-authored TMP font asset, shared material preset, and fontStyle without conditional skips. |
+| `en-US` original font/category preservation | Every one of the 35 governed Settings targets resolves to the prefab-authored TMP font asset, shared material preset, and fontStyle without conditional skips. |
 | Settings production composition parity | Main Menu and Gameplay load the same Settings prefab/theme from `GameplayScreenPrefabCatalog` and use the same runtime builder. |
-| Settings TMP inventory closure | The prefab's 51 `TMP_Text` targets, 51 exact serialized `TypographyBinding.Target` values, and 51 manifest entries compare exactly: 25 localized static, 11 localized dynamic/special, 13 locale-invariant key displays, and 2 decorative targets. |
-| Settings key-display round trip | All 13 key displays preserve string, font, shared material, font style, sizing, autosizing, and spacing through `en-US -> ko-KR -> en-US`. |
+| Settings TMP inventory closure | The prefab's 45 `TMP_Text` targets, 45 exact serialized `TypographyBinding.Target` values, and 45 manifest entries compare exactly: 22 localized static, 11 localized dynamic/special, 10 locale-invariant key displays, and 2 decorative targets. |
+| Settings key-display round trip | All 10 key displays preserve string, font, shared material, font style, sizing, autosizing, and spacing through `en-US -> ko-KR -> en-US`. |
 | Open dropdown locale switch | Generated live item labels are restyled immediately without closing the list; raw resolution option copy remains locale-neutral. Future localized options require descriptor-backed option models. |
 | No runtime material instancing | Runtime applies shared material presets, not per-label material instances. |
 | Full UI lane pass | UI lane must pass for typography migration changes, unless explicitly not run with reason. |
@@ -676,7 +676,7 @@ Editor validation:
 | Prefab `TypographyBinding` coverage | Governed prefabs report missing bindings. |
 | Missing glyph report | Missing glyphs are listed with locale/string source. |
 | Preview smoke | `en-US` and `ko-KR` previews render non-null fonts/materials. |
-| Locale-invariant preview | Settings preview applies 38 locale-themed bindings, explicitly skips 13 physical-key bindings, and leaves every skipped TMP property unchanged. |
+| Locale-invariant preview | Settings preview applies 35 locale-themed bindings, explicitly skips 10 physical-key bindings, and leaves every skipped TMP property unchanged. |
 
 ## 11. Deferred Scope
 
@@ -746,8 +746,8 @@ Editor validation:
 
 Keyboard binding display names are raw Input System output and are locale-independent. Locale switching must not translate them or mutate their authored font, shared material, font style, font size, autosizing, min/max size, line spacing, or character spacing. Rebinding may replace the displayed raw value immediately, and keyboard-layout-dependent display-name changes remain allowed.
 
-The Settings contract covers exactly 13 TMP targets: `_movementCurrentText`, `_pushCurrentText`, `_pushKeyDisplayLabel`, `_flipCurrentText`, `_flipKeyDisplayLabel`, the six TMP targets under `MovementInputRow/WASDKeyDisplay`, and the two TMP targets under `MovementInputRow/ArrowKeyDisplay`. The other 36 governed Settings targets remain `LocaleThemed`; the two decorative TMP targets also retain their existing default locale participation.
+The Settings contract covers exactly 10 locale-invariant TMP targets: `_pushCurrentText`, `_pushKeyDisplayLabel`, `_flipCurrentText`, `_flipKeyDisplayLabel`, and the six TMP targets under `MovementInputRow/WASDKeyDisplay`. The other 35 governed Settings targets remain `LocaleThemed`; the two decorative TMP targets also retain their existing default locale participation.
 
-`Movement Keys`, `Use Arrow Keys`, `Push`, `Flip`, `Change`, `Reset Input`, and existing localized status/validation sentences continue through String Tables and locale typography. Waiting and duplicate action-label sentences remain separate policy work; this decision does not add key names to String Tables.
+`Movement Keys`, `Push`, `Flip`, `Reset Input`, and existing localized status/validation sentences continue through String Tables and locale typography. Waiting and duplicate action-label sentences remain separate policy work; this decision does not add key names to String Tables.
 
 World Guide movement, Push E, and Flip Q key displays remain authored locale-independent TMP content and are not connected to the typography theme in this slice. Synchronizing World Guide E/Q with user rebinding remains a separate feature.

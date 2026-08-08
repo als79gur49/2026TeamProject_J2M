@@ -122,11 +122,10 @@ Observed asset details:
 | Settings | `_resolutionHoverHintLabel` | LiberationSans SDF | LiberationSans embedded | 12 | off | 10/40 | BodySmall | Authored initially | Helper text can wrap/clip |
 | Settings | `_applyButtonLabel`, `_revertButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18 | on | 10/18 | Button | Hybrid | Command labels need localized width check |
 | Settings | `_movementLabel`, `_pushLabel`, `_flipLabel` | Exo SemiBold | Exo SemiBold embedded | 20 | on | 10-16/20 | Label | Hybrid | Input row layout sensitive |
-| Settings | `_movementToggleLabel` | Exo SemiBold | Exo SemiBold embedded | 13 | on | 10/13 | Label | Hybrid | Compact control label |
-| Settings | `_movementCurrentText`, `_pushCurrentText`, `_flipCurrentText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | off | 10/40 | Value | LocaleInvariant | Raw binding names preserve authored typography |
+| Settings | `_pushCurrentText`, `_flipCurrentText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | off | 10/40 | Value | LocaleInvariant | Raw binding names preserve authored typography |
 | Settings | `_pushKeyDisplayLabel`, `_flipKeyDisplayLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 24 | on | 6/24 | Value | LocaleInvariant | Rebinding still updates text; existing keycap autosizing is preserved |
-| Settings | Movement `WASDKeyDisplay` 6 TMP + `ArrowKeyDisplay` 2 TMP | Authored key-display fonts | Authored shared materials | authored | authored | authored | Value | LocaleInvariant | Nested physical-key displays use the same explicit participation contract |
-| Settings | `_pushChangeButtonLabel`, `_flipChangeButtonLabel`, `_resetButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18-20 | on | 10/18-20 | Button | Hybrid | Button width and state frame coupling |
+| Settings | Movement `WASDKeyDisplay` 6 TMP | Authored key-display fonts | Authored shared materials | authored | authored | authored | Value | LocaleInvariant | Nested physical-key displays use the same explicit participation contract |
+| Settings | `_resetButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18-20 | on | 10/18-20 | Button | Hybrid | Button width and state frame coupling |
 | Settings | `_statusText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | on | 10/20 | Status | Hybrid | Dynamic input validation strings |
 | Pause | `_titleLabel` | Orbitron ExtraBold | Orbitron embedded | 30 | on | 14/30 | HeaderMedium | Hybrid | Uses TMP bold style flag plus bold font |
 | Pause | `_descriptionLabel` | Exo SemiBold | Exo SemiBold embedded | 18 | on | 12/18 | Body | Hybrid | Body descriptor currently maps to semi-bold font |
@@ -140,7 +139,7 @@ Localized descriptor keys observed:
 | Settings | title | `ui.settings.title` | Title/Bold |
 | Settings | tabs | `ui.settings.audio`, `ui.settings.display`, `ui.settings.input` | Subtitle/Bold |
 | Settings | input labels | `ui.settings.input.movement_keys`, `ui.settings.input.use_arrow_keys`, `ui.settings.input.push`, `ui.settings.input.flip` | Label/Regular |
-| Settings | buttons | `ui.settings.input.change`, `ui.settings.input.reset_input`, `ui.common.back`, language value keys | Button/Regular |
+| Settings | buttons | `ui.settings.input.reset_input`, `ui.common.back`, language value keys | Button/Regular |
 | Settings | dynamic values/status | `ui.settings.audio.volume_value`, `ui.settings.audio.volume_value_muted`, `ui.settings.display.resolution_value`, `ui.settings.display.preview_countdown`, input status keys | Label/Regular |
 | Pause | title/description | `ui.pause.title`, `ui.pause.description` | Title/Bold, Body/Regular |
 | Pause | buttons | `ui.pause.resume`, `ui.common.settings`, `ui.pause.retry`, `ui.pause.main_menu` | Button/Regular |
@@ -286,7 +285,7 @@ Recommended ko-KR locale font set:
 
 ## 12. Locale-Independent Key Display Closeout
 
-The Settings inventory remains exactly 51 TMP targets: 25 `LocalizedStatic`, 11 `LocalizedDynamic`, 13 `LocaleInvariantKeyDisplay`, and 2 `Decorative`. The former raw-normal exception classification is retired; locale-invariant targets are actively checked for an exact serialized target, one binding per TMP, and `LocaleParticipation == LocaleInvariant`. The other 36 governed targets remain `LocaleThemed`.
+The Settings inventory is exactly 45 TMP targets: 22 `LocalizedStatic`, 11 `LocalizedDynamic`, 10 `LocaleInvariantKeyDisplay`, and 2 `Decorative`. The former raw-normal exception classification is retired; locale-invariant targets are actively checked for an exact serialized target, one binding per TMP, and `LocaleParticipation == LocaleInvariant`. The other 35 governed targets remain `LocaleThemed`.
 
 Locale switching must preserve each key display's string, font, `fontSharedMaterial`, `fontStyle`, `fontSize`, autosizing flag and range, line spacing, and character spacing across `en-US -> ko-KR -> en-US`. Editor preview follows the same decision and reports actually applied versus intentionally skipped bindings separately.
 
@@ -297,7 +296,7 @@ World Guide movement key TMPs plus Push E and Flip Q remain outside the locale t
 ### 2026-07-22 P2 contract hardening
 
 - `TypographyStyleTag` enum validity is now a structural validator contract for both `LocaleThemed` and `LocaleInvariant`; the generic validator does not force every invariant binding to `Value`.
-- The Settings production composition guard separately requires all 13 `LocaleInvariantKeyDisplay` bindings to use `TypographyStyleTag.Value`.
+- The Settings production composition guard separately requires all 10 `LocaleInvariantKeyDisplay` bindings to use `TypographyStyleTag.Value`.
 - Null-theme Editor preview counts valid invariant targets as skipped before theme resolution, reports one missing-theme error only when a themed binding (or an empty diagnostic root) needs it, and creates no invariant snapshot or mutation.
 - Scene Selection preview and restore remove selected descendants when an ancestor is selected. Prefab assets are deduplicated by asset path only for the current call, so independent Scene roots/instances remain distinct and repeated calls still apply.
 - Settings live capture and schema-v1 manifest generation both require `typography_bindings=38`; schema and split-log columns are unchanged.

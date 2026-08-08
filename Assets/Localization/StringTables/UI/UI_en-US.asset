@@ -39,20 +39,12 @@ MonoBehaviour:
     m_Localized: Movement Keys
     m_Metadata:
       m_Items: []
-  - m_Id: 1881628673
-    m_Localized: Use Arrow Keys
-    m_Metadata:
-      m_Items: []
   - m_Id: 1881628674
     m_Localized: Push
     m_Metadata:
       m_Items: []
   - m_Id: 1881628675
     m_Localized: Flip
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1881628676
-    m_Localized: Change
     m_Metadata:
       m_Items: []
   - m_Id: 1881628677

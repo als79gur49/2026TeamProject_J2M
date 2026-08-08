@@ -536,14 +536,14 @@ namespace Game.Feature.UI.Tests
 
             try
             {
-                Assert.That(bindings, Has.Length.EqualTo(51));
-                Assert.That(invariantBindings, Has.Length.EqualTo(13));
+                Assert.That(bindings, Has.Length.EqualTo(45));
+                Assert.That(invariantBindings, Has.Length.EqualTo(10));
 
                 var result = TypographyPreviewUtility.ApplyPreview(root, "ko-KR", theme, recordUndo: false);
 
                 Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
-                Assert.That(result.AppliedCount, Is.EqualTo(38));
-                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
+                Assert.That(result.AppliedCount, Is.EqualTo(35));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(10));
                 Assert.That(
                     governedBinding.Target.font,
                     Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
@@ -555,7 +555,7 @@ namespace Game.Feature.UI.Tests
                     snapshots[binding.Target].AssertSame(binding.Target, binding.name + " preview");
                 }
 
-                Assert.That(TypographyPreviewUtility.RestorePreview(root, recordUndo: false), Is.EqualTo(38));
+                Assert.That(TypographyPreviewUtility.RestorePreview(root, recordUndo: false), Is.EqualTo(35));
                 foreach (var binding in invariantBindings)
                 {
                     snapshots[binding.Target].AssertSame(binding.Target, binding.name + " restore");
@@ -583,9 +583,9 @@ namespace Game.Feature.UI.Tests
                     TypographyThemeValidator.FindThemeAsset());
 
                 Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
-                Assert.That(result.AppliedCount, Is.EqualTo(38));
-                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
-                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(38));
+                Assert.That(result.AppliedCount, Is.EqualTo(35));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(10));
+                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(35));
             }
             finally
             {
@@ -613,9 +613,9 @@ namespace Game.Feature.UI.Tests
                     TypographyThemeValidator.FindThemeAsset());
 
                 Assert.That(result.HasErrors, Is.False, string.Join("; ", result.Errors));
-                Assert.That(result.AppliedCount, Is.EqualTo(38));
-                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(13));
-                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(38));
+                Assert.That(result.AppliedCount, Is.EqualTo(35));
+                Assert.That(result.LocaleInvariantSkippedCount, Is.EqualTo(10));
+                Assert.That(TypographyPreviewUtility.RestorePreviewOnSelection(), Is.EqualTo(35));
             }
             finally
             {
@@ -979,14 +979,17 @@ namespace Game.Feature.UI.Tests
 
             foreach (var target in TypographyPreviewScreenshotUtility.RequiredTargets)
             {
-                // The recorded canonical set predates retirement of the Pause description.
-                // Current captures are validated separately against the five-target contract.
+                // The recorded canonical set predates retirement of the Pause description and
+                // the Settings movement-label/arrow-display cleanup. Current captures are
+                // validated separately against the current contracts.
                 var expectedLocalizedCount = string.Equals(
                     target.FileStem,
                     "Pause",
                     System.StringComparison.Ordinal)
                     ? 6
-                    : TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem);
+                    : string.Equals(target.FileStem, "Settings", System.StringComparison.Ordinal)
+                        ? 22
+                        : TypographyPreviewScreenshotUtility.GetExpectedLocalizedTextCount(target.FileStem);
                 foreach (var locale in TypographyThemeValidator.RequiredLocaleCodes)
                 {
                     var expectedFileName =
@@ -1003,7 +1006,7 @@ namespace Game.Feature.UI.Tests
                     {
                         Assert.That(
                             entry.TypographyBindingCount,
-                            Is.EqualTo(TypographyPreviewScreenshotUtility.SettingsExpectedAppliedBindingCount));
+                            Is.EqualTo(38));
                     }
                     Assert.That(entry.OrientationValidation, Does.StartWith("PASS"));
                     Assert.That(entry.NonBlankValidation, Is.EqualTo("PASS"));
@@ -1233,7 +1236,7 @@ namespace Game.Feature.UI.Tests
             switch (fileStem)
             {
                 case "Settings":
-                    return 22;
+                    return 20;
 
                 case "Pause":
                     return 5;

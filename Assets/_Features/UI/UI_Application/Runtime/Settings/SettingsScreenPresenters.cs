@@ -549,29 +549,21 @@ namespace Game.Feature.UI.Application
     {
         public SettingsInputPresenterInput(
             LocalizedTextDescriptor movementLabelDescriptor,
-            LocalizedTextDescriptor useArrowKeysLabelDescriptor,
             LocalizedTextDescriptor pushLabelDescriptor,
             LocalizedTextDescriptor flipLabelDescriptor,
-            LocalizedTextDescriptor changeLabelDescriptor,
             LocalizedTextDescriptor resetLabelDescriptor)
         {
             MovementLabelDescriptor = movementLabelDescriptor;
-            UseArrowKeysLabelDescriptor = useArrowKeysLabelDescriptor;
             PushLabelDescriptor = pushLabelDescriptor;
             FlipLabelDescriptor = flipLabelDescriptor;
-            ChangeLabelDescriptor = changeLabelDescriptor;
             ResetLabelDescriptor = resetLabelDescriptor;
         }
 
         public LocalizedTextDescriptor MovementLabelDescriptor { get; }
 
-        public LocalizedTextDescriptor UseArrowKeysLabelDescriptor { get; }
-
         public LocalizedTextDescriptor PushLabelDescriptor { get; }
 
         public LocalizedTextDescriptor FlipLabelDescriptor { get; }
-
-        public LocalizedTextDescriptor ChangeLabelDescriptor { get; }
 
         public LocalizedTextDescriptor ResetLabelDescriptor { get; }
     }
@@ -582,10 +574,8 @@ namespace Game.Feature.UI.Application
         private readonly ILocalizedTextResolver _localizedTextResolver;
         private SettingsInputPresenterInput _input = new SettingsInputPresenterInput(
             SettingsStaticTextDescriptors.MovementKeys,
-            SettingsStaticTextDescriptors.UseArrowKeys,
             SettingsStaticTextDescriptors.Push,
             SettingsStaticTextDescriptors.Flip,
-            SettingsStaticTextDescriptors.Change,
             SettingsStaticTextDescriptors.ResetInput);
         private LocalizedTextDescriptor _statusTextDescriptor;
 
@@ -665,15 +655,11 @@ namespace Game.Feature.UI.Application
             var areControlsInteractable = !snapshot.IsRebinding;
             ViewModel.SetContent(
                 Resolve(_input.MovementLabelDescriptor),
-                Resolve(_input.UseArrowKeysLabelDescriptor),
                 snapshot.MovementScheme == KeyboardMovementScheme.ArrowKeys,
-                snapshot.MovementDisplayName,
                 Resolve(_input.PushLabelDescriptor),
                 snapshot.PushDisplayName,
-                Resolve(_input.ChangeLabelDescriptor),
                 Resolve(_input.FlipLabelDescriptor),
                 snapshot.FlipDisplayName,
-                Resolve(_input.ChangeLabelDescriptor),
                 Resolve(_input.ResetLabelDescriptor),
                 ResolveStatusText(),
                 snapshot.IsRebinding,
@@ -845,10 +831,8 @@ namespace Game.Feature.UI.Application
                 previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
                 _payload.MovementLabelDescriptor,
-                _payload.UseArrowKeysLabelDescriptor,
                 _payload.PushLabelDescriptor,
                 _payload.FlipLabelDescriptor,
-                _payload.InputChangeLabelDescriptor,
                 _payload.ResetInputLabelDescriptor));
             RefreshViewModel();
         }
@@ -955,10 +939,8 @@ namespace Game.Feature.UI.Application
             [SettingsLocalizationContract.Keys.DisplayApply] = "Apply",
             [SettingsLocalizationContract.Keys.DisplayRevert] = "Revert",
             [SettingsLocalizationContract.Keys.InputMovementKeys] = "Movement Keys",
-            [SettingsLocalizationContract.Keys.InputUseArrowKeys] = "Use Arrow Keys",
             [SettingsLocalizationContract.Keys.InputPush] = "Push",
             [SettingsLocalizationContract.Keys.InputFlip] = "Flip",
-            [SettingsLocalizationContract.Keys.InputChange] = "Change",
             [SettingsLocalizationContract.Keys.InputReset] = "Reset Input",
             [SettingsLocalizationContract.Keys.Language] = "Language",
             [SettingsLocalizationContract.Keys.LanguageEnglish] = "English",

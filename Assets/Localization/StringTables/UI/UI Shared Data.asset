@@ -35,20 +35,12 @@ MonoBehaviour:
     m_Key: ui.settings.input.movement_keys
     m_Metadata:
       m_Items: []
-  - m_Id: 1881628673
-    m_Key: ui.settings.input.use_arrow_keys
-    m_Metadata:
-      m_Items: []
   - m_Id: 1881628674
     m_Key: ui.settings.input.push
     m_Metadata:
       m_Items: []
   - m_Id: 1881628675
     m_Key: ui.settings.input.flip
-    m_Metadata:
-      m_Items: []
-  - m_Id: 1881628676
-    m_Key: ui.settings.input.change
     m_Metadata:
       m_Items: []
   - m_Id: 1881628677

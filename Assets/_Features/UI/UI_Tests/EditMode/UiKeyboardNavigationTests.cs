@@ -1044,9 +1044,9 @@ namespace Game.Feature.UI.Tests
                 "Display.Fullscreen.Toggle",
                 "Display.Apply.Button",
                 "Display.Revert.Button",
-                "Input.Movement.Slider",
-                "Input.Push.Change",
-                "Input.Flip.Change",
+                "Input.Movement.Toggle",
+                "Input.Push.Rebind",
+                "Input.Flip.Rebind",
                 "Input.Reset",
             };
 
@@ -1330,14 +1330,93 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementSlider()
+        public void SettingsHeaderTabs_DownFromInput_EntersInputMovementToggle()
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Input);
             MoveToCurrentHeaderTab(harness.View);
 
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Slider"));
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Toggle"));
+        }
+
+        [Test]
+        public void SettingsInputMovementToggle_EnterSubmitsImmediatelyWithSelectionFrame()
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Input);
+            var requestedCount = 0;
+            var requestedArrowKeys = false;
+            harness.View.InputView.MovementSchemeToggleRequested += useArrowKeys =>
+            {
+                requestedCount++;
+                requestedArrowKeys = useArrowKeys;
+            };
+
+            harness.View.OnNavigationFocusGained();
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Input.Movement.Toggle"));
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(harness.View, "_focusNodeSlots");
+            var movementSlot = FindSettingsFocusSlot(slots, "Input.Movement.Toggle");
+            Assert.That(IsSelectionFrameVisiblyShown(movementSlot.SelectionFrame), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(requestedCount, Is.EqualTo(1));
+            Assert.That(requestedArrowKeys, Is.True);
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+        }
+
+        [TestCase(1, "Input.Push.Rebind", true)]
+        [TestCase(2, "Input.Flip.Rebind", false)]
+        public void SettingsInputRebindKeycap_EnterStartsMatchingRebindWithSelectionFrame(
+            int downCount,
+            string expectedNodeId,
+            bool isPush)
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Input);
+            var pushRequestedCount = 0;
+            var flipRequestedCount = 0;
+            harness.View.InputView.PushRebindRequested += () => pushRequestedCount++;
+            harness.View.InputView.FlipRebindRequested += () => flipRequestedCount++;
+
+            harness.View.OnNavigationFocusGained();
+            for (var i = 0; i < downCount; i++)
+            {
+                Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
+            }
+
+            Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo(expectedNodeId));
+            var slots = GetPrivateField<UiFocusNodeSlot[]>(harness.View, "_focusNodeSlots");
+            var slot = FindSettingsFocusSlot(slots, expectedNodeId);
+            Assert.That(IsSelectionFrameVisiblyShown(slot.SelectionFrame), Is.True);
+
+            Assert.That(harness.View.HandleSubmit(), Is.True);
+
+            Assert.That(pushRequestedCount, Is.EqualTo(isPush ? 1 : 0));
+            Assert.That(flipRequestedCount, Is.EqualTo(isPush ? 0 : 1));
+            Assert.That(IsSettingsFocusEditing(harness.View), Is.False);
+        }
+
+        [TestCase("_pushRebindButton", true)]
+        [TestCase("_flipRebindButton", false)]
+        public void SettingsInputRebindKeycap_MouseClickUsesAuthoredButtonFeedback(
+            string buttonFieldName,
+            bool isPush)
+        {
+            using var harness = CreateSettingsHarness(SettingsSectionId.Input);
+            var pushRequestedCount = 0;
+            var flipRequestedCount = 0;
+            harness.View.InputView.PushRebindRequested += () => pushRequestedCount++;
+            harness.View.InputView.FlipRebindRequested += () => flipRequestedCount++;
+            var button = GetPrivateField<Button>(harness.View.InputView, buttonFieldName);
+
+            Assert.That(button, Is.Not.Null);
+            Assert.That(button.GetComponent<UiHoverScaleEffect>(), Is.Not.Null);
+
+            button.onClick.Invoke();
+
+            Assert.That(pushRequestedCount, Is.EqualTo(isPush ? 1 : 0));
+            Assert.That(flipRequestedCount, Is.EqualTo(isPush ? 0 : 1));
         }
 
         [Test]
@@ -2047,15 +2126,11 @@ namespace Game.Feature.UI.Tests
                 isDisplayStatusVisible: false);
             inputViewModel.SetContent(
                 "Movement",
-                "Use arrow keys",
                 false,
-                "WASD",
                 "Push",
                 "Space",
-                "Change",
                 "Flip",
                 "F",
-                "Change",
                 "Reset",
                 string.Empty,
                 false,
