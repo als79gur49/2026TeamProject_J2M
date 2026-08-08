@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8c14f07c576143afad4fe046bc45aaca, type: 3}
   m_Name: CampaignMain_Stage31_PrimaryGoal_PlayerAtAnyZone
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.PlayerAtAnyZoneConditionAsset
   zoneIds:
   - exit
   requireAlive: 1

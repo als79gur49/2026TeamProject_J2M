@@ -902,7 +902,7 @@ namespace Game.Feature.UI.Tests
                 TerminalDestinationKind.SameSceneGameClear);
             presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(
                 tickIndex: 9,
-                stageIdValue: "stage-4-2"));
+                stageIdValue: "stage-4-3"));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9, terminalToken));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));

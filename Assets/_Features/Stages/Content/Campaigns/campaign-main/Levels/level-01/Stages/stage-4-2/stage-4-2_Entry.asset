@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   stageId:
     value: stage-4-2
-  authoringDefinition: {fileID: 11400000, guid: d3e1fc66a01afab41be8b44b8ab61f37, type: 2}
-  gameplayDefinition: {fileID: 11400000, guid: 7469fe2c065f3b19bfbeb515fcfcc7fd, type: 2}
-  presentationDefinition: {fileID: 11400000, guid: 7c67801ed84dafc16e40cbc546f0931c, type: 2}
-  audioDefinition: {fileID: 11400000, guid: c0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, type: 2}
+  authoringDefinition: {fileID: 11400000, guid: 16c53052f8b4e304b8e40bb4791af522, type: 2}
+  gameplayDefinition: {fileID: 11400000, guid: 2d4313eeefca6a2ca32def636ed28556, type: 2}
+  presentationDefinition: {fileID: 11400000, guid: 606c8c8ab997a15d696bfcb621d76b7f, type: 2}
+  audioDefinition: {fileID: 11400000, guid: c0999999999999999999999999999999, type: 2}
   catalogWorldId: showcase
   catalogChapterId: examples
   catalogSortOrder: 10

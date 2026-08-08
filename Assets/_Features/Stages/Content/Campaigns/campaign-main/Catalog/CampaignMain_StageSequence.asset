@@ -22,8 +22,16 @@ MonoBehaviour:
     displayName: 0-2
     levelGroupId: level-0
   - stageId:
+      value: stage-0-3
+    displayName: 0-3
+    levelGroupId: level-0
+  - stageId:
       value: stage-1-1
     displayName: 1-1
+    levelGroupId: level-1
+  - stageId:
+      value: stage-1-2
+    displayName: 1-2
     levelGroupId: level-1
   - stageId:
       value: stage-2-1
@@ -42,10 +50,18 @@ MonoBehaviour:
     displayName: 3-2
     levelGroupId: level-3
   - stageId:
+      value: stage-3-3
+    displayName: 3-3
+    levelGroupId: level-3
+  - stageId:
       value: stage-4-1
     displayName: 4-1
     levelGroupId: level-4
   - stageId:
       value: stage-4-2
     displayName: 4-2
+    levelGroupId: level-4
+  - stageId:
+      value: stage-4-3
+    displayName: 4-3
     levelGroupId: level-4

@@ -967,7 +967,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.SharedEnemyAiRoot + "/Capabilities/GravityFieldAura/EnemyCapability_GravityFieldAura.asset";
 
         private const string AdvancedCampaignStagePath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-3/stage-4-3.asset";
 
         private const string CampaignEnemyPresentationCatalogPath =
             StageContentPaths.CampaignRoot + "/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationCatalog_CampaignMain.asset";

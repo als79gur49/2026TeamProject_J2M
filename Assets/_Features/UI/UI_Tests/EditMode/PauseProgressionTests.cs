@@ -16,21 +16,21 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
 
         [Test]
-        public void Mapper_CanonicalCampaignCreatesFiveGroupStartsAndFourStages()
+        public void Mapper_CanonicalCampaignCreatesFiveGroupStartsAndEightStages()
         {
             var snapshot = CreateCanonicalSnapshot("stage-2-1");
 
             var viewModel = MapProgression(snapshot);
 
             Assert.That(viewModel.IsVisible, Is.True);
-            Assert.That(viewModel.Markers, Has.Count.EqualTo(9));
-            Assert.That(viewModel.CurrentIndex, Is.EqualTo(3));
+            Assert.That(viewModel.Markers, Has.Count.EqualTo(13));
+            Assert.That(viewModel.CurrentIndex, Is.EqualTo(5));
             Assert.That(
                 CountMarkers(viewModel, PauseProgressionMarkerKind.GroupStart),
                 Is.EqualTo(5));
             Assert.That(
                 CountMarkers(viewModel, PauseProgressionMarkerKind.Stage),
-                Is.EqualTo(4));
+                Is.EqualTo(8));
         }
 
         [Test]
@@ -42,7 +42,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(viewModel.IsVisible, Is.True);
             Assert.That(viewModel.CurrentIndex, Is.EqualTo(-1));
-            Assert.That(viewModel.Markers, Has.Count.EqualTo(9));
+            Assert.That(viewModel.Markers, Has.Count.EqualTo(13));
         }
 
         [Test]
@@ -74,7 +74,7 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(source.TryRead(out var snapshot), Is.True);
                 Assert.That(snapshot.IsAvailable, Is.True);
-                Assert.That(snapshot.Stages, Has.Count.EqualTo(9));
+                Assert.That(snapshot.Stages, Has.Count.EqualTo(13));
                 Assert.That(snapshot.CurrentStageKey, Is.EqualTo("stage-3-1"));
             }
             finally
@@ -114,11 +114,11 @@ namespace Game.Feature.UI.Tests
                 var backLinePosition = backLine.anchoredPosition;
                 var backLineSize = backLine.sizeDelta;
 
-                Assert.That(progression.MarkerCount, Is.EqualTo(9));
-                Assert.That(progression.CurrentIndex, Is.EqualTo(3));
-                Assert.That(markers[3].VisualImage.color, Is.EqualTo(currentColor));
-                Assert.That(markers[4].VisualImage.color, Is.EqualTo(stageTemplate.VisualImage.color));
-                Assert.That(markers[3].IsViewed, Is.True);
+                Assert.That(progression.MarkerCount, Is.EqualTo(13));
+                Assert.That(progression.CurrentIndex, Is.EqualTo(5));
+                Assert.That(markers[5].VisualImage.color, Is.EqualTo(currentColor));
+                Assert.That(markers[6].VisualImage.color, Is.EqualTo(stageTemplate.VisualImage.color));
+                Assert.That(markers[5].IsViewed, Is.True);
                 Assert.That(backLine.parent, Is.SameAs(viewport));
                 Assert.That(backLine.GetSiblingIndex(), Is.LessThan(content.GetSiblingIndex()));
                 Assert.That(backLine.rect.height, Is.GreaterThan(0f));
@@ -136,24 +136,24 @@ namespace Game.Feature.UI.Tests
                     GetBottomIn(markers[1].RectTransform, viewport),
                     Is.EqualTo(GetTopIn(backLine, viewport)).Within(0.01f));
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Right), Is.True);
-                Assert.That(progression.ViewedIndex, Is.EqualTo(4));
-                Assert.That(progression.CurrentIndex, Is.EqualTo(3));
-                Assert.That(markers[3].VisualImage.color, Is.EqualTo(currentColor));
-                Assert.That(markers[3].IsViewed, Is.False);
-                Assert.That(markers[4].IsViewed, Is.True);
+                Assert.That(progression.ViewedIndex, Is.EqualTo(6));
+                Assert.That(progression.CurrentIndex, Is.EqualTo(5));
+                Assert.That(markers[5].VisualImage.color, Is.EqualTo(currentColor));
+                Assert.That(markers[5].IsViewed, Is.False);
+                Assert.That(markers[6].IsViewed, Is.True);
                 Assert.That(navigation.SelectedIndex, Is.EqualTo(selectedBeforeScroll));
                 Assert.That(backLine.anchoredPosition, Is.EqualTo(backLinePosition));
                 Assert.That(backLine.sizeDelta, Is.EqualTo(backLineSize));
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Left), Is.True);
-                Assert.That(progression.ViewedIndex, Is.EqualTo(3));
-                Assert.That(markers[4].IsViewed, Is.False);
-                Assert.That(markers[3].IsViewed, Is.True);
+                Assert.That(progression.ViewedIndex, Is.EqualTo(5));
+                Assert.That(markers[6].IsViewed, Is.False);
+                Assert.That(markers[5].IsViewed, Is.True);
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Down), Is.True);
                 Assert.That(navigation.SelectedIndex, Is.EqualTo(selectedBeforeScroll + 1));
                 view.OnNavigationFocusLost();
-                Assert.That(markers[3].IsViewed, Is.False);
+                Assert.That(markers[5].IsViewed, Is.False);
                 view.OnNavigationFocusGained();
-                Assert.That(markers[3].IsViewed, Is.True);
+                Assert.That(markers[5].IsViewed, Is.True);
             }
             finally
             {

@@ -46,14 +46,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolver = CreateResolver();
 
             Assert.That(resolver.FirstStageId.Value, Is.EqualTo("stage-0-1"));
-            Assert.That(resolver.FinalStageId.Value, Is.EqualTo("stage-4-2"));
-            Assert.That(resolver.IsFinal(StageId.CreateOrThrow("stage-4-2")), Is.True);
+            Assert.That(resolver.FinalStageId.Value, Is.EqualTo("stage-4-3"));
+            Assert.That(resolver.IsFinal(StageId.CreateOrThrow("stage-4-3")), Is.True);
             Assert.That(resolver.Contains(StageId.CreateOrThrow("stage-5-1")), Is.False);
             Assert.That(
                 CampaignStageSequenceDefinition.IsRetiredCompletedStageId(StageId.CreateOrThrow("stage-5-1")),
                 Is.True);
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-2-1")).Value, Is.EqualTo("stage-2-2"));
             Assert.That(resolver.GetFirstStageInLevelGroupOrNone("level-2").Value, Is.EqualTo("stage-2-1"));
+            Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-0-2")).Value, Is.EqualTo("stage-0-3"));
+            Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-0-3")).Value, Is.EqualTo("stage-1-1"));
+            Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-1-1")).Value, Is.EqualTo("stage-1-2"));
+            Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-2-2")).Value, Is.EqualTo("stage-3-1"));
+            Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-3-3")).Value, Is.EqualTo("stage-4-1"));
+            Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-4-2")).Value, Is.EqualTo("stage-4-3"));
             Assert.That(
                 resolver.Entries.Select(entry => entry.StageId.Value).ToArray(),
                 Is.EqualTo(CampaignStageSequenceDefinition.CanonicalStageIdValues));
@@ -677,7 +683,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             CampaignStageResultNavigationStore.Clear();
             var completedStageId = StageId.CreateOrThrow("stage-1-1");
-            var nextStageId = StageId.CreateOrThrow("stage-2-1");
+            var nextStageId = StageId.CreateOrThrow("stage-1-2");
 
             CampaignStageResultNavigationStore.Set(
                 new CampaignStageResultNavigationPlan(
@@ -686,23 +692,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     campaignCompleted: false));
 
             Assert.That(CampaignStageResultNavigationStore.TryGet(completedStageId, out var nextPlan), Is.True);
-            Assert.That(nextPlan.NextStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(nextPlan.NextStageRequest.StageId.Value, Is.EqualTo("stage-1-2"));
             Assert.That(nextPlan.CampaignCompleted, Is.False);
 
             CampaignStageResultNavigationStore.Set(
                 new CampaignStageResultNavigationPlan(
-                    StageId.CreateOrThrow("stage-4-2"),
+                    StageId.CreateOrThrow("stage-4-3"),
                     StageNavigationRequest.None,
                     campaignCompleted: true));
-            Assert.That(CampaignStageResultNavigationStore.TryGet(StageId.CreateOrThrow("stage-4-2"), out var finalPlan), Is.True);
+            Assert.That(CampaignStageResultNavigationStore.TryGet(StageId.CreateOrThrow("stage-4-3"), out var finalPlan), Is.True);
             Assert.That(finalPlan.CampaignCompleted, Is.True);
             Assert.That(finalPlan.NextStageRequest.IsValid, Is.False);
         }
 
-        [TestCase("stage-0-2", "level-0", "stage-1-1", "level-1")]
-        [TestCase("stage-1-1", "level-1", "stage-2-1", "level-2")]
+        [TestCase("stage-0-3", "level-0", "stage-1-1", "level-1")]
+        [TestCase("stage-1-2", "level-1", "stage-2-1", "level-2")]
         [TestCase("stage-2-2", "level-2", "stage-3-1", "level-3")]
-        [TestCase("stage-3-2", "level-3", "stage-4-1", "level-4")]
+        [TestCase("stage-3-3", "level-3", "stage-4-1", "level-4")]
         [Category("Extended")]
         public void StageClear_AdvancesAcrossLevelGroupsRestoringRemainingChancesAndKeepingCurrentSceneDisplayStable(
             string completedStageId,
@@ -723,9 +729,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [TestCase("stage-0-1", "level-0", "stage-0-2", "level-0")]
+        [TestCase("stage-0-2", "level-0", "stage-0-3", "level-0")]
+        [TestCase("stage-1-1", "level-1", "stage-1-2", "level-1")]
         [TestCase("stage-2-1", "level-2", "stage-2-2", "level-2")]
         [TestCase("stage-3-1", "level-3", "stage-3-2", "level-3")]
+        [TestCase("stage-3-2", "level-3", "stage-3-3", "level-3")]
         [TestCase("stage-4-1", "level-4", "stage-4-2", "level-4")]
+        [TestCase("stage-4-2", "level-4", "stage-4-3", "level-4")]
         [Category("Extended")]
         public void StageClear_AdvancesWithinLevelGroupPreservingRemainingChances(
             string completedStageId,
@@ -837,7 +847,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateMinimalStageCompletionReadModel("stage-1-1", tickIndex: 10),
                     });
 
-                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-1-2"));
                 Assert.That(saveStore.LoadSlot(2).CurrentStageId.Value, Is.EqualTo("stage-3-1"));
             }
             finally
@@ -1915,7 +1925,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     frames[0].StageEvent.Value.EventKind,
                     Is.EqualTo(GameplayStageEventKind.Cleared));
-                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-2-1"));
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-1-2"));
                 feed.TerminalClaimAccepted -= acceptedHandler;
                 feed.Dispose();
             }

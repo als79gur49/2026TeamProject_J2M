@@ -2651,6 +2651,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GameplayTickViewPresenter_PresentInitial_StaticWallViewRemainsVisible()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_PresentInitial_StaticWallViewRemainsVisible));
+
+            try
+            {
+                var presenter = CreatePrimitivePresenter(rootObject, out var registry, out var topology);
+                var wall = CreateWall(30, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.PresentInitial(new[] { wall }, topology);
+
+                Assert.That(registry.TryGetView(wall.entityId, out var wallView), Is.True);
+                Assert.That(wallView.gameObject.activeSelf, Is.True);
+                Assert.That(wallView.gameObject.activeInHierarchy, Is.True);
+                Assert.That(wallView.GetComponentInChildren<Renderer>(includeInactive: false), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayTickViewPresenter_PresentationPause_FreezesExtensionProgressUntilResume()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_PresentationPause_FreezesExtensionProgressUntilResume));
@@ -14599,6 +14623,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                unitRole = UnitRole.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                aiMode = EnemyAiMode.None,
+            };
+        }
+
         private static TickResult CreateMotionTickResult(
             EntityState finalEntity,
             CubeTopologyState topology,
@@ -16431,6 +16473,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BasePoseArbitration_StaticWallCommittedPose_ResolvesStaticOwner()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            stateStore.EntityTypesByEntityId[30] = EntityType.None;
+            var committedPose = PoseAt(1f);
+            stateStore.CommittedLocalTargetPoses[30] = committedPose;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(30, out var frame), Is.True);
+            Assert.That(frame.OwnerRole, Is.EqualTo(PresentationOwnerRole.Static));
+            Assert.That(frame.BasePose.Position, Is.EqualTo(committedPose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.CommittedPose));
+            Assert.That(frames.Rejections, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
         public void JumpAdditiveLocalOffset_DoesNotReplaceResolvedBasePose()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17778,6 +17839,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityCandidates.Single(),
                 entityId: 10,
                 ownerRole: PresentationOwnerRole.Player,
+                face: FaceId.Front,
+                sourceTick: 93);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TransitionEntityVisibilityCandidateCollection_StaticWallUsesStaticOwner()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            stateStore.EntityTypesByEntityId[30] = EntityType.None;
+            stateStore.TransitionVisibilityStates[30] = new TransitionVisibilityState(
+                TickTransitionVisibilityMode.ShowAtTransitionStart,
+                PoseAt(1f),
+                projectedSlot: null,
+                FaceId.Front);
+            var candidates = new PresentationVisibilityCandidateSet();
+
+            CollectTransitionEntityVisibility(stateStore, trackState, sourceTick: 93, candidates);
+
+            Assert.That(candidates.TryGetCandidates(30, out var entityCandidates), Is.True);
+            AssertTransitionEntityVisibilityCandidate(
+                entityCandidates.Single(),
+                entityId: 30,
+                ownerRole: PresentationOwnerRole.Static,
                 face: FaceId.Front,
                 sourceTick: 93);
         }

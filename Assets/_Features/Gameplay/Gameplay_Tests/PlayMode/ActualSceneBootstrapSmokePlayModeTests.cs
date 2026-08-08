@@ -38,7 +38,7 @@ using UnityEditor.SceneManagement;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
-    public sealed class ActualSceneBootstrapSmokePlayModeTests : InputTestFixture
+    public sealed class ActualSceneBootstrapSmokePlayModeTests
     {
         private const int FirstTickSmokeCount = 5;
         private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
@@ -49,30 +49,47 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs";
         private const string StageBackedGameplaySceneInstallerBaseGuid = "c22c31beb01e4098b026132a77fcc93d";
 #endif
-        private bool _ownsIsolatedInputFixture;
+        private bool _usesSyntheticInput;
+        private InputSettings.BackgroundBehavior _previousBackgroundBehavior;
+#if UNITY_EDITOR
+        private InputSettings.EditorInputBehaviorInPlayMode _previousEditorInputBehavior;
+#endif
 
         [SetUp]
-        public override void Setup()
+        public void Setup()
         {
             var testName = TestContext.CurrentContext.Test.Name;
-            _ownsIsolatedInputFixture =
+            _usesSyntheticInput =
                 testName.Contains("TerminalProductionStageResultInput") ||
                 testName.Contains("TerminalStageEntryOpening") ||
                 testName.Contains("TerminalGameClearPlayerE2E");
-            if (_ownsIsolatedInputFixture)
+            if (!_usesSyntheticInput)
             {
-                base.Setup();
+                return;
             }
+
+            _previousBackgroundBehavior = InputSystem.settings.backgroundBehavior;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+#if UNITY_EDITOR
+            _previousEditorInputBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+            InputSystem.settings.editorInputBehaviorInPlayMode =
+                InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+#endif
         }
 
         [TearDown]
-        public override void TearDown()
+        public void TearDown()
         {
-            if (_ownsIsolatedInputFixture)
+            if (!_usesSyntheticInput)
             {
-                base.TearDown();
-                _ownsIsolatedInputFixture = false;
+                return;
             }
+
+            InputSystem.settings.backgroundBehavior = _previousBackgroundBehavior;
+#if UNITY_EDITOR
+            InputSystem.settings.editorInputBehaviorInPlayMode = _previousEditorInputBehavior;
+#endif
+            _usesSyntheticInput = false;
         }
 
         [UnityTearDown]
@@ -85,7 +102,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             CampaignChanceHudDiagnostics.IsEnabled = false;
             CampaignChanceHudDiagnostics.LogToUnityConsole = false;
             CampaignLaunchHandoffSessionStore.ResetForTests();
-            yield return CleanupSceneRuntime();
             foreach (var installer in Object.FindObjectsByType<GameplayUiFlowInstaller>(
                          FindObjectsInactive.Include,
                          FindObjectsSortMode.None))
@@ -99,6 +115,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 Object.Destroy(coordinator.gameObject);
             }
+
+            // Stop any in-flight terminal scene transition before unloading its scenes.
+            // Otherwise the async load can complete during teardown and leak an input
+            // module or action owner into the next fixture case.
+            yield return null;
+            yield return CleanupSceneRuntime();
 
             TerminalDestinationReadiness.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
@@ -122,11 +144,38 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_3_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-0-3"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage1_1_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
                 StageId.CreateOrThrow("stage-1-1"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_1_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-3-1"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_1_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-4-1"));
         }
 
         [UnityTest]
@@ -1882,10 +1931,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator TerminalProductionStageResultInput_PointerClickNavigatesExactlyOnce()
         {
-            var mouse = InputSystem.AddDevice<Mouse>();
+            Mouse mouse = null;
             try
             {
                 yield return BeginActualVictoryAndWaitForStageResult();
+                mouse = InputSystem.AddDevice<Mouse>();
+                InputSystem.EnableDevice(mouse);
 
                 var uiInstaller = Object.FindFirstObjectByType<GameplayUiFlowInstaller>();
                 var button = uiInstaller.StageResultScreenView.GetComponentInChildren<Button>(true);
@@ -1893,6 +1944,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var coordinator = SceneTransitionCoordinator.Instance;
                 var baselineAccepted = coordinator.AcceptedTransitionCount;
                 var clickObserved = 0;
+                Assert.That(button.interactable, Is.True, "StageResult continue button must accept pointer input when interaction is ready.");
                 button.onClick.AddListener(() => clickObserved++);
                 var screenPoint = RectTransformUtility.WorldToScreenPoint(
                     null,
@@ -1925,7 +1977,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     yield return null;
                 }
 
-                Assert.That(clickObserved, Is.EqualTo(1), "Actual Button.onClick must be raised exactly once.");
+                Assert.That(
+                    clickObserved,
+                    Is.EqualTo(1),
+                    "Actual Button.onClick must be raised exactly once.");
                 Assert.That(
                     coordinator.AcceptedTransitionCount - baselineAccepted,
                     Is.EqualTo(1),
@@ -1934,7 +1989,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
             finally
             {
-                InputSystem.RemoveDevice(mouse);
+                if (mouse != null && mouse.added)
+                {
+                    InputSystem.RemoveDevice(mouse);
+                }
             }
         }
 
@@ -1942,10 +2000,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [Category("Full")]
         public IEnumerator TerminalProductionStageResultInput_KeyboardSubmitNavigatesExactlyOnce()
         {
-            var keyboard = InputSystem.AddDevice<Keyboard>();
+            Keyboard keyboard = null;
             try
             {
                 yield return BeginActualVictoryAndWaitForStageResult();
+                keyboard = InputSystem.AddDevice<Keyboard>();
+                InputSystem.EnableDevice(keyboard);
 
                 var uiInstaller = Object.FindFirstObjectByType<GameplayUiFlowInstaller>();
                 var button = uiInstaller.StageResultScreenView.GetComponentInChildren<Button>(true);
@@ -1953,6 +2013,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var coordinator = SceneTransitionCoordinator.Instance;
                 var baselineAccepted = coordinator.AcceptedTransitionCount;
                 var baselineSubmit = inputRouter.SubmitPerformedCount;
+                Assert.That(button.interactable, Is.True, "StageResult continue button must accept submit input when interaction is ready.");
                 Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(button.gameObject));
                 var submitAction = Object.FindFirstObjectByType<GameplaySceneHost>()
                     .InputHost.Actions.FindAction("UI/Submit", throwIfNotFound: true);
@@ -1983,7 +2044,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
             finally
             {
-                InputSystem.RemoveDevice(keyboard);
+                if (keyboard != null && keyboard.added)
+                {
+                    InputSystem.RemoveDevice(keyboard);
+                }
             }
         }
 
@@ -1992,6 +2056,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator TerminalStageEntryOpening_ActualStageResultLoadsNewSceneAndReleasesGameplay()
         {
             var mouse = InputSystem.AddDevice<Mouse>();
+            InputSystem.EnableDevice(mouse);
             try
             {
                 yield return BeginActualVictoryAndWaitForStageResult();
@@ -2001,6 +2066,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var sourceInstaller = Object.FindFirstObjectByType<GameplayUiFlowInstaller>();
                 var nextButton = sourceInstaller.StageResultScreenView.GetComponentInChildren<Button>(true);
                 var eventSystem = EventSystem.current;
+                Assert.That(nextButton.interactable, Is.True, "StageResult continue button must accept the stage-entry click.");
                 var screenPoint = RectTransformUtility.WorldToScreenPoint(
                     null,
                     ((RectTransform)nextButton.transform).TransformPoint(
@@ -2023,7 +2089,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(SceneEntryPresentationRegistry.IsActive, Is.True);
                 var claimed = SceneEntryPresentationRegistry.Current;
                 Assert.That(claimed.Token.IsValid, Is.True);
-                Assert.That(claimed.DestinationStageId, Is.EqualTo(StageId.CreateOrThrow("stage-2-1")));
+                Assert.That(claimed.DestinationStageId, Is.EqualTo(StageId.CreateOrThrow("stage-1-2")));
                 var persistentCover = Object.FindFirstObjectByType<SceneTransitionOverlayShellView>(
                     FindObjectsInactive.Include);
                 Assert.That(persistentCover, Is.Not.Null);
@@ -2206,11 +2272,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator TerminalGameClearPlayerE2E_ActualFinalVictoryPointerMainExactlyOnce()
         {
             var mouse = InputSystem.AddDevice<Mouse>();
+            InputSystem.EnableDevice(mouse);
             try
             {
                 GameplayUiFlowInstaller uiInstaller = null;
                 yield return BeginActualVictory(
-                    StageId.CreateOrThrow("stage-4-2"),
+                    StageId.CreateOrThrow("stage-4-3"),
                     installer => uiInstaller = installer);
 
                 var deadline = Time.realtimeSinceStartup + 5f;
@@ -2274,11 +2341,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator TerminalGameClearPlayerE2E_ActualFinalVictoryKeyboardMainExactlyOnce()
         {
             var keyboard = InputSystem.AddDevice<Keyboard>();
+            InputSystem.EnableDevice(keyboard);
             try
             {
                 GameplayUiFlowInstaller uiInstaller = null;
                 yield return BeginActualVictory(
-                    StageId.CreateOrThrow("stage-4-2"),
+                    StageId.CreateOrThrow("stage-4-3"),
                     installer => uiInstaller = installer);
 
                 var deadline = Time.realtimeSinceStartup + 5f;
@@ -3868,7 +3936,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             InputSystem.QueueStateEvent(mouse, state);
-            InputSystem.Update();
         }
 
         private static void QueueKeyboardEnterState(Keyboard keyboard, bool pressed)
@@ -3878,7 +3945,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 pressed
                     ? new KeyboardState(Key.Enter)
                     : new KeyboardState());
-            InputSystem.Update();
         }
 
         private static Bounds CalculateRendererBounds(GameplayEntityView view)

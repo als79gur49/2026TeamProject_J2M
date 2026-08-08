@@ -17,10 +17,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class MoonBlockGeneratorProductionWorldVsViewTests
     {
         private const string MechanicsShowcaseEntryPath =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-1/stage-3-1_Entry.asset";
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-2/stage-3-2_Entry.asset";
 
         private const string MechanicsShowcasePresentationPath =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-1/stage-3-1_Presentation.asset";
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-2/stage-3-2_Presentation.asset";
 
         private const int PlayerEntityId = 10;
         private const int MoonBlockEntityId = 240;

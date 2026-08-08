@@ -21,13 +21,17 @@ namespace Game.Feature.Stages.Editor.Tests
             "legacy-stage-5-1",
             "stage-0-1",
             "stage-0-2",
+            "stage-0-3",
             "stage-1-1",
+            "stage-1-2",
             "stage-2-1",
             "stage-2-2",
             "stage-3-1",
             "stage-3-2",
+            "stage-3-3",
             "stage-4-1",
             "stage-4-2",
+            "stage-4-3",
         };
 
         [SetUp]
@@ -273,7 +277,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignInventory_HasTenExplicitSingleOwnerGeneratedDefinitions()
+        public void CampaignInventory_HasFourteenExplicitSingleOwnerGeneratedDefinitions()
         {
             var stageGuids = AssetDatabase.FindAssets("t:StageDefinition", new[] { CampaignStageRoot });
             var stagePaths = stageGuids
@@ -282,7 +286,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
 
-            Assert.That(stagePaths, Has.Length.EqualTo(10));
+            Assert.That(stagePaths, Has.Length.EqualTo(14));
             CollectionAssert.AreEquivalent(
                 ExpectedStageNames.Select(StagePath),
                 stagePaths);
@@ -293,7 +297,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 .ToArray();
             Assert.That(
                 ownerships.Count(ownership => ownership.Kind == StageDefinitionOwnershipKind.GeneratedOwned),
-                Is.EqualTo(10));
+                Is.EqualTo(14));
             Assert.That(
                 ownerships.Count(ownership => ownership.Kind == StageDefinitionOwnershipKind.Standalone),
                 Is.Zero);

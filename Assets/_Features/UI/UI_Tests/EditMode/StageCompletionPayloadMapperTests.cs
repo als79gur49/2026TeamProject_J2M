@@ -78,9 +78,9 @@ namespace Game.Feature.UI.Tests
             var payload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-1-1"));
 
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
-            Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-1-2"));
             Assert.That(payload.NextStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.NextStage));
-            Assert.That(payload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(payload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-1-2"));
             Assert.That(payload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.NextStage));
             Assert.That(payload.ContinueStageRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageClearNext));
         }
@@ -88,11 +88,11 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void StageResultPayloadMapper_FinalClear_HasNoNextStageAndContinueFallsBackToCurrentStage()
         {
-            var finalPayload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-4-2"));
+            var finalPayload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-4-3"));
 
             Assert.That(finalPayload.NextStageRequest.IsValid, Is.False);
             Assert.That(finalPayload.ContinueStageRequest.IsValid, Is.True);
-            Assert.That(finalPayload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-4-2"));
+            Assert.That(finalPayload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-4-3"));
             Assert.That(finalPayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
             Assert.That(finalPayload.ContinueStageRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageClearNext));
         }
@@ -144,7 +144,7 @@ namespace Game.Feature.UI.Tests
                     new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
                     StageClearSource.Objective);
             var nextStageRequest = string.Equals(stageIdValue, "stage-1-1", StringComparison.Ordinal)
-                ? CreateNavigationRequest("stage-2-1", StageNavigationKind.NextStage)
+                ? CreateNavigationRequest("stage-1-2", StageNavigationKind.NextStage)
                     .WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
                 : StageNavigationRequest.None;
             var continueRequest = nextStageRequest.IsValid

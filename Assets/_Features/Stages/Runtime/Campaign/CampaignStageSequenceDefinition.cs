@@ -38,37 +38,49 @@ namespace Game.Feature.Stages
         {
             "stage-0-1",
             "stage-0-2",
+            "stage-0-3",
             "stage-1-1",
+            "stage-1-2",
             "stage-2-1",
             "stage-2-2",
             "stage-3-1",
             "stage-3-2",
+            "stage-3-3",
             "stage-4-1",
             "stage-4-2",
+            "stage-4-3",
         };
 
         public static readonly string[] CanonicalDisplayNames =
         {
             "0-1",
             "0-2",
+            "0-3",
             "1-1",
+            "1-2",
             "2-1",
             "2-2",
             "3-1",
             "3-2",
+            "3-3",
             "4-1",
             "4-2",
+            "4-3",
         };
 
         public static readonly string[] CanonicalLevelGroupIds =
         {
             Level0GroupId,
             Level0GroupId,
+            Level0GroupId,
+            Level1GroupId,
             Level1GroupId,
             Level2GroupId,
             Level2GroupId,
             Level3GroupId,
             Level3GroupId,
+            Level3GroupId,
+            Level4GroupId,
             Level4GroupId,
             Level4GroupId,
         };

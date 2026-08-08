@@ -1050,13 +1050,17 @@ namespace Game.Feature.UI.ViewShared
             {
                 (Key: "stage.stage-0-1.display_name", English: "Lab-01", Korean: "연구실-01"),
                 (Key: "stage.stage-0-2.display_name", English: "Lab-02", Korean: "연구실-02"),
+                (Key: "stage.stage-0-3.display_name", English: "Lab-03", Korean: "연구실-03"),
                 (Key: "stage.stage-1-1.display_name", English: "Lobby-01", Korean: "로비-01"),
+                (Key: "stage.stage-1-2.display_name", English: "Lobby-02", Korean: "로비-02"),
                 (Key: "stage.stage-2-1.display_name", English: "Ward[A]-01", Korean: "병동[A]-01"),
                 (Key: "stage.stage-2-2.display_name", English: "Ward[A]-02", Korean: "병동[A]-02"),
                 (Key: "stage.stage-3-1.display_name", English: "Ward[B]-01", Korean: "병동[B]-01"),
                 (Key: "stage.stage-3-2.display_name", English: "Ward[B]-02", Korean: "병동[B]-02"),
+                (Key: "stage.stage-3-3.display_name", English: "Ward[B]-03", Korean: "병동[B]-03"),
                 (Key: "stage.stage-4-1.display_name", English: "Morgue-01", Korean: "영안실-01"),
                 (Key: "stage.stage-4-2.display_name", English: "Morgue-02", Korean: "영안실-02"),
+                (Key: "stage.stage-4-3.display_name", English: "Morgue-03", Korean: "영안실-03"),
                 (Key: "stage.legacy-stage-5-1.display_name", English: "Legacy 5-1", Korean: "Legacy 5-1"),
             };
 

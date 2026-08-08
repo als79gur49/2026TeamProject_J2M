@@ -570,7 +570,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).ToArray(),
                 Is.EquivalentTo(StageDisplayNameEntries.Select(entry => entry.Key).ToArray()));
-            Assert.That(activeStageEntries, Has.Length.EqualTo(9));
+            Assert.That(activeStageEntries, Has.Length.EqualTo(13));
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(),
                 Is.EqualTo(activeStageEntries.Length));
@@ -823,7 +823,7 @@ namespace Game.Feature.UI.Tests
                 .Select(entry => entry.Key)
                 .Append(LegacyStageDisplayNameKey)
                 .ToArray();
-            Assert.That(stageKeys, Has.Length.EqualTo(10));
+            Assert.That(stageKeys, Has.Length.EqualTo(14));
 
             var englishFallbackValues = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var key in stageKeys)
@@ -1801,7 +1801,7 @@ namespace Game.Feature.UI.Tests
             var sequence = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
                 StageContentPaths.CampaignStageSequenceAssetPath);
             Assert.That(sequence, Is.Not.Null);
-            Assert.That(sequence.Entries.Count, Is.EqualTo(9));
+            Assert.That(sequence.Entries.Count, Is.EqualTo(13));
 
             var entries = sequence.Entries
                 .Select(sequenceEntry =>
@@ -1833,13 +1833,17 @@ namespace Game.Feature.UI.Tests
         {
             ("stage-0-1", "stage.stage-0-1.display_name", "Lab-01", "연구실-01"),
             ("stage-0-2", "stage.stage-0-2.display_name", "Lab-02", "연구실-02"),
+            ("stage-0-3", "stage.stage-0-3.display_name", "Lab-03", "연구실-03"),
             ("stage-1-1", "stage.stage-1-1.display_name", "Lobby-01", "로비-01"),
+            ("stage-1-2", "stage.stage-1-2.display_name", "Lobby-02", "로비-02"),
             ("stage-2-1", "stage.stage-2-1.display_name", "Ward[A]-01", "병동[A]-01"),
             ("stage-2-2", "stage.stage-2-2.display_name", "Ward[A]-02", "병동[A]-02"),
             ("stage-3-1", "stage.stage-3-1.display_name", "Ward[B]-01", "병동[B]-01"),
             ("stage-3-2", "stage.stage-3-2.display_name", "Ward[B]-02", "병동[B]-02"),
+            ("stage-3-3", "stage.stage-3-3.display_name", "Ward[B]-03", "병동[B]-03"),
             ("stage-4-1", "stage.stage-4-1.display_name", "Morgue-01", "영안실-01"),
             ("stage-4-2", "stage.stage-4-2.display_name", "Morgue-02", "영안실-02"),
+            ("stage-4-3", "stage.stage-4-3.display_name", "Morgue-03", "영안실-03"),
         };
 
         private const string LegacyStageDisplayNameKey =
