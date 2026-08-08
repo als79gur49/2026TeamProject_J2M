@@ -49,6 +49,8 @@ Cinematic callbacks never write `Saves/local-launch-state.json`. Persistent acti
 
 `CampaignRunningSlotContext` is created by the gameplay installer after active commit and remains scene-local. Gameplay chance reads, deaths, retries, stage clear, and other campaign mutations stay pinned to this context even if persistent active later changes. Retry and next-stage reload may recreate it from a previously committed active slot without a new MainMenu handoff only when an exact `StageLaunchContext` exists and its navigation/source is on the committed-reload allowlist. The allowlist is `stage-result-retry`, `pause-retry`, `campaign-death-retry`, and `level-failed-restart-level` for Retry, plus `campaign-auto-next` for NextStage. Continue, arbitrary startup, and unrelated direct scene entry cannot use active fallback.
 
+Campaign stage clear commits the next stage and its canonical level group to the running profile slot. When the completed and next stages belong to different canonical level groups, that same profile mutation restores `RemainingChances` to `SaveSlotStore.DefaultRemainingChances`; advances within one level group preserve the current value, and final campaign clear has no next-world restoration. The completed scene retains its pre-restoration chance display with change audio suppressed, while the next gameplay scene reads the restored profile value on its initial HUD bind.
+
 DeleteSlot repairs matching active and pending independently. ClearAll clears both. Neither DTO gains pending or running fields.
 
 ## DirectPlay exception

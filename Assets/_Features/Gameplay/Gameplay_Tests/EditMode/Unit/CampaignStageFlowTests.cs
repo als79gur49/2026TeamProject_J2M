@@ -699,83 +699,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalPlan.NextStageRequest.IsValid, Is.False);
         }
 
-        [Test]
+        [TestCase("stage-0-2", "level-0", "stage-1-1", "level-1")]
+        [TestCase("stage-1-1", "level-1", "stage-2-1", "level-2")]
+        [TestCase("stage-2-2", "level-2", "stage-3-1", "level-3")]
+        [TestCase("stage-3-2", "level-3", "stage-4-1", "level-4")]
         [Category("Extended")]
-        public void StageClear_AdvancesAcrossLevelGroupsWithoutResettingRemainingChances()
+        public void StageClear_AdvancesAcrossLevelGroupsRestoringRemainingChancesAndKeepingCurrentSceneDisplayStable(
+            string completedStageId,
+            string completedLevelGroupId,
+            string expectedNextStageId,
+            string expectedNextLevelGroupId)
         {
-            var saveKey = CreatePrefsKey(nameof(StageClear_AdvancesAcrossLevelGroupsWithoutResettingRemainingChances));
-            var activeKey = saveKey + ".active";
-            var saveStore = new SaveSlotStore(saveKey);
-            var activeSlotProvider = new ActiveSlotProvider(activeKey);
-            var hostObject = new GameObject("campaign-clear-host");
-            var inputHostObject = new GameObject("campaign-clear-input");
+            AssertStageClearChancePolicy(
+                nameof(StageClear_AdvancesAcrossLevelGroupsRestoringRemainingChancesAndKeepingCurrentSceneDisplayStable) +
+                completedStageId,
+                completedStageId,
+                completedLevelGroupId,
+                expectedNextStageId,
+                expectedNextLevelGroupId,
+                expectedSavedChances: SaveSlotStore.DefaultRemainingChances,
+                expectedDisplayedChances: 1,
+                expectedAudioPolicy: GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+        }
 
-            try
-            {
-                saveStore.ClearAll();
-                activeSlotProvider.ClearActiveSlot();
-                saveStore.SaveSlot(new SaveSlotData
-                {
-                    SlotNumber = 1,
-                    CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
-                    CurrentLevelGroupId = "level-1",
-                    RemainingChances = 1,
-                });
-                activeSlotProvider.SetActiveSlot(1);
-
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                var inputHost = inputHostObject.AddComponent<GameplayInputHost>();
-                SetPrivateField(inputHost, "_isInitialized", true);
-                SetPrivateField(inputHost, "_playerEntityId", 10);
-                SetPrivateField(
-                    host,
-                    "_runtime",
-                    new GameplayHostRuntimeContext(
-                        null,
-                        null,
-                        null,
-                        inputHost,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null));
-
-                var controller = new CampaignGameplayFlowController(
-                    host,
-                    saveStore,
-                    new CampaignRunningSlotContext(1),
-                    CreateResolver(),
-                    new FakeStageLaunchRouter(),
-                    chanceDisplayOverride: null,
-                    terminalTransitionPort: new FakeTerminalTransitionPort());
-                var method = typeof(CampaignGameplayFlowController).GetMethod(
-                    "HandleStageClear",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                Assert.That(method, Is.Not.Null);
-
-                method.Invoke(controller, new object[] { null, null });
-
-                var slot = saveStore.LoadSlot(1);
-                Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
-                Assert.That(slot.CurrentLevelGroupId, Is.EqualTo("level-2"));
-                Assert.That(slot.RemainingChances, Is.EqualTo(1));
-            }
-            finally
-            {
-                saveStore.ClearAll();
-                activeSlotProvider.ClearActiveSlot();
-                UnityEngine.Object.DestroyImmediate(hostObject);
-                UnityEngine.Object.DestroyImmediate(inputHostObject);
-            }
+        [TestCase("stage-0-1", "level-0", "stage-0-2", "level-0")]
+        [TestCase("stage-2-1", "level-2", "stage-2-2", "level-2")]
+        [TestCase("stage-3-1", "level-3", "stage-3-2", "level-3")]
+        [TestCase("stage-4-1", "level-4", "stage-4-2", "level-4")]
+        [Category("Extended")]
+        public void StageClear_AdvancesWithinLevelGroupPreservingRemainingChances(
+            string completedStageId,
+            string completedLevelGroupId,
+            string expectedNextStageId,
+            string expectedNextLevelGroupId)
+        {
+            AssertStageClearChancePolicy(
+                nameof(StageClear_AdvancesWithinLevelGroupPreservingRemainingChances) + completedStageId,
+                completedStageId,
+                completedLevelGroupId,
+                expectedNextStageId,
+                expectedNextLevelGroupId,
+                expectedSavedChances: 1,
+                expectedDisplayedChances: 1,
+                expectedAudioPolicy: GameplayChanceAudioPolicy.Default);
         }
 
         [Test]
@@ -2504,6 +2470,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static CampaignStageSequenceResolver CreateResolver()
         {
             return new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+        }
+
+        private static void AssertStageClearChancePolicy(
+            string testKey,
+            string completedStageId,
+            string completedLevelGroupId,
+            string expectedNextStageId,
+            string expectedNextLevelGroupId,
+            int expectedSavedChances,
+            int expectedDisplayedChances,
+            GameplayChanceAudioPolicy expectedAudioPolicy)
+        {
+            var saveKey = CreatePrefsKey(testKey);
+            var activeKey = saveKey + ".active";
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeSlotProvider = new ActiveSlotProvider(activeKey);
+            var hostObject = new GameObject("campaign-clear-chance-policy-host");
+
+            try
+            {
+                SeedSaveSlot(
+                    saveStore,
+                    activeSlotProvider,
+                    completedStageId,
+                    completedLevelGroupId,
+                    remainingChances: 1);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var runningSlotContext = new CampaignRunningSlotContext(1);
+                var chanceDisplayOverride = new CampaignChanceDisplayOverride();
+                var chancesReadSource = new SaveSlotCampaignChancesReadSource(
+                    saveStore,
+                    runningSlotContext,
+                    chanceDisplayOverride);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    runningSlotContext,
+                    CreateResolver(),
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride,
+                    new FakeTerminalTransitionPort());
+                var method = typeof(CampaignGameplayFlowController).GetMethod(
+                    "HandleStageClear",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(method, Is.Not.Null);
+
+                method.Invoke(
+                    controller,
+                    new object[]
+                    {
+                        null,
+                        CreateMinimalStageCompletionReadModel(completedStageId, tickIndex: 10),
+                    });
+
+                var slot = saveStore.LoadSlot(1);
+                Assert.That(slot.CurrentStageId.Value, Is.EqualTo(expectedNextStageId));
+                Assert.That(slot.CurrentLevelGroupId, Is.EqualTo(expectedNextLevelGroupId));
+                Assert.That(slot.RemainingChances, Is.EqualTo(expectedSavedChances));
+                Assert.That(
+                    chancesReadSource.TryReadChances(
+                        out var displayedChances,
+                        out var maxChances,
+                        out var audioPolicy),
+                    Is.True);
+                Assert.That(displayedChances, Is.EqualTo(expectedDisplayedChances));
+                Assert.That(maxChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
+                Assert.That(audioPolicy, Is.EqualTo(expectedAudioPolicy));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeSlotProvider.ClearActiveSlot();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
         }
 
         private static StageContentEntry CreateEntry(string stageId)
