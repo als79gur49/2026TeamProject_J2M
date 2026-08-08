@@ -80,7 +80,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResult_DoesNotRestoreRemovedResultSchema_AndKeepsStaticContinueBinding()
+        public void StageResult_KeepsDomainPayloadMinimal_AndOwnsLocalizedPresentationTitle()
         {
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenPayload),
@@ -90,23 +90,22 @@ namespace Game.Feature.UI.Tests
                 "ContinueLabel");
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenViewModel),
-                "TitleText",
                 "SummaryText",
                 "DetailText");
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenView),
-                "_titleLabel",
                 "_summaryLabel",
                 "_detailLabel");
 
             var prefab = File.ReadAllText(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
-            Assert.That(prefab, Does.Not.Contain("_titleLabel"));
+            Assert.That(prefab, Does.Contain("_titleLabel:"));
             Assert.That(prefab, Does.Not.Contain("_summaryLabel"));
             Assert.That(prefab, Does.Not.Contain("_detailLabel"));
             Assert.That(prefab, Does.Not.Contain("m_Name: Title"));
             Assert.That(prefab, Does.Not.Contain("m_Name: Detail"));
             Assert.That(prefab, Does.Contain("_continueButton:"));
             Assert.That(prefab, Does.Contain("_continueButtonLabel:"));
+            Assert.That(typeof(StageResultScreenViewModel).GetProperty("TitleText"), Is.Not.Null);
         }
 
         [Test]

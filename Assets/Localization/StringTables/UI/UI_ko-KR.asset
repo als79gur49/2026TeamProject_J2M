@@ -140,7 +140,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195390517248
-    m_Localized: 다른 키를 이미 재지정하고 있습니다.
+    m_Localized: 다른 키를 설정하는 중입니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
@@ -173,7 +173,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499334
-    m_Localized: "\uC804\uCCB4 \uD654\uBA74 \uCC3D"
+    m_Localized: "\uD14C\uB450\uB9AC \uC5C6\uB294 \uC804\uCCB4 \uD654\uBA74"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499335
@@ -212,11 +212,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693636
-    m_Localized: "\uBC00\uAE30 \uD0A4 \uC785\uB825\uD558\uC138\uC694..."
+    m_Localized: "\uBC00\uAE30\uC5D0 \uC0AC\uC6A9\uD560 \uD0A4\uB97C \uB204\uB974\uC138\uC694..."
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693637
-    m_Localized: "\uB4A4\uC9D1\uAE30 \uD0A4 \uC785\uB825\uD558\uC138\uC694..."
+    m_Localized: "\uB4A4\uC9D1\uAE30\uC5D0 \uC0AC\uC6A9\uD560 \uD0A4\uB97C \uB204\uB974\uC138\uC694..."
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693638
@@ -224,7 +224,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693639
-    m_Localized: "입력 설정 초기화 확인"
+    m_Localized: "입력 설정을 기본값으로 초기화할까요?"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693640
@@ -236,16 +236,16 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693642
-    m_Localized: "화면 설정 미리 보기 확인"
+    m_Localized: "화면 설정을 유지할까요?"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693643
-    m_Localized: "{0} x {1} 전체 화면 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다."
+    m_Localized: "{0} x {1} 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693644
-    m_Localized: "{0} x {1} 창 미리 보기. 변경은 임시이며 확인하지 않으면 {2}초 후 되돌아갑니다."
+    m_Localized: "{0} x {1} 해상도로 창 모드를 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -254,26 +254,26 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693646
-    m_Localized: "과업"
+    m_Localized: "목표"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693647
-    m_Localized: "종료 장소로 이동하기 ({0}/{1})"
+    m_Localized: "탈출 지점에 도달하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693648
-    m_Localized: "밀기 상자 지정 장소로 이동하기 ({0}/{1})"
+    m_Localized: "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693649
-    m_Localized: "전용 상자 지정 장소로 이동하기 ({0}/{1})"
+    m_Localized: "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693650
-    m_Localized: "지정 장소로 이동하기 ({0}/{1})"
+    m_Localized: "지정 구역에 도달하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -299,14 +299,6 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 4971587610693656
     m_Localized: "게임 클리어"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 4971587610693657
-    m_Localized: "\uC77C\uC2DC \uC815\uC9C0"
-    m_Metadata:
-      m_Items: []
-  - m_Id: 4971587610693658
-    m_Localized: "\uAE30\uD68C"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693659
@@ -397,7 +389,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693679
-    m_Localized: 기존 진행 상황은 교체됩니다.
+    m_Localized: 기존 진행 상황이 초기화됩니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693680
@@ -414,7 +406,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693683
-    m_Localized: 기존 진행 상황은 덮어씌워집니다.
+    m_Localized: 기존 진행 상황을 덮어씁니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693684
@@ -426,7 +418,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693686
-    m_Localized: 데스크톱으로 종료할까요?
+    m_Localized: 게임을 종료하고 바탕 화면으로 나갈까요?
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693687
@@ -478,12 +470,24 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693699
-    m_Localized: 이 키는 이미 {0}에 사용 중입니다.
+    m_Localized: 이 키는 이미 {0}에 할당되어 있습니다.
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693700
     m_Localized: 이 키는 사용할 수 없습니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693701
+    m_Localized: 스테이지 클리어
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693702
+    m_Localized: 재시도 기회
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693703
+    m_Localized: 불러오는 중...
     m_Metadata:
       m_Items: []
   references:

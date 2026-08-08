@@ -31,7 +31,7 @@ namespace Game.Feature.UI.Tests
                 ["ui.settings.display.current"] = "현재 디스플레이",
                 ["ui.settings.display.resolution"] = "해상도",
                 ["ui.settings.display.resolution_hint"] = "자동으로 감지된 해상도만 표시됩니다.",
-                ["ui.settings.display.fullscreen_window"] = "전체 화면 창",
+                ["ui.settings.display.fullscreen_window"] = "테두리 없는 전체 화면",
                 ["ui.settings.display.fullscreen_on"] = "켜짐",
                 ["ui.settings.display.apply"] = "적용",
                 ["ui.settings.display.revert"] = "되돌리기",

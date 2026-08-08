@@ -11,6 +11,7 @@ namespace Game.Feature.UI.Screens
     public sealed class StageResultScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget, IResultTransitionScreenView
     {
         [SerializeField] private GameObject _root;
+        [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private Button _continueButton;
         [SerializeField] private TMP_Text _continueButtonLabel;
         [SerializeField] private CanvasGroup _backdropRoot;
@@ -96,6 +97,11 @@ namespace Game.Feature.UI.Screens
             GameplayUiTypographyTheme typographyTheme)
         {
             TerminalScreenTypographyUtility.Apply(
+                _titleLabel,
+                localeCode,
+                typographyTheme,
+                TypographyStyleTag.HeaderLarge);
+            TerminalScreenTypographyUtility.Apply(
                 _continueButtonLabel,
                 localeCode,
                 typographyTheme,
@@ -173,6 +179,7 @@ namespace Game.Feature.UI.Screens
         private void OnValidate()
         {
             ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_continueButton, nameof(_continueButton));
             ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
             ValidateSerializedReference(_backdropRoot, nameof(_backdropRoot));
@@ -209,6 +216,11 @@ namespace Game.Feature.UI.Screens
             if (_continueButton != null)
             {
                 EnsureResultTransition().RefreshPrimaryAction();
+            }
+
+            if (_titleLabel != null)
+            {
+                _titleLabel.text = _viewModel.TitleText;
             }
 
             if (_continueButtonLabel != null)

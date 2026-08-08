@@ -14,6 +14,9 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class SceneTransitionOverlayShellContentTests
     {
+        private const string ThemePath =
+            "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
+
         [Test]
         public void SceneTransitionOverlayContentResolver_UsesStageTransitionKindExactMatch()
         {
@@ -133,6 +136,74 @@ namespace Game.Feature.UI.Tests
             Assert.That(fieldNames, Does.Not.Contain("_previousTextDimAlpha"));
             Assert.That(fieldNames, Does.Not.Contain("_previousTextDimDurationSeconds"));
             Assert.That(fieldNames, Does.Contain("_chanceSlotRoots"));
+            Assert.That(fieldNames, Does.Contain("_remainingChancesLabel"));
+            Assert.That(fieldNames, Does.Contain("_loadingLabel"));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContent_BindsLocalizedLabelsAndKeepsProgressIndependent()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+            var model = new SceneTransitionOverlayModel(
+                StageTransitionKind.DeathRetryChanceLost,
+                TransitionOverlayKind.ChanceLost,
+                blockInput: true,
+                showProgress: true,
+                progress01: 0.25f,
+                hasChanceLost: true,
+                previousRemainingChances: 3,
+                currentRemainingChances: 2,
+                totalChances: 3,
+                deathCount: 1,
+                text: new SceneTransitionOverlayTextSnapshot(
+                    "ko-KR",
+                    "재시도 기회",
+                    "불러오는 중..."));
+
+            view.Bind(model);
+
+            Assert.That(content.RemainingChancesLabel.text, Is.EqualTo("재시도 기회"));
+            Assert.That(content.LoadingLabel.text, Is.EqualTo("불러오는 중..."));
+            Assert.That(content.ProgressText.text, Is.EqualTo("25%"));
+
+            view.SetProgress(1f);
+
+            Assert.That(content.LoadingLabel.text, Is.EqualTo("불러오는 중..."));
+            Assert.That(content.ProgressText.text, Is.EqualTo("100%"));
+        }
+
+        [Test]
+        public void GenericLoadingOverlayContent_BindsLocalizedLoadingLabelAndKeepsProgressIndependent()
+        {
+            using var content = ContentHandle.Create<GenericLoadingOverlayContentView>(
+                "GenericLoadingOverlayContent");
+            var view = (GenericLoadingOverlayContentView)content.View;
+            var model = new SceneTransitionOverlayModel(
+                StageTransitionKind.StageClearNext,
+                TransitionOverlayKind.StageClear,
+                blockInput: true,
+                showProgress: true,
+                progress01: 0.25f,
+                hasChanceLost: false,
+                previousRemainingChances: 0,
+                currentRemainingChances: 0,
+                totalChances: 0,
+                deathCount: 0,
+                text: new SceneTransitionOverlayTextSnapshot(
+                    "ko-KR",
+                    string.Empty,
+                    "불러오는 중..."));
+
+            view.Bind(model);
+
+            Assert.That(content.LoadingLabel.text, Is.EqualTo("불러오는 중..."));
+            Assert.That(content.ProgressText.text, Is.EqualTo("25%"));
+
+            view.SetProgress(1f);
+
+            Assert.That(content.LoadingLabel.text, Is.EqualTo("불러오는 중..."));
+            Assert.That(content.ProgressText.text, Is.EqualTo("100%"));
         }
 
         [Test]
@@ -798,16 +869,25 @@ namespace Game.Feature.UI.Tests
             private ContentHandle(
                 GameObject root,
                 SceneTransitionOverlayContentView view,
-                RectTransform[] chanceSlots)
+                RectTransform[] chanceSlots,
+                TMP_Text progressText,
+                TMP_Text remainingChancesLabel,
+                TMP_Text loadingLabel)
             {
                 Root = root;
                 View = view;
                 ChanceSlots = chanceSlots;
+                ProgressText = progressText;
+                RemainingChancesLabel = remainingChancesLabel;
+                LoadingLabel = loadingLabel;
             }
 
             public GameObject Root { get; }
             public SceneTransitionOverlayContentView View { get; }
             public RectTransform[] ChanceSlots { get; }
+            public TMP_Text ProgressText { get; }
+            public TMP_Text RemainingChancesLabel { get; }
+            public TMP_Text LoadingLabel { get; }
 
             public static ContentHandle Create<T>(string name, bool bindChanceSlotRoots = true)
                 where T : SceneTransitionOverlayContentView
@@ -817,13 +897,29 @@ namespace Game.Feature.UI.Tests
                 var progressText = CreateText(root.transform, "ProgressText_TMP");
 
                 var chanceSlots = Array.Empty<RectTransform>();
+                TMP_Text remainingChancesLabel = null;
+                TMP_Text loadingLabel = null;
 
                 var serialized = new SerializedObject(view);
                 serialized.FindProperty("_rootGroup").objectReferenceValue = root.GetComponent<CanvasGroup>();
                 serialized.FindProperty("_progressText").objectReferenceValue = progressText;
 
-                if (view is ChanceLostOverlayContentView)
+                if (view is GenericLoadingOverlayContentView)
                 {
+                    loadingLabel = CreateText(root.transform, "LoadingLabel_TMP");
+                    serialized.FindProperty("_loadingLabel").objectReferenceValue = loadingLabel;
+                    serialized.FindProperty("_typographyTheme").objectReferenceValue =
+                        AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
+                }
+                else if (view is ChanceLostOverlayContentView)
+                {
+                    remainingChancesLabel = CreateText(root.transform, "RemainingChancesLabel_TMP");
+                    loadingLabel = CreateText(root.transform, "LoadingLabel_TMP");
+                    serialized.FindProperty("_remainingChancesLabel").objectReferenceValue =
+                        remainingChancesLabel;
+                    serialized.FindProperty("_loadingLabel").objectReferenceValue = loadingLabel;
+                    serialized.FindProperty("_typographyTheme").objectReferenceValue =
+                        AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
                     chanceSlots = CreateChanceSlots(root.transform);
                     if (bindChanceSlotRoots)
                     {
@@ -837,7 +933,13 @@ namespace Game.Feature.UI.Tests
                 }
 
                 serialized.ApplyModifiedPropertiesWithoutUndo();
-                return new ContentHandle(root, view, chanceSlots);
+                return new ContentHandle(
+                    root,
+                    view,
+                    chanceSlots,
+                    progressText,
+                    remainingChancesLabel,
+                    loadingLabel);
             }
 
             public void Dispose()

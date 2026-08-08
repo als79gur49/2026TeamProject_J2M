@@ -104,7 +104,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
             Assert.That(guidelines, Does.Contain("Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`."));
             Assert.That(guidelines, Does.Contain("`StageResult` is a minimal stage-completion navigation endpoint"));
-            Assert.That(guidelines, Does.Contain("It no longer carries or displays title/summary/detail result text"));
+            Assert.That(guidelines, Does.Contain("Its payload does not carry title/summary/detail result schema; the localized stage-clear title is presentation-owned"));
             Assert.That(guidelines, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision."));
             Assert.That(guidelines, Does.Contain("Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path."));
             Assert.That(guidelines, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));

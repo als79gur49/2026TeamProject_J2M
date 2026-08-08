@@ -26,21 +26,19 @@ namespace Game.Feature.UI.Tests
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
 
         [Test]
-        public void Contract_HasFiveUniqueNonBlankLocaleEntries()
+        public void Contract_HasThreeUniqueNonBlankWorldGuideLocaleEntries()
         {
             var entries = HudWorldGuideLocalization.Entries;
 
-            Assert.That(entries, Has.Count.EqualTo(5));
-            Assert.That(entries.Select(entry => entry.Id).Distinct().Count(), Is.EqualTo(5));
-            Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(5));
+            Assert.That(entries, Has.Count.EqualTo(3));
+            Assert.That(entries.Select(entry => entry.Id).Distinct().Count(), Is.EqualTo(3));
+            Assert.That(entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(3));
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.English)), Is.True);
             Assert.That(entries.All(entry => !string.IsNullOrWhiteSpace(entry.Korean)), Is.True);
             Assert.That(
                 entries.Select(entry => (entry.Key, entry.English, entry.Korean)),
                 Is.EquivalentTo(new[]
                 {
-                    (HudWorldGuideLocalization.Keys.Pause, "Pause", "일시 정지"),
-                    (HudWorldGuideLocalization.Keys.Chances, "CHANCES", "기회"),
                     (HudWorldGuideLocalization.Keys.Movement, "Move", "이동"),
                     (HudWorldGuideLocalization.Keys.Push, "Push", "밀기"),
                     (HudWorldGuideLocalization.Keys.Flip, "Flip", "뒤집기"),
@@ -59,6 +57,33 @@ namespace Game.Feature.UI.Tests
                 Assert.That(korean.GetEntry(entry.Key)?.LocalizedValue, Is.EqualTo(entry.Korean), entry.Key);
                 Assert.That(CountPlaceholders(entry.English), Is.EqualTo(CountPlaceholders(entry.Korean)), entry.Key);
             }
+
+            foreach (var retiredKey in new[] { "ui.hud.pause", "ui.hud.chances", "ui.pause.description" })
+            {
+                Assert.That(english.GetEntry(retiredKey), Is.Null, retiredKey);
+                Assert.That(korean.GetEntry(retiredKey), Is.Null, retiredKey);
+            }
+        }
+
+        [Test]
+        public void GameplayHudPrefab_DoesNotExposeRetiredPauseOrChanceCopy()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
+            var authoredText = prefab.GetComponentsInChildren<TMP_Text>(true)
+                .Select(text => text.text)
+                .ToArray();
+
+            Assert.That(authoredText, Does.Not.Contain("Pause"));
+            Assert.That(authoredText, Does.Not.Contain("CHANCES"));
+            Assert.That(
+                typeof(GameplayHudLocalizationBinding).GetField("_pauseText", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(
+                typeof(GameplayHudLocalizationBinding).GetField("_chancesText", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(
+                typeof(ChancePanelView).GetField("_labelText", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
         }
 
         [Test]
@@ -76,9 +101,14 @@ namespace Game.Feature.UI.Tests
                 var chanceModel = new ChancePanelViewModel();
                 Assert.That(
                     binding.StageNameText.rectTransform.offsetMax.x,
-                    Is.LessThanOrEqualTo(-160f),
-                    "Stage name must reserve the authored Pause control lane.");
+                    Is.EqualTo(-97.1592f).Within(0.01f),
+                    "Stage name must use the expanded authored single-line lane.");
+                Assert.That(
+                    binding.StageNameText.textWrappingMode,
+                    Is.EqualTo(TextWrappingModes.NoWrap));
                 Assert.That(binding.StageNameText.enableAutoSizing, Is.True);
+                Assert.That(binding.StageNameText.fontSizeMin, Is.EqualTo(14f));
+                Assert.That(binding.StageNameText.fontSizeMax, Is.EqualTo(30f));
                 Assert.That(
                     binding.StageNameText.overflowMode,
                     Is.EqualTo(TextOverflowModes.Overflow),
@@ -93,15 +123,8 @@ namespace Game.Feature.UI.Tests
                 binding.StageNameText.text = "Lab-01";
                 var englishStageNameFont = binding.StageNameText.font;
                 var englishStageNameMaterial = binding.StageNameText.fontSharedMaterial;
-                var englishPauseFont = binding.PauseText.font;
-                var englishPauseMaterial = binding.PauseText.fontSharedMaterial;
-                var englishChanceFont = binding.ChancesText.font;
-                var englishChanceMaterial = binding.ChancesText.fontSharedMaterial;
-
                 binding.Initialize(resolver);
                 Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
-                Assert.That(binding.PauseText.text, Is.EqualTo("Pause"));
-                Assert.That(binding.ChancesText.text, Is.EqualTo("CHANCES"));
                 Assert.That(binding.StageNameText.text, Is.EqualTo("Lab-01"));
                 AssertChanceState(chanceModel, 2, 3);
 
@@ -111,27 +134,17 @@ namespace Game.Feature.UI.Tests
                 instance.SetActive(true);
 
                 Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
-                Assert.That(binding.PauseText.text, Is.EqualTo("일시 정지"));
-                Assert.That(binding.ChancesText.text, Is.EqualTo("기회"));
                 AssertChanceState(chanceModel, 2, 3);
                 Assert.That(binding.StageNameText.font, Is.SameAs(climate));
-                Assert.That(binding.PauseText.font, Is.SameAs(climate));
-                Assert.That(binding.ChancesText.font, Is.SameAs(climate));
 
                 binding.StageNameText.text = "Lab-01";
                 resolver.SetLocale("en-US");
 
                 Assert.That(binding.StageNameText.text, Is.EqualTo("Lab-01"));
-                Assert.That(binding.PauseText.text, Is.EqualTo("Pause"));
-                Assert.That(binding.ChancesText.text, Is.EqualTo("CHANCES"));
                 Assert.That(binding.StageNameText.font, Is.SameAs(englishStageNameFont));
                 Assert.That(
                     binding.StageNameText.fontSharedMaterial,
                     Is.SameAs(englishStageNameMaterial));
-                Assert.That(binding.PauseText.font, Is.SameAs(englishPauseFont));
-                Assert.That(binding.PauseText.fontSharedMaterial, Is.SameAs(englishPauseMaterial));
-                Assert.That(binding.ChancesText.font, Is.SameAs(englishChanceFont));
-                Assert.That(binding.ChancesText.fontSharedMaterial, Is.SameAs(englishChanceMaterial));
                 AssertChanceState(chanceModel, 2, 3);
 
                 binding.Dispose();
@@ -140,8 +153,6 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("ko-KR");
                 Assert.That(binding.StageNameText.text, Is.EqualTo("연구실-01"));
                 Assert.That(binding.StageNameText.font, Is.SameAs(englishStageNameFont));
-                Assert.That(binding.PauseText.text, Is.EqualTo("Pause"));
-                Assert.That(binding.ChancesText.text, Is.EqualTo("CHANCES"));
             }
             finally
             {

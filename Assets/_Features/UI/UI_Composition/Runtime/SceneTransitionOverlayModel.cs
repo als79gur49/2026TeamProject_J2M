@@ -3,6 +3,25 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
+    internal readonly struct SceneTransitionOverlayTextSnapshot
+    {
+        public SceneTransitionOverlayTextSnapshot(
+            string localeCode,
+            string remainingChancesLabel,
+            string loadingLabel)
+        {
+            LocaleCode = localeCode ?? string.Empty;
+            RemainingChancesLabel = remainingChancesLabel ?? string.Empty;
+            LoadingLabel = loadingLabel ?? string.Empty;
+        }
+
+        public string LocaleCode { get; }
+
+        public string RemainingChancesLabel { get; }
+
+        public string LoadingLabel { get; }
+    }
+
     internal readonly struct SceneTransitionOverlayModel
     {
         public readonly StageTransitionKind TransitionKind;
@@ -16,6 +35,7 @@ namespace Game.Feature.UI.Composition
         public readonly int TotalChances;
         public readonly int DeathCount;
         public readonly long TerminalClaimId;
+        public readonly SceneTransitionOverlayTextSnapshot Text;
 
         public SceneTransitionOverlayModel(
             TransitionOverlayKind overlayKind,
@@ -27,7 +47,8 @@ namespace Game.Feature.UI.Composition
             int currentRemainingChances,
             int totalChances,
             int deathCount,
-            long terminalClaimId = 0)
+            long terminalClaimId = 0,
+            SceneTransitionOverlayTextSnapshot text = default)
             : this(
                 StageTransitionKind.Unknown,
                 overlayKind,
@@ -39,7 +60,8 @@ namespace Game.Feature.UI.Composition
                 currentRemainingChances,
                 totalChances,
                 deathCount,
-                terminalClaimId)
+                terminalClaimId,
+                text)
         {
         }
 
@@ -54,7 +76,8 @@ namespace Game.Feature.UI.Composition
             int currentRemainingChances,
             int totalChances,
             int deathCount,
-            long terminalClaimId = 0)
+            long terminalClaimId = 0,
+            SceneTransitionOverlayTextSnapshot text = default)
         {
             TransitionKind = transitionKind;
             OverlayKind = overlayKind;
@@ -67,6 +90,7 @@ namespace Game.Feature.UI.Composition
             TotalChances = Mathf.Max(0, totalChances);
             DeathCount = Mathf.Max(0, deathCount);
             TerminalClaimId = terminalClaimId > 0 ? terminalClaimId : 0;
+            Text = text;
         }
     }
 }

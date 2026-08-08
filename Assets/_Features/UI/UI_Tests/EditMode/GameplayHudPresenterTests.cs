@@ -602,9 +602,9 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale("ko-KR");
 
-            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("과업"));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("밀기 상자 지정 장소로 이동하기 (1/2)"));
-            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("전용 상자 지정 장소로 이동하기 (0/1)"));
+            Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("목표"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("밀 수 있는 상자를 버튼 위에 놓기 (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("달 문양 상자를 버튼 위에 놓기 (0/1)"));
             Assert.That(
                 presenter.ViewModel.Rows.Select(row => row.StableId),
                 Is.EqualTo(englishStableIds));
@@ -925,7 +925,7 @@ namespace Game.Feature.UI.Tests
             {
                 if (descriptor.Key == ObjectiveHudLocalization.Keys.Header)
                 {
-                    return CurrentLocaleCode == "ko-KR" ? "과업" : "Objectives";
+                    return CurrentLocaleCode == "ko-KR" ? "목표" : "Objectives";
                 }
 
                 var format = ResolveConditionFormat(descriptor.Key);
@@ -955,22 +955,22 @@ namespace Game.Feature.UI.Tests
                 {
                     case ObjectiveHudLocalization.Keys.ReachExit:
                         return korean
-                            ? "종료 장소로 이동하기 ({0}/{1})"
+                            ? "탈출 지점에 도달하기 ({0}/{1})"
                             : "Reach the Exit Zone ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ReachZone:
                         return korean
-                            ? "지정 장소로 이동하기 ({0}/{1})"
+                            ? "지정 구역에 도달하기 ({0}/{1})"
                             : "Reach the designated zone ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ActivateButton:
                         return korean
-                            ? "밀기 상자 지정 장소로 이동하기 ({0}/{1})"
+                            ? "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"
                             : "Place a push box on the button ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ActivateMoonButton:
                         return korean
-                            ? "전용 상자 지정 장소로 이동하기 ({0}/{1})"
+                            ? "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"
                             : "Place the MoonBlock on the button ({0}/{1})";
 
                     default:

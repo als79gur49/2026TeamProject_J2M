@@ -3,6 +3,7 @@ using System.Collections;
 using System.Globalization;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -47,6 +48,7 @@ namespace Game.Feature.UI.Composition
         private static Func<SceneTransitionOverlayContentCatalog> _contentCatalogResourceLoaderForTests;
         private static Func<string, ISceneTransitionLoadOperation> _sceneLoaderForTests;
         private static IUiAudioPort _pendingUiAudioPort;
+        private static ILocalizedTextResolver _pendingLocalizedTextResolver;
 
         private readonly StageTransitionLaunchGuard _guard = new();
         private readonly StageTransitionProfileResolver _profileResolver = new();
@@ -55,6 +57,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private SceneTransitionOverlayContentCatalog _contentCatalog;
         private ISceneTransitionOverlayShellView _overlayShell;
         private IUiAudioPort _uiAudioPort;
+        private ILocalizedTextResolver _localizedTextResolver;
         private ISceneTransitionActiveClock _diagnosticClock;
         private SceneTransitionDiagnosticsMonitor _currentDiagnostics;
         private Guid? _currentCampaignLaunchToken;
@@ -74,6 +77,7 @@ namespace Game.Feature.UI.Composition
                 {
                     _instance = existing;
                     _instance.BindUiAudioPort(_pendingUiAudioPort);
+                    _instance.BindLocalizedTextResolver(_pendingLocalizedTextResolver);
                     return _instance;
                 }
 
@@ -190,6 +194,7 @@ namespace Game.Feature.UI.Composition
 
             _instance = this;
             _uiAudioPort = _pendingUiAudioPort;
+            _localizedTextResolver = _pendingLocalizedTextResolver;
             _diagnosticClock = new SceneTransitionActiveClock();
             DontDestroyOnLoad(gameObject);
             EnsureOverlayShell();
@@ -1833,6 +1838,34 @@ namespace Game.Feature.UI.Composition
             _instance?.BindUiAudioPort(uiAudioPort);
         }
 
+        internal void BindLocalizedTextResolver(ILocalizedTextResolver localizedTextResolver)
+        {
+            _localizedTextResolver = localizedTextResolver;
+        }
+
+        internal static void BindLocalizedTextResolverForCurrentScene(
+            ILocalizedTextResolver localizedTextResolver)
+        {
+            _pendingLocalizedTextResolver = localizedTextResolver;
+            _instance?.BindLocalizedTextResolver(localizedTextResolver);
+        }
+
+        internal static void UnbindLocalizedTextResolverForCurrentScene(
+            ILocalizedTextResolver localizedTextResolver)
+        {
+            if (!ReferenceEquals(_pendingLocalizedTextResolver, localizedTextResolver))
+            {
+                return;
+            }
+
+            _pendingLocalizedTextResolver = null;
+            if (_instance != null &&
+                ReferenceEquals(_instance._localizedTextResolver, localizedTextResolver))
+            {
+                _instance._localizedTextResolver = null;
+            }
+        }
+
         internal static bool ReleaseSceneEntryCover(SceneEntrySessionToken token)
         {
             var session = SceneEntryPresentationRegistry.Current;
@@ -1918,7 +1951,7 @@ namespace Game.Feature.UI.Composition
                 : Resources.Load<SceneTransitionOverlayContentCatalog>(ContentCatalogResourcePath);
         }
 
-        private static SceneTransitionOverlayModel CreateViewModel(
+        private SceneTransitionOverlayModel CreateViewModel(
             StageTransitionProfile profile,
             StageTransitionHint hint,
             float progress01)
@@ -1928,6 +1961,14 @@ namespace Game.Feature.UI.Composition
                                 profile.OverlayKind == TransitionOverlayKind.ChanceLost &&
                                 hint.HasChanceLostPayload;
             var payload = hasChanceLost ? hint.ChanceLostPayload : default;
+            var hasLocalizedLoadingText =
+                transitionKind == StageTransitionKind.StageClearNext ||
+                transitionKind == StageTransitionKind.DeathRetryChanceLost;
+            var text = hasLocalizedLoadingText
+                ? CreateTransitionTextSnapshot(
+                    includeRemainingChances:
+                        transitionKind == StageTransitionKind.DeathRetryChanceLost)
+                : default;
             return new SceneTransitionOverlayModel(
                 transitionKind,
                 profile.OverlayKind,
@@ -1939,7 +1980,47 @@ namespace Game.Feature.UI.Composition
                 hasChanceLost ? payload.CurrentRemainingChances : 0,
                 hasChanceLost ? payload.TotalChances : 0,
                 hasChanceLost ? payload.DeathCount : 0,
-                hint.TerminalClaimId);
+                hint.TerminalClaimId,
+                text);
+        }
+
+        private SceneTransitionOverlayTextSnapshot CreateTransitionTextSnapshot(
+            bool includeRemainingChances)
+        {
+            return new SceneTransitionOverlayTextSnapshot(
+                _localizedTextResolver?.CurrentLocaleCode ?? UnityStringTableTextResolver.DefaultLocaleCode,
+                includeRemainingChances
+                    ? ResolveTransitionText(
+                        SceneTransitionTextDescriptors.RemainingChances,
+                        SceneTransitionLocalizationEntryId.RemainingChances)
+                    : string.Empty,
+                ResolveTransitionText(
+                    SceneTransitionTextDescriptors.Loading,
+                    SceneTransitionLocalizationEntryId.Loading));
+        }
+
+        private string ResolveTransitionText(
+            LocalizedTextDescriptor descriptor,
+            SceneTransitionLocalizationEntryId entryId)
+        {
+            if (_localizedTextResolver != null)
+            {
+                var resolved = _localizedTextResolver.Resolve(descriptor);
+                if (!string.IsNullOrWhiteSpace(resolved))
+                {
+                    return resolved;
+                }
+            }
+
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
+            {
+                if (entry.Id == entryId)
+                {
+                    return entry.English;
+                }
+            }
+
+            return string.Empty;
         }
 
         private static StageTransitionKind ResolveTransitionKind(StageTransitionProfile profile, StageTransitionHint hint)

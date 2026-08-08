@@ -47,11 +47,12 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TerminalResultContract_HasExactSixEntryCopyAndZeroArguments()
+        public void TerminalResultContract_HasExactSevenEntryCopyAndZeroArguments()
         {
             var expected = new[]
             {
                 (TerminalResultLocalizationContract.Keys.Continue, "Continue", "계속"),
+                (TerminalResultLocalizationContract.Keys.StageClearTitle, "Stage Clear", "스테이지 클리어"),
                 (TerminalResultLocalizationContract.Keys.LevelFailedTitle, "Stage Failed", "스테이지 실패"),
                 (
                     TerminalResultLocalizationContract.Keys.ChancesExhaustedDetail,
@@ -62,13 +63,13 @@ namespace Game.Feature.UI.Tests
                 (TerminalResultLocalizationContract.Keys.GameClearTitle, "Game Clear", "게임 클리어"),
             };
 
-            Assert.That(TerminalResultLocalizationContract.Entries.Count, Is.EqualTo(6));
+            Assert.That(TerminalResultLocalizationContract.Entries.Count, Is.EqualTo(7));
             Assert.That(
                 TerminalResultLocalizationContract.Entries.Select(entry => entry.Id),
                 Is.EquivalentTo(Enum.GetValues(typeof(TerminalResultLocalizationEntryId))));
             Assert.That(
                 TerminalResultLocalizationContract.Entries.Select(entry => entry.Key).Distinct().Count(),
-                Is.EqualTo(6));
+                Is.EqualTo(7));
 
             foreach (var item in expected)
             {
@@ -89,6 +90,7 @@ namespace Game.Feature.UI.Tests
             var descriptors = new[]
             {
                 TerminalResultTextDescriptors.Continue,
+                TerminalResultTextDescriptors.StageClearTitle,
                 TerminalResultTextDescriptors.LevelFailedTitle,
                 TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 TerminalResultTextDescriptors.RestartStage,
@@ -100,6 +102,7 @@ namespace Game.Feature.UI.Tests
                 descriptors.Select(descriptor => descriptor.Key),
                 Is.EquivalentTo(TerminalResultLocalizationContract.Entries.Select(entry => entry.Key)));
             Assert.That(TerminalResultTextDescriptors.Continue.Role, Is.EqualTo(LocalizedTextRole.Button));
+            Assert.That(TerminalResultTextDescriptors.StageClearTitle.Role, Is.EqualTo(LocalizedTextRole.Title));
             Assert.That(TerminalResultTextDescriptors.LevelFailedTitle.Role, Is.EqualTo(LocalizedTextRole.Title));
             Assert.That(TerminalResultTextDescriptors.ChancesExhaustedDetail.Role, Is.EqualTo(LocalizedTextRole.Body));
             Assert.That(TerminalResultTextDescriptors.RestartStage.Role, Is.EqualTo(LocalizedTextRole.Button));
@@ -144,6 +147,17 @@ namespace Game.Feature.UI.Tests
             {
                 var descriptor = new LocalizedTextDescriptor(entry.Table, entry.Key, entry.Role, entry.Weight);
                 Assert.That(packageFree.Resolve(descriptor), Is.EqualTo(entry.Korean), entry.Key);
+            }
+
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
+            {
+                var descriptor = new LocalizedTextDescriptor(entry.Table, entry.Key, entry.Role, entry.Weight);
+                Assert.That(englishTable.GetEntry(entry.Key)?.LocalizedValue, Is.EqualTo(entry.English), entry.Key);
+                Assert.That(koreanTable.GetEntry(entry.Key)?.LocalizedValue, Is.EqualTo(entry.Korean), entry.Key);
+                Assert.That(bootstrap[entry.Key].English, Is.EqualTo(entry.English), entry.Key);
+                Assert.That(bootstrap[entry.Key].Korean, Is.EqualTo(entry.Korean), entry.Key);
+                Assert.That(packageFree.Resolve(descriptor), Is.EqualTo(entry.Korean), entry.Key);
+                Assert.That(invariant.Resolve(descriptor), Is.EqualTo(entry.English), entry.Key);
             }
         }
 
@@ -262,6 +276,12 @@ namespace Game.Feature.UI.Tests
 
             AssertTypography(
                 UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
+                "_titleLabel",
+                TypographyStyleTag.HeaderLarge,
+                theme,
+                climate);
+            AssertTypography(
+                UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
                 "_continueButtonLabel",
                 TypographyStyleTag.Button,
                 theme,
@@ -270,7 +290,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
             var stageResultTitle = stageResultPrefab
                 .GetComponentsInChildren<TMP_Text>(true)
-                .Single(text => text.text == "Level Clear");
+                .Single(text => text.text == "Stage Clear");
             Assert.That(stageResultTitle.margin.x, Is.GreaterThanOrEqualTo(20f));
             Assert.That(stageResultTitle.margin.z, Is.GreaterThanOrEqualTo(20f));
             AssertTypography(
@@ -312,7 +332,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResult_KoreanContinueTypography_PreservesInvariantTitleMaterial()
+        public void StageResult_KoreanTypography_LocalizesTitleAndUsesKoreanFont()
         {
             var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -323,19 +343,17 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var view = instance.GetComponent<StageResultScreenView>();
-                var title = instance
-                    .GetComponentsInChildren<TMP_Text>(true)
-                    .Single(text => text.text == "Level Clear");
-                var authoredMaterial = title.fontSharedMaterial;
-                var authoredMaterialState = EditorJsonUtility.ToJson(authoredMaterial);
+                var title = GetField<TMP_Text>(view, "_titleLabel");
+                var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateSdfPath);
+                var viewModel = new StageResultScreenViewModel();
+                view.Bind(viewModel);
+                viewModel.SetContent("스테이지 클리어", "계속");
 
                 view.ApplyLocalizedTypography("ko-KR", theme);
 
-                Assert.That(title.text, Is.EqualTo("Level Clear"));
-                Assert.That(title.fontSharedMaterial, Is.SameAs(authoredMaterial));
-                Assert.That(
-                    EditorJsonUtility.ToJson(authoredMaterial),
-                    Is.EqualTo(authoredMaterialState));
+                Assert.That(title.text, Is.EqualTo("스테이지 클리어"));
+                Assert.That(title.font, Is.SameAs(climate));
+                Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
             }
             finally
             {
@@ -456,8 +474,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(utility, Does.Contain("animator.Play(\"Base Layer.Idle\", 0, 0f)"));
             Assert.That(utility, Does.Contain("GetCurrentAnimatorStateInfo(0).IsName(\"Base Layer.Idle\")"));
             Assert.That(utility, Does.Contain("animator.enabled = false"));
-            Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, viewRoot, width, height)"));
-            Assert.That(utility, Does.Contain("title.text != \"Level Clear\""));
+            Assert.That(utility, Does.Contain("ValidateStageResultTitle(title, scenario, viewRoot, width, height)"));
+            Assert.That(utility, Does.Contain("scenario.Locale == \"ko-KR\" ? \"스테이지 클리어\" : \"Stage Clear\""));
             Assert.That(utility, Does.Contain("ValidateRenderedTextVisibility(scenario, viewRoot)"));
             Assert.That(utility, Does.Contain("text.canvasRenderer.cull"));
             Assert.That(utility, Does.Contain("visibleCharacterCount == 0"));

@@ -24,28 +24,30 @@ namespace Game.Feature.UI.Tests
         private const string LocalePreferenceKey = "ui.selected_locale";
 
         private Locale _previousLocale;
-        private bool _hadBindingOverridesPreference;
+        private bool _hadKeyboardBindingOverrides;
+        private bool _hadKeyboardMovementScheme;
         private bool _hadLocalePreference;
-        private bool _hadMovementSchemePreference;
         private MonoBehaviour _installedSceneInstaller;
-        private string _previousBindingOverridesPreference;
+        private string _previousKeyboardBindingOverrides;
+        private string _previousKeyboardMovementScheme;
         private string _previousLocalePreference;
-        private string _previousMovementSchemePreference;
 
         [SetUp]
         public void SetUp()
         {
             _previousLocale = LocalizationSettings.SelectedLocale;
-            _hadLocalePreference = PlayerPrefs.HasKey(LocalePreferenceKey);
-            _previousLocalePreference = PlayerPrefs.GetString(LocalePreferenceKey, string.Empty);
-            _hadMovementSchemePreference = PlayerPrefs.HasKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
-            _previousMovementSchemePreference = PlayerPrefs.GetString(
-                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
-                string.Empty);
-            _hadBindingOverridesPreference = PlayerPrefs.HasKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
-            _previousBindingOverridesPreference = PlayerPrefs.GetString(
+            _hadKeyboardBindingOverrides = PlayerPrefs.HasKey(
+                PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            _previousKeyboardBindingOverrides = PlayerPrefs.GetString(
                 PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
                 string.Empty);
+            _hadKeyboardMovementScheme = PlayerPrefs.HasKey(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            _previousKeyboardMovementScheme = PlayerPrefs.GetString(
+                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                string.Empty);
+            _hadLocalePreference = PlayerPrefs.HasKey(LocalePreferenceKey);
+            _previousLocalePreference = PlayerPrefs.GetString(LocalePreferenceKey, string.Empty);
             PlayerPrefs.SetString(LocalePreferenceKey, "en-US");
             PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
             PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
@@ -59,6 +61,28 @@ namespace Game.Feature.UI.Tests
             CloseAndDestroyLiveDropdownLists();
             DisposeInstalledSceneRuntime();
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            if (_hadKeyboardBindingOverrides)
+            {
+                PlayerPrefs.SetString(
+                    PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
+                    _previousKeyboardBindingOverrides);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey);
+            }
+
+            if (_hadKeyboardMovementScheme)
+            {
+                PlayerPrefs.SetString(
+                    PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
+                    _previousKeyboardMovementScheme);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(PlayerPrefsKeyboardBindingStore.MovementSchemeKey);
+            }
+
             if (_hadLocalePreference)
             {
                 PlayerPrefs.SetString(LocalePreferenceKey, _previousLocalePreference);
@@ -68,31 +92,10 @@ namespace Game.Feature.UI.Tests
                 PlayerPrefs.DeleteKey(LocalePreferenceKey);
             }
 
-            RestorePlayerPrefsValue(
-                PlayerPrefsKeyboardBindingStore.MovementSchemeKey,
-                _hadMovementSchemePreference,
-                _previousMovementSchemePreference);
-            RestorePlayerPrefsValue(
-                PlayerPrefsKeyboardBindingStore.BindingOverridesJsonKey,
-                _hadBindingOverridesPreference,
-                _previousBindingOverridesPreference);
-
             PlayerPrefs.Save();
             if (_previousLocale != null)
             {
                 LocalizationSettings.SelectedLocale = _previousLocale;
-            }
-        }
-
-        private static void RestorePlayerPrefsValue(string key, bool hadValue, string previousValue)
-        {
-            if (hadValue)
-            {
-                PlayerPrefs.SetString(key, previousValue);
-            }
-            else
-            {
-                PlayerPrefs.DeleteKey(key);
             }
         }
 

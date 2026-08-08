@@ -257,9 +257,9 @@ namespace Game.Feature.UI.Tests
                     height);
                 if (scenario.Screen == ScreenId.StageResult)
                 {
-                    stageResultTitle = viewRoot
-                        .GetComponentsInChildren<TMP_Text>(true)
-                        .Single(text => text.text == "Level Clear");
+                    stageResultTitle = GetField<TMP_Text>(
+                        viewRoot.GetComponent<StageResultScreenView>(),
+                        "_titleLabel");
                 }
                 var nonTextHash = ComputeNonTextStateHash(viewRoot);
                 var hierarchyHash = ComputeHierarchyHash(viewRoot);
@@ -446,8 +446,7 @@ namespace Game.Feature.UI.Tests
                 .Where(text => text.gameObject.activeInHierarchy)
                 .ToArray();
             var expectations = BuildTextExpectations(scenario);
-            var expectedActiveTextCount = expectations.Count +
-                                          (scenario.Screen == ScreenId.StageResult ? 1 : 0);
+            var expectedActiveTextCount = expectations.Count;
             if (texts.Length != expectedActiveTextCount)
             {
                 throw new InvalidOperationException(
@@ -455,7 +454,6 @@ namespace Game.Feature.UI.Tests
             }
 
             var states = new List<TextState>();
-            var validatedTexts = new HashSet<TMP_Text>();
             foreach (var expectation in expectations)
             {
                 var text = GetField<TMP_Text>(
@@ -469,14 +467,14 @@ namespace Game.Feature.UI.Tests
                     width,
                     height);
                 states.Add(new TextState(text.font, text.fontSharedMaterial));
-                validatedTexts.Add(text);
             }
 
             if (scenario.Screen == ScreenId.StageResult)
             {
-                var title = texts.Single(text => !validatedTexts.Contains(text));
-                ValidateStageResultTitle(title, viewRoot, width, height);
-                states.Add(new TextState(title.font, title.fontSharedMaterial));
+                var title = GetField<TMP_Text>(
+                    viewRoot.GetComponent<StageResultScreenView>(),
+                    "_titleLabel");
+                ValidateStageResultTitle(title, scenario, viewRoot, width, height);
             }
 
             var joined = string.Join("\n", texts.Select(text => text.text));
@@ -490,6 +488,7 @@ namespace Game.Feature.UI.Tests
                  joined.Contains("Main Menu", StringComparison.Ordinal) ||
                  joined.Contains("Restart Stage", StringComparison.Ordinal) ||
                  joined.Contains("Continue", StringComparison.Ordinal) ||
+                 joined.Contains("Stage Clear", StringComparison.Ordinal) ||
                  joined.Contains("Game Clear", StringComparison.Ordinal)))
             {
                 throw new InvalidOperationException("Korean terminal capture retains stale English.");
@@ -508,6 +507,11 @@ namespace Game.Feature.UI.Tests
                 case ScreenId.StageResult:
                     return new[]
                     {
+                        new TextExpectation(
+                            typeof(StageResultScreenView),
+                            "_titleLabel",
+                            scenario.Locale == "ko-KR" ? "스테이지 클리어" : "Stage Clear",
+                            TypographyStyleTag.HeaderLarge),
                         new TextExpectation(
                             typeof(StageResultScreenView),
                             "_continueButtonLabel",
@@ -642,23 +646,17 @@ namespace Game.Feature.UI.Tests
 
         private static void ValidateStageResultTitle(
             TMP_Text title,
+            CaptureScenario scenario,
             GameObject viewRoot,
             int width,
             int height)
         {
-            var authored = UiTestPrefabAssetUtility
-                .LoadScreenPrefab<StageResultScreenView>(
-                    UiTestPrefabAssetUtility.StageResultScreenPrefabPath)
-                .GetComponentsInChildren<TMP_Text>(true)
-                .Single(text => text.text == "Level Clear");
+            var expectedText = scenario.Locale == "ko-KR" ? "스테이지 클리어" : "Stage Clear";
             if (!title.isActiveAndEnabled ||
-                title.text != "Level Clear" ||
-                title.font != authored.font ||
-                title.fontSharedMaterial != authored.fontSharedMaterial ||
-                title.fontStyle != authored.fontStyle)
+                title.text != expectedText)
             {
                 throw new InvalidOperationException(
-                    "StageResult title text or authored typography identity mismatch.");
+                    "StageResult title text mismatch or inactive state.");
             }
             if (title.text.Any(
                     character => !char.IsControl(character) &&

@@ -1005,6 +1005,11 @@ namespace Game.Feature.UI.Application
                 values.Add(entry.Key, entry.English);
             }
 
+            foreach (var entry in SceneTransitionLocalizationContract.Entries)
+            {
+                values.Add(entry.Key, entry.English);
+            }
+
             foreach (var entry in MainMenuLocalizationContract.Entries)
             {
                 values.Add(entry.Key, entry.English);

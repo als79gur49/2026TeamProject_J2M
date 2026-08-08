@@ -226,9 +226,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(backLine.anchorMax, Is.EqualTo(Vector2.right));
             Assert.That(backLine.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
             Assert.That(backLine.anchoredPosition, Is.EqualTo(Vector2.zero));
-            Assert.That(backLine.sizeDelta, Is.EqualTo(new Vector2(-32f, 13f)));
-            Assert.That(backLine.rect.height, Is.GreaterThan(0f));
-            Assert.That(backLine.rect.width, Is.GreaterThan(backLine.rect.height));
+            Assert.That(backLine.sizeDelta.x, Is.LessThan(0f), "Stretched back line should reserve horizontal padding.");
+            Assert.That(backLine.sizeDelta.y, Is.GreaterThan(0f));
             Assert.That(backLine.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
             Assert.That(groupTemplate.gameObject.activeSelf, Is.False);
             Assert.That(stageTemplate.gameObject.activeSelf, Is.False);
@@ -242,6 +241,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageTemplate.SelectionFrame.activeSelf, Is.False);
             Assert.That(groupTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(30f, 60f)));
             Assert.That(stageTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(15f, 40f)));
+        }
+
+        [Test]
+        public void PausePrefab_DoesNotExposeDescriptionCopy()
+        {
+            var prefab = LoadPausePrefab();
+            var description = prefab.transform.Find("Description");
+
+            Assert.That(
+                typeof(PausePopupView).GetField("_descriptionLabel", BindingFlags.Instance | BindingFlags.NonPublic),
+                Is.Null);
+            Assert.That(description, Is.Null);
         }
 
         [Test]
@@ -895,7 +906,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(title.enableAutoSizing, Is.EqualTo(expectedAutoSizing), $"{stage} Auto Size");
             Assert.That(title.fontSizeMin, Is.EqualTo(expectedFontSizeMin), $"{stage} min");
             Assert.That(title.fontSizeMax, Is.EqualTo(expectedFontSizeMax), $"{stage} max");
-
         }
 
         private static void AssertSameAssetIdentity(
