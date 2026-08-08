@@ -463,7 +463,13 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var viewModel = new PausePopupViewModel();
-                viewModel.SetContent("Paused", "Resume", "Settings", "Retry", "Main Menu");
+                viewModel.SetContent(
+                    "Paused",
+                    "Resume",
+                    "Settings",
+                    "Retry",
+                    "Main Menu",
+                    PauseProgressionViewModel.Hidden);
                 view.Bind(viewModel);
                 view.IsVisible = true;
                 view.SetIsTopmost(true);
@@ -990,7 +996,13 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var viewModel = new PausePopupViewModel();
-                viewModel.SetContent("Paused", "Resume", "Settings", "Retry", "Main Menu");
+                viewModel.SetContent(
+                    "Paused",
+                    "Resume",
+                    "Settings",
+                    "Retry",
+                    "Main Menu",
+                    PauseProgressionViewModel.Hidden);
                 view.Bind(viewModel);
                 view.IsVisible = true;
                 view.OnNavigationFocusGained();

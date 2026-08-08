@@ -100,8 +100,8 @@ namespace Game.Feature.UI.Application
         private static readonly KeyboardBindingSettingsSnapshot DefaultSnapshot = new(
             KeyboardMovementScheme.Wasd,
             "WASD",
-            "E",
-            "Q",
+            "J",
+            "K",
             false,
             null);
 

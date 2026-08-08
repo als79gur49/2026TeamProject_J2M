@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Tests
                 Assert.That(presenter.InstanceCount, Is.EqualTo(1));
                 var label = parent.GetComponentInChildren<TMP_Text>(includeInactive: true);
                 Assert.That(label, Is.Not.Null);
-                Assert.That(label.text, Is.EqualTo("E"));
+                Assert.That(label.text, Is.EqualTo("J"));
                 var view = parent.GetComponentInChildren<WorldGuideInstructionView>(includeInactive: true);
                 Assert.That(view, Is.Not.Null);
                 Assert.That(view.transform.localPosition, Is.EqualTo(new Vector3(1f, 2f, 2.75f)));
@@ -226,8 +226,8 @@ namespace Game.Feature.Gameplay.Tests
                 view.ApplyKeyboardBindings(new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.ArrowKeys,
                     "Arrow Keys",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     isRebinding: false,
                     rebindingAction: null));
 
@@ -237,8 +237,8 @@ namespace Game.Feature.Gameplay.Tests
                 view.ApplyKeyboardBindings(new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     isRebinding: false,
                     rebindingAction: null));
 
@@ -378,10 +378,10 @@ namespace Game.Feature.Gameplay.Tests
                 .With("Left", "<Keyboard>/leftArrow")
                 .With("Right", "<Keyboard>/rightArrow");
             player.AddAction(GameplayInputActionPaths.PushAction, InputActionType.Button)
-                .AddBinding("<Keyboard>/e")
+                .AddBinding("<Keyboard>/j")
                 .WithGroup("Keyboard&Mouse");
             player.AddAction(GameplayInputActionPaths.FlipAction, InputActionType.Button)
-                .AddBinding("<Keyboard>/q")
+                .AddBinding("<Keyboard>/k")
                 .WithGroup("Keyboard&Mouse");
             actions.AddActionMap(player);
 

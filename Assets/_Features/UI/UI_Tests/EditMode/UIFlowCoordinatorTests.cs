@@ -179,6 +179,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_RequestPausePopup_ReadsFreshProgressionForEveryOpen()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var progressionSource = new MutablePauseProgressionReadSource
+            {
+                Snapshot = CreateProgressionSnapshot("stage-1-1"),
+            };
+            using var coordinator = new UIFlowCoordinator(
+                new ScreenController(new FakeScreenRuntimeFactory()),
+                new PopupController(popupRuntimeFactory),
+                new UIBlockPolicy(),
+                pauseService,
+                new ManualGameplayUiPresentationSource(),
+                new RecordingUiAudioPort(),
+                new FakeStageLaunchRouter(),
+                new FakeMainMenuReturnRouter(),
+                progressionSource);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var firstPayload = (PausePopupPayload)popupRuntimeFactory.CreatedRuntimes[^1].Request.Payload;
+            Assert.That(firstPayload.Progression.CurrentStageKey, Is.EqualTo("stage-1-1"));
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Resumed);
+            progressionSource.Snapshot = CreateProgressionSnapshot("stage-1-2");
+
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var secondPayload = (PausePopupPayload)popupRuntimeFactory.CreatedRuntimes[^1].Request.Payload;
+            Assert.That(secondPayload.Progression.CurrentStageKey, Is.EqualTo("stage-1-2"));
+            Assert.That(progressionSource.ReadCallCount, Is.EqualTo(2));
+        }
+
+        [Test]
         public void UIFlowCoordinator_PausePopupSettingsRequested_EmitsSingleForwardCueWithoutPopupCompletionDoublePlay()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -1629,6 +1663,32 @@ namespace Game.Feature.UI.Tests
                 new UIStageSlice(stageId, StageDisplayNameKeys.ForStage(stageId)),
                 UIPresentationSnapshot.Empty.Player,
                 UIPresentationSnapshot.Empty.Notifications);
+        }
+
+        private static PauseProgressionSnapshot CreateProgressionSnapshot(string currentStageKey)
+        {
+            return new PauseProgressionSnapshot(
+                isAvailable: true,
+                new[]
+                {
+                    new PauseProgressionStageSnapshot("stage-1-1", "world-1"),
+                    new PauseProgressionStageSnapshot("stage-1-2", "world-1"),
+                },
+                currentStageKey);
+        }
+
+        private sealed class MutablePauseProgressionReadSource : IPauseProgressionReadSource
+        {
+            public PauseProgressionSnapshot Snapshot { get; set; } = PauseProgressionSnapshot.Unavailable;
+
+            public int ReadCallCount { get; private set; }
+
+            public bool TryRead(out PauseProgressionSnapshot snapshot)
+            {
+                ReadCallCount++;
+                snapshot = Snapshot;
+                return snapshot.IsAvailable;
+            }
         }
 
         private static UITickEventBatch CreateStageClearedBatch(

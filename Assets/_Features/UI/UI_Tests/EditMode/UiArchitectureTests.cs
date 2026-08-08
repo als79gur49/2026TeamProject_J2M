@@ -862,7 +862,7 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(UIFlowCoordinator)),
                 Is.EqualTo(new[]
                 {
-                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IUiAudioPort, IStageLaunchRouter, IMainMenuReturnRouter)",
+                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IUiAudioPort, IStageLaunchRouter, IMainMenuReturnRouter, IPauseProgressionReadSource)",
                 }));
         }
 
