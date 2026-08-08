@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace Game.Feature.Stages
 {
+    public interface ICampaignStageSequenceResolverProvider
+    {
+        bool TryCreateCampaignStageSequenceResolver(out CampaignStageSequenceResolver resolver);
+    }
+
     public sealed class CampaignStageSequenceResolver
     {
         private readonly Dictionary<StageId, int> _indicesByStageId = new();

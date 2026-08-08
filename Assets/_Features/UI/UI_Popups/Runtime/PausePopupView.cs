@@ -13,6 +13,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private PauseProgressionStripView _progressionView;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private TMP_Text _resumeButtonLabel;
         [SerializeField] private Button _settingsButton;
@@ -131,6 +132,7 @@ namespace Game.Feature.UI.Popups
         private void OnDisable()
         {
             StopRootEnterMotion();
+            _progressionView?.SetNavigationFocus(false);
             UnbindButton(_resumeButton, ClickResume);
             UnbindButton(_settingsButton, ClickSettings);
             UnbindButton(_retryButton, ClickRetry);
@@ -197,6 +199,12 @@ namespace Game.Feature.UI.Popups
 
             switch (command)
             {
+                case UiNavigationCommand.Left:
+                    return _progressionView != null && _progressionView.TryMoveViewedIndex(-1);
+
+                case UiNavigationCommand.Right:
+                    return _progressionView != null && _progressionView.TryMoveViewedIndex(1);
+
                 case UiNavigationCommand.Up:
                     return _navigationGroup.TryMove(-1);
 
@@ -253,11 +261,13 @@ namespace Game.Feature.UI.Popups
         public void OnNavigationFocusGained()
         {
             _navigationGroup?.SetSelectedIndex(0);
+            _progressionView?.SetNavigationFocus(true);
         }
 
         public void OnNavigationFocusLost()
         {
             _navigationGroup?.HideAllFrames();
+            _progressionView?.SetNavigationFocus(false);
         }
 
         private void OnDestroy()
@@ -286,8 +296,14 @@ namespace Game.Feature.UI.Popups
 
             if (_viewModel == null)
             {
+                _progressionView?.Bind(null);
                 return;
             }
+
+            _progressionView?.Bind(
+                IsVisible
+                    ? _viewModel.Progression
+                    : PauseProgressionViewModel.Hidden);
 
             if (HasStaticLocalization)
             {

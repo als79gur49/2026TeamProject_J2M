@@ -1021,19 +1021,19 @@ namespace Game.Feature.UI.Tests
             presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Press a key for Push..."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             keyboardPort.Complete();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Key reassignment cancelled."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("키 재지정을 취소했습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [TestCase(
@@ -1102,14 +1102,14 @@ namespace Game.Feature.UI.Tests
             presenter.InputPresenter.ResetToDefaults();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Input settings reset."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1129,14 +1129,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1156,14 +1156,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Movement keys cannot overlap."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1182,14 +1182,14 @@ namespace Game.Feature.UI.Tests
             presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Another key is already being reassigned."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
             Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
-            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         [Test]
@@ -1329,14 +1329,14 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("Another key is already being reassigned."));
                 Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
-                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
+                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("J"));
 
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
                 Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
-                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("E"));
+                Assert.That(fixture.PushCurrentText.text, Is.EqualTo("J"));
             }
             finally
             {
@@ -1696,8 +1696,8 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
-            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
 
             resolver.SetLocale("en-US");
             presenter.Apply(new SettingsInputPresenterInput(
@@ -1709,8 +1709,8 @@ namespace Game.Feature.UI.Tests
                 SettingsStaticTextDescriptors.ResetInput));
 
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
-            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("E"));
-            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("Q"));
+            Assert.That(presenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
+            Assert.That(presenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
 
         private static string ResolveDefaultInputValidationStatus(
@@ -1947,8 +1947,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     _isRebinding,
                     _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
             }
@@ -1996,8 +1996,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     false,
                     null);
             }

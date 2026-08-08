@@ -491,14 +491,16 @@ namespace Game.Feature.UI.Composition
                 RegisterSceneEntryDestinationIfApplicable();
                 _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
                 _demoStageControlCommandPort = CreateDemoStageControlCommandPort(sceneHost);
+                var presentationSource = new GameplayUiPresentationSource(
+                    sceneHost.UiAccess.QueryFacade,
+                    sceneHost.UiAccess.PresentationFeed,
+                    sceneHost.UiAccess.PauseService);
                 Install(new GameplayUiFlowPorts(
                     sceneHost.UiAccess.CommandGateway,
                     sceneHost.UiAccess.QueryFacade,
-                    new GameplayUiPresentationSource(
-                        sceneHost.UiAccess.QueryFacade,
-                        sceneHost.UiAccess.PresentationFeed,
-                        sceneHost.UiAccess.PauseService),
-                    sceneHost.UiAccess.PauseService));
+                    presentationSource,
+                    sceneHost.UiAccess.PauseService,
+                    CreatePauseProgressionReadSource(gameObject, presentationSource)));
 
                 SignalTerminalDestinationReadyIfApplicable(sceneHost);
                 _sceneHost = null;
@@ -713,7 +715,8 @@ namespace Game.Feature.UI.Composition
                 PresentationSource,
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name),
-                CreateMainMenuReturnRouter());
+                CreateMainMenuReturnRouter(),
+                Ports.PauseProgressionReadSource);
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
@@ -1892,6 +1895,29 @@ namespace Game.Feature.UI.Composition
                 context.CampaignBridge,
                 new DemoStageControlLaunchBridge(launchRouter, () => launchRouter.IsLaunchInProgress),
                 sceneHost.UiAccess.DemoStageControlCompletionBridge);
+        }
+
+        private static IPauseProgressionReadSource CreatePauseProgressionReadSource(
+            GameObject root,
+            IGameplayUiPresentationSource presentationSource)
+        {
+            if (root == null || presentationSource == null)
+            {
+                return EmptyPauseProgressionReadSource.Instance;
+            }
+
+            var behaviours = root.GetComponentsInParent<MonoBehaviour>(true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ICampaignStageSequenceResolverProvider provider &&
+                    provider.TryCreateCampaignStageSequenceResolver(out var resolver) &&
+                    resolver != null)
+                {
+                    return new CampaignPauseProgressionReadSource(resolver, presentationSource);
+                }
+            }
+
+            return EmptyPauseProgressionReadSource.Instance;
         }
 
         private static IDemoStageControlGameplayContextProvider FindDemoStageControlContextProvider(GameObject root)

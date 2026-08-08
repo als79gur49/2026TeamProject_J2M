@@ -7,7 +7,9 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public abstract class StageBackedGameplaySceneInstallerBase : GameplayShowcaseSceneInstallerBase, IDemoStageControlGameplayContextProvider
+    public abstract class StageBackedGameplaySceneInstallerBase : GameplayShowcaseSceneInstallerBase,
+        IDemoStageControlGameplayContextProvider,
+        ICampaignStageSequenceResolverProvider
     {
         private const string StageBackgroundRootObjectName = "StageBackgroundRoot";
 
@@ -66,6 +68,21 @@ namespace Game.Feature.Gameplay.Host
                     _activeSlotProvider,
                     sequenceResolver),
                 sequenceResolver);
+            return true;
+        }
+
+        public bool TryCreateCampaignStageSequenceResolver(out CampaignStageSequenceResolver resolver)
+        {
+            if (!_campaignRuntimeActive)
+            {
+                resolver = null;
+                return false;
+            }
+
+            var sequenceDefinition = campaignStageSequenceDefinition != null
+                ? campaignStageSequenceDefinition
+                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            resolver = new CampaignStageSequenceResolver(sequenceDefinition);
             return true;
         }
 

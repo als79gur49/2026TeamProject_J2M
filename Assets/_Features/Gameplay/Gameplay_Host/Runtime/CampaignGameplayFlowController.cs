@@ -434,15 +434,38 @@ namespace Game.Feature.Gameplay.Host
                         $"Campaign sequence could not resolve a next stage for '{completedStageId.Value}'.");
                 }
 
+                var completedLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
                 var nextLevelGroupId = _sequenceResolver.GetLevelGroupId(nextStageId);
+                var restoresChances = !string.Equals(
+                    completedLevelGroupId,
+                    nextLevelGroupId,
+                    StringComparison.Ordinal);
+                var currentSceneRemainingChances = SaveSlotStore.DefaultRemainingChances;
                 _saveSlotStore.UpdateSlot(
                     runningSlotNumber,
                     mutableSlot =>
                     {
+                        if (restoresChances)
+                        {
+                            currentSceneRemainingChances = mutableSlot.RemainingChances <= 0
+                                ? SaveSlotStore.DefaultRemainingChances
+                                : Math.Min(
+                                    mutableSlot.RemainingChances,
+                                    SaveSlotStore.DefaultRemainingChances);
+                            mutableSlot.RemainingChances = SaveSlotStore.DefaultRemainingChances;
+                        }
+
                         mutableSlot.CurrentStageId = nextStageId;
                         mutableSlot.CurrentLevelGroupId = nextLevelGroupId;
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                     });
+                if (restoresChances)
+                {
+                    _chanceDisplayOverride?.Set(
+                        currentSceneRemainingChances,
+                        SaveSlotStore.DefaultRemainingChances,
+                        GameplayChanceAudioPolicy.SuppressChanceChangeCue);
+                }
             }
 
             BeginVictoryTerminal(claim);

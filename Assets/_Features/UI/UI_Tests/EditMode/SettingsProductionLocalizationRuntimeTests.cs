@@ -605,14 +605,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo("This key cannot be used."));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(view.InputView.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
         }
 
         [Test]
@@ -629,14 +629,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo("Movement keys cannot overlap."));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(view.InputView.StatusText, Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
         }
 
         [Test]
@@ -652,14 +652,14 @@ namespace Game.Feature.UI.Tests
             view.InputView.ClickPushChange();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo("Another key is already being reassigned."));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
 
             view.ClickDisplayTab();
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
             Assert.That(view.InputView.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
         }
 
         [TestCase(
@@ -686,14 +686,14 @@ namespace Game.Feature.UI.Tests
             keyboardPort.Complete();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(englishStatus));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
-            Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
+            Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("K"));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             Assert.That(view.InputView.StatusText, Is.EqualTo(koreanStatus));
-            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("E"));
-            Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("Q"));
+            Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
+            Assert.That(GetText(view.InputView, "_flipKeyDisplayLabel").text, Is.EqualTo("K"));
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
@@ -743,10 +743,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindFromEToSpaceRefreshesWithoutLocaleTypographyMutation()
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindFromJToSpaceRefreshesWithoutLocaleTypographyMutation()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
-            var keyboardPort = new MutableKeyboardSettingsPort("E", "Q");
+            var keyboardPort = new MutableKeyboardSettingsPort("J", "K");
             using var harness = GameplaySettingsHarness.Create(resolver, keyboardPort);
 
             harness.ShowSettings();
@@ -759,7 +759,7 @@ namespace Game.Feature.UI.Tests
                 [pushKeycap] = new InvariantTypographyState(pushKeycap),
             };
 
-            AssertKeyDisplayPair(pushCurrent, pushKeycap, "E");
+            AssertKeyDisplayPair(pushCurrent, pushKeycap, "J");
             harness.SettingsView.ClickInputTab();
             input.ClickPushChange();
             keyboardPort.Complete("Space");
@@ -1660,8 +1660,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     _isRebinding,
                     _isRebinding ? (KeyboardBindableAction?)_rebindingAction : null);
             }
@@ -1707,8 +1707,8 @@ namespace Game.Feature.UI.Tests
             public KeyboardBindingSettingsSnapshot ResetToDefaults()
             {
                 _isRebinding = false;
-                _pushDisplayName = "E";
-                _flipDisplayName = "Q";
+                _pushDisplayName = "J";
+                _flipDisplayName = "K";
                 return BuildSnapshot();
             }
 
@@ -1825,8 +1825,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     false,
                     null);
             }

@@ -103,8 +103,8 @@ Low-usage combos are all showcase-only: `Flip`, `Push+Flip`, `Item`, `Push+Item`
 
 ## Input-Specific Findings
 
-- `Player/Push`: keyboard `E` and gamepad `buttonNorth`.
-- `Player/Flip`: keyboard `Q` only.
+- `Player/Push`: keyboard `J` and gamepad `buttonNorth`.
+- `Player/Flip`: keyboard `K` only.
 - Input policy conclusion: Flip remains keyboard-only by current product decision. Do not add a controller binding or prompt expectation in this cleanup PR.
 - Generated input wrapper residue: no generated wrapper code was found.
 - InputActionReference serialized residues: no Push/Flip-specific stale reference was found beyond the active InputActionAsset and settings/rebind path.

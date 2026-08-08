@@ -209,8 +209,8 @@ namespace Game.Feature.Gameplay.Host
             _keyboardBindingSnapshot = new KeyboardBindingSettingsSnapshot(
                 KeyboardMovementScheme.Wasd,
                 "WASD",
-                "E",
-                "Q",
+                "J",
+                "K",
                 isRebinding: false,
                 rebindingAction: null);
 

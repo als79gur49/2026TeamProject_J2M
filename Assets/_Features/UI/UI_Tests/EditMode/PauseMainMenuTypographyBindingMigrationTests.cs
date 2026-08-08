@@ -204,6 +204,46 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PausePrefab_ProgressionStripIsBoundAndUsesInactiveTemplates()
+        {
+            var prefab = LoadPausePrefab();
+            var progression = GetField<PauseProgressionStripView>(prefab, "_progressionView");
+            var groupTemplate = GetField<PauseProgressionMarkerView>(progression, "_groupStartMarkerTemplate");
+            var stageTemplate = GetField<PauseProgressionMarkerView>(progression, "_stageMarkerTemplate");
+            var progressionRoot = GetField<RectTransform>(progression, "_root");
+            var scrollRect = GetField<ScrollRect>(progression, "_scrollRect");
+            var content = GetField<RectTransform>(progression, "_content");
+            var backLine = scrollRect.viewport.Find("BackLine") as RectTransform;
+
+            Assert.That(progression, Is.Not.Null);
+            Assert.That(progressionRoot.Find("LeftButton"), Is.Null);
+            Assert.That(progressionRoot.Find("RightButton"), Is.Null);
+            Assert.That(scrollRect.viewport.sizeDelta.x, Is.EqualTo(0f));
+            Assert.That(backLine, Is.Not.Null);
+            Assert.That(backLine.parent, Is.SameAs(scrollRect.viewport));
+            Assert.That(backLine.GetSiblingIndex(), Is.LessThan(content.GetSiblingIndex()));
+            Assert.That(backLine.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(backLine.anchorMax, Is.EqualTo(Vector2.right));
+            Assert.That(backLine.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
+            Assert.That(backLine.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(backLine.sizeDelta.x, Is.LessThan(0f), "Stretched back line should reserve horizontal padding.");
+            Assert.That(backLine.sizeDelta.y, Is.GreaterThan(0f));
+            Assert.That(backLine.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
+            Assert.That(groupTemplate.gameObject.activeSelf, Is.False);
+            Assert.That(stageTemplate.gameObject.activeSelf, Is.False);
+            Assert.That(groupTemplate.VisualImage, Is.Not.Null);
+            Assert.That(stageTemplate.VisualImage, Is.Not.Null);
+            Assert.That(groupTemplate.VisualImage.raycastTarget, Is.False);
+            Assert.That(stageTemplate.VisualImage.raycastTarget, Is.False);
+            Assert.That(groupTemplate.SelectionFrame, Is.Not.Null);
+            Assert.That(stageTemplate.SelectionFrame, Is.Not.Null);
+            Assert.That(groupTemplate.SelectionFrame.activeSelf, Is.False);
+            Assert.That(stageTemplate.SelectionFrame.activeSelf, Is.False);
+            Assert.That(groupTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(30f, 60f)));
+            Assert.That(stageTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(15f, 40f)));
+        }
+
+        [Test]
         public void PausePrefab_DoesNotExposeDescriptionCopy()
         {
             var prefab = LoadPausePrefab();
@@ -212,9 +252,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 typeof(PausePopupView).GetField("_descriptionLabel", BindingFlags.Instance | BindingFlags.NonPublic),
                 Is.Null);
-            Assert.That(description, Is.Not.Null);
-            Assert.That(description.gameObject.activeSelf, Is.False);
-            Assert.That(description.GetComponent<TMP_Text>().text, Is.Empty);
+            Assert.That(description, Is.Null);
         }
 
         [Test]
@@ -378,16 +416,13 @@ namespace Game.Feature.UI.Tests
                 Assert.That(binding, Is.Not.Null);
                 Assert.That(binding.StyleTag, Is.EqualTo(TypographyStyleTag.HeaderMedium));
                 Assert.That(binding.SizingSourceOverride, Is.EqualTo(TypographySizingSource.Hybrid));
-                Assert.That(title.rectTransform.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
-                Assert.That(title.rectTransform.anchorMax, Is.EqualTo(new Vector2(0f, 1f)));
-                Assert.That(title.rectTransform.pivot, Is.EqualTo(new Vector2(0f, 1f)));
-                Assert.That(title.rectTransform.sizeDelta, Is.EqualTo(new Vector2(160f, 40f)));
-                Assert.That(title.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(120f, -20f)));
-                Assert.That(
-                    title.rectTransform.anchoredPosition.x +
-                    title.rectTransform.sizeDelta.x * (0.5f - title.rectTransform.pivot.x),
-                    Is.EqualTo(200f).Within(0.01f),
-                    "Pause title visual center");
+                Assert.That(title.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(title.rectTransform.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(title.rectTransform.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(title.rectTransform.sizeDelta, Is.EqualTo(Vector2.zero));
+                Assert.That(title.rectTransform.anchoredPosition, Is.EqualTo(Vector2.zero));
+                Assert.That(title.transform.parent.name, Is.EqualTo("Title"));
+                Assert.That(title.transform.parent.GetComponent<LayoutElement>().preferredHeight, Is.EqualTo(70f));
 
                 localizationScope = PausePopupProductionLocalizationComposer.Bind(
                     view,

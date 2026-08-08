@@ -33,17 +33,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var snapshot = new PlayerContinuousLocomotionSettings
             {
-                CollisionRadiusCells = 0.1875f,
+                CollisionRadiusCells = 0.28125f,
             }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(768));
-            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(SimulationFixed.UnitsPerCell * 3 / 16));
+            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(1152));
+            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(SimulationFixed.UnitsPerCell * 9 / 32));
         }
 
         [TestCase(0f, 0)]
         [TestCase(0.0625f, 256)]
         [TestCase(0.125f, 512)]
         [TestCase(0.1875f, 768)]
+        [TestCase(0.421875f, 1728)]
         [Category("Extended")]
         public void PlayerContinuousLocomotionSettings_ActionAssistSettleWindowCells_ConvertsToFixedUnits(
             float actionAssistSettleWindowCells,

@@ -1065,8 +1065,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     movementScheme,
                     movementScheme == KeyboardMovementScheme.ArrowKeys ? "Arrow Keys" : "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     isRebinding,
                     isRebinding ? (KeyboardBindableAction?)KeyboardBindableAction.Push : null);
             }
@@ -1081,8 +1081,8 @@ namespace Game.Feature.UI.Tests
                 return new KeyboardBindingSettingsSnapshot(
                     KeyboardMovementScheme.Wasd,
                     "WASD",
-                    "E",
-                    "Q",
+                    "J",
+                    "K",
                     isRebinding: true,
                     rebindingAction: KeyboardBindableAction.Push);
             }
