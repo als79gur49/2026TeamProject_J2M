@@ -18,9 +18,9 @@ namespace Game.Feature.UI.Screens
         private const string DisplayFullscreenToggleNodeId = "Display.Fullscreen.Toggle";
         private const string DisplayApplyButtonNodeId = "Display.Apply.Button";
         private const string DisplayRevertButtonNodeId = "Display.Revert.Button";
-        private const string InputMovementSliderNodeId = "Input.Movement.Slider";
-        private const string InputPushChangeNodeId = "Input.Push.Change";
-        private const string InputFlipChangeNodeId = "Input.Flip.Change";
+        private const string InputMovementToggleNodeId = "Input.Movement.Toggle";
+        private const string InputPushRebindNodeId = "Input.Push.Rebind";
+        private const string InputFlipRebindNodeId = "Input.Flip.Rebind";
         private const string InputResetNodeId = "Input.Reset";
 
         public static void Build(SettingsScreenView view, UiFocusGraphNavigator graph)
@@ -91,31 +91,30 @@ namespace Game.Feature.UI.Screens
                 isInteractable: () => view.DisplayView != null && view.DisplayView.IsDisplayRevertInteractable);
 
             view.RegisterFocusNode(
-                InputMovementSliderNodeId,
+                InputMovementToggleNodeId,
                 UiFocusRegion.Input,
-                UiFocusNodeKind.Slider,
+                UiFocusNodeKind.Toggle,
                 0,
                 0,
                 () => view.InputView != null &&
-                      SettingsScreenView.InvokeAndReturnTrue(() => view.InputView.SetMovementUseArrowKeys(!view.InputView.IsMovementUsingArrowKeys)),
-                adjust: delta => view.InputView != null && view.InputView.AdjustMovementScheme(delta),
-                isInteractable: () => view.InputView != null && view.InputView.IsMovementSliderInteractable);
+                      SettingsScreenView.InvokeAndReturnTrue(view.InputView.ClickMovementScheme),
+                isInteractable: () => view.InputView != null && view.InputView.IsMovementSchemeInteractable);
             view.RegisterFocusNode(
-                InputPushChangeNodeId,
+                InputPushRebindNodeId,
                 UiFocusRegion.Input,
                 UiFocusNodeKind.Button,
                 1,
                 0,
-                () => SettingsScreenView.InvokeAndReturnTrue(view.InputView.ClickPushChange),
-                isInteractable: () => view.InputView != null && view.InputView.IsPushChangeInteractable);
+                () => SettingsScreenView.InvokeAndReturnTrue(view.InputView.ClickPushRebind),
+                isInteractable: () => view.InputView != null && view.InputView.IsPushRebindInteractable);
             view.RegisterFocusNode(
-                InputFlipChangeNodeId,
+                InputFlipRebindNodeId,
                 UiFocusRegion.Input,
                 UiFocusNodeKind.Button,
                 2,
                 0,
-                () => SettingsScreenView.InvokeAndReturnTrue(view.InputView.ClickFlipChange),
-                isInteractable: () => view.InputView != null && view.InputView.IsFlipChangeInteractable);
+                () => SettingsScreenView.InvokeAndReturnTrue(view.InputView.ClickFlipRebind),
+                isInteractable: () => view.InputView != null && view.InputView.IsFlipRebindInteractable);
             view.RegisterFocusNode(
                 InputResetNodeId,
                 UiFocusRegion.Input,

@@ -181,7 +181,7 @@ namespace Game.Feature.UI.Composition.Editor
     public static class TypographyPreviewScreenshotUtility
     {
         public const string DefaultOutputRoot = "TestLogs/TypographyVisualQA";
-        public const int SettingsExpectedAppliedBindingCount = 38;
+        public const int SettingsExpectedAppliedBindingCount = 35;
         public const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
         public const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         public const string ClimateCrisisKrFontAssetPath =
@@ -449,7 +449,7 @@ namespace Game.Feature.UI.Composition.Editor
                 case "Settings":
                 case "SettingsAudioMuted":
                 case "SettingsDisplayStatus":
-                    return 22;
+                    return 20;
 
                 case "Pause":
                     return 5;
@@ -1898,10 +1898,8 @@ namespace Game.Feature.UI.Composition.Editor
                 var presenter = new SettingsInputPresenter(port, resolver);
                 presenter.Apply(new SettingsInputPresenterInput(
                     SettingsStaticTextDescriptors.MovementKeys,
-                    SettingsStaticTextDescriptors.UseArrowKeys,
                     SettingsStaticTextDescriptors.Push,
                     SettingsStaticTextDescriptors.Flip,
-                    SettingsStaticTextDescriptors.Change,
                     SettingsStaticTextDescriptors.ResetInput));
                 var requestedAction = m2bState == M2bRebindVisualState.ActionConflictPush
                     ? KeyboardBindableAction.Flip
@@ -1921,15 +1919,11 @@ namespace Game.Feature.UI.Composition.Editor
             var inputViewModel = new SettingsInputViewModel();
             inputViewModel.SetContent(
                 string.Empty,
-                string.Empty,
                 false,
-                "WASD",
                 string.Empty,
                 "J",
                 string.Empty,
-                string.Empty,
                 "K",
-                string.Empty,
                 string.Empty,
                 string.Empty,
                 false,
@@ -2030,10 +2024,8 @@ namespace Game.Feature.UI.Composition.Editor
                 payload.DisplayTabLabelDescriptor,
                 payload.InputTabLabelDescriptor,
                 payload.MovementLabelDescriptor,
-                payload.UseArrowKeysLabelDescriptor,
                 payload.PushLabelDescriptor,
                 payload.FlipLabelDescriptor,
-                payload.InputChangeLabelDescriptor,
                 payload.ResetInputLabelDescriptor,
                 payload.AudioMainLabelDescriptor,
                 payload.AudioBgmLabelDescriptor,

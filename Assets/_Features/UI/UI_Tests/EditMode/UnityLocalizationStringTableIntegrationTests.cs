@@ -75,10 +75,10 @@ namespace Game.Feature.UI.Tests
                 .Cast<SettingsLocalizationEntryId>()
                 .ToArray();
 
-            Assert.That(entries, Has.Count.EqualTo(50));
+            Assert.That(entries, Has.Count.EqualTo(48));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor)),
-                Is.EqualTo(31));
+                Is.EqualTo(29));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor)),
                 Is.EqualTo(19));
@@ -91,7 +91,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(6));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.None),
-                Is.EqualTo(42));
+                Is.EqualTo(40));
             Assert.That(
                 entries.Select(entry => entry.Id).ToArray(),
                 Is.EquivalentTo(declaredIds),
@@ -241,7 +241,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(111));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(109));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -1057,7 +1057,7 @@ namespace Game.Feature.UI.Tests
                 "On",
                 "Apply",
                 "Revert");
-            AssertRawInputNames(harness.SettingsView, "WASD", "J", "K");
+            AssertRawInputNames(harness.SettingsView, "J", "K");
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
 
@@ -1074,7 +1074,7 @@ namespace Game.Feature.UI.Tests
                 "켜짐",
                 "적용",
                 "되돌리기");
-            AssertRawInputNames(harness.SettingsView, "WASD", "J", "K");
+            AssertRawInputNames(harness.SettingsView, "J", "K");
         }
 
         [Test]
@@ -1889,11 +1889,10 @@ namespace Game.Feature.UI.Tests
 
         private static void AssertRawInputNames(
             SettingsScreenView view,
-            string movement,
             string push,
             string flip)
         {
-            Assert.That(GetText(view.InputView, "_movementCurrentText").text, Is.EqualTo(movement));
+            Assert.That(view.InputView.IsMovementUsingArrowKeys, Is.False);
             Assert.That(GetText(view.InputView, "_pushCurrentText").text, Is.EqualTo(push));
             Assert.That(GetText(view.InputView, "_flipCurrentText").text, Is.EqualTo(flip));
         }

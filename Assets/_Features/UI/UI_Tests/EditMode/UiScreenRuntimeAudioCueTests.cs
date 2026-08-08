@@ -50,23 +50,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_SettingsInputMovementSliderValueChange_EmitsToggleCue()
-        {
-            using var harness = UiAudioHarness.Create();
-
-            Assert.That(harness.Coordinator.OpenSettingsScreen(), Is.True);
-            var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
-            Assert.That(view, Is.Not.Null);
-            view.ClickInputTab();
-            harness.UiAudioPort.Clear();
-
-            view.InputView.SetMovementUseArrowKeys(true);
-
-            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Toggle }));
-        }
-
-        [Test]
-        public void GameplayScreenRuntimeFactory_SettingsInputChangeAndSuccessfulRebind_EmitSelectThenConfirmCues()
+        public void GameplayScreenRuntimeFactory_SettingsInputMovementToggleClick_EmitsToggleCue()
         {
             var keyboardPort = new CompletingKeyboardSettingsPort();
             using var harness = UiAudioHarness.Create(keyboardPort);
@@ -77,7 +61,39 @@ namespace Game.Feature.UI.Tests
             view.ClickInputTab();
             harness.UiAudioPort.Clear();
 
-            view.InputView.ClickPushChange();
+            var movementToggle = view.InputView.transform
+                .Find("MovementInputRow/WASDKeyDisplay")
+                .GetComponent<Button>();
+            Assert.That(movementToggle, Is.Not.Null);
+            Assert.That(movementToggle.GetComponent<UiHoverScaleEffect>(), Is.Not.Null);
+
+            movementToggle.onClick.Invoke();
+
+            Assert.That(view.InputView.IsMovementUsingArrowKeys, Is.True);
+
+            movementToggle.onClick.Invoke();
+
+            Assert.That(view.InputView.IsMovementUsingArrowKeys, Is.False);
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[]
+            {
+                UiAudioCueId.Toggle,
+                UiAudioCueId.Toggle,
+            }));
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsInputKeycapRebind_EmitsSelectThenConfirmCues()
+        {
+            var keyboardPort = new CompletingKeyboardSettingsPort();
+            using var harness = UiAudioHarness.Create(keyboardPort);
+
+            Assert.That(harness.Coordinator.OpenSettingsScreen(), Is.True);
+            var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
+            Assert.That(view, Is.Not.Null);
+            view.ClickInputTab();
+            harness.UiAudioPort.Clear();
+
+            view.InputView.ClickPushRebind();
 
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
 
@@ -343,6 +359,7 @@ namespace Game.Feature.UI.Tests
         {
             private Action<KeyboardRebindResult> completed;
             private KeyboardBindableAction rebindingAction;
+            private KeyboardMovementScheme movementScheme = KeyboardMovementScheme.Wasd;
 
             public bool IsRebinding { get; private set; }
 
@@ -353,6 +370,7 @@ namespace Game.Feature.UI.Tests
 
             public KeyboardBindingValidationResult TrySetMovementScheme(KeyboardMovementScheme scheme)
             {
+                movementScheme = scheme;
                 return KeyboardBindingValidationResult.Success;
             }
 
@@ -389,11 +407,11 @@ namespace Game.Feature.UI.Tests
                 completion?.Invoke(new KeyboardRebindResult(rebindingAction, result, BuildSnapshot(isRebinding: false)));
             }
 
-            private static KeyboardBindingSettingsSnapshot BuildSnapshot(bool isRebinding)
+            private KeyboardBindingSettingsSnapshot BuildSnapshot(bool isRebinding)
             {
                 return new KeyboardBindingSettingsSnapshot(
-                    KeyboardMovementScheme.Wasd,
-                    "WASD",
+                    movementScheme,
+                    movementScheme == KeyboardMovementScheme.ArrowKeys ? "Arrow Keys" : "WASD",
                     "J",
                     "K",
                     isRebinding,
