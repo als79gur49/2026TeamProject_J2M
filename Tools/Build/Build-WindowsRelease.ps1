@@ -1955,8 +1955,12 @@ function Remove-EstablishedAddressablesResidue {
     } else { @() }
     $hasTrackedChanges = @($Snapshot.Tracked).Count -ne 0
     $hasStagedChanges = @($Snapshot.Staged).Count -ne 0
+    $untrackedWindowsFiles = @($windowsFiles | Where-Object {
+        @($TrackedPathsAtSourceRevision) -cnotcontains $_
+    })
     $establishedResidueSet = Test-EstablishedAddressablesResidueSet `
-        -UntrackedPaths @($Snapshot.Untracked) -WindowsFiles @($windowsFiles)
+        -UntrackedPaths @($Snapshot.Untracked) `
+        -WindowsFiles $untrackedWindowsFiles
     $recognized = -not $hasTrackedChanges -and -not $hasStagedChanges -and
         [bool]$establishedResidueSet
     $removed = @()
@@ -2009,6 +2013,7 @@ function Remove-EstablishedAddressablesResidue {
         recognized = [bool]$recognized
         detectedUntrackedPaths = @($Snapshot.Untracked)
         detectedWindowsFiles = @($windowsFiles)
+        detectedUntrackedWindowsFiles = @($untrackedWindowsFiles)
         removedPaths = @($removed)
         prunedDirectories = @($prunedDirectories)
         decisions = @($decisions)

@@ -51,28 +51,47 @@ function Write-JsonFixture {
         Set-Content -LiteralPath $Path -Encoding UTF8
 }
 function New-AddressablesGitFixture {
-    param([Parameter(Mandatory)][string]$Root)
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [switch]$IncludeTrackedWindowsDescendant
+    )
     $addressablesRoot = Join-Path $Root "Assets\AddressableAssetsData"
     New-Item -ItemType Directory -Path $addressablesRoot -Force | Out-Null
     $assetPath = Join-Path $addressablesRoot "ProfileDataSourceSettings.asset"
     $metaPath = Join-Path $addressablesRoot "ProfileDataSourceSettings.asset.meta"
     [IO.File]::WriteAllText($assetPath, "tracked-asset", [Text.UTF8Encoding]::new($false))
     [IO.File]::WriteAllText($metaPath, "tracked-meta", [Text.UTF8Encoding]::new($false))
-    Invoke-GitText -Root $Root -Arguments @("init", "--quiet") | Out-Null
-    Invoke-GitText -Root $Root -Arguments @("add", "--all") | Out-Null
+    $gitIgnorePath = Join-Path $Root ".gitignore"
+    [IO.File]::WriteAllText($gitIgnorePath,
+        "Assets/AddressableAssetsData/Windows/*.bin*`n",
+        [Text.UTF8Encoding]::new($false))
+    $trackedWindowsPath = $null
+    if ($IncludeTrackedWindowsDescendant) {
+        $windowsRoot = Join-Path $addressablesRoot "Windows"
+        New-Item -ItemType Directory -Path $windowsRoot -Force | Out-Null
+        $trackedWindowsPath = Join-Path $windowsRoot "TrackedSource.asset"
+        [IO.File]::WriteAllText($trackedWindowsPath, "tracked-windows-source",
+            [Text.UTF8Encoding]::new($false))
+    }
+    Invoke-GitText -Root $Root -Arguments @("init", "--quiet") `
+        -DisableAutoCrlf | Out-Null
+    Invoke-GitText -Root $Root -Arguments @("add", "--all") `
+        -DisableAutoCrlf | Out-Null
     Invoke-GitText -Root $Root -Arguments @(
         "-c", "user.name=Release Tests",
         "-c", "user.email=release-tests@example.invalid",
         "commit", "--quiet", "-m", "fixture"
-    ) | Out-Null
-    $sourceSha = Invoke-GitText -Root $Root -Arguments @("rev-parse", "HEAD")
+    ) -DisableAutoCrlf | Out-Null
+    $sourceSha = Invoke-GitText -Root $Root -Arguments @("rev-parse", "HEAD") `
+        -DisableAutoCrlf
     Invoke-GitText -Root $Root -Arguments @(
         "update-ref", "refs/remotes/origin/main", $sourceSha
-    ) | Out-Null
+    ) -DisableAutoCrlf | Out-Null
     return [pscustomobject]@{
         Root = $Root
         AssetPath = $assetPath
         MetaPath = $metaPath
+        TrackedWindowsPath = $trackedWindowsPath
         SourceSha = $sourceSha
         TrackedPaths = @(Get-TrackedPathsAtSourceRevision `
             -Root $Root -SourceRevision $sourceSha -Detached)
@@ -653,11 +672,11 @@ try {
             "Exact-source ownership omitted the tracked meta."
         $assetHash = Get-Sha256 $fixture.AssetPath
         $metaHash = Get-Sha256 $fixture.MetaPath
-        $sourceSnapshot = Get-GitSnapshot -Root $fixture.Root
+        $sourceSnapshot = Get-GitSnapshot -Root $fixture.Root -Detached
         $windowsMetaPath = Join-Path $fixture.Root $windowsMetaRelative.Replace('/', '\')
         [IO.File]::WriteAllText(
             $windowsMetaPath, "generated", [Text.UTF8Encoding]::new($false))
-        $preCleanup = Get-GitSnapshot -Root $fixture.Root
+        $preCleanup = Get-GitSnapshot -Root $fixture.Root -Detached
         Assert-True (Test-EstablishedAddressablesResidueSet `
             -UntrackedPaths @($preCleanup.Untracked) -WindowsFiles @()) `
             "The synthetic inventory did not match the established residue set."
@@ -699,7 +718,7 @@ try {
         Assert-False $windowsDecision.trackedAtSourceRevision
         Assert-Equal "Removed" $windowsDecision.action
         Assert-True (Test-SnapshotEquality $sourceSnapshot `
-            (Get-GitSnapshot -Root $fixture.Root)) `
+            (Get-GitSnapshot -Root $fixture.Root -Detached)) `
             "Cleanup changed the committed source snapshot."
     }
     Invoke-Case "tracked Addressables mutation remains visible after cleanup" {
@@ -708,17 +727,17 @@ try {
         $assetRelative = "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset"
         $windowsMetaPath = Join-Path $fixture.Root `
             "Assets\AddressableAssetsData\Windows.meta"
-        $sourceSnapshot = Get-GitSnapshot -Root $fixture.Root
+        $sourceSnapshot = Get-GitSnapshot -Root $fixture.Root -Detached
         [IO.File]::WriteAllText(
             $fixture.AssetPath, "mutated-by-build", [Text.UTF8Encoding]::new($false))
         [IO.File]::WriteAllText(
             $windowsMetaPath, "generated", [Text.UTF8Encoding]::new($false))
-        $preCleanup = Get-GitSnapshot -Root $fixture.Root
+        $preCleanup = Get-GitSnapshot -Root $fixture.Root -Detached
 
         $cleanup = Remove-EstablishedAddressablesResidue `
             -Root $fixture.Root -Snapshot $preCleanup `
             -TrackedPathsAtSourceRevision $fixture.TrackedPaths
-        $postCleanup = Get-GitSnapshot -Root $fixture.Root
+        $postCleanup = Get-GitSnapshot -Root $fixture.Root -Detached
 
         Assert-False $cleanup.recognized
         Assert-Equal "mutated-by-build" `
@@ -730,6 +749,50 @@ try {
         Assert-True $decision.trackedAtSourceRevision
         Assert-Equal "Preserved" $decision.action
         Assert-Equal "TrackedSource" $decision.reason
+    }
+    Invoke-Case "tracked Windows descendant does not block generated residue cleanup" {
+        $fixture = New-AddressablesGitFixture `
+            -Root (Join-Path $temp "addressables-windows-mixed") `
+            -IncludeTrackedWindowsDescendant
+        $trackedWindowsRelative = `
+            "Assets/AddressableAssetsData/Windows/TrackedSource.asset"
+        $contentStateRelative = `
+            "Assets/AddressableAssetsData/Windows/addressables_content_state.bin"
+        $contentStateMetaRelative = "$contentStateRelative.meta"
+        $sourceSnapshot = Get-GitSnapshot -Root $fixture.Root -Detached
+        $trackedWindowsHash = Get-Sha256 $fixture.TrackedWindowsPath
+        $contentStatePath = Join-Path $fixture.Root `
+            $contentStateRelative.Replace('/', '\')
+        $contentStateMetaPath = Join-Path $fixture.Root `
+            $contentStateMetaRelative.Replace('/', '\')
+        [IO.File]::WriteAllText($contentStatePath, "generated-state",
+            [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($contentStateMetaPath, "generated-meta",
+            [Text.UTF8Encoding]::new($false))
+        $preCleanup = Get-GitSnapshot -Root $fixture.Root -Detached
+
+        $cleanup = Remove-EstablishedAddressablesResidue `
+            -Root $fixture.Root -Snapshot $preCleanup `
+            -TrackedPathsAtSourceRevision $fixture.TrackedPaths
+
+        Assert-True $cleanup.recognized
+        Assert-True (Test-Path -LiteralPath $fixture.TrackedWindowsPath -PathType Leaf)
+        Assert-Equal $trackedWindowsHash (Get-Sha256 $fixture.TrackedWindowsPath)
+        Assert-False (Test-Path -LiteralPath $contentStatePath)
+        Assert-False (Test-Path -LiteralPath $contentStateMetaPath)
+        Assert-True (Test-Path -LiteralPath (Split-Path $contentStatePath -Parent) `
+            -PathType Container)
+        Assert-True (@($cleanup.detectedWindowsFiles) -ccontains $trackedWindowsRelative)
+        Assert-False (@($cleanup.detectedUntrackedWindowsFiles) `
+            -ccontains $trackedWindowsRelative)
+        Assert-True (@($cleanup.detectedUntrackedWindowsFiles) `
+            -ccontains $contentStateRelative)
+        Assert-True (@($cleanup.detectedUntrackedWindowsFiles) `
+            -ccontains $contentStateMetaRelative)
+        Assert-True (@($cleanup.removedPaths) -ccontains $contentStateRelative)
+        Assert-True (@($cleanup.removedPaths) -ccontains $contentStateMetaRelative)
+        Assert-True (Test-SnapshotEquality $sourceSnapshot `
+            (Get-GitSnapshot -Root $fixture.Root -Detached))
     }
     Invoke-Case "dual-worktree snapshot equality" {
         $a = [ordered]@{ head = "a"; tree = "b"; canaries = [ordered]@{ x = "1" } }
