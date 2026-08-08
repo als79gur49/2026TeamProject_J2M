@@ -122,7 +122,7 @@ Observed asset details:
 | Settings | `_resolutionHoverHintLabel` | LiberationSans SDF | LiberationSans embedded | 12 | off | 10/40 | BodySmall | Authored initially | Helper text can wrap/clip |
 | Settings | `_applyButtonLabel`, `_revertButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18 | on | 10/18 | Button | Hybrid | Command labels need localized width check |
 | Settings | `_movementLabel`, `_pushLabel`, `_flipLabel` | Exo SemiBold | Exo SemiBold embedded | 20 | on | 10-16/20 | Label | Hybrid | Input row layout sensitive |
-| Settings | `_pushCurrentText`, `_pushKeyDisplayLabel`, `_flipCurrentText`, `_flipKeyDisplayLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | off | 10/40 | Value | LocaleInvariant | Raw binding names preserve authored typography |
+| Settings | `_pushCurrentText`, `_flipCurrentText` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 15 | off | 10/40 | Value | LocaleInvariant | Raw binding names preserve authored typography |
 | Settings | `_pushKeyDisplayLabel`, `_flipKeyDisplayLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 24 | on | 6/24 | Value | LocaleInvariant | Rebinding still updates text; existing keycap autosizing is preserved |
 | Settings | Movement `WASDKeyDisplay` 6 TMP | Authored key-display fonts | Authored shared materials | authored | authored | authored | Value | LocaleInvariant | Nested physical-key displays use the same explicit participation contract |
 | Settings | `_resetButtonLabel` | Font_SciFiSoldier_Bold | SairaCondensed embedded | 18-20 | on | 10/18-20 | Button | Hybrid | Button width and state frame coupling |

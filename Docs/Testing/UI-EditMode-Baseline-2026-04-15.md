@@ -21,8 +21,8 @@
 - Current Settings movement-key toggle rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1357 total / 0 failed`; Settings now has 37 locale-themed bindings / 10 invariant bindings over 47 TMP targets
 - Current Settings Push/Flip keycap rebind rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1361 total / 0 failed`; Settings now has 35 locale-themed bindings / 10 invariant bindings over 45 TMP targets, with the obsolete Change localization entry removed
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1150 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1150 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1361 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1361 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
