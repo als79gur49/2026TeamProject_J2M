@@ -118,7 +118,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "Confirm Display Preview",
-                "Preview 1280 x 720 in Fullscreen Window. These changes are temporary and will revert in 15 seconds unless you confirm.",
+                "Preview 1280 x 720 in Borderless Fullscreen. These changes are temporary and will revert in 15 seconds unless you confirm.",
                 "Keep",
                 "Revert");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.DefaultLocaleCode);
@@ -979,7 +979,7 @@ namespace Game.Feature.UI.Tests
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             var staticLabels = new[]
             {
-                (SettingsStaticTextDescriptors.AudioMain, "Main", "마스터"),
+                (SettingsStaticTextDescriptors.AudioMain, "Master", "마스터"),
                 (SettingsStaticTextDescriptors.AudioBgm, "Background Music", "배경 음악"),
                 (SettingsStaticTextDescriptors.AudioSfx, "Effects", "효과음"),
                 (SettingsStaticTextDescriptors.AudioMute, "Mute", "음소거"),
@@ -989,7 +989,7 @@ namespace Game.Feature.UI.Tests
                     SettingsStaticTextDescriptors.DisplayResolutionHint,
                     "Only automatically detected resolutions are shown.",
                     "자동으로 감지된 해상도만 표시됩니다."),
-                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Fullscreen Window", "테두리 없는 전체 화면"),
+                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Borderless Fullscreen", "테두리 없는 전체 화면"),
                 (SettingsStaticTextDescriptors.DisplayFullscreenOn, "On", "켜짐"),
                 (SettingsStaticTextDescriptors.DisplayApply, "Apply", "적용"),
                 (SettingsStaticTextDescriptors.DisplayRevert, "Revert", "되돌리기"),
