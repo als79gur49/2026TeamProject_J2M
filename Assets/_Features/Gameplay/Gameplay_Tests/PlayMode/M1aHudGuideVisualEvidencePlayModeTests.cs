@@ -33,7 +33,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const string WardStageIdValue = "stage-2-1";
         private const string LocalePreferenceKey = "ui.selected_locale";
         private const string ClimateFontPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         private const string ManifestFileName = "m1a-hud-guide-capture.log";
         private const int ExpectedRemainingChances = 2;
         private const int ExpectedMaxChances = 3;

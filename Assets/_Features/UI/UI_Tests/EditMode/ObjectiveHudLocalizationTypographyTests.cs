@@ -78,7 +78,7 @@ namespace Game.Feature.UI.Tests
                 var rowLabel = GetField<TMP_Text>(row, "_label");
                 var headerSizing = TextSizingSnapshot.Capture(header);
                 var rowSizing = TextSizingSnapshot.Capture(rowLabel);
-                var climate = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+                var climate = UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font();
                 var resolver = new MutableLocaleResolver("en-US");
 
                 binding.Initialize(resolver);

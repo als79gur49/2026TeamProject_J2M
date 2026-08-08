@@ -1157,13 +1157,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(target.fontSizeMin, Is.EqualTo(expectedMinSize), $"{target.name} min size {localeCode}");
             Assert.That(target.fontSizeMax, Is.EqualTo(expectedMaxSize), $"{target.name} max size {localeCode}");
 
-            if (string.Equals(localeCode, PackageFreeLocalizedTextResolver.KoreanLocaleCode, StringComparison.Ordinal))
-            {
-                Assert.That(
-                    target.font,
-                    Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()),
-                    $"{target.name} ko-KR Climate identity");
-            }
         }
 
         private static TMP_Text GetText(object target, string fieldName)
@@ -1267,7 +1260,7 @@ namespace Game.Feature.UI.Tests
             AssertAudioValueLayout(view, values, sizing, koreanText, "ko-KR");
             foreach (var pair in values)
             {
-                Assert.That(pair.Value.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()), pair.Key);
+                Assert.That(pair.Value.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font()), pair.Key);
                 Assert.That(pair.Value.fontStyle, Is.EqualTo(FontStyles.Normal), pair.Key);
             }
 

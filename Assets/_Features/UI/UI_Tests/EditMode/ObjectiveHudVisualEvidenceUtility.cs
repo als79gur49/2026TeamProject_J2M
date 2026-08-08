@@ -34,7 +34,7 @@ namespace Game.Feature.UI.Tests
         public const string HudPrefabPath =
             "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
         public const string ClimateFontPath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         public const string ManifestFileName = "objective-hud-capture.log";
 
         private static readonly CaptureScenario[] Scenarios =
