@@ -120,7 +120,7 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.Open();
             harness.Runtime.View.ClickInputTab();
 
-            harness.Runtime.View.InputView.ClickPushChange();
+            harness.Runtime.View.InputView.ClickPushRebind();
             Assert.That(keyboardPort.IsRebinding, Is.True);
 
             Assert.That(harness.Runtime.TryHandleBackRequested(), Is.True);
@@ -132,7 +132,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuSettingsRuntime_InputChangeAndSuccessfulRebind_EmitSelectThenConfirmCues()
+        public void MainMenuSettingsRuntime_InputKeycapRebind_EmitsSelectThenConfirmCues()
         {
             var keyboardPort = new ControllableKeyboardSettingsPort();
             using var harness = new RuntimeHarness(keyboardPort);
@@ -140,7 +140,7 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.View.ClickInputTab();
             harness.UiAudioPort.Clear();
 
-            harness.Runtime.View.InputView.ClickPushChange();
+            harness.Runtime.View.InputView.ClickPushRebind();
 
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
 
@@ -151,7 +151,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void MainMenuSettingsRuntime_InputMovementSliderValueChange_EmitsToggleCue()
+        public void MainMenuSettingsRuntime_InputMovementToggleClick_EmitsToggleCue()
         {
             var keyboardPort = new ControllableKeyboardSettingsPort();
             using var harness = new RuntimeHarness(keyboardPort);
@@ -159,7 +159,7 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.View.ClickInputTab();
             harness.UiAudioPort.Clear();
 
-            harness.Runtime.View.InputView.SetMovementUseArrowKeys(true);
+            harness.Runtime.View.InputView.ClickMovementScheme();
 
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Toggle }));
         }

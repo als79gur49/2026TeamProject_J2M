@@ -21,8 +21,8 @@ namespace Game.Feature.UI.Tests
     {
         private const string TypographyThemeAssetPath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
-        private const int SettingsStaticBindingCount = 29;
-        private const int SettingsTypographyBindingCount = 29;
+        private const int SettingsStaticBindingCount = 26;
+        private const int SettingsTypographyBindingCount = 26;
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_BindsPackageFreeResolverAndRefreshesLocale()
         {
@@ -33,12 +33,12 @@ namespace Game.Feature.UI.Tests
             var view = harness.SettingsView;
 
             AssertSettingsLabels(view, "Settings", "Audio", "Display", "Input", "Back");
-            AssertInputLabels(view.InputView, "Movement Keys", "Use Arrow Keys", "Push", "Flip", "Change", "Reset Input");
+            AssertInputLabels(view.InputView, "Movement Keys", "Push", "Flip", "Reset Input");
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
             AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
-            AssertInputLabels(view.InputView, "이동 키", "화살표 키 사용", "밀기", "뒤집기", "변경", "입력 초기화");
+            AssertInputLabels(view.InputView, "이동 키", "밀기", "뒤집기", "입력 초기화");
         }
 
         [Test]
@@ -494,7 +494,7 @@ namespace Game.Feature.UI.Tests
             view.DisplayView.SelectResolution(2);
             view.DisplayView.ClickApply();
             view.ClickInputTab();
-            view.InputView.ClickPushChange();
+            view.InputView.ClickPushRebind();
 
             var screenModel = GetField<SettingsScreenViewModel>(view, "_viewModel");
             var audioModel = GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel");
@@ -601,7 +601,7 @@ namespace Game.Feature.UI.Tests
             harness.ShowSettings();
             var view = harness.SettingsView;
             view.ClickInputTab();
-            view.InputView.ClickPushChange();
+            view.InputView.ClickPushRebind();
             keyboardPort.Complete();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo("This key cannot be used."));
@@ -625,7 +625,7 @@ namespace Game.Feature.UI.Tests
             harness.ShowSettings();
             var view = harness.SettingsView;
             view.ClickInputTab();
-            view.InputView.ClickPushChange();
+            view.InputView.ClickPushRebind();
             keyboardPort.Complete();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo("Movement keys cannot overlap."));
@@ -649,7 +649,7 @@ namespace Game.Feature.UI.Tests
             harness.ShowSettings();
             var view = harness.SettingsView;
             view.ClickInputTab();
-            view.InputView.ClickPushChange();
+            view.InputView.ClickPushRebind();
 
             Assert.That(view.InputView.StatusText, Is.EqualTo("Another key is already being reassigned."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
@@ -729,14 +729,14 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            AssertInputLabels(input, "이동 키", "화살표 키 사용", "밀기", "뒤집기", "변경", "입력 초기화");
+            AssertInputLabels(input, "이동 키", "밀기", "뒤집기", "입력 초기화");
             AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
             AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
             AssertInvariantTypography(states, "ko-KR");
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
 
-            AssertInputLabels(input, "Movement Keys", "Use Arrow Keys", "Push", "Flip", "Change", "Reset Input");
+            AssertInputLabels(input, "Movement Keys", "Push", "Flip", "Reset Input");
             AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
             AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
             AssertInvariantTypography(states, "restored en-US");
@@ -761,7 +761,7 @@ namespace Game.Feature.UI.Tests
 
             AssertKeyDisplayPair(pushCurrent, pushKeycap, "J");
             harness.SettingsView.ClickInputTab();
-            input.ClickPushChange();
+            input.ClickPushRebind();
             keyboardPort.Complete("Space");
 
             AssertKeyDisplayPair(pushCurrent, pushKeycap, "Space");
@@ -1066,18 +1066,13 @@ namespace Game.Feature.UI.Tests
         private static void AssertInputLabels(
             SettingsInputView view,
             string movement,
-            string useArrowKeys,
             string push,
             string flip,
-            string change,
             string reset)
         {
             Assert.That(GetText(view, "_movementLabel").text, Is.EqualTo(movement));
-            Assert.That(GetText(view, "_movementToggleLabel").text, Is.EqualTo(useArrowKeys));
             Assert.That(GetText(view, "_pushLabel").text, Is.EqualTo(push));
             Assert.That(GetText(view, "_flipLabel").text, Is.EqualTo(flip));
-            Assert.That(GetText(view, "_pushChangeButtonLabel").text, Is.EqualTo(change));
-            Assert.That(GetText(view, "_flipChangeButtonLabel").text, Is.EqualTo(change));
             Assert.That(GetText(view, "_resetButtonLabel").text, Is.EqualTo(reset));
         }
 
@@ -1186,13 +1181,13 @@ namespace Game.Feature.UI.Tests
         {
             if (action == KeyboardBindableAction.Push)
             {
-                inputView.ClickPushChange();
+                inputView.ClickPushRebind();
                 return;
             }
 
             if (action == KeyboardBindableAction.Flip)
             {
-                inputView.ClickFlipChange();
+                inputView.ClickFlipRebind();
                 return;
             }
 

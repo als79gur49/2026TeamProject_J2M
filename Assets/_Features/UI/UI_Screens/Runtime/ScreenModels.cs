@@ -28,10 +28,8 @@ namespace Game.Feature.UI.Screens
             LocalizedTextDescriptor displayTabLabelDescriptor = default,
             LocalizedTextDescriptor inputTabLabelDescriptor = default,
             LocalizedTextDescriptor movementLabelDescriptor = default,
-            LocalizedTextDescriptor useArrowKeysLabelDescriptor = default,
             LocalizedTextDescriptor pushLabelDescriptor = default,
             LocalizedTextDescriptor flipLabelDescriptor = default,
-            LocalizedTextDescriptor inputChangeLabelDescriptor = default,
             LocalizedTextDescriptor resetInputLabelDescriptor = default,
             LocalizedTextDescriptor backLabelDescriptor = default,
             LocalizedTextDescriptor languageLabelDescriptor = default,
@@ -54,10 +52,8 @@ namespace Game.Feature.UI.Screens
             DisplayTabLabelDescriptor = OrDefault(displayTabLabelDescriptor, SettingsStaticTextDescriptors.DisplayTab);
             InputTabLabelDescriptor = OrDefault(inputTabLabelDescriptor, SettingsStaticTextDescriptors.InputTab);
             MovementLabelDescriptor = OrDefault(movementLabelDescriptor, SettingsStaticTextDescriptors.MovementKeys);
-            UseArrowKeysLabelDescriptor = OrDefault(useArrowKeysLabelDescriptor, SettingsStaticTextDescriptors.UseArrowKeys);
             PushLabelDescriptor = OrDefault(pushLabelDescriptor, SettingsStaticTextDescriptors.Push);
             FlipLabelDescriptor = OrDefault(flipLabelDescriptor, SettingsStaticTextDescriptors.Flip);
-            InputChangeLabelDescriptor = OrDefault(inputChangeLabelDescriptor, SettingsStaticTextDescriptors.Change);
             ResetInputLabelDescriptor = OrDefault(resetInputLabelDescriptor, SettingsStaticTextDescriptors.ResetInput);
             BackLabelDescriptor = OrDefault(backLabelDescriptor, SettingsStaticTextDescriptors.Back);
             LanguageLabelDescriptor = OrDefault(languageLabelDescriptor, SettingsStaticTextDescriptors.Language);
@@ -86,13 +82,9 @@ namespace Game.Feature.UI.Screens
 
         public LocalizedTextDescriptor MovementLabelDescriptor { get; }
 
-        public LocalizedTextDescriptor UseArrowKeysLabelDescriptor { get; }
-
         public LocalizedTextDescriptor PushLabelDescriptor { get; }
 
         public LocalizedTextDescriptor FlipLabelDescriptor { get; }
-
-        public LocalizedTextDescriptor InputChangeLabelDescriptor { get; }
 
         public LocalizedTextDescriptor ResetInputLabelDescriptor { get; }
 
@@ -236,12 +228,6 @@ namespace Game.Feature.UI.Screens
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
-        public static readonly LocalizedTextDescriptor UseArrowKeys = new(
-            Table,
-            SettingsLocalizationContract.Keys.InputUseArrowKeys,
-            LocalizedTextRole.Label,
-            LocalizedTextWeight.Regular);
-
         public static readonly LocalizedTextDescriptor Push = new(
             Table,
             SettingsLocalizationContract.Keys.InputPush,
@@ -252,12 +238,6 @@ namespace Game.Feature.UI.Screens
             Table,
             SettingsLocalizationContract.Keys.InputFlip,
             LocalizedTextRole.Label,
-            LocalizedTextWeight.Regular);
-
-        public static readonly LocalizedTextDescriptor Change = new(
-            Table,
-            SettingsLocalizationContract.Keys.InputChange,
-            LocalizedTextRole.Button,
             LocalizedTextWeight.Regular);
 
         public static readonly LocalizedTextDescriptor ResetInput = new(
@@ -703,23 +683,15 @@ namespace Game.Feature.UI.Screens
 
         public string MovementLabel { get; private set; } = string.Empty;
 
-        public string UseArrowKeysLabel { get; private set; } = string.Empty;
-
         public bool UseArrowKeys { get; private set; }
-
-        public string MovementCurrentText { get; private set; } = string.Empty;
 
         public string PushLabel { get; private set; } = string.Empty;
 
         public string PushCurrentText { get; private set; } = string.Empty;
 
-        public string PushChangeLabel { get; private set; } = string.Empty;
-
         public string FlipLabel { get; private set; } = string.Empty;
 
         public string FlipCurrentText { get; private set; } = string.Empty;
-
-        public string FlipChangeLabel { get; private set; } = string.Empty;
 
         public string ResetLabel { get; private set; } = string.Empty;
 
@@ -733,15 +705,11 @@ namespace Game.Feature.UI.Screens
 
         public void SetContent(
             string movementLabel,
-            string useArrowKeysLabel,
             bool useArrowKeys,
-            string movementCurrentText,
             string pushLabel,
             string pushCurrentText,
-            string pushChangeLabel,
             string flipLabel,
             string flipCurrentText,
-            string flipChangeLabel,
             string resetLabel,
             string statusText,
             bool isRebinding,
@@ -749,15 +717,11 @@ namespace Game.Feature.UI.Screens
             bool areControlsInteractable)
         {
             MovementLabel = movementLabel ?? string.Empty;
-            UseArrowKeysLabel = useArrowKeysLabel ?? string.Empty;
             UseArrowKeys = useArrowKeys;
-            MovementCurrentText = movementCurrentText ?? string.Empty;
             PushLabel = pushLabel ?? string.Empty;
             PushCurrentText = pushCurrentText ?? string.Empty;
-            PushChangeLabel = pushChangeLabel ?? string.Empty;
             FlipLabel = flipLabel ?? string.Empty;
             FlipCurrentText = flipCurrentText ?? string.Empty;
-            FlipChangeLabel = flipChangeLabel ?? string.Empty;
             ResetLabel = resetLabel ?? string.Empty;
             StatusText = statusText ?? string.Empty;
             IsRebinding = isRebinding;

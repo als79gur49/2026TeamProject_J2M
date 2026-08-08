@@ -117,20 +117,20 @@ namespace Game.Feature.UI.Tests
                 .Where(target => target != null)
                 .ToArray();
 
-            Assert.That(inventory, Has.Count.EqualTo(51));
+            Assert.That(inventory, Has.Count.EqualTo(45));
             Assert.That(
                 inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic ||
                                         item.Classification == TargetClassification.LocalizedDynamic),
-                Is.EqualTo(36));
-            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic), Is.EqualTo(25));
+                Is.EqualTo(33));
+            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic), Is.EqualTo(22));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedDynamic), Is.EqualTo(11));
-            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocaleInvariantKeyDisplay), Is.EqualTo(13));
+            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocaleInvariantKeyDisplay), Is.EqualTo(10));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.Decorative), Is.EqualTo(2));
             Assert.That(
                 inventory.Count(item =>
                     TypographyBinding.FindFor(item.Target).LocaleParticipation ==
                     TypographyLocaleParticipation.LocaleThemed),
-                Is.EqualTo(38));
+                Is.EqualTo(35));
             Assert.That(inventory.Select(item => item.Target), Is.Unique);
             Assert.That(nullTargetBindings, Is.Empty, $"Null-target TypographyBindings: {string.Join(", ", nullTargetBindings)}");
             var duplicateBindingTargets = validBindingTargets
@@ -211,7 +211,7 @@ namespace Game.Feature.UI.Tests
                     (item.Classification == TargetClassification.LocalizedStatic ||
                      item.Classification == TargetClassification.LocalizedDynamic) &&
                     TypographyBinding.FindFor(item.Target).LocaleParticipation == TypographyLocaleParticipation.LocaleThemed),
-                Is.EqualTo(36));
+                Is.EqualTo(33));
         }
 
         [Test]
@@ -256,7 +256,7 @@ namespace Game.Feature.UI.Tests
                 item => new AppliedStyle(item.Target));
 
             Assert.That(GetField<TMP_Text>(view, "_titleLabel").text, Is.EqualTo("Settings"));
-            Assert.That(GetField<TMP_Text>(view.InputView, "_movementCurrentText").text, Is.EqualTo("WASD"));
+            Assert.That(view.InputView.IsMovementUsingArrowKeys, Is.False);
             Assert.That(GetField<TMP_Text>(view.InputView, "_pushCurrentText").text, Is.EqualTo("J"));
             Assert.That(GetField<TMP_Text>(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
             Assert.That(GetField<TMP_Text>(view.InputView, "_flipCurrentText").text, Is.EqualTo("K"));
@@ -382,7 +382,7 @@ namespace Game.Feature.UI.Tests
                 mismatches,
                 Is.Empty,
                 $"en-US authored typography mismatches ({mismatches.Count}):\n{string.Join("\n", mismatches)}" +
-                $"\n36-target authored/theme audit:\n{string.Join("\n", auditRows)}");
+                $"\n35-target authored/theme audit:\n{string.Join("\n", auditRows)}");
         }
 
         private static void AddMismatch<T>(
@@ -548,20 +548,15 @@ namespace Game.Feature.UI.Tests
             result.AddRange(new[]
             {
                 Static("Input movement", GetField<TMP_Text>(input, "_movementLabel")),
-                Static("Input arrow toggle", GetField<TMP_Text>(input, "_movementToggleLabel")),
-                LocaleInvariantKeyDisplay("Input movement current", GetField<TMP_Text>(input, "_movementCurrentText")),
                 Static("Input push", GetField<TMP_Text>(input, "_pushLabel")),
                 LocaleInvariantKeyDisplay("Input push current", GetField<TMP_Text>(input, "_pushCurrentText")),
                 LocaleInvariantKeyDisplay("Input push physical key", GetField<TMP_Text>(input, "_pushKeyDisplayLabel")),
-                Static("Input push change", GetField<TMP_Text>(input, "_pushChangeButtonLabel")),
                 Static("Input flip", GetField<TMP_Text>(input, "_flipLabel")),
                 LocaleInvariantKeyDisplay("Input flip current", GetField<TMP_Text>(input, "_flipCurrentText")),
                 LocaleInvariantKeyDisplay("Input flip physical key", GetField<TMP_Text>(input, "_flipKeyDisplayLabel")),
-                Static("Input flip change", GetField<TMP_Text>(input, "_flipChangeButtonLabel")),
                 Static("Input reset", GetField<TMP_Text>(input, "_resetButtonLabel")),
                 Dynamic("Input status", GetField<TMP_Text>(input, "_statusText")),
             });
-            AddMovementKeycaps(result, input, "MovementInputRow/ArrowKeyDisplay", 2);
             AddMovementKeycaps(result, input, "MovementInputRow/WASDKeyDisplay", 6);
             return result;
         }

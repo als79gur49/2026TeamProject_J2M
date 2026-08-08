@@ -13,32 +13,22 @@ namespace Game.Feature.UI.Screens
     {
         private const string MissingControlsMessage =
             "Settings input section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsInputView serialized reference.";
-        private const float ActiveDisplayAlpha = 1f;
-        private const float InactiveDisplayAlpha = 0.3f;
-
         [SerializeField] private TMP_Text _movementLabel;
-        [SerializeField] private Slider _movementSlider;
-        [SerializeField] private TMP_Text _movementToggleLabel;
-        [SerializeField] private TMP_Text _movementCurrentText;
-        [SerializeField] private CanvasGroup _arrowKeyDisplayGroup;
-        [SerializeField] private CanvasGroup _wasdKeyDisplayGroup;
-        [SerializeField] private GameObject _arrowKeyActiveLight;
-        [SerializeField] private GameObject _wasdKeyActiveLight;
+        [SerializeField] private Button _movementSchemeButton;
+        [SerializeField] private GameObject[] _wasdKeyLabels;
+        [SerializeField] private GameObject[] _arrowKeyIcons;
         [SerializeField] private TMP_Text _pushLabel;
         [SerializeField] private TMP_Text _pushCurrentText;
         [SerializeField] private TMP_Text _pushKeyDisplayLabel;
-        [SerializeField] private Button _pushChangeButton;
-        [SerializeField] private TMP_Text _pushChangeButtonLabel;
+        [SerializeField] private Button _pushRebindButton;
         [SerializeField] private TMP_Text _flipLabel;
         [SerializeField] private TMP_Text _flipCurrentText;
         [SerializeField] private TMP_Text _flipKeyDisplayLabel;
-        [SerializeField] private Button _flipChangeButton;
-        [SerializeField] private TMP_Text _flipChangeButtonLabel;
+        [SerializeField] private Button _flipRebindButton;
         [SerializeField] private TMP_Text _statusText;
         [SerializeField] private Button _resetButton;
         [SerializeField] private TMP_Text _resetButtonLabel;
 
-        private bool _isRefreshingControls;
         private bool _isVisible;
         private ILocalizedTextResolver _localizedTextResolver;
         private GameplayUiTypographyTheme _typographyTheme;
@@ -55,13 +45,14 @@ namespace Game.Feature.UI.Screens
 
         public string StatusText => _statusText != null ? _statusText.text : string.Empty;
 
-        public bool IsMovementUsingArrowKeys => _movementSlider != null && _movementSlider.value >= 0.5f;
+        public bool IsMovementUsingArrowKeys => _viewModel != null && _viewModel.UseArrowKeys;
 
-        public bool IsMovementSliderInteractable => _movementSlider != null && _movementSlider.interactable;
+        public bool IsMovementSchemeInteractable =>
+            _movementSchemeButton != null && _movementSchemeButton.interactable;
 
-        public bool IsPushChangeInteractable => _pushChangeButton != null && _pushChangeButton.interactable;
+        public bool IsPushRebindInteractable => _pushRebindButton != null && _pushRebindButton.interactable;
 
-        public bool IsFlipChangeInteractable => _flipChangeButton != null && _flipChangeButton.interactable;
+        public bool IsFlipRebindInteractable => _flipRebindButton != null && _flipRebindButton.interactable;
 
         public bool IsResetInteractable => _resetButton != null && _resetButton.interactable;
 
@@ -106,14 +97,6 @@ namespace Game.Feature.UI.Screens
                     typographyTheme,
                     requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
-                    _movementToggleLabel,
-                    payload.UseArrowKeysLabelDescriptor,
-                    textResolver,
-                    typographyResolver,
-                    null,
-                    typographyTheme,
-                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
-                new(
                     _pushLabel,
                     payload.PushLabelDescriptor,
                     textResolver,
@@ -122,24 +105,8 @@ namespace Game.Feature.UI.Screens
                     typographyTheme,
                     requiredThemeApplyMask: TypographyApplyMask.FontStyle),
                 new(
-                    _pushChangeButtonLabel,
-                    payload.InputChangeLabelDescriptor,
-                    textResolver,
-                    typographyResolver,
-                    null,
-                    typographyTheme,
-                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
-                new(
                     _flipLabel,
                     payload.FlipLabelDescriptor,
-                    textResolver,
-                    typographyResolver,
-                    null,
-                    typographyTheme,
-                    requiredThemeApplyMask: TypographyApplyMask.FontStyle),
-                new(
-                    _flipChangeButtonLabel,
-                    payload.InputChangeLabelDescriptor,
                     textResolver,
                     typographyResolver,
                     null,
@@ -190,23 +157,17 @@ namespace Game.Feature.UI.Screens
         {
             var issues = new List<string>();
             ValidateControl(_movementLabel, nameof(_movementLabel), issues);
-            ValidateControl(_movementSlider, nameof(_movementSlider), issues);
-            ValidateControl(_movementToggleLabel, nameof(_movementToggleLabel), issues);
-            ValidateControl(_movementCurrentText, nameof(_movementCurrentText), issues);
-            ValidateControl(_arrowKeyDisplayGroup, nameof(_arrowKeyDisplayGroup), issues);
-            ValidateControl(_wasdKeyDisplayGroup, nameof(_wasdKeyDisplayGroup), issues);
-            ValidateControl(_arrowKeyActiveLight, nameof(_arrowKeyActiveLight), issues);
-            ValidateControl(_wasdKeyActiveLight, nameof(_wasdKeyActiveLight), issues);
+            ValidateControl(_movementSchemeButton, nameof(_movementSchemeButton), issues);
+            ValidateControls(_wasdKeyLabels, nameof(_wasdKeyLabels), 4, issues);
+            ValidateControls(_arrowKeyIcons, nameof(_arrowKeyIcons), 4, issues);
             ValidateControl(_pushLabel, nameof(_pushLabel), issues);
             ValidateControl(_pushCurrentText, nameof(_pushCurrentText), issues);
             ValidateControl(_pushKeyDisplayLabel, nameof(_pushKeyDisplayLabel), issues);
-            ValidateControl(_pushChangeButton, nameof(_pushChangeButton), issues);
-            ValidateControl(_pushChangeButtonLabel, nameof(_pushChangeButtonLabel), issues);
+            ValidateControl(_pushRebindButton, nameof(_pushRebindButton), issues);
             ValidateControl(_flipLabel, nameof(_flipLabel), issues);
             ValidateControl(_flipCurrentText, nameof(_flipCurrentText), issues);
             ValidateControl(_flipKeyDisplayLabel, nameof(_flipKeyDisplayLabel), issues);
-            ValidateControl(_flipChangeButton, nameof(_flipChangeButton), issues);
-            ValidateControl(_flipChangeButtonLabel, nameof(_flipChangeButtonLabel), issues);
+            ValidateControl(_flipRebindButton, nameof(_flipRebindButton), issues);
             ValidateControl(_statusText, nameof(_statusText), issues);
             ValidateControl(_resetButton, nameof(_resetButton), issues);
             ValidateControl(_resetButtonLabel, nameof(_resetButtonLabel), issues);
@@ -223,28 +184,17 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
-        public void SetMovementUseArrowKeys(bool useArrowKeys)
+        public void ClickMovementScheme()
         {
-            if (!_isVisible || _movementSlider == null)
+            if (!_isVisible || !IsMovementSchemeInteractable || IsRebinding)
             {
                 return;
             }
 
-            _movementSlider.value = useArrowKeys ? 1f : 0f;
+            MovementSchemeToggleRequested?.Invoke(!IsMovementUsingArrowKeys);
         }
 
-        public bool AdjustMovementScheme(int delta)
-        {
-            if (!_isVisible || _movementSlider == null || !_movementSlider.interactable || delta == 0)
-            {
-                return false;
-            }
-
-            SetMovementUseArrowKeys(delta > 0);
-            return true;
-        }
-
-        public void ClickPushChange()
+        public void ClickPushRebind()
         {
             if (!_isVisible || IsRebinding)
             {
@@ -254,7 +204,7 @@ namespace Game.Feature.UI.Screens
             PushRebindRequested?.Invoke();
         }
 
-        public void ClickFlipChange()
+        public void ClickFlipRebind()
         {
             if (!_isVisible || IsRebinding)
             {
@@ -289,23 +239,17 @@ namespace Game.Feature.UI.Screens
         private void OnValidate()
         {
             ValidateSerializedReference(_movementLabel, nameof(_movementLabel));
-            ValidateSerializedReference(_movementSlider, nameof(_movementSlider));
-            ValidateSerializedReference(_movementToggleLabel, nameof(_movementToggleLabel));
-            ValidateSerializedReference(_movementCurrentText, nameof(_movementCurrentText));
-            ValidateSerializedReference(_arrowKeyDisplayGroup, nameof(_arrowKeyDisplayGroup));
-            ValidateSerializedReference(_wasdKeyDisplayGroup, nameof(_wasdKeyDisplayGroup));
-            ValidateSerializedReference(_arrowKeyActiveLight, nameof(_arrowKeyActiveLight));
-            ValidateSerializedReference(_wasdKeyActiveLight, nameof(_wasdKeyActiveLight));
+            ValidateSerializedReference(_movementSchemeButton, nameof(_movementSchemeButton));
+            ValidateSerializedReferences(_wasdKeyLabels, nameof(_wasdKeyLabels), 4);
+            ValidateSerializedReferences(_arrowKeyIcons, nameof(_arrowKeyIcons), 4);
             ValidateSerializedReference(_pushLabel, nameof(_pushLabel));
             ValidateSerializedReference(_pushCurrentText, nameof(_pushCurrentText));
             ValidateSerializedReference(_pushKeyDisplayLabel, nameof(_pushKeyDisplayLabel));
-            ValidateSerializedReference(_pushChangeButton, nameof(_pushChangeButton));
-            ValidateSerializedReference(_pushChangeButtonLabel, nameof(_pushChangeButtonLabel));
+            ValidateSerializedReference(_pushRebindButton, nameof(_pushRebindButton));
             ValidateSerializedReference(_flipLabel, nameof(_flipLabel));
             ValidateSerializedReference(_flipCurrentText, nameof(_flipCurrentText));
             ValidateSerializedReference(_flipKeyDisplayLabel, nameof(_flipKeyDisplayLabel));
-            ValidateSerializedReference(_flipChangeButton, nameof(_flipChangeButton));
-            ValidateSerializedReference(_flipChangeButtonLabel, nameof(_flipChangeButtonLabel));
+            ValidateSerializedReference(_flipRebindButton, nameof(_flipRebindButton));
             ValidateSerializedReference(_statusText, nameof(_statusText));
             ValidateSerializedReference(_resetButton, nameof(_resetButton));
             ValidateSerializedReference(_resetButtonLabel, nameof(_resetButtonLabel));
@@ -321,16 +265,6 @@ namespace Game.Feature.UI.Screens
 
             UnbindStaticLocalization();
             UnbindControls();
-        }
-
-        private void HandleMovementSliderChanged(float value)
-        {
-            if (!_isVisible || _isRefreshingControls)
-            {
-                return;
-            }
-
-            MovementSchemeToggleRequested?.Invoke(value >= 0.5f);
         }
 
         private void HandleViewModelChanged()
@@ -350,50 +284,37 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
-            _isRefreshingControls = true;
-            try
+            if (!HasLocalizedStaticBindings)
             {
-                if (!HasLocalizedStaticBindings)
-                {
-                    SetText(_movementLabel, _viewModel.MovementLabel);
-                    SetText(_movementToggleLabel, _viewModel.UseArrowKeysLabel);
-                    SetText(_pushLabel, _viewModel.PushLabel);
-                    SetText(_pushChangeButtonLabel, _viewModel.PushChangeLabel);
-                    SetText(_flipLabel, _viewModel.FlipLabel);
-                    SetText(_flipChangeButtonLabel, _viewModel.FlipChangeLabel);
-                    SetText(_resetButtonLabel, _viewModel.ResetLabel);
-                }
-
-                SetText(_movementCurrentText, _viewModel.MovementCurrentText);
-                SetText(_pushCurrentText, _viewModel.PushCurrentText);
-                SetKeyDisplayText(_pushKeyDisplayLabel, _viewModel.PushCurrentText);
-                SetText(_flipCurrentText, _viewModel.FlipCurrentText);
-                SetKeyDisplayText(_flipKeyDisplayLabel, _viewModel.FlipCurrentText);
-                SetText(_statusText, _viewModel.StatusText);
-                RefreshTypography();
-
-                if (_movementSlider != null)
-                {
-                    _movementSlider.SetValueWithoutNotify(_viewModel.UseArrowKeys ? 1f : 0f);
-                    _movementSlider.interactable = _viewModel.AreControlsInteractable;
-                }
-
-                ApplyMovementDisplayState(_viewModel.UseArrowKeys);
-
-                ApplyRebindButtonState(
-                    _pushChangeButton,
-                    _viewModel.AreControlsInteractable,
-                    _viewModel.IsRebinding && _viewModel.RebindingAction == KeyboardBindableAction.Push);
-                ApplyRebindButtonState(
-                    _flipChangeButton,
-                    _viewModel.AreControlsInteractable,
-                    _viewModel.IsRebinding && _viewModel.RebindingAction == KeyboardBindableAction.Flip);
-                ApplyRebindButtonState(_resetButton, _viewModel.AreControlsInteractable, isHighlighted: false);
+                SetText(_movementLabel, _viewModel.MovementLabel);
+                SetText(_pushLabel, _viewModel.PushLabel);
+                SetText(_flipLabel, _viewModel.FlipLabel);
+                SetText(_resetButtonLabel, _viewModel.ResetLabel);
             }
-            finally
+
+            SetText(_pushCurrentText, _viewModel.PushCurrentText);
+            SetKeyDisplayText(_pushKeyDisplayLabel, _viewModel.PushCurrentText);
+            SetText(_flipCurrentText, _viewModel.FlipCurrentText);
+            SetKeyDisplayText(_flipKeyDisplayLabel, _viewModel.FlipCurrentText);
+            SetText(_statusText, _viewModel.StatusText);
+            RefreshTypography();
+
+            if (_movementSchemeButton != null)
             {
-                _isRefreshingControls = false;
+                _movementSchemeButton.interactable = _viewModel.AreControlsInteractable;
             }
+
+            ApplyMovementSchemeDisplay(_viewModel.UseArrowKeys);
+
+            ApplyRebindButtonState(
+                _pushRebindButton,
+                _viewModel.AreControlsInteractable,
+                _viewModel.IsRebinding && _viewModel.RebindingAction == KeyboardBindableAction.Push);
+            ApplyRebindButtonState(
+                _flipRebindButton,
+                _viewModel.AreControlsInteractable,
+                _viewModel.IsRebinding && _viewModel.RebindingAction == KeyboardBindableAction.Flip);
+            ApplyRebindButtonState(_resetButton, _viewModel.AreControlsInteractable, isHighlighted: false);
         }
 
         private bool IsRebinding => _viewModel != null && _viewModel.IsRebinding;
@@ -417,7 +338,6 @@ namespace Game.Feature.UI.Screens
             var localeCode = _localizedTextResolver != null
                 ? _localizedTextResolver.CurrentLocaleCode
                 : string.Empty;
-            ApplySettingsTypography(_movementCurrentText, localeCode);
             ApplySettingsTypography(_pushCurrentText, localeCode);
             ApplySettingsTypography(_pushKeyDisplayLabel, localeCode);
             ApplySettingsTypography(_flipCurrentText, localeCode);
@@ -436,26 +356,17 @@ namespace Game.Feature.UI.Screens
 
         private void RebindControls()
         {
-            if (_movementSlider != null)
-            {
-                _movementSlider.onValueChanged.RemoveListener(HandleMovementSliderChanged);
-                _movementSlider.onValueChanged.AddListener(HandleMovementSliderChanged);
-            }
-
-            RebindButton(_pushChangeButton, ClickPushChange);
-            RebindButton(_flipChangeButton, ClickFlipChange);
+            RebindButton(_movementSchemeButton, ClickMovementScheme);
+            RebindButton(_pushRebindButton, ClickPushRebind);
+            RebindButton(_flipRebindButton, ClickFlipRebind);
             RebindButton(_resetButton, ClickReset);
         }
 
         private void UnbindControls()
         {
-            if (_movementSlider != null)
-            {
-                _movementSlider.onValueChanged.RemoveListener(HandleMovementSliderChanged);
-            }
-
-            UnbindButton(_pushChangeButton, ClickPushChange);
-            UnbindButton(_flipChangeButton, ClickFlipChange);
+            UnbindButton(_movementSchemeButton, ClickMovementScheme);
+            UnbindButton(_pushRebindButton, ClickPushRebind);
+            UnbindButton(_flipRebindButton, ClickFlipRebind);
             UnbindButton(_resetButton, ClickReset);
         }
 
@@ -480,24 +391,23 @@ namespace Game.Feature.UI.Screens
             label.text = text ?? string.Empty;
         }
 
-        private void ApplyMovementDisplayState(bool useArrowKeys)
+        private void ApplyMovementSchemeDisplay(bool useArrowKeys)
         {
-            ApplyDisplayGroupState(_arrowKeyDisplayGroup, useArrowKeys);
-            ApplyDisplayGroupState(_wasdKeyDisplayGroup, !useArrowKeys);
-            SetActiveIfChanged(_arrowKeyActiveLight, useArrowKeys);
-            SetActiveIfChanged(_wasdKeyActiveLight, !useArrowKeys);
+            ApplyDisplayObjects(_wasdKeyLabels, !useArrowKeys);
+            ApplyDisplayObjects(_arrowKeyIcons, useArrowKeys);
         }
 
-        private static void ApplyDisplayGroupState(CanvasGroup group, bool isActive)
+        private static void ApplyDisplayObjects(IReadOnlyList<GameObject> targets, bool isActive)
         {
-            if (group == null)
+            if (targets == null)
             {
                 return;
             }
 
-            group.alpha = isActive ? ActiveDisplayAlpha : InactiveDisplayAlpha;
-            group.interactable = isActive;
-            group.blocksRaycasts = isActive;
+            for (var i = 0; i < targets.Count; i++)
+            {
+                SetActiveIfChanged(targets[i], isActive);
+            }
         }
 
         private static void SetActiveIfChanged(GameObject target, bool isActive)
@@ -588,6 +498,27 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        private static void ValidateControls(
+            IReadOnlyList<GameObject> controls,
+            string fieldName,
+            int expectedCount,
+            ICollection<string> issues)
+        {
+            if (controls == null || controls.Count != expectedCount)
+            {
+                issues.Add($"serialized reference array '{fieldName}' must contain exactly {expectedCount} entries");
+                return;
+            }
+
+            for (var i = 0; i < controls.Count; i++)
+            {
+                if (controls[i] == null)
+                {
+                    issues.Add($"serialized reference '{fieldName}[{i}]' is not assigned");
+                }
+            }
+        }
+
         private static string BuildValidationMessage(string baseMessage, IReadOnlyList<string> issues)
         {
             if (issues == null || issues.Count == 0)
@@ -604,6 +535,25 @@ namespace Game.Feature.UI.Screens
             if (value == null)
             {
                 Debug.LogWarning($"{nameof(SettingsInputView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+
+        private void ValidateSerializedReferences(
+            IReadOnlyList<GameObject> values,
+            string fieldName,
+            int expectedCount)
+        {
+            if (values == null || values.Count != expectedCount)
+            {
+                Debug.LogWarning(
+                    $"{nameof(SettingsInputView)} on '{name}' requires exactly {expectedCount} serialized references in '{fieldName}'.",
+                    this);
+                return;
+            }
+
+            for (var i = 0; i < values.Count; i++)
+            {
+                ValidateSerializedReference(values[i], $"{fieldName}[{i}]");
             }
         }
 #endif

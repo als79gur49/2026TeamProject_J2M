@@ -45,10 +45,8 @@ namespace Game.Feature.UI.ViewShared
         DisplayApply,
         DisplayRevert,
         InputMovementKeys,
-        InputUseArrowKeys,
         InputPush,
         InputFlip,
-        InputChange,
         InputReset,
         Language,
         LanguageEnglish,
@@ -162,10 +160,8 @@ namespace Game.Feature.UI.ViewShared
             public const string DisplayApply = "ui.settings.display.apply";
             public const string DisplayRevert = "ui.settings.display.revert";
             public const string InputMovementKeys = "ui.settings.input.movement_keys";
-            public const string InputUseArrowKeys = "ui.settings.input.use_arrow_keys";
             public const string InputPush = "ui.settings.input.push";
             public const string InputFlip = "ui.settings.input.flip";
-            public const string InputChange = "ui.settings.input.change";
             public const string InputReset = "ui.settings.input.reset_input";
             public const string Language = "ui.settings.language";
             public const string LanguageEnglish = "ui.settings.language.english";
@@ -219,10 +215,8 @@ namespace Game.Feature.UI.ViewShared
                 Static(SettingsLocalizationEntryId.DisplayApply, Keys.DisplayApply),
                 Static(SettingsLocalizationEntryId.DisplayRevert, Keys.DisplayRevert),
                 Static(SettingsLocalizationEntryId.InputMovementKeys, Keys.InputMovementKeys),
-                Static(SettingsLocalizationEntryId.InputUseArrowKeys, Keys.InputUseArrowKeys),
                 Static(SettingsLocalizationEntryId.InputPush, Keys.InputPush),
                 Static(SettingsLocalizationEntryId.InputFlip, Keys.InputFlip),
-                Static(SettingsLocalizationEntryId.InputChange, Keys.InputChange),
                 Static(SettingsLocalizationEntryId.InputReset, Keys.InputReset),
                 Static(SettingsLocalizationEntryId.Language, Keys.Language),
                 Static(SettingsLocalizationEntryId.LanguageEnglish, Keys.LanguageEnglish),
@@ -920,10 +914,8 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayApply] = "Apply",
                     [SettingsLocalizationContract.Keys.DisplayRevert] = "Revert",
                     [SettingsLocalizationContract.Keys.InputMovementKeys] = "Movement Keys",
-                    [SettingsLocalizationContract.Keys.InputUseArrowKeys] = "Use Arrow Keys",
                     [SettingsLocalizationContract.Keys.InputPush] = "Push",
                     [SettingsLocalizationContract.Keys.InputFlip] = "Flip",
-                    [SettingsLocalizationContract.Keys.InputChange] = "Change",
                     [SettingsLocalizationContract.Keys.InputReset] = "Reset Input",
                     [SettingsLocalizationContract.Keys.Language] = "Language",
                     [SettingsLocalizationContract.Keys.LanguageEnglish] = "English",
@@ -982,10 +974,8 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayApply] = "적용",
                     [SettingsLocalizationContract.Keys.DisplayRevert] = "되돌리기",
                     [SettingsLocalizationContract.Keys.InputMovementKeys] = "이동 키",
-                    [SettingsLocalizationContract.Keys.InputUseArrowKeys] = "화살표 키 사용",
                     [SettingsLocalizationContract.Keys.InputPush] = "밀기",
                     [SettingsLocalizationContract.Keys.InputFlip] = "뒤집기",
-                    [SettingsLocalizationContract.Keys.InputChange] = "변경",
                     [SettingsLocalizationContract.Keys.InputReset] = "입력 초기화",
                     [SettingsLocalizationContract.Keys.Language] = "언어",
                     [SettingsLocalizationContract.Keys.LanguageEnglish] = "영어",

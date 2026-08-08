@@ -20,6 +20,7 @@
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
 - 삭제 후보는 별도 제품 결정, 현재 lane evidence, baseline note 갱신이 같은 변경에 포함될 때만 제거한다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
+- Settings 이동 키 UI의 현재 계약은 단일 `WASDKeyDisplay` 토글이다. 마우스 클릭은 버튼 피드백과 함께 WASD/방향키 표시를 전환하고, 키보드는 `SelectionFrame`이 강조된 `Input.Movement.Toggle`에서 Enter 한 번으로 전환한다. 기존 Slider/Light/이중 표시 그룹은 retired residue로 취급한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
 - UI freeze evidence는 [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md)를 따른다. 이 문서는 test count ledger가 아니라 structural delta, guard evolution, runner warning status, PlayMode escalation status를 함께 기록해야 한다.
 - UI current-structure source는 repo root의 [UI-Current-Structure-Source.md](../../UI-Current-Structure-Source.md)를 따른다. UI lane scope, interpretation, canonical identity list, retired/residue wording, 또는 stale-token audit 기준이 바뀌면 baseline note와 이 source를 같은 변경에서 함께 갱신해야 한다.
@@ -38,6 +39,7 @@
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
 - UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
+- The current Settings movement-key contract is one `WASDKeyDisplay` toggle: pointer click toggles WASD/arrow visuals with button feedback, and keyboard Enter submits once from the focused `Input.Movement.Toggle` SelectionFrame. The former Slider, Lights, and dual display groups are retired residue.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
 - Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 9 UI hardening evidence, including structural delta and guard-evolution interpretation.
 - Use root [UI-Current-Structure-Source.md](../../UI-Current-Structure-Source.md) as the UI current-structure source. When UI lane scope, interpretation, canonical identity lists, retired/residue wording, or stale-token audit policy changes, update the baseline note and this source in the same change.
@@ -489,7 +491,7 @@ WSL CLI
   - 테스트 lane이 아니며 filter를 받지 않는다.
 - `./run_tests.sh typography-visual`
   - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
-  - current worktree/Unity path, 동일 프로젝트 process, revision gate, Nanum 전후 hash, manifest PASS fields, Settings 38 및 localized 22/22, 6개 PNG byte size/SHA-256을 검증한다.
+  - current worktree/Unity path, 동일 프로젝트 process, revision gate, Nanum 전후 hash, manifest PASS fields, Settings 35 및 localized 20/20, 6개 PNG byte size/SHA-256을 검증한다.
   - Climate PR2에서는 ko-KR Settings Audio muted, Settings Display status, ConfirmPopup 진단 PNG를 `Diagnostics/`에 추가 생성한다. 이 파일들은 canonical root의 exact 6-file manifest와 분리되며, 진단 capture failure는 해당 slice를 실패시킨다.
   - raw Unity log와 canonical `capture.log`을 분리하고, 기존 output은 overwrite하지 않으며 실패 output도 진단을 위해 보존한다.
   - `./run_tests.sh --dry-run typography-visual`은 실제 Unity path, current worktree project path, execute method, output/log/manifest path, 1920x1080, isolated slice 인자를 출력한다.
@@ -553,7 +555,7 @@ WSL CLI
   - This is an asset-generation lane, not a test lane, and it does not accept filters.
 - `./run_tests.sh typography-visual`
   - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
-  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, before/after Nanum hashes, manifest PASS fields, exact Settings 38 and localized 22/22 counts, and all six PNG byte sizes/SHA-256 hashes.
+  - Validates the current worktree/Unity path, same-project process exclusion, revision gate, before/after Nanum hashes, manifest PASS fields, exact Settings 35 and localized 20/20 counts, and all six PNG byte sizes/SHA-256 hashes.
   - For Climate PR2, it also creates ko-KR Settings Audio muted, Settings Display status, and ConfirmPopup diagnostics under `Diagnostics/`. They remain outside the exact six-file canonical root manifest, and a diagnostic capture failure fails its slice.
   - Separates raw Unity logs from canonical `capture.log`, refuses existing output directories, and retains failed output for diagnostics.
   - `./run_tests.sh --dry-run typography-visual` prints the real Unity/current-worktree paths, execute method, output/log/manifest paths, 1920x1080 resolution, and isolated slice arguments without launching Unity.

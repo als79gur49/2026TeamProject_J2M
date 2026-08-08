@@ -10,6 +10,7 @@ using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -22,10 +23,8 @@ namespace Game.Feature.UI.Tests
             SettingsStaticTextDescriptors.DisplayTab,
             SettingsStaticTextDescriptors.InputTab,
             SettingsStaticTextDescriptors.MovementKeys,
-            SettingsStaticTextDescriptors.UseArrowKeys,
             SettingsStaticTextDescriptors.Push,
             SettingsStaticTextDescriptors.Flip,
-            SettingsStaticTextDescriptors.Change,
             SettingsStaticTextDescriptors.ResetInput,
             SettingsStaticTextDescriptors.Language,
             SettingsStaticTextDescriptors.LanguageEnglish,
@@ -374,10 +373,8 @@ namespace Game.Feature.UI.Tests
                 new CompletingKeyboardSettingsPort(KeyboardBindingValidationResult.Success));
             presenter.Apply(new SettingsInputPresenterInput(
                 SettingsStaticTextDescriptors.MovementKeys,
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
 
             presenter.StartRebind(action);
@@ -393,10 +390,8 @@ namespace Game.Feature.UI.Tests
                 new RejectingKeyboardSettingsPort(KeyboardBindingValidationResult.Success));
             presenter.Apply(new SettingsInputPresenterInput(
                 new LocalizedTextDescriptor("UI", "ui.settings.input.unknown"),
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
 
             Assert.That(
@@ -507,10 +502,8 @@ namespace Game.Feature.UI.Tests
                     "ui.settings.display",
                     "ui.settings.input",
                     "ui.settings.input.movement_keys",
-                    "ui.settings.input.use_arrow_keys",
                     "ui.settings.input.push",
                     "ui.settings.input.flip",
-                    "ui.settings.input.change",
                     "ui.settings.input.reset_input",
                     "ui.settings.language",
                     "ui.settings.language.english",
@@ -730,11 +723,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.DisplayPresenter.ViewModel.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(presenter.DisplayPresenter.ViewModel.CurrentLanguageText, Is.EqualTo("한국어"));
             Assert.That(presenter.InputPresenter.ViewModel.MovementLabel, Is.EqualTo("이동 키"));
-            Assert.That(presenter.InputPresenter.ViewModel.UseArrowKeysLabel, Is.EqualTo("화살표 키 사용"));
+            Assert.That(presenter.InputPresenter.ViewModel.UseArrowKeys, Is.False);
             Assert.That(presenter.InputPresenter.ViewModel.PushLabel, Is.EqualTo("밀기"));
             Assert.That(presenter.InputPresenter.ViewModel.FlipLabel, Is.EqualTo("뒤집기"));
-            Assert.That(presenter.InputPresenter.ViewModel.PushChangeLabel, Is.EqualTo("변경"));
-            Assert.That(presenter.InputPresenter.ViewModel.FlipChangeLabel, Is.EqualTo("변경"));
             Assert.That(presenter.InputPresenter.ViewModel.ResetLabel, Is.EqualTo("입력 초기화"));
         }
 
@@ -836,15 +827,11 @@ namespace Game.Feature.UI.Tests
                 fixture.InputView.Bind(fixture.InputViewModel);
                 fixture.InputViewModel.SetContent(
                     "MODEL Movement",
-                    "MODEL Arrows",
                     false,
-                    "WASD",
                     "MODEL Push",
                     "P",
-                    "MODEL Change",
                     "MODEL Flip",
                     "F",
-                    "MODEL Change",
                     "MODEL Reset",
                     "Waiting for key",
                     false,
@@ -857,8 +844,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(fixture.InputTabLabel.text, Is.EqualTo("Input"));
                 Assert.That(fixture.BackLabel.text, Is.EqualTo("Back"));
                 Assert.That(fixture.MovementLabel.text, Is.EqualTo("Movement Keys"));
-                Assert.That(fixture.PushChangeLabel.text, Is.EqualTo("Change"));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
                 Assert.That(fixture.StatusText.text, Is.EqualTo("Waiting for key"));
 
                 resolver.SetLocale("ko-KR");
@@ -866,8 +852,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(fixture.TitleLabel.text, Is.EqualTo("설정"));
                 Assert.That(fixture.AudioTabLabel.text, Is.EqualTo("오디오"));
                 Assert.That(fixture.MovementLabel.text, Is.EqualTo("이동 키"));
-                Assert.That(fixture.PushChangeLabel.text, Is.EqualTo("변경"));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
                 Assert.That(fixture.StatusText.text, Is.EqualTo("Waiting for key"));
                 Assert.That(
                     typographyResolver.Calls.Any(call =>
@@ -951,7 +936,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(typeof(AudioSettingsRowViewModel).GetProperty(nameof(AudioSettingsRowViewModel.ValueText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsDisplayViewModel).GetProperty(nameof(SettingsDisplayViewModel.DisplayStatusText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsDisplayViewModel).GetProperty(nameof(SettingsDisplayViewModel.PreviewCountdownText))?.PropertyType, Is.EqualTo(typeof(string)));
-            Assert.That(typeof(SettingsInputViewModel).GetProperty(nameof(SettingsInputViewModel.MovementCurrentText))?.PropertyType, Is.EqualTo(typeof(string)));
+            Assert.That(typeof(SettingsInputViewModel).GetProperty("MovementCurrentText"), Is.Null);
             Assert.That(typeof(SettingsInputViewModel).GetProperty(nameof(SettingsInputViewModel.PushCurrentText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsInputViewModel).GetProperty(nameof(SettingsInputViewModel.FlipCurrentText))?.PropertyType, Is.EqualTo(typeof(string)));
             Assert.That(typeof(SettingsInputViewModel).GetProperty(nameof(SettingsInputViewModel.StatusText))?.PropertyType, Is.EqualTo(typeof(string)));
@@ -1057,10 +1042,8 @@ namespace Game.Feature.UI.Tests
             var presenter = new SettingsInputPresenter(keyboardPort, resolver);
             presenter.Apply(new SettingsInputPresenterInput(
                 SettingsStaticTextDescriptors.MovementKeys,
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
 
             presenter.StartRebind(action);
@@ -1215,13 +1198,13 @@ namespace Game.Feature.UI.Tests
                 presenter.InputPresenter.ResetToDefaults();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("Input settings reset."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
 
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
             }
             finally
             {
@@ -1253,13 +1236,13 @@ namespace Game.Feature.UI.Tests
                 keyboardPort.Complete();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("This key cannot be used."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
 
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("이 키는 사용할 수 없습니다."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
             }
             finally
             {
@@ -1291,13 +1274,13 @@ namespace Game.Feature.UI.Tests
                 keyboardPort.Complete();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("Movement keys cannot overlap."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
 
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
             }
             finally
             {
@@ -1328,14 +1311,14 @@ namespace Game.Feature.UI.Tests
                 presenter.InputPresenter.StartRebind(KeyboardBindableAction.Push);
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("Another key is already being reassigned."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
                 Assert.That(fixture.PushCurrentText.text, Is.EqualTo("J"));
 
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
                 Assert.That(fixture.InputView.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
-                Assert.That(fixture.MovementCurrentText.text, Is.EqualTo("WASD"));
+                fixture.AssertMovementScheme(useArrowKeys: false);
                 Assert.That(fixture.PushCurrentText.text, Is.EqualTo("J"));
             }
             finally
@@ -1409,10 +1392,8 @@ namespace Game.Feature.UI.Tests
 
             presenter.Apply(new SettingsInputPresenterInput(
                 SettingsStaticTextDescriptors.MovementKeys,
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
 
             presenter.StartRebind(KeyboardBindableAction.Push);
@@ -1518,10 +1499,8 @@ namespace Game.Feature.UI.Tests
                 payload.DisplayTabLabelDescriptor,
                 payload.InputTabLabelDescriptor,
                 payload.MovementLabelDescriptor,
-                payload.UseArrowKeysLabelDescriptor,
                 payload.PushLabelDescriptor,
                 payload.FlipLabelDescriptor,
-                payload.InputChangeLabelDescriptor,
                 payload.ResetInputLabelDescriptor,
                 payload.LanguageLabelDescriptor,
                 payload.EnglishLanguageLabelDescriptor,
@@ -1587,6 +1566,18 @@ namespace Game.Feature.UI.Tests
             return gameObject.AddComponent<TextMeshProUGUI>();
         }
 
+        private static GameObject[] CreateMovementVisuals(string prefix, Transform parent)
+        {
+            var visuals = new GameObject[4];
+            for (var i = 0; i < visuals.Length; i++)
+            {
+                visuals[i] = new GameObject($"{prefix}{i}");
+                visuals[i].transform.SetParent(parent, false);
+            }
+
+            return visuals;
+        }
+
         private static void DestroyText(TMP_Text label)
         {
             if (label != null)
@@ -1609,13 +1600,14 @@ namespace Game.Feature.UI.Tests
             inputRoot.transform.SetParent(root.transform, false);
             var inputView = inputRoot.AddComponent<SettingsInputView>();
             var movementLabel = CreateTmpText("MovementLabel", inputRoot.transform);
-            var movementToggleLabel = CreateTmpText("MovementToggleLabel", inputRoot.transform);
-            var movementCurrentText = CreateTmpText("MovementCurrentText", inputRoot.transform);
+            var movementSchemeObject = new GameObject("MovementSchemeButton");
+            movementSchemeObject.transform.SetParent(inputRoot.transform, false);
+            var movementSchemeButton = movementSchemeObject.AddComponent<Button>();
+            var wasdKeyLabels = CreateMovementVisuals("WasdKeyLabel", movementSchemeObject.transform);
+            var arrowKeyIcons = CreateMovementVisuals("ArrowKeyIcon", movementSchemeObject.transform);
             var pushLabel = CreateTmpText("PushLabel", inputRoot.transform);
             var pushCurrentText = CreateTmpText("PushCurrentText", inputRoot.transform);
-            var pushChangeLabel = CreateTmpText("PushChangeLabel", inputRoot.transform);
             var flipLabel = CreateTmpText("FlipLabel", inputRoot.transform);
-            var flipChangeLabel = CreateTmpText("FlipChangeLabel", inputRoot.transform);
             var resetButtonLabel = CreateTmpText("ResetButtonLabel", inputRoot.transform);
             var statusText = CreateTmpText("StatusText", inputRoot.transform);
 
@@ -1627,13 +1619,12 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(view, "_inputView", inputView);
 
             SetPrivateField(inputView, "_movementLabel", movementLabel);
-            SetPrivateField(inputView, "_movementToggleLabel", movementToggleLabel);
-            SetPrivateField(inputView, "_movementCurrentText", movementCurrentText);
+            SetPrivateField(inputView, "_movementSchemeButton", movementSchemeButton);
+            SetPrivateField(inputView, "_wasdKeyLabels", wasdKeyLabels);
+            SetPrivateField(inputView, "_arrowKeyIcons", arrowKeyIcons);
             SetPrivateField(inputView, "_pushLabel", pushLabel);
             SetPrivateField(inputView, "_pushCurrentText", pushCurrentText);
-            SetPrivateField(inputView, "_pushChangeButtonLabel", pushChangeLabel);
             SetPrivateField(inputView, "_flipLabel", flipLabel);
-            SetPrivateField(inputView, "_flipChangeButtonLabel", flipChangeLabel);
             SetPrivateField(inputView, "_resetButtonLabel", resetButtonLabel);
             SetPrivateField(inputView, "_statusText", statusText);
 
@@ -1649,9 +1640,9 @@ namespace Game.Feature.UI.Tests
                 inputTabLabel,
                 backLabel,
                 movementLabel,
-                movementCurrentText,
+                wasdKeyLabels,
+                arrowKeyIcons,
                 pushCurrentText,
-                pushChangeLabel,
                 statusText);
         }
 
@@ -1686,10 +1677,8 @@ namespace Game.Feature.UI.Tests
 
             presenter.Apply(new SettingsInputPresenterInput(
                 SettingsStaticTextDescriptors.MovementKeys,
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
 
             presenter.StartRebind(KeyboardBindableAction.Push);
@@ -1702,10 +1691,8 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("en-US");
             presenter.Apply(new SettingsInputPresenterInput(
                 SettingsStaticTextDescriptors.MovementKeys,
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
 
             Assert.That(presenter.ViewModel.StatusText, Is.EqualTo("This key cannot be used."));
@@ -1722,10 +1709,8 @@ namespace Game.Feature.UI.Tests
                     new RejectingKeyboardSettingsPort(validationResult));
                 rejectingPresenter.Apply(new SettingsInputPresenterInput(
                     SettingsStaticTextDescriptors.MovementKeys,
-                    SettingsStaticTextDescriptors.UseArrowKeys,
                     SettingsStaticTextDescriptors.Push,
                     SettingsStaticTextDescriptors.Flip,
-                    SettingsStaticTextDescriptors.Change,
                     SettingsStaticTextDescriptors.ResetInput));
                 rejectingPresenter.StartRebind(KeyboardBindableAction.Push);
                 return rejectingPresenter.ViewModel.StatusText;
@@ -1735,10 +1720,8 @@ namespace Game.Feature.UI.Tests
             var presenter = new SettingsInputPresenter(keyboardPort);
             presenter.Apply(new SettingsInputPresenterInput(
                 SettingsStaticTextDescriptors.MovementKeys,
-                SettingsStaticTextDescriptors.UseArrowKeys,
                 SettingsStaticTextDescriptors.Push,
                 SettingsStaticTextDescriptors.Flip,
-                SettingsStaticTextDescriptors.Change,
                 SettingsStaticTextDescriptors.ResetInput));
             presenter.StartRebind(KeyboardBindableAction.Push);
             keyboardPort.Complete();
@@ -1757,10 +1740,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.display"] = "Display",
                         ["ui.settings.input"] = "Input",
                         ["ui.settings.input.movement_keys"] = "Movement Keys",
-                        ["ui.settings.input.use_arrow_keys"] = "Use Arrow Keys",
                         ["ui.settings.input.push"] = "Push",
                         ["ui.settings.input.flip"] = "Flip",
-                        ["ui.settings.input.change"] = "Change",
                         ["ui.settings.input.reset_input"] = "Reset Input",
                         ["ui.settings.language"] = "Language",
                         ["ui.settings.language.english"] = "English",
@@ -1790,10 +1771,8 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.display"] = "디스플레이",
                         ["ui.settings.input"] = "입력",
                         ["ui.settings.input.movement_keys"] = "이동 키",
-                        ["ui.settings.input.use_arrow_keys"] = "화살표 키 사용",
                         ["ui.settings.input.push"] = "밀기",
                         ["ui.settings.input.flip"] = "뒤집기",
-                        ["ui.settings.input.change"] = "변경",
                         ["ui.settings.input.reset_input"] = "입력 초기화",
                         ["ui.settings.language"] = "언어",
                         ["ui.settings.language.english"] = "영어",
@@ -2052,9 +2031,9 @@ namespace Game.Feature.UI.Tests
                 TMP_Text inputTabLabel,
                 TMP_Text backLabel,
                 TMP_Text movementLabel,
-                TMP_Text movementCurrentText,
+                GameObject[] wasdKeyLabels,
+                GameObject[] arrowKeyIcons,
                 TMP_Text pushCurrentText,
-                TMP_Text pushChangeLabel,
                 TMP_Text statusText)
             {
                 Root = root;
@@ -2068,9 +2047,9 @@ namespace Game.Feature.UI.Tests
                 InputTabLabel = inputTabLabel;
                 BackLabel = backLabel;
                 MovementLabel = movementLabel;
-                MovementCurrentText = movementCurrentText;
+                WasdKeyLabels = wasdKeyLabels;
+                ArrowKeyIcons = arrowKeyIcons;
                 PushCurrentText = pushCurrentText;
-                PushChangeLabel = pushChangeLabel;
                 StatusText = statusText;
             }
 
@@ -2096,13 +2075,21 @@ namespace Game.Feature.UI.Tests
 
             public TMP_Text MovementLabel { get; }
 
-            public TMP_Text MovementCurrentText { get; }
+            public GameObject[] WasdKeyLabels { get; }
+
+            public GameObject[] ArrowKeyIcons { get; }
 
             public TMP_Text PushCurrentText { get; }
 
-            public TMP_Text PushChangeLabel { get; }
-
             public TMP_Text StatusText { get; }
+
+            public void AssertMovementScheme(bool useArrowKeys)
+            {
+                Assert.That(WasdKeyLabels.Select(label => label.activeSelf),
+                    Is.All.EqualTo(!useArrowKeys));
+                Assert.That(ArrowKeyIcons.Select(icon => icon.activeSelf),
+                    Is.All.EqualTo(useArrowKeys));
+            }
 
             public void Destroy()
             {
