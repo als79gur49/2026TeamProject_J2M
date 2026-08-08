@@ -46,7 +46,7 @@ namespace Game.Feature.UI.Tests
                 new SaveSlotData
                 {
                     SlotNumber = 3,
-                    CurrentStageId = StageId.CreateOrThrow("stage-4-2"),
+                    CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
                     CurrentLevelGroupId = "level-4",
                     RemainingChances = 3,
                     CampaignCompleted = true,

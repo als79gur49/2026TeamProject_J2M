@@ -1121,7 +1121,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(payload.ContinueStageRequest.IsValid, Is.True);
             Assert.That(payload.RetryStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
-            Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-1-2"));
         }
 
         [Test]

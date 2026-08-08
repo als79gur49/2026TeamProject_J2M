@@ -22,13 +22,17 @@ namespace Game.Feature.Stages.Editor.Tests
             "legacy-stage-5-1",
             "stage-0-1",
             "stage-0-2",
+            "stage-0-3",
             "stage-1-1",
+            "stage-1-2",
             "stage-2-1",
             "stage-2-2",
             "stage-3-1",
             "stage-3-2",
+            "stage-3-3",
             "stage-4-1",
             "stage-4-2",
+            "stage-4-3",
         };
 
         [Test]
@@ -407,8 +411,8 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var paths = GetObjectiveAssetPaths().ToArray();
 
-            Assert.That(paths, Has.Length.EqualTo(20));
-            Assert.That(paths.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(20));
+            Assert.That(paths, Has.Length.EqualTo(28));
+            Assert.That(paths.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(28));
 
             var oldTokenCount = 0;
             var newTokenCount = 0;
@@ -421,7 +425,7 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.That(oldTokenCount, Is.Zero);
-            Assert.That(newTokenCount, Is.EqualTo(108));
+            Assert.That(newTokenCount, Is.EqualTo(146));
         }
 
         [Test]

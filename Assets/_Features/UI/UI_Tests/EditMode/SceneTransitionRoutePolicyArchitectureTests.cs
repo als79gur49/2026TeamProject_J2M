@@ -386,7 +386,7 @@ namespace Game.Feature.UI.Tests
                 runner,
                 Does.Not.Contain("\"$player_path\" \\\n            -nographics"));
             Assert.That(smokeFunction, Does.Contain("for attempt in 1 2 3"));
-            Assert.That(smokeFunction, Does.Contain("gameclear-sequential|stage-4-1"));
+            Assert.That(smokeFunction, Does.Contain("gameclear-sequential|stage-4-2"));
             Assert.That(smokeFunction, Does.Contain("defeat-3-to-2|stage-2-2|defeat|pointer|3|1"));
             Assert.That(smokeFunction, Does.Contain("defeat-2-to-1|stage-2-2|defeat|pointer|2|1"));
             Assert.That(smokeFunction, Does.Contain("defeat-1-to-0|stage-2-2|defeat|pointer|1|1"));

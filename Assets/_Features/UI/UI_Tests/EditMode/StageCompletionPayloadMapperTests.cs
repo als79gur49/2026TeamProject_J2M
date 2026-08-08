@@ -88,11 +88,11 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void StageResultPayloadMapper_FinalClear_HasNoNextStageAndContinueFallsBackToCurrentStage()
         {
-            var finalPayload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-4-2"));
+            var finalPayload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-4-3"));
 
             Assert.That(finalPayload.NextStageRequest.IsValid, Is.False);
             Assert.That(finalPayload.ContinueStageRequest.IsValid, Is.True);
-            Assert.That(finalPayload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-4-2"));
+            Assert.That(finalPayload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-4-3"));
             Assert.That(finalPayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
             Assert.That(finalPayload.ContinueStageRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageClearNext));
         }

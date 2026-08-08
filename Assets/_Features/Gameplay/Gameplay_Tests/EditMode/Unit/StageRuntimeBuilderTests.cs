@@ -19,13 +19,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class StageRuntimeBuilderTests
     {
         private const string CombinedStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-3/stage-4-3.asset";
         private const string CombinedPresentationAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2_Presentation.asset";
-        private const string Stage31StageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1.asset";
-        private const string Stage31PresentationAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1_Presentation.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-3/stage-4-3_Presentation.asset";
+        private const string Stage32StageAssetPath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-2/stage-3-2.asset";
+        private const string Stage32PresentationAssetPath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-2/stage-3-2_Presentation.asset";
         private const string OnboardingStageAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/stage-0-1/stage-0-1.asset";
         private const string TutorialEnemyProfileAssetPath =
@@ -36,15 +36,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int ChargeShowcaseEnemyId = 58;
         private const int UtilitySummonerShowcaseEnemyId = 59;
         private const int CombinedShowcaseEnemyCount = 5;
-        private const int Stage31PlayerId = 10;
-        private const int Stage31WindupMeleeEnemyId = 54;
-        private const int Stage31NonAttackingEnemyId = 55;
-        private const int Stage31WallFollowerEnemyId = 56;
-        private const int Stage31JumpEnemyId = 57;
-        private const int Stage31ChargeEnemyId = 58;
-        private const int Stage31UtilitySummonerEnemyId = 59;
-        private const int Stage31GlideEnemyId = 241;
-        private const int Stage31GlideWallId = 238;
+        private const int Stage32PlayerId = 10;
+        private const int Stage32WindupMeleeEnemyId = 54;
+        private const int Stage32NonAttackingEnemyId = 55;
+        private const int Stage32WallFollowerEnemyId = 56;
+        private const int Stage32JumpEnemyId = 57;
+        private const int Stage32ChargeEnemyId = 58;
+        private const int Stage32UtilitySummonerEnemyId = 59;
+        private const int Stage32GlideEnemyId = 241;
+        private const int Stage32GlideWallId = 238;
         private const int TutorialEnemyId = 165;
         private const string AttackingEnemyPresentationId = "black_eye";
         private const string NonAttackingEnemyPresentationId = "startis";
@@ -1667,10 +1667,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageRuntimeBuilder_Stage31Build_ReflectsVfxSfxStageContract()
+        public void StageRuntimeBuilder_Stage32Build_ReflectsVfxSfxStageContract()
         {
-            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(Stage31StageAssetPath);
-            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{Stage31StageAssetPath}'.");
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(Stage32StageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{Stage32StageAssetPath}'.");
             Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
             Assert.That(stage.BoxSpawns.Length, Is.GreaterThanOrEqualTo(2));
             Assert.That(stage.EnemySpawns.Length, Is.GreaterThanOrEqualTo(6));
@@ -1682,7 +1682,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.BoardBounds.MinInclusive, Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(14, 7)));
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
-            Assert.That(buildResult.PlayerEntityId, Is.EqualTo(Stage31PlayerId));
+            Assert.That(buildResult.PlayerEntityId, Is.EqualTo(Stage32PlayerId));
             Assert.That(
                 buildResult.InitialEntities.Length,
                 Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
@@ -1690,8 +1690,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(stage.TileFeatures.Length));
             Assert.That(buildResult.TileFeatureDefinitions.Length, Is.EqualTo(stage.TileFeatures.Length));
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31PlayerId, out var player), Is.True);
-            var playerSpawn = stage.PlayerSpawns.Single(spawn => spawn.EntityId == Stage31PlayerId);
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage32PlayerId, out var player), Is.True);
+            var playerSpawn = stage.PlayerSpawns.Single(spawn => spawn.EntityId == Stage32PlayerId);
             Assert.That(player.position, Is.EqualTo(playerSpawn.Cell));
             Assert.That(player.facing, Is.EqualTo(playerSpawn.Facing));
             Assert.That(player.unitRole, Is.EqualTo(UnitRole.Player));
@@ -1726,11 +1726,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
             CollectionAssert.AreEqual(expectedProfileOverrideIds, actualProfileOverrideIds);
 
-            var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(Stage31PresentationAssetPath);
+            var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(Stage32PresentationAssetPath);
             Assert.That(
                 presentationDefinition,
                 Is.Not.Null,
-                $"Missing stage presentation asset at '{Stage31PresentationAssetPath}'.");
+                $"Missing stage presentation asset at '{Stage32PresentationAssetPath}'.");
 
             var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
             var enemySpawnIds = stage.EnemySpawns.Select(spawn => spawn.EntityId).ToHashSet();
@@ -1741,27 +1741,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageRuntimeBuilder_Stage31Build_MaterializesGlider241AndWall238Contract()
+        public void StageRuntimeBuilder_Stage32Build_MaterializesGlider241AndWall238Contract()
         {
-            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(Stage31StageAssetPath);
-            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{Stage31StageAssetPath}'.");
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(Stage32StageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{Stage32StageAssetPath}'.");
 
             var wallCell = new SurfaceCell(FaceId.Floor, 3, 7);
-            var gliderSpawn = stage.EnemySpawns.Single(spawn => spawn.EntityId == Stage31GlideEnemyId);
-            var wallSpawn = stage.WallSpawns.Single(spawn => spawn.EntityId == Stage31GlideWallId);
+            var gliderSpawn = stage.EnemySpawns.Single(spawn => spawn.EntityId == Stage32GlideEnemyId);
+            var wallSpawn = stage.WallSpawns.Single(spawn => spawn.EntityId == Stage32GlideWallId);
             Assert.That(wallSpawn.Cell, Is.EqualTo(wallCell));
             Assert.That(gliderSpawn.EnemyAiProfile, Is.Not.Null);
             Assert.That(gliderSpawn.EnemyAiProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
 
             var buildResult = StageRuntimeBuilder.Build(stage);
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31GlideEnemyId, out var glider), Is.True);
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage32GlideEnemyId, out var glider), Is.True);
             Assert.That(glider.position, Is.EqualTo(gliderSpawn.Cell));
             Assert.That(glider.unitRole, Is.EqualTo(UnitRole.Enemy));
             Assert.That(glider.unitMobilityKind, Is.EqualTo(gliderSpawn.UnitMobilityKind));
             Assert.That(glider.aiMode, Is.EqualTo(gliderSpawn.EnemyAiMode));
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage31GlideWallId, out var wall), Is.True);
+            Assert.That(TryGetEntity(buildResult.InitialEntities, Stage32GlideWallId, out var wall), Is.True);
             Assert.That(wall.position, Is.EqualTo(wallCell));
             Assert.That(wall.type, Is.EqualTo(EntityType.None));
 
@@ -1772,9 +1772,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 buildResult.InitialTileFeatures);
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetSolidOccupantAt(wallCell, out var solidOccupant), Is.True);
-            Assert.That(solidOccupant.entityId, Is.EqualTo(Stage31GlideWallId));
+            Assert.That(solidOccupant.entityId, Is.EqualTo(Stage32GlideWallId));
 
-            Assert.That(TryGetProfileOverride(buildResult, Stage31GlideEnemyId, out var glideProfile), Is.True);
+            Assert.That(TryGetProfileOverride(buildResult, Stage32GlideEnemyId, out var glideProfile), Is.True);
             Assert.That(glideProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
             Assert.That(glideProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
             var glideDefinition = glideProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);

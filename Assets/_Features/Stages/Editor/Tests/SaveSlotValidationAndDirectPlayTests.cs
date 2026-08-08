@@ -628,7 +628,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void SaveSlotValidation_MigratesRetiredStageFiveOne_ToCompletedFinalStage()
         {
-            var provider = CreateProvider("stage-4-2");
+            var provider = CreateProvider("stage-4-3");
             var saveStore = new SaveSlotStore();
             saveStore.ClearAll();
             try
@@ -648,7 +648,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(result.Status, Is.EqualTo(SaveSlotValidationStatus.Completed));
                 Assert.That(result.RequiresSaveSync, Is.True);
-                Assert.That(result.Slot.CurrentStageId.Value, Is.EqualTo("stage-4-2"));
+                Assert.That(result.Slot.CurrentStageId.Value, Is.EqualTo("stage-4-3"));
                 Assert.That(result.Slot.CurrentLevelGroupId, Is.EqualTo("level-4"));
                 Assert.That(result.Slot.CampaignCompleted, Is.True);
 
@@ -658,7 +658,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(synced.Status, Is.EqualTo(SaveSlotValidationStatus.Completed));
                 Assert.That(synced.RequiresSaveSync, Is.False);
-                Assert.That(persisted.CurrentStageId.Value, Is.EqualTo("stage-4-2"));
+                Assert.That(persisted.CurrentStageId.Value, Is.EqualTo("stage-4-3"));
                 Assert.That(persisted.CurrentLevelGroupId, Is.EqualTo("level-4"));
                 Assert.That(persisted.CampaignCompleted, Is.True);
             }

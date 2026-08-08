@@ -21,9 +21,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class StageBackedGameplaySceneInstallerTests
     {
         private const string CombinedStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-3/stage-4-3.asset";
         private const string CombinedPresentationAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2_Presentation.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-3/stage-4-3_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
         private const string CombinedLaunchStageId = "stage-1-1";

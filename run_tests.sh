@@ -4121,7 +4121,7 @@ run_terminal_player_build_smoke_legacy() {
             -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
             -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
             -logFile "$runtime_log_gameclear_pointer_win" \
-            --capture-stage stage-4-2 \
+            --capture-stage stage-4-3 \
             --capture-campaign-temp-slot \
             --terminal-player-build-smoke \
             --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
@@ -4140,7 +4140,7 @@ run_terminal_player_build_smoke_legacy() {
             -screen-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
             -screen-height "$TERMINAL_PLAYER_SMOKE_HEIGHT" \
             -logFile "$runtime_log_gameclear_keyboard_win" \
-            --capture-stage stage-4-2 \
+            --capture-stage stage-4-3 \
             --capture-campaign-temp-slot \
             --terminal-player-build-smoke \
             --terminal-player-build-smoke-width "$TERMINAL_PLAYER_SMOKE_WIDTH" \
@@ -4719,11 +4719,11 @@ run_terminal_player_build_smoke() {
         standard)
             input_matrix=(
                 "stageresult|stage-4-1||pointer||3"
-                "gameclear-standalone|stage-4-2|gameclear|pointer||3"
-                "gameclear-sequential|stage-4-1|gameclear-sequential|pointer||3"
+                "gameclear-standalone|stage-4-3|gameclear|pointer||3"
+                "gameclear-sequential|stage-4-2|gameclear-sequential|pointer||3"
                 "stageresult|stage-4-1||keyboard||3"
-                "gameclear-standalone|stage-4-2|gameclear|keyboard||3"
-                "gameclear-sequential|stage-4-1|gameclear-sequential|keyboard||3"
+                "gameclear-standalone|stage-4-3|gameclear|keyboard||3"
+                "gameclear-sequential|stage-4-2|gameclear-sequential|keyboard||3"
                 "defeat-3-to-2|stage-2-2|defeat|pointer|3|1"
                 "defeat-2-to-1|stage-2-2|defeat|pointer|2|1"
                 "defeat-1-to-0|stage-2-2|defeat|pointer|1|1"
@@ -4735,14 +4735,14 @@ run_terminal_player_build_smoke() {
         ultrawide)
             input_matrix=(
                 "stageresult|stage-4-1||pointer||1"
-                "gameclear-main-menu|stage-4-2|gameclear|pointer||1"
+                "gameclear-main-menu|stage-4-3|gameclear|pointer||1"
                 "defeat-2-to-1|stage-2-2|defeat|pointer|2|1"
                 "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||1"
             )
             ;;
         missing-routes)
             input_matrix=(
-                "gameclear-main-menu|stage-4-2|gameclear|pointer||1"
+                "gameclear-main-menu|stage-4-3|gameclear|pointer||1"
                 "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||2"
                 "pause-retry|stage-1-1|pause-retry|pointer||2"
                 "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2"

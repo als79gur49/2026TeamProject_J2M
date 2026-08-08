@@ -20,13 +20,17 @@ namespace Game.Feature.Stages.Editor.Tests
             "legacy-stage-5-1",
             "stage-0-1",
             "stage-0-2",
+            "stage-0-3",
             "stage-1-1",
+            "stage-1-2",
             "stage-2-1",
             "stage-2-2",
             "stage-3-1",
             "stage-3-2",
+            "stage-3-3",
             "stage-4-1",
             "stage-4-2",
+            "stage-4-3",
         };
 
         [Test]
@@ -45,13 +49,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 rows.AddRange(stageRows);
             }
 
-            Assert.That(rows, Has.Count.EqualTo(54));
+            Assert.That(rows, Has.Count.EqualTo(73));
             Assert.That(
                 rows.Count(row => row.Category == StageObjectiveConditionEditorCategory.PrimaryGoal),
-                Is.EqualTo(10));
+                Is.EqualTo(14));
             Assert.That(
                 rows.Count(row => row.Category == StageObjectiveConditionEditorCategory.ButtonObjective),
-                Is.EqualTo(44));
+                Is.EqualTo(59));
             Assert.That(
                 rows.Count(row => row.Category == StageObjectiveConditionEditorCategory.OtherCondition),
                 Is.Zero);
@@ -62,11 +66,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 rows.Count(row =>
                     row.AssociationKind == StageObjectiveConditionEditorAssociationKind.PushBoxButton),
-                Is.EqualTo(29));
+                Is.EqualTo(39));
             Assert.That(
                 rows.Count(row =>
                     row.AssociationKind == StageObjectiveConditionEditorAssociationKind.MoonBlockButton),
-                Is.EqualTo(15));
+                Is.EqualTo(20));
 
             foreach (var row in rows)
             {
@@ -1313,7 +1317,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(feedback.ValidationIssues, Is.Empty, ObjectiveStageNames[i]);
             }
 
-            Assert.That(rowCount, Is.EqualTo(54));
+            Assert.That(rowCount, Is.EqualTo(73));
         }
 
         [Test]
@@ -1888,9 +1892,9 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void ObjectiveConditionRemoval_StageThreeOne_RemovesMiddleButtonWithoutRenumberingGroupOrder()
+        public void ObjectiveConditionRemoval_StageThreeTwo_RemovesMiddleButtonWithoutRenumberingGroupOrder()
         {
-            using var fixture = CampaignPairFixture.Create("stage-3-1");
+            using var fixture = CampaignPairFixture.Create("stage-3-2");
             var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 8);
             var before = fixture.Authoring.Objective.ConditionEntries.ToArray();
             var removed = before.Single(entry => entry.StableConditionId == "button-8");
@@ -1931,9 +1935,9 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void ObjectiveConditionRemoval_StageFourTwo_KeepsPrimaryArrayLastAndRuntimeFirst()
+        public void ObjectiveConditionRemoval_StageFourThree_KeepsPrimaryArrayLastAndRuntimeFirst()
         {
-            using var fixture = CampaignPairFixture.Create("stage-4-2");
+            using var fixture = CampaignPairFixture.Create("stage-4-3");
             var button = fixture.Authoring.TileFeatures.Single(feature => feature.TileId == 13);
             var before = fixture.Authoring.Objective.ConditionEntries.ToArray();
             var expected = before.Where(entry => entry.StableConditionId != "button-13").ToArray();

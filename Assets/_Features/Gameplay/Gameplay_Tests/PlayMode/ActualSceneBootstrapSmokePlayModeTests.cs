@@ -122,11 +122,38 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_3_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-0-3"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioSceneStage1_1_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
                 StageId.CreateOrThrow("stage-1-1"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage3_1_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-3-1"));
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage4_1_FirstFiveTicks_NoException()
+        {
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-4-1"));
         }
 
         [UnityTest]
@@ -2210,7 +2237,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 GameplayUiFlowInstaller uiInstaller = null;
                 yield return BeginActualVictory(
-                    StageId.CreateOrThrow("stage-4-2"),
+                    StageId.CreateOrThrow("stage-4-3"),
                     installer => uiInstaller = installer);
 
                 var deadline = Time.realtimeSinceStartup + 5f;
@@ -2278,7 +2305,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 GameplayUiFlowInstaller uiInstaller = null;
                 yield return BeginActualVictory(
-                    StageId.CreateOrThrow("stage-4-2"),
+                    StageId.CreateOrThrow("stage-4-3"),
                     installer => uiInstaller = installer);
 
                 var deadline = Time.realtimeSinceStartup + 5f;
