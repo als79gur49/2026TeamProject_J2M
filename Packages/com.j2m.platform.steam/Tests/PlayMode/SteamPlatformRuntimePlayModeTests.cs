@@ -161,6 +161,35 @@ namespace Game.Platform.Steam.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        public IEnumerator AchievementSmoke_ReusesHostCallbackPumpAndSingleAdapterLifecycle()
+        {
+            var adapter = new CountingAchievementAdapter();
+            var factory = new SteamPlatformRuntimeFactory(
+                () => new SteamRuntimeDependencies(adapter, adapter),
+                smokeRequested: true,
+                achievementSmokeRequested: true);
+            var host = BootstrapWithFactory(factory);
+
+            yield return null;
+            yield return null;
+
+            AssertSinglePlatformHost(host, SteamPlatformRuntime.ProviderId);
+            Assert.That(adapter.InitializeCount, Is.EqualTo(1));
+            Assert.That(adapter.CallbackCount, Is.GreaterThan(0));
+            Assert.That(adapter.SetAchievementCount, Is.EqualTo(1));
+            Assert.That(adapter.StoreStatsCount, Is.EqualTo(1));
+            Assert.That(adapter.GetAchievementCount, Is.EqualTo(2));
+
+            InvokeHostShutdown(host);
+            Object.Destroy(((Component)host).gameObject);
+            yield return null;
+
+            Assert.That(adapter.AchievementCallbackDisposeCount, Is.EqualTo(1));
+            Assert.That(adapter.OverlayCallbackDisposeCount, Is.EqualTo(1));
+            Assert.That(adapter.ShutdownCount, Is.EqualTo(1));
+        }
+
         private static object BootstrapWithFactory(IPlatformRuntimeFactory factory)
         {
             if (factory != null)
@@ -324,6 +353,106 @@ namespace Game.Platform.Steam.Tests.PlayMode
 
             public void DisposeOverlayActivationCallback()
             {
+            }
+        }
+
+        private sealed class CountingAchievementAdapter :
+            ISteamNativeApi,
+            ISteamAchievementApi
+        {
+            private System.Action<SteamStatsStoredObservation> statsObserver;
+            private System.Action<SteamAchievementStoredObservation> achievementObserver;
+            private bool callbacksRaised;
+
+            internal int InitializeCount { get; private set; }
+            internal int CallbackCount { get; private set; }
+            internal int ShutdownCount { get; private set; }
+            internal int OverlayCallbackDisposeCount { get; private set; }
+            internal int AchievementCallbackDisposeCount { get; private set; }
+            internal int GetAchievementCount { get; private set; }
+            internal int SetAchievementCount { get; private set; }
+            internal int StoreStatsCount { get; private set; }
+
+            public bool IsPacksizeCompatible() => true;
+
+            public SteamDllCheckObservation ObserveDllCheck() =>
+                SteamDllCheckObservation.UpstreamDisabled(true);
+
+            public bool Initialize()
+            {
+                InitializeCount++;
+                return true;
+            }
+
+            public void RunCallbacks()
+            {
+                CallbackCount++;
+                if (callbacksRaised)
+                {
+                    return;
+                }
+
+                callbacksRaised = true;
+                achievementObserver?.Invoke(new SteamAchievementStoredObservation(
+                    480,
+                    "ACH_WIN_ONE_GAME",
+                    isFullUnlock: true));
+                statsObserver?.Invoke(new SteamStatsStoredObservation(
+                    480,
+                    SteamCallbackResult.Ok));
+            }
+
+            public void Shutdown()
+            {
+                ShutdownCount++;
+            }
+
+            public uint GetAppId() => 480;
+            public bool IsSteamIdValid() => true;
+            public bool IsLoggedOn() => true;
+            public bool IsOverlayEnabled() => false;
+            public void RegisterOverlayActivationCallback(System.Action<bool> observer) { }
+
+            public void DisposeOverlayActivationCallback()
+            {
+                OverlayCallbackDisposeCount++;
+            }
+
+            public uint GetNumAchievements() => 1;
+            public string GetAchievementName(uint index) => "ACH_WIN_ONE_GAME";
+
+            public bool GetAchievement(string achievementName, out bool achieved)
+            {
+                GetAchievementCount++;
+                achieved = GetAchievementCount > 1;
+                return true;
+            }
+
+            public bool SetAchievement(string achievementName)
+            {
+                SetAchievementCount++;
+                return true;
+            }
+
+            public bool StoreStats()
+            {
+                StoreStatsCount++;
+                return true;
+            }
+
+            public void RegisterAchievementStoreCallbacks(
+                System.Action<SteamStatsStoredObservation> statsStoredObserver,
+                System.Action<SteamAchievementStoredObservation> achievementStoredObserver)
+            {
+                statsObserver = statsStoredObserver;
+                achievementObserver = achievementStoredObserver;
+            }
+
+            public void DisposeAchievementStoreCallbacks()
+            {
+                AchievementCallbackDisposeCount++;
+                statsObserver = null;
+                achievementObserver = null;
             }
         }
     }
