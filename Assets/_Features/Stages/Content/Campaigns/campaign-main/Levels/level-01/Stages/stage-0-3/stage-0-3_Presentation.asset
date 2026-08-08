@@ -1,0 +1,330 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
+  m_Name: stage-0-3_Presentation
+  m_EditorClassIdentifier:
+  ownerEntry: {fileID: 11400000, guid: 74ac0a90c946058a2dcb6680d1608464, type: 2}
+  ownerEntryGuid: 74ac0a90c946058a2dcb6680d1608464
+  displayNameKey: stage.stage-0-3.display_name
+  backgroundPrefab: {fileID: 8961267106798357042, guid: ed5d5a37c3e1cb44a8f765fb7ac45862, type: 3}
+  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
+  enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
+  enemyPresentationBindings:
+  - EntityId: 147
+    PresentationId: startis
+  - EntityId: 148
+    PresentationId: startis
+  - EntityId: 149
+    PresentationId: secbot
+  - EntityId: 150
+    PresentationId: black_eye
+  - EntityId: 151
+    PresentationId: black_eye
+  staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
+  staticEntityPresentationBindings:
+  - EntityId: 2
+    PresentationId: wall_tutorial
+  - EntityId: 3
+    PresentationId: wall_tutorial
+  - EntityId: 4
+    PresentationId: wall_tutorial
+  - EntityId: 5
+    PresentationId: wall_tutorial
+  - EntityId: 6
+    PresentationId: wall_tutorial
+  - EntityId: 7
+    PresentationId: wall_tutorial
+  - EntityId: 8
+    PresentationId: wall_tutorial
+  - EntityId: 9
+    PresentationId: wall_tutorial
+  - EntityId: 10
+    PresentationId: wall_tutorial
+  - EntityId: 11
+    PresentationId: wall_tutorial
+  - EntityId: 12
+    PresentationId: wall_tutorial
+  - EntityId: 13
+    PresentationId: wall_tutorial
+  - EntityId: 14
+    PresentationId: wall_tutorial
+  - EntityId: 15
+    PresentationId: wall_tutorial
+  - EntityId: 16
+    PresentationId: wall_tutorial
+  - EntityId: 17
+    PresentationId: wall_tutorial
+  - EntityId: 18
+    PresentationId: wall_tutorial
+  - EntityId: 19
+    PresentationId: wall_tutorial
+  - EntityId: 20
+    PresentationId: wall_tutorial
+  - EntityId: 21
+    PresentationId: wall_tutorial
+  - EntityId: 22
+    PresentationId: wall_tutorial
+  - EntityId: 23
+    PresentationId: wall_tutorial
+  - EntityId: 24
+    PresentationId: wall_tutorial
+  - EntityId: 25
+    PresentationId: wall_tutorial
+  - EntityId: 26
+    PresentationId: wall_tutorial
+  - EntityId: 27
+    PresentationId: wall_tutorial
+  - EntityId: 28
+    PresentationId: wall_tutorial
+  - EntityId: 29
+    PresentationId: wall_tutorial
+  - EntityId: 30
+    PresentationId: wall_tutorial
+  - EntityId: 31
+    PresentationId: wall_tutorial
+  - EntityId: 32
+    PresentationId: wall_tutorial
+  - EntityId: 33
+    PresentationId: wall_tutorial
+  - EntityId: 34
+    PresentationId: wall_tutorial
+  - EntityId: 35
+    PresentationId: wall_tutorial
+  - EntityId: 36
+    PresentationId: wall_tutorial
+  - EntityId: 37
+    PresentationId: wall_tutorial
+  - EntityId: 38
+    PresentationId: wall_tutorial
+  - EntityId: 39
+    PresentationId: wall_tutorial
+  - EntityId: 40
+    PresentationId: wall_tutorial
+  - EntityId: 41
+    PresentationId: wall_tutorial
+  - EntityId: 42
+    PresentationId: wall_tutorial
+  - EntityId: 43
+    PresentationId: wall_tutorial
+  - EntityId: 44
+    PresentationId: wall_tutorial
+  - EntityId: 45
+    PresentationId: wall_tutorial
+  - EntityId: 46
+    PresentationId: wall_tutorial
+  - EntityId: 47
+    PresentationId: wall_tutorial
+  - EntityId: 48
+    PresentationId: wall_tutorial
+  - EntityId: 49
+    PresentationId: wall_tutorial
+  - EntityId: 50
+    PresentationId: wall_tutorial
+  - EntityId: 51
+    PresentationId: wall_tutorial
+  - EntityId: 52
+    PresentationId: wall_tutorial
+  - EntityId: 53
+    PresentationId: wall_tutorial
+  - EntityId: 54
+    PresentationId: wall_tutorial
+  - EntityId: 55
+    PresentationId: wall_tutorial
+  - EntityId: 56
+    PresentationId: wall_tutorial
+  - EntityId: 57
+    PresentationId: wall_tutorial
+  - EntityId: 58
+    PresentationId: wall_tutorial
+  - EntityId: 59
+    PresentationId: wall_tutorial
+  - EntityId: 60
+    PresentationId: wall_tutorial
+  - EntityId: 61
+    PresentationId: wall_tutorial
+  - EntityId: 62
+    PresentationId: wall_tutorial
+  - EntityId: 63
+    PresentationId: wall_tutorial
+  - EntityId: 64
+    PresentationId: wall_tutorial
+  - EntityId: 65
+    PresentationId: wall_tutorial
+  - EntityId: 66
+    PresentationId: wall_tutorial
+  - EntityId: 67
+    PresentationId: wall_tutorial
+  - EntityId: 68
+    PresentationId: wall_tutorial
+  - EntityId: 69
+    PresentationId: wall_tutorial
+  - EntityId: 70
+    PresentationId: wall_tutorial
+  - EntityId: 71
+    PresentationId: wall_tutorial
+  - EntityId: 72
+    PresentationId: wall_tutorial
+  - EntityId: 73
+    PresentationId: wall_tutorial
+  - EntityId: 74
+    PresentationId: wall_tutorial
+  - EntityId: 75
+    PresentationId: wall_tutorial
+  - EntityId: 76
+    PresentationId: wall_tutorial
+  - EntityId: 77
+    PresentationId: wall_tutorial
+  - EntityId: 78
+    PresentationId: wall_tutorial
+  - EntityId: 79
+    PresentationId: wall_tutorial
+  - EntityId: 80
+    PresentationId: wall_tutorial
+  - EntityId: 81
+    PresentationId: wall_tutorial
+  - EntityId: 82
+    PresentationId: wall_tutorial
+  - EntityId: 83
+    PresentationId: wall_tutorial
+  - EntityId: 84
+    PresentationId: wall_tutorial
+  - EntityId: 85
+    PresentationId: wall_tutorial
+  - EntityId: 86
+    PresentationId: wall_tutorial
+  - EntityId: 87
+    PresentationId: wall_tutorial
+  - EntityId: 88
+    PresentationId: box_tutorial
+  - EntityId: 89
+    PresentationId: box_tutorial
+  - EntityId: 90
+    PresentationId: box_tutorial
+  - EntityId: 91
+    PresentationId: box_tutorial
+  - EntityId: 92
+    PresentationId: box_tutorial
+  - EntityId: 93
+    PresentationId: box_tutorial
+  - EntityId: 94
+    PresentationId: box_tutorial
+  - EntityId: 95
+    PresentationId: box_tutorial
+  - EntityId: 96
+    PresentationId: box_tutorial
+  - EntityId: 97
+    PresentationId: box_tutorial
+  - EntityId: 98
+    PresentationId: box_tutorial
+  - EntityId: 99
+    PresentationId: box_tutorial
+  - EntityId: 100
+    PresentationId: box_tutorial
+  - EntityId: 101
+    PresentationId: box_tutorial
+  - EntityId: 102
+    PresentationId: box_tutorial
+  - EntityId: 103
+    PresentationId: box_tutorial
+  - EntityId: 104
+    PresentationId: box_tutorial
+  - EntityId: 105
+    PresentationId: wall_bed_tutorial
+  - EntityId: 106
+    PresentationId: wall_bed_tutorial
+  - EntityId: 107
+    PresentationId: box_tutorial
+  - EntityId: 108
+    PresentationId: box_tutorial
+  - EntityId: 109
+    PresentationId: box_tutorial
+  - EntityId: 110
+    PresentationId: box_tutorial
+  - EntityId: 111
+    PresentationId: box_tutorial
+  - EntityId: 112
+    PresentationId: box_tutorial
+  - EntityId: 113
+    PresentationId: box_tutorial
+  - EntityId: 114
+    PresentationId: box_tutorial
+  - EntityId: 115
+    PresentationId: box_tutorial
+  - EntityId: 116
+    PresentationId: box_tutorial
+  - EntityId: 117
+    PresentationId: box_tutorial
+  - EntityId: 118
+    PresentationId: box_tutorial
+  - EntityId: 119
+    PresentationId: box_tutorial
+  - EntityId: 120
+    PresentationId: box_tutorial
+  - EntityId: 121
+    PresentationId: box_tutorial
+  - EntityId: 122
+    PresentationId: box_tutorial
+  - EntityId: 123
+    PresentationId: box_tutorial
+  - EntityId: 124
+    PresentationId: box_tutorial
+  - EntityId: 125
+    PresentationId: box_tutorial
+  - EntityId: 126
+    PresentationId: box_tutorial
+  - EntityId: 127
+    PresentationId: box_tutorial
+  - EntityId: 128
+    PresentationId: box_tutorial
+  - EntityId: 129
+    PresentationId: box_tutorial
+  - EntityId: 130
+    PresentationId: box_tutorial
+  - EntityId: 131
+    PresentationId: box_tutorial
+  - EntityId: 132
+    PresentationId: box_tutorial
+  - EntityId: 133
+    PresentationId: box_tutorial
+  - EntityId: 134
+    PresentationId: box_tutorial
+  - EntityId: 135
+    PresentationId: box_tutorial
+  - EntityId: 136
+    PresentationId: box_tutorial
+  - EntityId: 137
+    PresentationId: box_tutorial
+  - EntityId: 138
+    PresentationId: box_tutorial
+  - EntityId: 139
+    PresentationId: wall_bed_tutorial
+  - EntityId: 140
+    PresentationId: wall_bed_tutorial
+  - EntityId: 141
+    PresentationId: wall_bed_tutorial
+  - EntityId: 142
+    PresentationId: wall_bed_tutorial
+  - EntityId: 143
+    PresentationId: wall_bed_tutorial
+  - EntityId: 144
+    PresentationId: wall_bed_tutorial
+  - EntityId: 145
+    PresentationId: wall_bed_tutorial
+  - EntityId: 146
+    PresentationId: wall_bed_tutorial
+  boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
+  boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
+  boardTilePaintOverrides: []
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
+  tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 0}
+  worldGuideInstructions: []

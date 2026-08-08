@@ -1,0 +1,728 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
+  m_Name: stage-3-3_Presentation
+  m_EditorClassIdentifier:
+  ownerEntry: {fileID: 11400000, guid: dedb1c0cfceeadf585ec253ebd3bd3a0, type: 2}
+  ownerEntryGuid: dedb1c0cfceeadf585ec253ebd3bd3a0
+  displayNameKey: stage.stage-3-3.display_name
+  backgroundPrefab: {fileID: 4032346886678373965, guid: 04021a85b7c037c4a8f1aede4dba9a82, type: 3}
+  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
+  enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
+  enemyPresentationBindings:
+  - EntityId: 276
+    PresentationId: dr_saturn
+  - EntityId: 277
+    PresentationId: j_peter
+  - EntityId: 313
+    PresentationId: j_peter
+  - EntityId: 314
+    PresentationId: black_eye
+  - EntityId: 315
+    PresentationId: black_eye
+  - EntityId: 343
+    PresentationId: nebulous
+  - EntityId: 344
+    PresentationId: sunwheel
+  - EntityId: 345
+    PresentationId: rocket_face
+  staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
+  staticEntityPresentationBindings:
+  - EntityId: 201
+    PresentationId: box_tutorial
+  - EntityId: 202
+    PresentationId: box_tutorial
+  - EntityId: 203
+    PresentationId: box_tutorial
+  - EntityId: 204
+    PresentationId: box_tutorial
+  - EntityId: 205
+    PresentationId: box_tutorial
+  - EntityId: 206
+    PresentationId: box_tutorial
+  - EntityId: 207
+    PresentationId: box_tutorial
+  - EntityId: 208
+    PresentationId: box_tutorial
+  - EntityId: 209
+    PresentationId: box_tutorial
+  - EntityId: 210
+    PresentationId: box_tutorial
+  - EntityId: 211
+    PresentationId: box_tutorial
+  - EntityId: 212
+    PresentationId: box_tutorial
+  - EntityId: 213
+    PresentationId: box_tutorial
+  - EntityId: 214
+    PresentationId: box_tutorial
+  - EntityId: 215
+    PresentationId: box_tutorial
+  - EntityId: 216
+    PresentationId: box_tutorial
+  - EntityId: 217
+    PresentationId: box_tutorial
+  - EntityId: 218
+    PresentationId: box_tutorial
+  - EntityId: 219
+    PresentationId: box_tutorial
+  - EntityId: 220
+    PresentationId: box_tutorial
+  - EntityId: 221
+    PresentationId: box_tutorial
+  - EntityId: 222
+    PresentationId: box_tutorial
+  - EntityId: 223
+    PresentationId: box_tutorial
+  - EntityId: 224
+    PresentationId: box_tutorial
+  - EntityId: 225
+    PresentationId: box_tutorial
+  - EntityId: 226
+    PresentationId: box_tutorial
+  - EntityId: 227
+    PresentationId: box_tutorial
+  - EntityId: 228
+    PresentationId: box_tutorial
+  - EntityId: 229
+    PresentationId: box_metal
+  - EntityId: 230
+    PresentationId: box_metal
+  - EntityId: 231
+    PresentationId: box_metal
+  - EntityId: 232
+    PresentationId: wall_tutorial
+  - EntityId: 233
+    PresentationId: wall_tutorial
+  - EntityId: 234
+    PresentationId: wall_tutorial
+  - EntityId: 235
+    PresentationId: box_moon
+  - EntityId: 236
+    PresentationId: box_tutorial
+  - EntityId: 237
+    PresentationId: box_tutorial
+  - EntityId: 238
+    PresentationId: box_tutorial
+  - EntityId: 239
+    PresentationId: box_tutorial
+  - EntityId: 240
+    PresentationId: box_tutorial
+  - EntityId: 241
+    PresentationId: box_tutorial
+  - EntityId: 242
+    PresentationId: box_tutorial
+  - EntityId: 243
+    PresentationId: box_tutorial
+  - EntityId: 244
+    PresentationId: box_tutorial
+  - EntityId: 245
+    PresentationId: box_tutorial
+  - EntityId: 246
+    PresentationId: box_tutorial
+  - EntityId: 247
+    PresentationId: box_tutorial
+  - EntityId: 248
+    PresentationId: box_tutorial
+  - EntityId: 249
+    PresentationId: box_tutorial
+  - EntityId: 250
+    PresentationId: box_tutorial
+  - EntityId: 251
+    PresentationId: box_tutorial
+  - EntityId: 252
+    PresentationId: box_tutorial
+  - EntityId: 253
+    PresentationId: box_tutorial
+  - EntityId: 254
+    PresentationId: box_tutorial
+  - EntityId: 255
+    PresentationId: box_tutorial
+  - EntityId: 256
+    PresentationId: box_tutorial
+  - EntityId: 257
+    PresentationId: box_tutorial
+  - EntityId: 258
+    PresentationId: box_tutorial
+  - EntityId: 259
+    PresentationId: box_tutorial
+  - EntityId: 260
+    PresentationId: box_tutorial
+  - EntityId: 261
+    PresentationId: box_tutorial
+  - EntityId: 262
+    PresentationId: box_tutorial
+  - EntityId: 263
+    PresentationId: box_tutorial
+  - EntityId: 264
+    PresentationId: box_tutorial
+  - EntityId: 265
+    PresentationId: box_tutorial
+  - EntityId: 266
+    PresentationId: box_tutorial
+  - EntityId: 267
+    PresentationId: wall_tutorial
+  - EntityId: 268
+    PresentationId: wall_tutorial
+  - EntityId: 269
+    PresentationId: wall_tutorial
+  - EntityId: 270
+    PresentationId: wall_tutorial
+  - EntityId: 271
+    PresentationId: wall_tutorial
+  - EntityId: 272
+    PresentationId: wall_tutorial
+  - EntityId: 273
+    PresentationId: box_metal
+  - EntityId: 274
+    PresentationId: box_metal
+  - EntityId: 275
+    PresentationId: box_metal
+  - EntityId: 278
+    PresentationId: box_tutorial
+  - EntityId: 279
+    PresentationId: box_tutorial
+  - EntityId: 280
+    PresentationId: box_tutorial
+  - EntityId: 281
+    PresentationId: box_tutorial
+  - EntityId: 282
+    PresentationId: box_tutorial
+  - EntityId: 283
+    PresentationId: box_tutorial
+  - EntityId: 284
+    PresentationId: box_tutorial
+  - EntityId: 285
+    PresentationId: box_tutorial
+  - EntityId: 286
+    PresentationId: box_tutorial
+  - EntityId: 287
+    PresentationId: box_tutorial
+  - EntityId: 288
+    PresentationId: box_tutorial
+  - EntityId: 289
+    PresentationId: box_tutorial
+  - EntityId: 290
+    PresentationId: box_tutorial
+  - EntityId: 291
+    PresentationId: box_tutorial
+  - EntityId: 292
+    PresentationId: box_tutorial
+  - EntityId: 293
+    PresentationId: box_tutorial
+  - EntityId: 294
+    PresentationId: box_tutorial
+  - EntityId: 295
+    PresentationId: box_tutorial
+  - EntityId: 296
+    PresentationId: box_tutorial
+  - EntityId: 297
+    PresentationId: box_tutorial
+  - EntityId: 298
+    PresentationId: box_tutorial
+  - EntityId: 299
+    PresentationId: box_tutorial
+  - EntityId: 300
+    PresentationId: box_tutorial
+  - EntityId: 301
+    PresentationId: box_tutorial
+  - EntityId: 302
+    PresentationId: box_tutorial
+  - EntityId: 303
+    PresentationId: box_tutorial
+  - EntityId: 304
+    PresentationId: box_tutorial
+  - EntityId: 305
+    PresentationId: box_tutorial
+  - EntityId: 306
+    PresentationId: box_metal
+  - EntityId: 307
+    PresentationId: box_metal
+  - EntityId: 308
+    PresentationId: box_metal
+  - EntityId: 309
+    PresentationId: box_metal
+  - EntityId: 310
+    PresentationId: box_tutorial
+  - EntityId: 311
+    PresentationId: wall_tutorial
+  - EntityId: 312
+    PresentationId: wall_tutorial
+  - EntityId: 316
+    PresentationId: box_tutorial
+  - EntityId: 317
+    PresentationId: box_tutorial
+  - EntityId: 318
+    PresentationId: box_tutorial
+  - EntityId: 319
+    PresentationId: box_tutorial
+  - EntityId: 320
+    PresentationId: box_tutorial
+  - EntityId: 321
+    PresentationId: box_tutorial
+  - EntityId: 322
+    PresentationId: box_tutorial
+  - EntityId: 323
+    PresentationId: box_tutorial
+  - EntityId: 324
+    PresentationId: box_tutorial
+  - EntityId: 325
+    PresentationId: box_tutorial
+  - EntityId: 326
+    PresentationId: box_tutorial
+  - EntityId: 327
+    PresentationId: box_tutorial
+  - EntityId: 328
+    PresentationId: box_tutorial
+  - EntityId: 329
+    PresentationId: box_tutorial
+  - EntityId: 330
+    PresentationId: box_tutorial
+  - EntityId: 331
+    PresentationId: wall_tutorial
+  - EntityId: 332
+    PresentationId: wall_tutorial
+  - EntityId: 333
+    PresentationId: wall_tutorial
+  - EntityId: 334
+    PresentationId: wall_tutorial
+  - EntityId: 335
+    PresentationId: wall_tutorial
+  - EntityId: 336
+    PresentationId: wall_tutorial
+  - EntityId: 337
+    PresentationId: wall_tutorial
+  - EntityId: 338
+    PresentationId: wall_tutorial
+  - EntityId: 339
+    PresentationId: box_metal
+  - EntityId: 340
+    PresentationId: box_metal
+  - EntityId: 341
+    PresentationId: box_metal
+  - EntityId: 346
+    PresentationId: box_metal
+  - EntityId: 350
+    PresentationId: wall_tutorial
+  - EntityId: 352
+    PresentationId: wall_tutorial
+  - EntityId: 353
+    PresentationId: wall_tutorial
+  - EntityId: 354
+    PresentationId: wall_tutorial
+  - EntityId: 355
+    PresentationId: wall_tutorial
+  - EntityId: 356
+    PresentationId: wall_tutorial
+  - EntityId: 357
+    PresentationId: box_tutorial
+  - EntityId: 358
+    PresentationId: box_tutorial
+  - EntityId: 359
+    PresentationId: box_tutorial
+  boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
+  boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
+  boardTilePaintOverrides:
+  - cell:
+      face: 0
+      x: 1
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 1
+      y: 5
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 1
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 1
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 2
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 3
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 4
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 5
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 6
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 11
+      y: 0
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 11
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 11
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 11
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 11
+      y: 5
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 12
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 0
+      x: 13
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 1
+      y: 0
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 1
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 2
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 3
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 4
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 5
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 5
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 6
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 7
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 8
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 9
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 10
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 11
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 11
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 12
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 13
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 13
+      y: 5
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 13
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 1
+      x: 13
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 1
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 1
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 1
+      y: 5
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 1
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 1
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 2
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 2
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 3
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 3
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 4
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 4
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 5
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 5
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 6
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 7
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 7
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 7
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 8
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 9
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 10
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 11
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 12
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 13
+      y: 0
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 13
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 13
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 2
+      x: 13
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 2
+      y: 0
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 2
+      y: 1
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 3
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 4
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 4
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 4
+      y: 5
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 4
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 4
+      y: 7
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 6
+      y: 2
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 6
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 7
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 8
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 11
+      y: 3
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 11
+      y: 4
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 11
+      y: 5
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 11
+      y: 6
+    styleKey: board.paint.level3
+  - cell:
+      face: 3
+      x: 11
+      y: 7
+    styleKey: board.paint.level3
+  tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
+  tileFeaturePresentationBindings: []
+  worldGuideCatalog: {fileID: 0}
+  worldGuideInstructions: []

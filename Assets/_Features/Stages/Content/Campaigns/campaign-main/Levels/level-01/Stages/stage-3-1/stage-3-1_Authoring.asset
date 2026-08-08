@@ -12,2791 +12,2462 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9227bf6b63cd0642b7ab4a9d46ad358, type: 3}
   m_Name: stage-3-1_Authoring
   m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.StageAuthoringDefinition
-  ownerEntry: {fileID: 11400000, guid: 943883a3c70b5919ad158109601542e6, type: 2}
-  ownerEntryGuid: 943883a3c70b5919ad158109601542e6
+  ownerEntry: {fileID: 11400000, guid: 07f416a395219645590d2b74425866c6, type: 2}
+  ownerEntryGuid: 07f416a395219645590d2b74425866c6
   schemaVersion: 1
-  generatedGameplayDefinition: {fileID: 11400000, guid: 23e67f2521f625368c6c0339b1878374, type: 2}
-  generatedPresentationDefinition: {fileID: 11400000, guid: 7bab3c28587b1f1712bb8cdcdd3f453e, type: 2}
+  generatedGameplayDefinition: {fileID: 11400000, guid: 680d5141eb403348d28f325c82940eaf, type: 2}
+  generatedPresentationDefinition: {fileID: 11400000, guid: 8bec800c2ff6fc05ccdc3401d42f8b3b, type: 2}
   board:
     MinInclusive: {x: 0, y: 0}
     MaxInclusive: {x: 14, y: 7}
     InitialBottomFace: 0
   placements:
-  - StableGuid: stage-3-1:Player:10
-    DisplayName: Player 10
+  - StableGuid: 04d0e7c2cbd643e6b62ff264efc480ac
+    DisplayName: Placement
     Kind: 0
     Cell:
       face: 0
-      x: 7
-      y: 1
-    Facing: 2
+      x: 1
+      y: 3
+    Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitStackGroup:
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: 
-  - StableGuid: a2f038e9afa548e2af4a8d62478d1f11
+    PresentationId:
+  - StableGuid: 64321f30d19741c1a9c4f66fd457b806
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
       face: 0
+      x: 0
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 8227163f87074955a79c1b0df2a63d15
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 0
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 7a73f7417ca44d49a84368df3170f3a1
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 0
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: af96ebede1bb4f7eb14964609bda71cb
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 0
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: b7fce99ab24a4006b61e65a3a47f5daa
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 1
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 25e8ea3828814dacb4f4fc4b81933b0d
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: a8e43c10797541ce90ee0d9cd72882fe
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: f71c45f2d2af4c02ae1c0c7983286521
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: f0be35c39e7d40109eb685e30d0b1084
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 15ce7c533a34474dbc83bc79cf98543c
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 93f656cb65854754be1f1c71169a6a8a
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 4a70f90c2bc9492eab085c3639964874
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: fc8df4face884612ab54d16529bc47cc
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: eedfe3dd2c134a3b9358170dc76916d4
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 13
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 7bf5c08b9eba43a98fe4ad8841c03ce4
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 14
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 7893d25c0aab4a358d32581deba197ea
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 7e4d0c280b11401292526d2a3d5d3fa8
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: d19518cc49c64b0993dc56ac43b547bc
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 0c4e7f696722468bafa6c5c96ed7127e
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: f73618c3589e4bd5bb19d09bf2fbf4e8
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 04d7ce841af04804b80cda33808bd44d
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 466e87f416264f90bd6c4b28558444e9
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 1
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: c090b4f3337d4d17b595a3251c42f8c6
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 2f51dffb77084a2f9eba24ce93314396
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 32a1b32f68994cfc84ce630e772b4c67
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
       x: 0
       y: 0
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
+    UnitStackGroup:
+    BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 6bdabdcb777f4c8d9a5d11fbcb7acfa9
+    PresentationId: wall_tutorial
+  - StableGuid: f9b796c004aa4a2f9ddadcc8a57e0974
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
-      face: 0
+      face: 1
+      x: 0
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 3f526a0588604a6282aaf43e4a0bc0d5
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 2c89803222104228bc8c293e9490e9da
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 154398cfc9ad461b8987abcf5fdb0697
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 0
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 1c7efb41efc14da88e18da0add8d72c4
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 4cdaa5fcc65340fbaea3b5cc35da4922
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 711aae86ae5a41e89dca1456f4217d58
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: ad42da566970421b80e97ba183113b23
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 0386516fa81340d8b490350b90d056b8
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 19ac3d8c47514d0badb21e92f04c0563
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 8
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 705e8854d7a04c2ea4ba9cc3aaa016f7
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: bf503a5ef6b64fe58fec26095c33862f
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 1a2adcdb1fed4133b3c5738e7b72f290
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 148a916fa26a4c36a2d8c06dc268a13d
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 702df09520e743fc8f3bf4f53499f975
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 2
+      x: 4
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 57bffbcbe67d4946966307578450c846
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
       x: 1
       y: 0
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
+    UnitStackGroup:
+    BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 75fa447ddccb4394964766553a0aa124
+    PresentationId: wall_tutorial
+  - StableGuid: bc92d98da0314be0b3e031259db10165
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
-      face: 0
+      face: 3
       x: 3
       y: 0
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
+    UnitStackGroup:
+    BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 48322d4417c44a57b78d8f7da3db49ac
+    PresentationId: wall_tutorial
+  - StableGuid: 36bff5e5d87542639cf19f59438c3b01
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
-      face: 0
-      x: 8
-      y: 1
+      face: 3
+      x: 9
+      y: 0
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
+    UnitStackGroup:
+    BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a15625405d644ffe922b99dcc5b11fcf
+    PresentationId: wall_tutorial
+  - StableGuid: 6a16124b385c4f05a6fb509522a5e5e7
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
-      face: 0
+      face: 3
+      x: 10
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 7369e53e706940cbbe1e09518be43e4d
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 11
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 452cf2bd0734419fb59ea7afaa6ac44a
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 12
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 56c9d7a489684d77b391c1bcd32ee951
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 13
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 5bb766bf4c8a430592a5d23c18eddd1e
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 14
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 8422b323860a462c8b092736cb49a11f
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
       x: 8
       y: 0
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
+    UnitStackGroup:
+    BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a1648ad427ce4dfab16e5c2b6e757119
+    PresentationId: wall_tutorial
+  - StableGuid: fedea56d18aa4f5a939a42b260f2ac3d
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
-      face: 0
-      x: 8
-      y: 2
+      face: 3
+      x: 7
+      y: 0
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
+    UnitStackGroup:
+    BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 489751b8410d41c69ee4b9b76f90c398
+    PresentationId: wall_tutorial
+  - StableGuid: 0c8fb9b3cea842f3a1dea4d5b653bd38
     DisplayName: Placement
-    Kind: 2
+    Kind: 3
     Cell:
-      face: 0
+      face: 3
+      x: 5
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 6154c96b41154504a4df2bde558de6b4
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 1648ec1147964ee9a35a1ebb308a139b
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 4
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 3f862143d9cd4db7b105e1b7ead087e0
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 2
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 697d5681f0974bcfa8499fb29ac61382
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 0
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 36df93d4c33746acae04b32f509a48c0
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 0
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: f2d8983034af42d8b35a2de1936f00e1
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 1
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: c2bd4c9a23824d52b91e10b863f7120a
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 9d76adb4d7ec45119deeddfcc4f4ec18
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 3
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: f09744e57d9848dca1245e082b30b767
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 5
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: d5e3db3336bc4252b460098935f77be2
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 19739dd43f94478680cd95d0645c8507
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
       x: 9
-      y: 2
+      y: 7
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 00b42ad8fcbb40298a7eb9f1e4271146
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 11
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 223c4a1870354fa7aeb8f8e245916ecf
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 13
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 5204e705f55640ef94d174dd6a29fe5c
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 14
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 9b4c075de1b04dbea23216220e0efc1f
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 12
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 5328435707914e26911e45bbc28d6d04
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 10
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 734cbde4a114482e87c5eb8f26018f7b
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: c94bc207cbaf41bfb210bebee5412b1c
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 5d59ec0dec634b7bbe427b90131622ae
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 3
+      x: 4
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_tutorial
+  - StableGuid: 46f03857184a43deb0d0c9bb1f30a54e
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 0
+      y: 4
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: c359064f1a2e41c0aecc0ca3640cdf39
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 0
+      y: 3
+    Facing: 1
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: 33f92400d67a4e8d9a5257e66328f885
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 5
+    Facing: 1
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: 5343c01a718247f792f913fa5ecf167b
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 6
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: d3d6233aedb2489d89db15565c57e13c
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 4
+    Facing: 3
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: 1ea1b7c10cea4124ac234ff3125c72b4
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 3
+    Facing: 1
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: 5feb4035ff2e43d0aef6702f55a41c7a
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 11
+      y: 4
+    Facing: 2
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: 7ee55c9e9703461cb4680631002e49e1
+    DisplayName: Placement
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 4
+    Facing: 4
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 0
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: wall_spaceBed
+  - StableGuid: c6b5a16f2e0b4267b91ea3a7e99007f5
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 1
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: box_tutorial
-  - StableGuid: eeeab6d280f54f27a745936900635272
+  - StableGuid: 4b8c70e7e2674054ae5e0bbfd842a901
     DisplayName: Placement
     Kind: 2
     Cell:
       face: 0
+      x: 3
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: dea34cb1789042f6b02ef1628cea461f
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 3bfe17917605439f8782d79795c1f229
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 0
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: b0f7add793e5445f9677e7fc8415a459
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 11
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 771ff4cf3b314562a945f679c9f60ebb
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 14
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 15184b20d60d49d9844008eb34ac40cc
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 11
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: f66b5aa3379a4fa4b65207129e3ff11d
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 12
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 526a59fe71fa4e3ba48d9e1e58a38b24
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 13
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 4e960a633da24c8bba43108763bc9778
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 14
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: b947d4eb1bba4a4ea1ee32fe9d3624e2
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 0
+      x: 6
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: c447677e472142a3baf39a169a56e2ae
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 3
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 794f582fcf104903b88bdd1743a9fb33
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 4
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 9a83e8eee2304217be5c5982efa9d5ba
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 6
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 52af9432aa574e0d9e65064eaa0cd670
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 6
+      y: 2
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 1d2b458b2c2740f59a42c67b2be66659
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 8
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: f151528c92b641c4a79fe2bfff4330d0
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 9
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: e17c9988f27847c5b7ff0744718eb0e7
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 10
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 49d10e23b1c849b1813957935a81d566
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 11
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: d3c65bb43c0f40149dc10718a0292d7f
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 13
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: b7a08b64044e46e094657eb55b6b3c98
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 14
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 73a669ba258944eb911b99933e328422
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 13
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: ca54dd4b1168415ab949de221e25e33f
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 13
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 4b415d51a97e43a5bf69d98b4029d2a5
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 1
+      x: 8
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 3c794c84859d4526b87305770bfccc12
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 5
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 2b9d571aec9d4944bdf516185af75299
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 5
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 752d43fbfef64b6ea5f9679f014a8776
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 5
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 772c800c7c084d24a8b49f71d1271e72
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 0
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 761d391290754da5ab8dec631e003275
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 2
+      y: 4
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: d6f8da75fd504385ace41f5a4dd404a2
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 0
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 7819d63a9c824a5095a735052f8d95f2
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 1
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 015ccec7f81a450685536ed7707daaf0
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 2
+      y: 6
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: fac425c6273e496ca3261f10191623c5
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 9
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: c6411e0da0994b1ab04d7be6c6de7954
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 10
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 29bdc8252f6142bf952cee03443d024f
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 12
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 76393ca5319d418c875a87f7809e1d03
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 13
+      y: 5
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 2d95e8a64a024651b7bbfb8a2be0a8c0
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 9
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 915dd239ea1e4b3ba0f23acf21623ad2
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 12
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 355165b17c714fba8c98e052c1dd27f1
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 14
+      y: 7
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: 4b53045f6ba241a093832215d62a9577
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: e7c18dc5d476404d998935a27b72fa42
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 13
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: e7ebf0c7041b4042a8890d6d6420d839
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
+      x: 10
+      y: 1
+    Facing: 0
+    Hp: 1
+    UnitMobilityKind: 0
+    UnitStackGroup:
+    BoxCapabilities: 27
+    BoxArchetype: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfileOverride: {fileID: 0}
+    PresentationId: box_tutorial
+  - StableGuid: e021c4f4ccac4ba0bcce6d6b6f48bb6d
+    DisplayName: Placement
+    Kind: 2
+    Cell:
+      face: 2
       x: 10
       y: 2
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitStackGroup:
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: box_tutorial
-  - StableGuid: 403bded0fb0242eda751e4f8d6069b43
+  - StableGuid: 7b077987b68e4c5684823dd8b8d80f96
     DisplayName: Placement
     Kind: 2
     Cell:
-      face: 0
-      x: 6
+      face: 2
+      x: 9
       y: 2
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitStackGroup:
     BoxCapabilities: 27
     BoxArchetype: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: box_tutorial
-  - StableGuid: b947e4643b4349e08b4bad9cbe075dcb
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 6
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 0aaeff76338c4b30b0568d34471558be
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 8
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 5b083571edfe48388ea8be008b6987b2
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 9
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 4556848e1ee74d7690ac42e50fa76b21
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 7
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 8e47e78cbc10493ea14ebf3510f08039
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 5
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: b46629fdf5a04b00a2398b571abb1041
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 11
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 4fa060d4d88d439dbad2dab2eea7adce
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 12
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: b706845d0d9946f6a09ee68fd2765f6e
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 13
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 770f83f849e24322a42e336dfe103bf2
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 14
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 5928ee8dfa8e49f8bf9df2ee11d29a17
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 12
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: c7df8dce25bf4f72bfd86c02a72f770d
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 13
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 733f457ab49a4a3fb4e13a9dec33856b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 12
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 443ef11219b54633a844a4e0dfb66a75
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 13
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: e1bd9eff7f334ff79ac8bb896ab6c4c4
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 14
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 77a55058e2cf434bb7194347148aaa8c
+  - StableGuid: 9b0280852b5c4e50bef8ec926052f87c
     DisplayName: Placement
     Kind: 2
     Cell:
       face: 0
       x: 1
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 51b1638b32c74428aff642fa832224c2
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 0
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: fe42e85018424d919bbfae97500bcf5d
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 8
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 27a5afb92249425bba43bc168213b69d
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 8
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 5b6549d1fb3846c2b5f7f0949296f0da
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 7
       y: 5
     Facing: 0
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 7f69219ea76e46d4b06502582217d54b
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 5
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: ae253596b4cc4bc8a0e159cfc822e2fd
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 4
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 084e5c0a772d4abc9ba6297351bb863b
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 4
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: a2de71e20619429eaf90a332a4d3a26a
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 3
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 7fe00b32ff9345babfdb9f460cc5108c
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 2
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: f39f29a3f7aa420880037db207810826
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 0
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: f6520bf94f79414196b0d49623e7b98e
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 11
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: ecd1b874782d44358c34afdfc9b81767
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 2
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 1fd0ecd6707c44acbead4591b5867177
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 3
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 92e52a7115af46728a5fb9e4d33e06e2
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 0
-      x: 0
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 703d3e999bdf40148d79ffe76ca09a61
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 5
-      y: 4
-    Facing: 4
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitStackGroup:
     BoxCapabilities: 27
     BoxArchetype: 1
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 0}
     PresentationId: box_moon
-  - StableGuid: bbf216c4ae3b4c44b6b55f353dc422bb
+  - StableGuid: e93139c09b3b40ce89fc3485e62b2230
     DisplayName: Placement
     Kind: 1
-    Cell:
-      face: 0
-      x: 7
-      y: 7
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId: nebulous
-  - StableGuid: 1f36eaba47c7416e9b0a794d1cf23b04
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 0
-      x: 13
-      y: 5
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
-    PresentationId: dr_saturn
-  - StableGuid: 7c289813f92843e9880c82923a7b3a15
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 4
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 749496f2692145bcbab90375d424cd19
-    DisplayName: Placement
-    Kind: 2
     Cell:
       face: 1
       x: 7
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: efd81870a242459fa254ab43ce64d696
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 5
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 835447497b9940ec8a321f6f52963a6b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 14
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 09ea1cddba9b47209f1c05e054306ff8
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 12
       y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a224c186d93e4063940517f42dd6d397
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 14
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 88d5f35a411c4cb68ec3666e53f0d183
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 14
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 938df5b91a26437f822dab5397691d0f
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 11
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: b007e4102a404f2ab54c8d9937c51ff1
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 12
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: d2e242c0ef2448e1b84911b2c0b04c7d
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 12
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 9a14dcb8ddea49358c9b97fd493df448
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 13
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a727880df13942839f63fa21478edc98
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 9
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: ed06ada16ffc47788ce851e26842617a
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 8
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: e126c8f097914c5c9bd74460343a069c
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 7
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 7bb5dee34cf541d9a5072e2486309ca5
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 6
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: c49b4d9da3f0491b98108fa5a41b0ae5
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 4
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 768d5c0c5b9347c38801d18f3a4a135e
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 2
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: e0e2f701eb8c4d7898ac067bcaa78339
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 2
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: c271ba670f054e23a90de5a161e5e5c5
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 2
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 81b5caf93b9849c5803d83ade4725128
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 11
-      y: 2
     Facing: 3
     Hp: 1
     UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 62b6c18a63d644f898576c76061f3aa0
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 7
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: e28f9034e188449c9bccf50f208ba409
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 1
-      x: 8
-      y: 5
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 9000f15f2357486b9d9fdb9fbf5a9172
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 1
-      x: 11
-      y: 6
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
-    PresentationId: dr_saturn
-  - StableGuid: 62077f75f6a243f99a49dc96bf1be793
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 1
-      x: 0
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: rocket_face
-  - StableGuid: 577002d0ecc14af6885f03825a29b09d
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 1
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 15d2798a575d433ba95c32a6e76a9eca
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 0
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 9e3fc622e9f7423d85c3017775d8429b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 4
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a5c193ed16f0483bbd77587b069306d2
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 0
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 6b9ca0b113ff42928b2ce9f081efd298
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 3
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 535f2890ab8c422ebd3cc41db22c0c28
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 5
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: aae5222ed93548e99e1be04b9be0cafe
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: d4c6e813fbc94033972fb2619ade1a7f
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 4
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: dfe6cd8d53f0438fada805c96c8415f6
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 7e860f4248d64d678d09e687fc9f3e8f
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: ae8e2c2ae1f74567b58c0e5fd389f6a8
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: da0c16190e6646fda397a69e6d4af067
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: ff943f029b1945a9b4dfd27816260e96
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 8
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 6281e287c75447d79158566d0e57bb96
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 9
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 810e129cffe7442bb0244a833fb264d4
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 9
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a207d71cb51440569c9a0f3e7ad8b4cc
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 9
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 1bdf7ef0860647f1b5763c778c9025fa
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 12
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 6d73f60c00b4493d87b915e1f1ff276e
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 14
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 84c3ab2557824526b387f29f59d50488
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 14
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 8377669bac82429fa6eb88115161e9b0
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 12
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 0b306ad8641e45eab9ac77b343ae1606
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 11
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 7caef363e690454ba3fc6c1d98b3d10e
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 9
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 5056a0a822e84e22abf3009b7999000e
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 6
-      y: 2
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: dc90774e25524ea9a42d721b4f43e9d7
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 8
-      y: 5
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: d98b7664a1dd4c989432078758f1ea38
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 11
-      y: 6
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: ecce25bfa91242fc9d19015c9f4c6199
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 2
-      x: 12
-      y: 2
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 13e0c47b263c44f3925ff94622b26eb2
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 2
-      x: 0
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: c8244b99274e4c5799829dd9fd50c04b
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 2
-      x: 1
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: f680943e86594d3bad73f29ce92c25c0
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 2
-      x: 3
-      y: 5
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 0cf8b30f03e64b5f826e2a06a6d3b49f
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 2
-      x: 4
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 08329fd2477a496b960bfa29e3602367
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 2
-      x: 10
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
-    PresentationId: nebulous
-  - StableGuid: 5df7a8deff50400dae45bb59bc21af7d
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 2
-      x: 13
-      y: 6
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitStackGroup:
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
     PresentationId: startis
-  - StableGuid: ed558aaabce04890b0b04489932adf37
+  - StableGuid: 6b02d674c26148ac8e1b11f7782ae202
     DisplayName: Placement
     Kind: 1
     Cell:
       face: 2
-      x: 12
-      y: 0
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: startis
-  - StableGuid: 8c96d13e627c4fff8164bf147f377fbf
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 0
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: fa2a43e130a64cff8c4b07bd3def9da8
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 0
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 75fe189b908547e1a3216a1a9d64e73f
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 3
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: f758b14f3f7747feb1a617e6690090cf
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 4
-      y: 0
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: e86fa7bf9bfd423d859ba2e8a0e3eb9d
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 0
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: a60a785a44e6405b91743ca35ff14577
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 0
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 1223656047f54b91bd8eae2bc33f9f2a
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 1
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 70cf5462921d40d986ad69fe9d875134
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 3
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 432a7521682d422cbfd948ed6569ac30
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 3
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 69e0342f4c3d4a20a077dd3275fae575
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 4
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 14de23d3b9164a14b56c61d2bb2b1b02
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 5
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: e35665b0ebcf44049024c17831a1c2dc
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
       x: 6
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 7675c156bcf44480a26d3534eaab1a0b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 7
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: f6dbafded5cd4441a759cbbebf2b10b8
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 9
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 1d874222c80f4bb2b67e9ea73554c8bb
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 9
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: c6d0745b5e38424885405760d7cdfbb0
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 10
-      y: 7
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 8743cfc611c84ab2ac70340676bf8a3d
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 12
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 00117aa3ce0f45aa9e4cadad57d58d90
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 13
-      y: 6
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 8d84b72265e24204bdd2b7198ddad8bc
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 11
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 3ccb2fa8d2ff4e64aad01cf1dcefc32b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 9
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 60ce57da770648bcac925f8c82b9e13b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 8
-      y: 4
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 4b06ca83c61c4c6082e989630e6c7a4b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 9
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: fbf53d726ad7486fab1da25904ed0533
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 9
       y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: f14522d41e2146e5813e2b309ee1edb8
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 9
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 8610c85fc0d04a76b2c5a280aa1ad325
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 7
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: c68360306ca64e19a0b6b6db6b9d3b42
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 7
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: ad508707064f4b7fbdc0cad83c7f1ff9
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 11
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: c4ad62516c194c6c8067710f205a4d3c
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 11
-      y: 1
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 27
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_tutorial
-  - StableGuid: 5fb3f147653842ec947946735057d3b6
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 2
-      y: 2
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: 922cc4fdf1e74eb791678e3efb3eab80
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 5
-      y: 0
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_chair
-  - StableGuid: 7b4edf73ac1b482394ffba31ac3c15d4
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 4
-      y: 5
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_chair
-  - StableGuid: 74d3457b121140f799cf63240dc58c21
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 13
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_chair
-  - StableGuid: 8d5ae1142485485480eb6204b526a63e
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 14
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_chair
-  - StableGuid: e7104dde37724f71aab8225761e1a1e0
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 13
-      y: 2
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_spaceBed
-  - StableGuid: 16b7f767c4cd46eface80418de19dc31
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 3
-      x: 13
-      y: 1
-    Facing: 1
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_spaceBed
-  - StableGuid: 2e7d765282084063b6d92dc44c4fe413
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 3
-      y: 2
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 651471204afd44b7a78b56009c58653b
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 10
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 59062940fc9248338be4e4be5fa8c200
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 3
-      x: 12
-      y: 4
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 397f08a8c8944f2f8588a908a7639974
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 3
-      x: 8
-      y: 1
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
-    PresentationId: dr_saturn
-  - StableGuid: 6f875348760345b48eac9991cf7e6eb8
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 3
-      x: 12
-      y: 1
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: de83e764216982c1751b31cd7cc75d22, type: 2}
-    PresentationId: dr_saturn
-  - StableGuid: d391cc1299544b39a216b5ae859139fe
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 3
-      x: 10
-      y: 1
     Facing: 3
     Hp: 1
     UnitMobilityKind: 1
-    UnitStackGroup: 
-    BoxCapabilities: 0
-    BoxArchetype: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
-    PresentationId: rocket_face
-  - StableGuid: b0fd82412315424091e9a422d67ec2f3
-    DisplayName: Placement
-    Kind: 1
-    Cell:
-      face: 3
-      x: 8
-      y: 5
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 1
-    UnitStackGroup: 
+    UnitStackGroup:
     BoxCapabilities: 0
     BoxArchetype: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfileOverride: {fileID: 11400000, guid: 27e1b6702ffe831c0fc9c005a294b8bb, type: 2}
     PresentationId: black_eye
-  - StableGuid: 82a15c1555e2466cae5b7c0c9e1d5a61
+  - StableGuid: e75012e4b0d043cfa7afb8beb88153af
     DisplayName: Placement
-    Kind: 2
+    Kind: 1
     Cell:
-      face: 0
-      x: 2
-      y: 0
+      face: 2
+      x: 3
+      y: 5
     Facing: 3
     Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: deffb8ac33ee4043b4f0d9607639deac
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 4
-      y: 0
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 9c5dda4275d040fa9e5b2eaa56c56ca4
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 5
-      y: 0
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: ffb81a4deb5945b7b7717be31ea7e2c7
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 7
-      y: 0
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: 61e756b87d36404290000531e2297633
-    DisplayName: Placement
-    Kind: 2
-    Cell:
-      face: 0
-      x: 6
-      y: 0
-    Facing: 3
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
-    BoxCapabilities: 1
-    BoxArchetype: 0
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: box_metal
-  - StableGuid: c8b07438aa2344688c504f0550049284
-    DisplayName: Placement
-    Kind: 3
-    Cell:
-      face: 1
-      x: 0
-      y: 3
-    Facing: 0
-    Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitMobilityKind: 1
+    UnitStackGroup:
     BoxCapabilities: 0
     BoxArchetype: 0
-    EnemyAiMode: 0
+    EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
-  - StableGuid: e795b0a3938947789a3909a10524c207
+    EnemyAiProfileOverride: {fileID: 11400000, guid: 3d157a22696a4ee29ac2852d6486cd31, type: 2}
+    PresentationId: rocket_face
+  - StableGuid: af0ecad163e44b3da0bda5225fad0ca6
     DisplayName: Placement
-    Kind: 3
+    Kind: 1
     Cell:
-      face: 1
-      x: 11
-      y: 1
-    Facing: 0
+      face: 2
+      x: 13
+      y: 6
+    Facing: 3
     Hp: 1
-    UnitMobilityKind: 0
-    UnitStackGroup: 
+    UnitMobilityKind: 1
+    UnitStackGroup:
     BoxCapabilities: 0
     BoxArchetype: 0
-    EnemyAiMode: 0
+    EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfileOverride: {fileID: 0}
-    PresentationId: wall_tutorial
+    EnemyAiProfileOverride: {fileID: 11400000, guid: ee4160b1ea994e21b5b93ee5e5b66c8d, type: 2}
+    PresentationId: nebulous
   tileFeatures:
   - TileId: 1
     Cell:
       face: 0
-      x: 7
-      y: 2
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 2
-    Cell:
-      face: 0
-      x: 7
-      y: 3
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 3
-    Cell:
-      face: 0
-      x: 3
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 4
-    Cell:
-      face: 0
-      x: 4
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 5
-    Cell:
-      face: 0
-      x: 3
-      y: 1
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 6
-    Cell:
-      face: 0
-      x: 4
-      y: 1
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 7
-    Cell:
-      face: 0
       x: 1
-      y: 1
-    Kind: 4
-    ActivationRule: 3
-    Direction: 0
-    BoxSelector: 4
-    BoundEntityId: 0
-    PresentationKey: button.moon-only
-  - TileId: 8
-    Cell:
-      face: 0
-      x: 10
-      y: 1
-    Kind: 4
-    ActivationRule: 3
-    Direction: 0
-    BoxSelector: 4
-    BoundEntityId: 0
-    PresentationKey: button.moon-only
-  - TileId: 10
-    Cell:
-      face: 0
-      x: 5
-      y: 4
-    Kind: 5
+      y: 3
+    Kind: 7
     ActivationRule: 1
     Direction: 0
     BoxSelector: 0
-    BoundEntityId: 240
-    PresentationKey: moon-generator.default
-  - TileId: 11
+    BoundEntityId: 0
+    PresentationKey: entrance.default
+  - TileId: 2
     Cell:
-      face: 1
-      x: 11
+      face: 0
+      x: 6
       y: 0
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
+  - TileId: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 4
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 4
+    Cell:
+      face: 1
+      x: 2
+      y: 5
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 5
+    Cell:
+      face: 1
+      x: 3
+      y: 7
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 6
+    Cell:
+      face: 1
+      x: 4
+      y: 7
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 7
+    Cell:
+      face: 1
+      x: 5
+      y: 7
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 8
+    Cell:
+      face: 1
+      x: 6
+      y: 7
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 9
+    Cell:
+      face: 1
+      x: 3
+      y: 0
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 10
+    Cell:
+      face: 1
+      x: 4
+      y: 0
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 11
+    Cell:
+      face: 1
+      x: 9
+      y: 0
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
   - TileId: 12
     Cell:
       face: 1
       x: 10
       y: 0
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 13
     Cell:
       face: 1
       x: 10
       y: 2
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 14
     Cell:
       face: 1
-      x: 9
-      y: 2
+      x: 10
+      y: 3
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 15
     Cell:
       face: 1
-      x: 8
-      y: 2
+      x: 10
+      y: 4
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 16
     Cell:
       face: 1
-      x: 8
-      y: 3
+      x: 9
+      y: 5
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
   - TileId: 17
     Cell:
       face: 1
       x: 8
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 18
-    Cell:
-      face: 1
-      x: 9
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 19
-    Cell:
-      face: 1
-      x: 3
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 20
-    Cell:
-      face: 1
-      x: 4
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 21
-    Cell:
-      face: 1
-      x: 5
-      y: 4
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 22
-    Cell:
-      face: 1
-      x: 5
       y: 5
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 23
+    PresentationKey: destroy.bottom
+  - TileId: 18
     Cell:
-      face: 1
-      x: 5
-      y: 6
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 24
-    Cell:
-      face: 1
+      face: 2
       x: 4
       y: 6
     Kind: 2
-    ActivationRule: 2
+    ActivationRule: 1
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: destroy.bottom
+  - TileId: 19
+    Cell:
+      face: 2
+      x: 5
+      y: 6
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 20
+    Cell:
+      face: 2
+      x: 6
+      y: 6
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 21
+    Cell:
+      face: 2
+      x: 9
+      y: 6
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 22
+    Cell:
+      face: 2
+      x: 11
+      y: 5
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 23
+    Cell:
+      face: 2
+      x: 12
+      y: 1
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
+  - TileId: 24
+    Cell:
+      face: 2
+      x: 8
+      y: 2
+    Kind: 2
+    ActivationRule: 1
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.bottom
   - TileId: 25
     Cell:
       face: 1
-      x: 3
-      y: 6
+      x: 13
+      y: 2
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2806,8 +2477,8 @@ MonoBehaviour:
   - TileId: 26
     Cell:
       face: 1
-      x: 3
-      y: 5
+      x: 14
+      y: 2
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2817,8 +2488,8 @@ MonoBehaviour:
   - TileId: 27
     Cell:
       face: 1
-      x: 1
-      y: 2
+      x: 11
+      y: 5
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2828,8 +2499,8 @@ MonoBehaviour:
   - TileId: 28
     Cell:
       face: 1
-      x: 2
-      y: 2
+      x: 12
+      y: 5
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2838,8 +2509,8 @@ MonoBehaviour:
     PresentationKey: destroy.front
   - TileId: 29
     Cell:
-      face: 1
-      x: 3
+      face: 2
+      x: 0
       y: 2
     Kind: 2
     ActivationRule: 2
@@ -2849,97 +2520,97 @@ MonoBehaviour:
     PresentationKey: destroy.front
   - TileId: 30
     Cell:
-      face: 1
-      x: 9
-      y: 3
-    Kind: 3
+      face: 2
+      x: 1
+      y: 2
+    Kind: 2
     ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
+    PresentationKey: destroy.front
   - TileId: 31
     Cell:
-      face: 1
-      x: 5
-      y: 0
-    Kind: 3
+      face: 2
+      x: 1
+      y: 3
+    Kind: 2
     ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
+    PresentationKey: destroy.front
   - TileId: 32
     Cell:
-      face: 1
-      x: 6
-      y: 0
-    Kind: 3
+      face: 2
+      x: 1
+      y: 4
+    Kind: 2
     ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
+    PresentationKey: destroy.front
   - TileId: 33
     Cell:
-      face: 1
-      x: 1
-      y: 1
-    Kind: 1
+      face: 2
+      x: 0
+      y: 4
+    Kind: 2
     ActivationRule: 2
-    Direction: 2
+    Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
+    PresentationKey: destroy.front
   - TileId: 34
-    Cell:
-      face: 1
-      x: 13
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 4
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.left
-  - TileId: 35
-    Cell:
-      face: 1
-      x: 3
-      y: 7
-    Kind: 1
-    ActivationRule: 2
-    Direction: 1
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.up
-  - TileId: 36
-    Cell:
-      face: 1
-      x: 1
-      y: 3
-    Kind: 4
-    ActivationRule: 3
-    Direction: 0
-    BoxSelector: 3
-    BoundEntityId: 0
-    PresentationKey: button.default
-  - TileId: 37
-    Cell:
-      face: 1
-      x: 10
-      y: 1
-    Kind: 4
-    ActivationRule: 3
-    Direction: 0
-    BoxSelector: 4
-    BoundEntityId: 0
-    PresentationKey: button.moon-only
-  - TileId: 38
     Cell:
       face: 2
       x: 7
-      y: 1
+      y: 3
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 35
+    Cell:
+      face: 2
+      x: 7
+      y: 4
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 36
+    Cell:
+      face: 2
+      x: 6
+      y: 7
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 37
+    Cell:
+      face: 2
+      x: 7
+      y: 7
+    Kind: 2
+    ActivationRule: 2
+    Direction: 0
+    BoxSelector: 0
+    BoundEntityId: 0
+    PresentationKey: destroy.front
+  - TileId: 38
+    Cell:
+      face: 2
+      x: 9
+      y: 3
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2949,8 +2620,8 @@ MonoBehaviour:
   - TileId: 39
     Cell:
       face: 2
-      x: 7
-      y: 0
+      x: 10
+      y: 3
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2960,7 +2631,7 @@ MonoBehaviour:
   - TileId: 40
     Cell:
       face: 2
-      x: 7
+      x: 11
       y: 3
     Kind: 2
     ActivationRule: 2
@@ -2971,8 +2642,8 @@ MonoBehaviour:
   - TileId: 41
     Cell:
       face: 2
-      x: 7
-      y: 4
+      x: 13
+      y: 3
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2982,8 +2653,8 @@ MonoBehaviour:
   - TileId: 42
     Cell:
       face: 2
-      x: 10
-      y: 2
+      x: 14
+      y: 3
     Kind: 2
     ActivationRule: 2
     Direction: 0
@@ -2992,86 +2663,86 @@ MonoBehaviour:
     PresentationKey: destroy.front
   - TileId: 43
     Cell:
-      face: 2
-      x: 10
-      y: 3
-    Kind: 2
+      face: 1
+      x: 1
+      y: 4
+    Kind: 3
     ActivationRule: 2
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: barricade.default
   - TileId: 44
     Cell:
-      face: 2
-      x: 10
+      face: 0
+      x: 2
       y: 5
-    Kind: 2
+    Kind: 1
     ActivationRule: 2
-    Direction: 0
+    Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: slide.left
   - TileId: 45
     Cell:
-      face: 2
-      x: 10
+      face: 0
+      x: 1
       y: 6
-    Kind: 2
+    Kind: 1
     ActivationRule: 2
-    Direction: 0
+    Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: slide.up
   - TileId: 46
     Cell:
-      face: 2
-      x: 13
-      y: 0
-    Kind: 2
+      face: 0
+      x: 5
+      y: 2
+    Kind: 1
     ActivationRule: 2
-    Direction: 0
+    Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: slide.right
   - TileId: 47
     Cell:
-      face: 2
-      x: 13
-      y: 1
-    Kind: 2
-    ActivationRule: 2
+      face: 1
+      x: 1
+      y: 3
+    Kind: 4
+    ActivationRule: 3
     Direction: 0
-    BoxSelector: 0
+    BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: button.default
   - TileId: 48
     Cell:
       face: 2
-      x: 13
+      x: 0
       y: 3
-    Kind: 2
-    ActivationRule: 2
+    Kind: 4
+    ActivationRule: 3
     Direction: 0
-    BoxSelector: 0
+    BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: button.default
   - TileId: 49
     Cell:
       face: 2
-      x: 13
-      y: 4
-    Kind: 2
-    ActivationRule: 2
+      x: 5
+      y: 7
+    Kind: 4
+    ActivationRule: 3
     Direction: 0
-    BoxSelector: 0
+    BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: destroy.front
+    PresentationKey: button.default
   - TileId: 50
     Cell:
-      face: 2
-      x: 1
-      y: 4
+      face: 0
+      x: 6
+      y: 2
     Kind: 4
     ActivationRule: 3
     Direction: 0
@@ -3080,945 +2751,617 @@ MonoBehaviour:
     PresentationKey: button.moon-only
   - TileId: 51
     Cell:
-      face: 2
-      x: 3
-      y: 1
+      face: 0
+      x: 11
+      y: 3
     Kind: 4
     ActivationRule: 3
     Direction: 0
-    BoxSelector: 3
+    BoxSelector: 4
     BoundEntityId: 0
-    PresentationKey: button.default
+    PresentationKey: button.moon-only
   - TileId: 52
     Cell:
-      face: 2
-      x: 10
-      y: 0
-    Kind: 3
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: barricade.default
-  - TileId: 53
-    Cell:
-      face: 3
-      x: 14
-      y: 0
-    Kind: 3
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: barricade.default
-  - TileId: 54
-    Cell:
-      face: 3
-      x: 7
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 55
-    Cell:
-      face: 3
-      x: 8
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 56
-    Cell:
-      face: 3
-      x: 9
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 57
-    Cell:
-      face: 3
-      x: 10
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 58
-    Cell:
-      face: 3
-      x: 11
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 59
-    Cell:
-      face: 3
-      x: 12
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 60
-    Cell:
-      face: 3
-      x: 13
-      y: 0
-    Kind: 2
-    ActivationRule: 2
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: destroy.front
-  - TileId: 61
-    Cell:
-      face: 3
-      x: 6
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 2
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.right
-  - TileId: 62
-    Cell:
-      face: 3
-      x: 14
-      y: 3
-    Kind: 1
-    ActivationRule: 2
-    Direction: 3
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: slide.down
-  - TileId: 63
-    Cell:
-      face: 3
+      face: 1
       x: 1
       y: 6
     Kind: 4
     ActivationRule: 3
     Direction: 0
-    BoxSelector: 3
+    BoxSelector: 4
     BoundEntityId: 0
-    PresentationKey: button.default
-  - TileId: 64
+    PresentationKey: button.moon-only
+  - TileId: 53
     Cell:
-      face: 3
-      x: 14
-      y: 1
-    Kind: 4
-    ActivationRule: 3
+      face: 0
+      x: 1
+      y: 5
+    Kind: 5
+    ActivationRule: 1
     Direction: 0
-    BoxSelector: 3
-    BoundEntityId: 0
-    PresentationKey: button.default
-  - TileId: 65
+    BoxSelector: 0
+    BoundEntityId: 124
+    PresentationKey: moon-generator.default
+  - TileId: 54
     Cell:
-      face: 3
+      face: 2
       x: 3
-      y: 4
+      y: 1
     Kind: 6
     ActivationRule: 3
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
     PresentationKey: exit.default
-  - TileId: 66
-    Cell:
-      face: 0
-      x: 7
-      y: 1
-    Kind: 7
-    ActivationRule: 1
-    Direction: 0
-    BoxSelector: 0
-    BoundEntityId: 0
-    PresentationKey: entrance.default
   zones:
   - ZoneId: zone
-    FaceId: 3
+    FaceId: 2
     Regions:
-    - MinInclusive: {x: 3, y: 4}
-      MaxInclusive: {x: 3, y: 4}
+    - MinInclusive: {x: 3, y: 1}
+      MaxInclusive: {x: 3, y: 1}
   - ZoneId: exit
-    FaceId: 3
+    FaceId: 2
     Regions:
-    - MinInclusive: {x: 3, y: 4}
-      MaxInclusive: {x: 3, y: 4}
+    - MinInclusive: {x: 3, y: 1}
+      MaxInclusive: {x: 3, y: 1}
   objective:
     CompletionPolicy: 2
     ObjectiveTitle: Reach the Exit
     ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
-    - Condition: {fileID: 11400000, guid: b25a0ce8b29545d989694aeb93612f54, type: 2}
-      Required: 1
-      Role: 1
-      StableConditionId: primary-goal
-      AuthoringLabel: Reach the exit zone
-      SortOrder: 0
-    - Condition: {fileID: 11400000, guid: d9ecb319a2175f04fbf47c25db120044, type: 2}
+    - Condition: {fileID: 11400000, guid: a3d2128cecfd51c4cad6f721cd193e6f, type: 2}
       Required: 1
       Role: 2
-      StableConditionId: button-7
-      AuthoringLabel: Place the MoonBlock on the button
+      StableConditionId: button-47
+      AuthoringLabel: Place a push box on the button
       SortOrder: 10
-    - Condition: {fileID: 11400000, guid: f825f1b235f47604e864e8650b74d628, type: 2}
+    - Condition: {fileID: 11400000, guid: 80eea6935629139448d509586fa82e11, type: 2}
       Required: 1
       Role: 2
-      StableConditionId: button-8
-      AuthoringLabel: Place the MoonBlock on the button
+      StableConditionId: button-48
+      AuthoringLabel: Place a push box on the button
       SortOrder: 20
-    - Condition: {fileID: 11400000, guid: 098650b18ee275648b7d685832a254ec, type: 2}
+    - Condition: {fileID: 11400000, guid: 1bd8500d215bc504092cff67526b6e28, type: 2}
       Required: 1
       Role: 2
-      StableConditionId: button-37
-      AuthoringLabel: Place the MoonBlock on the button
-      SortOrder: 50
-    - Condition: {fileID: 11400000, guid: a31091e71003c0a448ba6ca4f9f7d99b, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-51
+      StableConditionId: button-49
       AuthoringLabel: Place a push box on the button
-      SortOrder: 70
-    - Condition: {fileID: 11400000, guid: 15a79e549a4c48841ba68e489ee7ac95, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-64
-      AuthoringLabel: Place a push box on the button
-      SortOrder: 90
-    - Condition: {fileID: 11400000, guid: bc97c44e95aa72140a579d12606cbd1e, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-63
-      AuthoringLabel: Place a push box on the button
-      SortOrder: 110
-    - Condition: {fileID: 11400000, guid: 761df246942aa5949b7d41d238020ce6, type: 2}
-      Required: 1
-      Role: 2
-      StableConditionId: button-36
-      AuthoringLabel: Place a push box on the button
-      SortOrder: 120
-    - Condition: {fileID: 11400000, guid: 318361734f4d1f346ac8c47b102e0e86, type: 2}
+      SortOrder: 30
+    - Condition: {fileID: 11400000, guid: dd8f21fb39633fc42acd28066b32792c, type: 2}
       Required: 1
       Role: 2
       StableConditionId: button-50
       AuthoringLabel: Place the MoonBlock on the button
-      SortOrder: 130
+      SortOrder: 40
+    - Condition: {fileID: 11400000, guid: ba840e4c12ae7434aa704eab4e908b88, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-51
+      AuthoringLabel: Place the MoonBlock on the button
+      SortOrder: 50
+    - Condition: {fileID: 11400000, guid: a2f733b809c55604bbe1a54e0da600cf, type: 2}
+      Required: 1
+      Role: 2
+      StableConditionId: button-52
+      AuthoringLabel: Place the MoonBlock on the button
+      SortOrder: 60
+    - Condition: {fileID: 11400000, guid: 3463c18fded101243b3e25c2529f20dc, type: 2}
+      Required: 1
+      Role: 1
+      StableConditionId: primary-goal
+      AuthoringLabel: Reach the Exit Zone
+      SortOrder: 0
   entityIdMappings:
-  - StableGuid: stage-3-1:Player:10
+  - StableGuid: 04d0e7c2cbd643e6b62ff264efc480ac
+    EntityId: 1
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 64321f30d19741c1a9c4f66fd457b806
+    EntityId: 2
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 8227163f87074955a79c1b0df2a63d15
+    EntityId: 3
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7a73f7417ca44d49a84368df3170f3a1
+    EntityId: 4
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: af96ebede1bb4f7eb14964609bda71cb
+    EntityId: 5
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: b7fce99ab24a4006b61e65a3a47f5daa
+    EntityId: 6
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 25e8ea3828814dacb4f4fc4b81933b0d
+    EntityId: 7
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: a8e43c10797541ce90ee0d9cd72882fe
+    EntityId: 8
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: f71c45f2d2af4c02ae1c0c7983286521
+    EntityId: 9
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: f0be35c39e7d40109eb685e30d0b1084
     EntityId: 10
     Retired: 0
-    LastKnownDisplayName: Player 10
-  - StableGuid: stage-3-1:Box:30
+    LastKnownDisplayName: Placement
+  - StableGuid: 15ce7c533a34474dbc83bc79cf98543c
+    EntityId: 11
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 93f656cb65854754be1f1c71169a6a8a
+    EntityId: 12
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 4a70f90c2bc9492eab085c3639964874
+    EntityId: 13
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: fc8df4face884612ab54d16529bc47cc
+    EntityId: 14
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: eedfe3dd2c134a3b9358170dc76916d4
+    EntityId: 15
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7bf5c08b9eba43a98fe4ad8841c03ce4
+    EntityId: 16
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7893d25c0aab4a358d32581deba197ea
+    EntityId: 17
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7e4d0c280b11401292526d2a3d5d3fa8
+    EntityId: 18
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: d19518cc49c64b0993dc56ac43b547bc
+    EntityId: 19
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 0c4e7f696722468bafa6c5c96ed7127e
+    EntityId: 20
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: f73618c3589e4bd5bb19d09bf2fbf4e8
+    EntityId: 21
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 04d7ce841af04804b80cda33808bd44d
+    EntityId: 22
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 466e87f416264f90bd6c4b28558444e9
+    EntityId: 23
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: c090b4f3337d4d17b595a3251c42f8c6
+    EntityId: 24
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 2f51dffb77084a2f9eba24ce93314396
+    EntityId: 25
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 32a1b32f68994cfc84ce630e772b4c67
+    EntityId: 26
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: f9b796c004aa4a2f9ddadcc8a57e0974
+    EntityId: 27
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 3f526a0588604a6282aaf43e4a0bc0d5
+    EntityId: 28
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 2c89803222104228bc8c293e9490e9da
+    EntityId: 29
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 154398cfc9ad461b8987abcf5fdb0697
     EntityId: 30
-    Retired: 1
-    LastKnownDisplayName: Box 30
-  - StableGuid: stage-3-1:Box:31
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 1c7efb41efc14da88e18da0add8d72c4
     EntityId: 31
-    Retired: 1
-    LastKnownDisplayName: Box 31
-  - StableGuid: stage-3-1:Box:32
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 4cdaa5fcc65340fbaea3b5cc35da4922
     EntityId: 32
-    Retired: 1
-    LastKnownDisplayName: Box 32
-  - StableGuid: stage-3-1:Box:33
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 711aae86ae5a41e89dca1456f4217d58
     EntityId: 33
-    Retired: 1
-    LastKnownDisplayName: Box 33
-  - StableGuid: stage-3-1:Box:34
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: ad42da566970421b80e97ba183113b23
     EntityId: 34
-    Retired: 1
-    LastKnownDisplayName: Box 34
-  - StableGuid: stage-3-1:Box:35
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 0386516fa81340d8b490350b90d056b8
     EntityId: 35
-    Retired: 1
-    LastKnownDisplayName: Box 35
-  - StableGuid: stage-3-1:Box:36
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 19ac3d8c47514d0badb21e92f04c0563
     EntityId: 36
-    Retired: 1
-    LastKnownDisplayName: Box 36
-  - StableGuid: stage-3-1:Box:37
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 705e8854d7a04c2ea4ba9cc3aaa016f7
     EntityId: 37
-    Retired: 1
-    LastKnownDisplayName: Box 37
-  - StableGuid: stage-3-1:Box:40
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: bf503a5ef6b64fe58fec26095c33862f
+    EntityId: 38
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 1a2adcdb1fed4133b3c5738e7b72f290
+    EntityId: 39
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 148a916fa26a4c36a2d8c06dc268a13d
     EntityId: 40
-    Retired: 1
-    LastKnownDisplayName: Box 40
-  - StableGuid: stage-3-1:Box:41
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 702df09520e743fc8f3bf4f53499f975
     EntityId: 41
-    Retired: 1
-    LastKnownDisplayName: Box 41
-  - StableGuid: stage-3-1:Box:42
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 57bffbcbe67d4946966307578450c846
     EntityId: 42
-    Retired: 1
-    LastKnownDisplayName: Box 42
-  - StableGuid: stage-3-1:Box:43
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: bc92d98da0314be0b3e031259db10165
     EntityId: 43
-    Retired: 1
-    LastKnownDisplayName: Box 43
-  - StableGuid: stage-3-1:Enemy:54
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 36bff5e5d87542639cf19f59438c3b01
+    EntityId: 44
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 6a16124b385c4f05a6fb509522a5e5e7
+    EntityId: 45
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 7369e53e706940cbbe1e09518be43e4d
+    EntityId: 46
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 452cf2bd0734419fb59ea7afaa6ac44a
+    EntityId: 47
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 56c9d7a489684d77b391c1bcd32ee951
+    EntityId: 48
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 5bb766bf4c8a430592a5d23c18eddd1e
+    EntityId: 49
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 8422b323860a462c8b092736cb49a11f
+    EntityId: 50
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: fedea56d18aa4f5a939a42b260f2ac3d
+    EntityId: 51
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 0c8fb9b3cea842f3a1dea4d5b653bd38
+    EntityId: 52
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 6154c96b41154504a4df2bde558de6b4
+    EntityId: 53
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 1648ec1147964ee9a35a1ebb308a139b
     EntityId: 54
-    Retired: 1
-    LastKnownDisplayName: Enemy 54
-  - StableGuid: stage-3-1:Enemy:55
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 3f862143d9cd4db7b105e1b7ead087e0
     EntityId: 55
-    Retired: 1
-    LastKnownDisplayName: Enemy 55
-  - StableGuid: stage-3-1:Enemy:56
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 697d5681f0974bcfa8499fb29ac61382
     EntityId: 56
-    Retired: 1
-    LastKnownDisplayName: Enemy 56
-  - StableGuid: stage-3-1:Enemy:57
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: 36df93d4c33746acae04b32f509a48c0
     EntityId: 57
-    Retired: 1
-    LastKnownDisplayName: Enemy 57
-  - StableGuid: stage-3-1:Enemy:58
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: f2d8983034af42d8b35a2de1936f00e1
     EntityId: 58
-    Retired: 1
-    LastKnownDisplayName: Enemy 58
-  - StableGuid: stage-3-1:Enemy:59
+    Retired: 0
+    LastKnownDisplayName: Placement
+  - StableGuid: c2bd4c9a23824d52b91e10b863f7120a
     EntityId: 59
-    Retired: 1
-    LastKnownDisplayName: Enemy 59
-  - StableGuid: stage-3-1:Wall:196
-    EntityId: 196
-    Retired: 1
-    LastKnownDisplayName: Wall 196
-  - StableGuid: stage-3-1:Wall:197
-    EntityId: 197
-    Retired: 1
-    LastKnownDisplayName: Wall 197
-  - StableGuid: stage-3-1:Wall:198
-    EntityId: 198
-    Retired: 1
-    LastKnownDisplayName: Wall 198
-  - StableGuid: stage-3-1:Wall:199
-    EntityId: 199
-    Retired: 1
-    LastKnownDisplayName: Wall 199
-  - StableGuid: stage-3-1:Wall:200
-    EntityId: 200
-    Retired: 1
-    LastKnownDisplayName: Wall 200
-  - StableGuid: baa7a628a6aa4c219b05ec2dbec28c00
-    EntityId: 201
-    Retired: 1
-    LastKnownDisplayName: Placement
-  - StableGuid: a2f038e9afa548e2af4a8d62478d1f11
-    EntityId: 202
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 6bdabdcb777f4c8d9a5d11fbcb7acfa9
-    EntityId: 203
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 75fa447ddccb4394964766553a0aa124
-    EntityId: 204
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 48322d4417c44a57b78d8f7da3db49ac
-    EntityId: 205
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: a15625405d644ffe922b99dcc5b11fcf
-    EntityId: 206
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: a1648ad427ce4dfab16e5c2b6e757119
-    EntityId: 207
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 489751b8410d41c69ee4b9b76f90c398
-    EntityId: 208
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: eeeab6d280f54f27a745936900635272
-    EntityId: 209
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 403bded0fb0242eda751e4f8d6069b43
-    EntityId: 210
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: b947e4643b4349e08b4bad9cbe075dcb
-    EntityId: 211
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 0aaeff76338c4b30b0568d34471558be
-    EntityId: 212
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 5b083571edfe48388ea8be008b6987b2
-    EntityId: 213
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 4556848e1ee74d7690ac42e50fa76b21
-    EntityId: 214
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 8e47e78cbc10493ea14ebf3510f08039
-    EntityId: 215
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: b46629fdf5a04b00a2398b571abb1041
-    EntityId: 216
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 4fa060d4d88d439dbad2dab2eea7adce
-    EntityId: 217
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: b706845d0d9946f6a09ee68fd2765f6e
-    EntityId: 218
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 770f83f849e24322a42e336dfe103bf2
-    EntityId: 219
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 5928ee8dfa8e49f8bf9df2ee11d29a17
-    EntityId: 220
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: c7df8dce25bf4f72bfd86c02a72f770d
-    EntityId: 221
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 733f457ab49a4a3fb4e13a9dec33856b
-    EntityId: 222
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 443ef11219b54633a844a4e0dfb66a75
-    EntityId: 223
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: e1bd9eff7f334ff79ac8bb896ab6c4c4
-    EntityId: 224
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 77a55058e2cf434bb7194347148aaa8c
-    EntityId: 225
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 51b1638b32c74428aff642fa832224c2
-    EntityId: 226
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: fe42e85018424d919bbfae97500bcf5d
-    EntityId: 227
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 27a5afb92249425bba43bc168213b69d
-    EntityId: 228
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 5b6549d1fb3846c2b5f7f0949296f0da
-    EntityId: 229
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 7f69219ea76e46d4b06502582217d54b
-    EntityId: 230
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: ae253596b4cc4bc8a0e159cfc822e2fd
-    EntityId: 231
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 084e5c0a772d4abc9ba6297351bb863b
-    EntityId: 232
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: a2de71e20619429eaf90a332a4d3a26a
-    EntityId: 233
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 7fe00b32ff9345babfdb9f460cc5108c
-    EntityId: 234
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: f39f29a3f7aa420880037db207810826
-    EntityId: 235
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: f6520bf94f79414196b0d49623e7b98e
-    EntityId: 236
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: ecd1b874782d44358c34afdfc9b81767
-    EntityId: 237
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 1fd0ecd6707c44acbead4591b5867177
-    EntityId: 238
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 92e52a7115af46728a5fb9e4d33e06e2
-    EntityId: 239
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 703d3e999bdf40148d79ffe76ca09a61
-    EntityId: 240
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: bbf216c4ae3b4c44b6b55f353dc422bb
-    EntityId: 241
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 1f36eaba47c7416e9b0a794d1cf23b04
-    EntityId: 242
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 7c289813f92843e9880c82923a7b3a15
-    EntityId: 243
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 749496f2692145bcbab90375d424cd19
-    EntityId: 244
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: efd81870a242459fa254ab43ce64d696
-    EntityId: 245
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 835447497b9940ec8a321f6f52963a6b
-    EntityId: 246
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 0bbea8b354a64d4b9311691267702403
-    EntityId: 247
-    Retired: 1
-    LastKnownDisplayName: Placement
-  - StableGuid: 09ea1cddba9b47209f1c05e054306ff8
-    EntityId: 248
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: a224c186d93e4063940517f42dd6d397
-    EntityId: 249
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 88d5f35a411c4cb68ec3666e53f0d183
-    EntityId: 250
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 938df5b91a26437f822dab5397691d0f
-    EntityId: 251
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: b007e4102a404f2ab54c8d9937c51ff1
-    EntityId: 252
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: d2e242c0ef2448e1b84911b2c0b04c7d
-    EntityId: 253
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 9a14dcb8ddea49358c9b97fd493df448
-    EntityId: 254
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: a727880df13942839f63fa21478edc98
-    EntityId: 255
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: ed06ada16ffc47788ce851e26842617a
-    EntityId: 256
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: e126c8f097914c5c9bd74460343a069c
-    EntityId: 257
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 7bb5dee34cf541d9a5072e2486309ca5
-    EntityId: 258
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: c49b4d9da3f0491b98108fa5a41b0ae5
-    EntityId: 259
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 768d5c0c5b9347c38801d18f3a4a135e
-    EntityId: 260
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: e0e2f701eb8c4d7898ac067bcaa78339
-    EntityId: 261
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: c271ba670f054e23a90de5a161e5e5c5
-    EntityId: 262
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 4aba828ac6ab4cecb20023f839e8c702
-    EntityId: 263
-    Retired: 1
-    LastKnownDisplayName: Placement
-  - StableGuid: 81b5caf93b9849c5803d83ade4725128
-    EntityId: 264
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 62b6c18a63d644f898576c76061f3aa0
-    EntityId: 265
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: e28f9034e188449c9bccf50f208ba409
-    EntityId: 266
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 9000f15f2357486b9d9fdb9fbf5a9172
-    EntityId: 267
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 62077f75f6a243f99a49dc96bf1be793
-    EntityId: 268
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 577002d0ecc14af6885f03825a29b09d
-    EntityId: 269
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 15d2798a575d433ba95c32a6e76a9eca
-    EntityId: 270
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 9e3fc622e9f7423d85c3017775d8429b
-    EntityId: 271
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: a5c193ed16f0483bbd77587b069306d2
-    EntityId: 272
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 6b9ca0b113ff42928b2ce9f081efd298
-    EntityId: 273
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 535f2890ab8c422ebd3cc41db22c0c28
-    EntityId: 274
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: aae5222ed93548e99e1be04b9be0cafe
-    EntityId: 275
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: d4c6e813fbc94033972fb2619ade1a7f
-    EntityId: 276
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: dfe6cd8d53f0438fada805c96c8415f6
-    EntityId: 277
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: 7e860f4248d64d678d09e687fc9f3e8f
-    EntityId: 278
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: ae8e2c2ae1f74567b58c0e5fd389f6a8
-    EntityId: 279
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: da0c16190e6646fda397a69e6d4af067
-    EntityId: 280
-    Retired: 0
-    LastKnownDisplayName: Placement
-  - StableGuid: ff943f029b1945a9b4dfd27816260e96
-    EntityId: 281
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 6281e287c75447d79158566d0e57bb96
-    EntityId: 282
+  - StableGuid: 9d76adb4d7ec45119deeddfcc4f4ec18
+    EntityId: 60
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 810e129cffe7442bb0244a833fb264d4
-    EntityId: 283
+  - StableGuid: f09744e57d9848dca1245e082b30b767
+    EntityId: 61
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: a207d71cb51440569c9a0f3e7ad8b4cc
-    EntityId: 284
+  - StableGuid: d5e3db3336bc4252b460098935f77be2
+    EntityId: 62
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 1bdf7ef0860647f1b5763c778c9025fa
-    EntityId: 285
+  - StableGuid: 19739dd43f94478680cd95d0645c8507
+    EntityId: 63
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 6d73f60c00b4493d87b915e1f1ff276e
-    EntityId: 286
+  - StableGuid: 00b42ad8fcbb40298a7eb9f1e4271146
+    EntityId: 64
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 84c3ab2557824526b387f29f59d50488
-    EntityId: 287
+  - StableGuid: 223c4a1870354fa7aeb8f8e245916ecf
+    EntityId: 65
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 8377669bac82429fa6eb88115161e9b0
-    EntityId: 288
+  - StableGuid: 5204e705f55640ef94d174dd6a29fe5c
+    EntityId: 66
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 0b306ad8641e45eab9ac77b343ae1606
-    EntityId: 289
+  - StableGuid: 9b4c075de1b04dbea23216220e0efc1f
+    EntityId: 67
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 7caef363e690454ba3fc6c1d98b3d10e
-    EntityId: 290
+  - StableGuid: 5328435707914e26911e45bbc28d6d04
+    EntityId: 68
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 5056a0a822e84e22abf3009b7999000e
-    EntityId: 291
+  - StableGuid: 734cbde4a114482e87c5eb8f26018f7b
+    EntityId: 69
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: dc90774e25524ea9a42d721b4f43e9d7
-    EntityId: 292
+  - StableGuid: c94bc207cbaf41bfb210bebee5412b1c
+    EntityId: 70
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: d98b7664a1dd4c989432078758f1ea38
-    EntityId: 293
+  - StableGuid: 5d59ec0dec634b7bbe427b90131622ae
+    EntityId: 71
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: ecce25bfa91242fc9d19015c9f4c6199
-    EntityId: 294
+  - StableGuid: 46f03857184a43deb0d0c9bb1f30a54e
+    EntityId: 72
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 13e0c47b263c44f3925ff94622b26eb2
-    EntityId: 295
+  - StableGuid: c359064f1a2e41c0aecc0ca3640cdf39
+    EntityId: 73
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: c8244b99274e4c5799829dd9fd50c04b
-    EntityId: 296
+  - StableGuid: 33f92400d67a4e8d9a5257e66328f885
+    EntityId: 74
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: f680943e86594d3bad73f29ce92c25c0
-    EntityId: 297
+  - StableGuid: 5343c01a718247f792f913fa5ecf167b
+    EntityId: 75
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 0cf8b30f03e64b5f826e2a06a6d3b49f
-    EntityId: 298
+  - StableGuid: d3d6233aedb2489d89db15565c57e13c
+    EntityId: 76
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 08329fd2477a496b960bfa29e3602367
-    EntityId: 299
+  - StableGuid: 1ea1b7c10cea4124ac234ff3125c72b4
+    EntityId: 77
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 5df7a8deff50400dae45bb59bc21af7d
-    EntityId: 300
+  - StableGuid: 5feb4035ff2e43d0aef6702f55a41c7a
+    EntityId: 78
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: ed558aaabce04890b0b04489932adf37
-    EntityId: 301
+  - StableGuid: 7ee55c9e9703461cb4680631002e49e1
+    EntityId: 79
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 8c96d13e627c4fff8164bf147f377fbf
-    EntityId: 302
+  - StableGuid: c6b5a16f2e0b4267b91ea3a7e99007f5
+    EntityId: 80
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: fa2a43e130a64cff8c4b07bd3def9da8
-    EntityId: 303
+  - StableGuid: 4b8c70e7e2674054ae5e0bbfd842a901
+    EntityId: 81
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 75fe189b908547e1a3216a1a9d64e73f
-    EntityId: 304
+  - StableGuid: dea34cb1789042f6b02ef1628cea461f
+    EntityId: 82
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: f758b14f3f7747feb1a617e6690090cf
-    EntityId: 305
+  - StableGuid: 3bfe17917605439f8782d79795c1f229
+    EntityId: 83
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: e86fa7bf9bfd423d859ba2e8a0e3eb9d
-    EntityId: 306
+  - StableGuid: b0f7add793e5445f9677e7fc8415a459
+    EntityId: 84
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: a60a785a44e6405b91743ca35ff14577
-    EntityId: 307
+  - StableGuid: 771ff4cf3b314562a945f679c9f60ebb
+    EntityId: 85
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 1223656047f54b91bd8eae2bc33f9f2a
-    EntityId: 308
+  - StableGuid: 15184b20d60d49d9844008eb34ac40cc
+    EntityId: 86
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 70cf5462921d40d986ad69fe9d875134
-    EntityId: 309
+  - StableGuid: f66b5aa3379a4fa4b65207129e3ff11d
+    EntityId: 87
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 432a7521682d422cbfd948ed6569ac30
-    EntityId: 310
+  - StableGuid: 526a59fe71fa4e3ba48d9e1e58a38b24
+    EntityId: 88
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 69e0342f4c3d4a20a077dd3275fae575
-    EntityId: 311
+  - StableGuid: 4e960a633da24c8bba43108763bc9778
+    EntityId: 89
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 14de23d3b9164a14b56c61d2bb2b1b02
-    EntityId: 312
+  - StableGuid: b947d4eb1bba4a4ea1ee32fe9d3624e2
+    EntityId: 90
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: e35665b0ebcf44049024c17831a1c2dc
-    EntityId: 313
+  - StableGuid: c447677e472142a3baf39a169a56e2ae
+    EntityId: 91
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 7675c156bcf44480a26d3534eaab1a0b
-    EntityId: 314
+  - StableGuid: 794f582fcf104903b88bdd1743a9fb33
+    EntityId: 92
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: f6dbafded5cd4441a759cbbebf2b10b8
-    EntityId: 315
+  - StableGuid: 9a83e8eee2304217be5c5982efa9d5ba
+    EntityId: 93
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 1d874222c80f4bb2b67e9ea73554c8bb
-    EntityId: 316
+  - StableGuid: 52af9432aa574e0d9e65064eaa0cd670
+    EntityId: 94
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: c6d0745b5e38424885405760d7cdfbb0
-    EntityId: 317
+  - StableGuid: 1d2b458b2c2740f59a42c67b2be66659
+    EntityId: 95
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 8743cfc611c84ab2ac70340676bf8a3d
-    EntityId: 318
+  - StableGuid: f151528c92b641c4a79fe2bfff4330d0
+    EntityId: 96
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 00117aa3ce0f45aa9e4cadad57d58d90
-    EntityId: 319
+  - StableGuid: e17c9988f27847c5b7ff0744718eb0e7
+    EntityId: 97
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 8d84b72265e24204bdd2b7198ddad8bc
-    EntityId: 320
+  - StableGuid: 49d10e23b1c849b1813957935a81d566
+    EntityId: 98
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 3ccb2fa8d2ff4e64aad01cf1dcefc32b
-    EntityId: 321
+  - StableGuid: d3c65bb43c0f40149dc10718a0292d7f
+    EntityId: 99
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 60ce57da770648bcac925f8c82b9e13b
-    EntityId: 322
+  - StableGuid: b7a08b64044e46e094657eb55b6b3c98
+    EntityId: 100
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 4b06ca83c61c4c6082e989630e6c7a4b
-    EntityId: 323
+  - StableGuid: 73a669ba258944eb911b99933e328422
+    EntityId: 101
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: fbf53d726ad7486fab1da25904ed0533
-    EntityId: 324
+  - StableGuid: ca54dd4b1168415ab949de221e25e33f
+    EntityId: 102
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: f14522d41e2146e5813e2b309ee1edb8
-    EntityId: 325
+  - StableGuid: 4b415d51a97e43a5bf69d98b4029d2a5
+    EntityId: 103
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 8610c85fc0d04a76b2c5a280aa1ad325
-    EntityId: 326
+  - StableGuid: 3c794c84859d4526b87305770bfccc12
+    EntityId: 104
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: c68360306ca64e19a0b6b6db6b9d3b42
-    EntityId: 327
+  - StableGuid: 2b9d571aec9d4944bdf516185af75299
+    EntityId: 105
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: ad508707064f4b7fbdc0cad83c7f1ff9
-    EntityId: 328
+  - StableGuid: 752d43fbfef64b6ea5f9679f014a8776
+    EntityId: 106
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: c4ad62516c194c6c8067710f205a4d3c
-    EntityId: 329
+  - StableGuid: 772c800c7c084d24a8b49f71d1271e72
+    EntityId: 107
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 5fb3f147653842ec947946735057d3b6
-    EntityId: 330
+  - StableGuid: 761d391290754da5ab8dec631e003275
+    EntityId: 108
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 922cc4fdf1e74eb791678e3efb3eab80
-    EntityId: 331
+  - StableGuid: d6f8da75fd504385ace41f5a4dd404a2
+    EntityId: 109
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 7b4edf73ac1b482394ffba31ac3c15d4
-    EntityId: 332
+  - StableGuid: 7819d63a9c824a5095a735052f8d95f2
+    EntityId: 110
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 74d3457b121140f799cf63240dc58c21
-    EntityId: 333
+  - StableGuid: 015ccec7f81a450685536ed7707daaf0
+    EntityId: 111
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 8d5ae1142485485480eb6204b526a63e
-    EntityId: 334
+  - StableGuid: fac425c6273e496ca3261f10191623c5
+    EntityId: 112
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: e7104dde37724f71aab8225761e1a1e0
-    EntityId: 335
+  - StableGuid: c6411e0da0994b1ab04d7be6c6de7954
+    EntityId: 113
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 16b7f767c4cd46eface80418de19dc31
-    EntityId: 336
+  - StableGuid: 29bdc8252f6142bf952cee03443d024f
+    EntityId: 114
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 2e7d765282084063b6d92dc44c4fe413
-    EntityId: 337
+  - StableGuid: 76393ca5319d418c875a87f7809e1d03
+    EntityId: 115
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 651471204afd44b7a78b56009c58653b
-    EntityId: 338
+  - StableGuid: 2d95e8a64a024651b7bbfb8a2be0a8c0
+    EntityId: 116
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 59062940fc9248338be4e4be5fa8c200
-    EntityId: 339
+  - StableGuid: 915dd239ea1e4b3ba0f23acf21623ad2
+    EntityId: 117
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 397f08a8c8944f2f8588a908a7639974
-    EntityId: 340
+  - StableGuid: 355165b17c714fba8c98e052c1dd27f1
+    EntityId: 118
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 6f875348760345b48eac9991cf7e6eb8
-    EntityId: 341
+  - StableGuid: 4b53045f6ba241a093832215d62a9577
+    EntityId: 119
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: d391cc1299544b39a216b5ae859139fe
-    EntityId: 342
+  - StableGuid: e7c18dc5d476404d998935a27b72fa42
+    EntityId: 120
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: b0fd82412315424091e9a422d67ec2f3
-    EntityId: 343
+  - StableGuid: e7ebf0c7041b4042a8890d6d6420d839
+    EntityId: 121
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 82a15c1555e2466cae5b7c0c9e1d5a61
-    EntityId: 344
+  - StableGuid: e021c4f4ccac4ba0bcce6d6b6f48bb6d
+    EntityId: 122
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: deffb8ac33ee4043b4f0d9607639deac
-    EntityId: 345
+  - StableGuid: 7b077987b68e4c5684823dd8b8d80f96
+    EntityId: 123
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 9c5dda4275d040fa9e5b2eaa56c56ca4
-    EntityId: 346
+  - StableGuid: 9b0280852b5c4e50bef8ec926052f87c
+    EntityId: 124
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: ffb81a4deb5945b7b7717be31ea7e2c7
-    EntityId: 347
+  - StableGuid: e93139c09b3b40ce89fc3485e62b2230
+    EntityId: 125
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: 61e756b87d36404290000531e2297633
-    EntityId: 348
+  - StableGuid: 6b02d674c26148ac8e1b11f7782ae202
+    EntityId: 126
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: c8b07438aa2344688c504f0550049284
-    EntityId: 349
+  - StableGuid: e75012e4b0d043cfa7afb8beb88153af
+    EntityId: 127
     Retired: 0
     LastKnownDisplayName: Placement
-  - StableGuid: e795b0a3938947789a3909a10524c207
-    EntityId: 350
+  - StableGuid: af0ecad163e44b3da0bda5225fad0ca6
+    EntityId: 128
     Retired: 0
     LastKnownDisplayName: Placement
   enforceGeneratedSync: 0

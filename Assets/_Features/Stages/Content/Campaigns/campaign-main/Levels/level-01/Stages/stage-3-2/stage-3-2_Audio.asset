@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b61dcf8940d64df9aa1b0b60bc1b8f41, type: 3}
   m_Name: stage-3-2_Audio
   m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.StageAudioDefinition
-  ownerEntry: {fileID: 11400000, guid: dedb1c0cfceeadf585ec253ebd3bd3a0, type: 2}
-  ownerEntryGuid: dedb1c0cfceeadf585ec253ebd3bd3a0
+  ownerEntry: {fileID: 11400000, guid: 943883a3c70b5919ad158109601542e6, type: 2}
+  ownerEntryGuid: 943883a3c70b5919ad158109601542e6
   gameplayBgm:
     mode: 1
     profile: {fileID: 11400000, guid: 6d47e4f53a785f04a93fdaa0863cd09b, type: 2}
