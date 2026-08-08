@@ -490,7 +490,14 @@ namespace Game.Platform.Steam
                 "\"failureKind\":\"" + diagnostics.FailureKind + "\"," +
                 "\"blockedReason\":\"" + diagnostics.BlockedReason + "\"" +
                 "}";
-            (logger ?? UnityEngine.Debug.Log)(result);
+            try
+            {
+                (logger ?? UnityEngine.Debug.Log)(result);
+            }
+            catch
+            {
+                // Smoke diagnostics must never interrupt owned Steam cleanup.
+            }
         }
 
         private static string Json(bool value)

@@ -112,6 +112,41 @@ namespace Game.Platform.Steam.Tests.EditMode
                 Is.EqualTo(SteamAchievementSmokeFailureKind.Exception));
         }
 
+        [Test]
+        public void AchievementSmokeLoggerException_DoesNotBlockOwnedShutdownSequence()
+        {
+            var order = new List<string>();
+            var lifecycle = new FakeSteamNativeApi { CallOrder = order };
+            var achievements = new FakeSteamAchievementApi { CallOrder = order };
+            var runtime = new SteamPlatformRuntime(
+                new SteamRuntimeDependencies(lifecycle, achievements),
+                smokeRequested: true,
+                achievementSmokeRequested: true,
+                monotonicSeconds: () => 0d,
+                smokeLogger: message =>
+                {
+                    if (message.StartsWith(
+                        SteamAchievementSmokeCoordinator.ResultPrefix,
+                        StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException("achievement logger failed");
+                    }
+                });
+            runtime.Initialize();
+
+            Assert.DoesNotThrow(() => runtime.Shutdown());
+
+            Assert.That(order, Is.EqualTo(new[]
+            {
+                "achievement-dispose",
+                "overlay-dispose",
+                "native-shutdown",
+            }));
+            Assert.That(achievements.DisposalCount, Is.EqualTo(1));
+            Assert.That(lifecycle.OverlayCallbackDisposeCount, Is.EqualTo(1));
+            Assert.That(lifecycle.ShutdownCount, Is.EqualTo(1));
+        }
+
         private static SteamPlatformRuntime CreateRuntime(
             ISteamNativeApi lifecycle,
             ISteamAchievementApi achievements,
