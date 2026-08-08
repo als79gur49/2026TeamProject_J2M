@@ -486,8 +486,8 @@ WSL CLI
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
   - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
 - `./run_tests.sh climate-glyph-update`
-  - committed Climate/Nanum source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus의 실제 missing glyph만 canonical TMP asset에 추가한다.
-  - Climate runtime font와 retained Nanum validation font를 source TTF에서 갱신하며 missing/fallback 0을 강제한다.
+  - committed Climate 2000/2019 및 Nanum source identity를 preflight한 뒤 현재 관리 ko-KR String Table corpus의 실제 missing glyph만 canonical TMP asset에 추가한다.
+  - Climate 2000/2019 runtime font와 retained Nanum validation font를 source TTF에서 원자적으로 갱신하며 missing/fallback 0을 강제한다.
   - 테스트 lane이 아니며 filter를 받지 않는다.
 - `./run_tests.sh typography-visual`
   - committed P2 revision에서 Settings/Pause/Main Menu의 en-US/ko-KR 1920x1080 evidence를 timestamp 기반 새 디렉터리에 생성한다.
@@ -550,8 +550,8 @@ WSL CLI
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
   - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.
 - `./run_tests.sh climate-glyph-update`
-  - Preflights committed Climate/Nanum source identity, then adds only actually missing glyphs from the managed ko-KR String Table corpus to the canonical TMP assets.
-  - Updates the Climate runtime font and retained Nanum validation font from their source TTFs, enforcing zero missing glyphs and zero fallback dependency.
+  - Preflights committed Climate 2000/2019 and Nanum source identity, then adds only actually missing glyphs from the managed ko-KR String Table corpus to the canonical TMP assets.
+  - Atomically updates the Climate 2000/2019 runtime fonts and retained Nanum validation font from their source TTFs, enforcing zero missing glyphs and zero fallback dependency.
   - This is an asset-generation lane, not a test lane, and it does not accept filters.
 - `./run_tests.sh typography-visual`
   - Generates timestamped 1920x1080 Settings/Pause/Main Menu evidence for en-US and ko-KR from a committed P2 revision.
