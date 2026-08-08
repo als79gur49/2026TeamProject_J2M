@@ -15,6 +15,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 {
     public sealed class PlayerContinuousLocomotionScenarioTests
     {
+        private const float ProductionActionAssistSettleWindowCells = 0.421875f;
+        private const float ProductionCollisionRadiusCells = 0.28125f;
+        private const int ProductionActionAssistSettleWindowUnits = 1728;
+        private const int ProductionBlockedClampUnits = 896;
+
         [Test]
         [Category("Extended")]
         public void Player_Free2D_StartRight_FromCenter()
@@ -2485,6 +2490,136 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(513));
         }
 
+        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push, PlayerQueuedFree2DActionKind.Push)]
+        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip, PlayerQueuedFree2DActionKind.Flip)]
+        [Category("Extended")]
+        public void ProductionFree2DActionAssist_WindowBoundary_IsInclusiveOnlyAtConfiguredLimit(
+            PlayerActionKind actionKind,
+            BoxCapabilities capability,
+            PlayerQueuedFree2DActionKind queuedActionKind)
+        {
+            var inclusiveWorldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), capability));
+            SetPlayerContinuousLocalOffset(
+                inclusiveWorldState,
+                localX: ProductionActionAssistSettleWindowUnits,
+                localY: 0);
+            var inclusivePipeline = CreateProductionActionAssistPipeline(inclusiveWorldState);
+
+            var inclusiveResult = inclusivePipeline.RunTick(
+                new TickInput(1, CreatePlayerActionCommand(actionKind, Direction.Right)));
+            var inclusiveSnapshot = inclusiveWorldState.CreateSnapshot();
+
+            Assert.That(inclusiveSnapshot.TryGetPlayerControlState(10, out var inclusiveControlState), Is.True);
+            Assert.That(inclusiveControlState.queuedFree2DAction.kind, Is.EqualTo(queuedActionKind));
+            Assert.That(inclusiveSnapshot.TryGetUnitContinuousLocomotionState(10, out var inclusiveState), Is.True);
+            Assert.That(inclusiveState.mode, Is.EqualTo(ContinuousLocomotionMode.AlignToAnchor));
+            Assert.That(inclusiveState.localOffset.X.RawValue, Is.LessThan(ProductionActionAssistSettleWindowUnits));
+            Assert.That(inclusiveResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            var exclusiveWorldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), capability));
+            SetPlayerContinuousLocalOffset(
+                exclusiveWorldState,
+                localX: ProductionActionAssistSettleWindowUnits + 1,
+                localY: 0);
+            var exclusivePipeline = CreateProductionActionAssistPipeline(exclusiveWorldState);
+
+            var exclusiveResult = exclusivePipeline.RunTick(
+                new TickInput(1, CreatePlayerActionCommand(actionKind, Direction.Right)));
+            var exclusiveSnapshot = exclusiveWorldState.CreateSnapshot();
+
+            Assert.That(exclusiveSnapshot.TryGetPlayerControlState(10, out var exclusiveControlState), Is.True);
+            Assert.That(exclusiveControlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(exclusiveControlState.activeAction.IsActive, Is.False);
+            Assert.That(exclusiveSnapshot.TryGetUnitContinuousLocomotionState(10, out var exclusiveState), Is.True);
+            Assert.That(exclusiveState.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
+            Assert.That(exclusiveState.localOffset.X.RawValue, Is.EqualTo(ProductionActionAssistSettleWindowUnits + 1));
+            Assert.That(exclusiveResult.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(exclusiveResult.PresentationData.PlayerActionAttemptSignals[0].ActionKind, Is.EqualTo(actionKind));
+            Assert.That(
+                exclusiveResult.PresentationData.PlayerActionAttemptSignals[0].FeedbackKind,
+                Is.EqualTo(PlayerActionAttemptFeedbackKind.AssistOutOfRange));
+            Assert.That(exclusiveResult.PresentationData.PlayerActionAttemptSignals[0].TargetEntityId, Is.EqualTo(20));
+        }
+
+        [TestCase(PlayerActionKind.Push, BoxCapabilities.Push)]
+        [TestCase(PlayerActionKind.Flip, BoxCapabilities.Flip)]
+        [Category("Extended")]
+        public void ProductionFree2DActionAssist_CollisionClamp_QueuesAlignsAndExecutes(
+            PlayerActionKind actionKind,
+            BoxCapabilities capability)
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), capability));
+            var pipeline = CreateProductionActionAssistPipeline(worldState);
+
+            MoveRightToRadiusClamp(pipeline);
+            var clampedSnapshot = worldState.CreateSnapshot();
+            Assert.That(clampedSnapshot.TryGetUnitContinuousLocomotionState(10, out var clampedState), Is.True);
+            Assert.That(clampedState.localOffset.X.RawValue, Is.EqualTo(ProductionBlockedClampUnits));
+
+            var queuedResult = pipeline.RunTick(
+                new TickInput(11, CreatePlayerActionCommand(actionKind, Direction.Right)));
+            var queuedSnapshot = worldState.CreateSnapshot();
+            Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var queuedControlState), Is.True);
+            Assert.That(queuedControlState.queuedFree2DAction.IsQueued, Is.True);
+            Assert.That(queuedSnapshot.TryGetUnitContinuousLocomotionState(10, out var aligningState), Is.True);
+            Assert.That(aligningState.mode, Is.EqualTo(ContinuousLocomotionMode.AlignToAnchor));
+            Assert.That(aligningState.localOffset.X.RawValue, Is.LessThan(ProductionBlockedClampUnits));
+            Assert.That(queuedResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+
+            var settledTick = RunUntilSettledWithoutAction(pipeline, worldState, firstTick: 12);
+            var executeResult = pipeline.RunTick(new TickInput(settledTick + 1, PlayerTickCommand.None));
+            var executeSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(executeSnapshot.TryGetPlayerControlState(10, out var executeControlState), Is.True);
+            Assert.That(executeControlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(executeControlState.activeAction.kind, Is.EqualTo(actionKind));
+            Assert.That(executeControlState.activeAction.targetEntityId, Is.EqualTo(20));
+            Assert.That(executeResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionFree2DActionAssist_LockedTargetWithinConfiguredWindow_ReportsInvalidWithoutVisualFeedback()
+        {
+            var worldState = CreateWorldState(
+                CreatePlayer(10),
+                CreateBox(
+                    20,
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    BoxCapabilities.Push | BoxCapabilities.Destroy));
+            SetPlayerContinuousLocalOffset(worldState, localX: 1280, localY: 0);
+            worldState.CreateWriteContext().SetBoxInteractionLockState(
+                20,
+                new BoxInteractionLockState(
+                    100,
+                    0,
+                    expiresTickExclusive: 8,
+                    blocksPush: true,
+                    blocksFlip: false));
+            var pipeline = CreateProductionActionAssistPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Has.Some.Contains("Reason=BoxInteractionLocked"));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            var attemptSignal = result.PresentationData.PlayerActionAttemptSignals[0];
+            Assert.That(attemptSignal.ActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(attemptSignal.FeedbackKind, Is.EqualTo(PlayerActionAttemptFeedbackKind.Invalid));
+            Assert.That(attemptSignal.HasTarget, Is.True);
+            Assert.That(attemptSignal.TargetEntityId, Is.EqualTo(20));
+            Assert.That(attemptSignal.EmitsVisualFeedback, Is.False);
+        }
+
         [Test]
         [Category("Extended")]
         public void Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign()
@@ -3207,6 +3342,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CollisionRadiusCells = collisionRadiusCells,
                 }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+        }
+
+        private static TickPipeline CreateProductionActionAssistPipeline(
+            WorldState worldState,
+            params IEntityLogic[] extraLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            return GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                CreatePlayerLogics(extraLogics),
+                timingProfile,
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    timingProfile.RepeatedMoveIntervalSeconds),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled,
+                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
+                {
+                    CollisionRadiusCells = ProductionCollisionRadiusCells,
+                    ActionAssistSettleWindowCells = ProductionActionAssistSettleWindowCells,
+                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+        }
+
+        private static PlayerTickCommand CreatePlayerActionCommand(
+            PlayerActionKind actionKind,
+            Direction direction)
+        {
+            return actionKind == PlayerActionKind.Push
+                ? PlayerTickCommand.Push(direction)
+                : PlayerTickCommand.Flip(direction);
         }
 
         private static void SetPlayerContinuousLocalOffset(

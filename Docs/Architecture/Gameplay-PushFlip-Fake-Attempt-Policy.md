@@ -43,6 +43,9 @@ Free2D ActionAssist가 가능한 경우:
 - 기존 `queuedFree2DAction -> AlignToAnchor -> actual action` 흐름을 사용한다
 - fake attempt signal을 생성하지 않는다
 - ActionAssist 성공 player를 fake consumed set에 넣지 않는다
+- stage-backed production 설정은 중심에서 축별 `0.421875` cell(`1728` fixed units)까지 포함한다. 전체 타일 폭 기준으로는 `84.375%` 보조 구간이다
+- stage-backed production 충돌 반경은 `0.28125` cell(`1152` fixed units)이며, 인접 solid 앞의 중심 clamp는 `0.21875` cell(`896` fixed units)이다
+- framework 기본값인 Action Assist `0.125` cell과 collision radius `0`은 historical/default composition contract를 위해 유지한다
 
 둘 다 불가능한 경우:
 
@@ -258,19 +261,18 @@ Chosen shape:
 - 내부 helper 또는 전용 classifier로 `PlayerActionAttemptResolution` 생성 정책을 분리한다
 - movement consume set wiring은 plan phase orchestration에 남기되, feedback kind 판단은 별도 pure policy로 옮긴다
 
-### Duplicate / stale helper risk
+### Attempt classifier policy is single-sourced
 
-현재 `TryCreatePlayerActionAttemptResolution` 계열 overload가 늘어나면서 중복 정책이 생길 수 있다.
+`TryCreatePlayerActionAttemptResolution`은 actual call site가 사용하는 단일 classifier다.
 
-위험:
+- queue 판정과 실패 feedback 판정은 모두 authoritative runtime snapshot의 `ActionAssistSettleWindowUnits`를 사용한다
+- stage-backed production tuning과 framework default가 달라도 같은 tick에서 queue와 feedback의 범위 해석이 갈라지지 않는다
+- locked target 판정은 현재 `tickIndex`를 사용하므로 만료된 lock을 고정 tick으로 오판하지 않는다
 
-- one path만 수정하고 다른 path가 stale해질 수 있다
-- settle window 계산이나 target classification이 갈라질 수 있다
+유지 조건:
 
-권장 후속 정리:
-
-- actual call sites를 기준으로 unused overload를 제거한다
-- shared helper로 feedback kind classification을 단일화한다
+- 새 overload에 window 또는 lock 정책을 복제하지 않는다
+- production tuning 변경 시 stage installer, authoritative conversion, Push/Flip boundary, locked-target feedback 테스트를 함께 갱신한다
 
 ### Presentation hold is host-local state
 

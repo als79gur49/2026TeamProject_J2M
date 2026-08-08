@@ -2371,7 +2371,7 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static bool TryCreatePlayerActionAttemptResolution(
+        private bool TryCreatePlayerActionAttemptResolution(
             WorldSnapshot snapshot,
             in EntityState entity,
             in PlayerControlState playerControlState,
@@ -2408,10 +2408,7 @@ namespace Game.Feature.Gameplay.Loop
                 var withinAssistAttemptWindow = !free2DPose.HasValue ||
                                                 free2DPose.Value.State.localOffset.IsZero ||
                                                 IsWithinFree2DActionAssistSettleWindow(
-                                                    free2DPose.Value.State.localOffset,
-                                                    PlayerContinuousLocomotionSettings.CreateDefault()
-                                                        .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
-                                                        .ActionAssistSettleWindowUnits);
+                                                    free2DPose.Value.State.localOffset);
                 if (withinAssistAttemptWindow &&
                     PlayerControlQueries.TryResolveBoxInteractionLockedTarget(
                         snapshot,
@@ -2466,114 +2463,6 @@ namespace Game.Feature.Gameplay.Loop
                     feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
                     emitsVisualFeedback = false;
                 }
-            }
-
-            resolution = new PlayerActionAttemptResolution(
-                entity.entityId,
-                actionKind,
-                direction,
-                feedbackKind,
-                consumesMovement: true,
-                emitsFakePresentation: true,
-                targetEntityId,
-                hasTarget,
-                emitsVisualFeedback);
-            return true;
-        }
-
-        private static bool IsWithinFree2DActionAssistSettleWindow(
-            SimulationOffset2 localOffset,
-            int actionAssistSettleWindowUnits)
-        {
-            var windowUnits = Math.Max(0, actionAssistSettleWindowUnits);
-            return Math.Abs(localOffset.X.RawValue) <= windowUnits &&
-                Math.Abs(localOffset.Y.RawValue) <= windowUnits;
-        }
-
-        private bool TryCreatePlayerActionAttemptResolution(
-            WorldSnapshot snapshot,
-            in EntityState entity,
-            in PlayerControlState playerControlState,
-            PlayerTickCommand playerCommand,
-            UnitContinuousLocomotionPose free2DPose,
-            out PlayerActionAttemptResolution resolution)
-        {
-            resolution = default;
-            if (!TryResolveAttemptActionKind(playerCommand, out var actionKind) ||
-                playerControlState.activeAction.IsActive ||
-                PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
-            {
-                return false;
-            }
-
-            var direction = ResolvePlayerActionAttemptFeedbackDirection(playerCommand, entity);
-            var queuedActionKind = PlayerControlQueries.ToQueuedFree2DActionKind(actionKind);
-            var feedbackKind = PlayerActionAttemptFeedbackKind.NoTarget;
-            var targetEntityId = 0;
-            var hasTarget = false;
-            var emitsVisualFeedback = true;
-
-            if (queuedActionKind == PlayerQueuedFree2DActionKind.None ||
-                direction == Direction.None)
-            {
-                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
-            }
-            else if ((!free2DPose.State.localOffset.IsZero
-                         ? IsWithinFree2DActionAssistSettleWindow(free2DPose.State.localOffset)
-                         : true) &&
-                     PlayerControlQueries.TryResolveBoxInteractionLockedTarget(
-                         snapshot,
-                         entity,
-                         free2DPose.AnchorCell,
-                         queuedActionKind,
-                         direction,
-                         tickIndex: 0,
-                         out var lockedTarget))
-            {
-                targetEntityId = lockedTarget.TargetEntityId;
-                hasTarget = true;
-                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
-                emitsVisualFeedback = false;
-            }
-            else if (PlayerControlQueries.TryResolveFree2DActionAssistCandidate(
-                         snapshot,
-                         entity,
-                         free2DPose.AnchorCell,
-                         queuedActionKind,
-                         direction,
-                         out var target))
-            {
-                targetEntityId = target.TargetEntityId;
-                hasTarget = true;
-                feedbackKind = !free2DPose.State.localOffset.IsZero &&
-                               !IsWithinFree2DActionAssistSettleWindow(free2DPose.State.localOffset)
-                    ? PlayerActionAttemptFeedbackKind.AssistOutOfRange
-                    : PlayerActionAttemptFeedbackKind.Invalid;
-            }
-            else if (actionKind == PlayerActionKind.Push &&
-                     PlayerControlQueries.TryResolveAdjacentPushTarget(
-                         snapshot,
-                         entity,
-                         direction,
-                         out var adjacentTarget))
-            {
-                targetEntityId = adjacentTarget.TargetEntityId;
-                hasTarget = true;
-                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
-            }
-            else if (actionKind == PlayerActionKind.Flip &&
-                     PlayerControlQueries.TryResolveBlockedFlipLandingTarget(
-                         snapshot,
-                         entity,
-                         free2DPose.AnchorCell,
-                         direction,
-                         tickIndex: 0,
-                         out var blockedFlipTarget))
-            {
-                targetEntityId = blockedFlipTarget.TargetEntityId;
-                hasTarget = true;
-                feedbackKind = PlayerActionAttemptFeedbackKind.Invalid;
-                emitsVisualFeedback = false;
             }
 
             resolution = new PlayerActionAttemptResolution(
