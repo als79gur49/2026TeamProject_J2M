@@ -1017,13 +1017,17 @@ namespace Game.Feature.UI.Application
 
             values.Add("stage.stage-0-1.display_name", "Lab-01");
             values.Add("stage.stage-0-2.display_name", "Lab-02");
+            values.Add("stage.stage-0-3.display_name", "Lab-03");
             values.Add("stage.stage-1-1.display_name", "Lobby-01");
+            values.Add("stage.stage-1-2.display_name", "Lobby-02");
             values.Add("stage.stage-2-1.display_name", "Ward[A]-01");
             values.Add("stage.stage-2-2.display_name", "Ward[A]-02");
             values.Add("stage.stage-3-1.display_name", "Ward[B]-01");
             values.Add("stage.stage-3-2.display_name", "Ward[B]-02");
+            values.Add("stage.stage-3-3.display_name", "Ward[B]-03");
             values.Add("stage.stage-4-1.display_name", "Morgue-01");
             values.Add("stage.stage-4-2.display_name", "Morgue-02");
+            values.Add("stage.stage-4-3.display_name", "Morgue-03");
 
             return values;
         }

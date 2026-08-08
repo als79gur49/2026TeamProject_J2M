@@ -23,8 +23,16 @@ MonoBehaviour:
     m_Key: stage.stage-0-2.display_name
     m_Metadata:
       m_Items: []
+  - m_Id: 2881628682
+    m_Key: stage.stage-0-3.display_name
+    m_Metadata:
+      m_Items: []
   - m_Id: 2881628674
     m_Key: stage.stage-1-1.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628683
+    m_Key: stage.stage-1-2.display_name
     m_Metadata:
       m_Items: []
   - m_Id: 2881628675
@@ -43,12 +51,20 @@ MonoBehaviour:
     m_Key: stage.stage-3-2.display_name
     m_Metadata:
       m_Items: []
+  - m_Id: 2881628684
+    m_Key: stage.stage-3-3.display_name
+    m_Metadata:
+      m_Items: []
   - m_Id: 2881628679
     m_Key: stage.stage-4-1.display_name
     m_Metadata:
       m_Items: []
   - m_Id: 2881628680
     m_Key: stage.stage-4-2.display_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628685
+    m_Key: stage.stage-4-3.display_name
     m_Metadata:
       m_Items: []
   - m_Id: 2881628681

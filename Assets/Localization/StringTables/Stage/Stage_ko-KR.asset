@@ -26,8 +26,16 @@ MonoBehaviour:
     m_Localized: 연구실-02
     m_Metadata:
       m_Items: []
+  - m_Id: 2881628682
+    m_Localized: 연구실-03
+    m_Metadata:
+      m_Items: []
   - m_Id: 2881628674
     m_Localized: 로비-01
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628683
+    m_Localized: 로비-02
     m_Metadata:
       m_Items: []
   - m_Id: 2881628675
@@ -46,12 +54,20 @@ MonoBehaviour:
     m_Localized: 병동[B]-02
     m_Metadata:
       m_Items: []
+  - m_Id: 2881628684
+    m_Localized: 병동[B]-03
+    m_Metadata:
+      m_Items: []
   - m_Id: 2881628679
     m_Localized: 영안실-01
     m_Metadata:
       m_Items: []
   - m_Id: 2881628680
     m_Localized: 영안실-02
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2881628685
+    m_Localized: 영안실-03
     m_Metadata:
       m_Items: []
   - m_Id: 2881628681
