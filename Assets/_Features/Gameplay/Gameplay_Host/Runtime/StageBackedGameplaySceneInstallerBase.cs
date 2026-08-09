@@ -478,8 +478,26 @@ namespace Game.Feature.Gameplay.Host
         {
             if (directPlayContext.Mode != EditorDirectPlayMode.None)
             {
-                return new CampaignRunningSlotContext(
-                    ValidateCommittedActiveSlotMatchesLaunchStage(resolvedStageId));
+                var slotNumber = ValidateCommittedActiveSlotMatchesLaunchStage(resolvedStageId);
+                if (launchContext != null &&
+                    launchContext.EditorDirectPlayContext.Mode != EditorDirectPlayMode.None)
+                {
+                    if (!StaticStageLaunchContextCommitStore.Instance.TryConsume(
+                            launchContext,
+                            out var consumedContext))
+                    {
+                        throw new System.InvalidOperationException(
+                            "DirectPlay campaign bootstrap could not consume its exact stage launch context.");
+                    }
+
+                    if (!ReferenceEquals(consumedContext, launchContext))
+                    {
+                        throw new System.InvalidOperationException(
+                            "DirectPlay campaign bootstrap consumed a different stage launch context.");
+                    }
+                }
+
+                return new CampaignRunningSlotContext(slotNumber);
             }
 
             if (launchContext == null)

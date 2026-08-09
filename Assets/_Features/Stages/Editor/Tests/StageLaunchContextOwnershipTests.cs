@@ -137,6 +137,36 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void TempDirectPlay_AdvanceCarriesOwnershipAndExitClearsUpdatedContextAndTempSave()
+        {
+            var original = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.CampaignTempSlot,
+                "stage-0-1");
+            Assert.That(
+                StageLaunchContextStore.TryConsume(original.ExpectedRuntimeContext, out _),
+                Is.True);
+            UnityEngine.PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, "temp-slot");
+            UnityEngine.PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
+            var nextStageId = StageId.CreateOrThrow("stage-0-2");
+
+            EditorDirectPlayContextStore.SetCurrent(
+                CreateDirectPlayContext(EditorDirectPlayMode.CampaignTempSlot, nextStageId));
+
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out var carried), Is.True);
+            Assert.That(carried.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignTempSlot));
+            Assert.That(carried.StageId, Is.EqualTo(nextStageId));
+            Assert.That(carried.ExpectedRuntimeContext.Token, Is.EqualTo(original.ExpectedRuntimeContext.Token));
+
+            StageEditorDirectPlayLauncher.HandlePlayModeStateChangedForTests(
+                UnityEditor.PlayModeStateChange.ExitingPlayMode);
+
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
+            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
+            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+        }
+
+        [Test]
         public void NonCampaignDirectPlay_Exit_AllowsRelaunch()
         {
             AssertModeAllowsRelaunch(EditorDirectPlayMode.NonCampaign);

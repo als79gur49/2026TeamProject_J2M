@@ -33,7 +33,8 @@ namespace Game.Feature.Stages.Editor
             EditorDirectPlayContextStore.ConfigureEditorStore(
                 () => SessionState.GetString(DirectPlayContextSessionKey, string.Empty),
                 json => SessionState.SetString(DirectPlayContextSessionKey, json),
-                () => SessionState.EraseString(DirectPlayContextSessionKey));
+                () => SessionState.EraseString(DirectPlayContextSessionKey),
+                EditorDirectPlayLaunchOwnershipStore.TryCarryCurrentToStage);
         }
 
         private static void PrimePendingEditorDirectPlay(StageLaunchContext context)
@@ -206,14 +207,28 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var context = ownership.ExpectedRuntimeContext;
-            SessionState.SetInt(ModeSessionKey, (int)ownership.Mode);
-            SessionState.SetString(StageIdSessionKey, context.StageId.Value);
-            SessionState.SetString(TokenSessionKey, context.Token.ToString("N"));
-            SessionState.SetInt(SlotSessionKey, context.SlotNumber);
-            SessionState.SetInt(NavigationSessionKey, (int)context.NavigationKind);
-            SessionState.SetString(SourceSessionKey, context.Source);
+            Write(ownership);
             return true;
+        }
+
+        public static void TryCarryCurrentToStage(EditorDirectPlayContext context)
+        {
+            if (!context.StageId.IsValid ||
+                !TryPeek(out var current) ||
+                current.Mode != context.Mode)
+            {
+                return;
+            }
+
+            var expected = current.ExpectedRuntimeContext;
+            Write(new EditorDirectPlayLaunchOwnershipRecord(
+                current.Mode,
+                new StageLaunchContext(
+                    expected.Token,
+                    expected.SlotNumber,
+                    context.StageId,
+                    expected.NavigationKind,
+                    expected.Source)));
         }
 
         public static bool TryPeek(out EditorDirectPlayLaunchOwnershipRecord ownership)
@@ -274,6 +289,17 @@ namespace Game.Feature.Stages.Editor
             SessionState.EraseInt(SlotSessionKey);
             SessionState.EraseInt(NavigationSessionKey);
             SessionState.EraseString(SourceSessionKey);
+        }
+
+        private static void Write(EditorDirectPlayLaunchOwnershipRecord ownership)
+        {
+            var context = ownership.ExpectedRuntimeContext;
+            SessionState.SetInt(ModeSessionKey, (int)ownership.Mode);
+            SessionState.SetString(StageIdSessionKey, context.StageId.Value);
+            SessionState.SetString(TokenSessionKey, context.Token.ToString("N"));
+            SessionState.SetInt(SlotSessionKey, context.SlotNumber);
+            SessionState.SetInt(NavigationSessionKey, (int)context.NavigationKind);
+            SessionState.SetString(SourceSessionKey, context.Source);
         }
     }
 }

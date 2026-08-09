@@ -125,6 +125,7 @@ namespace Game.Feature.Stages
         private static Func<string> readCurrentJson;
         private static Action<string> writeCurrentJson;
         private static Action clearCurrentJson;
+        private static Action<EditorDirectPlayContext> contextUpdated;
         private static EditorDirectPlayContext fallbackContext = EditorDirectPlayContext.None;
         private static bool hasFallbackContext;
 
@@ -161,6 +162,7 @@ namespace Game.Feature.Stages
             if (writeCurrentJson != null)
             {
                 writeCurrentJson(JsonUtility.ToJson(ToDto(context)));
+                contextUpdated?.Invoke(context);
                 return;
             }
 
@@ -219,11 +221,13 @@ namespace Game.Feature.Stages
         public static void ConfigureEditorStore(
             Func<string> readJson,
             Action<string> writeJson,
-            Action clearJson)
+            Action clearJson,
+            Action<EditorDirectPlayContext> onContextUpdated = null)
         {
             readCurrentJson = readJson;
             writeCurrentJson = writeJson;
             clearCurrentJson = clearJson;
+            contextUpdated = onContextUpdated;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

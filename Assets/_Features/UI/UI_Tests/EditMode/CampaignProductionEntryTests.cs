@@ -667,6 +667,52 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        [Category("Full")]
+        public void StageBackedInstaller_ConsumesCarriedProductionDirectPlayContextAndAllowsFollowingHop()
+        {
+            var installerObject = new GameObject("carried-production-direct-play-installer");
+            var saveHarness = new TemporaryProductionSaveHarness();
+            var stageId = StageId.CreateOrThrow(CombinedStageId);
+            var directPlayContext = new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                stageId,
+                string.Empty,
+                string.Empty,
+                remainingChances: 2,
+                suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.NextStage,
+                "campaign-auto-next",
+                transitionIntent: SceneTransitionIntent.StageAdvance,
+                editorDirectPlayContext: directPlayContext);
+            var carriedLaunchContext = StageLaunchContext.CreatePendinglessReload(request);
+            try
+            {
+                saveHarness.PrepareDefaultSlot(stageId, remainingChances: 2);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(carriedLaunchContext), Is.True);
+                installerObject.AddComponent<CampaignProductionEntryTerminalSessionAuthorityProvider>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                DisableAutoCreateViews(installer);
+                AssignStageCatalogProvider(installer);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveHarness.SaveStore, saveHarness.ActiveSlotProvider);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+                var followingContext = StageLaunchContext.CreatePendinglessReload(request);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(followingContext), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(installerObject);
+                saveHarness.Dispose();
+            }
+        }
+
+        [Test]
         public void ProductionSaveComposition_WiresPersistentDataRepositories_WithoutWritingSaveRoot()
         {
             var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
@@ -2134,6 +2180,19 @@ namespace Game.Feature.UI.Tests
                 UnityEngine.Object.DestroyImmediate(Provider);
                 UnityEngine.Object.DestroyImmediate(_catalog);
             }
+        }
+    }
+
+    internal sealed class CampaignProductionEntryTerminalSessionAuthorityProvider : MonoBehaviour,
+        ITerminalSessionAuthorityProvider
+    {
+        public bool TryGetTerminalSessionAuthority(
+            out ITerminalSessionReadModel readModel,
+            out ITerminalSessionAuthority authority)
+        {
+            authority = TerminalSessionRegistry.Authority;
+            readModel = authority;
+            return true;
         }
     }
 }
