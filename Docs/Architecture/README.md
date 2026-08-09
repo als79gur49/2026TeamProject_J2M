@@ -24,6 +24,8 @@
 
 - [Platform-Runtime-Foundation.md](./Platform-Runtime-Foundation.md)
   - current store-neutral provider request, resolution, Local default, and application lifecycle contract
+- [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
+  - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
   - focused source-only selection matrix, production-boundary probes, and mutation evidence rules
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)

@@ -1,0 +1,5 @@
+{
+  "name": "Game.Product.Achievements.Domain",
+  "rootNamespace": "Game.Product.Achievements",
+  "references": []
+}
