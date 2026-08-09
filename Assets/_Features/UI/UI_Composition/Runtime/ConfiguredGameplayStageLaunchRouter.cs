@@ -72,7 +72,15 @@ namespace Game.Feature.UI.Composition
             }
 
             ConsumeInitialDirectPlayBootstrapContext(continuingDirectPlayContext);
-            EditorDirectPlayContextStore.Clear();
+            if (continuingDirectPlayContext.Mode == EditorDirectPlayMode.None)
+            {
+                EditorDirectPlayContextStore.Clear();
+            }
+            else
+            {
+                EditorDirectPlayContextStore.SetCurrent(continuingDirectPlayContext);
+            }
+
             if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
             {
                 EditorDirectPlayContextStore.ClearTempDirectPlaySave();

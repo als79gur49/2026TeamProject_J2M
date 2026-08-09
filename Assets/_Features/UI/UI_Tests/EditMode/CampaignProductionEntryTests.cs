@@ -648,7 +648,9 @@ namespace Game.Feature.UI.Tests
                     editorDirectPlayContext: directPlayContext.ForStage(nextStageId));
                 var sceneLoader = new FakeSceneLoadPort(_ =>
                 {
-                    Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                    Assert.That(
+                        EditorDirectPlayContextStore.GetCurrentOrNone(),
+                        Is.EqualTo(directPlayContext.ForStage(nextStageId)));
                     Assert.That(StageLaunchContextStore.TryPeek(out var launchContext), Is.True);
                     Assert.That(launchContext.EditorDirectPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
                     Assert.That(launchContext.EditorDirectPlayContext.StageId, Is.EqualTo(nextStageId));
@@ -712,7 +714,9 @@ namespace Game.Feature.UI.Tests
                 Assert.DoesNotThrow(() => router.Launch(request));
 
                 Assert.That(attemptCount, Is.EqualTo(2));
-                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                Assert.That(
+                    EditorDirectPlayContextStore.GetCurrentOrNone(),
+                    Is.EqualTo(directPlayContext));
                 Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
                 Assert.That(current.EditorDirectPlayContext, Is.EqualTo(directPlayContext));
             }
@@ -855,6 +859,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(StageLaunchContextStore.TryPeek(out var continuationContext), Is.True);
                 Assert.That(continuationContext.Matches(continuationRequest), Is.True);
                 Assert.That(continuationContext.EditorDirectPlayContext, Is.EqualTo(directPlayContext));
+                Assert.That(
+                    EditorDirectPlayContextStore.GetCurrentOrNone(),
+                    Is.EqualTo(directPlayContext));
             }
             finally
             {
