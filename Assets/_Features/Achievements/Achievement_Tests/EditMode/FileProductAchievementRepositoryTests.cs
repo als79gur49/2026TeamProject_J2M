@@ -289,6 +289,26 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
+        public void ExcessiveJsonNesting_IsContainedAsCorruptInsteadOfRecursingWithoutBound()
+        {
+            Directory.CreateDirectory(_tempDirectory);
+            const int excessiveDepth = 80;
+            var json =
+                "{\"SchemaVersion\":1,\"metadata\":" +
+                new string('[', excessiveDepth) +
+                "null" +
+                new string(']', excessiveDepth) +
+                ",\"EarnedAchievementIds\":[],\"PendingAchievementPublicationIds\":[]}";
+            File.WriteAllText(AchievementPath, json);
+
+            var result = CreateFileRepository().Load();
+
+            Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.CorruptQuarantined));
+            Assert.That(result.IsUsable, Is.False);
+            Assert.That(result.Document, Is.Null);
+        }
+
+        [Test]
         public void LoadAndSave_ContainUnauthorizedAndIoFailures()
         {
             var unauthorized = new FileProductAchievementRepository(

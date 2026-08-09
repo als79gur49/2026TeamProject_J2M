@@ -4,6 +4,8 @@ namespace Game.Product.Achievements.Infrastructure
 {
     internal static class JsonSyntaxValidator
     {
+        private const int MaxContainerDepth = 64;
+
         public static bool IsValid(string json)
         {
             if (string.IsNullOrWhiteSpace(json))
@@ -12,7 +14,7 @@ namespace Game.Product.Achievements.Infrastructure
             }
 
             var index = 0;
-            if (!TrySkipValue(json, ref index))
+            if (!TrySkipValue(json, ref index, depth: 0))
             {
                 return false;
             }
@@ -21,7 +23,7 @@ namespace Game.Product.Achievements.Infrastructure
             return index == json.Length;
         }
 
-        private static bool TrySkipValue(string json, ref int index)
+        private static bool TrySkipValue(string json, ref int index, int depth)
         {
             SkipWhitespace(json, ref index);
             if (index >= json.Length)
@@ -34,17 +36,17 @@ namespace Game.Product.Achievements.Infrastructure
                 case '"':
                     return TryReadString(json, ref index);
                 case '{':
-                    return TrySkipObject(json, ref index);
+                    return TrySkipObject(json, ref index, depth);
                 case '[':
-                    return TrySkipArray(json, ref index);
+                    return TrySkipArray(json, ref index, depth);
                 default:
                     return TrySkipPrimitive(json, ref index);
             }
         }
 
-        private static bool TrySkipObject(string json, ref int index)
+        private static bool TrySkipObject(string json, ref int index, int depth)
         {
-            if (!TryConsume(json, ref index, '{'))
+            if (depth >= MaxContainerDepth || !TryConsume(json, ref index, '{'))
             {
                 return false;
             }
@@ -63,7 +65,8 @@ namespace Game.Product.Achievements.Infrastructure
                 }
 
                 SkipWhitespace(json, ref index);
-                if (!TryConsume(json, ref index, ':') || !TrySkipValue(json, ref index))
+                if (!TryConsume(json, ref index, ':') ||
+                    !TrySkipValue(json, ref index, depth + 1))
                 {
                     return false;
                 }
@@ -85,9 +88,9 @@ namespace Game.Product.Achievements.Infrastructure
             return false;
         }
 
-        private static bool TrySkipArray(string json, ref int index)
+        private static bool TrySkipArray(string json, ref int index, int depth)
         {
-            if (!TryConsume(json, ref index, '['))
+            if (depth >= MaxContainerDepth || !TryConsume(json, ref index, '['))
             {
                 return false;
             }
@@ -100,7 +103,7 @@ namespace Game.Product.Achievements.Infrastructure
 
             while (index < json.Length)
             {
-                if (!TrySkipValue(json, ref index))
+                if (!TrySkipValue(json, ref index, depth + 1))
                 {
                     return false;
                 }
