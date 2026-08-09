@@ -958,6 +958,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FinalClear_PresentNullReceiptIsNotSilentlyReplaced()
+        {
+            var slot = CreateCampaignSlot(1, "stage-4-3");
+            slot.HasNormalCampaignCompletionReceipt = true;
+            slot.NormalCampaignCompletionReceipt = null;
+            var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
+            var hostObject = new GameObject("present-null-final-receipt-host");
+            try
+            {
+                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+
+                InvokeStageClear(
+                    controller,
+                    CreateMinimalStageCompletionReadModel("stage-4-3", tickIndex: 107));
+
+                Assert.That(store.LoadSlot(1).HasNormalCampaignCompletionReceipt, Is.True);
+                Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void FinalClear_WritesOnlyRunningSlotReceipt()
         {
             var first = CreateCampaignSlot(1, "stage-4-3");

@@ -186,6 +186,9 @@ namespace Game.Feature.Stages
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
                 ReplaceNormalCampaignCompletionReceipt = true,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt ||
+                    slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
@@ -229,6 +232,8 @@ namespace Game.Feature.Stages
                     ? slot.RemainingChances
                     : SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceipt(
                     slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,

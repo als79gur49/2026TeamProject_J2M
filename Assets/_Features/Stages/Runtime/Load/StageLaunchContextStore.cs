@@ -71,6 +71,12 @@ namespace Game.Feature.Stages
 
         public bool HasCampaignSlot => SaveSlotStore.IsValidSlotNumber(SlotNumber);
 
+        public bool IsEditorDirectPlayBootstrap =>
+            SlotNumber == 0 &&
+            NavigationKind == StageNavigationKind.Continue &&
+            string.Equals(Source, "editor-direct-play", StringComparison.Ordinal) &&
+            EditorDirectPlayContext.Mode == EditorDirectPlayMode.None;
+
         public static StageLaunchContext FromHandoff(CampaignLaunchHandoff handoff)
         {
             if (handoff == null)

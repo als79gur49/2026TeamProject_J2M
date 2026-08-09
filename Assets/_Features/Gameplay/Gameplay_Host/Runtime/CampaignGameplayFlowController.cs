@@ -427,8 +427,10 @@ namespace Game.Feature.Gameplay.Host
                         mutableSlot.CurrentLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
                         mutableSlot.CampaignCompleted = true;
                         if (receiptCreation.IsEligible &&
+                            !mutableSlot.HasNormalCampaignCompletionReceipt &&
                             mutableSlot.NormalCampaignCompletionReceipt == null)
                         {
+                            mutableSlot.HasNormalCampaignCompletionReceipt = true;
                             mutableSlot.NormalCampaignCompletionReceipt =
                                 receiptCreation.Receipt.Clone();
                         }

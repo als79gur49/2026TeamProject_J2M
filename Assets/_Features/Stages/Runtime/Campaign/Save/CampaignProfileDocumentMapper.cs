@@ -50,7 +50,9 @@ namespace Game.Feature.Stages
                 LevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
-                HasNormalCampaignCompletionReceipt = slot.NormalCampaignCompletionReceipt != null,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt ||
+                    slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,

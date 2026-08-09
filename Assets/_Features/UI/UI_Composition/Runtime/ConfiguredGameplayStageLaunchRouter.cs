@@ -71,6 +71,7 @@ namespace Game.Feature.UI.Composition
                 launchContext = StageLaunchContext.CreatePendinglessReload(request);
             }
 
+            ConsumeInitialDirectPlayBootstrapContext(continuingDirectPlayContext);
             EditorDirectPlayContextStore.Clear();
             if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
             {
@@ -201,6 +202,24 @@ namespace Game.Feature.UI.Composition
                 TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
 
                 throw;
+            }
+        }
+
+        private static void ConsumeInitialDirectPlayBootstrapContext(
+            EditorDirectPlayContext continuingDirectPlayContext)
+        {
+            if (continuingDirectPlayContext.Mode == EditorDirectPlayMode.None ||
+                !StageLaunchContextStore.TryPeek(out var current) ||
+                !current.IsEditorDirectPlayBootstrap)
+            {
+                return;
+            }
+
+            if (!StageLaunchContextStore.TryConsume(current, out var consumed) ||
+                !ReferenceEquals(consumed, current))
+            {
+                throw new InvalidOperationException(
+                    "Configured gameplay launch could not consume its initial DirectPlay bootstrap context.");
             }
         }
 

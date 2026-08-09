@@ -114,6 +114,8 @@ namespace Game.Feature.Stages
 
         public bool ReplaceNormalCampaignCompletionReceipt { get; set; }
 
+        public bool HasNormalCampaignCompletionReceipt { get; set; }
+
         public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt { get; set; }
     }
 
@@ -800,6 +802,7 @@ namespace Game.Feature.Stages
             if (update.ReplaceNormalCampaignCompletionReceipt)
             {
                 slot.HasNormalCampaignCompletionReceipt =
+                    update.HasNormalCampaignCompletionReceipt ||
                     update.NormalCampaignCompletionReceipt != null;
                 slot.NormalCampaignCompletionReceipt = CloneReceipt(
                     update.NormalCampaignCompletionReceipt);
