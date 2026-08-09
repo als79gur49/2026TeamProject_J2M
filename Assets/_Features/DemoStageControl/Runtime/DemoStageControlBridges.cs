@@ -122,7 +122,8 @@ namespace Game.Feature.DemoStageControl
                 StageNavigationKind.Retry,
                 "demo-stage-control-start-stage",
                 StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
-                SceneTransitionIntent.DemoStageRelaunch);
+                SceneTransitionIntent.DemoStageRelaunch,
+                EditorDirectPlayContextStore.GetCurrentOrNone().ForStage(stageId));
             try
             {
                 _stageLaunchRouter.Launch(request);
