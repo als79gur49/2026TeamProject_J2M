@@ -23,10 +23,7 @@ namespace Game.Product.Achievements.Infrastructure
                 _textStore.CleanupTempFiles(AchievementFileName);
                 if (!_textStore.Exists(AchievementFileName))
                 {
-                    return new AchievementDocumentLoadResult(
-                        AchievementDocumentLoadStatus.Missing,
-                        ProductAchievementDocument.CreateEmpty(),
-                        "achievements.json is missing; an empty product-global document is active.");
+                    return LoadWithoutPrimary();
                 }
 
                 var primaryResult = TryRead(
@@ -53,7 +50,7 @@ namespace Game.Product.Achievements.Infrastructure
                             "achievements.json uses a newer unsupported schema version.");
                 }
 
-                if (TryLoadBackup(out var backupDocument))
+                if (TryReadBackup(out var backupDocument) == DocumentReadResult.Valid)
                 {
                     if (!_textStore.TryRestoreBackup(AchievementFileName))
                     {
@@ -95,6 +92,51 @@ namespace Game.Product.Achievements.Infrastructure
                     AchievementDocumentLoadStatus.IoFailed,
                     null,
                     exception.Message);
+            }
+        }
+
+        private AchievementDocumentLoadResult LoadWithoutPrimary()
+        {
+            var backupReadResult = TryReadBackup(out var backupDocument);
+            switch (backupReadResult)
+            {
+                case DocumentReadResult.Missing:
+                    return new AchievementDocumentLoadResult(
+                        AchievementDocumentLoadStatus.Missing,
+                        ProductAchievementDocument.CreateEmpty(),
+                        "achievements.json is missing; an empty product-global document is active.");
+
+                case DocumentReadResult.Valid:
+                    if (!_textStore.TryRestoreBackup(AchievementFileName))
+                    {
+                        return new AchievementDocumentLoadResult(
+                            AchievementDocumentLoadStatus.IoFailed,
+                            null,
+                            "achievements.json.bak was valid but could not be restored.");
+                    }
+
+                    return new AchievementDocumentLoadResult(
+                        AchievementDocumentLoadStatus.BackupRecovered,
+                        backupDocument,
+                        "achievements.json.bak recovered the missing achievements.json.");
+
+                case DocumentReadResult.SchemaInvalid:
+                    return new AchievementDocumentLoadResult(
+                        AchievementDocumentLoadStatus.SchemaInvalid,
+                        null,
+                        "achievements.json is missing and achievements.json.bak schema is invalid.");
+
+                case DocumentReadResult.UnsupportedVersion:
+                    return new AchievementDocumentLoadResult(
+                        AchievementDocumentLoadStatus.UnsupportedVersion,
+                        null,
+                        "achievements.json is missing and achievements.json.bak uses an unsupported schema version.");
+
+                default:
+                    return new AchievementDocumentLoadResult(
+                        AchievementDocumentLoadStatus.CorruptNoFallback,
+                        null,
+                        "achievements.json is missing and achievements.json.bak is corrupt.");
             }
         }
 
@@ -143,17 +185,16 @@ namespace Game.Product.Achievements.Infrastructure
             }
         }
 
-        private bool TryLoadBackup(out ProductAchievementDocument document)
+        private DocumentReadResult TryReadBackup(out ProductAchievementDocument document)
         {
             document = null;
             const string backupFileName = AchievementFileName + ".bak";
             if (!_textStore.Exists(backupFileName))
             {
-                return false;
+                return DocumentReadResult.Missing;
             }
 
-            return TryRead(_textStore.ReadAllText(backupFileName), out document) ==
-                   DocumentReadResult.Valid;
+            return TryRead(_textStore.ReadAllText(backupFileName), out document);
         }
 
         private static DocumentReadResult TryRead(
@@ -166,7 +207,17 @@ namespace Game.Product.Achievements.Infrastructure
                 return DocumentReadResult.Corrupt;
             }
 
-            if (rawJson.IndexOf("\"SchemaVersion\"", StringComparison.Ordinal) < 0)
+            SchemaVersionProbe schemaVersionProbe;
+            try
+            {
+                schemaVersionProbe = JsonUtility.FromJson<SchemaVersionProbe>(rawJson);
+            }
+            catch (ArgumentException)
+            {
+                return DocumentReadResult.Corrupt;
+            }
+
+            if (schemaVersionProbe == null || schemaVersionProbe.SchemaVersion <= 0)
             {
                 return DocumentReadResult.SchemaInvalid;
             }
@@ -202,6 +253,13 @@ namespace Game.Product.Achievements.Infrastructure
             Corrupt,
             SchemaInvalid,
             UnsupportedVersion,
+            Missing,
+        }
+
+        [Serializable]
+        private sealed class SchemaVersionProbe
+        {
+            public int SchemaVersion = int.MinValue;
         }
     }
 }

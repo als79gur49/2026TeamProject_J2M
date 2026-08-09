@@ -46,7 +46,7 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void MissingPrimary_IgnoresOrphanedBackupAndReturnsEmptyPolicy()
+        public void MissingPrimaryWithValidBackup_RestoresBackupBeforeUsingEmptyPolicy()
         {
             Directory.CreateDirectory(_tempDirectory);
             File.WriteAllText(
@@ -56,8 +56,22 @@ namespace Game.Product.Achievements.Tests
 
             var result = repository.Load();
 
-            Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.Missing));
-            Assert.That(result.Document.EarnedAchievementIds, Is.Empty);
+            Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.BackupRecovered));
+            Assert.That(result.Document.EarnedAchievementIds, Is.EqualTo(new[] { "campaign.complete" }));
+            Assert.That(File.Exists(AchievementPath), Is.True);
+        }
+
+        [Test]
+        public void MissingPrimaryWithCorruptBackup_FailsClosed()
+        {
+            Directory.CreateDirectory(_tempDirectory);
+            File.WriteAllText(AchievementPath + ".bak", "{broken");
+
+            var result = CreateFileRepository().Load();
+
+            Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.CorruptNoFallback));
+            Assert.That(result.IsUsable, Is.False);
+            Assert.That(result.Document, Is.Null);
             Assert.That(File.Exists(AchievementPath), Is.False);
         }
 
@@ -240,6 +254,21 @@ namespace Game.Product.Achievements.Tests
             Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.SchemaInvalid));
             Assert.That(result.IsUsable, Is.False);
             Assert.That(File.Exists(AchievementPath), Is.True);
+        }
+
+        [Test]
+        public void NestedSchemaVersion_DoesNotSatisfyRequiredTopLevelField()
+        {
+            Directory.CreateDirectory(_tempDirectory);
+            File.WriteAllText(
+                AchievementPath,
+                "{\"metadata\":{\"SchemaVersion\":1},\"EarnedAchievementIds\":[],\"PendingAchievementPublicationIds\":[]}");
+
+            var result = CreateFileRepository().Load();
+
+            Assert.That(result.Status, Is.EqualTo(AchievementDocumentLoadStatus.SchemaInvalid));
+            Assert.That(result.IsUsable, Is.False);
+            Assert.That(result.Document, Is.Null);
         }
 
         [Test]
