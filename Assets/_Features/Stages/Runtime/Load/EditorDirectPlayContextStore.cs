@@ -11,7 +11,7 @@ namespace Game.Feature.Stages
         CampaignProductionSlot = 3,
     }
 
-    public readonly struct EditorDirectPlayContext
+    public readonly struct EditorDirectPlayContext : IEquatable<EditorDirectPlayContext>
     {
         public EditorDirectPlayContext(
             EditorDirectPlayMode mode,
@@ -48,6 +48,48 @@ namespace Game.Feature.Stages
         public bool IsCampaignMode =>
             Mode == EditorDirectPlayMode.CampaignTempSlot ||
             Mode == EditorDirectPlayMode.CampaignProductionSlot;
+
+        public EditorDirectPlayContext ForStage(StageId stageId)
+        {
+            return Mode == EditorDirectPlayMode.None
+                ? None
+                : new EditorDirectPlayContext(
+                    Mode,
+                    stageId,
+                    SaveSlotStoreKey,
+                    ActiveSlotProviderKey,
+                    RemainingChances,
+                    SuppressCampaignFlow);
+        }
+
+        public bool Equals(EditorDirectPlayContext other)
+        {
+            return Mode == other.Mode &&
+                   StageId.Equals(other.StageId) &&
+                   string.Equals(SaveSlotStoreKey, other.SaveSlotStoreKey, StringComparison.Ordinal) &&
+                   string.Equals(ActiveSlotProviderKey, other.ActiveSlotProviderKey, StringComparison.Ordinal) &&
+                   RemainingChances == other.RemainingChances &&
+                   SuppressCampaignFlow == other.SuppressCampaignFlow;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EditorDirectPlayContext other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)Mode;
+                hash = (hash * 397) ^ StageId.GetHashCode();
+                hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(SaveSlotStoreKey ?? string.Empty);
+                hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(ActiveSlotProviderKey ?? string.Empty);
+                hash = (hash * 397) ^ RemainingChances;
+                hash = (hash * 397) ^ SuppressCampaignFlow.GetHashCode();
+                return hash;
+            }
+        }
 
         public static EditorDirectPlayContext None =>
             new(EditorDirectPlayMode.None, StageId.None, string.Empty, string.Empty, 0, suppressCampaignFlow: false);

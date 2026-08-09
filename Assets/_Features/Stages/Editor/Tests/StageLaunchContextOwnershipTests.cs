@@ -502,6 +502,34 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PendinglessLaunchContext_CarriesCampaignProductionDirectPlayProvenanceAcrossRequestDecoration()
+        {
+            var completedStageId = StageId.CreateOrThrow("stage-0-1");
+            var nextStageId = StageId.CreateOrThrow("stage-0-2");
+            var directPlayContext = new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                completedStageId,
+                string.Empty,
+                string.Empty,
+                remainingChances: 2,
+                suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                    nextStageId,
+                    StageNavigationKind.NextStage,
+                    "campaign-auto-next")
+                .WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
+                .WithTransitionIntent(SceneTransitionIntent.StageAdvance)
+                .WithEditorDirectPlayContext(directPlayContext);
+
+            var launchContext = StageLaunchContext.CreatePendinglessReload(request);
+
+            Assert.That(request.EditorDirectPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
+            Assert.That(request.EditorDirectPlayContext.StageId, Is.EqualTo(nextStageId));
+            Assert.That(launchContext.EditorDirectPlayContext, Is.EqualTo(request.EditorDirectPlayContext));
+            Assert.That(launchContext.Matches(request), Is.True);
+        }
+
+        [Test]
         public void StageLaunchContext_DoesNotAllowSilentOverwrite()
         {
             var first = CreateContext(Guid.NewGuid(), 1, "stage-0-1", StageNavigationKind.Continue, "first");

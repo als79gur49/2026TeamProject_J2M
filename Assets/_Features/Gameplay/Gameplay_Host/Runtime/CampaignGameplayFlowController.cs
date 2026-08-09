@@ -292,7 +292,8 @@ namespace Game.Feature.Gameplay.Host
                     route.NextStageId,
                     deathCount,
                     "campaign-death-retry")),
-                SceneTransitionIntent.DeathRetry);
+                SceneTransitionIntent.DeathRetry,
+                _editorDirectPlayContext.ForStage(route.NextStageId));
             try
             {
                 if (!_terminalTransitionPort.TryBegin(
@@ -381,7 +382,8 @@ namespace Game.Feature.Gameplay.Host
                     StageNavigationKind.Retry,
                     "level-failed-restart-level",
                     StageTransitionHint.ForKind(StageTransitionKind.LevelFailedRestart),
-                    SceneTransitionIntent.ManualRetry),
+                    SceneTransitionIntent.ManualRetry,
+                    _editorDirectPlayContext.ForStage(route.NextStageId)),
                 token));
         }
 

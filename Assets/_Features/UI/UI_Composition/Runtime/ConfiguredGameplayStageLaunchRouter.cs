@@ -45,8 +45,12 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("Configured gameplay launch requires a gameplay shell scene in route config.");
             }
 
+            var continuingDirectPlayContext = request.EditorDirectPlayContext;
             EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
+            {
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            }
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             CampaignLaunchHandoff launchHandoff = null;
             StageLaunchContext launchContext;
@@ -83,7 +87,7 @@ namespace Game.Feature.UI.Composition
                     Source = request.Source,
                     RequestedStageId = request.StageId.Value,
                     LaunchStageId = request.StageId.Value,
-                    EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                    EditorDirectPlayMode = continuingDirectPlayContext.Mode,
                 });
                 var contextRegisteredByThisAttempt = false;
                 try
@@ -152,7 +156,7 @@ namespace Game.Feature.UI.Composition
                 Source = request.Source,
                 RequestedStageId = request.StageId.Value,
                 LaunchStageId = request.StageId.Value,
-                EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                EditorDirectPlayMode = continuingDirectPlayContext.Mode,
             });
             var fallbackContextRegisteredByThisAttempt = false;
             try

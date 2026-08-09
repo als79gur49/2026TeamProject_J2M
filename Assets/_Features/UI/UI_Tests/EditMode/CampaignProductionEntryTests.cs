@@ -624,6 +624,49 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfiguredGameplayStageLaunchRouter_Launch_CarriesCampaignProductionDirectPlayProvenanceToNextStage()
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var completedStageId = StageId.CreateOrThrow("stage-0-1");
+            var nextStageId = StageId.CreateOrThrow("stage-0-2");
+            var directPlayContext = new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                completedStageId,
+                string.Empty,
+                string.Empty,
+                remainingChances: 2,
+                suppressCampaignFlow: false);
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                var request = new StageNavigationRequest(
+                    nextStageId,
+                    StageNavigationKind.NextStage,
+                    "campaign-auto-next",
+                    transitionIntent: SceneTransitionIntent.StageAdvance,
+                    editorDirectPlayContext: directPlayContext.ForStage(nextStageId));
+                var sceneLoader = new FakeSceneLoadPort(_ =>
+                {
+                    Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                    Assert.That(StageLaunchContextStore.TryPeek(out var launchContext), Is.True);
+                    Assert.That(launchContext.EditorDirectPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
+                    Assert.That(launchContext.EditorDirectPlayContext.StageId, Is.EqualTo(nextStageId));
+                });
+
+                new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(request);
+
+                Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
+                Assert.That(current.Matches(request), Is.True);
+                Assert.That(current.EditorDirectPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [Test]
         public void ProductionSaveComposition_WiresPersistentDataRepositories_WithoutWritingSaveRoot()
         {
             var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();

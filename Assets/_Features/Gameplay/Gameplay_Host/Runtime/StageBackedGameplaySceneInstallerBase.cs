@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.Host
         private CampaignGameplayFlowController _campaignFlowController;
         private bool _campaignRuntimeActive;
         private CampaignRunningSlotContext _runningSlotContext;
+        private EditorDirectPlayContext _runtimeDirectPlayContext = EditorDirectPlayContext.None;
         private StagePresentationDefinition _resolvedPresentationDefinition;
         private ICampaignSaveSlotStore _saveSlotStore;
         private StageAudioResolvedData _resolvedAudioData = StageAudioAssembler.EmptyResolvedData;
@@ -50,7 +51,7 @@ namespace Game.Feature.Gameplay.Host
 
         public bool TryCreateDemoStageControlContext(out DemoStageControlGameplayContext context)
         {
-            EnsureCampaignStores();
+            EnsureCampaignStores(_runtimeDirectPlayContext);
             if (stageCatalogProvider == null || _saveSlotStore == null || _activeSlotProvider == null)
             {
                 context = default;
@@ -147,8 +148,18 @@ namespace Game.Feature.Gameplay.Host
                     ResolveTerminalSessionReadModel(gameObject);
                 configuration.SceneEntryPresentationReadModel =
                     SceneEntryPresentationRegistry.ReadModel;
-                EnsureCampaignStores();
-                var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
+                StageLaunchContextStore.TryPeek(out capturedContext);
+                var directPlayContext = capturedContext != null &&
+                                        capturedContext.EditorDirectPlayContext.Mode != EditorDirectPlayMode.None
+                    ? capturedContext.EditorDirectPlayContext
+                    : EditorDirectPlayContextStore.GetCurrentOrNone();
+                _runtimeDirectPlayContext = directPlayContext;
+                if (directPlayContext.Mode != EditorDirectPlayMode.None)
+                {
+                    EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                }
+
+                EnsureCampaignStores(directPlayContext);
                 var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
                 var hasAnyPendingLaunch = launchHandoffStore.TryPeek(out capturedHandoff);
                 if (directPlayContext.Mode != EditorDirectPlayMode.None && hasAnyPendingLaunch)
@@ -161,7 +172,6 @@ namespace Game.Feature.Gameplay.Host
                 var hasPendingLaunch =
                     canUseProductionHandoff &&
                     hasAnyPendingLaunch;
-                StageLaunchContextStore.TryPeek(out capturedContext);
                 var hasActiveSlot = _activeSlotProvider != null && _activeSlotProvider.HasActiveSlot;
                 var isSuppressed = directPlayContext.SuppressCampaignFlow;
                 _campaignRuntimeActive =
@@ -336,7 +346,7 @@ namespace Game.Feature.Gameplay.Host
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
                 _campaignChanceDisplayOverride,
                 terminalTransitionPort,
-                EditorDirectPlayContextStore.GetCurrentOrNone());
+                _runtimeDirectPlayContext);
             _campaignFlowController.Bind();
         }
 
@@ -445,9 +455,8 @@ namespace Game.Feature.Gameplay.Host
             return stageBackgroundRoot;
         }
 
-        private void EnsureCampaignStores()
+        private void EnsureCampaignStores(EditorDirectPlayContext directPlayContext)
         {
-            var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
             if (directPlayContext.HasCustomSaveNamespace)
             {
                 _saveSlotStore ??= new SaveSlotStore(
