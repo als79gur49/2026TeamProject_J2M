@@ -15,6 +15,10 @@ namespace Game.Product.Achievements.Tests
             AchievementRoot + "/Achievement_Domain/Runtime";
         private const string InfrastructureRoot =
             AchievementRoot + "/Achievement_Infrastructure/Runtime";
+        private const string CompositionRoot =
+            AchievementRoot + "/Achievement_Composition/Runtime";
+        private const string CampaignReceiptRoot =
+            "Assets/_Features/Stages/Runtime/Campaign/Save";
 
         [Test]
         public void DomainAssembly_HasNoStageSteamUiOrGameplayReference()
@@ -114,12 +118,64 @@ namespace Game.Product.Achievements.Tests
                 "PlatformRuntimeRegistry");
         }
 
+        [Test]
+        public void CampaignReceiptProductionSources_OwnNoProductAchievementOrSteamIdentity()
+        {
+            AssertSourcesDoNotContain(
+                new[]
+                {
+                    CampaignReceiptRoot,
+                    "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
+                },
+                "campaign.complete",
+                "GameAchievementId",
+                "GameAchievementIds",
+                "ProductAchievementCoordinator",
+                "ISteamAchievementApi",
+                "Steamworks",
+                "AppID 480",
+                "ACH_WIN_ONE_GAME",
+                "Spacewar");
+        }
+
+        [Test]
+        public void CampaignGameplayFlow_HasNoProductEarningCallOrDependency()
+        {
+            var source = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
+
+            Assert.That(source, Does.Not.Contain("ProductAchievement"));
+            Assert.That(source, Does.Not.Contain("IProductAchievementEarningSink"));
+            Assert.That(source, Does.Not.Contain(".Earn("));
+        }
+
+        [Test]
+        public void ProductionComposition_UsesCanonicalProviderAndIntroducesNoServiceLocator()
+        {
+            var source = File.ReadAllText(
+                CompositionRoot + "/ProductAchievementApplicationComposition.cs");
+
+            Assert.That(source, Does.Contain("new ApplicationPersistentDataSavePathProvider()"));
+            Assert.That(source, Does.Contain("RuntimeInitializeLoadType.BeforeSceneLoad"));
+            Assert.That(source, Does.Contain("Application.quitting"));
+            Assert.That(source, Does.Not.Contain("Application.persistentDataPath"));
+            Assert.That(source, Does.Not.Contain("DontDestroyOnLoad"));
+            Assert.That(source, Does.Not.Contain("ProductAchievementApplicationHost.Instance"));
+            Assert.That(source, Does.Not.Contain("GetAchievementHost"));
+            Assert.That(source, Does.Not.Contain("ResolveAchievementCoordinator"));
+            Assert.That(source, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(source, Does.Not.Contain("Resources.Load"));
+            Assert.That(source, Does.Not.Contain("PlatformRuntimeRegistry"));
+        }
+
         private static void AssertSourcesDoNotContain(string[] roots, params string[] forbiddenTokens)
         {
             foreach (var root in roots)
             {
-                var sourcePaths = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
-                    .Concat(Directory.GetFiles(root, "*.asmdef", SearchOption.AllDirectories));
+                var sourcePaths = File.Exists(root)
+                    ? new[] { root }
+                    : Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
+                        .Concat(Directory.GetFiles(root, "*.asmdef", SearchOption.AllDirectories));
                 foreach (var sourcePath in sourcePaths)
                 {
                     var source = File.ReadAllText(sourcePath);

@@ -10,10 +10,12 @@ namespace Game.Feature.Stages
         public string LevelGroupId;
         public int RemainingChances;
         public bool CampaignCompleted;
+        public bool HasNormalCampaignCompletionReceipt;
         public bool IntroPlayed;
         public bool OutroPlayed;
         public int TotalDeaths;
         public string LastPlayedAtUtc;
+        public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt;
         public CampaignStageClearProfileDocument StageClearProfileSnapshot = new();
     }
 

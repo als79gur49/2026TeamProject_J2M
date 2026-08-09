@@ -4,7 +4,14 @@ using Game.Product.Achievements.Infrastructure;
 
 namespace Game.Product.Achievements.Composition
 {
-    public sealed class ProductAchievementApplicationHost : IDisposable
+    internal interface IProductAchievementHostLifetime : IDisposable
+    {
+        IProductAchievementEarningSink EarningSink { get; }
+
+        bool Initialize();
+    }
+
+    public sealed class ProductAchievementApplicationHost : IProductAchievementHostLifetime
     {
         public ProductAchievementApplicationHost(ProductAchievementCoordinator coordinator)
         {
@@ -12,6 +19,8 @@ namespace Game.Product.Achievements.Composition
         }
 
         public ProductAchievementCoordinator Coordinator { get; }
+
+        public IProductAchievementEarningSink EarningSink => Coordinator;
 
         public static ProductAchievementApplicationHost CreateForSaveRoot(
             string savesDirectoryPath,

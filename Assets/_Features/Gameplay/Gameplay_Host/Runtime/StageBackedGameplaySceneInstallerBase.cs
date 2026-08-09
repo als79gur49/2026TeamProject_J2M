@@ -335,7 +335,8 @@ namespace Game.Feature.Gameplay.Host
                 sequenceResolver,
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
                 _campaignChanceDisplayOverride,
-                terminalTransitionPort);
+                terminalTransitionPort,
+                EditorDirectPlayContextStore.GetCurrentOrNone());
             _campaignFlowController.Bind();
         }
 

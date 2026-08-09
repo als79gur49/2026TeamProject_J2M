@@ -196,6 +196,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - current supporting truth for retained `Game.Feature.Stages.StageClearSaveSlots` rollback/import policy, retained read/read-disable gate, 2 profile-backed public releases retention window, cleanup/delete evidence gate, operator/dev rollback semantics, and marker removal defer status
 - [Campaign-LocalState-Launch-State.md](./Campaign-LocalState-Launch-State.md)
   - current supporting truth for committed LocalState active ownership and active commit point, application-session pending handoff, scene-local running context, matching-token failure policy, restart reset, and DirectPlay exception
+- [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
+  - current supporting truth for product-global achievement identity/ledger ownership, durable normal Campaign completion receipt provenance, canonical Saves-root composition, and deferred Gameplay/Steam integration boundaries
 
 ## Historical Supporting Notes
 

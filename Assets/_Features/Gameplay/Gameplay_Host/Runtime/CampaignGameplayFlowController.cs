@@ -124,6 +124,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly StageRetryChanceTracker _retryChanceTracker;
         private readonly ITerminalTransitionPort _terminalTransitionPort;
+        private readonly EditorDirectPlayContext _editorDirectPlayContext;
         private readonly TerminalArbitrationOwner _terminalArbiter = new();
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
@@ -136,7 +137,8 @@ namespace Game.Feature.Gameplay.Host
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
             CampaignChanceDisplayOverride chanceDisplayOverride,
-            ITerminalTransitionPort terminalTransitionPort)
+            ITerminalTransitionPort terminalTransitionPort,
+            EditorDirectPlayContext? editorDirectPlayContext = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
@@ -146,6 +148,8 @@ namespace Game.Feature.Gameplay.Host
             _chanceDisplayOverride = chanceDisplayOverride;
             _terminalTransitionPort = terminalTransitionPort ??
                 throw new ArgumentNullException(nameof(terminalTransitionPort));
+            _editorDirectPlayContext = editorDirectPlayContext ??
+                EditorDirectPlayContextStore.GetCurrentOrNone();
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -408,6 +412,11 @@ namespace Game.Feature.Gameplay.Host
                         $"Accepted terminal token {claim.Token} could not bind the GameClear destination.");
                 }
 
+                var receiptCreation = NormalCampaignCompletionReceiptPolicy.Evaluate(
+                    _editorDirectPlayContext,
+                    readModel?.Result,
+                    completedStageId,
+                    _sequenceResolver);
                 _saveSlotStore.UpdateSlot(
                     runningSlotNumber,
                     mutableSlot =>
@@ -415,6 +424,13 @@ namespace Game.Feature.Gameplay.Host
                         mutableSlot.CurrentStageId = completedStageId;
                         mutableSlot.CurrentLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
                         mutableSlot.CampaignCompleted = true;
+                        if (receiptCreation.IsEligible &&
+                            mutableSlot.NormalCampaignCompletionReceipt == null)
+                        {
+                            mutableSlot.NormalCampaignCompletionReceipt =
+                                receiptCreation.Receipt.Clone();
+                        }
+
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                     });
             }

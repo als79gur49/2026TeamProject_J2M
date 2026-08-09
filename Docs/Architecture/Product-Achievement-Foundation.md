@@ -28,11 +28,26 @@ The document has no save-slot identity. Delete Slot, New Game, campaign-slot cle
 
 DirectWindows composition uses `UnavailableAchievementPublicationSink`. Earning remains active and pending remains durable while an external publisher is unavailable.
 
+## Durable normal Campaign completion receipt
+
+`CampaignSlotDocument.NormalCampaignCompletionReceipt` is a versioned slot fact, not an achievement flag. Version 1 stores only `CompletedStageId`, the authoritative `StageRunId`, and `ClearSource`. It contains no product achievement ID, Steam API Name, AppID, publisher, or publication state, and it is never consumed after product earning.
+
+The receipt is created only after an accepted Victory terminal claim for a cleared objective result in the normal Campaign context. The completed Stage must be a canonical member of the Campaign sequence and its final Stage, the run ID must be valid, `StageClearSource` must be `Objective`, and `EditorDirectPlayContext.Mode` must be `None`. Non-final/custom stages, Force Clear, NonCampaign DirectPlay, CampaignTempSlot DirectPlay, and CampaignProductionSlot DirectPlay create no receipt. Same-tick death remains higher priority than clear and therefore creates no completion receipt.
+
+`CampaignCompleted = true` and the first eligible receipt are assigned inside the same Campaign slot mutation and durable save invocation. A save failure leaves neither change durable. A valid existing receipt is preserved without overwrite, and an invalid existing receipt is retained but is not eligible and is not silently repaired. New Game starts with no receipt, Delete Slot removes that slot fact, and neither operation changes the product-global achievement document. Older schema-v1 profiles that omit the optional field load with a null receipt; the profile schema version remains 1 and unsupported forward versions remain fail-closed.
+
+## Production application composition
+
+The canonical `ApplicationPersistentDataSavePathProvider.SaveRootPath` owns both `profile.json` and `achievements.json` under the product-global `Saves` directory. Product achievement composition does not read slot roots or Editor DirectPlay temporary namespaces.
+
+`ProductAchievementRuntimeBootstrap` creates one plain-C# `ProductAchievementApplicationLifetimeOwner` before the first scene, initializes one `ProductAchievementApplicationHost`, and disposes it at application quit. Scene transitions and Stage retries do not recreate it. The default publisher remains `UnavailableAchievementPublicationSink`; missing-file initialization keeps an in-memory empty document without eagerly creating `achievements.json`. `IProductAchievementEarningSink` is the explicit narrow future injection seam and accepts only `GameAchievementId`.
+
 ## Deferred boundaries
 
-- Gameplay and campaign-completion earning integration are not implemented in M7B-2G-A.
-- `NORMAL_CAMPAIGN_COMPLETE` is only the first candidate; a durable receipt that distinguishes normal completion from DirectPlay or force-clear provenance must be decided before the Gameplay hook.
+- Gameplay and startup receipt-based earning integration remain deferred to M7B-2G-B. B0 creates the durable receipt and production host but makes no production `Earn` call and performs no startup receipt scan.
 - Steam mapping, Steam publisher behavior, Actual AppID validation, and player builds are deferred.
 - Achievement UI, localized presentation, toast behavior, Cloud allowlisting, and multi-device conflict policy are deferred.
 
-`M7B2GB_DURABLE_NORMAL_COMPLETION_RECEIPT_DECISION_PENDING`
+Steam publisher and product-to-Steam mapping are deferred to M7B-2G-C.
+
+`M7B2GB0_DURABLE_NORMAL_COMPLETION_RECEIPT_READY`
