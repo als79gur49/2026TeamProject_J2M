@@ -185,6 +185,7 @@ namespace Game.Feature.Stages
                 LevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                ReplaceNormalCampaignCompletionReceipt = true,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,

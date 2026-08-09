@@ -73,6 +73,34 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void SaveSlot_NullReceiptClearsExistingReceiptAsFullReplacement()
+        {
+            var repository = new RecordingRepository();
+            var adapter = CreateAdapter(repository);
+            var completed = CreateSlot(1, "stage-4-3", "level-4", 3);
+            completed.CampaignCompleted = true;
+            completed.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
+            {
+                Version = 1,
+                CompletedStageId = "stage-4-3",
+                StageRunId = "receipt-to-clear",
+                ClearSource = (int)StageClearSource.Objective,
+            };
+            adapter.SaveSlot(completed);
+
+            var replacement = CreateSlot(1, "stage-0-1", "level-0", 3);
+            adapter.SaveSlot(replacement);
+
+            Assert.That(adapter.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+            Assert.That(
+                repository.SavedDocument.Slots[0].HasNormalCampaignCompletionReceipt,
+                Is.False);
+            Assert.That(
+                repository.SavedDocument.Slots[0].NormalCampaignCompletionReceipt,
+                Is.Null);
+        }
+
+        [Test]
         public void InitializeNewGame_Parity()
         {
             var legacy = CreateLegacyStore();

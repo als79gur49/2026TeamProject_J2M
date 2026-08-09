@@ -112,6 +112,8 @@ namespace Game.Feature.Stages
 
         public CampaignStageClearProfileDocument StageClearProfileSnapshot { get; set; }
 
+        public bool ReplaceNormalCampaignCompletionReceipt { get; set; }
+
         public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt { get; set; }
     }
 
@@ -795,9 +797,10 @@ namespace Game.Feature.Stages
                 slot.CampaignCompleted = update.CampaignCompleted.Value;
             }
 
-            if (update.NormalCampaignCompletionReceipt != null)
+            if (update.ReplaceNormalCampaignCompletionReceipt)
             {
-                slot.HasNormalCampaignCompletionReceipt = true;
+                slot.HasNormalCampaignCompletionReceipt =
+                    update.NormalCampaignCompletionReceipt != null;
                 slot.NormalCampaignCompletionReceipt = CloneReceipt(
                     update.NormalCampaignCompletionReceipt);
             }
