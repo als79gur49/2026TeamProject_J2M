@@ -1192,7 +1192,7 @@ namespace Game.Feature.Stages
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
                 HasNormalCampaignCompletionReceipt =
-                    slot.NormalCampaignCompletionReceipt != null,
+                    slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CloneReceipt(
                     slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,

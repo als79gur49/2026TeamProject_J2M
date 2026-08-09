@@ -722,6 +722,40 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
+        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
+        public void SceneTransitionCoordinator_AsynchronousFailure_RestoresDirectPlayContextWithoutOverwritingNewer(
+            EditorDirectPlayMode mode)
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            var directPlayContext = mode == EditorDirectPlayMode.CampaignTempSlot
+                ? EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances: 2)
+                : new EditorDirectPlayContext(
+                    EditorDirectPlayMode.CampaignProductionSlot,
+                    stageId,
+                    string.Empty,
+                    string.Empty,
+                    remainingChances: 2,
+                    suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "failed-asynchronous-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry,
+                directPlayContext);
+
+            EditorDirectPlayContextStore.Clear();
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(request);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
+
+            var newerContext = EditorDirectPlayContext.CreateNonCampaign(
+                StageId.CreateOrThrow("stage-0-2"));
+            EditorDirectPlayContextStore.SetCurrent(newerContext);
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(request);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(newerContext));
+        }
+
         [Test]
         [Category("Full")]
         public void StageBackedInstaller_ConsumesCarriedProductionDirectPlayContextAndAllowsFollowingHop()

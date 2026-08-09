@@ -86,6 +86,29 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void UpdateSlot_PreservesInvalidReceiptPresenceBitForFailClosedRecovery()
+        {
+            var sourceSlot = CreateSlot(
+                1,
+                "stage-1-1",
+                "level-1",
+                remainingChances: 3);
+            sourceSlot.HasNormalCampaignCompletionReceipt = true;
+            sourceSlot.NormalCampaignCompletionReceipt = null;
+            var repository = new RecordingRepository(CreateDocument(sourceSlot));
+            var service = CreateService(repository);
+
+            var result = service.UpdateSlot(1, new CampaignSlotUpdate
+            {
+                RemainingChances = 2,
+            });
+
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(repository.SavedDocument.Slots[0].HasNormalCampaignCompletionReceipt, Is.True);
+            Assert.That(repository.SavedDocument.Slots[0].NormalCampaignCompletionReceipt, Is.Null);
+        }
+
+        [Test]
         public void ApplyDeath_IncrementsTotalDeathsAndAppliesChanceUpdate()
         {
             var repository = new RecordingRepository(CreateDocument(
