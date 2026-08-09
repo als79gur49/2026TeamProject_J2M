@@ -185,6 +185,7 @@ namespace Game.Feature.Stages
         private static TryGetPendingStageLaunchContext tryConsumePendingEditorDirectPlay;
         private static Func<StageLaunchContext, bool> tryClearPendingEditorDirectPlay;
         private static Action clearPendingEditorDirectPlay;
+        private static Action<StageLaunchContext> currentContextRegistered;
         private static StageLaunchContext fallbackPendingEditorDirectPlay;
 
         public static StageId CurrentStageId =>
@@ -208,6 +209,7 @@ namespace Game.Feature.Stages
             }
 
             ClearPendingEditorDirectPlayInternal();
+            currentContextRegistered?.Invoke(context);
             return true;
         }
 
@@ -354,13 +356,15 @@ namespace Game.Feature.Stages
             TryGetPendingStageLaunchContext tryPeekPending,
             TryGetPendingStageLaunchContext tryConsumePending,
             Func<StageLaunchContext, bool> tryClearPending,
-            Action clearPending)
+            Action clearPending,
+            Action<StageLaunchContext> onCurrentContextRegistered = null)
         {
             primePendingEditorDirectPlay = primePending;
             tryPeekPendingEditorDirectPlay = tryPeekPending;
             tryConsumePendingEditorDirectPlay = tryConsumePending;
             tryClearPendingEditorDirectPlay = tryClearPending;
             clearPendingEditorDirectPlay = clearPending;
+            currentContextRegistered = onCurrentContextRegistered;
         }
 
         public static StageLaunchContext PrimePendingEditorDirectPlay(StageId stageId)

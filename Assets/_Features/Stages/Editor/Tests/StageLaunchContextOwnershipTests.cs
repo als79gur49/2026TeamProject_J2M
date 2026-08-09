@@ -167,6 +167,49 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void TempDirectPlay_InFlightAdvanceTransfersExactLaunchOwnershipAndExitClearsTempSave()
+        {
+            var original = BeginConsumedDirectPlayOwnership(
+                EditorDirectPlayMode.CampaignTempSlot,
+                "stage-0-1");
+            Assert.That(
+                StageLaunchContextStore.TryConsume(original.ExpectedRuntimeContext, out _),
+                Is.True);
+            UnityEngine.PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, "temp-slot");
+            UnityEngine.PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
+            var nextStageId = StageId.CreateOrThrow("stage-0-2");
+            var continuingContext = EditorDirectPlayContext.CreateCampaignTempSlot(
+                nextStageId,
+                SaveSlotStore.DefaultRemainingChances);
+            EditorDirectPlayContextStore.SetCurrent(continuingContext);
+            var request = new StageNavigationRequest(
+                nextStageId,
+                StageNavigationKind.NextStage,
+                "campaign-stage-flow",
+                default,
+                SceneTransitionIntent.StageAdvance,
+                continuingContext);
+            var launchContext = StageLaunchContext.CreatePendinglessReload(request);
+
+            Assert.That(StageLaunchContextStore.TrySetCurrent(launchContext), Is.True);
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out var transferred), Is.True);
+            Assert.That(transferred.ExpectedRuntimeContext, Is.EqualTo(launchContext));
+
+            var result = StageEditorDirectPlayLauncher.CleanupOwnedDirectPlayForTests(transferred);
+
+            Assert.That(
+                result.RuntimeContextResult,
+                Is.EqualTo(OwnedDirectPlayRuntimeCleanupResult.ExactContextCleared));
+            Assert.That(result.EditorContextCleared, Is.True);
+            Assert.That(result.OwnershipReleased, Is.True);
+            Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+            Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out _), Is.False);
+            Assert.That(EditorDirectPlayLaunchOwnershipStore.TryPeek(out _), Is.False);
+            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
+            Assert.That(UnityEngine.PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+        }
+
+        [Test]
         public void NonCampaignDirectPlay_Exit_AllowsRelaunch()
         {
             AssertModeAllowsRelaunch(EditorDirectPlayMode.NonCampaign);

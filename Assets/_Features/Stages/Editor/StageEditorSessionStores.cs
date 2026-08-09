@@ -28,7 +28,8 @@ namespace Game.Feature.Stages.Editor
                 TryPeekPendingEditorDirectPlay,
                 TryConsumePendingEditorDirectPlay,
                 TryClearPendingEditorDirectPlay,
-                ClearPendingEditorDirectPlay);
+                ClearPendingEditorDirectPlay,
+                EditorDirectPlayLaunchOwnershipStore.TryTransferCurrentToLaunchContext);
 
             EditorDirectPlayContextStore.ConfigureEditorStore(
                 () => SessionState.GetString(DirectPlayContextSessionKey, string.Empty),
@@ -145,11 +146,8 @@ namespace Game.Feature.Stages.Editor
             Enum.IsDefined(typeof(EditorDirectPlayMode), Mode) &&
             ExpectedRuntimeContext != null &&
             ExpectedRuntimeContext.SlotNumber == 0 &&
-            ExpectedRuntimeContext.NavigationKind == StageNavigationKind.Continue &&
-            string.Equals(
-                ExpectedRuntimeContext.Source,
-                "editor-direct-play",
-                StringComparison.Ordinal);
+            (ExpectedRuntimeContext.IsEditorDirectPlayBootstrap ||
+             ExpectedRuntimeContext.EditorDirectPlayContext.Mode == Mode);
 
         public bool Matches(EditorDirectPlayContext context)
         {
@@ -221,6 +219,10 @@ namespace Game.Feature.Stages.Editor
             }
 
             var expected = current.ExpectedRuntimeContext;
+            var carriedDirectPlayContext =
+                expected.EditorDirectPlayContext.Mode == current.Mode
+                    ? context
+                    : default;
             Write(new EditorDirectPlayLaunchOwnershipRecord(
                 current.Mode,
                 new StageLaunchContext(
@@ -228,7 +230,21 @@ namespace Game.Feature.Stages.Editor
                     expected.SlotNumber,
                     context.StageId,
                     expected.NavigationKind,
-                    expected.Source)));
+                    expected.Source,
+                    carriedDirectPlayContext)));
+        }
+
+        public static void TryTransferCurrentToLaunchContext(StageLaunchContext context)
+        {
+            if (context == null ||
+                context.EditorDirectPlayContext.Mode == EditorDirectPlayMode.None ||
+                !TryPeek(out var current) ||
+                current.Mode != context.EditorDirectPlayContext.Mode)
+            {
+                return;
+            }
+
+            Write(new EditorDirectPlayLaunchOwnershipRecord(current.Mode, context));
         }
 
         public static bool TryPeek(out EditorDirectPlayLaunchOwnershipRecord ownership)
@@ -241,16 +257,25 @@ namespace Game.Feature.Stages.Editor
             var source = SessionState.GetString(SourceSessionKey, string.Empty);
             if (!Enum.IsDefined(typeof(EditorDirectPlayMode), modeValue) ||
                 modeValue == (int)EditorDirectPlayMode.None ||
-                navigationValue != (int)StageNavigationKind.Continue ||
+                !Enum.IsDefined(typeof(StageNavigationKind), navigationValue) ||
+                navigationValue == (int)StageNavigationKind.None ||
                 !StageId.TryCreate(rawStageId, out var stageId) ||
                 !Guid.TryParse(rawToken, out var token) ||
                 token == Guid.Empty ||
                 slotNumber != 0 ||
-                !string.Equals(source, "editor-direct-play", StringComparison.Ordinal))
+                string.IsNullOrWhiteSpace(source))
             {
                 ownership = default;
                 return false;
             }
+
+            var navigationKind = (StageNavigationKind)navigationValue;
+            var isBootstrap =
+                navigationKind == StageNavigationKind.Continue &&
+                string.Equals(source, "editor-direct-play", StringComparison.Ordinal);
+            var directPlayContext = isBootstrap
+                ? default
+                : EditorDirectPlayContextStore.GetCurrentOrNone();
 
             ownership = new EditorDirectPlayLaunchOwnershipRecord(
                 (EditorDirectPlayMode)modeValue,
@@ -258,8 +283,9 @@ namespace Game.Feature.Stages.Editor
                     token,
                     slotNumber,
                     stageId,
-                    StageNavigationKind.Continue,
-                    source));
+                    navigationKind,
+                    source,
+                    directPlayContext));
             return ownership.IsValid;
         }
 
