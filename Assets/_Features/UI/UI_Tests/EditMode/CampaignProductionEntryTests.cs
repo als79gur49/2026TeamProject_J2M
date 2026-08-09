@@ -666,6 +666,62 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
+        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
+        public void ConfiguredGameplayStageLaunchRouter_RejectedDirectPlayRetry_RestoresContextForSecondAttempt(
+            EditorDirectPlayMode mode)
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            var directPlayContext = mode == EditorDirectPlayMode.CampaignTempSlot
+                ? EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances: 2)
+                : new EditorDirectPlayContext(
+                    EditorDirectPlayMode.CampaignProductionSlot,
+                    stageId,
+                    string.Empty,
+                    string.Empty,
+                    remainingChances: 2,
+                    suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "pause-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry,
+                directPlayContext);
+            var attemptCount = 0;
+            var sceneLoader = new FakeSceneLoadPort(_ =>
+            {
+                attemptCount += 1;
+                if (attemptCount == 1)
+                {
+                    throw new InvalidOperationException("Injected first retry rejection.");
+                }
+            });
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                var router = new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader);
+
+                Assert.Throws<InvalidOperationException>(() => router.Launch(request));
+
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+
+                Assert.DoesNotThrow(() => router.Launch(request));
+
+                Assert.That(attemptCount, Is.EqualTo(2));
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().Mode, Is.EqualTo(EditorDirectPlayMode.None));
+                Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
+                Assert.That(current.EditorDirectPlayContext, Is.EqualTo(directPlayContext));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
         [Test]
         [Category("Full")]
         public void StageBackedInstaller_ConsumesCarriedProductionDirectPlayContextAndAllowsFollowingHop()

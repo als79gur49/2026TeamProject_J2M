@@ -46,11 +46,6 @@ namespace Game.Feature.UI.Composition
             }
 
             var continuingDirectPlayContext = request.EditorDirectPlayContext;
-            EditorDirectPlayContextStore.Clear();
-            if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
-            {
-                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            }
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             CampaignLaunchHandoff launchHandoff = null;
             StageLaunchContext launchContext;
@@ -74,6 +69,12 @@ namespace Game.Feature.UI.Composition
                 }
 
                 launchContext = StageLaunchContext.CreatePendinglessReload(request);
+            }
+
+            EditorDirectPlayContextStore.Clear();
+            if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
+            {
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             }
 
             if (_sceneLoadPort != null)
@@ -108,7 +109,13 @@ namespace Game.Feature.UI.Composition
                         callbackPort.LoadScene(
                             _routeConfig.GameplayShellSceneName,
                             () => terminal.CompleteSuccess(),
-                            exception => terminal.CompleteFailure(exception));
+                            exception =>
+                            {
+                                if (terminal.CompleteFailure(exception))
+                                {
+                                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                                }
+                            });
                     }
                     else
                     {
@@ -126,6 +133,8 @@ namespace Game.Feature.UI.Composition
                         }
                     }
 
+                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+
                     throw;
                 }
 
@@ -134,14 +143,22 @@ namespace Game.Feature.UI.Composition
 
             if (UnityEngine.Application.isPlaying)
             {
-                var accepted = SceneTransitionCoordinator.Instance.TryStartStageTransition(
-                    request,
-                    _routeConfig.GameplayShellSceneName,
-                    launchHandoff?.Token);
-                if (!accepted)
+                try
                 {
-                    throw new InvalidOperationException(
-                        "Configured gameplay launch was rejected before the scene transition started.");
+                    var accepted = SceneTransitionCoordinator.Instance.TryStartStageTransition(
+                        request,
+                        _routeConfig.GameplayShellSceneName,
+                        launchHandoff?.Token);
+                    if (!accepted)
+                    {
+                        throw new InvalidOperationException(
+                            "Configured gameplay launch was rejected before the scene transition started.");
+                    }
+                }
+                catch
+                {
+                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                    throw;
                 }
 
                 return;
@@ -181,8 +198,21 @@ namespace Game.Feature.UI.Composition
                     }
                 }
 
+                TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+
                 throw;
             }
+        }
+
+        private static void TryRestoreContinuingDirectPlayContext(EditorDirectPlayContext context)
+        {
+            if (context.Mode == EditorDirectPlayMode.None ||
+                EditorDirectPlayContextStore.GetCurrentOrNone().Mode != EditorDirectPlayMode.None)
+            {
+                return;
+            }
+
+            EditorDirectPlayContextStore.SetCurrent(context);
         }
     }
 }
