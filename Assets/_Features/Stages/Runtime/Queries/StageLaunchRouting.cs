@@ -24,7 +24,8 @@ namespace Game.Feature.Stages
             StageNavigationKind navigationKind,
             string source,
             StageTransitionHint transitionHint = default,
-            SceneTransitionIntent transitionIntent = SceneTransitionIntent.Unknown)
+            SceneTransitionIntent transitionIntent = SceneTransitionIntent.Unknown,
+            EditorDirectPlayContext editorDirectPlayContext = default)
         {
             if (navigationKind != StageNavigationKind.None && !stageId.IsValid)
             {
@@ -36,6 +37,7 @@ namespace Game.Feature.Stages
             Source = source ?? string.Empty;
             TransitionHint = transitionHint;
             TransitionIntent = transitionIntent;
+            EditorDirectPlayContext = editorDirectPlayContext;
         }
 
         public StageId StageId { get; }
@@ -48,6 +50,8 @@ namespace Game.Feature.Stages
 
         public SceneTransitionIntent TransitionIntent { get; }
 
+        public EditorDirectPlayContext EditorDirectPlayContext { get; }
+
         public bool IsValid => StageId.IsValid && NavigationKind != StageNavigationKind.None;
 
         public StageNavigationRequest WithTransitionHint(StageTransitionHint transitionHint)
@@ -57,7 +61,8 @@ namespace Game.Feature.Stages
                 NavigationKind,
                 Source,
                 transitionHint,
-                TransitionIntent);
+                TransitionIntent,
+                EditorDirectPlayContext);
         }
 
         public StageNavigationRequest WithTransitionIntent(SceneTransitionIntent transitionIntent)
@@ -75,7 +80,19 @@ namespace Game.Feature.Stages
                 NavigationKind,
                 Source,
                 TransitionHint,
-                transitionIntent);
+                transitionIntent,
+                EditorDirectPlayContext);
+        }
+
+        public StageNavigationRequest WithEditorDirectPlayContext(EditorDirectPlayContext context)
+        {
+            return new StageNavigationRequest(
+                StageId,
+                NavigationKind,
+                Source,
+                TransitionHint,
+                TransitionIntent,
+                context.ForStage(StageId));
         }
     }
 

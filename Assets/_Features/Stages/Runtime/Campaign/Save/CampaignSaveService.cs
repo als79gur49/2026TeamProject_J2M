@@ -111,6 +111,12 @@ namespace Game.Feature.Stages
         public string LastPlayedAtUtc { get; set; }
 
         public CampaignStageClearProfileDocument StageClearProfileSnapshot { get; set; }
+
+        public bool ReplaceNormalCampaignCompletionReceipt { get; set; }
+
+        public bool HasNormalCampaignCompletionReceipt { get; set; }
+
+        public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt { get; set; }
     }
 
     public sealed class CampaignNewGameRequest
@@ -230,7 +236,7 @@ namespace Game.Feature.Stages
 
     public sealed class CampaignSaveService
     {
-        private const int SchemaVersion = 1;
+        private const int SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion;
         private const string DeleteSlotGuardReason = "DeleteSlot";
 
         private readonly ICampaignProfileRepository _repository;
@@ -364,6 +370,7 @@ namespace Game.Feature.Stages
                     LevelGroupId = request.InitialLevelGroupId ?? string.Empty,
                     RemainingChances = SaveSlotStore.DefaultRemainingChances,
                     CampaignCompleted = false,
+                    NormalCampaignCompletionReceipt = null,
                     IntroPlayed = false,
                     OutroPlayed = false,
                     TotalDeaths = 0,
@@ -792,6 +799,15 @@ namespace Game.Feature.Stages
                 slot.CampaignCompleted = update.CampaignCompleted.Value;
             }
 
+            if (update.ReplaceNormalCampaignCompletionReceipt)
+            {
+                slot.HasNormalCampaignCompletionReceipt =
+                    update.HasNormalCampaignCompletionReceipt ||
+                    update.NormalCampaignCompletionReceipt != null;
+                slot.NormalCampaignCompletionReceipt = CloneReceipt(
+                    update.NormalCampaignCompletionReceipt);
+            }
+
             if (update.IntroPlayed.HasValue)
             {
                 slot.IntroPlayed = update.IntroPlayed.Value;
@@ -1178,6 +1194,10 @@ namespace Game.Feature.Stages
                 LevelGroupId = slot.LevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt = CloneReceipt(
+                    slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
@@ -1203,6 +1223,23 @@ namespace Game.Feature.Stages
                 Records = clonedRecords,
                 ProcessedStageRunIds = CloneArray(profile.ProcessedStageRunIds),
                 ProcessedClearAttemptIds = CloneArray(profile.ProcessedClearAttemptIds),
+            };
+        }
+
+        private static NormalCampaignCompletionReceiptDocument CloneReceipt(
+            NormalCampaignCompletionReceiptDocument receipt)
+        {
+            if (receipt == null)
+            {
+                return null;
+            }
+
+            return new NormalCampaignCompletionReceiptDocument
+            {
+                Version = receipt.Version,
+                CompletedStageId = receipt.CompletedStageId,
+                StageRunId = receipt.StageRunId,
+                ClearSource = receipt.ClearSource,
             };
         }
 

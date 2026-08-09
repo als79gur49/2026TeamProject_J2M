@@ -624,6 +624,254 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ConfiguredGameplayStageLaunchRouter_Launch_CarriesCampaignProductionDirectPlayProvenanceToNextStage()
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var completedStageId = StageId.CreateOrThrow("stage-0-1");
+            var nextStageId = StageId.CreateOrThrow("stage-0-2");
+            var directPlayContext = new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                completedStageId,
+                string.Empty,
+                string.Empty,
+                remainingChances: 2,
+                suppressCampaignFlow: false);
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                var request = new StageNavigationRequest(
+                    nextStageId,
+                    StageNavigationKind.NextStage,
+                    "campaign-auto-next",
+                    transitionIntent: SceneTransitionIntent.StageAdvance,
+                    editorDirectPlayContext: directPlayContext.ForStage(nextStageId));
+                var sceneLoader = new FakeSceneLoadPort(_ =>
+                {
+                    Assert.That(
+                        EditorDirectPlayContextStore.GetCurrentOrNone(),
+                        Is.EqualTo(directPlayContext.ForStage(nextStageId)));
+                    Assert.That(StageLaunchContextStore.TryPeek(out var launchContext), Is.True);
+                    Assert.That(launchContext.EditorDirectPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
+                    Assert.That(launchContext.EditorDirectPlayContext.StageId, Is.EqualTo(nextStageId));
+                });
+
+                new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader).Launch(request);
+
+                Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
+                Assert.That(current.Matches(request), Is.True);
+                Assert.That(current.EditorDirectPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.CampaignProductionSlot));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
+        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
+        public void ConfiguredGameplayStageLaunchRouter_RejectedDirectPlayRetry_RestoresContextForSecondAttempt(
+            EditorDirectPlayMode mode)
+        {
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            var directPlayContext = mode == EditorDirectPlayMode.CampaignTempSlot
+                ? EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances: 2)
+                : new EditorDirectPlayContext(
+                    EditorDirectPlayMode.CampaignProductionSlot,
+                    stageId,
+                    string.Empty,
+                    string.Empty,
+                    remainingChances: 2,
+                    suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "pause-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry,
+                directPlayContext);
+            var attemptCount = 0;
+            var sceneLoader = new FakeSceneLoadPort(_ =>
+            {
+                attemptCount += 1;
+                if (attemptCount == 1)
+                {
+                    throw new InvalidOperationException("Injected first retry rejection.");
+                }
+            });
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                var router = new ConfiguredGameplayStageLaunchRouter(routeConfig, sceneLoader);
+
+                Assert.Throws<InvalidOperationException>(() => router.Launch(request));
+
+                Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+
+                Assert.DoesNotThrow(() => router.Launch(request));
+
+                Assert.That(attemptCount, Is.EqualTo(2));
+                Assert.That(
+                    EditorDirectPlayContextStore.GetCurrentOrNone(),
+                    Is.EqualTo(directPlayContext));
+                Assert.That(StageLaunchContextStore.TryPeek(out var current), Is.True);
+                Assert.That(current.EditorDirectPlayContext, Is.EqualTo(directPlayContext));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+            }
+        }
+
+        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
+        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
+        public void SceneTransitionCoordinator_AsynchronousFailure_RestoresDirectPlayContextWithoutOverwritingNewer(
+            EditorDirectPlayMode mode)
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            var directPlayContext = mode == EditorDirectPlayMode.CampaignTempSlot
+                ? EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances: 2)
+                : new EditorDirectPlayContext(
+                    EditorDirectPlayMode.CampaignProductionSlot,
+                    stageId,
+                    string.Empty,
+                    string.Empty,
+                    remainingChances: 2,
+                    suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "failed-asynchronous-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry,
+                directPlayContext);
+
+            EditorDirectPlayContextStore.Clear();
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(request);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(directPlayContext));
+
+            var newerContext = EditorDirectPlayContext.CreateNonCampaign(
+                StageId.CreateOrThrow("stage-0-2"));
+            EditorDirectPlayContextStore.SetCurrent(newerContext);
+            SceneTransitionCoordinator.TryRestoreDirectPlayContextAfterFailure(request);
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone(), Is.EqualTo(newerContext));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageBackedInstaller_ConsumesCarriedProductionDirectPlayContextAndAllowsFollowingHop()
+        {
+            var installerObject = new GameObject("carried-production-direct-play-installer");
+            var saveHarness = new TemporaryProductionSaveHarness();
+            var stageId = StageId.CreateOrThrow(CombinedStageId);
+            var directPlayContext = new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                stageId,
+                string.Empty,
+                string.Empty,
+                remainingChances: 2,
+                suppressCampaignFlow: false);
+            var request = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.NextStage,
+                "campaign-auto-next",
+                transitionIntent: SceneTransitionIntent.StageAdvance,
+                editorDirectPlayContext: directPlayContext);
+            var carriedLaunchContext = StageLaunchContext.CreatePendinglessReload(request);
+            try
+            {
+                saveHarness.PrepareDefaultSlot(stageId, remainingChances: 2);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(carriedLaunchContext), Is.True);
+                installerObject.AddComponent<CampaignProductionEntryTerminalSessionAuthorityProvider>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                DisableAutoCreateViews(installer);
+                AssignStageCatalogProvider(installer);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveHarness.SaveStore, saveHarness.ActiveSlotProvider);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                Assert.That(StageLaunchContextStore.TryPeek(out _), Is.False);
+                var followingContext = StageLaunchContext.CreatePendinglessReload(request);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(followingContext), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(installerObject);
+                saveHarness.Dispose();
+            }
+        }
+
+        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
+        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
+        public void ConfiguredRouter_ConsumesRetainedInitialDirectPlayContextForFirstContinuation(
+            EditorDirectPlayMode mode)
+        {
+            var installerObject = new GameObject("initial-direct-play-installer");
+            var saveHarness = new TemporaryProductionSaveHarness();
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            var stageId = StageId.CreateOrThrow(CombinedStageId);
+            var directPlayContext = mode == EditorDirectPlayMode.CampaignTempSlot
+                ? EditorDirectPlayContext.CreateCampaignTempSlot(stageId, remainingChances: 2)
+                : new EditorDirectPlayContext(
+                    EditorDirectPlayMode.CampaignProductionSlot,
+                    stageId,
+                    string.Empty,
+                    string.Empty,
+                    remainingChances: 2,
+                    suppressCampaignFlow: false);
+            var initialLaunchContext = StageLaunchContext.CreateDirectPlay(stageId);
+            var continuationRequest = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "pause-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
+                SceneTransitionIntent.ManualRetry,
+                directPlayContext);
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                saveHarness.PrepareDefaultSlot(stageId, remainingChances: 2);
+                EditorDirectPlayContextStore.SetCurrent(directPlayContext);
+                Assert.That(StageLaunchContextStore.TrySetCurrent(initialLaunchContext), Is.True);
+                installerObject.AddComponent<CampaignProductionEntryTerminalSessionAuthorityProvider>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                DisableAutoCreateViews(installer);
+                AssignStageCatalogProvider(installer);
+                AssignTimingPresets(installer);
+                AssignCampaignStores(installer, saveHarness.SaveStore, saveHarness.ActiveSlotProvider);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
+                Assert.That(StageLaunchContextStore.TryPeek(out var retainedBootstrap), Is.True);
+                Assert.That(retainedBootstrap, Is.SameAs(initialLaunchContext));
+
+                new ConfiguredGameplayStageLaunchRouter(
+                        routeConfig,
+                        new FakeSceneLoadPort())
+                    .Launch(continuationRequest);
+
+                Assert.That(StageLaunchContextStore.TryPeek(out var continuationContext), Is.True);
+                Assert.That(continuationContext.Matches(continuationRequest), Is.True);
+                Assert.That(continuationContext.EditorDirectPlayContext, Is.EqualTo(directPlayContext));
+                Assert.That(
+                    EditorDirectPlayContextStore.GetCurrentOrNone(),
+                    Is.EqualTo(directPlayContext));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+                UnityEngine.Object.DestroyImmediate(installerObject);
+                saveHarness.Dispose();
+            }
+        }
+
+        [Test]
         public void ProductionSaveComposition_WiresPersistentDataRepositories_WithoutWritingSaveRoot()
         {
             var options = CampaignSaveCompositionProvider.CreateProductionProfileBackedOptions();
@@ -2091,6 +2339,19 @@ namespace Game.Feature.UI.Tests
                 UnityEngine.Object.DestroyImmediate(Provider);
                 UnityEngine.Object.DestroyImmediate(_catalog);
             }
+        }
+    }
+
+    internal sealed class CampaignProductionEntryTerminalSessionAuthorityProvider : MonoBehaviour,
+        ITerminalSessionAuthorityProvider
+    {
+        public bool TryGetTerminalSessionAuthority(
+            out ITerminalSessionReadModel readModel,
+            out ITerminalSessionAuthority authority)
+        {
+            authority = TerminalSessionRegistry.Authority;
+            readModel = authority;
+            return true;
         }
     }
 }

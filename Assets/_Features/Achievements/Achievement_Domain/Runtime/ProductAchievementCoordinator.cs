@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace Game.Product.Achievements
 {
+    public interface IProductAchievementEarningSink
+    {
+        AchievementEarnResult Earn(GameAchievementId achievementId);
+    }
+
     public enum AchievementEarnResult
     {
         EarnedNew = 0,
@@ -36,7 +41,7 @@ namespace Game.Product.Achievements
         public int InFlightCount { get; }
     }
 
-    public sealed class ProductAchievementCoordinator : IDisposable
+    public sealed class ProductAchievementCoordinator : IDisposable, IProductAchievementEarningSink
     {
         private readonly object _gate = new();
         private readonly IAchievementDocumentRepository _repository;

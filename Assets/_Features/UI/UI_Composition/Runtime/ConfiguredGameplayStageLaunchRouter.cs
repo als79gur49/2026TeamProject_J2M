@@ -45,8 +45,7 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("Configured gameplay launch requires a gameplay shell scene in route config.");
             }
 
-            EditorDirectPlayContextStore.Clear();
-            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            var continuingDirectPlayContext = request.EditorDirectPlayContext;
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
             CampaignLaunchHandoff launchHandoff = null;
             StageLaunchContext launchContext;
@@ -72,6 +71,21 @@ namespace Game.Feature.UI.Composition
                 launchContext = StageLaunchContext.CreatePendinglessReload(request);
             }
 
+            ConsumeInitialDirectPlayBootstrapContext(continuingDirectPlayContext);
+            if (continuingDirectPlayContext.Mode == EditorDirectPlayMode.None)
+            {
+                EditorDirectPlayContextStore.Clear();
+            }
+            else
+            {
+                EditorDirectPlayContextStore.SetCurrent(continuingDirectPlayContext);
+            }
+
+            if (continuingDirectPlayContext.Mode != EditorDirectPlayMode.CampaignTempSlot)
+            {
+                EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+            }
+
             if (_sceneLoadPort != null)
             {
                 SceneTransitionRoutePolicyCatalog.ResolveException(
@@ -83,7 +97,7 @@ namespace Game.Feature.UI.Composition
                     Source = request.Source,
                     RequestedStageId = request.StageId.Value,
                     LaunchStageId = request.StageId.Value,
-                    EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                    EditorDirectPlayMode = continuingDirectPlayContext.Mode,
                 });
                 var contextRegisteredByThisAttempt = false;
                 try
@@ -104,7 +118,13 @@ namespace Game.Feature.UI.Composition
                         callbackPort.LoadScene(
                             _routeConfig.GameplayShellSceneName,
                             () => terminal.CompleteSuccess(),
-                            exception => terminal.CompleteFailure(exception));
+                            exception =>
+                            {
+                                if (terminal.CompleteFailure(exception))
+                                {
+                                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                                }
+                            });
                     }
                     else
                     {
@@ -122,6 +142,8 @@ namespace Game.Feature.UI.Composition
                         }
                     }
 
+                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+
                     throw;
                 }
 
@@ -130,14 +152,22 @@ namespace Game.Feature.UI.Composition
 
             if (UnityEngine.Application.isPlaying)
             {
-                var accepted = SceneTransitionCoordinator.Instance.TryStartStageTransition(
-                    request,
-                    _routeConfig.GameplayShellSceneName,
-                    launchHandoff?.Token);
-                if (!accepted)
+                try
                 {
-                    throw new InvalidOperationException(
-                        "Configured gameplay launch was rejected before the scene transition started.");
+                    var accepted = SceneTransitionCoordinator.Instance.TryStartStageTransition(
+                        request,
+                        _routeConfig.GameplayShellSceneName,
+                        launchHandoff?.Token);
+                    if (!accepted)
+                    {
+                        throw new InvalidOperationException(
+                            "Configured gameplay launch was rejected before the scene transition started.");
+                    }
+                }
+                catch
+                {
+                    TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+                    throw;
                 }
 
                 return;
@@ -152,7 +182,7 @@ namespace Game.Feature.UI.Composition
                 Source = request.Source,
                 RequestedStageId = request.StageId.Value,
                 LaunchStageId = request.StageId.Value,
-                EditorDirectPlayMode = EditorDirectPlayContextStore.GetCurrentOrNone().Mode,
+                EditorDirectPlayMode = continuingDirectPlayContext.Mode,
             });
             var fallbackContextRegisteredByThisAttempt = false;
             try
@@ -177,8 +207,39 @@ namespace Game.Feature.UI.Composition
                     }
                 }
 
+                TryRestoreContinuingDirectPlayContext(continuingDirectPlayContext);
+
                 throw;
             }
+        }
+
+        private static void ConsumeInitialDirectPlayBootstrapContext(
+            EditorDirectPlayContext continuingDirectPlayContext)
+        {
+            if (continuingDirectPlayContext.Mode == EditorDirectPlayMode.None ||
+                !StageLaunchContextStore.TryPeek(out var current) ||
+                !current.IsEditorDirectPlayBootstrap)
+            {
+                return;
+            }
+
+            if (!StageLaunchContextStore.TryConsume(current, out var consumed) ||
+                !ReferenceEquals(consumed, current))
+            {
+                throw new InvalidOperationException(
+                    "Configured gameplay launch could not consume its initial DirectPlay bootstrap context.");
+            }
+        }
+
+        private static void TryRestoreContinuingDirectPlayContext(EditorDirectPlayContext context)
+        {
+            if (context.Mode == EditorDirectPlayMode.None ||
+                EditorDirectPlayContextStore.GetCurrentOrNone().Mode != EditorDirectPlayMode.None)
+            {
+                return;
+            }
+
+            EditorDirectPlayContextStore.SetCurrent(context);
         }
     }
 }

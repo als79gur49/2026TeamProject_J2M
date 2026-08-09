@@ -185,6 +185,12 @@ namespace Game.Feature.Stages
                 LevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                ReplaceNormalCampaignCompletionReceipt = true,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt ||
+                    slot.NormalCampaignCompletionReceipt != null,
+                NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
+                    slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
@@ -226,6 +232,10 @@ namespace Game.Feature.Stages
                     ? slot.RemainingChances
                     : SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceipt(
+                    slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = Math.Max(0, slot.TotalDeaths),

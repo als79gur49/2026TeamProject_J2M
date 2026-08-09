@@ -966,7 +966,8 @@ namespace Game.Feature.UI.Flow
                 StageNavigationKind.Retry,
                 "pause-retry",
                 StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
-                SceneTransitionIntent.ManualRetry);
+                SceneTransitionIntent.ManualRetry,
+                EditorDirectPlayContextStore.GetCurrentOrNone().ForStage(stageId));
         }
     }
 }

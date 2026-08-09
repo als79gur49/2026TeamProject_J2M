@@ -427,6 +427,7 @@ namespace Game.Feature.Stages.Editor
             var differentRuntimeContextPreserved =
                 runtimeContextResult == OwnedDirectPlayRuntimeCleanupResult.DifferentContextPreserved;
             var editorContextCleared = false;
+            var ownershipReleased = EditorDirectPlayLaunchOwnershipStore.TryClear(ownership);
 
             if (matchesEditorContext &&
                 !differentRuntimeContextPreserved &&
@@ -441,7 +442,6 @@ namespace Game.Feature.Stages.Editor
                 editorContextCleared = true;
             }
 
-            var ownershipReleased = EditorDirectPlayLaunchOwnershipStore.TryClear(ownership);
             return new EditorDirectPlayExitCleanupResult(
                 runtimeContextResult,
                 matchingPrimeCleared,

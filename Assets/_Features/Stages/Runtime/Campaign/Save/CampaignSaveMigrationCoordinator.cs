@@ -629,11 +629,31 @@ namespace Game.Feature.Stages
                 LevelGroupId = slot.LevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt = slot.HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt = CloneReceipt(
+                    slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = slot.StageClearProfileSnapshot ?? new CampaignStageClearProfileDocument(),
+            };
+        }
+
+        private static NormalCampaignCompletionReceiptDocument CloneReceipt(
+            NormalCampaignCompletionReceiptDocument receipt)
+        {
+            if (receipt == null)
+            {
+                return null;
+            }
+
+            return new NormalCampaignCompletionReceiptDocument
+            {
+                Version = receipt.Version,
+                CompletedStageId = receipt.CompletedStageId ?? string.Empty,
+                StageRunId = receipt.StageRunId ?? string.Empty,
+                ClearSource = receipt.ClearSource,
             };
         }
 
