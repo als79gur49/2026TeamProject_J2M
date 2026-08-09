@@ -178,6 +178,23 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
+        public void QuarantinedCorruption_RemainsFailClosedAcrossRepositoryInstances()
+        {
+            Directory.CreateDirectory(_tempDirectory);
+            File.WriteAllText(AchievementPath, "{broken");
+
+            var firstLoad = CreateFileRepository().Load();
+            var secondLoad = CreateFileRepository().Load();
+
+            Assert.That(firstLoad.Status, Is.EqualTo(AchievementDocumentLoadStatus.CorruptQuarantined));
+            Assert.That(secondLoad.Status, Is.EqualTo(AchievementDocumentLoadStatus.CorruptNoFallback));
+            Assert.That(secondLoad.IsUsable, Is.False);
+            Assert.That(secondLoad.Document, Is.Null);
+            Assert.That(File.Exists(AchievementPath), Is.False);
+            Assert.That(Directory.GetFiles(_tempDirectory, "achievements.json.corrupt.*").Length, Is.EqualTo(1));
+        }
+
+        [Test]
         public void CorruptPrimaryWhenQuarantineFails_ReturnsFailureWithoutEmptyFallback()
         {
             var repository = new FileProductAchievementRepository(new CorruptNoQuarantineTextStore());
@@ -296,7 +313,7 @@ namespace Game.Product.Achievements.Tests
         {
             var stageStore = new AtomicTextFileStore(_tempDirectory);
             return new FileProductAchievementRepository(
-                new StageAtomicAchievementTextStoreAdapter(stageStore));
+                new StageAtomicAchievementTextStoreAdapter(stageStore, _tempDirectory));
         }
 
         private static ProductAchievementDocument Document(string[] earned, string[] pending)
@@ -342,6 +359,11 @@ namespace Game.Product.Achievements.Tests
                 return false;
             }
 
+            public bool HasQuarantinedCopy(string fileName)
+            {
+                return false;
+            }
+
             public void CleanupTempFiles(string fileName)
             {
             }
@@ -382,6 +404,11 @@ namespace Game.Product.Achievements.Tests
                 throw _exception;
             }
 
+            public bool HasQuarantinedCopy(string fileName)
+            {
+                throw _exception;
+            }
+
             public void CleanupTempFiles(string fileName)
             {
                 throw _exception;
@@ -416,6 +443,11 @@ namespace Game.Product.Achievements.Tests
             public bool TryQuarantine(string fileName, out string quarantinePath)
             {
                 quarantinePath = string.Empty;
+                return false;
+            }
+
+            public bool HasQuarantinedCopy(string fileName)
+            {
                 return false;
             }
 

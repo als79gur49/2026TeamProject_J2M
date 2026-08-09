@@ -12,6 +12,8 @@ namespace Game.Product.Achievements.Infrastructure
 
         bool TryQuarantine(string fileName, out string quarantinePath);
 
+        bool HasQuarantinedCopy(string fileName);
+
         void CleanupTempFiles(string fileName);
     }
 }

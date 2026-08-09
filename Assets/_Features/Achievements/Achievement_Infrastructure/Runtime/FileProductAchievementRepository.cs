@@ -101,6 +101,14 @@ namespace Game.Product.Achievements.Infrastructure
             switch (backupReadResult)
             {
                 case DocumentReadResult.Missing:
+                    if (_textStore.HasQuarantinedCopy(AchievementFileName))
+                    {
+                        return new AchievementDocumentLoadResult(
+                            AchievementDocumentLoadStatus.CorruptNoFallback,
+                            null,
+                            "achievements.json is missing after prior corruption was quarantined.");
+                    }
+
                     return new AchievementDocumentLoadResult(
                         AchievementDocumentLoadStatus.Missing,
                         ProductAchievementDocument.CreateEmpty(),

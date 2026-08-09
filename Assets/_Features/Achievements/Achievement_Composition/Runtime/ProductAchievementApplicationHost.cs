@@ -18,7 +18,9 @@ namespace Game.Product.Achievements.Composition
             IAchievementPublicationSink publicationSink = null)
         {
             var stageStore = new AtomicTextFileStore(savesDirectoryPath);
-            var achievementStore = new StageAtomicAchievementTextStoreAdapter(stageStore);
+            var achievementStore = new StageAtomicAchievementTextStoreAdapter(
+                stageStore,
+                savesDirectoryPath);
             var repository = new FileProductAchievementRepository(achievementStore);
             var coordinator = new ProductAchievementCoordinator(
                 repository,
