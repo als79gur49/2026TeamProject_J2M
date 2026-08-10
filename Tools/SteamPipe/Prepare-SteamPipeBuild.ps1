@@ -179,6 +179,9 @@ function Invoke-PromotedSteamWindowsPreflight {
     $request.ManifestFileCount = [int]$manifest.fileCount
     $request.ManifestTotalBytes = [long]$manifest.totalBytes
     $validation = [WindowsDistributionStager]::ValidatePromotedArtifact($request)
+    if ([string]$validation.ManifestSha256 -cne $manifestSha) {
+        throw "STEAMPIPE_PROMOTED_MANIFEST_CHANGED"
+    }
 
     if ([int]$success.fileCount -ne $validation.FileCount -or
         [long]$success.totalBytes -ne $validation.TotalBytes) {
@@ -191,7 +194,8 @@ function Invoke-PromotedSteamWindowsPreflight {
         EvidenceRoot = $validation.EvidenceRoot
         ManifestPath = $validation.ManifestPath
         SuccessPath = $validation.SuccessPath
-        ManifestSha256 = $validation.ManifestSha256
+        ManifestSha256 = $manifestSha
+        SuccessSha256 = Get-FileSha256 -Path $successPath
         DistributionTargetId = $validation.DistributionTargetId
         FileCount = $validation.FileCount
         TotalBytes = $validation.TotalBytes
@@ -633,6 +637,18 @@ function Invoke-PrepareSteamPipeBuild {
         }
         Write-DeterministicJson $success `
             (Join-Path $temporary "PRE_APPID_DRY_RUN_SUCCESS.json")
+        $finalPreflight = Invoke-PromotedSteamWindowsPreflight `
+            -PromotedRoot $preflight.PromotedRoot `
+            -RepositoryRoot $repositoryFull
+        if ($finalPreflight.ManifestSha256 -cne $preflight.ManifestSha256 -or
+            $finalPreflight.SuccessSha256 -cne $preflight.SuccessSha256 -or
+            $finalPreflight.FileCount -ne $preflight.FileCount -or
+            $finalPreflight.TotalBytes -ne $preflight.TotalBytes -or
+            $finalPreflight.SteamNativeCount -ne $preflight.SteamNativeCount -or
+            $finalPreflight.SteamManagedCount -ne $preflight.SteamManagedCount -or
+            $finalPreflight.SteamAppIdCount -ne $preflight.SteamAppIdCount) {
+            throw "STEAMPIPE_PROMOTED_SOURCE_MUTATED"
+        }
         [IO.Directory]::Move($temporary, $outputFull)
     } catch {
         if (Test-Path -LiteralPath $temporary -PathType Container) {

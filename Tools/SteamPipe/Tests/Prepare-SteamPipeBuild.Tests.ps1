@@ -263,6 +263,11 @@ try {
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
         }
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
+        Assert-ThrowsContaining {
+            Assert-WindowsDistributionStagerIdentity `
+                -StagerType ([string]) `
+                -ExpectedIdentity "synthetic-mismatch"
+        } "STAGING_POLICY_LOADED_IDENTITY_MISMATCH"
 
         $stageSource = Get-Content -LiteralPath $stageWrapper -Raw
         Assert-True ($stageSource.Contains("--configfile"))
@@ -508,6 +513,40 @@ try {
         Assert-FinalOutputAbsent $output
         $preparing = @(Get-ChildItem -LiteralPath $script:FixtureRoot -Directory |
             Where-Object { $_.Name.StartsWith(".preparing-atomic-fail-output-") })
+        Assert-Equal 0 $preparing.Count
+    }
+
+    Invoke-Case "payload mutation before promotion fails closed and cleans output" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "mutation-promoted")
+        $output = Join-Path $script:FixtureRoot "mutation-output"
+        $script:MutationPayloadPath = Join-Path $promoted "payload\VectorQuake.exe"
+        $script:MutationWriteOriginal = (Get-Command Write-DeterministicJson).ScriptBlock
+        $script:MutationApplied = $false
+        try {
+            Set-Item Function:\Write-DeterministicJson {
+                param($Value, [string]$Path)
+                & $script:MutationWriteOriginal -Value $Value -Path $Path
+                if (-not $script:MutationApplied -and
+                    [IO.Path]::GetFileName($Path) -ceq
+                        "PRE_APPID_DRY_RUN_REPORT.json") {
+                    $script:MutationApplied = $true
+                    Write-Utf8File $script:MutationPayloadPath "mutated-before-promotion"
+                }
+            }
+            $arguments = New-ValidArguments $promoted $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STAGING_PROMOTED_MANIFEST_MISMATCH"
+        } finally {
+            Set-Item Function:\Write-DeterministicJson $script:MutationWriteOriginal
+            Remove-Variable MutationPayloadPath -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable MutationWriteOriginal -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable MutationApplied -Scope Script -ErrorAction SilentlyContinue
+        }
+        Assert-FinalOutputAbsent $output
+        $preparing = @(Get-ChildItem -LiteralPath $script:FixtureRoot -Directory |
+            Where-Object { $_.Name.StartsWith(".preparing-mutation-output-") })
         Assert-Equal 0 $preparing.Count
     }
 

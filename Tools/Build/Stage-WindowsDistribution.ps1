@@ -12,16 +12,39 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Assert-WindowsDistributionStagerIdentity {
+    param(
+        [Parameter(Mandatory)][type]$StagerType,
+        [Parameter(Mandatory)][string]$ExpectedIdentity
+    )
+
+    $identityType = $StagerType.Assembly.GetType(
+        "WindowsDistributionStagerCompiledIdentity",
+        $false,
+        $false)
+    $identityField = if ($null -eq $identityType) {
+        $null
+    } else {
+        $identityType.GetField(
+            "SourceIdentitySha256",
+            [Reflection.BindingFlags]::Public -bor [Reflection.BindingFlags]::Static)
+    }
+    $actualIdentity = if ($null -eq $identityField) {
+        ""
+    } else {
+        [string]$identityField.GetRawConstantValue()
+    }
+    if ($actualIdentity -cne $ExpectedIdentity) {
+        throw "STAGING_POLICY_LOADED_IDENTITY_MISMATCH: expected $ExpectedIdentity, got $actualIdentity"
+    }
+}
+
 function Import-WindowsDistributionStagerTypes {
     param(
         [Parameter(Mandatory)][string]$Root,
         [switch]$OfflineOnly,
         [string]$CacheRoot = ""
     )
-
-    if ($null -ne ("WindowsDistributionStager" -as [type])) {
-        return
-    }
 
     $sourcePaths = @(
         "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs",
@@ -35,9 +58,9 @@ function Import-WindowsDistributionStagerTypes {
         }
     }
 
-    $sourceIdentity = ($sourcePaths | ForEach-Object {
+    $sourceIdentity = "typed-validator-v2-" + (($sourcePaths | ForEach-Object {
         (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
-    }) -join "-"
+    }) -join "-")
     $identityBytes = [Text.Encoding]::UTF8.GetBytes($sourceIdentity)
     $identityHash = [Security.Cryptography.SHA256]::Create()
     try {
@@ -45,6 +68,14 @@ function Import-WindowsDistributionStagerTypes {
             ForEach-Object { $_.ToString("x2") })
     } finally {
         $identityHash.Dispose()
+    }
+
+    $loadedStagerType = "WindowsDistributionStager" -as [type]
+    if ($null -ne $loadedStagerType) {
+        Assert-WindowsDistributionStagerIdentity `
+            -StagerType $loadedStagerType `
+            -ExpectedIdentity $cacheKey
+        return
     }
 
     $compileCacheRoot = if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
@@ -62,6 +93,18 @@ function Import-WindowsDistributionStagerTypes {
                 (Join-Path $compileRoot ([IO.Path]::GetFileName($sourcePath))),
                 $true)
         }
+        $compiledIdentityPath = Join-Path $compileRoot `
+            "WindowsDistributionStagerCompiledIdentity.cs"
+        $compiledIdentity = @"
+public static class WindowsDistributionStagerCompiledIdentity
+{
+    public const string SourceIdentitySha256 = "$cacheKey";
+}
+"@
+        [IO.File]::WriteAllText(
+            $compiledIdentityPath,
+            $compiledIdentity,
+            [Text.UTF8Encoding]::new($false))
         $projectPath = Join-Path $compileRoot "VectorQuake.DistributionStager.csproj"
         $project = @'
 <Project Sdk="Microsoft.NET.Sdk">
@@ -127,6 +170,13 @@ function Import-WindowsDistributionStagerTypes {
     }
 
     [void][Reflection.Assembly]::LoadFrom($assemblyPath)
+    $loadedStagerType = "WindowsDistributionStager" -as [type]
+    if ($null -eq $loadedStagerType) {
+        throw "STAGING_POLICY_COMPILE_FAILED: validator type was not loaded."
+    }
+    Assert-WindowsDistributionStagerIdentity `
+        -StagerType $loadedStagerType `
+        -ExpectedIdentity $cacheKey
 }
 
 function Get-StagingSourceIdentity {
