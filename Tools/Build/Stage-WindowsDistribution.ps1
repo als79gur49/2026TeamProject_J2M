@@ -71,6 +71,32 @@ function Assert-WindowsDistributionLocalValidatorPath {
     }
 }
 
+function Assert-WindowsDistributionLocalValidatorTree {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    Assert-WindowsDistributionLocalValidatorPath -Path $Path -Name $Name
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+        return
+    }
+
+    $pending = [Collections.Generic.Queue[string]]::new()
+    $pending.Enqueue([IO.Path]::GetFullPath($Path))
+    while ($pending.Count -gt 0) {
+        $current = $pending.Dequeue()
+        foreach ($item in Get-ChildItem -LiteralPath $current -Force) {
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED: $($item.FullName)"
+            }
+            if ($item.PSIsContainer) {
+                $pending.Enqueue($item.FullName)
+            }
+        }
+    }
+}
+
 function Assert-WindowsDistributionStagerIdentity {
     param(
         [Parameter(Mandatory)][type]$StagerType,
@@ -138,6 +164,9 @@ function Import-WindowsDistributionStagerTypes {
     Assert-WindowsDistributionLocalValidatorPath `
         -Path $compileRoot `
         -Name "compile cache"
+    Assert-WindowsDistributionLocalValidatorTree `
+        -Path $compileRoot `
+        -Name "compile cache"
 
     $loadedStagerType = "WindowsDistributionStager" -as [type]
     if ($null -ne $loadedStagerType) {
@@ -151,9 +180,12 @@ function Import-WindowsDistributionStagerTypes {
     }
 
     $assemblyPath = Join-Path $compileRoot "bin\VectorQuake.DistributionStager.dll"
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $assemblyPath `
+        -Name "compiled validator assembly"
     if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
         New-Item -ItemType Directory -Path $compileRoot -Force | Out-Null
-        Assert-WindowsDistributionLocalValidatorPath `
+        Assert-WindowsDistributionLocalValidatorTree `
             -Path $compileRoot `
             -Name "compile cache"
         foreach ($sourcePath in $sourcePaths) {
@@ -187,6 +219,13 @@ public static class WindowsDistributionStagerCompiledIdentity
 '@
         [IO.File]::WriteAllText(
             $projectPath, $project, [Text.UTF8Encoding]::new($false))
+        $buildOutputRoot = Join-Path $compileRoot "bin"
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path $buildOutputRoot `
+            -Name "validator build output"
+        Assert-WindowsDistributionLocalValidatorTree `
+            -Path $compileRoot `
+            -Name "compile cache"
         if ($OfflineOnly) {
             $offlineSource = Join-Path $compileRoot "offline-package-source"
             New-Item -ItemType Directory -Path $offlineSource -Force | Out-Null
@@ -219,8 +258,9 @@ public static class WindowsDistributionStagerCompiledIdentity
                 }
                 $buildOutput = @(& dotnet.exe build $projectPath `
                     --configuration Release `
-                    --output (Join-Path $compileRoot "bin") `
+                    --output $buildOutputRoot `
                     --no-restore --nologo --verbosity quiet 2>&1)
+                $buildExitCode = $LASTEXITCODE
             } finally {
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = $previousTelemetry
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = $previousFirstTime
@@ -229,10 +269,17 @@ public static class WindowsDistributionStagerCompiledIdentity
             }
         } else {
             $buildOutput = @(& dotnet.exe build $projectPath `
-                --configuration Release --output (Join-Path $compileRoot "bin") `
+                --configuration Release --output $buildOutputRoot `
                 --nologo --verbosity quiet 2>&1)
+            $buildExitCode = $LASTEXITCODE
         }
-        if ($LASTEXITCODE -ne 0 -or
+        Assert-WindowsDistributionLocalValidatorTree `
+            -Path $compileRoot `
+            -Name "compile cache"
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path $assemblyPath `
+            -Name "compiled validator assembly"
+        if ($buildExitCode -ne 0 -or
             -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
             throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"
         }

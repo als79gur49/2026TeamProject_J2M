@@ -329,6 +329,28 @@ try {
         } finally {
             Remove-Item -LiteralPath $cacheJunction -Force
         }
+
+        $nestedCache = Join-Path $script:FixtureRoot "validator-nested-cache"
+        $nestedTarget = Join-Path $script:FixtureRoot "validator-nested-target"
+        $nestedBin = Join-Path $nestedCache "bin"
+        [IO.Directory]::CreateDirectory($nestedCache) | Out-Null
+        [IO.Directory]::CreateDirectory($nestedTarget) | Out-Null
+        New-Item -ItemType Junction -Path $nestedBin -Target $nestedTarget |
+            Out-Null
+        try {
+            Assert-ThrowsContaining {
+                Assert-WindowsDistributionLocalValidatorTree `
+                    -Path $nestedCache `
+                    -Name "synthetic nested validator cache"
+            } "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED"
+            Assert-ThrowsContaining {
+                Assert-WindowsDistributionLocalValidatorPath `
+                    -Path (Join-Path $nestedBin "validator.dll") `
+                    -Name "synthetic compiled validator"
+            } "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED"
+        } finally {
+            Remove-Item -LiteralPath $nestedBin -Force
+        }
     }
 
     Invoke-Case "foreign loaded validator identity is rejected by outer importer" {
