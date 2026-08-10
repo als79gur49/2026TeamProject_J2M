@@ -8,7 +8,7 @@ namespace Game.Product.Achievements.Composition
     internal sealed class ProductAchievementApplicationLifetimeOwner : IDisposable
     {
         private readonly ISavePathProvider _savePathProvider;
-        private readonly IAchievementPublicationSink _publicationSink;
+        private readonly SwitchableAchievementPublicationSink _publicationSink;
         private readonly Func<string, IAchievementPublicationSink, IProductAchievementHostLifetime>
             _hostFactory;
         private readonly Func<ICampaignSaveSlotStore> _campaignSaveSlotStoreFactory;
@@ -18,6 +18,7 @@ namespace Game.Product.Achievements.Composition
         private IProductAchievementHostLifetime _host;
         private IProductAchievementEarningSink _registeredEarningSink;
         private NormalCampaignCompletionAchievementStartupReconciler _startupReconciler;
+        private ProductAchievementPublicationSessionController _publicationSessionController;
         private bool _initializeAttempted;
         private bool _initializeResult;
         private bool _startupReconciliationAttempted;
@@ -33,7 +34,7 @@ namespace Game.Product.Achievements.Composition
         {
             _savePathProvider = savePathProvider ??
                 throw new ArgumentNullException(nameof(savePathProvider));
-            _publicationSink = publicationSink ?? new UnavailableAchievementPublicationSink();
+            _publicationSink = new SwitchableAchievementPublicationSink(publicationSink);
             _hostFactory = hostFactory ?? CreateDefaultHost;
             _campaignSaveSlotStoreFactory = campaignSaveSlotStoreFactory;
             _directPlayContextProvider = directPlayContextProvider ??
@@ -71,6 +72,20 @@ namespace Game.Product.Achievements.Composition
             }
 
             _initializeResult = _host.Initialize();
+            if (_initializeResult && _host is ProductAchievementApplicationHost applicationHost)
+            {
+                _publicationSessionController = new ProductAchievementPublicationSessionController(
+                    _publicationSink,
+                    applicationHost.Coordinator);
+                if (!ProductAchievementPublicationSessionHandoff.TryRegisterController(
+                    _publicationSessionController))
+                {
+                    _publicationSessionController.Dispose();
+                    _publicationSessionController = null;
+                    _initializeResult = false;
+                }
+            }
+
             return _initializeResult;
         }
 
@@ -118,6 +133,9 @@ namespace Game.Product.Achievements.Composition
             }
 
             _disposed = true;
+            ProductAchievementPublicationSessionHandoff.ClearController(
+                _publicationSessionController);
+            _publicationSessionController?.Dispose();
             ProductAchievementEarningSinkHandoff.Clear(_registeredEarningSink);
             _host?.Dispose();
         }
@@ -149,6 +167,7 @@ namespace Game.Product.Achievements.Composition
             UnregisterQuitHandler();
             _owner?.Dispose();
             _owner = null;
+            ProductAchievementPublicationSessionHandoff.ResetForSubsystemRegistration();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]

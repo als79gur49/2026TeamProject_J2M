@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Game.Platform.Runtime;
+using Game.Product.Achievements;
 using NUnit.Framework;
 
 namespace Game.Platform.Steam.Tests.EditMode
@@ -36,7 +37,10 @@ namespace Game.Platform.Steam.Tests.EditMode
                 "DllCheck.",
             };
 
-            foreach (var path in Directory.EnumerateFiles(runtimeRoot, "*.cs"))
+            foreach (var path in Directory.EnumerateFiles(
+                runtimeRoot,
+                "*.cs",
+                SearchOption.AllDirectories))
             {
                 var content = File.ReadAllText(path);
                 foreach (var token in forbiddenTokens)
@@ -151,6 +155,80 @@ namespace Game.Platform.Steam.Tests.EditMode
                     }
                 }
             }
+        }
+
+        [Test]
+        public void ProductPublisher_OwnsNoSpacewarPolicyOrSecondCallbackPump()
+        {
+            var productRoot =
+                "Packages/com.j2m.platform.steam/Runtime/ProductAchievements";
+            var forbiddenTokens = new[]
+            {
+                "ACH_WIN_ONE_GAME",
+                "Spacewar",
+                "SpacewarAchievementSmokePolicy",
+                "SteamAchievementSmokeCoordinator",
+                "SteamAPI.RunCallbacks",
+                "480",
+            };
+
+            foreach (var path in Directory.EnumerateFiles(
+                productRoot,
+                "*.cs",
+                SearchOption.AllDirectories))
+            {
+                var content = File.ReadAllText(path);
+                foreach (var token in forbiddenTokens)
+                {
+                    Assert.That(content, Does.Not.Contain(token),
+                        path + " leaks forbidden product publisher token " + token + ".");
+                }
+            }
+        }
+
+        [Test]
+        public void ExpectedSteamNameLiteral_HasOneProductionOwner()
+        {
+            const string expectedName = "VQ_CAMPAIGN_COMPLETE";
+            var productionRoots = new[]
+            {
+                "Assets/_Features/Achievements",
+                "Assets/_Features/Gameplay",
+                "Assets/_Features/UI",
+                "Assets/_Features/Stages/Runtime",
+                "Packages/com.j2m.platform.steam/Runtime",
+            };
+            var matchingPaths = productionRoots
+                .SelectMany(root => Directory.EnumerateFiles(
+                    root,
+                    "*.cs",
+                    SearchOption.AllDirectories))
+                .Where(path => File.ReadAllText(path).Contains(expectedName))
+                .Select(path => path.Replace('\\', '/'))
+                .ToArray();
+
+            Assert.That(matchingPaths, Is.EqualTo(new[]
+            {
+                "Packages/com.j2m.platform.steam/Runtime/ProductAchievements/SteamAchievementMapping.cs",
+            }));
+        }
+
+        [Test]
+        public void ProductAndGameplayAssemblies_DoNotDependOnSteam()
+        {
+            var productDomainAsmdef = File.ReadAllText(
+                "Assets/_Features/Achievements/Achievement_Domain/Runtime/" +
+                "Game.Product.Achievements.Domain.asmdef");
+            var productCompositionAsmdef = File.ReadAllText(
+                "Assets/_Features/Achievements/Achievement_Composition/Runtime/" +
+                "Game.Product.Achievements.Composition.asmdef");
+
+            Assert.That(productDomainAsmdef, Does.Not.Contain("Steam"));
+            Assert.That(productCompositionAsmdef, Does.Not.Contain("Steam"));
+            Assert.That(
+                typeof(GameAchievementId).Assembly.GetReferencedAssemblies()
+                    .Any(reference => reference.Name.Contains("Steam")),
+                Is.False);
         }
     }
 }

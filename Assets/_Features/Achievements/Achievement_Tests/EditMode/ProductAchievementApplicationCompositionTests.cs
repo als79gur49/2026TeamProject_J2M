@@ -23,12 +23,14 @@ namespace Game.Product.Achievements.Tests
                 "j2m-achievement-composition-" + Guid.NewGuid().ToString("N"));
             _canonicalSavesRoot = Path.Combine(_testRoot, "Saves");
             ProductAchievementEarningSinkHandoff.ResetForTests();
+            ProductAchievementPublicationSessionHandoff.ResetForTests();
         }
 
         [TearDown]
         public void TearDown()
         {
             ProductAchievementEarningSinkHandoff.ResetForTests();
+            ProductAchievementPublicationSessionHandoff.ResetForTests();
             if (Directory.Exists(_testRoot))
             {
                 Directory.Delete(_testRoot, recursive: true);
@@ -109,7 +111,10 @@ namespace Game.Product.Achievements.Tests
 
             owner.Initialize();
 
-            Assert.That(capturedSink, Is.TypeOf<UnavailableAchievementPublicationSink>());
+            Assert.That(capturedSink, Is.TypeOf<SwitchableAchievementPublicationSink>());
+            Assert.That(
+                ((SwitchableAchievementPublicationSink)capturedSink).IsUnavailable,
+                Is.True);
         }
 
         [Test]

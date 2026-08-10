@@ -1,5 +1,6 @@
 using System;
 using Game.Platform.Runtime;
+using Game.Platform.Steam.ProductAchievements;
 
 namespace Game.Platform.Steam
 {
@@ -13,6 +14,8 @@ namespace Game.Platform.Steam
         private readonly bool smokeRequested;
         private readonly Action<string> smokeLogger;
         private readonly SteamAchievementSmokeCoordinator achievementSmokeCoordinator;
+        private readonly ISteamProductAchievementPublicationFeature
+            productAchievementPublicationFeature;
 
         private SteamPlatformRuntimeState state = SteamPlatformRuntimeState.NotInitialized;
         private SteamPlatformAvailability steamAvailability =
@@ -83,6 +86,11 @@ namespace Game.Platform.Steam
                 achievementSmokeRequested,
                 monotonicSeconds,
                 smokeLogger);
+            productAchievementPublicationFeature =
+                new SteamProductAchievementPublicationFeature(
+                    dependencies,
+                    achievementSmokeRequested,
+                    monotonicSeconds);
         }
 
         public static PlatformProviderId ProviderId { get; } = new PlatformProviderId("steam");
@@ -189,6 +197,11 @@ namespace Game.Platform.Steam
                     observedAppId,
                     steamIdentityValid,
                     loggedOn);
+                productAchievementPublicationFeature.OnSteamInitialized(
+                    initializationSucceeded: true,
+                    observedAppId,
+                    steamIdentityValid,
+                    loggedOn);
                 return initializationResult;
             }
             catch (Exception exception)
@@ -214,6 +227,7 @@ namespace Game.Platform.Steam
             {
                 nativeApi.RunCallbacks();
                 callbackPumpCount++;
+                productAchievementPublicationFeature.Tick();
                 achievementSmokeCoordinator.Tick();
                 ObserveDelayedOverlayEnabledForSmoke();
             }
@@ -236,6 +250,7 @@ namespace Game.Platform.Steam
 
             shutdownAttempted = true;
             state = SteamPlatformRuntimeState.ShuttingDown;
+            productAchievementPublicationFeature.DisposeBeforeNativeShutdown();
             achievementSmokeCoordinator.Shutdown();
             if (!nativeInitialized)
             {
@@ -275,6 +290,11 @@ namespace Game.Platform.Steam
                 : SteamPlatformRuntimeState.Unavailable;
             SetFailure(failureReason, detail, exception);
             achievementSmokeCoordinator.BeginSession(
+                initializationSucceeded: false,
+                observedAppId,
+                steamIdentityValid,
+                loggedOn);
+            productAchievementPublicationFeature.OnSteamInitialized(
                 initializationSucceeded: false,
                 observedAppId,
                 steamIdentityValid,
