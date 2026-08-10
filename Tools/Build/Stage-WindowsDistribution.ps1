@@ -184,6 +184,32 @@ function Remove-WindowsDistributionValidatorBuildOutput {
     }
 }
 
+function Enter-WindowsDistributionValidatorBuildLock {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [int]$TimeoutSeconds = 60
+    )
+
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $Path `
+        -Name "validator build lock"
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        try {
+            return [IO.File]::Open(
+                $Path,
+                [IO.FileMode]::OpenOrCreate,
+                [IO.FileAccess]::ReadWrite,
+                [IO.FileShare]::None)
+        } catch [IO.IOException] {
+            if ([DateTime]::UtcNow -ge $deadline) {
+                throw "STAGING_POLICY_BUILD_LOCK_TIMEOUT: $Path"
+            }
+            Start-Sleep -Milliseconds 100
+        }
+    } while ($true)
+}
+
 function Import-WindowsDistributionStagerTypes {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -247,9 +273,13 @@ function Import-WindowsDistributionStagerTypes {
         -Name "compiled validator assembly"
     if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
         New-Item -ItemType Directory -Path $compileRoot -Force | Out-Null
-        Assert-WindowsDistributionLocalValidatorTree `
-            -Path $compileRoot `
-            -Name "compile cache"
+        $buildLock = Enter-WindowsDistributionValidatorBuildLock `
+            -Path (Join-Path $compileRoot ".build.lock")
+        try {
+            if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+                Assert-WindowsDistributionLocalValidatorTree `
+                    -Path $compileRoot `
+                    -Name "compile cache"
         $snapshotPaths = [string[]]@($sourcePaths | ForEach-Object {
             Join-Path $compileRoot ([IO.Path]::GetFileName($_))
         })
@@ -384,9 +414,14 @@ public static class WindowsDistributionStagerCompiledIdentity
                 -ExpectedHashes $sourceHashes `
                 -FailureCode "STAGING_POLICY_SOURCE_CHANGED_DURING_COMPILE"
             [IO.Directory]::Move($buildOutputRoot, (Join-Path $compileRoot "bin"))
-        } catch {
-            Remove-WindowsDistributionValidatorBuildOutput -Path $buildOutputRoot
-            throw
+                } catch {
+                    Remove-WindowsDistributionValidatorBuildOutput `
+                        -Path $buildOutputRoot
+                    throw
+                }
+            }
+        } finally {
+            $buildLock.Dispose()
         }
     }
 

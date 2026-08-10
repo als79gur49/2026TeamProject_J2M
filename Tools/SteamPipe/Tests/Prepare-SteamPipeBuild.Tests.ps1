@@ -369,6 +369,58 @@ try {
         }
     }
 
+    Invoke-Case "concurrent cold imports serialize and share verified cache" {
+        $stageWrapper = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $cacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
+            "VectorQuakeDistributionStagerConcurrent"
+        if (Test-Path -LiteralPath $cacheRoot -PathType Container) {
+            [IO.Directory]::Delete("\\?\$cacheRoot", $true)
+        }
+        $jobArguments = [object[]]@(
+            $stageWrapper,
+            $script:RepositoryRoot,
+            $cacheRoot)
+        $jobs = @()
+        for ($index = 0; $index -lt 2; $index++) {
+            $jobs += Start-Job -ScriptBlock {
+                param($Wrapper, $Repository, $Cache)
+                $ErrorActionPreference = "Stop"
+                Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass `
+                    -Force
+                $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+                . $Wrapper -RepositoryRoot $Repository
+                Import-WindowsDistributionStagerTypes `
+                    -Root $Repository `
+                    -OfflineOnly `
+                    -CacheRoot $Cache
+                "CONCURRENT_IMPORT_PASS"
+            } -ArgumentList $jobArguments
+        }
+        try {
+            $null = Wait-Job -Job $jobs -Timeout 120
+            foreach ($job in $jobs) {
+                $output = @($job | Receive-Job)
+                Assert-Equal "Completed" $job.State
+                Assert-True ($output -contains "CONCURRENT_IMPORT_PASS")
+            }
+            $finalAssemblies = @(Get-ChildItem -LiteralPath $cacheRoot `
+                -Filter "VectorQuake.DistributionStager.dll" -File -Recurse |
+                Where-Object {
+                    $_.FullName -match `
+                        '[\\/]bin[\\/]VectorQuake\.DistributionStager\.dll$'
+                })
+            Assert-Equal 1 $finalAssemblies.Count
+            $preparing = @(Get-ChildItem -LiteralPath $cacheRoot `
+                -Directory -Recurse | Where-Object {
+                    $_.Name.StartsWith(".preparing-bin-")
+                })
+            Assert-Equal 0 $preparing.Count
+        } finally {
+            $jobs | Remove-Job -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     Invoke-Case "typed promoted validator cold cache compiles offline only" {
         $stageWrapper = Join-Path $script:RepositoryRoot `
             "Tools\Build\Stage-WindowsDistribution.ps1"
