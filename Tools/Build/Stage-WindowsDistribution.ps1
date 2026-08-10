@@ -391,13 +391,18 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     --packages $packagesRoot `
-                    -p:NuGetAudit=false --nologo --verbosity quiet 2>&1)
+                    -p:NuGetAudit=false `
+                    -p:ImportDirectoryBuildProps=false `
+                    -p:ImportDirectoryBuildTargets=false `
+                    --nologo --verbosity quiet 2>&1)
                 if ($LASTEXITCODE -ne 0) {
                     throw "STAGING_POLICY_OFFLINE_RESTORE_FAILED: $($restoreOutput -join [Environment]::NewLine)"
                 }
                 $buildOutput = @(& $dotnetPath build $projectPath `
                     --configuration Release `
                     --output $buildOutputRoot `
+                    -p:ImportDirectoryBuildProps=false `
+                    -p:ImportDirectoryBuildTargets=false `
                     --no-restore --nologo --verbosity quiet 2>&1)
                 $buildExitCode = $LASTEXITCODE
             } finally {

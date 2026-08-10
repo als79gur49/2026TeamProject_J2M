@@ -465,6 +465,25 @@ try {
             if (Test-Path -LiteralPath $offlineCacheRoot -PathType Container) {
                 [IO.Directory]::Delete("\\?\$offlineCacheRoot", $true)
             }
+            [IO.Directory]::CreateDirectory($offlineCacheRoot) | Out-Null
+            Write-Utf8File `
+                (Join-Path $offlineCacheRoot "Directory.Build.props") `
+                @'
+<Project>
+  <Target Name="RejectUnexpectedDirectoryBuildProps" BeforeTargets="Restore;Build">
+    <Error Text="SYNTHETIC_DIRECTORY_BUILD_PROPS_IMPORTED" />
+  </Target>
+</Project>
+'@
+            Write-Utf8File `
+                (Join-Path $offlineCacheRoot "Directory.Build.targets") `
+                @'
+<Project>
+  <Target Name="RejectUnexpectedDirectoryBuildTargets" BeforeTargets="Restore;Build">
+    <Error Text="SYNTHETIC_DIRECTORY_BUILD_TARGETS_IMPORTED" />
+  </Target>
+</Project>
+'@
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
             $env:NUGET_PACKAGES = '\\synthetic.invalid\packages'
             $env:NUGET_CERT_REVOCATION_MODE = "synthetic-previous"
@@ -508,6 +527,10 @@ try {
             'NUGET_CERT_REVOCATION_MODE = "offline"'))
         Assert-True ($stageSource.Contains('DOTNET_CLI_HOME = $dotnetCliHome'))
         Assert-True ($stageSource.Contains('MSBuildSDKsPath = $null'))
+        Assert-True ($stageSource.Contains(
+            '-p:ImportDirectoryBuildProps=false'))
+        Assert-True ($stageSource.Contains(
+            '-p:ImportDirectoryBuildTargets=false'))
         $assetsPath = Get-ChildItem -LiteralPath $offlineCacheRoot `
             -Filter "project.assets.json" -File -Recurse | Select-Object -First 1
         Assert-True ($null -ne $assetsPath)
