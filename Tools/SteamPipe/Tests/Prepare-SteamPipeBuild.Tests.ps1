@@ -635,6 +635,29 @@ try {
         }
     }
 
+    Invoke-Case "unsupported promoted manifest schema is rejected" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "schema-mismatch-promoted")
+        $manifestPath = Join-Path $promoted `
+            "evidence\distribution-manifest.json"
+        $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw |
+            ConvertFrom-Json
+        $manifest.schemaVersion = "2.0"
+        Write-TestJson $manifest $manifestPath
+        $success = Get-Content -LiteralPath $successPath -Raw |
+            ConvertFrom-Json
+        $success.manifestSha256 = Get-FileSha256 $manifestPath
+        Write-TestJson $success $successPath
+
+        $output = Join-Path $script:FixtureRoot "schema-mismatch-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
+        Assert-FinalOutputAbsent $output
+    }
+
     Invoke-Case "promoted launch arguments are validated by the typed target policy" {
         $promoted = New-PromotedFixture `
             (Join-Path $script:FixtureRoot "launch-mismatch-promoted")

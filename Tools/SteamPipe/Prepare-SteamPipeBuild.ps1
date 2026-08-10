@@ -198,7 +198,8 @@ function Invoke-PromotedSteamWindowsPreflight {
     if ($launchFailure -ne [WindowsDistributionValidationFailure]::None) {
         throw "STEAMPIPE_PROMOTED_LAUNCH_ARGUMENT_MISMATCH: $launchFailure"
     }
-    if ([string]$manifest.sourceSha -cne [string]$success.sourceSha -or
+    if ([string]$manifest.schemaVersion -cne "1.0" -or
+        [string]$manifest.sourceSha -cne [string]$success.sourceSha -or
         [string]$manifest.sourceTree -cne [string]$success.sourceTree -or
         [string]$manifest.scriptingBackend -cne [string]$success.scriptingBackend -or
         [string]$manifest.expectedProviderId -cne "steam" -or
