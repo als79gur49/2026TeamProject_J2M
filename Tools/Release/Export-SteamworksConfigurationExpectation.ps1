@@ -48,7 +48,8 @@ function Convert-GitPathToNative {
 function Invoke-RepositoryGit {
     param(
         [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][string[]]$Arguments
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [int[]]$AllowedExitCodes = @(0)
     )
 
     $gitMarker = Join-Path $Root ".git"
@@ -61,11 +62,21 @@ function Invoke-RepositoryGit {
         $output = @(& git -C $Root @Arguments 2>&1)
     }
 
-    if ($LASTEXITCODE -ne 0) {
+    if ($AllowedExitCodes -notcontains $LASTEXITCODE) {
         throw "STEAMWORKS_EXPECTATION_GIT_FAILED: $($output -join ' ')"
     }
 
     return ($output -join "`n").Trim()
+}
+
+function Get-HeadLockGitPath {
+    param([AllowEmptyString()][string]$HeadReference)
+
+    if ([string]::IsNullOrWhiteSpace($HeadReference)) {
+        return "HEAD.lock"
+    }
+
+    return $HeadReference + ".lock"
 }
 
 function Wait-ExpectationOutputFile {
@@ -156,14 +167,74 @@ function Exit-ExclusiveRepositoryLocks {
     }
 }
 
+function Enter-SharedReadFileLocks {
+    param([Parameter(Mandatory)][string[]]$Paths)
+
+    $locks = @()
+    try {
+        foreach ($path in $Paths) {
+            $locks += [IO.File]::Open(
+                $path,
+                [IO.FileMode]::Open,
+                [IO.FileAccess]::Read,
+                [IO.FileShare]::Read)
+        }
+        return $locks
+    } catch {
+        Exit-SharedReadFileLocks -Locks $locks
+        throw "STEAMWORKS_EXPECTATION_SOURCE_LOCK_FAILED: $path"
+    }
+}
+
+function Exit-SharedReadFileLocks {
+    param([object[]]$Locks)
+
+    foreach ($lock in @($Locks)) {
+        if ($null -ne $lock) { $lock.Dispose() }
+    }
+}
+
+function Enter-TrackedSourceReadLocks {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [string[]]$ExcludedRelativePaths = @()
+    )
+
+    $excluded = @{}
+    foreach ($relativePath in $ExcludedRelativePaths) {
+        $key = $relativePath.Replace('\', '/').TrimStart('/').ToLowerInvariant()
+        $excluded[$key] = $true
+    }
+
+    $paths = @()
+    $tracked = Invoke-RepositoryGit $Root @(
+        "-c", "core.quotePath=false", "ls-files")
+    foreach ($relativePath in ($tracked -split "`n")) {
+        if ([string]::IsNullOrWhiteSpace($relativePath)) { continue }
+        $key = $relativePath.Replace('\', '/').TrimStart('/').ToLowerInvariant()
+        if ($excluded.ContainsKey($key)) { continue }
+
+        $fullPath = Join-Path $Root $relativePath
+        if (Test-Path -LiteralPath $fullPath -PathType Leaf) {
+            $paths += $fullPath
+        }
+    }
+
+    return Enter-SharedReadFileLocks -Paths $paths
+}
+
 function Enter-RepositoryMutationLocks {
     param([Parameter(Mandatory)][string]$Root)
 
-    $headReference = Invoke-RepositoryGit $Root @("symbolic-ref", "-q", "HEAD")
+    $headReference = Invoke-RepositoryGit `
+        -Root $Root `
+        -Arguments @("symbolic-ref", "-q", "HEAD") `
+        -AllowedExitCodes @(0, 1)
     $indexLockPath = Invoke-RepositoryGit $Root @(
         "rev-parse", "--path-format=absolute", "--git-path", "index.lock")
     $headLockPath = Invoke-RepositoryGit $Root @(
-        "rev-parse", "--path-format=absolute", "--git-path", ($headReference + ".lock"))
+        "rev-parse", "--path-format=absolute", "--git-path", `
+        (Get-HeadLockGitPath -HeadReference $headReference))
     $locks = @()
     try {
         $locks += Enter-ExclusiveRepositoryLock `
@@ -198,8 +269,16 @@ function Invoke-SteamworksConfigurationExpectationExport {
 
     $statusProbe = Invoke-RepositoryGit $repositoryFull @("status", "--short")
     Assert-RepositoryIsClean -Status $statusProbe
+    $guardedRelativePaths = @(
+        "Assets\_Shared\UI\Fonts\ClimateCrisisKR-2000 SDF.asset",
+        "Assets\_Shared\UI\Fonts\NanumGothic SDF.asset"
+    )
     $repositoryLocks = Enter-RepositoryMutationLocks -Root $repositoryFull
+    $sourceReadLocks = @()
     try {
+        $sourceReadLocks = Enter-TrackedSourceReadLocks `
+            -Root $repositoryFull `
+            -ExcludedRelativePaths $guardedRelativePaths
         $sourceHead = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD")
         $sourceTree = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD^{tree}")
         $statusBefore = Invoke-RepositoryGit $repositoryFull @("status", "--short")
@@ -209,10 +288,6 @@ function Invoke-SteamworksConfigurationExpectationExport {
     $logPath = Join-Path $outputFull "unity-export.log"
     $guardRoot = Join-Path ([IO.Path]::GetTempPath()) `
         ("j2m-steamworks-expectation-guard-" + [Guid]::NewGuid().ToString("N"))
-    $guardedRelativePaths = @(
-        "Assets\_Shared\UI\Fonts\ClimateCrisisKR-2000 SDF.asset",
-        "Assets\_Shared\UI\Fonts\NanumGothic SDF.asset"
-    )
     New-Item -ItemType Directory -Path $guardRoot -Force | Out-Null
     foreach ($relativePath in $guardedRelativePaths) {
         $sourcePath = Join-Path $repositoryFull $relativePath
@@ -298,6 +373,7 @@ function Invoke-SteamworksConfigurationExpectationExport {
             GuardedMutationRestored = $guardedMutationRestored
         }
     } finally {
+        Exit-SharedReadFileLocks -Locks $sourceReadLocks
         Exit-ExclusiveRepositoryLocks -Locks $repositoryLocks
     }
 

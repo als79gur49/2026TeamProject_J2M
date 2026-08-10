@@ -36,6 +36,16 @@ function Assert-Throws {
     throw "Expected '$ExpectedMessage'."
 }
 
+function Assert-AnyThrow {
+    param([scriptblock]$Body)
+    try {
+        & $Body
+    } catch {
+        return
+    }
+    throw "Expected an exception."
+}
+
 Invoke-Case "path containment recognizes repository children" {
     $root = [IO.Path]::GetFullPath((Join-Path $env:TEMP "j2m-repository"))
     Assert-True (Test-PathIsSameOrUnder `
@@ -107,6 +117,41 @@ Invoke-Case "exclusive repository lock blocks concurrent mutation and cleans up"
         Exit-ExclusiveRepositoryLocks -Locks @($first)
     }
     Assert-True (-not (Test-Path -LiteralPath $lockPath))
+    Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+}
+
+Invoke-Case "detached HEAD uses the direct HEAD lock" {
+    Assert-True ((Get-HeadLockGitPath -HeadReference "") -ceq "HEAD.lock")
+    Assert-True ((Get-HeadLockGitPath -HeadReference "refs/heads/feature/release") `
+        -ceq "refs/heads/feature/release.lock")
+}
+
+Invoke-Case "shared source lock blocks transient writes and releases cleanly" {
+    $fixtureRoot = Join-Path $env:TEMP ("j2m-source-lock-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
+    $sourcePath = Join-Path $fixtureRoot "CanonicalContract.cs"
+    [IO.File]::WriteAllText($sourcePath, "canonical")
+    $locks = Enter-SharedReadFileLocks -Paths @($sourcePath)
+    try {
+        Assert-AnyThrow {
+            [IO.File]::WriteAllText($sourcePath, "transient")
+        }
+        $wslSourcePath = @(& wsl.exe -e wslpath -u $sourcePath 2>&1)[0]
+        $wslWriteRejected = $false
+        try {
+            & wsl.exe -e sh -c 'printf transient > "$1"' sh $wslSourcePath 2>&1 |
+                Out-Null
+            $wslWriteRejected = $LASTEXITCODE -ne 0
+        } catch {
+            $wslWriteRejected = $true
+        }
+        Assert-True $wslWriteRejected "WSL write unexpectedly bypassed the source lock."
+        Assert-True ([IO.File]::ReadAllText($sourcePath) -ceq "canonical")
+    } finally {
+        Exit-SharedReadFileLocks -Locks $locks
+    }
+    [IO.File]::WriteAllText($sourcePath, "released")
+    Assert-True ([IO.File]::ReadAllText($sourcePath) -ceq "released")
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
 }
 
