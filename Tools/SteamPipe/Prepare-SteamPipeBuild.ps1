@@ -120,6 +120,7 @@ function Import-WindowsDistributionValidationTypes {
     param([Parameter(Mandatory)][string]$Root)
 
     $wrapper = Join-Path $Root "Tools\Build\Stage-WindowsDistribution.ps1"
+    Assert-NoReparseAncestors -Path $wrapper
     if (-not (Test-Path -LiteralPath $wrapper -PathType Leaf)) {
         throw "STEAMPIPE_PROMOTED_VALIDATOR_MISSING: $wrapper"
     }
@@ -543,9 +544,14 @@ function Invoke-PrepareSteamPipeBuild {
 
     $repositoryFull = (Resolve-Path -LiteralPath $RepositoryRoot).Path
     $outputFull = [IO.Path]::GetFullPath($OutputRoot).TrimEnd('\', '/')
+    $promotedInputFull = [IO.Path]::GetFullPath(
+        $PromotedSteamWindowsRoot).TrimEnd('\', '/')
     if ((Test-PathIsSameOrUnder -Candidate $outputFull -Parent $repositoryFull) -or
         (Test-PathIsSameOrUnder -Candidate $repositoryFull -Parent $outputFull)) {
         throw "STEAMPIPE_REPOSITORY_OUTPUT_REJECTED"
+    }
+    if (Test-PathIsSameOrUnder -Candidate $promotedInputFull -Parent $outputFull) {
+        throw "STEAMPIPE_PROMOTED_OUTPUT_OVERLAP_REJECTED"
     }
     if (Test-Path -LiteralPath $outputFull) {
         throw "STEAMPIPE_OUTPUT_COLLISION"
@@ -560,6 +566,9 @@ function Invoke-PrepareSteamPipeBuild {
         (Test-PathIsSameOrUnder -Candidate $contentRoot -Parent $buildOutput) -or
         (Test-PathIsSameOrUnder -Candidate $outputFull -Parent $contentRoot)) {
         throw "STEAMPIPE_CONTENT_OUTPUT_OVERLAP_REJECTED"
+    }
+    if (Test-PathIsSameOrUnder -Candidate $outputFull -Parent $promotedInputFull) {
+        throw "STEAMPIPE_PROMOTED_OUTPUT_OVERLAP_REJECTED"
     }
     if ([IO.Path]::GetFileName($contentRoot) -cne "payload" -or
         [IO.Path]::GetDirectoryName($contentRoot) -cne $preflight.PromotedRoot) {

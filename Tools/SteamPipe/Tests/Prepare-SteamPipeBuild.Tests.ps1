@@ -376,6 +376,44 @@ try {
         } "STAGING_POLICY_LOADED_IDENTITY_MISMATCH"
     }
 
+    Invoke-Case "repository wrapper and validator source reparse descendants are rejected" {
+        $wrapperLinkRoot = Join-Path $script:FixtureRoot "wrapper-link-repository"
+        [IO.Directory]::CreateDirectory($wrapperLinkRoot) | Out-Null
+        $toolsLink = Join-Path $wrapperLinkRoot "Tools"
+        New-Item -ItemType Junction -Path $toolsLink `
+            -Target (Join-Path $script:RepositoryRoot "Tools") | Out-Null
+        try {
+            Assert-ThrowsContaining {
+                Import-WindowsDistributionValidationTypes -Root $wrapperLinkRoot
+            } "STEAMPIPE_REPARSE_POINT_REJECTED"
+        } finally {
+            if ([IO.Directory]::Exists($toolsLink)) {
+                [IO.Directory]::Delete($toolsLink)
+            }
+        }
+
+        $sourceLinkRoot = Join-Path $script:FixtureRoot "source-link-repository"
+        $wrapperSource = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $wrapperDestination = Join-Path $sourceLinkRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        [IO.Directory]::CreateDirectory(
+            [IO.Path]::GetDirectoryName($wrapperDestination)) | Out-Null
+        [IO.File]::Copy($wrapperSource, $wrapperDestination, $true)
+        $assetsLink = Join-Path $sourceLinkRoot "Assets"
+        New-Item -ItemType Junction -Path $assetsLink `
+            -Target (Join-Path $script:RepositoryRoot "Assets") | Out-Null
+        try {
+            Assert-ThrowsContaining {
+                Import-WindowsDistributionValidationTypes -Root $sourceLinkRoot
+            } "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED"
+        } finally {
+            if ([IO.Directory]::Exists($assetsLink)) {
+                [IO.Directory]::Delete($assetsLink)
+            }
+        }
+    }
+
     Invoke-Case "synthetic valid promoted artifact produces preview-only dry-run" {
         $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "valid-promoted")
         $output = Join-Path $script:FixtureRoot "valid-output"
@@ -544,7 +582,7 @@ try {
         Assert-FinalOutputAbsent $output
     }
 
-    Invoke-Case "repository output and content overlap are rejected" {
+    Invoke-Case "repository promoted and content output overlap are rejected" {
         $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "path-promoted")
         $repositoryOutput = Join-Path $script:RepositoryRoot "TestResults\forbidden-steampipe"
         $arguments = New-ValidArguments $promoted $repositoryOutput
@@ -565,6 +603,18 @@ try {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STEAMPIPE_CONTENT_OUTPUT_OVERLAP_REJECTED"
         Assert-FinalOutputAbsent $overlap
+
+        $promotedEvidenceOutput = Join-Path $promoted "evidence\dry-run-output"
+        $arguments = New-ValidArguments $promoted $promotedEvidenceOutput
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_PROMOTED_OUTPUT_OVERLAP_REJECTED"
+        Assert-FinalOutputAbsent $promotedEvidenceOutput
+
+        $arguments = New-ValidArguments $promoted $script:FixtureRoot
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_PROMOTED_OUTPUT_OVERLAP_REJECTED"
     }
 
     Invoke-Case "promoted and output traversal paths are rejected before resolution" {

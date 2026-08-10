@@ -138,6 +138,9 @@ function Import-WindowsDistributionStagerTypes {
     ) | ForEach-Object { Join-Path $Root $_ }
 
     foreach ($sourcePath in $sourcePaths) {
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path $sourcePath `
+            -Name "validator source"
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
             throw "STAGING_POLICY_SOURCE_MISSING: $sourcePath"
         }
