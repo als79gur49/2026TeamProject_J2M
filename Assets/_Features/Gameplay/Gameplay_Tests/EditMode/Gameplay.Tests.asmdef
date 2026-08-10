@@ -26,6 +26,8 @@
     "Game.Feature.DemoStageControl.Runtime",
     "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Gameplay.Host",
+    "Game.Product.Achievements.CampaignIntegration",
+    "Game.Product.Achievements.Domain",
     "Game.Shared.Audio",
     "Game.Shared.Input",
     "Game.Feature.Stages",

@@ -2,6 +2,7 @@ using Game.Feature.Flow.Audio;
 using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Stages;
+using Game.Product.Achievements.CampaignIntegration;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -346,8 +347,16 @@ namespace Game.Feature.Gameplay.Host
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
                 _campaignChanceDisplayOverride,
                 terminalTransitionPort,
-                _runtimeDirectPlayContext);
+                _runtimeDirectPlayContext,
+                CreateNormalCampaignCompletionAchievementIntegration());
             _campaignFlowController.Bind();
+        }
+
+        private static INormalCampaignCompletionAchievementIntegration
+            CreateNormalCampaignCompletionAchievementIntegration()
+        {
+            return ProductAchievementEarningSinkHandoff
+                .CreateIntegrationForSceneComposition();
         }
 
         private static IStageLaunchRouter CreateStageLaunchRouter(

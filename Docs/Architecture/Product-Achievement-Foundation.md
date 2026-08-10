@@ -40,14 +40,25 @@ The receipt is created only after an accepted Victory terminal claim for a clear
 
 The canonical `ApplicationPersistentDataSavePathProvider.SaveRootPath` owns both `profile.json` and `achievements.json` under the product-global `Saves` directory. Product achievement composition does not read slot roots or Editor DirectPlay temporary namespaces.
 
-`ProductAchievementRuntimeBootstrap` creates one plain-C# `ProductAchievementApplicationLifetimeOwner` before the first scene, initializes one `ProductAchievementApplicationHost`, and disposes it at application quit. Scene transitions and Stage retries do not recreate it. The default publisher remains `UnavailableAchievementPublicationSink`; missing-file initialization keeps an in-memory empty document without eagerly creating `achievements.json`. `IProductAchievementEarningSink` is the explicit narrow future injection seam and accepts only `GameAchievementId`.
+`ProductAchievementRuntimeBootstrap` creates one plain-C# `ProductAchievementApplicationLifetimeOwner` before the first scene, initializes one `ProductAchievementApplicationHost`, and disposes it at application quit. Scene transitions and Stage retries do not recreate it. The default publisher remains `UnavailableAchievementPublicationSink`; missing-file initialization keeps an in-memory empty document without eagerly creating `achievements.json`.
+
+The application composition has no shared constructor root with the stage-backed scene composition. A single achievement-specific internal `ProductAchievementEarningSinkHandoff` therefore carries only `IProductAchievementEarningSink` across that boundary. The application owner registers one exact sink, a different second registration fails closed, subsystem registration and application disposal clear it, and only scene composition consumes it. Gameplay runtime logic receives a plain `INormalCampaignCompletionAchievementIntegration` constructor dependency and never performs a static lookup or owns/disposes the application sink.
+
+## Receipt-based earning and recovery
+
+`NormalCampaignCompletionAchievementIntegration` is the only mapping owner from the Stage fact to `GameAchievementIds.NormalCampaignComplete`. For an immediate earn it requires both the current completion to pass `NormalCampaignCompletionReceiptPolicy.Evaluate` and the post-save committed slot to have `CampaignCompleted`, receipt presence, a non-null receipt, and a receipt that passes persisted validation. The Campaign slot update completes first; only then is the committed slot loaded and the product sink called. An existing valid receipt is eligible after a new normal final Objective completion, while invalid and present-null receipts remain fail-closed and are not repaired.
+
+`NormalCampaignCompletionAchievementStartupReconciler` runs once per normal, non-batch application session after the product host is initialized and the first scene is loaded. Batch test/capture processes are excluded before profile access. It obtains the canonical production Campaign store through `CampaignSaveCompositionProvider`, whose factory completes profile migration before the read, and uses `LoadAllWithReport` rather than reading `profile.json` or backup files. Missing/empty profiles are a no-op; blocked or failed load states earn nothing. A backup-recovered canonical result is eligible. Multiple valid slot receipts collapse to one sink invocation, and bare `CampaignCompleted` never earns.
+
+Every `EditorDirectPlayMode` skips startup profile reading and immediate current-completion earning, including `CampaignProductionSlot`. Product persistence failures, unavailable state, invalid configuration results, and unexpected earning exceptions are contained after the Campaign save; they do not roll back Campaign completion or block terminal/GameClear flow. The durable receipt remains the next normal startup's recovery source.
 
 ## Deferred boundaries
 
-- Gameplay and startup receipt-based earning integration remain deferred to M7B-2G-B. B0 creates the durable receipt and production host but makes no production `Earn` call and performs no startup receipt scan.
 - Steam mapping, Steam publisher behavior, Actual AppID validation, and player builds are deferred.
 - Achievement UI, localized presentation, toast behavior, Cloud allowlisting, and multi-device conflict policy are deferred.
 
 Steam publisher and product-to-Steam mapping are deferred to M7B-2G-C.
 
 `M7B2GB0_DURABLE_NORMAL_COMPLETION_RECEIPT_READY`
+
+`M7B2GB_RECEIPT_BASED_CAMPAIGN_COMPLETE_EARNING_READY`

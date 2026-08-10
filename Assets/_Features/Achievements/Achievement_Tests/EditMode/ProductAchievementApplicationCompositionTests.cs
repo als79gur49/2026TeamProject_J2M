@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Game.Feature.Stages;
+using Game.Product.Achievements.CampaignIntegration;
 using Game.Product.Achievements.Composition;
 using Game.Product.Achievements.Infrastructure;
 using NUnit.Framework;
@@ -21,11 +22,13 @@ namespace Game.Product.Achievements.Tests
                 Path.GetTempPath(),
                 "j2m-achievement-composition-" + Guid.NewGuid().ToString("N"));
             _canonicalSavesRoot = Path.Combine(_testRoot, "Saves");
+            ProductAchievementEarningSinkHandoff.ResetForTests();
         }
 
         [TearDown]
         public void TearDown()
         {
+            ProductAchievementEarningSinkHandoff.ResetForTests();
             if (Directory.Exists(_testRoot))
             {
                 Directory.Delete(_testRoot, recursive: true);
@@ -134,6 +137,80 @@ namespace Game.Product.Achievements.Tests
                 Does.Contain("\"PendingAchievementPublicationIds\":[\"campaign.complete\"]"));
         }
 
+        [Test]
+        public void LifetimeOwner_RegistersExactSinkUntilDispose()
+        {
+            var owner = new ProductAchievementApplicationLifetimeOwner(
+                new TemporarySavePathProvider(_canonicalSavesRoot));
+
+            Assert.That(owner.Initialize(), Is.True);
+            Assert.That(ProductAchievementEarningSinkHandoff.TryGet(out var observed), Is.True);
+            Assert.That(observed, Is.SameAs(owner.EarningSink));
+
+            owner.Dispose();
+
+            Assert.That(ProductAchievementEarningSinkHandoff.TryGet(out _), Is.False);
+        }
+
+        [Test]
+        public void LifetimeOwner_StartupReceiptReconciliation_RunsOnceAfterHostInitialization()
+        {
+            var campaignStore = new ReceiptCampaignStore(CreateValidReceiptSlot());
+            var campaignFactoryCount = 0;
+            using var owner = new ProductAchievementApplicationLifetimeOwner(
+                new TemporarySavePathProvider(_canonicalSavesRoot),
+                campaignSaveSlotStoreFactory: () =>
+                {
+                    campaignFactoryCount++;
+                    return campaignStore;
+                });
+
+            Assert.That(owner.Initialize(), Is.True);
+            var first = owner.ReconcileNormalCampaignCompletionReceipt();
+            var second = owner.ReconcileNormalCampaignCompletionReceipt();
+            var host = owner.Host as ProductAchievementApplicationHost;
+
+            Assert.That(first, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(second, Is.EqualTo(NormalCampaignCompletionAchievementResult.AlreadyReconciled));
+            Assert.That(campaignFactoryCount, Is.EqualTo(1));
+            Assert.That(campaignStore.LoadCount, Is.EqualTo(1));
+            Assert.That(host, Is.Not.Null);
+            Assert.That(host.Coordinator.GetSnapshot().EarnedAchievementIds.Count, Is.EqualTo(1));
+            Assert.That(host.Coordinator.GetSnapshot().PendingAchievementPublicationIds.Count, Is.EqualTo(1));
+        }
+
+        [TestCase(EditorDirectPlayMode.NonCampaign)]
+        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
+        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
+        public void LifetimeOwner_DirectPlayStartup_SkipsProfileRead(
+            EditorDirectPlayMode mode)
+        {
+            var campaignStore = new ReceiptCampaignStore(CreateValidReceiptSlot());
+            var campaignFactoryCount = 0;
+            using var owner = new ProductAchievementApplicationLifetimeOwner(
+                new TemporarySavePathProvider(_canonicalSavesRoot),
+                campaignSaveSlotStoreFactory: () =>
+                {
+                    campaignFactoryCount++;
+                    return campaignStore;
+                },
+                directPlayContextProvider: () => new EditorDirectPlayContext(
+                    mode,
+                    StageId.CreateOrThrow("stage-4-3"),
+                    "direct-play-save",
+                    "direct-play-active",
+                    3,
+                    suppressCampaignFlow: false));
+
+            Assert.That(owner.Initialize(), Is.True);
+            var result = owner.ReconcileNormalCampaignCompletionReceipt();
+
+            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.DirectPlayExcluded));
+            Assert.That(campaignFactoryCount, Is.Zero);
+            Assert.That(campaignStore.LoadCount, Is.Zero);
+            Assert.That(File.Exists(AchievementPath), Is.False);
+        }
+
         private string AchievementPath => Path.Combine(
             _canonicalSavesRoot,
             FileProductAchievementRepository.AchievementFileName);
@@ -173,6 +250,71 @@ namespace Game.Product.Achievements.Tests
             {
                 return AchievementEarnResult.EarnedNew;
             }
+        }
+
+        private static SaveSlotData CreateValidReceiptSlot()
+        {
+            return new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
+                CurrentLevelGroupId = "level-4",
+                CampaignCompleted = true,
+                HasNormalCampaignCompletionReceipt = true,
+                NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
+                {
+                    Version = NormalCampaignCompletionReceipt.CurrentVersion,
+                    CompletedStageId = "stage-4-3",
+                    StageRunId = "composition-startup-run",
+                    ClearSource = (int)StageClearSource.Objective,
+                },
+            };
+        }
+
+        private sealed class ReceiptCampaignStore : ICampaignSaveSlotStore
+        {
+            private readonly SaveSlotData _slot;
+
+            public ReceiptCampaignStore(SaveSlotData slot)
+            {
+                _slot = slot;
+            }
+
+            public string DiagnosticsKey => nameof(ReceiptCampaignStore);
+
+            public CampaignSaveLoadReport LastCampaignLoadReport =>
+                CampaignSaveLoadReport.Loaded("receipt test profile", nameof(ReceiptCampaignStore));
+
+            public int LoadCount { get; private set; }
+
+            public SaveSlotData[] LoadAll()
+            {
+                return LoadAllWithReport().Slots;
+            }
+
+            public CampaignSaveLoadResult LoadAllWithReport()
+            {
+                LoadCount++;
+                return new CampaignSaveLoadResult(
+                    new[] { _slot.Clone() },
+                    LastCampaignLoadReport);
+            }
+
+            public SaveSlotData LoadSlot(int slotNumber) => _slot.Clone();
+
+            public void SaveSlot(SaveSlotData slot) => throw new NotSupportedException();
+
+            public SaveSlotData InitializeNewGame(
+                int slotNumber,
+                CampaignStageSequenceResolver sequenceResolver,
+                string lastPlayedAt) => throw new NotSupportedException();
+
+            public void UpdateSlot(int slotNumber, Action<SaveSlotData> mutation) =>
+                throw new NotSupportedException();
+
+            public void DeleteSlot(int slotNumber) => throw new NotSupportedException();
+
+            public void ClearAll() => throw new NotSupportedException();
         }
     }
 }
