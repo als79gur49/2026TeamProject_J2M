@@ -255,16 +255,23 @@ try {
         $stageWrapper = Join-Path $script:RepositoryRoot `
             "Tools\Build\Stage-WindowsDistribution.ps1"
         $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
+        $previousPackages = $env:NUGET_PACKAGES
+        $offlineCacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
+            "VectorQuakeDistributionStagerOfflineOnly"
         try {
+            if (Test-Path -LiteralPath $offlineCacheRoot -PathType Container) {
+                [IO.Directory]::Delete("\\?\$offlineCacheRoot", $true)
+            }
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            $env:NUGET_PACKAGES = '\\synthetic.invalid\packages'
             . $stageWrapper
             Import-WindowsDistributionStagerTypes `
                 -Root $script:RepositoryRoot `
                 -OfflineOnly `
-                -CacheRoot (Join-Path ([IO.Path]::GetTempPath()) `
-                    "VectorQuakeDistributionStagerOfflineOnly")
+                -CacheRoot $offlineCacheRoot
         } finally {
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
+            $env:NUGET_PACKAGES = $previousPackages
         }
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
         Assert-ThrowsContaining {
@@ -275,10 +282,22 @@ try {
 
         $stageSource = Get-Content -LiteralPath $stageWrapper -Raw
         Assert-True ($stageSource.Contains("--configfile"))
+        Assert-True ($stageSource.Contains("--packages"))
         Assert-True ($stageSource.Contains("--no-restore"))
         Assert-True ($stageSource.Contains("NuGetAudit=false"))
         Assert-True ($stageSource.Contains(
             "DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE"))
+        $assetsPath = Get-ChildItem -LiteralPath $offlineCacheRoot `
+            -Filter "project.assets.json" -File -Recurse | Select-Object -First 1
+        Assert-True ($null -ne $assetsPath)
+        $assets = Get-Content -LiteralPath $assetsPath.FullName -Raw |
+            ConvertFrom-Json
+        foreach ($packageRoot in @($assets.packageFolders.psobject.Properties.Name)) {
+            Assert-True (Test-PathIsSameOrUnder `
+                -Candidate $packageRoot `
+                -Parent $offlineCacheRoot) `
+                "Restore used package root outside validated cache: $packageRoot"
+        }
         $productionSource = Get-Content -LiteralPath `
             (Join-Path $PSScriptRoot "..\Prepare-SteamPipeBuild.ps1") -Raw
         Assert-True ($productionSource.Contains(

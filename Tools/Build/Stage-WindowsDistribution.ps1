@@ -248,8 +248,26 @@ public static class WindowsDistributionStagerCompiledIdentity
             -Name "compile cache"
         $dotnetPath = Get-ValidatedWindowsDistributionDotnetPath
         if ($OfflineOnly) {
-            $offlineSource = Join-Path $compileRoot "offline-package-source"
-            New-Item -ItemType Directory -Path $offlineSource -Force | Out-Null
+            $offlineSource = Join-Path `
+                ([Environment]::GetFolderPath("UserProfile")) `
+                ".nuget\packages"
+            $packagesRoot = Join-Path $compileRoot "global-packages"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $offlineSource `
+                -Name "offline package seed"
+            if (-not (Test-Path -LiteralPath $offlineSource -PathType Container)) {
+                throw "STAGING_POLICY_OFFLINE_PACKAGE_SEED_MISSING: $offlineSource"
+            }
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $offlineSource `
+                -Name "offline package seed"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $packagesRoot `
+                -Name "offline global packages"
+            New-Item -ItemType Directory -Path $packagesRoot -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $packagesRoot `
+                -Name "offline global packages"
             $nugetConfigPath = Join-Path $compileRoot "NuGet.Offline.Config"
             $offlineSourceXml = [Security.SecurityElement]::Escape($offlineSource)
             $nugetConfig = @"
@@ -273,6 +291,7 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = "1"
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
+                    --packages $packagesRoot `
                     -p:NuGetAudit=false --nologo --verbosity quiet 2>&1)
                 if ($LASTEXITCODE -ne 0) {
                     throw "STAGING_POLICY_OFFLINE_RESTORE_FAILED: $($restoreOutput -join [Environment]::NewLine)"
