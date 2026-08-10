@@ -97,6 +97,23 @@ function Assert-WindowsDistributionLocalValidatorTree {
     }
 }
 
+function Resolve-WindowsDistributionDotnetPath {
+    $command = Get-Command dotnet.exe -CommandType Application `
+        -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $command -or [string]::IsNullOrWhiteSpace($command.Source)) {
+        throw "STAGING_POLICY_DOTNET_MISSING"
+    }
+    return [string]$command.Source
+}
+
+function Get-ValidatedWindowsDistributionDotnetPath {
+    $path = Resolve-WindowsDistributionDotnetPath
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $path `
+        -Name "dotnet compiler executable"
+    return $path
+}
+
 function Assert-WindowsDistributionStagerIdentity {
     param(
         [Parameter(Mandatory)][type]$StagerType,
@@ -229,6 +246,7 @@ public static class WindowsDistributionStagerCompiledIdentity
         Assert-WindowsDistributionLocalValidatorTree `
             -Path $compileRoot `
             -Name "compile cache"
+        $dotnetPath = Get-ValidatedWindowsDistributionDotnetPath
         if ($OfflineOnly) {
             $offlineSource = Join-Path $compileRoot "offline-package-source"
             New-Item -ItemType Directory -Path $offlineSource -Force | Out-Null
@@ -253,13 +271,13 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
                 $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = "1"
-                $restoreOutput = @(& dotnet.exe restore $projectPath `
+                $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     -p:NuGetAudit=false --nologo --verbosity quiet 2>&1)
                 if ($LASTEXITCODE -ne 0) {
                     throw "STAGING_POLICY_OFFLINE_RESTORE_FAILED: $($restoreOutput -join [Environment]::NewLine)"
                 }
-                $buildOutput = @(& dotnet.exe build $projectPath `
+                $buildOutput = @(& $dotnetPath build $projectPath `
                     --configuration Release `
                     --output $buildOutputRoot `
                     --no-restore --nologo --verbosity quiet 2>&1)
@@ -271,7 +289,7 @@ public static class WindowsDistributionStagerCompiledIdentity
                     $previousWorkloadUpdate
             }
         } else {
-            $buildOutput = @(& dotnet.exe build $projectPath `
+            $buildOutput = @(& $dotnetPath build $projectPath `
                 --configuration Release --output $buildOutputRoot `
                 --nologo --verbosity quiet 2>&1)
             $buildExitCode = $LASTEXITCODE

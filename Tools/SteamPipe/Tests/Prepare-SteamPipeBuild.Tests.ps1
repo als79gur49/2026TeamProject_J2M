@@ -351,6 +351,35 @@ try {
         } finally {
             Remove-Item -LiteralPath $nestedBin -Force
         }
+
+        $script:OriginalDotnetResolver =
+            (Get-Command Resolve-WindowsDistributionDotnetPath).ScriptBlock
+        $script:OriginalDistributionDriveType =
+            (Get-Command Get-WindowsDistributionDriveType).ScriptBlock
+        try {
+            Set-Item Function:\Resolve-WindowsDistributionDotnetPath {
+                return 'Z:\tools\dotnet.exe'
+            }
+            Set-Item Function:\Get-WindowsDistributionDriveType {
+                param([string]$Path)
+                if ($Path.StartsWith("Z:", [StringComparison]::OrdinalIgnoreCase)) {
+                    return [IO.DriveType]::Network
+                }
+                return & $script:OriginalDistributionDriveType -Path $Path
+            }
+            Assert-ThrowsContaining {
+                Get-ValidatedWindowsDistributionDotnetPath
+            } "STAGING_POLICY_VALIDATOR_NETWORK_PATH_REJECTED"
+        } finally {
+            Set-Item Function:\Resolve-WindowsDistributionDotnetPath `
+                $script:OriginalDotnetResolver
+            Set-Item Function:\Get-WindowsDistributionDriveType `
+                $script:OriginalDistributionDriveType
+            Remove-Variable OriginalDotnetResolver `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable OriginalDistributionDriveType `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
     }
 
     Invoke-Case "foreign loaded validator identity is rejected by outer importer" {
@@ -564,6 +593,28 @@ try {
         Assert-ThrowsContaining {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STAGING_PROMOTED_MANIFEST_MISMATCH"
+        Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "promoted launch arguments are validated by the typed target policy" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "launch-mismatch-promoted")
+        $manifestPath = Join-Path $promoted `
+            "evidence\distribution-manifest.json"
+        $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw |
+            ConvertFrom-Json
+        $manifest.expectedLaunchArguments = @("-j2mPlatformProvider", "local")
+        Write-TestJson $manifest $manifestPath
+        $success = Get-Content -LiteralPath $successPath -Raw | ConvertFrom-Json
+        $success.manifestSha256 = Get-FileSha256 $manifestPath
+        Write-TestJson $success $successPath
+
+        $output = Join-Path $script:FixtureRoot "launch-mismatch-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_PROMOTED_LAUNCH_ARGUMENT_MISMATCH"
         Assert-FinalOutputAbsent $output
     }
 

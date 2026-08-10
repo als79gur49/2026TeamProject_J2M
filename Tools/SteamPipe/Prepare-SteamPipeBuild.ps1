@@ -190,6 +190,14 @@ function Invoke-PromotedSteamWindowsPreflight {
         [string]$success.distributionTarget -cne "steam-windows") {
         throw "STEAMPIPE_PROMOTED_TARGET_REJECTED"
     }
+    $launchArguments = [string[]]@($manifest.expectedLaunchArguments |
+        ForEach-Object { [string]$_ })
+    $launchFailure = [WindowsDistributionTargetPolicy]::ValidateLaunchArguments(
+        [WindowsDistributionTargetPolicy]::SteamWindows,
+        $launchArguments)
+    if ($launchFailure -ne [WindowsDistributionValidationFailure]::None) {
+        throw "STEAMPIPE_PROMOTED_LAUNCH_ARGUMENT_MISMATCH: $launchFailure"
+    }
     if ([string]$manifest.scriptingBackend -cne [string]$success.scriptingBackend -or
         [string]$manifest.expectedProviderId -cne "steam" -or
         [string]$success.status -cne "SUCCESS" -or
