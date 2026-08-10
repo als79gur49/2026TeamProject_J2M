@@ -131,6 +131,8 @@ function Enter-ExclusiveRepositoryLock {
     param([Parameter(Mandatory)][string]$Path)
 
     try {
+        [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path)) |
+            Out-Null
         return [IO.File]::Open(
             $Path,
             [IO.FileMode]::CreateNew,

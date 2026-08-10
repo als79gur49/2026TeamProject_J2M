@@ -96,7 +96,8 @@ Invoke-Case "only the known Unity font importer mutation is restorable" {
 }
 
 Invoke-Case "exclusive repository lock blocks concurrent mutation and cleans up" {
-    $lockPath = Join-Path $env:TEMP ("j2m-repository-" + [Guid]::NewGuid().ToString("N") + ".lock")
+    $fixtureRoot = Join-Path $env:TEMP ("j2m-repository-" + [Guid]::NewGuid().ToString("N"))
+    $lockPath = Join-Path $fixtureRoot "refs\heads\feature\release.lock"
     $first = Enter-ExclusiveRepositoryLock -Path $lockPath
     try {
         Assert-Throws {
@@ -106,6 +107,7 @@ Invoke-Case "exclusive repository lock blocks concurrent mutation and cleans up"
         Exit-ExclusiveRepositoryLocks -Locks @($first)
     }
     Assert-True (-not (Test-Path -LiteralPath $lockPath))
+    Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
 }
 
 Invoke-Case "repository provenance remains readable while mutation locks are held" {
