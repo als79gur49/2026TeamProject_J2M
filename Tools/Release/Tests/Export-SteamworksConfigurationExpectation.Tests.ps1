@@ -95,6 +95,33 @@ Invoke-Case "only the known Unity font importer mutation is restorable" {
     }
 }
 
+Invoke-Case "exclusive repository lock blocks concurrent mutation and cleans up" {
+    $lockPath = Join-Path $env:TEMP ("j2m-repository-" + [Guid]::NewGuid().ToString("N") + ".lock")
+    $first = Enter-ExclusiveRepositoryLock -Path $lockPath
+    try {
+        Assert-Throws {
+            Enter-ExclusiveRepositoryLock -Path $lockPath | Out-Null
+        } "STEAMWORKS_EXPECTATION_REPOSITORY_BUSY"
+    } finally {
+        Exit-ExclusiveRepositoryLocks -Locks @($first)
+    }
+    Assert-True (-not (Test-Path -LiteralPath $lockPath))
+}
+
+Invoke-Case "repository provenance remains readable while mutation locks are held" {
+    $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+    $locks = Enter-RepositoryMutationLocks -Root $repositoryRoot
+    try {
+        $head = Invoke-RepositoryGit $repositoryRoot @("rev-parse", "HEAD")
+        $tree = Invoke-RepositoryGit $repositoryRoot @("rev-parse", "HEAD^{tree}")
+        Invoke-RepositoryGit $repositoryRoot @("status", "--short") | Out-Null
+        Assert-True (-not [string]::IsNullOrWhiteSpace($head))
+        Assert-True (-not [string]::IsNullOrWhiteSpace($tree))
+    } finally {
+        Exit-ExclusiveRepositoryLocks -Locks $locks
+    }
+}
+
 Invoke-Case "production wrapper contains no identity or backend mutation surface" {
     $source = Get-Content -LiteralPath `
         (Join-Path $PSScriptRoot "..\Export-SteamworksConfigurationExpectation.ps1") -Raw

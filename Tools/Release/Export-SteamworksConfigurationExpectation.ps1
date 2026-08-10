@@ -31,6 +31,20 @@ function Convert-RepositoryPathToWsl {
     return [string]$output[0]
 }
 
+function Convert-GitPathToNative {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if ($Path.StartsWith("/mnt/", [StringComparison]::Ordinal)) {
+        $output = @(& wsl.exe -e wslpath -w $Path 2>&1)
+        if ($LASTEXITCODE -ne 0 -or $output.Count -eq 0) {
+            throw "STEAMWORKS_EXPECTATION_GIT_LOCK_PATH_FAILED: $($output -join ' ')"
+        }
+        return [string]$output[0]
+    }
+
+    return [IO.Path]::GetFullPath($Path)
+}
+
 function Invoke-RepositoryGit {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -113,6 +127,54 @@ function Test-IsKnownUnityFontImporterMutation {
     return $expected -ceq [IO.File]::ReadAllText($AfterPath)
 }
 
+function Enter-ExclusiveRepositoryLock {
+    param([Parameter(Mandatory)][string]$Path)
+
+    try {
+        return [IO.File]::Open(
+            $Path,
+            [IO.FileMode]::CreateNew,
+            [IO.FileAccess]::ReadWrite,
+            [IO.FileShare]::None)
+    } catch {
+        throw "STEAMWORKS_EXPECTATION_REPOSITORY_BUSY"
+    }
+}
+
+function Exit-ExclusiveRepositoryLocks {
+    param([object[]]$Locks)
+
+    $lockArray = @($Locks)
+    for ($index = $lockArray.Count - 1; $index -ge 0; $index--) {
+        $lock = $lockArray[$index]
+        if ($null -eq $lock) { continue }
+        $path = $lock.Name
+        $lock.Dispose()
+        Remove-Item -LiteralPath $path -Force
+    }
+}
+
+function Enter-RepositoryMutationLocks {
+    param([Parameter(Mandatory)][string]$Root)
+
+    $headReference = Invoke-RepositoryGit $Root @("symbolic-ref", "-q", "HEAD")
+    $indexLockPath = Invoke-RepositoryGit $Root @(
+        "rev-parse", "--path-format=absolute", "--git-path", "index.lock")
+    $headLockPath = Invoke-RepositoryGit $Root @(
+        "rev-parse", "--path-format=absolute", "--git-path", ($headReference + ".lock"))
+    $locks = @()
+    try {
+        $locks += Enter-ExclusiveRepositoryLock `
+            -Path (Convert-GitPathToNative $indexLockPath)
+        $locks += Enter-ExclusiveRepositoryLock `
+            -Path (Convert-GitPathToNative $headLockPath)
+        return $locks
+    } catch {
+        Exit-ExclusiveRepositoryLocks -Locks $locks
+        throw
+    }
+}
+
 function Invoke-SteamworksConfigurationExpectationExport {
     [CmdletBinding()]
     param(
@@ -132,10 +194,14 @@ function Invoke-SteamworksConfigurationExpectationExport {
         throw "STEAMWORKS_EXPECTATION_REPOSITORY_OUTPUT_FORBIDDEN"
     }
 
-    $sourceHead = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD")
-    $sourceTree = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD^{tree}")
-    $statusBefore = Invoke-RepositoryGit $repositoryFull @("status", "--short")
-    Assert-RepositoryIsClean -Status $statusBefore
+    $statusProbe = Invoke-RepositoryGit $repositoryFull @("status", "--short")
+    Assert-RepositoryIsClean -Status $statusProbe
+    $repositoryLocks = Enter-RepositoryMutationLocks -Root $repositoryFull
+    try {
+        $sourceHead = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD")
+        $sourceTree = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD^{tree}")
+        $statusBefore = Invoke-RepositoryGit $repositoryFull @("status", "--short")
+        Assert-RepositoryIsClean -Status $statusBefore
 
     New-Item -ItemType Directory -Path $outputFull -Force | Out-Null
     $logPath = Join-Path $outputFull "unity-export.log"
@@ -220,15 +286,20 @@ function Invoke-SteamworksConfigurationExpectationExport {
         -ActualTree $sourceTreeAfter
 
     $hash = ((Get-Content -LiteralPath $hashPath -Raw).Trim() -split '\s+')[0]
-    return [pscustomobject][ordered]@{
-        ReportPath = $reportPath
-        HashPath = $hashPath
-        Sha256 = $hash
-        SourceHead = $sourceHead
-        SourceTree = $sourceTree
-        SourceMutation = $false
-        GuardedMutationRestored = $guardedMutationRestored
+        $result = [pscustomobject][ordered]@{
+            ReportPath = $reportPath
+            HashPath = $hashPath
+            Sha256 = $hash
+            SourceHead = $sourceHead
+            SourceTree = $sourceTree
+            SourceMutation = $false
+            GuardedMutationRestored = $guardedMutationRestored
+        }
+    } finally {
+        Exit-ExclusiveRepositoryLocks -Locks $repositoryLocks
     }
+
+    return $result
 }
 
 if ($env:VECTORQUAKE_STEAMWORKS_EXPECTATION_TEST_MODE -ne "1") {
