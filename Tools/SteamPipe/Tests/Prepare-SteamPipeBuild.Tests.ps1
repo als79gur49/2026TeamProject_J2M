@@ -456,9 +456,21 @@ try {
         $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
         $previousDotnetCliHome = $env:DOTNET_CLI_HOME
         $previousMsBuildSdksPath = $env:MSBuildSDKsPath
+        $previousCustomBeforeCommonProps = `
+            $env:CustomBeforeMicrosoftCommonProps
+        $previousCustomAfterCommonProps = `
+            $env:CustomAfterMicrosoftCommonProps
+        $previousCustomBeforeCommonTargets = `
+            $env:CustomBeforeMicrosoftCommonTargets
+        $previousCustomAfterCommonTargets = `
+            $env:CustomAfterMicrosoftCommonTargets
         $revocationAfterImport = ""
         $dotnetCliHomeAfterImport = ""
         $msBuildSdksPathAfterImport = ""
+        $customBeforeCommonPropsAfterImport = ""
+        $customAfterCommonPropsAfterImport = ""
+        $customBeforeCommonTargetsAfterImport = ""
+        $customAfterCommonTargetsAfterImport = ""
         $offlineCacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
             "VectorQuakeDistributionStagerOfflineOnly"
         try {
@@ -489,6 +501,14 @@ try {
             $env:NUGET_CERT_REVOCATION_MODE = "synthetic-previous"
             $env:DOTNET_CLI_HOME = '\\synthetic.invalid\dotnet-cli-home'
             $env:MSBuildSDKsPath = '\\synthetic.invalid\msbuild-sdks'
+            $env:CustomBeforeMicrosoftCommonProps = `
+                '\\synthetic.invalid\before-common.props'
+            $env:CustomAfterMicrosoftCommonProps = `
+                '\\synthetic.invalid\after-common.props'
+            $env:CustomBeforeMicrosoftCommonTargets = `
+                '\\synthetic.invalid\before-common.targets'
+            $env:CustomAfterMicrosoftCommonTargets = `
+                '\\synthetic.invalid\after-common.targets'
             . $stageWrapper
             Import-WindowsDistributionStagerTypes `
                 -Root $script:RepositoryRoot `
@@ -498,17 +518,41 @@ try {
             $revocationAfterImport = $env:NUGET_CERT_REVOCATION_MODE
             $dotnetCliHomeAfterImport = $env:DOTNET_CLI_HOME
             $msBuildSdksPathAfterImport = $env:MSBuildSDKsPath
+            $customBeforeCommonPropsAfterImport = `
+                $env:CustomBeforeMicrosoftCommonProps
+            $customAfterCommonPropsAfterImport = `
+                $env:CustomAfterMicrosoftCommonProps
+            $customBeforeCommonTargetsAfterImport = `
+                $env:CustomBeforeMicrosoftCommonTargets
+            $customAfterCommonTargetsAfterImport = `
+                $env:CustomAfterMicrosoftCommonTargets
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
             $env:NUGET_PACKAGES = $previousPackages
             $env:NUGET_CERT_REVOCATION_MODE = $previousCertificateRevocation
             $env:DOTNET_CLI_HOME = $previousDotnetCliHome
             $env:MSBuildSDKsPath = $previousMsBuildSdksPath
+            $env:CustomBeforeMicrosoftCommonProps = `
+                $previousCustomBeforeCommonProps
+            $env:CustomAfterMicrosoftCommonProps = `
+                $previousCustomAfterCommonProps
+            $env:CustomBeforeMicrosoftCommonTargets = `
+                $previousCustomBeforeCommonTargets
+            $env:CustomAfterMicrosoftCommonTargets = `
+                $previousCustomAfterCommonTargets
         }
         Assert-Equal "synthetic-previous" $revocationAfterImport
         Assert-Equal '\\synthetic.invalid\dotnet-cli-home' `
             $dotnetCliHomeAfterImport
         Assert-Equal '\\synthetic.invalid\msbuild-sdks' `
             $msBuildSdksPathAfterImport
+        Assert-Equal '\\synthetic.invalid\before-common.props' `
+            $customBeforeCommonPropsAfterImport
+        Assert-Equal '\\synthetic.invalid\after-common.props' `
+            $customAfterCommonPropsAfterImport
+        Assert-Equal '\\synthetic.invalid\before-common.targets' `
+            $customBeforeCommonTargetsAfterImport
+        Assert-Equal '\\synthetic.invalid\after-common.targets' `
+            $customAfterCommonTargetsAfterImport
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
         Assert-ThrowsContaining {
             Assert-WindowsDistributionStagerIdentity `
@@ -527,6 +571,14 @@ try {
             'NUGET_CERT_REVOCATION_MODE = "offline"'))
         Assert-True ($stageSource.Contains('DOTNET_CLI_HOME = $dotnetCliHome'))
         Assert-True ($stageSource.Contains('MSBuildSDKsPath = $null'))
+        Assert-True ($stageSource.Contains(
+            'CustomBeforeMicrosoftCommonProps = $null'))
+        Assert-True ($stageSource.Contains(
+            'CustomAfterMicrosoftCommonProps = $null'))
+        Assert-True ($stageSource.Contains(
+            'CustomBeforeMicrosoftCommonTargets = $null'))
+        Assert-True ($stageSource.Contains(
+            'CustomAfterMicrosoftCommonTargets = $null'))
         Assert-True ($stageSource.Contains(
             '-p:ImportDirectoryBuildProps=false'))
         Assert-True ($stageSource.Contains(

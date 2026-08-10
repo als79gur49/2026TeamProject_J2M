@@ -381,6 +381,14 @@ public static class WindowsDistributionStagerCompiledIdentity
             $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
             $previousDotnetCliHome = $env:DOTNET_CLI_HOME
             $previousMsBuildSdksPath = $env:MSBuildSDKsPath
+            $previousCustomBeforeCommonProps = `
+                $env:CustomBeforeMicrosoftCommonProps
+            $previousCustomAfterCommonProps = `
+                $env:CustomAfterMicrosoftCommonProps
+            $previousCustomBeforeCommonTargets = `
+                $env:CustomBeforeMicrosoftCommonTargets
+            $previousCustomAfterCommonTargets = `
+                $env:CustomAfterMicrosoftCommonTargets
             try {
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
@@ -388,6 +396,10 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:NUGET_CERT_REVOCATION_MODE = "offline"
                 $env:DOTNET_CLI_HOME = $dotnetCliHome
                 $env:MSBuildSDKsPath = $null
+                $env:CustomBeforeMicrosoftCommonProps = $null
+                $env:CustomAfterMicrosoftCommonProps = $null
+                $env:CustomBeforeMicrosoftCommonTargets = $null
+                $env:CustomAfterMicrosoftCommonTargets = $null
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     --packages $packagesRoot `
@@ -414,6 +426,14 @@ public static class WindowsDistributionStagerCompiledIdentity
                     $previousCertificateRevocation
                 $env:DOTNET_CLI_HOME = $previousDotnetCliHome
                 $env:MSBuildSDKsPath = $previousMsBuildSdksPath
+                $env:CustomBeforeMicrosoftCommonProps = `
+                    $previousCustomBeforeCommonProps
+                $env:CustomAfterMicrosoftCommonProps = `
+                    $previousCustomAfterCommonProps
+                $env:CustomBeforeMicrosoftCommonTargets = `
+                    $previousCustomBeforeCommonTargets
+                $env:CustomAfterMicrosoftCommonTargets = `
+                    $previousCustomAfterCommonTargets
             }
         } else {
             $buildOutput = @(& $dotnetPath build $projectPath `
