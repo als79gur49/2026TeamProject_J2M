@@ -59,6 +59,32 @@ function Write-TestJson {
     Write-Utf8File $Path $json
 }
 
+function Add-DuplicateJsonPropertyLine {
+    param(
+        [string]$Path,
+        [string]$PropertyName,
+        [string]$DuplicateJsonValue
+    )
+
+    $lines = [Collections.Generic.List[string]]::new()
+    foreach ($line in ([IO.File]::ReadAllLines($Path))) {
+        $trimmed = $line.TrimStart()
+        if ($trimmed.StartsWith(
+                '"' + $PropertyName + '":',
+                [StringComparison]::Ordinal)) {
+            $indent = $line.Substring(0, $line.Length - $trimmed.Length)
+            $lines.Add(
+                $indent + '"' + $PropertyName + '":  ' +
+                $DuplicateJsonValue + ',')
+        }
+        $lines.Add($line)
+    }
+    [IO.File]::WriteAllLines(
+        $Path,
+        $lines,
+        [Text.UTF8Encoding]::new($false))
+}
+
 function New-PromotedFixture {
     param(
         [string]$Root,
@@ -426,6 +452,8 @@ try {
             "Tools\Build\Stage-WindowsDistribution.ps1"
         $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
         $previousPackages = $env:NUGET_PACKAGES
+        $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
+        $revocationAfterImport = ""
         $offlineCacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
             "VectorQuakeDistributionStagerOfflineOnly"
         try {
@@ -434,15 +462,19 @@ try {
             }
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
             $env:NUGET_PACKAGES = '\\synthetic.invalid\packages'
+            $env:NUGET_CERT_REVOCATION_MODE = "synthetic-previous"
             . $stageWrapper
             Import-WindowsDistributionStagerTypes `
                 -Root $script:RepositoryRoot `
                 -OfflineOnly `
                 -CacheRoot $offlineCacheRoot
         } finally {
+            $revocationAfterImport = $env:NUGET_CERT_REVOCATION_MODE
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
             $env:NUGET_PACKAGES = $previousPackages
+            $env:NUGET_CERT_REVOCATION_MODE = $previousCertificateRevocation
         }
+        Assert-Equal "synthetic-previous" $revocationAfterImport
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
         Assert-ThrowsContaining {
             Assert-WindowsDistributionStagerIdentity `
@@ -457,6 +489,8 @@ try {
         Assert-True ($stageSource.Contains("NuGetAudit=false"))
         Assert-True ($stageSource.Contains(
             "DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE"))
+        Assert-True ($stageSource.Contains(
+            'NUGET_CERT_REVOCATION_MODE = "offline"'))
         $assetsPath = Get-ChildItem -LiteralPath $offlineCacheRoot `
             -Filter "project.assets.json" -File -Recurse | Select-Object -First 1
         Assert-True ($null -ne $assetsPath)
@@ -986,6 +1020,57 @@ try {
                 } "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
                 Assert-FinalOutputAbsent $output
             }
+        }
+    }
+
+    Invoke-Case "promoted JSON rejects duplicate properties before materialization" {
+        $cases = @(
+            [pscustomobject]@{
+                Document = "manifest"
+                Property = "sourceSha"
+                DuplicateValue = "123"
+            },
+            [pscustomobject]@{
+                Document = "success"
+                Property = "manifestSha256"
+                DuplicateValue = "false"
+            },
+            [pscustomobject]@{
+                Document = "manifest"
+                Property = "size"
+                DuplicateValue = '"0"'
+            }
+        )
+        foreach ($case in $cases) {
+            $caseName = "$($case.Document)-$($case.Property)"
+            $promoted = New-PromotedFixture `
+                (Join-Path $script:FixtureRoot "duplicate-json-$caseName")
+            $manifestPath = Join-Path $promoted `
+                "evidence\distribution-manifest.json"
+            $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+            $targetPath = if ($case.Document -ceq "manifest") {
+                $manifestPath
+            } else {
+                $successPath
+            }
+            Add-DuplicateJsonPropertyLine `
+                -Path $targetPath `
+                -PropertyName $case.Property `
+                -DuplicateJsonValue $case.DuplicateValue
+            if ($case.Document -ceq "manifest") {
+                $success = Get-Content -LiteralPath $successPath -Raw |
+                    ConvertFrom-Json
+                $success.manifestSha256 = Get-FileSha256 $manifestPath
+                Write-TestJson $success $successPath
+            }
+
+            $output = Join-Path $script:FixtureRoot `
+                "duplicate-json-output-$caseName"
+            $arguments = New-ValidArguments $promoted $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_PROMOTED_EVIDENCE_DUPLICATE_PROPERTY"
+            Assert-FinalOutputAbsent $output
         }
     }
 

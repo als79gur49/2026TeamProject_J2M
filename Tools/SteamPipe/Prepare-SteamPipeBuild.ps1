@@ -140,6 +140,131 @@ function Get-FileSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Assert-JsonPropertyNamesUnique {
+    param([Parameter(Mandatory)][string]$Text)
+
+    $state = [pscustomobject]@{ Position = 0 }
+    $length = $Text.Length
+    $skipWhitespace = {
+        while ($state.Position -lt $length -and
+            [char]::IsWhiteSpace($Text[$state.Position])) {
+            $state.Position++
+        }
+    }
+    $parseString = {
+        if ($state.Position -ge $length -or $Text[$state.Position] -ne '"') {
+            throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: expected JSON string."
+        }
+        $start = $state.Position
+        $state.Position++
+        while ($state.Position -lt $length) {
+            $character = $Text[$state.Position]
+            if ($character -eq '\') {
+                $state.Position += 2
+                continue
+            }
+            $state.Position++
+            if ($character -eq '"') {
+                $raw = $Text.Substring(
+                    $start,
+                    $state.Position - $start)
+                return $raw | ConvertFrom-Json
+            }
+        }
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: unterminated JSON string."
+    }
+    $parseValue = $null
+    $parseObject = {
+        $state.Position++
+        & $skipWhitespace
+        $names = [Collections.Generic.HashSet[string]]::new(
+            [StringComparer]::Ordinal)
+        if ($state.Position -lt $length -and
+            $Text[$state.Position] -eq '}') {
+            $state.Position++
+            return
+        }
+        while ($state.Position -lt $length) {
+            $name = & $parseString
+            if (-not $names.Add([string]$name)) {
+                throw "STEAMPIPE_PROMOTED_EVIDENCE_DUPLICATE_PROPERTY: $name"
+            }
+            & $skipWhitespace
+            if ($state.Position -ge $length -or
+                $Text[$state.Position] -ne ':') {
+                throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: expected JSON colon."
+            }
+            $state.Position++
+            & $parseValue
+            & $skipWhitespace
+            if ($state.Position -lt $length -and
+                $Text[$state.Position] -eq '}') {
+                $state.Position++
+                return
+            }
+            if ($state.Position -ge $length -or
+                $Text[$state.Position] -ne ',') {
+                throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: expected JSON object separator."
+            }
+            $state.Position++
+            & $skipWhitespace
+        }
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: unterminated JSON object."
+    }
+    $parseArray = {
+        $state.Position++
+        & $skipWhitespace
+        if ($state.Position -lt $length -and
+            $Text[$state.Position] -eq ']') {
+            $state.Position++
+            return
+        }
+        while ($state.Position -lt $length) {
+            & $parseValue
+            & $skipWhitespace
+            if ($state.Position -lt $length -and
+                $Text[$state.Position] -eq ']') {
+                $state.Position++
+                return
+            }
+            if ($state.Position -ge $length -or
+                $Text[$state.Position] -ne ',') {
+                throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: expected JSON array separator."
+            }
+            $state.Position++
+            & $skipWhitespace
+        }
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: unterminated JSON array."
+    }
+    $parseValue = {
+        & $skipWhitespace
+        if ($state.Position -ge $length) {
+            throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: missing JSON value."
+        }
+        switch ($Text[$state.Position]) {
+            '{' { & $parseObject; return }
+            '[' { & $parseArray; return }
+            '"' { $null = & $parseString; return }
+        }
+        $start = $state.Position
+        while ($state.Position -lt $length -and
+            -not [char]::IsWhiteSpace($Text[$state.Position]) -and
+            $Text[$state.Position] -notin @(',', '}', ']')) {
+            $state.Position++
+        }
+        if ($state.Position -eq $start) {
+            throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: invalid JSON value."
+        }
+    }
+
+    & $skipWhitespace
+    & $parseValue
+    & $skipWhitespace
+    if ($state.Position -ne $length) {
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: trailing JSON content."
+    }
+}
+
 function Read-JsonFileSnapshot {
     param([Parameter(Mandatory)][string]$Path)
 
@@ -156,6 +281,7 @@ function Read-JsonFileSnapshot {
     if ($text.Length -gt 0 -and $text[0] -eq [char]0xfeff) {
         $text = $text.Substring(1)
     }
+    Assert-JsonPropertyNamesUnique -Text $text
     return [pscustomobject][ordered]@{
         Value = $text | ConvertFrom-Json
         Sha256 = $hash
