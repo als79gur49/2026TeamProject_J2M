@@ -318,6 +318,7 @@ try {
         $script:OriginalSourceHashAssertion =
             (Get-Command Assert-WindowsDistributionSourceHashes).ScriptBlock
         $script:SnapshotAssertionCount = 0
+        $script:FinalAssemblyVisibleDuringVerification = $false
         try {
             Set-Item Function:\Assert-WindowsDistributionSourceHashes {
                 param(
@@ -329,6 +330,11 @@ try {
                     "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH") {
                     $script:SnapshotAssertionCount++
                     if ($script:SnapshotAssertionCount -eq 2) {
+                        $compileRoot = [IO.Path]::GetDirectoryName($Paths[0])
+                        $finalAssembly = Join-Path $compileRoot `
+                            "bin\VectorQuake.DistributionStager.dll"
+                        $script:FinalAssemblyVisibleDuringVerification =
+                            Test-Path -LiteralPath $finalAssembly -PathType Leaf
                         throw $FailureCode
                     }
                 }
@@ -343,6 +349,7 @@ try {
                     -OfflineOnly `
                     -CacheRoot $cacheRoot
             } "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+            Assert-True (-not $script:FinalAssemblyVisibleDuringVerification)
             $assemblies = @(Get-ChildItem -LiteralPath $cacheRoot `
                 -Filter "VectorQuake.DistributionStager.dll" -File -Recurse `
                 -ErrorAction SilentlyContinue | Where-Object {
@@ -356,6 +363,8 @@ try {
             Remove-Variable OriginalSourceHashAssertion `
                 -Scope Script -ErrorAction SilentlyContinue
             Remove-Variable SnapshotAssertionCount `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable FinalAssemblyVisibleDuringVerification `
                 -Scope Script -ErrorAction SilentlyContinue
         }
     }

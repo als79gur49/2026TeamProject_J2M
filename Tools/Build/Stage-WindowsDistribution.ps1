@@ -207,7 +207,7 @@ function Import-WindowsDistributionStagerTypes {
     }
 
     $sourceHashes = Get-WindowsDistributionSourceHashes -Paths $sourcePaths
-    $sourceIdentity = "typed-validator-v3-" + ($sourceHashes -join "-")
+    $sourceIdentity = "typed-validator-v4-" + ($sourceHashes -join "-")
     $identityBytes = [Text.Encoding]::UTF8.GetBytes($sourceIdentity)
     $identityHash = [Security.Cryptography.SHA256]::Create()
     try {
@@ -287,10 +287,13 @@ public static class WindowsDistributionStagerCompiledIdentity
 '@
         [IO.File]::WriteAllText(
             $projectPath, $project, [Text.UTF8Encoding]::new($false))
-        $buildOutputRoot = Join-Path $compileRoot "bin"
+        $buildOutputRoot = Join-Path $compileRoot `
+            (".preparing-bin-" + [Guid]::NewGuid().ToString("N"))
+        $preparedAssemblyPath = Join-Path $buildOutputRoot `
+            "VectorQuake.DistributionStager.dll"
         Assert-WindowsDistributionLocalValidatorPath `
             -Path $buildOutputRoot `
-            -Name "validator build output"
+            -Name "private validator build output"
         Assert-WindowsDistributionLocalValidatorTree `
             -Path $compileRoot `
             -Name "compile cache"
@@ -366,10 +369,10 @@ public static class WindowsDistributionStagerCompiledIdentity
                 -Path $compileRoot `
                 -Name "compile cache"
             Assert-WindowsDistributionLocalValidatorPath `
-                -Path $assemblyPath `
-                -Name "compiled validator assembly"
+                -Path $preparedAssemblyPath `
+                -Name "private compiled validator assembly"
             if ($buildExitCode -ne 0 -or
-                -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+                -not (Test-Path -LiteralPath $preparedAssemblyPath -PathType Leaf)) {
                 throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"
             }
             Assert-WindowsDistributionSourceHashes `
@@ -380,6 +383,7 @@ public static class WindowsDistributionStagerCompiledIdentity
                 -Paths $sourcePaths `
                 -ExpectedHashes $sourceHashes `
                 -FailureCode "STAGING_POLICY_SOURCE_CHANGED_DURING_COMPILE"
+            [IO.Directory]::Move($buildOutputRoot, (Join-Path $compileRoot "bin"))
         } catch {
             Remove-WindowsDistributionValidatorBuildOutput -Path $buildOutputRoot
             throw
