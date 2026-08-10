@@ -414,6 +414,50 @@ try {
         }
     }
 
+    Invoke-Case "promoted payload and evidence reparse descendants are rejected before reads" {
+        $target = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "promoted-reparse-target")
+
+        $evidenceLinkRoot = Join-Path $script:FixtureRoot "evidence-link-promoted"
+        [IO.Directory]::CreateDirectory(
+            (Join-Path $evidenceLinkRoot "payload")) | Out-Null
+        $evidenceLink = Join-Path $evidenceLinkRoot "evidence"
+        New-Item -ItemType Junction -Path $evidenceLink `
+            -Target (Join-Path $target "evidence") | Out-Null
+        try {
+            $output = Join-Path $script:FixtureRoot "evidence-link-output"
+            $arguments = New-ValidArguments $evidenceLinkRoot $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_REPARSE_POINT_REJECTED"
+            Assert-FinalOutputAbsent $output
+        } finally {
+            if ([IO.Directory]::Exists($evidenceLink)) {
+                [IO.Directory]::Delete($evidenceLink)
+            }
+        }
+
+        $payloadLinkRoot = Join-Path $script:FixtureRoot "payload-link-promoted"
+        [IO.Directory]::CreateDirectory($payloadLinkRoot) | Out-Null
+        [IO.Directory]::CreateDirectory(
+            (Join-Path $payloadLinkRoot "evidence")) | Out-Null
+        $payloadLink = Join-Path $payloadLinkRoot "payload"
+        New-Item -ItemType Junction -Path $payloadLink `
+            -Target (Join-Path $target "payload") | Out-Null
+        try {
+            $output = Join-Path $script:FixtureRoot "payload-link-output"
+            $arguments = New-ValidArguments $payloadLinkRoot $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_REPARSE_POINT_REJECTED"
+            Assert-FinalOutputAbsent $output
+        } finally {
+            if ([IO.Directory]::Exists($payloadLink)) {
+                [IO.Directory]::Delete($payloadLink)
+            }
+        }
+    }
+
     Invoke-Case "synthetic valid promoted artifact produces preview-only dry-run" {
         $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "valid-promoted")
         $output = Join-Path $script:FixtureRoot "valid-output"

@@ -167,9 +167,13 @@ function Invoke-PromotedSteamWindowsPreflight {
 
     Import-WindowsDistributionValidationTypes -Root $RepositoryRoot
     $promotedFull = (Resolve-Path -LiteralPath $PromotedRoot).Path
+    $payloadRoot = Join-Path $promotedFull "payload"
     $evidenceRoot = Join-Path $promotedFull "evidence"
     $manifestPath = Join-Path $evidenceRoot "distribution-manifest.json"
     $successPath = Join-Path $evidenceRoot "SUCCESS.json"
+    Assert-NoReparseAncestors -Path $payloadRoot
+    Assert-NoReparseAncestors -Path $manifestPath
+    Assert-NoReparseAncestors -Path $successPath
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $successPath -PathType Leaf)) {
         throw "STEAMPIPE_PROMOTED_EVIDENCE_MISSING"
