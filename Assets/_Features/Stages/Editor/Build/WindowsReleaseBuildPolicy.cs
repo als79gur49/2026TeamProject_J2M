@@ -205,14 +205,31 @@ public static class WindowsReleaseBuildPolicy
             return WindowsReleaseExitCodes.BuildReportIdentityMismatch;
         }
 
+        WindowsDistributionTargetConfiguration canonicalDistribution = null;
         foreach (var identity in identities)
         {
             if (identity == null ||
                 !WindowsDistributionTargetPolicy.TryResolve(
                     identity.distributionTargetId, out var distribution) ||
                 WindowsDistributionTargetPolicy.ValidateConfiguration(distribution) !=
-                    WindowsDistributionValidationFailure.None ||
-                !DistributionIdentityMatches(identity, distribution) ||
+                    WindowsDistributionValidationFailure.None)
+            {
+                return WindowsReleaseExitCodes.BuildReportIdentityMismatch;
+            }
+
+            if (canonicalDistribution == null)
+            {
+                canonicalDistribution = distribution;
+            }
+            else if (!string.Equals(
+                         distribution.TargetId,
+                         canonicalDistribution.TargetId,
+                         StringComparison.Ordinal))
+            {
+                return WindowsReleaseExitCodes.BuildReportIdentityMismatch;
+            }
+
+            if (!DistributionIdentityMatches(identity, canonicalDistribution) ||
                 !string.Equals(identity.storeConfigurationSchema,
                     StoreConfigurationSchema, StringComparison.Ordinal) ||
                 !string.Equals(identity.storeConfigurationId,

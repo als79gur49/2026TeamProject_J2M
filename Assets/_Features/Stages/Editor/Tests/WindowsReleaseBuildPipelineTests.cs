@@ -845,14 +845,82 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
         }
 
+        [TestCase(WindowsDistributionTargetPolicy.DirectWindowsTargetId)]
+        [TestCase(WindowsDistributionTargetPolicy.SteamWindowsTargetId)]
+        public void ArtifactIdentity_UniformDistributionTargetsAreAccepted(string targetId)
+        {
+            Assert.That(WindowsDistributionTargetPolicy.TryResolve(
+                targetId, out var distribution), Is.True);
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
+                    CreateCanonicalStoreIdentity(distribution),
+                    CreateCanonicalStoreIdentity(distribution),
+                    CreateCanonicalStoreIdentity(distribution)),
+                Is.EqualTo(WindowsReleaseExitCodes.Success));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ArtifactIdentity_MixedDistributionTargetsAreRejected(bool directFirst)
+        {
+            var direct = CreateCanonicalStoreIdentity(
+                WindowsDistributionTargetPolicy.DirectWindows);
+            var steam = CreateCanonicalStoreIdentity(
+                WindowsDistributionTargetPolicy.SteamWindows);
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
+                    directFirst ? direct : steam,
+                    directFirst ? steam : direct),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
         [Test]
-        public void ArtifactIdentity_MetadataProvenanceAndSuccessAgree()
+        public void ArtifactIdentity_ThreeCarriersWithOneMixedTargetAreRejected()
         {
             Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
-                    CreateCanonicalStoreIdentity(),
-                    CreateCanonicalStoreIdentity(),
-                    CreateCanonicalStoreIdentity()),
-                Is.EqualTo(WindowsReleaseExitCodes.Success));
+                    CreateCanonicalStoreIdentity(
+                        WindowsDistributionTargetPolicy.SteamWindows),
+                    CreateCanonicalStoreIdentity(
+                        WindowsDistributionTargetPolicy.SteamWindows),
+                    CreateCanonicalStoreIdentity(
+                        WindowsDistributionTargetPolicy.DirectWindows)),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
+        public void ArtifactIdentity_SameSteamTargetWithProviderMismatchIsRejected()
+        {
+            var matching = CreateCanonicalStoreIdentity(
+                WindowsDistributionTargetPolicy.SteamWindows);
+            var mismatch = CreateCanonicalStoreIdentity(
+                WindowsDistributionTargetPolicy.SteamWindows);
+            mismatch.expectedProviderId = WindowsDistributionTargetPolicy.LocalProviderId;
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
+                    matching, mismatch),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
+        public void ArtifactIdentity_NullEmptyOrNullCarrierIsRejected()
+        {
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(null),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(
+                    (ReleaseStoreIdentityV1)null),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
+        }
+
+        [Test]
+        public void ArtifactIdentity_InvalidTargetIsRejected()
+        {
+            var identity = CreateCanonicalStoreIdentity();
+            identity.distributionTargetId = "unknown-windows";
+
+            Assert.That(WindowsReleaseBuildPolicy.ValidateCanonicalArtifactIdentity(identity),
+                Is.EqualTo(WindowsReleaseExitCodes.BuildReportIdentityMismatch));
         }
 
         [TestCase("metadata")]
@@ -1099,9 +1167,10 @@ namespace Game.Feature.Stages.Editor.Tests
             };
         }
 
-        private static ReleaseStoreIdentityV1 CreateCanonicalStoreIdentity()
+        private static ReleaseStoreIdentityV1 CreateCanonicalStoreIdentity(
+            WindowsDistributionTargetConfiguration distribution = null)
         {
-            var distribution = WindowsDistributionTargetPolicy.DirectWindows;
+            distribution = distribution ?? WindowsDistributionTargetPolicy.DirectWindows;
             return new ReleaseStoreIdentityV1
             {
                 distributionTargetId = distribution.TargetId,
