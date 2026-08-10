@@ -64,7 +64,6 @@ namespace Game.Product.Achievements.Tests
                     AchievementRoot + "/Achievement_Composition/Runtime",
                     CampaignIntegrationRoot,
                 },
-                "Game.Platform.Steam",
                 "ISteamAchievementApi",
                 "Steamworks",
                 "ACH_WIN_ONE_GAME",
@@ -72,6 +71,14 @@ namespace Game.Product.Achievements.Tests
                 "-j2mSteamAchievementSmoke",
                 "VQ_",
                 "ACH_");
+
+            AssertSourcesDoNotContain(
+                new[] { DomainRoot, InfrastructureRoot, CampaignIntegrationRoot },
+                "Game.Platform.Steam");
+
+            var compositionAsmdef = File.ReadAllText(
+                CompositionRoot + "/Game.Product.Achievements.Composition.asmdef");
+            Assert.That(compositionAsmdef, Does.Not.Contain("Steam"));
 
             AssertSourcesDoNotContain(
                 new[] { DomainRoot, InfrastructureRoot },

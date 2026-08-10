@@ -167,6 +167,23 @@ namespace Game.Product.Achievements
             return AchievementEarnResult.EarnedNew;
         }
 
+        public bool ReconcileAllEarnedForNewPublicationSession()
+        {
+            List<PublicationAttempt> attempts;
+            lock (_gate)
+            {
+                if (_disposed || !_initializeAttempted || !_usable)
+                {
+                    return false;
+                }
+
+                attempts = RegisterAllKnownEarnedLocked();
+            }
+
+            PublishAll(attempts);
+            return true;
+        }
+
         public ProductAchievementSnapshot GetSnapshot()
         {
             lock (_gate)
@@ -206,6 +223,28 @@ namespace Game.Product.Achievements
             {
                 var achievementId = definitions[i].Id;
                 if (!_earned.Contains(achievementId) || !_sessionReconciledIds.Add(achievementId))
+                {
+                    continue;
+                }
+
+                var attempt = RegisterPublicationLocked(achievementId);
+                if (attempt != null)
+                {
+                    attempts.Add(attempt);
+                }
+            }
+
+            return attempts;
+        }
+
+        private List<PublicationAttempt> RegisterAllKnownEarnedLocked()
+        {
+            var attempts = new List<PublicationAttempt>();
+            var definitions = _catalog.Definitions;
+            for (var i = 0; i < definitions.Count; i++)
+            {
+                var achievementId = definitions[i].Id;
+                if (!_earned.Contains(achievementId))
                 {
                     continue;
                 }

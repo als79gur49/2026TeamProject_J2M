@@ -40,7 +40,7 @@ The receipt is created only after an accepted Victory terminal claim for a clear
 
 The canonical `ApplicationPersistentDataSavePathProvider.SaveRootPath` owns both `profile.json` and `achievements.json` under the product-global `Saves` directory. Product achievement composition does not read slot roots or Editor DirectPlay temporary namespaces.
 
-`ProductAchievementRuntimeBootstrap` creates one plain-C# `ProductAchievementApplicationLifetimeOwner` before the first scene, initializes one `ProductAchievementApplicationHost`, and disposes it at application quit. Scene transitions and Stage retries do not recreate it. The default publisher remains `UnavailableAchievementPublicationSink`; missing-file initialization keeps an in-memory empty document without eagerly creating `achievements.json`.
+`ProductAchievementRuntimeBootstrap` creates one plain-C# `ProductAchievementApplicationLifetimeOwner` before the first scene, initializes one `ProductAchievementApplicationHost`, and disposes it at application quit. Scene transitions and Stage retries do not recreate it. The coordinator references a store-neutral `SwitchableAchievementPublicationSink`, whose initial target is `UnavailableAchievementPublicationSink`; missing-file initialization keeps an in-memory empty document without eagerly creating `achievements.json`.
 
 The application composition has no shared constructor root with the stage-backed scene composition. A single achievement-specific internal `ProductAchievementEarningSinkHandoff` therefore carries only `IProductAchievementEarningSink` across that boundary. The application owner registers one exact sink, a different second registration fails closed, subsystem registration and application disposal clear it, and only scene composition consumes it. Gameplay runtime logic receives a plain `INormalCampaignCompletionAchievementIntegration` constructor dependency and never performs a static lookup or owns/disposes the application sink.
 
@@ -52,12 +52,22 @@ The application composition has no shared constructor root with the stage-backed
 
 Every `EditorDirectPlayMode` skips startup profile reading and immediate current-completion earning, including `CampaignProductionSlot`. Product persistence failures, unavailable state, invalid configuration results, and unexpected earning exceptions are contained after the Campaign save; they do not roll back Campaign completion or block terminal/GameClear flow. The durable receipt remains the next normal startup's recovery source.
 
+## Expected Steam mapping and publication session
+
+The optional Steam Product Achievement integration owns the canonical expected mapping `campaign.complete` → `VQ_CAMPAIGN_COMPLETE`. Its status is `EXPECTED_NOT_PUBLISHED`: the repository requires that exact ordinal API Name, but no actual Steamworks App Admin achievement or published schema is configured or verified by this milestone. The Product Achievement Domain, Gameplay, Campaign receipt, ledger, and save schema do not know the Steam API Name.
+
+After the canonical Steam runtime has initialized with a nonzero observed AppID, valid SteamID, logged-on state, and one active achievement callback pair, a strongly typed achievement-only handoff attaches `SteamAchievementPublisher` to the switchable sink. Product-first and Steam-first startup orders converge on the same attach. The same Steam runtime session is idempotent; detach followed by a new Steam runtime session opens one new reconciliation opportunity. Scene reload, Main Menu entry, and Steam ticks do not create publication sessions.
+
+Each new attached publication session reconciles every catalog-known earned product ID once, whether or not it is currently pending. Existing per-ID in-flight protection remains active, and there is no per-frame retry. Accepted and already-satisfied results remove pending through the existing atomic repository save; unavailable, deferred, rejected, failed, and shutdown completion leave pending durable.
+
+The first Steam publisher slice is single-flight because the production catalog contains one achievement. It validates exact runtime schema presence before mutation, performs a pre-read, calls Set then Store once, accepts either callback order only after matching AppID plus successful stats and exact full-unlock achievement callbacks, and performs an unlocked post-read. Its callback wait uses a 30-second J2M monotonic timeout policy. Multi-achievement StoreStats batching is deferred until the catalog expands.
+
+`SteamPlatformRuntime.Tick` remains the sole timeout tick owner after its canonical callback pump. The publisher never initializes, pumps, or shuts down Steam. Publisher callbacks are disposed and the product session is detached before overlay callback disposal and native shutdown. `-j2mSteamAchievementSmoke` exclusively selects the Spacewar smoke callback owner and prevents Product publisher creation; base `-j2mSteamSmoke` alone does not own achievement callbacks and does not exclude Product publication.
+
 ## Deferred boundaries
 
-- Steam mapping, Steam publisher behavior, Actual AppID validation, and player builds are deferred.
+- Actual AppID schema configuration, Steamworks App Admin publication, real account unlock validation, and player builds are deferred.
 - Achievement UI, localized presentation, toast behavior, Cloud allowlisting, and multi-device conflict policy are deferred.
-
-Steam publisher and product-to-Steam mapping are deferred to M7B-2G-C.
 
 `M7B2GB0_DURABLE_NORMAL_COMPLETION_RECEIPT_READY`
 

@@ -3,7 +3,9 @@
   "rootNamespace": "Game.Platform.Steam.Tests.EditMode",
   "references": [
     "Game.Platform.Runtime",
-    "Game.Platform.Steam"
+    "Game.Platform.Steam",
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Composition"
   ],
   "includePlatforms": [
     "Editor"
