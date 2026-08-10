@@ -54,6 +54,20 @@ function Invoke-RepositoryGit {
     return ($output -join "`n").Trim()
 }
 
+function Wait-ExpectationOutputFile {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 100
+    }
+
+    return (Test-Path -LiteralPath $Path -PathType Leaf)
+}
+
 function Invoke-SteamworksConfigurationExpectationExport {
     [CmdletBinding()]
     param(
@@ -79,6 +93,21 @@ function Invoke-SteamworksConfigurationExpectationExport {
 
     New-Item -ItemType Directory -Path $outputFull -Force | Out-Null
     $logPath = Join-Path $outputFull "unity-export.log"
+    $guardRoot = Join-Path ([IO.Path]::GetTempPath()) `
+        ("j2m-steamworks-expectation-guard-" + [Guid]::NewGuid().ToString("N"))
+    $guardedRelativePaths = @(
+        "Assets\_Shared\UI\Fonts\ClimateCrisisKR-2000 SDF.asset",
+        "Assets\_Shared\UI\Fonts\NanumGothic SDF.asset"
+    )
+    New-Item -ItemType Directory -Path $guardRoot -Force | Out-Null
+    foreach ($relativePath in $guardedRelativePaths) {
+        $sourcePath = Join-Path $repositoryFull $relativePath
+        $snapshotPath = Join-Path $guardRoot $relativePath
+        New-Item -ItemType Directory -Path (Split-Path $snapshotPath -Parent) `
+            -Force | Out-Null
+        Copy-Item -LiteralPath $sourcePath -Destination $snapshotPath -Force
+    }
+
     $arguments = @(
         "-batchmode",
         "-nographics",
@@ -91,15 +120,33 @@ function Invoke-SteamworksConfigurationExpectationExport {
         "-steamworksExpectationSourceTree", $sourceTree
     )
 
-    & $unityFull @arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "STEAMWORKS_EXPECTATION_UNITY_FAILED: exit=$LASTEXITCODE log=$logPath"
+    $unityExitCode = -1
+    $guardedMutationRestored = $false
+    try {
+        & $unityFull @arguments
+        $unityExitCode = $LASTEXITCODE
+    } finally {
+        foreach ($relativePath in $guardedRelativePaths) {
+            $sourcePath = Join-Path $repositoryFull $relativePath
+            $snapshotPath = Join-Path $guardRoot $relativePath
+            $beforeHash = (Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash
+            $afterHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
+            if ($afterHash -cne $beforeHash) {
+                Copy-Item -LiteralPath $snapshotPath -Destination $sourcePath -Force
+                $guardedMutationRestored = $true
+            }
+        }
+        Remove-Item -LiteralPath $guardRoot -Recurse -Force
+    }
+
+    if ($unityExitCode -ne 0) {
+        throw "STEAMWORKS_EXPECTATION_UNITY_FAILED: exit=$unityExitCode log=$logPath"
     }
 
     $reportPath = Join-Path $outputFull "steamworks-expected-configuration.json"
     $hashPath = Join-Path $outputFull "steamworks-expected-configuration.sha256"
-    if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $hashPath -PathType Leaf)) {
+    if (-not (Wait-ExpectationOutputFile $reportPath) -or
+        -not (Wait-ExpectationOutputFile $hashPath)) {
         throw "STEAMWORKS_EXPECTATION_OUTPUT_MISSING"
     }
 
@@ -116,6 +163,7 @@ function Invoke-SteamworksConfigurationExpectationExport {
         SourceHead = $sourceHead
         SourceTree = $sourceTree
         SourceMutation = $false
+        GuardedMutationRestored = $guardedMutationRestored
     }
 }
 
