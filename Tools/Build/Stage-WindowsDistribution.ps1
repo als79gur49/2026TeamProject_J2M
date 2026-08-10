@@ -176,6 +176,14 @@ function Assert-WindowsDistributionSourceHashes {
     }
 }
 
+function Remove-WindowsDistributionValidatorBuildOutput {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (Test-Path -LiteralPath $Path -PathType Container) {
+        [IO.Directory]::Delete("\\?\$Path", $true)
+    }
+}
+
 function Import-WindowsDistributionStagerTypes {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -199,7 +207,7 @@ function Import-WindowsDistributionStagerTypes {
     }
 
     $sourceHashes = Get-WindowsDistributionSourceHashes -Paths $sourcePaths
-    $sourceIdentity = "typed-validator-v2-" + ($sourceHashes -join "-")
+    $sourceIdentity = "typed-validator-v3-" + ($sourceHashes -join "-")
     $identityBytes = [Text.Encoding]::UTF8.GetBytes($sourceIdentity)
     $identityHash = [Security.Cryptography.SHA256]::Create()
     try {
@@ -353,23 +361,28 @@ public static class WindowsDistributionStagerCompiledIdentity
                 --nologo --verbosity quiet 2>&1)
             $buildExitCode = $LASTEXITCODE
         }
-        Assert-WindowsDistributionLocalValidatorTree `
-            -Path $compileRoot `
-            -Name "compile cache"
-        Assert-WindowsDistributionLocalValidatorPath `
-            -Path $assemblyPath `
-            -Name "compiled validator assembly"
-        Assert-WindowsDistributionSourceHashes `
-            -Paths $snapshotPaths `
-            -ExpectedHashes $sourceHashes `
-            -FailureCode "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
-        Assert-WindowsDistributionSourceHashes `
-            -Paths $sourcePaths `
-            -ExpectedHashes $sourceHashes `
-            -FailureCode "STAGING_POLICY_SOURCE_CHANGED_DURING_COMPILE"
-        if ($buildExitCode -ne 0 -or
-            -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
-            throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"
+        try {
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $compileRoot `
+                -Name "compile cache"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $assemblyPath `
+                -Name "compiled validator assembly"
+            if ($buildExitCode -ne 0 -or
+                -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+                throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"
+            }
+            Assert-WindowsDistributionSourceHashes `
+                -Paths $snapshotPaths `
+                -ExpectedHashes $sourceHashes `
+                -FailureCode "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+            Assert-WindowsDistributionSourceHashes `
+                -Paths $sourcePaths `
+                -ExpectedHashes $sourceHashes `
+                -FailureCode "STAGING_POLICY_SOURCE_CHANGED_DURING_COMPILE"
+        } catch {
+            Remove-WindowsDistributionValidatorBuildOutput -Path $buildOutputRoot
+            throw
         }
     }
 

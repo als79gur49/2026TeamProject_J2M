@@ -285,7 +285,10 @@ try {
             } "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
             $assemblies = @(Get-ChildItem -LiteralPath $cacheRoot `
                 -Filter "VectorQuake.DistributionStager.dll" -File -Recurse `
-                -ErrorAction SilentlyContinue)
+                -ErrorAction SilentlyContinue | Where-Object {
+                    $_.FullName -match `
+                        '[\\/]bin[\\/]VectorQuake\.DistributionStager\.dll$'
+                })
             Assert-Equal 0 $assemblies.Count
         } finally {
             Set-Item Function:\Copy-WindowsDistributionValidatorSource `
@@ -293,6 +296,66 @@ try {
             Remove-Variable OriginalValidatorCopy `
                 -Scope Script -ErrorAction SilentlyContinue
             Remove-Variable MutatedValidatorCopy `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+
+    Invoke-Case "post-compile snapshot mismatch removes cached assembly" {
+        $stageWrapper = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
+        try {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            . $stageWrapper
+        } finally {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
+        }
+        $cacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
+            "VectorQuakeDistributionStagerPostMismatch"
+        if (Test-Path -LiteralPath $cacheRoot -PathType Container) {
+            [IO.Directory]::Delete("\\?\$cacheRoot", $true)
+        }
+        $script:OriginalSourceHashAssertion =
+            (Get-Command Assert-WindowsDistributionSourceHashes).ScriptBlock
+        $script:SnapshotAssertionCount = 0
+        try {
+            Set-Item Function:\Assert-WindowsDistributionSourceHashes {
+                param(
+                    [string[]]$Paths,
+                    [string[]]$ExpectedHashes,
+                    [string]$FailureCode
+                )
+                if ($FailureCode -ceq `
+                    "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH") {
+                    $script:SnapshotAssertionCount++
+                    if ($script:SnapshotAssertionCount -eq 2) {
+                        throw $FailureCode
+                    }
+                }
+                & $script:OriginalSourceHashAssertion `
+                    -Paths $Paths `
+                    -ExpectedHashes $ExpectedHashes `
+                    -FailureCode $FailureCode
+            }
+            Assert-ThrowsContaining {
+                Import-WindowsDistributionStagerTypes `
+                    -Root $script:RepositoryRoot `
+                    -OfflineOnly `
+                    -CacheRoot $cacheRoot
+            } "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+            $assemblies = @(Get-ChildItem -LiteralPath $cacheRoot `
+                -Filter "VectorQuake.DistributionStager.dll" -File -Recurse `
+                -ErrorAction SilentlyContinue | Where-Object {
+                    $_.FullName -match `
+                        '[\\/]bin[\\/]VectorQuake\.DistributionStager\.dll$'
+                })
+            Assert-Equal 0 $assemblies.Count
+        } finally {
+            Set-Item Function:\Assert-WindowsDistributionSourceHashes `
+                $script:OriginalSourceHashAssertion
+            Remove-Variable OriginalSourceHashAssertion `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable SnapshotAssertionCount `
                 -Scope Script -ErrorAction SilentlyContinue
         }
     }
