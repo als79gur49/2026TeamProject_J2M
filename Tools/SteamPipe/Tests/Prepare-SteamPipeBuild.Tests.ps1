@@ -474,6 +474,68 @@ try {
             "Import-WindowsDistributionStagerTypes -Root `$Root -OfflineOnly"))
     }
 
+    Invoke-Case "loaded validator reuse rechecks live canonical sources" {
+        $stageWrapper = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
+        try {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            . $stageWrapper
+        } finally {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
+        }
+
+        $copyRoot = Join-Path $script:FixtureRoot "loaded-reuse-source-root"
+        foreach ($relativePath in @(
+            "Tools\Build\Stage-WindowsDistribution.ps1",
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs",
+            "Assets\_Features\Stages\Editor\Build\SteamPipeStagingSanitizerPolicy.cs",
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionStager.cs")) {
+            $source = Join-Path $script:RepositoryRoot $relativePath
+            $destination = Join-Path $copyRoot $relativePath
+            [IO.Directory]::CreateDirectory(
+                [IO.Path]::GetDirectoryName($destination)) | Out-Null
+            [IO.File]::Copy($source, $destination, $true)
+        }
+
+        $script:OriginalIdentityAssertion =
+            (Get-Command Assert-WindowsDistributionStagerIdentity).ScriptBlock
+        $script:LoadedReuseMutationPath = Join-Path $copyRoot `
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs"
+        $script:LoadedReuseSourceMutated = $false
+        try {
+            Set-Item Function:\Assert-WindowsDistributionStagerIdentity {
+                param([type]$StagerType, [string]$ExpectedIdentity)
+                & $script:OriginalIdentityAssertion `
+                    -StagerType $StagerType `
+                    -ExpectedIdentity $ExpectedIdentity
+                if (-not $script:LoadedReuseSourceMutated) {
+                    [IO.File]::AppendAllText(
+                        $script:LoadedReuseMutationPath,
+                        "`n",
+                        [Text.UTF8Encoding]::new($false))
+                    $script:LoadedReuseSourceMutated = $true
+                }
+            }
+            Assert-ThrowsContaining {
+                Import-WindowsDistributionStagerTypes `
+                    -Root $copyRoot `
+                    -OfflineOnly `
+                    -CacheRoot (Join-Path $script:FixtureRoot `
+                        "loaded-reuse-source-cache")
+            } "STAGING_POLICY_LIVE_SOURCE_MISMATCH"
+        } finally {
+            Set-Item Function:\Assert-WindowsDistributionStagerIdentity `
+                $script:OriginalIdentityAssertion
+            Remove-Variable OriginalIdentityAssertion `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable LoadedReuseMutationPath `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable LoadedReuseSourceMutated `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+
     Invoke-Case "validator cache rejects mapped drives and reparse ancestors" {
         $stageWrapper = Join-Path $script:RepositoryRoot `
             "Tools\Build\Stage-WindowsDistribution.ps1"
@@ -783,6 +845,59 @@ try {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STAGING_PROMOTED_MANIFEST_MISMATCH"
         Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "SUCCESS parse and hash use one byte snapshot" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "success-snapshot-promoted")
+        $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+        $originalSuccessBytes = [IO.File]::ReadAllBytes($successPath)
+        $script:OriginalJsonSnapshotReader =
+            (Get-Command Read-JsonFileSnapshot).ScriptBlock
+        $script:CapturedSuccessSnapshotHash = ""
+        $script:MutatedSuccessAfterSnapshot = $false
+        try {
+            Set-Item Function:\Read-JsonFileSnapshot {
+                param([string]$Path)
+                $snapshot = & $script:OriginalJsonSnapshotReader -Path $Path
+                if ([IO.Path]::GetFileName($Path) -ceq "SUCCESS.json" -and
+                    -not $script:MutatedSuccessAfterSnapshot) {
+                    $script:CapturedSuccessSnapshotHash = $snapshot.Sha256
+                    [IO.File]::WriteAllText(
+                        $Path,
+                        '{"distributionTarget":"steam-windows","status":"MUTATED_AFTER_SNAPSHOT"}',
+                        [Text.UTF8Encoding]::new($false))
+                    $script:MutatedSuccessAfterSnapshot = $true
+                }
+                return $snapshot
+            }
+            $preflight = Invoke-PromotedSteamWindowsPreflight `
+                -PromotedRoot $promoted `
+                -RepositoryRoot $script:RepositoryRoot
+            Assert-Equal `
+                $script:CapturedSuccessSnapshotHash `
+                $preflight.SuccessSha256
+            Assert-True ($preflight.SuccessSha256 -cne `
+                (Get-FileSha256 -Path $successPath))
+            [IO.File]::WriteAllBytes($successPath, $originalSuccessBytes)
+            $script:MutatedSuccessAfterSnapshot = $false
+            $output = Join-Path $script:FixtureRoot `
+                "success-snapshot-output"
+            $arguments = New-ValidArguments $promoted $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
+            Assert-FinalOutputAbsent $output
+        } finally {
+            Set-Item Function:\Read-JsonFileSnapshot `
+                $script:OriginalJsonSnapshotReader
+            Remove-Variable OriginalJsonSnapshotReader `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable CapturedSuccessSnapshotHash `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable MutatedSuccessAfterSnapshot `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
     }
 
     Invoke-Case "promoted source identity mismatch is rejected" {

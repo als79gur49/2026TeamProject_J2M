@@ -140,6 +140,28 @@ function Get-FileSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Read-JsonFileSnapshot {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = -join ($sha.ComputeHash($bytes) |
+            ForEach-Object { $_.ToString("x2") })
+    } finally {
+        $sha.Dispose()
+    }
+
+    $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xfeff) {
+        $text = $text.Substring(1)
+    }
+    return [pscustomobject][ordered]@{
+        Value = $text | ConvertFrom-Json
+        Sha256 = $hash
+    }
+}
+
 function ConvertTo-ManifestFileArray {
     param([Parameter(Mandatory)]$Files)
 
@@ -180,8 +202,10 @@ function Invoke-PromotedSteamWindowsPreflight {
     }
 
     try {
-        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-        $success = Get-Content -LiteralPath $successPath -Raw | ConvertFrom-Json
+        $manifestSnapshot = Read-JsonFileSnapshot -Path $manifestPath
+        $successSnapshot = Read-JsonFileSnapshot -Path $successPath
+        $manifest = $manifestSnapshot.Value
+        $success = $successSnapshot.Value
     } catch {
         throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: $($_.Exception.Message)"
     }
@@ -212,7 +236,7 @@ function Invoke-PromotedSteamWindowsPreflight {
         throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
     }
 
-    $manifestSha = Get-FileSha256 -Path $manifestPath
+    $manifestSha = $manifestSnapshot.Sha256
     if ([string]$success.manifestSha256 -cne $manifestSha) {
         throw "STEAMPIPE_PROMOTED_MANIFEST_HASH_MISMATCH"
     }
@@ -242,7 +266,7 @@ function Invoke-PromotedSteamWindowsPreflight {
         ManifestPath = $validation.ManifestPath
         SuccessPath = $validation.SuccessPath
         ManifestSha256 = $manifestSha
-        SuccessSha256 = Get-FileSha256 -Path $successPath
+        SuccessSha256 = $successSnapshot.Sha256
         DistributionTargetId = $validation.DistributionTargetId
         FileCount = $validation.FileCount
         TotalBytes = $validation.TotalBytes

@@ -264,6 +264,10 @@ function Import-WindowsDistributionStagerTypes {
         Assert-WindowsDistributionLocalValidatorPath `
             -Path ([string]$loadedStagerType.Assembly.Location) `
             -Name "loaded validator assembly"
+        Assert-WindowsDistributionSourceHashes `
+            -Paths $sourcePaths `
+            -ExpectedHashes $sourceHashes `
+            -FailureCode "STAGING_POLICY_LIVE_SOURCE_MISMATCH"
         return
     }
 
