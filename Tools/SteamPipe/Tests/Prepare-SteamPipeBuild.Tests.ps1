@@ -251,6 +251,7 @@ try {
         $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "valid-promoted")
         $output = Join-Path $script:FixtureRoot "valid-output"
         $arguments = New-ValidArguments $promoted $output
+        $arguments.IdentityMode = "synthetic"
         $result = Invoke-PrepareSteamPipeBuild @arguments
         Assert-Equal "SYNTHETIC_VALIDATION_ONLY" $result.Classification
         Assert-True (Test-Path -LiteralPath $result.AppVdf -PathType Leaf)
@@ -313,10 +314,12 @@ try {
         $output = Join-Path $script:FixtureRoot "actual-output"
         $arguments = New-ValidArguments $promoted $output
         $arguments.AppId = "480"
-        $arguments.IdentityMode = "Actual"
-        Assert-ThrowsContaining { Invoke-PrepareSteamPipeBuild @arguments } `
-            "STEAMPIPE_SPACEWAR_APPID_REJECTED"
-        Assert-FinalOutputAbsent $output
+        foreach ($mode in @("Actual", "actual", "ACTUAL")) {
+            $arguments.IdentityMode = $mode
+            Assert-ThrowsContaining { Invoke-PrepareSteamPipeBuild @arguments } `
+                "STEAMPIPE_SPACEWAR_APPID_REJECTED"
+            Assert-FinalOutputAbsent $output
+        }
     }
 
     Invoke-Case "raw Player input is rejected" {
@@ -409,6 +412,25 @@ try {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STEAMPIPE_CONTENT_OUTPUT_OVERLAP_REJECTED"
         Assert-FinalOutputAbsent $overlap
+    }
+
+    Invoke-Case "promoted and output traversal paths are rejected before resolution" {
+        $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "escape-promoted")
+        $output = Join-Path $script:FixtureRoot "escape-output"
+        $arguments = New-ValidArguments `
+            (Join-Path $promoted "payload\..") $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_PATH_ESCAPE_REJECTED"
+        Assert-FinalOutputAbsent $output
+
+        $arguments = New-ValidArguments $promoted `
+            (Join-Path $script:FixtureRoot "escape\..\escaped-output")
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_PATH_ESCAPE_REJECTED"
+        Assert-FinalOutputAbsent `
+            (Join-Path $script:FixtureRoot "escaped-output")
     }
 
     Invoke-Case "SetLive execution and credential-like parameters are absent" {

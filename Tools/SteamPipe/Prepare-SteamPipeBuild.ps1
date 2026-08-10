@@ -11,6 +11,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Assert-AbsolutePathWithoutTraversal {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or
+        -not [IO.Path]::IsPathRooted($Path) -or
+        $Path.Replace('\', '/').Split('/') -contains '..') {
+        throw "STEAMPIPE_PATH_ESCAPE_REJECTED: $Name must be an absolute path without traversal."
+    }
+}
+
 function Test-PathIsSameOrUnder {
     param(
         [Parameter(Mandatory)][string]$Candidate,
@@ -474,10 +487,19 @@ function Invoke-PrepareSteamPipeBuild {
     )
 
     if (-not $DryRun) { throw "STEAMPIPE_DRY_RUN_REQUIRED" }
+    Assert-AbsolutePathWithoutTraversal -Path $PromotedSteamWindowsRoot `
+        -Name "PromotedSteamWindowsRoot"
+    Assert-AbsolutePathWithoutTraversal -Path $OutputRoot -Name "OutputRoot"
+    Assert-AbsolutePathWithoutTraversal -Path $RepositoryRoot -Name "RepositoryRoot"
     $appIdValue = ConvertTo-SteamIdentityId -Value $AppId -Name "AppId"
     $depotIdValue = ConvertTo-SteamIdentityId -Value $DepotId -Name "DepotId"
+    $isActualIdentity = [string]::Equals(
+        $IdentityMode,
+        "Actual",
+        [StringComparison]::OrdinalIgnoreCase)
+    $identityModeValue = if ($isActualIdentity) { "Actual" } else { "Synthetic" }
     if ($appIdValue -eq $depotIdValue) { throw "STEAMPIPE_ID_COLLISION" }
-    if ($IdentityMode -ceq "Actual" -and $appIdValue -eq 480) {
+    if ($isActualIdentity -and $appIdValue -eq 480) {
         throw "STEAMPIPE_SPACEWAR_APPID_REJECTED"
     }
 
@@ -511,7 +533,7 @@ function Invoke-PrepareSteamPipeBuild {
     $depotIdText = $depotIdValue.ToString([Globalization.CultureInfo]::InvariantCulture)
     $appFileName = "app_build_$appIdText.vdf"
     $depotFileName = "depot_build_$depotIdText.vdf"
-    $description = if ($IdentityMode -ceq "Synthetic") {
+    $description = if (-not $isActualIdentity) {
         "VectorQuake SYNTHETIC_VALIDATION_ONLY local dry-run"
     } else {
         "VectorQuake actual-identity local dry-run"
@@ -566,16 +588,16 @@ function Invoke-PrepareSteamPipeBuild {
         $appBytes = [IO.File]::ReadAllBytes($appPath)
         $depotBytes = [IO.File]::ReadAllBytes($depotPath)
         $aggregate = Get-AggregateSha256 -First $appBytes -Second $depotBytes
-        $classification = if ($IdentityMode -ceq "Synthetic") {
+        $classification = if (-not $isActualIdentity) {
             "SYNTHETIC_VALIDATION_ONLY"
         } else {
             "ACTUAL_IDENTITY_LOCAL_DRY_RUN"
         }
-        $actualIdentityConfigured = $IdentityMode -ceq "Actual"
+        $actualIdentityConfigured = $isActualIdentity
         $report = [ordered]@{
             schemaVersion = 1
             classification = $classification
-            identityMode = $IdentityMode
+            identityMode = $identityModeValue
             contentRoot = $contentRoot
             buildOutput = $buildOutput
             distributionTarget = $preflight.DistributionTargetId
