@@ -63,6 +63,7 @@ function Add-DuplicateJsonPropertyLine {
     param(
         [string]$Path,
         [string]$PropertyName,
+        [string]$DuplicatePropertyName = $PropertyName,
         [string]$DuplicateJsonValue
     )
 
@@ -74,7 +75,7 @@ function Add-DuplicateJsonPropertyLine {
                 [StringComparison]::Ordinal)) {
             $indent = $line.Substring(0, $line.Length - $trimmed.Length)
             $lines.Add(
-                $indent + '"' + $PropertyName + '":  ' +
+                $indent + '"' + $DuplicatePropertyName + '":  ' +
                 $DuplicateJsonValue + ',')
         }
         $lines.Add($line)
@@ -1039,6 +1040,12 @@ try {
                 Document = "manifest"
                 Property = "size"
                 DuplicateValue = '"0"'
+            },
+            [pscustomobject]@{
+                Document = "manifest"
+                Property = "SourceSha"
+                SourceProperty = "sourceSha"
+                DuplicateValue = '"case-variant"'
             }
         )
         foreach ($case in $cases) {
@@ -1055,7 +1062,12 @@ try {
             }
             Add-DuplicateJsonPropertyLine `
                 -Path $targetPath `
-                -PropertyName $case.Property `
+                -PropertyName $(if ($null -ne $case.SourceProperty) {
+                    $case.SourceProperty
+                } else {
+                    $case.Property
+                }) `
+                -DuplicatePropertyName $case.Property `
                 -DuplicateJsonValue $case.DuplicateValue
             if ($case.Document -ceq "manifest") {
                 $success = Get-Content -LiteralPath $successPath -Raw |

@@ -178,7 +178,7 @@ function Assert-JsonPropertyNamesUnique {
         $state.Position++
         & $skipWhitespace
         $names = [Collections.Generic.HashSet[string]]::new(
-            [StringComparer]::Ordinal)
+            [StringComparer]::OrdinalIgnoreCase)
         if ($state.Position -lt $length -and
             $Text[$state.Position] -eq '}') {
             $state.Position++
