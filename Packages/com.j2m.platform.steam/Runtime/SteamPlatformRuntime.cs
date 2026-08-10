@@ -412,12 +412,16 @@ namespace Game.Platform.Steam
             }
 
             smokeResultEmitted = true;
-            var selectionStatus = initializationSucceeded
-                ? PlatformRuntimeSelectionStatus.ExplicitProviderSelected
-                : PlatformRuntimeSelectionStatus.RequestedProviderUnavailable;
-            var failureKind = initializationSucceeded
+            var initializationFailureKind = initializationSucceeded
                 ? SteamPlatformFailureReason.None
                 : lastFailureReason;
+            var finalFailureKind = lastFailureReason;
+            var finalProviderAvailable = initializationSucceeded &&
+                finalFailureKind == SteamPlatformFailureReason.None &&
+                steamAvailability.IsAvailable;
+            var selectionStatus = finalProviderAvailable
+                ? PlatformRuntimeSelectionStatus.ExplicitProviderSelected
+                : PlatformRuntimeSelectionStatus.RequestedProviderUnavailable;
             var exceptionType = string.IsNullOrEmpty(lastExceptionType)
                 ? "none"
                 : lastExceptionType;
@@ -427,7 +431,8 @@ namespace Game.Platform.Steam
                 "\"selectionStatus\":\"" + selectionStatus + "\"," +
                 "\"fallbackUsed\":false," +
                 "\"initSucceeded\":" + ToJsonBoolean(initializationSucceeded) + "," +
-                "\"initializationFailureKind\":\"" + failureKind + "\"," +
+                "\"initializationFailureKind\":\"" + initializationFailureKind + "\"," +
+                "\"finalFailureKind\":\"" + finalFailureKind + "\"," +
                 "\"observedAppId\":" + observedAppId + "," +
                 "\"steamIdValid\":" + ToJsonBoolean(steamIdentityValid) + "," +
                 "\"loggedOn\":" + ToJsonBoolean(loggedOn) + "," +

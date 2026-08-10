@@ -16,6 +16,7 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal Exception PacksizeException { get; set; }
         internal Exception InitializeException { get; set; }
         internal Exception CallbackException { get; set; }
+        internal Exception OverlayEnabledException { get; set; }
         internal Exception ShutdownException { get; set; }
         internal Action CallbackAction { get; set; }
         internal List<string> CallOrder { get; set; }
@@ -97,6 +98,11 @@ namespace Game.Platform.Steam.Tests.EditMode
 
         public bool IsOverlayEnabled()
         {
+            if (OverlayEnabledException != null)
+            {
+                throw OverlayEnabledException;
+            }
+
             return OverlayEnabled;
         }
 

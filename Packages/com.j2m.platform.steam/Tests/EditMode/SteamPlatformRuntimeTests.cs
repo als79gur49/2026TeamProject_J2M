@@ -182,6 +182,9 @@ namespace Game.Platform.Steam.Tests.EditMode
                 "\"selectionStatus\":\"ExplicitProviderSelected\""));
             Assert.That(result, Does.Contain("\"fallbackUsed\":false"));
             Assert.That(result, Does.Contain("\"initSucceeded\":true"));
+            Assert.That(result, Does.Contain(
+                "\"initializationFailureKind\":\"None\""));
+            Assert.That(result, Does.Contain("\"finalFailureKind\":\"None\""));
             Assert.That(result, Does.Contain("\"observedAppId\":480"));
             Assert.That(result, Does.Contain("\"steamIdValid\":true"));
             Assert.That(result, Does.Contain("\"loggedOn\":true"));
@@ -219,9 +222,82 @@ namespace Game.Platform.Steam.Tests.EditMode
             Assert.That(logs[0], Does.Contain(
                 "\"initializationFailureKind\":\"InitializationReturnedFalse\""));
             Assert.That(logs[0], Does.Contain(
+                "\"finalFailureKind\":\"InitializationReturnedFalse\""));
+            Assert.That(logs[0], Does.Contain(
                 "\"selectionStatus\":\"RequestedProviderUnavailable\""));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":0"));
             Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":0"));
             Assert.That(logs[0], Does.Contain("\"shutdownNativeCallCount\":0"));
+        }
+
+        [Test]
+        public void SmokeCallbackException_ReportsFinalProviderUnavailableAndFailure()
+        {
+            var logs = new List<string>();
+            var native = new FakeSteamNativeApi
+            {
+                CallbackException = new InvalidOperationException("callback failed"),
+            };
+            var runtime = new SteamPlatformRuntime(
+                native,
+                smokeRequested: true,
+                smokeLogger: logs.Add);
+
+            var initialization = runtime.Initialize();
+            runtime.Tick();
+
+            Assert.That(initialization.IsSuccess, Is.True);
+            Assert.That(runtime.Diagnostics.State,
+                Is.EqualTo(SteamPlatformRuntimeState.Faulted));
+            Assert.That(runtime.SteamAvailability.IsAvailable, Is.False);
+
+            runtime.Shutdown();
+            runtime.Shutdown();
+
+            Assert.That(logs, Has.Count.EqualTo(1));
+            Assert.That(logs[0], Does.Contain("\"initSucceeded\":true"));
+            Assert.That(logs[0], Does.Contain(
+                "\"selectionStatus\":\"RequestedProviderUnavailable\""));
+            Assert.That(logs[0], Does.Contain(
+                "\"initializationFailureKind\":\"None\""));
+            Assert.That(logs[0], Does.Contain(
+                "\"finalFailureKind\":\"CallbackException\""));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":1"));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":0"));
+            Assert.That(logs[0], Does.Contain(
+                "\"nativeExceptionType\":\"InvalidOperationException\""));
+            Assert.That(logs[0], Does.Contain("\"shutdownNativeCallCount\":1"));
+            Assert.That(native.ShutdownCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SmokeOptionalOverlayObservationFailure_DoesNotDegradeProviderSelection()
+        {
+            var logs = new List<string>();
+            var native = new FakeSteamNativeApi
+            {
+                OverlayEnabledException =
+                    new InvalidOperationException("overlay observation failed"),
+            };
+            var runtime = new SteamPlatformRuntime(
+                native,
+                smokeRequested: true,
+                smokeLogger: logs.Add);
+
+            runtime.Initialize();
+            runtime.Tick();
+            runtime.Shutdown();
+
+            Assert.That(runtime.SteamAvailability.IsAvailable, Is.True);
+            Assert.That(logs, Has.Count.EqualTo(1));
+            Assert.That(logs[0], Does.Contain(
+                "\"selectionStatus\":\"ExplicitProviderSelected\""));
+            Assert.That(logs[0], Does.Contain("\"finalFailureKind\":\"None\""));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":1"));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":1"));
+            Assert.That(logs[0], Does.Contain(
+                "\"nativeExceptionType\":\"InvalidOperationException\""));
+            Assert.That(native.ShutdownCount, Is.EqualTo(1));
         }
 
         [Test]
