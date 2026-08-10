@@ -17,9 +17,14 @@ function Assert-AbsolutePathWithoutTraversal {
         [Parameter(Mandatory)][string]$Name
     )
 
+    $normalized = $Path.Replace('\', '/')
+    if ($normalized.StartsWith('//', [StringComparison]::Ordinal)) {
+        throw "STEAMPIPE_NETWORK_PATH_REJECTED: $Name must be a local filesystem path."
+    }
+
     if ([string]::IsNullOrWhiteSpace($Path) -or
         -not [IO.Path]::IsPathRooted($Path) -or
-        $Path.Replace('\', '/').Split('/') -contains '..') {
+        $normalized.Split('/') -contains '..') {
         throw "STEAMPIPE_PATH_ESCAPE_REJECTED: $Name must be an absolute path without traversal."
     }
 }

@@ -518,6 +518,29 @@ try {
             (Join-Path $script:FixtureRoot "escaped-output")
     }
 
+    Invoke-Case "UNC and device roots are rejected before filesystem access" {
+        $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "local-path-promoted")
+        $output = Join-Path $script:FixtureRoot "local-path-output"
+
+        $arguments = New-ValidArguments '\\synthetic-host\share\promoted' $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_NETWORK_PATH_REJECTED"
+        Assert-FinalOutputAbsent $output
+
+        $arguments = New-ValidArguments $promoted '\\synthetic-host\share\output'
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_NETWORK_PATH_REJECTED"
+
+        $arguments = New-ValidArguments $promoted $output
+        $arguments.RepositoryRoot = '\\?\D:\synthetic-repository'
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STEAMPIPE_NETWORK_PATH_REJECTED"
+        Assert-FinalOutputAbsent $output
+    }
+
     Invoke-Case "SetLive execution and credential-like parameters are absent" {
         $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "surface-promoted")
         foreach ($parameter in @("SetLive", "ExecuteSteamCmd", "SteamUsername")) {
