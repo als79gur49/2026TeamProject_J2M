@@ -337,6 +337,7 @@ public static class WindowsDistributionStagerCompiledIdentity
                 ([Environment]::GetFolderPath("UserProfile")) `
                 ".nuget\packages"
             $packagesRoot = Join-Path $compileRoot "global-packages"
+            $dotnetCliHome = Join-Path $compileRoot "dotnet-cli-home"
             Assert-WindowsDistributionLocalValidatorPath `
                 -Path $offlineSource `
                 -Name "offline package seed"
@@ -353,6 +354,13 @@ public static class WindowsDistributionStagerCompiledIdentity
             Assert-WindowsDistributionLocalValidatorTree `
                 -Path $packagesRoot `
                 -Name "offline global packages"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $dotnetCliHome `
+                -Name "offline dotnet CLI home"
+            New-Item -ItemType Directory -Path $dotnetCliHome -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $dotnetCliHome `
+                -Name "offline dotnet CLI home"
             $nugetConfigPath = Join-Path $compileRoot "NuGet.Offline.Config"
             $offlineSourceXml = [Security.SecurityElement]::Escape($offlineSource)
             $nugetConfig = @"
@@ -371,11 +379,13 @@ public static class WindowsDistributionStagerCompiledIdentity
             $previousWorkloadUpdate = `
                 $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE
             $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
+            $previousDotnetCliHome = $env:DOTNET_CLI_HOME
             try {
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
                 $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = "1"
                 $env:NUGET_CERT_REVOCATION_MODE = "offline"
+                $env:DOTNET_CLI_HOME = $dotnetCliHome
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     --packages $packagesRoot `
@@ -395,6 +405,7 @@ public static class WindowsDistributionStagerCompiledIdentity
                     $previousWorkloadUpdate
                 $env:NUGET_CERT_REVOCATION_MODE = `
                     $previousCertificateRevocation
+                $env:DOTNET_CLI_HOME = $previousDotnetCliHome
             }
         } else {
             $buildOutput = @(& $dotnetPath build $projectPath `

@@ -454,7 +454,9 @@ try {
         $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
         $previousPackages = $env:NUGET_PACKAGES
         $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
+        $previousDotnetCliHome = $env:DOTNET_CLI_HOME
         $revocationAfterImport = ""
+        $dotnetCliHomeAfterImport = ""
         $offlineCacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
             "VectorQuakeDistributionStagerOfflineOnly"
         try {
@@ -464,6 +466,7 @@ try {
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
             $env:NUGET_PACKAGES = '\\synthetic.invalid\packages'
             $env:NUGET_CERT_REVOCATION_MODE = "synthetic-previous"
+            $env:DOTNET_CLI_HOME = '\\synthetic.invalid\dotnet-cli-home'
             . $stageWrapper
             Import-WindowsDistributionStagerTypes `
                 -Root $script:RepositoryRoot `
@@ -471,11 +474,15 @@ try {
                 -CacheRoot $offlineCacheRoot
         } finally {
             $revocationAfterImport = $env:NUGET_CERT_REVOCATION_MODE
+            $dotnetCliHomeAfterImport = $env:DOTNET_CLI_HOME
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
             $env:NUGET_PACKAGES = $previousPackages
             $env:NUGET_CERT_REVOCATION_MODE = $previousCertificateRevocation
+            $env:DOTNET_CLI_HOME = $previousDotnetCliHome
         }
         Assert-Equal "synthetic-previous" $revocationAfterImport
+        Assert-Equal '\\synthetic.invalid\dotnet-cli-home' `
+            $dotnetCliHomeAfterImport
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
         Assert-ThrowsContaining {
             Assert-WindowsDistributionStagerIdentity `
@@ -492,6 +499,7 @@ try {
             "DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE"))
         Assert-True ($stageSource.Contains(
             'NUGET_CERT_REVOCATION_MODE = "offline"'))
+        Assert-True ($stageSource.Contains('DOTNET_CLI_HOME = $dotnetCliHome'))
         $assetsPath = Get-ChildItem -LiteralPath $offlineCacheRoot `
             -Filter "project.assets.json" -File -Recurse | Select-Object -First 1
         Assert-True ($null -ne $assetsPath)
