@@ -471,6 +471,12 @@ try {
             $env:RestoreAdditionalProjectFallbackFolders
         $previousMsBuildExtensionsPath = $env:MSBuildExtensionsPath
         $previousMsBuildUserExtensionsPath = $env:MSBuildUserExtensionsPath
+        $previousMsBuildProjectExtensionsPath = `
+            $env:MSBuildProjectExtensionsPath
+        $previousBaseIntermediateOutputPath = `
+            $env:BaseIntermediateOutputPath
+        $previousIntermediateOutputPath = $env:IntermediateOutputPath
+        $previousNugetScratch = $env:NUGET_SCRATCH
         $revocationAfterImport = ""
         $dotnetCliHomeAfterImport = ""
         $msBuildSdksPathAfterImport = ""
@@ -484,6 +490,10 @@ try {
         $restoreAdditionalFallbackFoldersAfterImport = ""
         $msBuildExtensionsPathAfterImport = ""
         $msBuildUserExtensionsPathAfterImport = ""
+        $msBuildProjectExtensionsPathAfterImport = ""
+        $baseIntermediateOutputPathAfterImport = ""
+        $intermediateOutputPathAfterImport = ""
+        $nugetScratchAfterImport = ""
         $offlineCacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
             "VectorQuakeDistributionStagerOfflineOnly"
         try {
@@ -533,6 +543,13 @@ try {
                 '\\synthetic.invalid\msbuild-extensions'
             $env:MSBuildUserExtensionsPath = `
                 '\\synthetic.invalid\msbuild-user-extensions'
+            $env:MSBuildProjectExtensionsPath = `
+                '\\synthetic.invalid\project-extensions'
+            $env:BaseIntermediateOutputPath = `
+                '\\synthetic.invalid\base-intermediate'
+            $env:IntermediateOutputPath = `
+                '\\synthetic.invalid\intermediate'
+            $env:NUGET_SCRATCH = '\\synthetic.invalid\nuget-scratch'
             . $stageWrapper
             Import-WindowsDistributionStagerTypes `
                 -Root $script:RepositoryRoot `
@@ -559,6 +576,12 @@ try {
             $msBuildExtensionsPathAfterImport = $env:MSBuildExtensionsPath
             $msBuildUserExtensionsPathAfterImport = `
                 $env:MSBuildUserExtensionsPath
+            $msBuildProjectExtensionsPathAfterImport = `
+                $env:MSBuildProjectExtensionsPath
+            $baseIntermediateOutputPathAfterImport = `
+                $env:BaseIntermediateOutputPath
+            $intermediateOutputPathAfterImport = $env:IntermediateOutputPath
+            $nugetScratchAfterImport = $env:NUGET_SCRATCH
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
             $env:NUGET_PACKAGES = $previousPackages
             $env:NUGET_CERT_REVOCATION_MODE = $previousCertificateRevocation
@@ -580,6 +603,12 @@ try {
                 $previousRestoreAdditionalFallbackFolders
             $env:MSBuildExtensionsPath = $previousMsBuildExtensionsPath
             $env:MSBuildUserExtensionsPath = $previousMsBuildUserExtensionsPath
+            $env:MSBuildProjectExtensionsPath = `
+                $previousMsBuildProjectExtensionsPath
+            $env:BaseIntermediateOutputPath = `
+                $previousBaseIntermediateOutputPath
+            $env:IntermediateOutputPath = $previousIntermediateOutputPath
+            $env:NUGET_SCRATCH = $previousNugetScratch
         }
         Assert-Equal "synthetic-previous" $revocationAfterImport
         Assert-Equal '\\synthetic.invalid\dotnet-cli-home' `
@@ -606,6 +635,14 @@ try {
             $msBuildExtensionsPathAfterImport
         Assert-Equal '\\synthetic.invalid\msbuild-user-extensions' `
             $msBuildUserExtensionsPathAfterImport
+        Assert-Equal '\\synthetic.invalid\project-extensions' `
+            $msBuildProjectExtensionsPathAfterImport
+        Assert-Equal '\\synthetic.invalid\base-intermediate' `
+            $baseIntermediateOutputPathAfterImport
+        Assert-Equal '\\synthetic.invalid\intermediate' `
+            $intermediateOutputPathAfterImport
+        Assert-Equal '\\synthetic.invalid\nuget-scratch' `
+            $nugetScratchAfterImport
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
         Assert-ThrowsContaining {
             Assert-WindowsDistributionStagerIdentity `
@@ -647,6 +684,11 @@ try {
             '-p:ImportByWildcardBeforeMicrosoftCommonTargets=false'))
         Assert-True ($stageSource.Contains(
             '-p:ImportByWildcardAfterMicrosoftCommonTargets=false'))
+        Assert-True ($stageSource.Contains(
+            '"-p:BaseIntermediateOutputPath=$intermediateRoot\"'))
+        Assert-True ($stageSource.Contains(
+            '"-p:MSBuildProjectExtensionsPath=$intermediateRoot\"'))
+        Assert-True ($stageSource.Contains('NUGET_SCRATCH = $nugetScratch'))
         Assert-True ($stageSource.Contains(
             '-p:ImportDirectoryBuildProps=false'))
         Assert-True ($stageSource.Contains(

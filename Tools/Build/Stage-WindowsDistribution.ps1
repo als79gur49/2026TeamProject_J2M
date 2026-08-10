@@ -338,6 +338,8 @@ public static class WindowsDistributionStagerCompiledIdentity
                 ".nuget\packages"
             $packagesRoot = Join-Path $compileRoot "global-packages"
             $dotnetCliHome = Join-Path $compileRoot "dotnet-cli-home"
+            $intermediateRoot = Join-Path $compileRoot "obj"
+            $nugetScratch = Join-Path $compileRoot "nuget-scratch"
             Assert-WindowsDistributionLocalValidatorPath `
                 -Path $offlineSource `
                 -Name "offline package seed"
@@ -361,6 +363,20 @@ public static class WindowsDistributionStagerCompiledIdentity
             Assert-WindowsDistributionLocalValidatorTree `
                 -Path $dotnetCliHome `
                 -Name "offline dotnet CLI home"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $intermediateRoot `
+                -Name "offline intermediate output"
+            New-Item -ItemType Directory -Path $intermediateRoot -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $intermediateRoot `
+                -Name "offline intermediate output"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $nugetScratch `
+                -Name "offline NuGet scratch"
+            New-Item -ItemType Directory -Path $nugetScratch -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $nugetScratch `
+                -Name "offline NuGet scratch"
             $nugetConfigPath = Join-Path $compileRoot "NuGet.Offline.Config"
             $offlineSourceXml = [Security.SecurityElement]::Escape($offlineSource)
             $nugetConfig = @"
@@ -398,6 +414,12 @@ public static class WindowsDistributionStagerCompiledIdentity
             $previousMsBuildExtensionsPath = $env:MSBuildExtensionsPath
             $previousMsBuildUserExtensionsPath = `
                 $env:MSBuildUserExtensionsPath
+            $previousMsBuildProjectExtensionsPath = `
+                $env:MSBuildProjectExtensionsPath
+            $previousBaseIntermediateOutputPath = `
+                $env:BaseIntermediateOutputPath
+            $previousIntermediateOutputPath = $env:IntermediateOutputPath
+            $previousNugetScratch = $env:NUGET_SCRATCH
             try {
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
@@ -415,6 +437,10 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:RestoreAdditionalProjectFallbackFolders = $null
                 $env:MSBuildExtensionsPath = $null
                 $env:MSBuildUserExtensionsPath = $null
+                $env:MSBuildProjectExtensionsPath = $null
+                $env:BaseIntermediateOutputPath = $null
+                $env:IntermediateOutputPath = $null
+                $env:NUGET_SCRATCH = $nugetScratch
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     --packages $packagesRoot `
@@ -422,6 +448,8 @@ public static class WindowsDistributionStagerCompiledIdentity
                     -p:RestoreAdditionalProjectSources= `
                     -p:RestoreFallbackFolders= `
                     -p:RestoreAdditionalProjectFallbackFolders= `
+                    "-p:BaseIntermediateOutputPath=$intermediateRoot\" `
+                    "-p:MSBuildProjectExtensionsPath=$intermediateRoot\" `
                     -p:NuGetAudit=false `
                     -p:ImportDirectoryBuildProps=false `
                     -p:ImportDirectoryBuildTargets=false `
@@ -436,6 +464,8 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $buildOutput = @(& $dotnetPath build $projectPath `
                     --configuration Release `
                     --output $buildOutputRoot `
+                    "-p:BaseIntermediateOutputPath=$intermediateRoot\" `
+                    "-p:MSBuildProjectExtensionsPath=$intermediateRoot\" `
                     -p:ImportDirectoryBuildProps=false `
                     -p:ImportDirectoryBuildTargets=false `
                     -p:ImportByWildcardBeforeMicrosoftCommonProps=false `
@@ -470,6 +500,12 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:MSBuildExtensionsPath = $previousMsBuildExtensionsPath
                 $env:MSBuildUserExtensionsPath = `
                     $previousMsBuildUserExtensionsPath
+                $env:MSBuildProjectExtensionsPath = `
+                    $previousMsBuildProjectExtensionsPath
+                $env:BaseIntermediateOutputPath = `
+                    $previousBaseIntermediateOutputPath
+                $env:IntermediateOutputPath = $previousIntermediateOutputPath
+                $env:NUGET_SCRATCH = $previousNugetScratch
             }
         } else {
             $buildOutput = @(& $dotnetPath build $projectPath `
