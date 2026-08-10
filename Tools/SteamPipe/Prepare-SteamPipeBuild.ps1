@@ -181,6 +181,37 @@ function Test-JsonBooleanTrue {
     return $Value -is [bool] -and $Value
 }
 
+function Assert-JsonIntegerRange {
+    param(
+        $Value,
+        [Parameter(Mandatory)][decimal]$Minimum,
+        [Parameter(Mandatory)][decimal]$Maximum,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    $typeCode = if ($null -eq $Value) {
+        [TypeCode]::Empty
+    } else {
+        [Type]::GetTypeCode($Value.GetType())
+    }
+    if ($typeCode -notin @(
+            [TypeCode]::SByte,
+            [TypeCode]::Byte,
+            [TypeCode]::Int16,
+            [TypeCode]::UInt16,
+            [TypeCode]::Int32,
+            [TypeCode]::UInt32,
+            [TypeCode]::Int64,
+            [TypeCode]::UInt64)) {
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: $Name must be a JSON integer."
+    }
+
+    $numeric = [decimal]$Value
+    if ($numeric -lt $Minimum -or $numeric -gt $Maximum) {
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: $Name is out of range."
+    }
+}
+
 function Invoke-PromotedSteamWindowsPreflight {
     param(
         [Parameter(Mandatory)][string]$PromotedRoot,
@@ -214,6 +245,22 @@ function Invoke-PromotedSteamWindowsPreflight {
         [string]$success.distributionTarget -cne "steam-windows") {
         throw "STEAMPIPE_PROMOTED_TARGET_REJECTED"
     }
+    Assert-JsonIntegerRange $manifest.deniedArtifactCount 0 ([int]::MaxValue) `
+        "manifest.deniedArtifactCount"
+    Assert-JsonIntegerRange $manifest.fileCount 0 ([int]::MaxValue) `
+        "manifest.fileCount"
+    Assert-JsonIntegerRange $manifest.totalBytes 0 ([long]::MaxValue) `
+        "manifest.totalBytes"
+    foreach ($file in @($manifest.files)) {
+        Assert-JsonIntegerRange $file.size 0 ([long]::MaxValue) `
+            "manifest.files[].size"
+    }
+    Assert-JsonIntegerRange $success.deniedArtifactCount 0 ([int]::MaxValue) `
+        "success.deniedArtifactCount"
+    Assert-JsonIntegerRange $success.fileCount 0 ([int]::MaxValue) `
+        "success.fileCount"
+    Assert-JsonIntegerRange $success.totalBytes 0 ([long]::MaxValue) `
+        "success.totalBytes"
     $launchArguments = [string[]]@($manifest.expectedLaunchArguments |
         ForEach-Object { [string]$_ })
     $launchFailure = [WindowsDistributionTargetPolicy]::ValidateLaunchArguments(
@@ -459,20 +506,37 @@ function Assert-VdfForbiddenSurfaceZero {
     param([Parameter(Mandatory)]$Section)
 
     $forbiddenKeys = @("SetLive", "Local")
-    $forbiddenFragments = @(
-        ("+" + "login"), ("+" + "run_app_build"),
+    $commandFragments = @(("+" + "login"), ("+" + "run_app_build"))
+    $credentialFragments = @(
+        "login", "username",
         "steamguard", "password", "credential",
         "ssfn", "config.vdf", "steamid", "email")
+    $pathValueKeys = @("ContentRoot", "BuildOutput", "LocalPath", "DepotPath")
     foreach ($entry in @($Section.Entries)) {
         if ($forbiddenKeys -contains $entry.Key) {
             throw "STEAMPIPE_VDF_FORBIDDEN_KEY: $($entry.Key)"
         }
-        $values = @([string]$entry.Key)
-        if ($entry.Kind -ceq "Pair") { $values += [string]$entry.Value }
-        foreach ($value in $values) {
-            foreach ($fragment in $forbiddenFragments) {
-                if ($value.IndexOf($fragment, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        foreach ($fragment in $credentialFragments) {
+            if ([string]$entry.Key -like "*$fragment*") {
+                throw "STEAMPIPE_VDF_CREDENTIAL_SURFACE_REJECTED"
+            }
+        }
+        if ($entry.Kind -ceq "Pair") {
+            $value = [string]$entry.Value
+            foreach ($fragment in $commandFragments) {
+                if ($value.IndexOf(
+                        $fragment,
+                        [StringComparison]::OrdinalIgnoreCase) -ge 0) {
                     throw "STEAMPIPE_VDF_CREDENTIAL_SURFACE_REJECTED"
+                }
+            }
+            if ($pathValueKeys -notcontains $entry.Key) {
+                foreach ($fragment in $credentialFragments) {
+                    if ($value.IndexOf(
+                            $fragment,
+                            [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                        throw "STEAMPIPE_VDF_CREDENTIAL_SURFACE_REJECTED"
+                    }
                 }
             }
         }

@@ -909,6 +909,51 @@ try {
         Assert-FinalOutputAbsent $output
     }
 
+    Invoke-Case "promoted JSON counters require numeric integer tokens" {
+        $mutations = @(
+            [pscustomobject]@{ Document = "manifest"; Field = "fileCount" },
+            [pscustomobject]@{ Document = "manifest"; Field = "totalBytes" },
+            [pscustomobject]@{ Document = "manifest"; Field = "deniedArtifactCount" },
+            [pscustomobject]@{ Document = "manifestFile"; Field = "size" },
+            [pscustomobject]@{ Document = "success"; Field = "fileCount" },
+            [pscustomobject]@{ Document = "success"; Field = "totalBytes" },
+            [pscustomobject]@{ Document = "success"; Field = "deniedArtifactCount" }
+        )
+        foreach ($mutation in $mutations) {
+            $caseName = "$($mutation.Document)-$($mutation.Field)"
+            $promoted = New-PromotedFixture `
+                (Join-Path $script:FixtureRoot "numeric-token-$caseName")
+            $manifestPath = Join-Path $promoted `
+                "evidence\distribution-manifest.json"
+            $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+            $manifest = Get-Content -LiteralPath $manifestPath -Raw |
+                ConvertFrom-Json
+            $success = Get-Content -LiteralPath $successPath -Raw |
+                ConvertFrom-Json
+            if ($mutation.Document -ceq "manifest") {
+                $manifest.($mutation.Field) =
+                    [string]$manifest.($mutation.Field)
+            } elseif ($mutation.Document -ceq "manifestFile") {
+                $manifest.files[0].($mutation.Field) =
+                    [string]$manifest.files[0].($mutation.Field)
+            } else {
+                $success.($mutation.Field) =
+                    [string]$success.($mutation.Field)
+            }
+            Write-TestJson $manifest $manifestPath
+            $success.manifestSha256 = Get-FileSha256 $manifestPath
+            Write-TestJson $success $successPath
+
+            $output = Join-Path $script:FixtureRoot `
+                "numeric-token-output-$caseName"
+            $arguments = New-ValidArguments $promoted $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
+            Assert-FinalOutputAbsent $output
+        }
+    }
+
     Invoke-Case "SUCCESS parse and hash use one byte snapshot" {
         $promoted = New-PromotedFixture `
             (Join-Path $script:FixtureRoot "success-snapshot-promoted")
@@ -1228,6 +1273,37 @@ try {
 '@
         Assert-ThrowsContaining { Assert-VdfForbiddenSurfaceZero $malicious } `
             "STEAMPIPE_VDF_FORBIDDEN_KEY"
+
+        $credentialKey = ConvertFrom-VdfText @'
+"AppBuild"
+{
+    "SteamUsername" "account"
+}
+'@
+        Assert-ThrowsContaining {
+            Assert-VdfForbiddenSurfaceZero $credentialKey
+        } "STEAMPIPE_VDF_CREDENTIAL_SURFACE_REJECTED"
+
+        $commandValue = ConvertFrom-VdfText @'
+"AppBuild"
+{
+    "Desc" "+login synthetic"
+}
+'@
+        Assert-ThrowsContaining {
+            Assert-VdfForbiddenSurfaceZero $commandValue
+        } "STEAMPIPE_VDF_CREDENTIAL_SURFACE_REJECTED"
+    }
+
+    Invoke-Case "credential-like path components remain valid local paths" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "email-team\promoted")
+        $output = Join-Path $script:FixtureRoot "login-build\output"
+        $arguments = New-ValidArguments $promoted $output
+        $result = Invoke-PrepareSteamPipeBuild @arguments
+        Assert-True (Test-Path -LiteralPath $result.OutputRoot -PathType Container)
+        Assert-True (Test-Path -LiteralPath `
+            (Join-Path $output "PRE_APPID_DRY_RUN_SUCCESS.json") -PathType Leaf)
     }
 
     Invoke-Case "failure cleans preparing directory and leaves no final marker" {
