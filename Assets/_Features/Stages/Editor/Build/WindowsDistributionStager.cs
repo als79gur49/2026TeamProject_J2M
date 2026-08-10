@@ -49,6 +49,7 @@ public sealed class WindowsDistributionPromotedValidationRequest
 {
     public string PromotedRoot { get; set; }
     public string DistributionTargetId { get; set; }
+    public string ScriptingBackend { get; set; }
     public WindowsDistributionManifestFile[] ManifestFiles { get; set; }
     public int ManifestDeniedArtifactCount { get; set; }
     public int ManifestFileCount { get; set; }
@@ -116,6 +117,7 @@ public static class WindowsDistributionStager
                 "STAGING_DISTRIBUTION_CONTRACT_INVALID",
                 contractFailure.ToString());
         }
+        ValidateScriptingBackend(request.ScriptingBackend);
 
         ValidateScriptingBackend(request.ScriptingBackend);
 
@@ -314,6 +316,8 @@ public static class WindowsDistributionStager
         Inventory(evidenceRoot, rejectReparsePoints: true);
         var inventory = InventoryDestination(payloadRoot);
         ValidateManifestInventory(request, inventory);
+        ValidateDestinationRuntimeCompleteness(
+            payloadRoot, inventory, request.ScriptingBackend);
 
         var denied = inventory
             .Where(file => SteamPipeStagingSanitizerPolicy.IsDeniedContent(

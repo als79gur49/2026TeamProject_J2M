@@ -156,7 +156,8 @@ function Invoke-PromotedSteamWindowsPreflight {
         [string]$success.distributionTarget -cne "steam-windows") {
         throw "STEAMPIPE_PROMOTED_TARGET_REJECTED"
     }
-    if ([string]$manifest.expectedProviderId -cne "steam" -or
+    if ([string]$manifest.scriptingBackend -cne [string]$success.scriptingBackend -or
+        [string]$manifest.expectedProviderId -cne "steam" -or
         [string]$success.status -cne "SUCCESS" -or
         [int]$manifest.deniedArtifactCount -ne 0 -or
         [int]$success.deniedArtifactCount -ne 0 -or
@@ -174,6 +175,7 @@ function Invoke-PromotedSteamWindowsPreflight {
     $request = New-Object WindowsDistributionPromotedValidationRequest
     $request.PromotedRoot = $promotedFull
     $request.DistributionTargetId = "steam-windows"
+    $request.ScriptingBackend = [string]$manifest.scriptingBackend
     $request.ManifestFiles = ConvertTo-ManifestFileArray -Files $manifest.files
     $request.ManifestDeniedArtifactCount = [int]$manifest.deniedArtifactCount
     $request.ManifestFileCount = [int]$manifest.fileCount

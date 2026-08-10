@@ -384,6 +384,19 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PromotedValidation_MatchingIncompleteRuntimeFailsClosed()
+        {
+            var staged = Stage("steam-windows", "promoted-missing-runtime-output");
+            File.Delete(Path.Combine(staged.PayloadRoot, "UnityPlayer.dll"));
+            var request = CreatePromotedValidationRequest(staged);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_REQUIRED_RUNTIME_MISSING"));
+        }
+
+        [Test]
         public void PromotedValidation_DuplicateSteamNativeFailsClosed()
         {
             var staged = Stage("steam-windows", "promoted-duplicate-native-output");
@@ -411,6 +424,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 PromotedRoot = sourceRoot,
                 DistributionTargetId = "steam-windows",
+                ScriptingBackend = "Mono2x",
                 ManifestFiles = Array.Empty<WindowsDistributionManifestFile>(),
             };
 
@@ -524,6 +538,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 PromotedRoot = staged.OutputRoot,
                 DistributionTargetId = staged.DistributionTargetId,
+                ScriptingBackend = "Mono2x",
                 ManifestFiles = files,
                 ManifestDeniedArtifactCount = 0,
                 ManifestFileCount = files.Length,

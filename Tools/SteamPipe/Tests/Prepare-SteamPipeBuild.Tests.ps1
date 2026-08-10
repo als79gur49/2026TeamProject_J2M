@@ -63,6 +63,7 @@ function New-PromotedFixture {
     param(
         [string]$Root,
         [string]$Target = "steam-windows",
+        [bool]$IncludeUnityPlayer = $true,
         [bool]$IncludeNative = $true,
         [bool]$IncludeManaged = $true,
         [bool]$IncludeSteamAppId = $false,
@@ -74,7 +75,9 @@ function New-PromotedFixture {
     [IO.Directory]::CreateDirectory($payload) | Out-Null
     [IO.Directory]::CreateDirectory($evidence) | Out-Null
     Write-Utf8File (Join-Path $payload "VectorQuake.exe") "exe"
-    Write-Utf8File (Join-Path $payload "UnityPlayer.dll") "unity"
+    if ($IncludeUnityPlayer) {
+        Write-Utf8File (Join-Path $payload "UnityPlayer.dll") "unity"
+    }
     Write-Utf8File (Join-Path $payload "VectorQuake_Data\globalgamemanagers") "managers"
     Write-Utf8File (Join-Path $payload "MonoBleedingEdge\etc\mono\config") "mono"
     if ($IncludeManaged) {
@@ -423,6 +426,18 @@ try {
             } "STAGING_PROMOTED_ARTIFACT_CONTRACT_FAILED"
             Assert-FinalOutputAbsent $output
         }
+    }
+
+    Invoke-Case "matching manifest with incomplete runtime is rejected" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "missing-runtime") `
+            -IncludeUnityPlayer $false
+        $output = Join-Path $script:FixtureRoot "missing-runtime-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STAGING_REQUIRED_RUNTIME_MISSING"
+        Assert-FinalOutputAbsent $output
     }
 
     Invoke-Case "repository output and content overlap are rejected" {
