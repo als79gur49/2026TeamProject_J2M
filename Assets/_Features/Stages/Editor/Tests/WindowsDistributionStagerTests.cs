@@ -384,6 +384,22 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PromotedValidation_NonAdjacentCaseInsensitiveDuplicatePathFailsClosed()
+        {
+            var staged = Stage("steam-windows", "promoted-duplicate-path-output");
+            var request = CreatePromotedValidationRequest(staged);
+            request.ManifestFiles[0].RelativePath = "A.dll";
+            request.ManifestFiles[1].RelativePath = "B.dll";
+            request.ManifestFiles[2].RelativePath = "a.dll";
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_PROMOTED_MANIFEST_MISMATCH"));
+            Assert.That(exception.Message, Does.Contain("duplicate path"));
+        }
+
+        [Test]
         public void PromotedValidation_MatchingIncompleteRuntimeFailsClosed()
         {
             var staged = Stage("steam-windows", "promoted-missing-runtime-output");

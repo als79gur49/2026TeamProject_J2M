@@ -661,9 +661,9 @@ public static class WindowsDistributionStager
             .OrderBy(file => file == null ? string.Empty : file.RelativePath,
                 StringComparer.Ordinal)
             .ToArray();
-        for (var index = 0; index < expected.Length; index++)
+        var manifestPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var manifestFile in expected)
         {
-            var manifestFile = expected[index];
             if (manifestFile == null ||
                 string.IsNullOrWhiteSpace(manifestFile.RelativePath) ||
                 Path.IsPathRooted(manifestFile.RelativePath) ||
@@ -676,16 +676,17 @@ public static class WindowsDistributionStager
                     "Manifest contains an invalid file entry.");
             }
 
-            if (index != 0 && string.Equals(
-                    expected[index - 1].RelativePath,
-                    manifestFile.RelativePath,
-                    StringComparison.OrdinalIgnoreCase))
+            if (!manifestPaths.Add(manifestFile.RelativePath))
             {
                 throw Failure(
                     "STAGING_PROMOTED_MANIFEST_MISMATCH",
                     "Manifest contains a duplicate path: " + manifestFile.RelativePath);
             }
+        }
 
+        for (var index = 0; index < expected.Length; index++)
+        {
+            var manifestFile = expected[index];
             var actual = inventory[index];
             if (!string.Equals(
                     manifestFile.RelativePath,
