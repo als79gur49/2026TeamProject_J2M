@@ -285,6 +285,52 @@ try {
             "Import-WindowsDistributionStagerTypes -Root `$Root -OfflineOnly"))
     }
 
+    Invoke-Case "validator cache rejects mapped drives and reparse ancestors" {
+        $stageWrapper = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
+        try {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            . $stageWrapper
+        } finally {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
+        }
+
+        $script:OriginalDistributionDriveType =
+            (Get-Command Get-WindowsDistributionDriveType).ScriptBlock
+        try {
+            Set-Item Function:\Get-WindowsDistributionDriveType {
+                param([string]$Path)
+                return [IO.DriveType]::Network
+            }
+            Assert-ThrowsContaining {
+                Import-WindowsDistributionStagerTypes `
+                    -Root $script:RepositoryRoot `
+                    -OfflineOnly
+            } "STAGING_POLICY_VALIDATOR_NETWORK_PATH_REJECTED"
+        } finally {
+            Set-Item Function:\Get-WindowsDistributionDriveType `
+                $script:OriginalDistributionDriveType
+            Remove-Variable OriginalDistributionDriveType `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
+
+        $cacheTarget = Join-Path $script:FixtureRoot "validator-cache-target"
+        $cacheJunction = Join-Path $script:FixtureRoot "validator-cache-junction"
+        [IO.Directory]::CreateDirectory($cacheTarget) | Out-Null
+        New-Item -ItemType Junction -Path $cacheJunction -Target $cacheTarget |
+            Out-Null
+        try {
+            Assert-ThrowsContaining {
+                Assert-WindowsDistributionLocalValidatorPath `
+                    -Path (Join-Path $cacheJunction "compiled-validator") `
+                    -Name "synthetic validator cache"
+            } "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED"
+        } finally {
+            Remove-Item -LiteralPath $cacheJunction -Force
+        }
+    }
+
     Invoke-Case "foreign loaded validator identity is rejected by outer importer" {
         $foreignRoot = Join-Path $script:FixtureRoot "foreign-validator-root"
         foreach ($relativePath in @(
@@ -539,6 +585,45 @@ try {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STEAMPIPE_NETWORK_PATH_REJECTED"
         Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "mapped network roots are rejected before filesystem access" {
+        $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "mapped-promoted")
+        $output = Join-Path $script:FixtureRoot "mapped-output"
+        $script:OriginalSteamPipeDriveType =
+            (Get-Command Get-SteamPipeDriveType).ScriptBlock
+        try {
+            Set-Item Function:\Get-SteamPipeDriveType {
+                param([string]$Path)
+                if ($Path.StartsWith("Z:", [StringComparison]::OrdinalIgnoreCase)) {
+                    return [IO.DriveType]::Network
+                }
+                return & $script:OriginalSteamPipeDriveType -Path $Path
+            }
+
+            $arguments = New-ValidArguments 'Z:\promoted' $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_NETWORK_PATH_REJECTED"
+            Assert-FinalOutputAbsent $output
+
+            $arguments = New-ValidArguments $promoted 'Z:\output'
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_NETWORK_PATH_REJECTED"
+
+            $arguments = New-ValidArguments $promoted $output
+            $arguments.RepositoryRoot = 'Z:\repository'
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_NETWORK_PATH_REJECTED"
+            Assert-FinalOutputAbsent $output
+        } finally {
+            Set-Item Function:\Get-SteamPipeDriveType `
+                $script:OriginalSteamPipeDriveType
+            Remove-Variable OriginalSteamPipeDriveType `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
     }
 
     Invoke-Case "SetLive execution and credential-like parameters are absent" {

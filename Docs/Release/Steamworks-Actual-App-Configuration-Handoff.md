@@ -90,6 +90,9 @@ into the Depot. `OutputRoot` and its separate `BuildOutput` must be outside both
 repository and the promoted payload. The tool reuses the typed Windows distribution
 validator to compare every payload path, size, and hash with the manifest and to
 enforce the canonical SteamWindows native/managed binding and deny contracts.
+All repository, promoted-artifact, output, validator-cache, and loaded-validator
+paths must resolve through verified local fixed, removable, or RAM drives. UNC,
+device, mapped-network-drive, and reparse-point paths fail before content access.
 
 Current synthetic validation form:
 

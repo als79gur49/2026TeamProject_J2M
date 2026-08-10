@@ -12,6 +12,65 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-WindowsDistributionDriveType {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $pathRoot = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Path))
+    try {
+        return ([IO.DriveInfo]::new($pathRoot)).DriveType
+    } catch {
+        throw "STAGING_POLICY_VALIDATOR_DRIVE_TYPE_UNAVAILABLE: $Path"
+    }
+}
+
+function Assert-WindowsDistributionLocalValidatorPath {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or
+        -not [IO.Path]::IsPathRooted($Path)) {
+        throw "STAGING_POLICY_VALIDATOR_PATH_INVALID: $Name"
+    }
+
+    $normalized = $Path.Replace('\', '/')
+    if ($normalized.StartsWith('//', [StringComparison]::Ordinal)) {
+        throw "STAGING_POLICY_VALIDATOR_NETWORK_PATH_REJECTED: $Name"
+    }
+
+    $driveType = Get-WindowsDistributionDriveType -Path $Path
+    if ($driveType -notin @(
+            [IO.DriveType]::Fixed,
+            [IO.DriveType]::Removable,
+            [IO.DriveType]::Ram)) {
+        throw "STAGING_POLICY_VALIDATOR_NETWORK_PATH_REJECTED: $Name"
+    }
+
+    $ancestors = @()
+    $current = [IO.Path]::GetFullPath($Path)
+    while (-not [string]::IsNullOrWhiteSpace($current)) {
+        $ancestors += $current
+        $trimmed = $current.TrimEnd('\', '/')
+        $parent = [IO.Path]::GetDirectoryName($trimmed)
+        if ([string]::IsNullOrWhiteSpace($parent) -or
+            $parent -ceq $current) {
+            break
+        }
+        $current = $parent
+    }
+    [array]::Reverse($ancestors)
+    foreach ($ancestor in $ancestors) {
+        if (-not (Test-Path -LiteralPath $ancestor)) {
+            break
+        }
+        $item = Get-Item -LiteralPath $ancestor -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED: $ancestor"
+        }
+    }
+}
+
 function Assert-WindowsDistributionStagerIdentity {
     param(
         [Parameter(Mandatory)][type]$StagerType,
@@ -70,23 +129,33 @@ function Import-WindowsDistributionStagerTypes {
         $identityHash.Dispose()
     }
 
-    $loadedStagerType = "WindowsDistributionStager" -as [type]
-    if ($null -ne $loadedStagerType) {
-        Assert-WindowsDistributionStagerIdentity `
-            -StagerType $loadedStagerType `
-            -ExpectedIdentity $cacheKey
-        return
-    }
-
     $compileCacheRoot = if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
         Join-Path ([IO.Path]::GetTempPath()) "VectorQuakeDistributionStager"
     } else {
         [IO.Path]::GetFullPath($CacheRoot)
     }
     $compileRoot = Join-Path $compileCacheRoot $cacheKey
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $compileRoot `
+        -Name "compile cache"
+
+    $loadedStagerType = "WindowsDistributionStager" -as [type]
+    if ($null -ne $loadedStagerType) {
+        Assert-WindowsDistributionStagerIdentity `
+            -StagerType $loadedStagerType `
+            -ExpectedIdentity $cacheKey
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path ([string]$loadedStagerType.Assembly.Location) `
+            -Name "loaded validator assembly"
+        return
+    }
+
     $assemblyPath = Join-Path $compileRoot "bin\VectorQuake.DistributionStager.dll"
     if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
         New-Item -ItemType Directory -Path $compileRoot -Force | Out-Null
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path $compileRoot `
+            -Name "compile cache"
         foreach ($sourcePath in $sourcePaths) {
             [IO.File]::Copy(
                 $sourcePath,

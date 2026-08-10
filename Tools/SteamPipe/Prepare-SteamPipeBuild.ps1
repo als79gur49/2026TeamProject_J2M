@@ -11,21 +11,43 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-SteamPipeDriveType {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $pathRoot = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Path))
+    try {
+        return ([IO.DriveInfo]::new($pathRoot)).DriveType
+    } catch {
+        throw "STEAMPIPE_DRIVE_TYPE_UNAVAILABLE: $Path"
+    }
+}
+
 function Assert-AbsolutePathWithoutTraversal {
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
         [Parameter(Mandatory)][string]$Name
     )
 
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "STEAMPIPE_PATH_ESCAPE_REJECTED: $Name must be an absolute path without traversal."
+    }
+
     $normalized = $Path.Replace('\', '/')
     if ($normalized.StartsWith('//', [StringComparison]::Ordinal)) {
         throw "STEAMPIPE_NETWORK_PATH_REJECTED: $Name must be a local filesystem path."
     }
 
-    if ([string]::IsNullOrWhiteSpace($Path) -or
-        -not [IO.Path]::IsPathRooted($Path) -or
+    if (-not [IO.Path]::IsPathRooted($Path) -or
         $normalized.Split('/') -contains '..') {
         throw "STEAMPIPE_PATH_ESCAPE_REJECTED: $Name must be an absolute path without traversal."
+    }
+
+    $driveType = Get-SteamPipeDriveType -Path $Path
+    if ($driveType -notin @(
+            [IO.DriveType]::Fixed,
+            [IO.DriveType]::Removable,
+            [IO.DriveType]::Ram)) {
+        throw "STEAMPIPE_NETWORK_PATH_REJECTED: $Name must use a verified local drive."
     }
 }
 
@@ -71,20 +93,26 @@ function ConvertTo-SteamIdentityId {
 function Assert-NoReparseAncestors {
     param([Parameter(Mandatory)][string]$Path)
 
+    $ancestors = @()
     $current = [IO.Path]::GetFullPath($Path)
     while (-not [string]::IsNullOrWhiteSpace($current)) {
-        if (Test-Path -LiteralPath $current) {
-            $item = Get-Item -LiteralPath $current -Force
-            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-                throw "STEAMPIPE_REPARSE_POINT_REJECTED: $current"
-            }
-        }
+        $ancestors += $current
         $parent = [IO.Path]::GetDirectoryName($current.TrimEnd('\', '/'))
         if ([string]::IsNullOrWhiteSpace($parent) -or
             $parent -ceq $current) {
             break
         }
         $current = $parent
+    }
+    [array]::Reverse($ancestors)
+    foreach ($ancestor in $ancestors) {
+        if (-not (Test-Path -LiteralPath $ancestor)) {
+            break
+        }
+        $item = Get-Item -LiteralPath $ancestor -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "STEAMPIPE_REPARSE_POINT_REJECTED: $ancestor"
+        }
     }
 }
 
@@ -498,6 +526,9 @@ function Invoke-PrepareSteamPipeBuild {
         -Name "PromotedSteamWindowsRoot"
     Assert-AbsolutePathWithoutTraversal -Path $OutputRoot -Name "OutputRoot"
     Assert-AbsolutePathWithoutTraversal -Path $RepositoryRoot -Name "RepositoryRoot"
+    Assert-NoReparseAncestors -Path $PromotedSteamWindowsRoot
+    Assert-NoReparseAncestors -Path $OutputRoot
+    Assert-NoReparseAncestors -Path $RepositoryRoot
     $appIdValue = ConvertTo-SteamIdentityId -Value $AppId -Name "AppId"
     $depotIdValue = ConvertTo-SteamIdentityId -Value $DepotId -Name "DepotId"
     $isActualIdentity = [string]::Equals(
@@ -516,7 +547,6 @@ function Invoke-PrepareSteamPipeBuild {
         (Test-PathIsSameOrUnder -Candidate $repositoryFull -Parent $outputFull)) {
         throw "STEAMPIPE_REPOSITORY_OUTPUT_REJECTED"
     }
-    Assert-NoReparseAncestors -Path $outputFull
     if (Test-Path -LiteralPath $outputFull) {
         throw "STEAMPIPE_OUTPUT_COLLISION"
     }
