@@ -86,10 +86,6 @@ function Assert-NoReparseAncestors {
 function Import-WindowsDistributionValidationTypes {
     param([Parameter(Mandatory)][string]$Root)
 
-    if ($null -ne ("WindowsDistributionPromotedValidationRequest" -as [type])) {
-        return
-    }
-
     $wrapper = Join-Path $Root "Tools\Build\Stage-WindowsDistribution.ps1"
     if (-not (Test-Path -LiteralPath $wrapper -PathType Leaf)) {
         throw "STEAMPIPE_PROMOTED_VALIDATOR_MISSING: $wrapper"

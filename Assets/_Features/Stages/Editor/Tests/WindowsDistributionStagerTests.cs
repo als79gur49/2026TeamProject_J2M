@@ -397,6 +397,19 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PromotedValidation_UnsupportedBackendFailsClosed()
+        {
+            var staged = Stage("steam-windows", "promoted-unsupported-backend-output");
+            var request = CreatePromotedValidationRequest(staged);
+            request.ScriptingBackend = "Unknown";
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_BACKEND_UNSUPPORTED"));
+        }
+
+        [Test]
         public void PromotedValidation_DuplicateSteamNativeFailsClosed()
         {
             var staged = Stage("steam-windows", "promoted-duplicate-native-output");

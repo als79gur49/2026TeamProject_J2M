@@ -119,8 +119,6 @@ public static class WindowsDistributionStager
         }
         ValidateScriptingBackend(request.ScriptingBackend);
 
-        ValidateScriptingBackend(request.ScriptingBackend);
-
         var sourceRoot = ResolveInputRoot(
             request.SourceBuildRoot, "SourceBuildRoot", mustExist: true);
         var outputRoot = ResolveInputRoot(
@@ -288,6 +286,7 @@ public static class WindowsDistributionStager
                 "STAGING_DISTRIBUTION_CONTRACT_INVALID",
                 contractFailure.ToString());
         }
+        ValidateScriptingBackend(request.ScriptingBackend);
 
         var promotedRoot = ResolveInputRoot(
             request.PromotedRoot, "PromotedRoot", mustExist: true);

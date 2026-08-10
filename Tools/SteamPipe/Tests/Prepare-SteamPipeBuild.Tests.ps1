@@ -63,6 +63,7 @@ function New-PromotedFixture {
     param(
         [string]$Root,
         [string]$Target = "steam-windows",
+        [string]$ScriptingBackend = "Mono2x",
         [bool]$IncludeUnityPlayer = $true,
         [bool]$IncludeNative = $true,
         [bool]$IncludeManaged = $true,
@@ -123,7 +124,7 @@ function New-PromotedFixture {
         sourceTree = "synthetic-tree"
         artifactId = "synthetic-artifact"
         runId = "synthetic-run"
-        scriptingBackend = "Mono2x"
+        scriptingBackend = $ScriptingBackend
         expectedProviderId = $provider
         expectedLaunchArguments = $arguments
         deniedArtifactCount = $deniedCount
@@ -138,7 +139,7 @@ function New-PromotedFixture {
         distributionTarget = $Target
         sourceSha = "synthetic-source"
         sourceTree = "synthetic-tree"
-        scriptingBackend = "Mono2x"
+        scriptingBackend = $ScriptingBackend
         fileCount = $files.Count
         totalBytes = $totalBytes
         manifestSha256 = Get-FileSha256 $manifestPath
@@ -282,6 +283,29 @@ try {
             (Join-Path $PSScriptRoot "..\Prepare-SteamPipeBuild.ps1") -Raw
         Assert-True ($productionSource.Contains(
             "Import-WindowsDistributionStagerTypes -Root `$Root -OfflineOnly"))
+    }
+
+    Invoke-Case "foreign loaded validator identity is rejected by outer importer" {
+        $foreignRoot = Join-Path $script:FixtureRoot "foreign-validator-root"
+        foreach ($relativePath in @(
+            "Tools\Build\Stage-WindowsDistribution.ps1",
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs",
+            "Assets\_Features\Stages\Editor\Build\SteamPipeStagingSanitizerPolicy.cs",
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionStager.cs")) {
+            $source = Join-Path $script:RepositoryRoot $relativePath
+            $destination = Join-Path $foreignRoot $relativePath
+            [IO.Directory]::CreateDirectory(
+                [IO.Path]::GetDirectoryName($destination)) | Out-Null
+            [IO.File]::Copy($source, $destination, $true)
+        }
+        $foreignPolicy = Join-Path $foreignRoot `
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs"
+        Write-Utf8File $foreignPolicy `
+            (([IO.File]::ReadAllText($foreignPolicy)) + "`n")
+
+        Assert-ThrowsContaining {
+            Import-WindowsDistributionValidationTypes -Root $foreignRoot
+        } "STAGING_POLICY_LOADED_IDENTITY_MISMATCH"
     }
 
     Invoke-Case "synthetic valid promoted artifact produces preview-only dry-run" {
@@ -437,6 +461,18 @@ try {
         Assert-ThrowsContaining {
             Invoke-PrepareSteamPipeBuild @arguments
         } "STAGING_REQUIRED_RUNTIME_MISSING"
+        Assert-FinalOutputAbsent $output
+    }
+
+    Invoke-Case "matching evidence with unsupported backend is rejected" {
+        $promoted = New-PromotedFixture `
+            (Join-Path $script:FixtureRoot "unsupported-backend") `
+            -ScriptingBackend "Unknown"
+        $output = Join-Path $script:FixtureRoot "unsupported-backend-output"
+        $arguments = New-ValidArguments $promoted $output
+        Assert-ThrowsContaining {
+            Invoke-PrepareSteamPipeBuild @arguments
+        } "STAGING_BACKEND_UNSUPPORTED"
         Assert-FinalOutputAbsent $output
     }
 
