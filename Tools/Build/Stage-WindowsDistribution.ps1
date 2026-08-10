@@ -380,12 +380,14 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE
             $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
             $previousDotnetCliHome = $env:DOTNET_CLI_HOME
+            $previousMsBuildSdksPath = $env:MSBuildSDKsPath
             try {
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
                 $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = "1"
                 $env:NUGET_CERT_REVOCATION_MODE = "offline"
                 $env:DOTNET_CLI_HOME = $dotnetCliHome
+                $env:MSBuildSDKsPath = $null
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     --packages $packagesRoot `
@@ -406,6 +408,7 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:NUGET_CERT_REVOCATION_MODE = `
                     $previousCertificateRevocation
                 $env:DOTNET_CLI_HOME = $previousDotnetCliHome
+                $env:MSBuildSDKsPath = $previousMsBuildSdksPath
             }
         } else {
             $buildOutput = @(& $dotnetPath build $projectPath `
