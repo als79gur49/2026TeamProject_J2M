@@ -121,16 +121,25 @@ function Test-IsKnownUnityFontImporterMutation {
     )
 
     $before = [IO.File]::ReadAllText($BeforePath)
-    $expected = $before.Replace("  m_MipmapLimitGroupName:`n", "  m_MipmapLimitGroupName: `n")
-    $expected = $expected.Replace("  m_PlatformBlob:`n", "  m_PlatformBlob: `n")
-    $expected = $expected.Replace("    path:`n", "    path: `n")
-    $expected = $expected.Replace("    referencedFontAssetGUID:`n", "    referencedFontAssetGUID: `n")
-    $expected = $expected.Replace("    referencedTextAssetGUID:`n", "    referencedTextAssetGUID: `n")
-    $expected = $expected.Replace("  m_SourceFontFilePath:`n", "  m_SourceFontFilePath: `n")
-    $expected = $expected.Replace("    Name:`n", "    Name: `n")
-    $expected = $expected.Replace("  m_LockedProperties:`n", "  m_LockedProperties: `n")
-    $expected = $expected.Replace("    - _ScaleRatioA: 1`n", "    - _ScaleRatioA: 0.9`n")
-    $expected = $expected.Replace("    - _ScaleRatioC: 1`n", "    - _ScaleRatioC: 0.73125`n")
+    $newline = if ($before.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $expected = $before.Replace(
+        "  m_MipmapLimitGroupName:$newline", "  m_MipmapLimitGroupName: $newline")
+    $expected = $expected.Replace(
+        "  m_PlatformBlob:$newline", "  m_PlatformBlob: $newline")
+    $expected = $expected.Replace("    path:$newline", "    path: $newline")
+    $expected = $expected.Replace(
+        "    referencedFontAssetGUID:$newline", "    referencedFontAssetGUID: $newline")
+    $expected = $expected.Replace(
+        "    referencedTextAssetGUID:$newline", "    referencedTextAssetGUID: $newline")
+    $expected = $expected.Replace(
+        "  m_SourceFontFilePath:$newline", "  m_SourceFontFilePath: $newline")
+    $expected = $expected.Replace("    Name:$newline", "    Name: $newline")
+    $expected = $expected.Replace(
+        "  m_LockedProperties:$newline", "  m_LockedProperties: $newline")
+    $expected = $expected.Replace(
+        "    - _ScaleRatioA: 1$newline", "    - _ScaleRatioA: 0.9$newline")
+    $expected = $expected.Replace(
+        "    - _ScaleRatioC: 1$newline", "    - _ScaleRatioC: 0.73125$newline")
     if ($expected -ceq $before) {
         return $false
     }

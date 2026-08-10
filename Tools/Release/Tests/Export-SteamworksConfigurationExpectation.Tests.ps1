@@ -90,14 +90,20 @@ Invoke-Case "only the known Unity font importer mutation is restorable" {
     try {
         $beforePath = Join-Path $fixtureRoot "before.asset"
         $knownPath = Join-Path $fixtureRoot "known.asset"
+        $beforeCrLfPath = Join-Path $fixtureRoot "before-crlf.asset"
+        $knownCrLfPath = Join-Path $fixtureRoot "known-crlf.asset"
         $concurrentPath = Join-Path $fixtureRoot "concurrent.asset"
         $before = "  m_MipmapLimitGroupName:`n    - _ScaleRatioA: 1`n    - _ScaleRatioC: 1`n"
         $known = "  m_MipmapLimitGroupName: `n    - _ScaleRatioA: 0.9`n    - _ScaleRatioC: 0.73125`n"
         [IO.File]::WriteAllText($beforePath, $before)
         [IO.File]::WriteAllText($knownPath, $known)
+        [IO.File]::WriteAllText($beforeCrLfPath, $before.Replace("`n", "`r`n"))
+        [IO.File]::WriteAllText($knownCrLfPath, $known.Replace("`n", "`r`n"))
         [IO.File]::WriteAllText($concurrentPath, $known + "user edit`n")
         Assert-True (Test-IsKnownUnityFontImporterMutation `
             -BeforePath $beforePath -AfterPath $knownPath)
+        Assert-True (Test-IsKnownUnityFontImporterMutation `
+            -BeforePath $beforeCrLfPath -AfterPath $knownCrLfPath)
         Assert-True (-not (Test-IsKnownUnityFontImporterMutation `
             -BeforePath $beforePath -AfterPath $concurrentPath))
     } finally {
