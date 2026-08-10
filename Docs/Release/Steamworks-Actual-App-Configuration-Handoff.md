@@ -16,7 +16,7 @@ The machine-readable report is generated from typed repository contracts. Do not
 
 ## Generate the expectation report
 
-Run the Editor exporter from the committed worktree and write output outside the repository:
+Run the Editor exporter from a clean committed worktree and write output outside the repository. The wrapper fails closed when staged, unstaged, or untracked changes are present so the recorded HEAD/tree identify the exact exported source:
 
 ```powershell
 Tools\Release\Export-SteamworksConfigurationExpectation.ps1 `

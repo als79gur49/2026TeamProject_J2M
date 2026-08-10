@@ -23,6 +23,19 @@ function Assert-True {
     if (-not $Value) { throw $Message }
 }
 
+function Assert-Throws {
+    param([scriptblock]$Body, [string]$ExpectedMessage)
+    try {
+        & $Body
+    } catch {
+        if ($_.Exception.Message -cne $ExpectedMessage) {
+            throw "Expected '$ExpectedMessage', got '$($_.Exception.Message)'."
+        }
+        return
+    }
+    throw "Expected '$ExpectedMessage'."
+}
+
 Invoke-Case "path containment recognizes repository children" {
     $root = [IO.Path]::GetFullPath((Join-Path $env:TEMP "j2m-repository"))
     Assert-True (Test-PathIsSameOrUnder `
@@ -34,6 +47,16 @@ Invoke-Case "path containment permits private sibling output" {
     $root = [IO.Path]::GetFullPath((Join-Path $env:TEMP "j2m-repository"))
     $private = [IO.Path]::GetFullPath((Join-Path $env:TEMP "j2m-evidence"))
     Assert-True (-not (Test-PathIsSameOrUnder -Candidate $private -Parent $root))
+}
+
+Invoke-Case "clean worktree provenance is accepted" {
+    Assert-RepositoryIsClean -Status ""
+}
+
+Invoke-Case "dirty worktree provenance is rejected" {
+    Assert-Throws {
+        Assert-RepositoryIsClean -Status " M Tools/Release/example.ps1"
+    } "STEAMWORKS_EXPECTATION_CLEAN_WORKTREE_REQUIRED"
 }
 
 Invoke-Case "production wrapper contains no identity or backend mutation surface" {

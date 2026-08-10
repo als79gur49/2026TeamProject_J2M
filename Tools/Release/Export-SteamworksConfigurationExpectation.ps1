@@ -68,6 +68,14 @@ function Wait-ExpectationOutputFile {
     return (Test-Path -LiteralPath $Path -PathType Leaf)
 }
 
+function Assert-RepositoryIsClean {
+    param([AllowEmptyString()][string]$Status)
+
+    if (-not [string]::IsNullOrWhiteSpace($Status)) {
+        throw "STEAMWORKS_EXPECTATION_CLEAN_WORKTREE_REQUIRED"
+    }
+}
+
 function Invoke-SteamworksConfigurationExpectationExport {
     [CmdletBinding()]
     param(
@@ -90,6 +98,7 @@ function Invoke-SteamworksConfigurationExpectationExport {
     $sourceHead = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD")
     $sourceTree = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD^{tree}")
     $statusBefore = Invoke-RepositoryGit $repositoryFull @("status", "--short")
+    Assert-RepositoryIsClean -Status $statusBefore
 
     New-Item -ItemType Directory -Path $outputFull -Force | Out-Null
     $logPath = Join-Path $outputFull "unity-export.log"
