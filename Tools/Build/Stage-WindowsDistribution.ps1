@@ -389,6 +389,15 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:CustomBeforeMicrosoftCommonTargets
             $previousCustomAfterCommonTargets = `
                 $env:CustomAfterMicrosoftCommonTargets
+            $previousRestoreSources = $env:RestoreSources
+            $previousRestoreAdditionalSources = `
+                $env:RestoreAdditionalProjectSources
+            $previousRestoreFallbackFolders = $env:RestoreFallbackFolders
+            $previousRestoreAdditionalFallbackFolders = `
+                $env:RestoreAdditionalProjectFallbackFolders
+            $previousMsBuildExtensionsPath = $env:MSBuildExtensionsPath
+            $previousMsBuildUserExtensionsPath = `
+                $env:MSBuildUserExtensionsPath
             try {
                 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
                 $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
@@ -400,12 +409,26 @@ public static class WindowsDistributionStagerCompiledIdentity
                 $env:CustomAfterMicrosoftCommonProps = $null
                 $env:CustomBeforeMicrosoftCommonTargets = $null
                 $env:CustomAfterMicrosoftCommonTargets = $null
+                $env:RestoreSources = $null
+                $env:RestoreAdditionalProjectSources = $null
+                $env:RestoreFallbackFolders = $null
+                $env:RestoreAdditionalProjectFallbackFolders = $null
+                $env:MSBuildExtensionsPath = $null
+                $env:MSBuildUserExtensionsPath = $null
                 $restoreOutput = @(& $dotnetPath restore $projectPath `
                     --configfile $nugetConfigPath --no-cache `
                     --packages $packagesRoot `
+                    "-p:RestoreSources=$offlineSource" `
+                    -p:RestoreAdditionalProjectSources= `
+                    -p:RestoreFallbackFolders= `
+                    -p:RestoreAdditionalProjectFallbackFolders= `
                     -p:NuGetAudit=false `
                     -p:ImportDirectoryBuildProps=false `
                     -p:ImportDirectoryBuildTargets=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonProps=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonProps=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonTargets=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonTargets=false `
                     --nologo --verbosity quiet 2>&1)
                 if ($LASTEXITCODE -ne 0) {
                     throw "STAGING_POLICY_OFFLINE_RESTORE_FAILED: $($restoreOutput -join [Environment]::NewLine)"
@@ -415,6 +438,10 @@ public static class WindowsDistributionStagerCompiledIdentity
                     --output $buildOutputRoot `
                     -p:ImportDirectoryBuildProps=false `
                     -p:ImportDirectoryBuildTargets=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonProps=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonProps=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonTargets=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonTargets=false `
                     --no-restore --nologo --verbosity quiet 2>&1)
                 $buildExitCode = $LASTEXITCODE
             } finally {
@@ -434,6 +461,15 @@ public static class WindowsDistributionStagerCompiledIdentity
                     $previousCustomBeforeCommonTargets
                 $env:CustomAfterMicrosoftCommonTargets = `
                     $previousCustomAfterCommonTargets
+                $env:RestoreSources = $previousRestoreSources
+                $env:RestoreAdditionalProjectSources = `
+                    $previousRestoreAdditionalSources
+                $env:RestoreFallbackFolders = $previousRestoreFallbackFolders
+                $env:RestoreAdditionalProjectFallbackFolders = `
+                    $previousRestoreAdditionalFallbackFolders
+                $env:MSBuildExtensionsPath = $previousMsBuildExtensionsPath
+                $env:MSBuildUserExtensionsPath = `
+                    $previousMsBuildUserExtensionsPath
             }
         } else {
             $buildOutput = @(& $dotnetPath build $projectPath `

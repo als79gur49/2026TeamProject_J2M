@@ -431,15 +431,14 @@ try {
                 Assert-Equal "Completed" $job.State
                 Assert-True ($output -contains "CONCURRENT_IMPORT_PASS")
             }
-            $finalAssemblies = @(Get-ChildItem -LiteralPath $cacheRoot `
-                -Filter "VectorQuake.DistributionStager.dll" -File -Recurse |
-                Where-Object {
-                    $_.FullName -match `
-                        '[\\/]bin[\\/]VectorQuake\.DistributionStager\.dll$'
-                })
-            Assert-Equal 1 $finalAssemblies.Count
-            $preparing = @(Get-ChildItem -LiteralPath $cacheRoot `
-                -Directory -Recurse | Where-Object {
+            $sourceKeyCaches = @(Get-ChildItem -LiteralPath $cacheRoot -Directory)
+            Assert-Equal 1 $sourceKeyCaches.Count
+            $finalAssemblyPath = Join-Path $sourceKeyCaches[0].FullName `
+                "bin\VectorQuake.DistributionStager.dll"
+            Assert-True (Test-Path -LiteralPath $finalAssemblyPath -PathType Leaf)
+            $preparing = @(Get-ChildItem `
+                -LiteralPath $sourceKeyCaches[0].FullName `
+                -Directory | Where-Object {
                     $_.Name.StartsWith(".preparing-bin-")
                 })
             Assert-Equal 0 $preparing.Count
@@ -464,6 +463,14 @@ try {
             $env:CustomBeforeMicrosoftCommonTargets
         $previousCustomAfterCommonTargets = `
             $env:CustomAfterMicrosoftCommonTargets
+        $previousRestoreSources = $env:RestoreSources
+        $previousRestoreAdditionalSources = `
+            $env:RestoreAdditionalProjectSources
+        $previousRestoreFallbackFolders = $env:RestoreFallbackFolders
+        $previousRestoreAdditionalFallbackFolders = `
+            $env:RestoreAdditionalProjectFallbackFolders
+        $previousMsBuildExtensionsPath = $env:MSBuildExtensionsPath
+        $previousMsBuildUserExtensionsPath = $env:MSBuildUserExtensionsPath
         $revocationAfterImport = ""
         $dotnetCliHomeAfterImport = ""
         $msBuildSdksPathAfterImport = ""
@@ -471,6 +478,12 @@ try {
         $customAfterCommonPropsAfterImport = ""
         $customBeforeCommonTargetsAfterImport = ""
         $customAfterCommonTargetsAfterImport = ""
+        $restoreSourcesAfterImport = ""
+        $restoreAdditionalSourcesAfterImport = ""
+        $restoreFallbackFoldersAfterImport = ""
+        $restoreAdditionalFallbackFoldersAfterImport = ""
+        $msBuildExtensionsPathAfterImport = ""
+        $msBuildUserExtensionsPathAfterImport = ""
         $offlineCacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
             "VectorQuakeDistributionStagerOfflineOnly"
         try {
@@ -509,6 +522,17 @@ try {
                 '\\synthetic.invalid\before-common.targets'
             $env:CustomAfterMicrosoftCommonTargets = `
                 '\\synthetic.invalid\after-common.targets'
+            $env:RestoreSources = 'https://synthetic.invalid/v3/index.json'
+            $env:RestoreAdditionalProjectSources = `
+                '\\synthetic.invalid\additional-source'
+            $env:RestoreFallbackFolders = `
+                '\\synthetic.invalid\fallback-source'
+            $env:RestoreAdditionalProjectFallbackFolders = `
+                '\\synthetic.invalid\additional-fallback-source'
+            $env:MSBuildExtensionsPath = `
+                '\\synthetic.invalid\msbuild-extensions'
+            $env:MSBuildUserExtensionsPath = `
+                '\\synthetic.invalid\msbuild-user-extensions'
             . $stageWrapper
             Import-WindowsDistributionStagerTypes `
                 -Root $script:RepositoryRoot `
@@ -526,6 +550,15 @@ try {
                 $env:CustomBeforeMicrosoftCommonTargets
             $customAfterCommonTargetsAfterImport = `
                 $env:CustomAfterMicrosoftCommonTargets
+            $restoreSourcesAfterImport = $env:RestoreSources
+            $restoreAdditionalSourcesAfterImport = `
+                $env:RestoreAdditionalProjectSources
+            $restoreFallbackFoldersAfterImport = $env:RestoreFallbackFolders
+            $restoreAdditionalFallbackFoldersAfterImport = `
+                $env:RestoreAdditionalProjectFallbackFolders
+            $msBuildExtensionsPathAfterImport = $env:MSBuildExtensionsPath
+            $msBuildUserExtensionsPathAfterImport = `
+                $env:MSBuildUserExtensionsPath
             $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
             $env:NUGET_PACKAGES = $previousPackages
             $env:NUGET_CERT_REVOCATION_MODE = $previousCertificateRevocation
@@ -539,6 +572,14 @@ try {
                 $previousCustomBeforeCommonTargets
             $env:CustomAfterMicrosoftCommonTargets = `
                 $previousCustomAfterCommonTargets
+            $env:RestoreSources = $previousRestoreSources
+            $env:RestoreAdditionalProjectSources = `
+                $previousRestoreAdditionalSources
+            $env:RestoreFallbackFolders = $previousRestoreFallbackFolders
+            $env:RestoreAdditionalProjectFallbackFolders = `
+                $previousRestoreAdditionalFallbackFolders
+            $env:MSBuildExtensionsPath = $previousMsBuildExtensionsPath
+            $env:MSBuildUserExtensionsPath = $previousMsBuildUserExtensionsPath
         }
         Assert-Equal "synthetic-previous" $revocationAfterImport
         Assert-Equal '\\synthetic.invalid\dotnet-cli-home' `
@@ -553,6 +594,18 @@ try {
             $customBeforeCommonTargetsAfterImport
         Assert-Equal '\\synthetic.invalid\after-common.targets' `
             $customAfterCommonTargetsAfterImport
+        Assert-Equal 'https://synthetic.invalid/v3/index.json' `
+            $restoreSourcesAfterImport
+        Assert-Equal '\\synthetic.invalid\additional-source' `
+            $restoreAdditionalSourcesAfterImport
+        Assert-Equal '\\synthetic.invalid\fallback-source' `
+            $restoreFallbackFoldersAfterImport
+        Assert-Equal '\\synthetic.invalid\additional-fallback-source' `
+            $restoreAdditionalFallbackFoldersAfterImport
+        Assert-Equal '\\synthetic.invalid\msbuild-extensions' `
+            $msBuildExtensionsPathAfterImport
+        Assert-Equal '\\synthetic.invalid\msbuild-user-extensions' `
+            $msBuildUserExtensionsPathAfterImport
         Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
         Assert-ThrowsContaining {
             Assert-WindowsDistributionStagerIdentity `
@@ -579,6 +632,21 @@ try {
             'CustomBeforeMicrosoftCommonTargets = $null'))
         Assert-True ($stageSource.Contains(
             'CustomAfterMicrosoftCommonTargets = $null'))
+        Assert-True ($stageSource.Contains(
+            '"-p:RestoreSources=$offlineSource"'))
+        Assert-True ($stageSource.Contains(
+            '-p:RestoreAdditionalProjectSources='))
+        Assert-True ($stageSource.Contains('-p:RestoreFallbackFolders='))
+        Assert-True ($stageSource.Contains(
+            '-p:RestoreAdditionalProjectFallbackFolders='))
+        Assert-True ($stageSource.Contains(
+            '-p:ImportByWildcardBeforeMicrosoftCommonProps=false'))
+        Assert-True ($stageSource.Contains(
+            '-p:ImportByWildcardAfterMicrosoftCommonProps=false'))
+        Assert-True ($stageSource.Contains(
+            '-p:ImportByWildcardBeforeMicrosoftCommonTargets=false'))
+        Assert-True ($stageSource.Contains(
+            '-p:ImportByWildcardAfterMicrosoftCommonTargets=false'))
         Assert-True ($stageSource.Contains(
             '-p:ImportDirectoryBuildProps=false'))
         Assert-True ($stageSource.Contains(
