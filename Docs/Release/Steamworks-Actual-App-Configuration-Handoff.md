@@ -65,6 +65,66 @@ Icon preparation checklist:
 
 No icon is generated or uploaded in this phase. Confirm the current App Admin requirements after the Actual AppID is available.
 
+## SteamPipe local dry-run handoff
+
+`Tools/SteamPipe/Prepare-SteamPipeBuild.ps1` generates deterministic preview VDFs
+and validates them locally. It does not start SteamCMD, contact Steam, perform an
+upload, or change App Admin state. Valve's SteamPipe `Preview` setting describes a
+real build preview only when an authorized operator later submits the VDF through
+SteamCMD; this repository tool only prepares and validates those files.
+
+Official reference: [Uploading to Steam (SteamPipe)](https://partner.steamgames.com/doc/sdk/uploading)
+
+The input must be an already promoted `steam-windows` artifact:
+
+```text
+<PROMOTED_STEAM_WINDOWS_ROOT>/
+  payload/
+  evidence/
+    SUCCESS.json
+    distribution-manifest.json
+```
+
+The generated `ContentRoot` is exactly `payload/`; release evidence is never mapped
+into the Depot. `OutputRoot` and its separate `BuildOutput` must be outside both the
+repository and the promoted payload. The tool reuses the typed Windows distribution
+validator to compare every payload path, size, and hash with the manifest and to
+enforce the canonical SteamWindows native/managed binding and deny contracts.
+
+Current synthetic validation form:
+
+```powershell
+Tools\SteamPipe\Prepare-SteamPipeBuild.ps1 `
+  -AppId <NON_PRODUCT_SYNTHETIC_APP_ID> `
+  -DepotId <NON_PRODUCT_SYNTHETIC_DEPOT_ID> `
+  -PromotedSteamWindowsRoot <PROMOTED_STEAM_WINDOWS_ROOT> `
+  -OutputRoot D:\J2M\evidence\SteamPipe-PreAppId-DryRun-<UTC> `
+  -IdentityMode Synthetic `
+  -DryRun
+```
+
+Synthetic output is `SYNTHETIC_VALIDATION_ONLY`, `NOT_UPLOADABLE`,
+`NOT_ACTUAL_STEAM_IDENTITY`, `NO_STEAM_BACKEND_CONTACT`, and
+`NO_APP_ADMIN_CONFIGURATION`. The placeholders above are external test inputs, not
+stored App or Depot identities.
+
+Future Actual-identity local validation form, only after the owner supplies both
+identities:
+
+```powershell
+Tools\SteamPipe\Prepare-SteamPipeBuild.ps1 `
+  -AppId <ACTUAL_APP_ID> `
+  -DepotId <ACTUAL_DEPOT_ID> `
+  -PromotedSteamWindowsRoot <PROMOTED_STEAM_WINDOWS_ROOT> `
+  -OutputRoot D:\J2M\evidence\SteamPipe-Actual-Identity-DryRun-<UTC> `
+  -IdentityMode Actual `
+  -DryRun
+```
+
+Actual mode rejects AppID 480. It still performs only a local dry-run and does not
+grant upload authority. Credentials, SteamID, account details, branch activation,
+`SetLive`, and SteamCMD execution are intentionally outside the command surface.
+
 ## Actual-App owner checklist
 
 1. Confirm the Actual VectorQuake AppID.

@@ -343,6 +343,84 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PromotedValidation_ReusesTypedInventoryAndSteamContract()
+        {
+            var staged = Stage("steam-windows", "promoted-validation-output");
+            var validation = WindowsDistributionStager.ValidatePromotedArtifact(
+                CreatePromotedValidationRequest(staged));
+
+            Assert.That(validation.PayloadRoot, Is.EqualTo(staged.PayloadRoot));
+            Assert.That(validation.FileCount, Is.EqualTo(staged.FileCount));
+            Assert.That(validation.SteamNativeCount, Is.EqualTo(1));
+            Assert.That(validation.SteamManagedCount, Is.EqualTo(1));
+            Assert.That(validation.SteamAppIdCount, Is.Zero);
+            Assert.That(validation.DeniedArtifactCount, Is.Zero);
+        }
+
+        [Test]
+        public void PromotedValidation_ManifestMismatchFailsClosed()
+        {
+            var staged = Stage("steam-windows", "promoted-mismatch-output");
+            var request = CreatePromotedValidationRequest(staged);
+            request.ManifestFiles[0].Sha256 = new string('0', 64);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_PROMOTED_MANIFEST_MISMATCH"));
+        }
+
+        [Test]
+        public void PromotedValidation_ManifestPathEscapeFailsClosed()
+        {
+            var staged = Stage("steam-windows", "promoted-path-escape-output");
+            var request = CreatePromotedValidationRequest(staged);
+            request.ManifestFiles[0].RelativePath = "../escaped-file";
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_PROMOTED_MANIFEST_MISMATCH"));
+        }
+
+        [Test]
+        public void PromotedValidation_DuplicateSteamNativeFailsClosed()
+        {
+            var staged = Stage("steam-windows", "promoted-duplicate-native-output");
+            var source = Path.Combine(
+                staged.PayloadRoot,
+                "VectorQuake_Data",
+                "Plugins",
+                "x86_64",
+                "steam_api64.dll");
+            var duplicate = Path.Combine(staged.PayloadRoot, "steam_api64.dll");
+            File.Copy(source, duplicate);
+            var request = CreatePromotedValidationRequest(staged);
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code,
+                Is.EqualTo("STAGING_PROMOTED_ARTIFACT_CONTRACT_FAILED"));
+        }
+
+        [Test]
+        public void PromotedValidation_RawPlayerRootFailsStructureCheck()
+        {
+            var request = new WindowsDistributionPromotedValidationRequest
+            {
+                PromotedRoot = sourceRoot,
+                DistributionTargetId = "steam-windows",
+                ManifestFiles = Array.Empty<WindowsDistributionManifestFile>(),
+            };
+
+            var exception = Assert.Throws<WindowsDistributionStagingException>(() =>
+                WindowsDistributionStager.ValidatePromotedArtifact(request));
+
+            Assert.That(exception.Code, Is.EqualTo("STAGING_PROMOTED_STRUCTURE_INVALID"));
+        }
+
+        [Test]
         public void PrePromotionValidationFailure_AfterEvidenceWrite_PreventsFinalPromotion()
         {
             const string outputName = "pre-promotion-drift-output";
@@ -423,6 +501,33 @@ namespace Game.Feature.Stages.Editor.Tests
                 ArtifactId = "artifact-id",
                 RunId = runId,
                 ScriptingBackend = scriptingBackend,
+            };
+        }
+
+        private static WindowsDistributionPromotedValidationRequest
+            CreatePromotedValidationRequest(WindowsDistributionStagingResult staged)
+        {
+            var files = Directory.GetFiles(
+                    staged.PayloadRoot,
+                    "*",
+                    SearchOption.AllDirectories)
+                .Select(path => new FileInfo(path))
+                .Select(info => new WindowsDistributionManifestFile
+                {
+                    RelativePath = NormalizeRelative(staged.PayloadRoot, info.FullName),
+                    Size = info.Length,
+                    Sha256 = GetSha256(info.FullName),
+                })
+                .OrderBy(file => file.RelativePath, StringComparer.Ordinal)
+                .ToArray();
+            return new WindowsDistributionPromotedValidationRequest
+            {
+                PromotedRoot = staged.OutputRoot,
+                DistributionTargetId = staged.DistributionTargetId,
+                ManifestFiles = files,
+                ManifestDeniedArtifactCount = 0,
+                ManifestFileCount = files.Length,
+                ManifestTotalBytes = files.Sum(file => file.Size),
             };
         }
 

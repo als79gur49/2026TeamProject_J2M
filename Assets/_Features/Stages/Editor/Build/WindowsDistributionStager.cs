@@ -38,6 +38,40 @@ public sealed class WindowsDistributionStagingResult
     public int SteamAppIdCount { get; internal set; }
 }
 
+public sealed class WindowsDistributionManifestFile
+{
+    public string RelativePath { get; set; }
+    public long Size { get; set; }
+    public string Sha256 { get; set; }
+}
+
+public sealed class WindowsDistributionPromotedValidationRequest
+{
+    public string PromotedRoot { get; set; }
+    public string DistributionTargetId { get; set; }
+    public WindowsDistributionManifestFile[] ManifestFiles { get; set; }
+    public int ManifestDeniedArtifactCount { get; set; }
+    public int ManifestFileCount { get; set; }
+    public long ManifestTotalBytes { get; set; }
+}
+
+public sealed class WindowsDistributionPromotedValidationResult
+{
+    public string PromotedRoot { get; internal set; }
+    public string PayloadRoot { get; internal set; }
+    public string EvidenceRoot { get; internal set; }
+    public string ManifestPath { get; internal set; }
+    public string SuccessPath { get; internal set; }
+    public string ManifestSha256 { get; internal set; }
+    public string DistributionTargetId { get; internal set; }
+    public int FileCount { get; internal set; }
+    public long TotalBytes { get; internal set; }
+    public int DeniedArtifactCount { get; internal set; }
+    public int SteamNativeCount { get; internal set; }
+    public int SteamManagedCount { get; internal set; }
+    public int SteamAppIdCount { get; internal set; }
+}
+
 public sealed class WindowsDistributionStagingException : Exception
 {
     public WindowsDistributionStagingException(string code, string message)
@@ -222,6 +256,124 @@ public static class WindowsDistributionStager
             TryDeleteDirectory(temporaryRoot);
             throw;
         }
+    }
+
+    public static WindowsDistributionPromotedValidationResult ValidatePromotedArtifact(
+        WindowsDistributionPromotedValidationRequest request)
+    {
+        if (request == null)
+        {
+            throw Failure(
+                "STAGING_INVALID_ARGUMENT",
+                "Promoted validation request is required.");
+        }
+
+        WindowsDistributionTargetConfiguration target;
+        if (!WindowsDistributionTargetPolicy.TryResolve(
+                request.DistributionTargetId, out target))
+        {
+            throw Failure(
+                "STAGING_UNKNOWN_DISTRIBUTION_TARGET",
+                "Missing or unsupported distribution target: " +
+                (request.DistributionTargetId ?? "<null>"));
+        }
+
+        var contractFailure =
+            WindowsDistributionTargetPolicy.ValidateConfiguration(target);
+        if (contractFailure != WindowsDistributionValidationFailure.None)
+        {
+            throw Failure(
+                "STAGING_DISTRIBUTION_CONTRACT_INVALID",
+                contractFailure.ToString());
+        }
+
+        var promotedRoot = ResolveInputRoot(
+            request.PromotedRoot, "PromotedRoot", mustExist: true);
+        RejectReparseAncestors(promotedRoot);
+        RejectReparsePoint(promotedRoot, "PromotedRoot");
+        var payloadRoot = ResolveContainedPath(promotedRoot, "payload");
+        var evidenceRoot = ResolveContainedPath(promotedRoot, "evidence");
+        if (!IoDirectoryExists(payloadRoot) || !IoDirectoryExists(evidenceRoot))
+        {
+            throw Failure(
+                "STAGING_PROMOTED_STRUCTURE_INVALID",
+                "PromotedRoot must contain payload/ and evidence/ directories.");
+        }
+
+        RejectReparsePoint(payloadRoot, "payload");
+        RejectReparsePoint(evidenceRoot, "evidence");
+        var manifestPath = ResolveContainedPath(evidenceRoot, ManifestFileName);
+        var successPath = ResolveContainedPath(evidenceRoot, SuccessFileName);
+        if (!IoFileExists(manifestPath) || !IoFileExists(successPath))
+        {
+            throw Failure(
+                "STAGING_PROMOTED_STRUCTURE_INVALID",
+                "Promoted evidence is incomplete.");
+        }
+
+        Inventory(evidenceRoot, rejectReparsePoints: true);
+        var inventory = InventoryDestination(payloadRoot);
+        ValidateManifestInventory(request, inventory);
+
+        var denied = inventory
+            .Where(file => SteamPipeStagingSanitizerPolicy.IsDeniedContent(
+                file.RelativePath))
+            .ToArray();
+        if (request.ManifestDeniedArtifactCount != 0 || denied.Length != 0)
+        {
+            throw Failure(
+                "STAGING_FORBIDDEN_ARTIFACT_PRESENT",
+                string.Join(", ", denied.Select(file => file.RelativePath).ToArray()));
+        }
+
+        contractFailure =
+            WindowsDistributionTargetPolicy.ValidatePromotedArtifactInventory(
+                target,
+                inventory.Select(file => file.RelativePath));
+        if (contractFailure != WindowsDistributionValidationFailure.None)
+        {
+            throw Failure(
+                "STAGING_PROMOTED_ARTIFACT_CONTRACT_FAILED",
+                contractFailure.ToString());
+        }
+
+        var steamNativeCount = CountFileName(
+            inventory,
+            WindowsDistributionTargetPolicy.SteamNativeArtifact);
+        var steamManagedCount = CountFileName(
+            inventory,
+            WindowsDistributionTargetPolicy.SteamManagedBindingArtifact);
+        var steamAppIdCount = CountFileName(
+            inventory,
+            WindowsDistributionTargetPolicy.SteamAppIdArtifact);
+        if (string.Equals(
+                target.TargetId,
+                WindowsDistributionTargetPolicy.SteamWindowsTargetId,
+                StringComparison.Ordinal) &&
+            (steamNativeCount != 1 || steamManagedCount != 1 || steamAppIdCount != 0))
+        {
+            throw Failure(
+                "STAGING_PROMOTED_ARTIFACT_CONTRACT_FAILED",
+                "SteamWindows requires exactly one native binding, exactly one " +
+                "managed binding, and no steam_appid.txt.");
+        }
+
+        return new WindowsDistributionPromotedValidationResult
+        {
+            PromotedRoot = promotedRoot,
+            PayloadRoot = payloadRoot,
+            EvidenceRoot = evidenceRoot,
+            ManifestPath = manifestPath,
+            SuccessPath = successPath,
+            ManifestSha256 = GetSha256(manifestPath),
+            DistributionTargetId = target.TargetId,
+            FileCount = inventory.Count,
+            TotalBytes = inventory.Sum(file => file.Size),
+            DeniedArtifactCount = denied.Length,
+            SteamNativeCount = steamNativeCount,
+            SteamManagedCount = steamManagedCount,
+            SteamAppIdCount = steamAppIdCount,
+        };
     }
 
     public static bool IsRuntimeIncludeCandidate(string normalizedRelativePath)
@@ -483,6 +635,68 @@ public static class WindowsDistributionStager
                 throw Failure(
                     "STAGING_SOURCE_MUTATED",
                     before[index].RelativePath);
+            }
+        }
+    }
+
+    private static void ValidateManifestInventory(
+        WindowsDistributionPromotedValidationRequest request,
+        IList<StagedFile> inventory)
+    {
+        var manifestFiles = request.ManifestFiles ??
+            Array.Empty<WindowsDistributionManifestFile>();
+        if (request.ManifestFileCount != manifestFiles.Length ||
+            request.ManifestFileCount != inventory.Count ||
+            request.ManifestTotalBytes != inventory.Sum(file => file.Size))
+        {
+            throw Failure(
+                "STAGING_PROMOTED_MANIFEST_MISMATCH",
+                "Manifest totals do not match payload inventory.");
+        }
+
+        var expected = manifestFiles
+            .OrderBy(file => file == null ? string.Empty : file.RelativePath,
+                StringComparer.Ordinal)
+            .ToArray();
+        for (var index = 0; index < expected.Length; index++)
+        {
+            var manifestFile = expected[index];
+            if (manifestFile == null ||
+                string.IsNullOrWhiteSpace(manifestFile.RelativePath) ||
+                Path.IsPathRooted(manifestFile.RelativePath) ||
+                ContainsTraversalSegment(manifestFile.RelativePath) ||
+                manifestFile.RelativePath.IndexOf('\\') >= 0 ||
+                string.IsNullOrWhiteSpace(manifestFile.Sha256))
+            {
+                throw Failure(
+                    "STAGING_PROMOTED_MANIFEST_MISMATCH",
+                    "Manifest contains an invalid file entry.");
+            }
+
+            if (index != 0 && string.Equals(
+                    expected[index - 1].RelativePath,
+                    manifestFile.RelativePath,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw Failure(
+                    "STAGING_PROMOTED_MANIFEST_MISMATCH",
+                    "Manifest contains a duplicate path: " + manifestFile.RelativePath);
+            }
+
+            var actual = inventory[index];
+            if (!string.Equals(
+                    manifestFile.RelativePath,
+                    actual.RelativePath,
+                    StringComparison.Ordinal) ||
+                manifestFile.Size != actual.Size ||
+                !string.Equals(
+                    manifestFile.Sha256,
+                    actual.Sha256,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw Failure(
+                    "STAGING_PROMOTED_MANIFEST_MISMATCH",
+                    manifestFile.RelativePath);
             }
         }
     }
