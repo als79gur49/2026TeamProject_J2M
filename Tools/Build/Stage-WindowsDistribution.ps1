@@ -13,7 +13,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Import-WindowsDistributionStagerTypes {
-    param([Parameter(Mandatory)][string]$Root)
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [switch]$OfflineOnly,
+        [string]$CacheRoot = ""
+    )
 
     if ($null -ne ("WindowsDistributionStager" -as [type])) {
         return
@@ -43,8 +47,12 @@ function Import-WindowsDistributionStagerTypes {
         $identityHash.Dispose()
     }
 
-    $compileRoot = Join-Path ([IO.Path]::GetTempPath()) `
-        (Join-Path "VectorQuakeDistributionStager" $cacheKey)
+    $compileCacheRoot = if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
+        Join-Path ([IO.Path]::GetTempPath()) "VectorQuakeDistributionStager"
+    } else {
+        [IO.Path]::GetFullPath($CacheRoot)
+    }
+    $compileRoot = Join-Path $compileCacheRoot $cacheKey
     $assemblyPath = Join-Path $compileRoot "bin\VectorQuake.DistributionStager.dll"
     if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
         New-Item -ItemType Directory -Path $compileRoot -Force | Out-Null
@@ -67,9 +75,51 @@ function Import-WindowsDistributionStagerTypes {
 '@
         [IO.File]::WriteAllText(
             $projectPath, $project, [Text.UTF8Encoding]::new($false))
-        $buildOutput = @(& dotnet.exe build $projectPath `
-            --configuration Release --output (Join-Path $compileRoot "bin") `
-            --nologo --verbosity quiet 2>&1)
+        if ($OfflineOnly) {
+            $offlineSource = Join-Path $compileRoot "offline-package-source"
+            New-Item -ItemType Directory -Path $offlineSource -Force | Out-Null
+            $nugetConfigPath = Join-Path $compileRoot "NuGet.Offline.Config"
+            $offlineSourceXml = [Security.SecurityElement]::Escape($offlineSource)
+            $nugetConfig = @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="offline" value="$offlineSourceXml" />
+  </packageSources>
+</configuration>
+"@
+            [IO.File]::WriteAllText(
+                $nugetConfigPath, $nugetConfig, [Text.UTF8Encoding]::new($false))
+            $previousTelemetry = $env:DOTNET_CLI_TELEMETRY_OPTOUT
+            $previousFirstTime = $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE
+            $previousWorkloadUpdate = `
+                $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE
+            try {
+                $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+                $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
+                $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = "1"
+                $restoreOutput = @(& dotnet.exe restore $projectPath `
+                    --configfile $nugetConfigPath --no-cache `
+                    -p:NuGetAudit=false --nologo --verbosity quiet 2>&1)
+                if ($LASTEXITCODE -ne 0) {
+                    throw "STAGING_POLICY_OFFLINE_RESTORE_FAILED: $($restoreOutput -join [Environment]::NewLine)"
+                }
+                $buildOutput = @(& dotnet.exe build $projectPath `
+                    --configuration Release `
+                    --output (Join-Path $compileRoot "bin") `
+                    --no-restore --nologo --verbosity quiet 2>&1)
+            } finally {
+                $env:DOTNET_CLI_TELEMETRY_OPTOUT = $previousTelemetry
+                $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = $previousFirstTime
+                $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = `
+                    $previousWorkloadUpdate
+            }
+        } else {
+            $buildOutput = @(& dotnet.exe build $projectPath `
+                --configuration Release --output (Join-Path $compileRoot "bin") `
+                --nologo --verbosity quiet 2>&1)
+        }
         if ($LASTEXITCODE -ne 0 -or
             -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
             throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"

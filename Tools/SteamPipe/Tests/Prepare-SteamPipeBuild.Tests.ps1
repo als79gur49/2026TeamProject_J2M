@@ -247,6 +247,35 @@ try {
         } "required pair DepotID"
     }
 
+    Invoke-Case "typed promoted validator cold cache compiles offline only" {
+        $stageWrapper = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
+        try {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            . $stageWrapper
+            Import-WindowsDistributionStagerTypes `
+                -Root $script:RepositoryRoot `
+                -OfflineOnly `
+                -CacheRoot (Join-Path ([IO.Path]::GetTempPath()) `
+                    "VectorQuakeDistributionStagerOfflineOnly")
+        } finally {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
+        }
+        Assert-True ($null -ne ("WindowsDistributionStager" -as [type]))
+
+        $stageSource = Get-Content -LiteralPath $stageWrapper -Raw
+        Assert-True ($stageSource.Contains("--configfile"))
+        Assert-True ($stageSource.Contains("--no-restore"))
+        Assert-True ($stageSource.Contains("NuGetAudit=false"))
+        Assert-True ($stageSource.Contains(
+            "DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE"))
+        $productionSource = Get-Content -LiteralPath `
+            (Join-Path $PSScriptRoot "..\Prepare-SteamPipeBuild.ps1") -Raw
+        Assert-True ($productionSource.Contains(
+            "Import-WindowsDistributionStagerTypes -Root `$Root -OfflineOnly"))
+    }
+
     Invoke-Case "synthetic valid promoted artifact produces preview-only dry-run" {
         $promoted = New-PromotedFixture (Join-Path $script:FixtureRoot "valid-promoted")
         $output = Join-Path $script:FixtureRoot "valid-output"

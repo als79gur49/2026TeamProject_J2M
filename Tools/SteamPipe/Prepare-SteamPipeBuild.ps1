@@ -99,7 +99,7 @@ function Import-WindowsDistributionValidationTypes {
     try {
         $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
         . $wrapper
-        Import-WindowsDistributionStagerTypes -Root $Root
+        Import-WindowsDistributionStagerTypes -Root $Root -OfflineOnly
     } finally {
         $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
     }
