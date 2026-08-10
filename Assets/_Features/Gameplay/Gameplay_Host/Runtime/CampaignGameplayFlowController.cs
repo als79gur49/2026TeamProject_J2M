@@ -3,6 +3,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
+using Game.Product.Achievements.CampaignIntegration;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -125,6 +126,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly StageRetryChanceTracker _retryChanceTracker;
         private readonly ITerminalTransitionPort _terminalTransitionPort;
         private readonly EditorDirectPlayContext _editorDirectPlayContext;
+        private readonly INormalCampaignCompletionAchievementIntegration
+            _normalCampaignCompletionAchievementIntegration;
         private readonly TerminalArbitrationOwner _terminalArbiter = new();
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
@@ -138,7 +141,9 @@ namespace Game.Feature.Gameplay.Host
             IStageLaunchRouter stageLaunchRouter,
             CampaignChanceDisplayOverride chanceDisplayOverride,
             ITerminalTransitionPort terminalTransitionPort,
-            EditorDirectPlayContext? editorDirectPlayContext = null)
+            EditorDirectPlayContext? editorDirectPlayContext = null,
+            INormalCampaignCompletionAchievementIntegration
+                normalCampaignCompletionAchievementIntegration = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
@@ -150,6 +155,9 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(terminalTransitionPort));
             _editorDirectPlayContext = editorDirectPlayContext ??
                 EditorDirectPlayContextStore.GetCurrentOrNone();
+            _normalCampaignCompletionAchievementIntegration =
+                normalCampaignCompletionAchievementIntegration ??
+                UnavailableNormalCampaignCompletionAchievementIntegration.Instance;
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -437,6 +445,13 @@ namespace Game.Feature.Gameplay.Host
 
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                     });
+                if (receiptCreation.IsEligible)
+                {
+                    TryEarnNormalCampaignCompletionAchievement(
+                        runningSlotNumber,
+                        readModel?.Result,
+                        completedStageId);
+                }
             }
             else
             {
@@ -489,6 +504,29 @@ namespace Game.Feature.Gameplay.Host
             }
 
             BeginVictoryTerminal(claim);
+        }
+
+        private void TryEarnNormalCampaignCompletionAchievement(
+            int runningSlotNumber,
+            MinimalStageCompletionResult completionResult,
+            StageId completedStageId)
+        {
+            try
+            {
+                var committedSlot = _saveSlotStore.LoadSlot(runningSlotNumber);
+                _normalCampaignCompletionAchievementIntegration
+                    .TryEarnAfterCommittedCompletion(
+                        _editorDirectPlayContext,
+                        completionResult,
+                        completedStageId,
+                        _sequenceResolver,
+                        committedSlot);
+            }
+            catch
+            {
+                // Product achievement earning is a non-critical side effect. The durable
+                // Campaign receipt remains the next startup's recovery source.
+            }
         }
 
         private void BeginVictoryTerminal(TerminalClaimResult claim)

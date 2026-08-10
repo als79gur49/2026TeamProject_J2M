@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Stages;
+using Game.Product.Achievements.CampaignIntegration;
 using UnityEngine;
 
 namespace Game.Product.Achievements.Composition
@@ -10,21 +11,34 @@ namespace Game.Product.Achievements.Composition
         private readonly IAchievementPublicationSink _publicationSink;
         private readonly Func<string, IAchievementPublicationSink, IProductAchievementHostLifetime>
             _hostFactory;
+        private readonly Func<ICampaignSaveSlotStore> _campaignSaveSlotStoreFactory;
+        private readonly Func<EditorDirectPlayContext> _directPlayContextProvider;
+        private readonly Func<CampaignStageSequenceResolver> _sequenceResolverFactory;
 
         private IProductAchievementHostLifetime _host;
+        private IProductAchievementEarningSink _registeredEarningSink;
+        private NormalCampaignCompletionAchievementStartupReconciler _startupReconciler;
         private bool _initializeAttempted;
         private bool _initializeResult;
+        private bool _startupReconciliationAttempted;
         private bool _disposed;
 
         public ProductAchievementApplicationLifetimeOwner(
             ISavePathProvider savePathProvider,
             IAchievementPublicationSink publicationSink = null,
-            Func<string, IAchievementPublicationSink, IProductAchievementHostLifetime> hostFactory = null)
+            Func<string, IAchievementPublicationSink, IProductAchievementHostLifetime> hostFactory = null,
+            Func<ICampaignSaveSlotStore> campaignSaveSlotStoreFactory = null,
+            Func<EditorDirectPlayContext> directPlayContextProvider = null,
+            Func<CampaignStageSequenceResolver> sequenceResolverFactory = null)
         {
             _savePathProvider = savePathProvider ??
                 throw new ArgumentNullException(nameof(savePathProvider));
             _publicationSink = publicationSink ?? new UnavailableAchievementPublicationSink();
             _hostFactory = hostFactory ?? CreateDefaultHost;
+            _campaignSaveSlotStoreFactory = campaignSaveSlotStoreFactory;
+            _directPlayContextProvider = directPlayContextProvider ??
+                EditorDirectPlayContextStore.GetCurrentOrNone;
+            _sequenceResolverFactory = sequenceResolverFactory ?? CreateCanonicalSequenceResolver;
         }
 
         public IProductAchievementEarningSink EarningSink => _host?.EarningSink;
@@ -47,8 +61,53 @@ namespace Game.Product.Achievements.Composition
             _host = _hostFactory(_savePathProvider.SaveRootPath, _publicationSink) ??
                 throw new InvalidOperationException(
                     "Product achievement composition returned a null application host.");
+            _registeredEarningSink = _host.EarningSink ??
+                throw new InvalidOperationException(
+                    "Product achievement composition returned a host without an earning sink.");
+            if (!ProductAchievementEarningSinkHandoff.TryRegister(_registeredEarningSink))
+            {
+                _initializeResult = false;
+                return false;
+            }
+
             _initializeResult = _host.Initialize();
             return _initializeResult;
+        }
+
+        public NormalCampaignCompletionAchievementResult ReconcileNormalCampaignCompletionReceipt()
+        {
+            if (_startupReconciliationAttempted)
+            {
+                return NormalCampaignCompletionAchievementResult.AlreadyReconciled;
+            }
+
+            _startupReconciliationAttempted = true;
+            if (_disposed || !_initializeResult || _campaignSaveSlotStoreFactory == null)
+            {
+                return NormalCampaignCompletionAchievementResult.ProductUnavailable;
+            }
+
+            try
+            {
+                var directPlayContext = _directPlayContextProvider();
+                if (directPlayContext.Mode != EditorDirectPlayMode.None)
+                {
+                    return NormalCampaignCompletionAchievementResult.DirectPlayExcluded;
+                }
+
+                var integration = new NormalCampaignCompletionAchievementIntegration(
+                    _registeredEarningSink);
+                _startupReconciler = new NormalCampaignCompletionAchievementStartupReconciler(
+                    integration);
+                return _startupReconciler.Reconcile(
+                    _campaignSaveSlotStoreFactory(),
+                    _sequenceResolverFactory(),
+                    directPlayContext);
+            }
+            catch
+            {
+                return NormalCampaignCompletionAchievementResult.ExceptionContained;
+            }
         }
 
         public void Dispose()
@@ -59,6 +118,7 @@ namespace Game.Product.Achievements.Composition
             }
 
             _disposed = true;
+            ProductAchievementEarningSinkHandoff.Clear(_registeredEarningSink);
             _host?.Dispose();
         }
 
@@ -69,6 +129,12 @@ namespace Game.Product.Achievements.Composition
             return ProductAchievementApplicationHost.CreateForSaveRoot(
                 saveRootPath,
                 publicationSink);
+        }
+
+        private static CampaignStageSequenceResolver CreateCanonicalSequenceResolver()
+        {
+            return new CampaignStageSequenceResolver(
+                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
         }
     }
 
@@ -94,9 +160,38 @@ namespace Game.Product.Achievements.Composition
             }
 
             _owner = new ProductAchievementApplicationLifetimeOwner(
-                new ApplicationPersistentDataSavePathProvider());
+                new ApplicationPersistentDataSavePathProvider(),
+                campaignSaveSlotStoreFactory:
+                    CampaignSaveCompositionProvider.CreateProductionProfileBacked);
             RegisterQuitHandler();
-            _owner.Initialize();
+            try
+            {
+                _owner.Initialize();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"Product achievement initialization was contained: {exception.Message}");
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void ReconcileNormalCampaignCompletionAfterFirstSceneLoad()
+        {
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
+            try
+            {
+                _owner?.ReconcileNormalCampaignCompletionReceipt();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning(
+                    $"Product achievement receipt reconciliation was contained: {exception.Message}");
+            }
         }
 
         private static void RegisterQuitHandler()

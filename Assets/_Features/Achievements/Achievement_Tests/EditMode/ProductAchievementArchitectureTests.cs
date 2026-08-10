@@ -17,6 +17,8 @@ namespace Game.Product.Achievements.Tests
             AchievementRoot + "/Achievement_Infrastructure/Runtime";
         private const string CompositionRoot =
             AchievementRoot + "/Achievement_Composition/Runtime";
+        private const string CampaignIntegrationRoot =
+            AchievementRoot + "/Achievement_CampaignIntegration/Runtime";
         private const string CampaignReceiptRoot =
             "Assets/_Features/Stages/Runtime/Campaign/Save";
 
@@ -60,6 +62,7 @@ namespace Game.Product.Achievements.Tests
                     DomainRoot,
                     InfrastructureRoot,
                     AchievementRoot + "/Achievement_Composition/Runtime",
+                    CampaignIntegrationRoot,
                 },
                 "Game.Platform.Steam",
                 "ISteamAchievementApi",
@@ -114,6 +117,7 @@ namespace Game.Product.Achievements.Tests
                     DomainRoot,
                     InfrastructureRoot,
                     AchievementRoot + "/Achievement_Composition/Runtime",
+                    CampaignIntegrationRoot,
                 },
                 "PlatformRuntimeRegistry");
         }
@@ -139,14 +143,62 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void CampaignGameplayFlow_HasNoProductEarningCallOrDependency()
+        public void CampaignGameplayFlow_UsesOnlyInjectedCampaignIntegration()
         {
             var source = File.ReadAllText(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
 
-            Assert.That(source, Does.Not.Contain("ProductAchievement"));
+            Assert.That(
+                source,
+                Does.Contain("INormalCampaignCompletionAchievementIntegration"));
             Assert.That(source, Does.Not.Contain("IProductAchievementEarningSink"));
+            Assert.That(source, Does.Not.Contain("GameAchievementId"));
+            Assert.That(source, Does.Not.Contain("GameAchievementIds"));
             Assert.That(source, Does.Not.Contain(".Earn("));
+        }
+
+        [Test]
+        public void CampaignIntegration_OwnsMappingWithoutRawProfileReadUiSteamOrServiceLocator()
+        {
+            var integration = File.ReadAllText(
+                CampaignIntegrationRoot +
+                "/NormalCampaignCompletionAchievementIntegration.cs");
+            Assert.That(
+                integration,
+                Does.Contain("GameAchievementIds.NormalCampaignComplete"));
+            Assert.That(integration, Does.Not.Contain("\"campaign.complete\""));
+
+            AssertSourcesDoNotContain(
+                new[] { CampaignIntegrationRoot },
+                "File.ReadAllText",
+                "JsonUtility.FromJson<CampaignProfileDocument>",
+                "profile.json",
+                "Application.persistentDataPath",
+                "ProductAchievementApplicationHost.Instance",
+                "GetEarningSink",
+                "ResolveAchievement",
+                "PlatformRuntimeRegistry",
+                "FindObjectOfType",
+                "Resources.Load",
+                "Game.Feature.UI",
+                "ISteamAchievementApi",
+                "Steamworks",
+                "AppID 480",
+                "Spacewar");
+        }
+
+        [Test]
+        public void CampaignIntegrationAssembly_DependsOnStageAndProductDomainOnly()
+        {
+            var asmdef = File.ReadAllText(
+                CampaignIntegrationRoot +
+                "/Game.Product.Achievements.CampaignIntegration.asmdef");
+
+            Assert.That(asmdef, Does.Contain("Game.Feature.Stages"));
+            Assert.That(asmdef, Does.Contain("Game.Product.Achievements.Domain"));
+            Assert.That(asmdef, Does.Not.Contain("Game.Feature.Gameplay"));
+            Assert.That(asmdef, Does.Not.Contain("Game.Feature.UI"));
+            Assert.That(asmdef, Does.Not.Contain("Steam"));
         }
 
         [Test]
@@ -157,6 +209,12 @@ namespace Game.Product.Achievements.Tests
 
             Assert.That(source, Does.Contain("new ApplicationPersistentDataSavePathProvider()"));
             Assert.That(source, Does.Contain("RuntimeInitializeLoadType.BeforeSceneLoad"));
+            Assert.That(source, Does.Contain("RuntimeInitializeLoadType.AfterSceneLoad"));
+            Assert.That(source, Does.Contain("Application.isBatchMode"));
+            Assert.That(
+                source,
+                Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked"));
+            Assert.That(source, Does.Contain("ProductAchievementEarningSinkHandoff"));
             Assert.That(source, Does.Contain("Application.quitting"));
             Assert.That(source, Does.Not.Contain("Application.persistentDataPath"));
             Assert.That(source, Does.Not.Contain("DontDestroyOnLoad"));

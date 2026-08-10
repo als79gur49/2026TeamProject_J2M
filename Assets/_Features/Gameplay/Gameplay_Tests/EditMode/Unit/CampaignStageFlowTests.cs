@@ -16,6 +16,8 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.Stages;
+using Game.Product.Achievements;
+using Game.Product.Achievements.CampaignIntegration;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
@@ -760,10 +762,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
                 CreateCampaignSlot(1, "stage-4-3"));
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew,
+                () => store.SaveCount == 1);
             var hostObject = new GameObject("normal-final-receipt-host");
             try
             {
-                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -785,6 +795,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.EqualTo((int)StageClearSource.Objective));
                 Assert.That(store.LastMutationObservedCampaignCompleted, Is.True);
                 Assert.That(store.LastMutationObservedReceipt, Is.True);
+                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+                Assert.That(earningSink.SaveWasCommittedAtEarn, Is.True);
+                Assert.That(
+                    earningSink.LastAchievementId,
+                    Is.EqualTo(GameAchievementIds.NormalCampaignComplete));
             }
             finally
             {
@@ -799,10 +814,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var store = RecordingCampaignSaveSlotStore.WithSlot(
                 CreateCampaignSlot(1, "stage-4-3"));
             store.ThrowOnUpdate = true;
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
             var hostObject = new GameObject("failed-final-receipt-host");
             try
             {
-                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 var exception = Assert.Throws<TargetInvocationException>(() =>
                     InvokeStageClear(
@@ -814,6 +836,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(store.SaveCount, Is.Zero);
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.False);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
             {
@@ -827,10 +850,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
                 CreateCampaignSlot(1, "stage-4-3"));
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
             var hostObject = new GameObject("forced-final-receipt-host");
             try
             {
-                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -841,6 +871,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
             {
@@ -856,6 +887,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
                 CreateCampaignSlot(1, "stage-4-3"));
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
             var hostObject = new GameObject("direct-play-final-receipt-host");
             try
             {
@@ -870,7 +903,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hostObject,
                     store,
                     slotNumber: 1,
-                    editorDirectPlayContext: context);
+                    editorDirectPlayContext: context,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -878,6 +913,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
             {
@@ -897,12 +933,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ClearSource = (int)StageClearSource.Objective,
             };
             var slot = CreateCampaignSlot(1, "stage-4-3");
+            slot.CampaignCompleted = true;
+            slot.HasNormalCampaignCompletionReceipt = true;
             slot.NormalCampaignCompletionReceipt = existing;
             var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
             var hostObject = new GameObject("existing-final-receipt-host");
             try
             {
-                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -916,6 +961,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     store.LoadSlot(1).NormalCampaignCompletionReceipt.StageRunId,
                     Is.EqualTo("original-run"));
+                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
             }
             finally
             {
@@ -928,6 +974,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void FinalClear_InvalidExistingReceiptIsNotSilentlyReplaced()
         {
             var slot = CreateCampaignSlot(1, "stage-4-3");
+            slot.HasNormalCampaignCompletionReceipt = true;
             slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
             {
                 Version = 99,
@@ -936,10 +983,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ClearSource = (int)StageClearSource.Objective,
             };
             var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
             var hostObject = new GameObject("invalid-existing-final-receipt-host");
             try
             {
-                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -949,6 +1003,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     store.LoadSlot(1).NormalCampaignCompletionReceipt.StageRunId,
                     Is.EqualTo("invalid-version-run"));
+                Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
             {
@@ -964,10 +1019,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             slot.HasNormalCampaignCompletionReceipt = true;
             slot.NormalCampaignCompletionReceipt = null;
             var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
             var hostObject = new GameObject("present-null-final-receipt-host");
             try
             {
-                var controller = CreateReceiptController(hostObject, store, slotNumber: 1);
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
 
                 InvokeStageClear(
                     controller,
@@ -975,6 +1037,106 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(store.LoadSlot(1).HasNormalCampaignCompletionReceipt, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(earningSink.EarnCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [TestCase(AchievementEarnResult.PersistenceFailed)]
+        [TestCase(AchievementEarnResult.UnavailableState)]
+        [TestCase(AchievementEarnResult.InvalidAchievement)]
+        [Category("Extended")]
+        public void FinalClear_ProductFailureResult_DoesNotBlockCommittedCampaignOrTerminal(
+            AchievementEarnResult earnResult)
+        {
+            var store = RecordingCampaignSaveSlotStore.WithSlot(
+                CreateCampaignSlot(1, "stage-4-3"));
+            var earningSink = new RecordingProductAchievementEarningSink(earnResult);
+            var hostObject = new GameObject("product-failure-final-clear-host");
+            try
+            {
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+
+                Assert.DoesNotThrow(() => InvokeStageClear(
+                    controller,
+                    CreateMinimalStageCompletionReadModel(
+                        "stage-4-3",
+                        tickIndex: 108,
+                        stageRunId: "product-failure-run")));
+
+                Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
+                Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Not.Null);
+                Assert.That(earningSink.EarnCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FinalClear_UnexpectedIntegrationException_DoesNotBlockCommittedCampaignOrTerminal()
+        {
+            var store = RecordingCampaignSaveSlotStore.WithSlot(
+                CreateCampaignSlot(1, "stage-4-3"));
+            var hostObject = new GameObject("integration-exception-final-clear-host");
+            try
+            {
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration: new ThrowingAchievementIntegration());
+
+                Assert.DoesNotThrow(() => InvokeStageClear(
+                    controller,
+                    CreateMinimalStageCompletionReadModel(
+                        "stage-4-3",
+                        tickIndex: 109,
+                        stageRunId: "integration-exception-run")));
+
+                Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
+                Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void NonFinalObjectiveClear_ProductEarnIsZero()
+        {
+            var store = RecordingCampaignSaveSlotStore.WithSlot(
+                CreateCampaignSlot(1, "stage-4-2"));
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
+            var hostObject = new GameObject("non-final-achievement-host");
+            try
+            {
+                var controller = CreateReceiptController(
+                    hostObject,
+                    store,
+                    slotNumber: 1,
+                    achievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
+
+                InvokeStageClear(
+                    controller,
+                    CreateMinimalStageCompletionReadModel("stage-4-2", tickIndex: 110));
+
+                Assert.That(store.LoadSlot(1).CurrentStageId.Value, Is.EqualTo("stage-4-3"));
+                Assert.That(earningSink.EarnCount, Is.Zero);
             }
             finally
             {
@@ -2298,6 +2460,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
             var hostObject = new GameObject("campaign-death-clear-same-tick-host");
             var router = new FakeStageLaunchRouter();
+            var earningSink = new RecordingProductAchievementEarningSink(
+                AchievementEarnResult.EarnedNew);
 
             try
             {
@@ -2310,7 +2474,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateResolver(),
                     router,
                     chanceDisplayOverride: null,
-                    terminalTransitionPort: new FakeTerminalTransitionPort());
+                    terminalTransitionPort: new FakeTerminalTransitionPort(),
+                    normalCampaignCompletionAchievementIntegration:
+                        new NormalCampaignCompletionAchievementIntegration(earningSink));
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
                 var deathAndClearTick = CreateDeathTickResult(50, eligibleTick: 53);
@@ -2325,6 +2491,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(slot.RemainingChances, Is.EqualTo(1));
                 Assert.That(slot.TotalDeaths, Is.EqualTo(1));
                 Assert.That(slot.NormalCampaignCompletionReceipt, Is.Null);
+                Assert.That(earningSink.EarnCount, Is.Zero);
 
                 Assert.That(router.LaunchCount, Is.EqualTo(1));
                 Assert.That(router.LastRequest.StageId.Value, Is.EqualTo("stage-2-2"));
@@ -2753,7 +2920,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameObject hostObject,
             ICampaignSaveSlotStore store,
             int slotNumber,
-            EditorDirectPlayContext? editorDirectPlayContext = null)
+            EditorDirectPlayContext? editorDirectPlayContext = null,
+            INormalCampaignCompletionAchievementIntegration achievementIntegration = null)
         {
             var host = CreateHostWithInput(
                 hostObject,
@@ -2767,7 +2935,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new FakeStageLaunchRouter(),
                 chanceDisplayOverride: null,
                 terminalTransitionPort: new FakeTerminalTransitionPort(),
-                editorDirectPlayContext: editorDirectPlayContext);
+                editorDirectPlayContext: editorDirectPlayContext,
+                normalCampaignCompletionAchievementIntegration: achievementIntegration);
         }
 
         private static void InvokeStageClear(
@@ -3368,6 +3537,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     _slots[i] = SaveSlotData.CreateEmpty(i + 1);
                 }
+            }
+        }
+
+        private sealed class RecordingProductAchievementEarningSink :
+            IProductAchievementEarningSink
+        {
+            private readonly AchievementEarnResult _result;
+            private readonly Func<bool> _saveCommittedProbe;
+            private readonly Exception _exception;
+
+            public RecordingProductAchievementEarningSink(
+                AchievementEarnResult result,
+                Func<bool> saveCommittedProbe = null,
+                Exception exception = null)
+            {
+                _result = result;
+                _saveCommittedProbe = saveCommittedProbe;
+                _exception = exception;
+            }
+
+            public int EarnCount { get; private set; }
+
+            public GameAchievementId LastAchievementId { get; private set; }
+
+            public bool SaveWasCommittedAtEarn { get; private set; }
+
+            public AchievementEarnResult Earn(GameAchievementId achievementId)
+            {
+                EarnCount++;
+                LastAchievementId = achievementId;
+                SaveWasCommittedAtEarn = _saveCommittedProbe?.Invoke() ?? true;
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+
+                return _result;
+            }
+        }
+
+        private sealed class ThrowingAchievementIntegration :
+            INormalCampaignCompletionAchievementIntegration
+        {
+            public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
+                EditorDirectPlayContext directPlayContext,
+                MinimalStageCompletionResult completionResult,
+                StageId completedStageId,
+                CampaignStageSequenceResolver sequenceResolver,
+                SaveSlotData committedSlot)
+            {
+                throw new InvalidOperationException("simulated integration failure");
             }
         }
 
