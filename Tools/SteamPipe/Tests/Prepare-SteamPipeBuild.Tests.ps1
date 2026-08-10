@@ -954,6 +954,41 @@ try {
         }
     }
 
+    Invoke-Case "promoted source provenance requires JSON string tokens" {
+        $malformedValues = @(
+            123,
+            $true,
+            [pscustomobject]@{ value = "synthetic" }
+        )
+        foreach ($field in @("sourceSha", "sourceTree")) {
+            for ($index = 0; $index -lt $malformedValues.Count; $index++) {
+                $promoted = New-PromotedFixture `
+                    (Join-Path $script:FixtureRoot `
+                        "provenance-token-$field-$index")
+                $manifestPath = Join-Path $promoted `
+                    "evidence\distribution-manifest.json"
+                $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+                $manifest = Get-Content -LiteralPath $manifestPath -Raw |
+                    ConvertFrom-Json
+                $success = Get-Content -LiteralPath $successPath -Raw |
+                    ConvertFrom-Json
+                $manifest.$field = $malformedValues[$index]
+                $success.$field = $malformedValues[$index]
+                Write-TestJson $manifest $manifestPath
+                $success.manifestSha256 = Get-FileSha256 $manifestPath
+                Write-TestJson $success $successPath
+
+                $output = Join-Path $script:FixtureRoot `
+                    "provenance-token-output-$field-$index"
+                $arguments = New-ValidArguments $promoted $output
+                Assert-ThrowsContaining {
+                    Invoke-PrepareSteamPipeBuild @arguments
+                } "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
+                Assert-FinalOutputAbsent $output
+            }
+        }
+    }
+
     Invoke-Case "SUCCESS parse and hash use one byte snapshot" {
         $promoted = New-PromotedFixture `
             (Join-Path $script:FixtureRoot "success-snapshot-promoted")

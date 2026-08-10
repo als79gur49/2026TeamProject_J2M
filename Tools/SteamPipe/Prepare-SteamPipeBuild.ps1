@@ -212,6 +212,22 @@ function Assert-JsonIntegerRange {
     }
 }
 
+function Assert-JsonString {
+    param($Value, [Parameter(Mandatory)][string]$Name)
+
+    if ($Value -isnot [string]) {
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: $Name must be a JSON string."
+    }
+}
+
+function Assert-JsonArray {
+    param($Value, [Parameter(Mandatory)][string]$Name)
+
+    if ($Value -isnot [array]) {
+        throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: $Name must be a JSON array."
+    }
+}
+
 function Invoke-PromotedSteamWindowsPreflight {
     param(
         [Parameter(Mandatory)][string]$PromotedRoot,
@@ -241,10 +257,37 @@ function Invoke-PromotedSteamWindowsPreflight {
         throw "STEAMPIPE_PROMOTED_EVIDENCE_INVALID: $($_.Exception.Message)"
     }
 
+    Assert-JsonString $manifest.distributionTargetId `
+        "manifest.distributionTargetId"
+    Assert-JsonString $success.distributionTarget "success.distributionTarget"
     if ([string]$manifest.distributionTargetId -cne "steam-windows" -or
         [string]$success.distributionTarget -cne "steam-windows") {
         throw "STEAMPIPE_PROMOTED_TARGET_REJECTED"
     }
+
+    Assert-JsonString $manifest.schemaVersion "manifest.schemaVersion"
+    Assert-JsonString $manifest.sourceSha "manifest.sourceSha"
+    Assert-JsonString $manifest.sourceTree "manifest.sourceTree"
+    Assert-JsonString $manifest.artifactId "manifest.artifactId"
+    Assert-JsonString $manifest.runId "manifest.runId"
+    Assert-JsonString $manifest.scriptingBackend "manifest.scriptingBackend"
+    Assert-JsonString $manifest.expectedProviderId "manifest.expectedProviderId"
+    Assert-JsonArray $manifest.expectedLaunchArguments `
+        "manifest.expectedLaunchArguments"
+    foreach ($argument in @($manifest.expectedLaunchArguments)) {
+        Assert-JsonString $argument "manifest.expectedLaunchArguments[]"
+    }
+    Assert-JsonArray $manifest.files "manifest.files"
+    foreach ($file in @($manifest.files)) {
+        Assert-JsonString $file.relativePath "manifest.files[].relativePath"
+        Assert-JsonString $file.sha256 "manifest.files[].sha256"
+    }
+    Assert-JsonString $success.status "success.status"
+    Assert-JsonString $success.sourceSha "success.sourceSha"
+    Assert-JsonString $success.sourceTree "success.sourceTree"
+    Assert-JsonString $success.scriptingBackend "success.scriptingBackend"
+    Assert-JsonString $success.manifestSha256 "success.manifestSha256"
+
     Assert-JsonIntegerRange $manifest.deniedArtifactCount 0 ([int]::MaxValue) `
         "manifest.deniedArtifactCount"
     Assert-JsonIntegerRange $manifest.fileCount 0 ([int]::MaxValue) `
