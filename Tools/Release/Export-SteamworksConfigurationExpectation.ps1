@@ -76,6 +76,43 @@ function Assert-RepositoryIsClean {
     }
 }
 
+function Assert-RepositoryRevisionUnchanged {
+    param(
+        [Parameter(Mandatory)][string]$ExpectedHead,
+        [Parameter(Mandatory)][string]$ExpectedTree,
+        [Parameter(Mandatory)][string]$ActualHead,
+        [Parameter(Mandatory)][string]$ActualTree
+    )
+
+    if ($ActualHead -cne $ExpectedHead -or $ActualTree -cne $ExpectedTree) {
+        throw "STEAMWORKS_EXPECTATION_SOURCE_REVISION_CHANGED"
+    }
+}
+
+function Test-IsKnownUnityFontImporterMutation {
+    param(
+        [Parameter(Mandatory)][string]$BeforePath,
+        [Parameter(Mandatory)][string]$AfterPath
+    )
+
+    $before = [IO.File]::ReadAllText($BeforePath)
+    $expected = $before.Replace("  m_MipmapLimitGroupName:`n", "  m_MipmapLimitGroupName: `n")
+    $expected = $expected.Replace("  m_PlatformBlob:`n", "  m_PlatformBlob: `n")
+    $expected = $expected.Replace("    path:`n", "    path: `n")
+    $expected = $expected.Replace("    referencedFontAssetGUID:`n", "    referencedFontAssetGUID: `n")
+    $expected = $expected.Replace("    referencedTextAssetGUID:`n", "    referencedTextAssetGUID: `n")
+    $expected = $expected.Replace("  m_SourceFontFilePath:`n", "  m_SourceFontFilePath: `n")
+    $expected = $expected.Replace("    Name:`n", "    Name: `n")
+    $expected = $expected.Replace("  m_LockedProperties:`n", "  m_LockedProperties: `n")
+    $expected = $expected.Replace("    - _ScaleRatioA: 1`n", "    - _ScaleRatioA: 0.9`n")
+    $expected = $expected.Replace("    - _ScaleRatioC: 1`n", "    - _ScaleRatioC: 0.73125`n")
+    if ($expected -ceq $before) {
+        return $false
+    }
+
+    return $expected -ceq [IO.File]::ReadAllText($AfterPath)
+}
+
 function Invoke-SteamworksConfigurationExpectationExport {
     [CmdletBinding()]
     param(
@@ -131,6 +168,7 @@ function Invoke-SteamworksConfigurationExpectationExport {
 
     $unityExitCode = -1
     $guardedMutationRestored = $false
+    $unexpectedGuardedMutation = ""
     try {
         & $unityFull @arguments
         $unityExitCode = $LASTEXITCODE
@@ -141,11 +179,21 @@ function Invoke-SteamworksConfigurationExpectationExport {
             $beforeHash = (Get-FileHash -LiteralPath $snapshotPath -Algorithm SHA256).Hash
             $afterHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
             if ($afterHash -cne $beforeHash) {
-                Copy-Item -LiteralPath $snapshotPath -Destination $sourcePath -Force
-                $guardedMutationRestored = $true
+                if (Test-IsKnownUnityFontImporterMutation `
+                        -BeforePath $snapshotPath `
+                        -AfterPath $sourcePath) {
+                    Copy-Item -LiteralPath $snapshotPath -Destination $sourcePath -Force
+                    $guardedMutationRestored = $true
+                } else {
+                    $unexpectedGuardedMutation = $sourcePath
+                }
             }
         }
         Remove-Item -LiteralPath $guardRoot -Recurse -Force
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($unexpectedGuardedMutation)) {
+        throw "STEAMWORKS_EXPECTATION_UNEXPECTED_GUARDED_MUTATION: $unexpectedGuardedMutation"
     }
 
     if ($unityExitCode -ne 0) {
@@ -163,6 +211,13 @@ function Invoke-SteamworksConfigurationExpectationExport {
     if ($statusAfter -cne $statusBefore) {
         throw "STEAMWORKS_EXPECTATION_SOURCE_MUTATED"
     }
+    $sourceHeadAfter = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD")
+    $sourceTreeAfter = Invoke-RepositoryGit $repositoryFull @("rev-parse", "HEAD^{tree}")
+    Assert-RepositoryRevisionUnchanged `
+        -ExpectedHead $sourceHead `
+        -ExpectedTree $sourceTree `
+        -ActualHead $sourceHeadAfter `
+        -ActualTree $sourceTreeAfter
 
     $hash = ((Get-Content -LiteralPath $hashPath -Raw).Trim() -split '\s+')[0]
     return [pscustomobject][ordered]@{

@@ -59,6 +59,42 @@ Invoke-Case "dirty worktree provenance is rejected" {
     } "STEAMWORKS_EXPECTATION_CLEAN_WORKTREE_REQUIRED"
 }
 
+Invoke-Case "recorded revision must remain unchanged" {
+    Assert-RepositoryRevisionUnchanged `
+        -ExpectedHead "head-a" `
+        -ExpectedTree "tree-a" `
+        -ActualHead "head-a" `
+        -ActualTree "tree-a"
+    Assert-Throws {
+        Assert-RepositoryRevisionUnchanged `
+            -ExpectedHead "head-a" `
+            -ExpectedTree "tree-a" `
+            -ActualHead "head-b" `
+            -ActualTree "tree-b"
+    } "STEAMWORKS_EXPECTATION_SOURCE_REVISION_CHANGED"
+}
+
+Invoke-Case "only the known Unity font importer mutation is restorable" {
+    $fixtureRoot = Join-Path $env:TEMP ("j2m-font-guard-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
+    try {
+        $beforePath = Join-Path $fixtureRoot "before.asset"
+        $knownPath = Join-Path $fixtureRoot "known.asset"
+        $concurrentPath = Join-Path $fixtureRoot "concurrent.asset"
+        $before = "  m_MipmapLimitGroupName:`n    - _ScaleRatioA: 1`n    - _ScaleRatioC: 1`n"
+        $known = "  m_MipmapLimitGroupName: `n    - _ScaleRatioA: 0.9`n    - _ScaleRatioC: 0.73125`n"
+        [IO.File]::WriteAllText($beforePath, $before)
+        [IO.File]::WriteAllText($knownPath, $known)
+        [IO.File]::WriteAllText($concurrentPath, $known + "user edit`n")
+        Assert-True (Test-IsKnownUnityFontImporterMutation `
+            -BeforePath $beforePath -AfterPath $knownPath)
+        Assert-True (-not (Test-IsKnownUnityFontImporterMutation `
+            -BeforePath $beforePath -AfterPath $concurrentPath))
+    } finally {
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+    }
+}
+
 Invoke-Case "production wrapper contains no identity or backend mutation surface" {
     $source = Get-Content -LiteralPath `
         (Join-Path $PSScriptRoot "..\Export-SteamworksConfigurationExpectation.ps1") -Raw

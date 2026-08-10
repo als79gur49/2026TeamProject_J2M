@@ -16,7 +16,7 @@ The machine-readable report is generated from typed repository contracts. Do not
 
 ## Generate the expectation report
 
-Run the Editor exporter from a clean committed worktree and write output outside the repository. The wrapper fails closed when staged, unstaged, or untracked changes are present so the recorded HEAD/tree identify the exact exported source:
+Run the Editor exporter from a clean committed worktree and write output outside the repository. The wrapper fails closed when staged, unstaged, or untracked changes are present, and revalidates HEAD/tree after Unity exits, so the recorded revision identifies the exact exported source. Known Unity font-import normalization is restored only on an exact match; any other concurrent change is preserved and fails the run:
 
 ```powershell
 Tools\Release\Export-SteamworksConfigurationExpectation.ps1 `
