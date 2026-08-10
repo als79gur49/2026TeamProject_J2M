@@ -615,6 +615,26 @@ try {
         Assert-FinalOutputAbsent $output
     }
 
+    Invoke-Case "promoted source identity mismatch is rejected" {
+        foreach ($field in @("sourceSha", "sourceTree")) {
+            $promoted = New-PromotedFixture `
+                (Join-Path $script:FixtureRoot ("source-mismatch-" + $field))
+            $successPath = Join-Path $promoted "evidence\SUCCESS.json"
+            $success = Get-Content -LiteralPath $successPath -Raw |
+                ConvertFrom-Json
+            $success.$field = "synthetic-mismatch"
+            Write-TestJson $success $successPath
+
+            $output = Join-Path $script:FixtureRoot `
+                ("source-mismatch-output-" + $field)
+            $arguments = New-ValidArguments $promoted $output
+            Assert-ThrowsContaining {
+                Invoke-PrepareSteamPipeBuild @arguments
+            } "STEAMPIPE_PROMOTED_EVIDENCE_INVALID"
+            Assert-FinalOutputAbsent $output
+        }
+    }
+
     Invoke-Case "promoted launch arguments are validated by the typed target policy" {
         $promoted = New-PromotedFixture `
             (Join-Path $script:FixtureRoot "launch-mismatch-promoted")
