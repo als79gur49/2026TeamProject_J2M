@@ -141,6 +141,41 @@ function Assert-WindowsDistributionStagerIdentity {
     }
 }
 
+function Copy-WindowsDistributionValidatorSource {
+    param(
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$DestinationPath
+    )
+
+    [IO.File]::Copy($SourcePath, $DestinationPath, $true)
+}
+
+function Get-WindowsDistributionSourceHashes {
+    param([Parameter(Mandatory)][string[]]$Paths)
+
+    return [string[]]@($Paths | ForEach-Object {
+        (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
+    })
+}
+
+function Assert-WindowsDistributionSourceHashes {
+    param(
+        [Parameter(Mandatory)][string[]]$Paths,
+        [Parameter(Mandatory)][string[]]$ExpectedHashes,
+        [Parameter(Mandatory)][string]$FailureCode
+    )
+
+    $actualHashes = Get-WindowsDistributionSourceHashes -Paths $Paths
+    if ($actualHashes.Count -ne $ExpectedHashes.Count) {
+        throw $FailureCode
+    }
+    for ($index = 0; $index -lt $ExpectedHashes.Count; $index++) {
+        if ($actualHashes[$index] -cne $ExpectedHashes[$index]) {
+            throw $FailureCode
+        }
+    }
+}
+
 function Import-WindowsDistributionStagerTypes {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -163,9 +198,8 @@ function Import-WindowsDistributionStagerTypes {
         }
     }
 
-    $sourceIdentity = "typed-validator-v2-" + (($sourcePaths | ForEach-Object {
-        (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
-    }) -join "-")
+    $sourceHashes = Get-WindowsDistributionSourceHashes -Paths $sourcePaths
+    $sourceIdentity = "typed-validator-v2-" + ($sourceHashes -join "-")
     $identityBytes = [Text.Encoding]::UTF8.GetBytes($sourceIdentity)
     $identityHash = [Security.Cryptography.SHA256]::Create()
     try {
@@ -208,12 +242,18 @@ function Import-WindowsDistributionStagerTypes {
         Assert-WindowsDistributionLocalValidatorTree `
             -Path $compileRoot `
             -Name "compile cache"
-        foreach ($sourcePath in $sourcePaths) {
-            [IO.File]::Copy(
-                $sourcePath,
-                (Join-Path $compileRoot ([IO.Path]::GetFileName($sourcePath))),
-                $true)
+        $snapshotPaths = [string[]]@($sourcePaths | ForEach-Object {
+            Join-Path $compileRoot ([IO.Path]::GetFileName($_))
+        })
+        for ($index = 0; $index -lt $sourcePaths.Count; $index++) {
+            Copy-WindowsDistributionValidatorSource `
+                -SourcePath $sourcePaths[$index] `
+                -DestinationPath $snapshotPaths[$index]
         }
+        Assert-WindowsDistributionSourceHashes `
+            -Paths $snapshotPaths `
+            -ExpectedHashes $sourceHashes `
+            -FailureCode "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
         $compiledIdentityPath = Join-Path $compileRoot `
             "WindowsDistributionStagerCompiledIdentity.cs"
         $compiledIdentity = @"
@@ -319,6 +359,14 @@ public static class WindowsDistributionStagerCompiledIdentity
         Assert-WindowsDistributionLocalValidatorPath `
             -Path $assemblyPath `
             -Name "compiled validator assembly"
+        Assert-WindowsDistributionSourceHashes `
+            -Paths $snapshotPaths `
+            -ExpectedHashes $sourceHashes `
+            -FailureCode "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+        Assert-WindowsDistributionSourceHashes `
+            -Paths $sourcePaths `
+            -ExpectedHashes $sourceHashes `
+            -FailureCode "STAGING_POLICY_SOURCE_CHANGED_DURING_COMPILE"
         if ($buildExitCode -ne 0 -or
             -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
             throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"

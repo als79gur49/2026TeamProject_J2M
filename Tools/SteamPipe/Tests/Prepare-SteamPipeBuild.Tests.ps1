@@ -251,6 +251,52 @@ try {
         } "required pair DepotID"
     }
 
+    Invoke-Case "validator snapshot mutation fails before compile and cache load" {
+        $stageWrapper = Join-Path $script:RepositoryRoot `
+            "Tools\Build\Stage-WindowsDistribution.ps1"
+        $previousMode = $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE
+        $cacheRoot = Join-Path $script:FixtureRoot "snapshot-mutation-cache"
+        try {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            . $stageWrapper
+        } finally {
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = $previousMode
+        }
+
+        $script:OriginalValidatorCopy =
+            (Get-Command Copy-WindowsDistributionValidatorSource).ScriptBlock
+        $script:MutatedValidatorCopy = $false
+        try {
+            Set-Item Function:\Copy-WindowsDistributionValidatorSource {
+                param([string]$SourcePath, [string]$DestinationPath)
+                & $script:OriginalValidatorCopy `
+                    -SourcePath $SourcePath `
+                    -DestinationPath $DestinationPath
+                if (-not $script:MutatedValidatorCopy) {
+                    [IO.File]::AppendAllText($DestinationPath, "`n")
+                    $script:MutatedValidatorCopy = $true
+                }
+            }
+            Assert-ThrowsContaining {
+                Import-WindowsDistributionStagerTypes `
+                    -Root $script:RepositoryRoot `
+                    -OfflineOnly `
+                    -CacheRoot $cacheRoot
+            } "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+            $assemblies = @(Get-ChildItem -LiteralPath $cacheRoot `
+                -Filter "VectorQuake.DistributionStager.dll" -File -Recurse `
+                -ErrorAction SilentlyContinue)
+            Assert-Equal 0 $assemblies.Count
+        } finally {
+            Set-Item Function:\Copy-WindowsDistributionValidatorSource `
+                $script:OriginalValidatorCopy
+            Remove-Variable OriginalValidatorCopy `
+                -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable MutatedValidatorCopy `
+                -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+
     Invoke-Case "typed promoted validator cold cache compiles offline only" {
         $stageWrapper = Join-Path $script:RepositoryRoot `
             "Tools\Build\Stage-WindowsDistribution.ps1"
