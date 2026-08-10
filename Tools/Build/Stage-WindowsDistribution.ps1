@@ -187,7 +187,7 @@ function Remove-WindowsDistributionValidatorBuildOutput {
 function Enter-WindowsDistributionValidatorBuildLock {
     param(
         [Parameter(Mandatory)][string]$Path,
-        [int]$TimeoutSeconds = 60
+        [int]$TimeoutSeconds = 600
     )
 
     Assert-WindowsDistributionLocalValidatorPath `
