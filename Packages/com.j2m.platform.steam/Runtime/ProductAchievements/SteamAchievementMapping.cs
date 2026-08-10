@@ -135,6 +135,7 @@ namespace Game.Platform.Steam.ProductAchievements
             _byGameAchievementId;
         private readonly Dictionary<ExpectedSteamAchievementApiName, GameAchievementId>
             _byExpectedSteamApiName;
+        private readonly IReadOnlyList<SteamAchievementMappingEntry> _entries;
 
         public SteamAchievementMapping(IEnumerable<SteamAchievementMappingEntry> entries)
         {
@@ -147,6 +148,7 @@ namespace Game.Platform.Steam.ProductAchievements
                 new Dictionary<GameAchievementId, ExpectedSteamAchievementApiName>();
             _byExpectedSteamApiName =
                 new Dictionary<ExpectedSteamAchievementApiName, GameAchievementId>();
+            var validated = new List<SteamAchievementMappingEntry>();
             foreach (var entry in entries)
             {
                 if (entry == null)
@@ -175,7 +177,14 @@ namespace Game.Platform.Steam.ProductAchievements
                         entry.ExpectedSteamApiName.Value + "'.",
                         nameof(entries));
                 }
+
+                validated.Add(entry);
             }
+
+            validated.Sort((left, right) => StringComparer.Ordinal.Compare(
+                left.GameAchievementId.Value,
+                right.GameAchievementId.Value));
+            _entries = Array.AsReadOnly(validated.ToArray());
         }
 
         public static SteamAchievementMapping Production { get; } =
@@ -187,6 +196,8 @@ namespace Game.Platform.Steam.ProductAchievements
                         ExpectedSteamAchievementApiName.Require(
                             "VQ_CAMPAIGN_COMPLETE")),
                 });
+
+        public IReadOnlyList<SteamAchievementMappingEntry> Entries => _entries;
 
         public bool TryGetExpectedSteamApiName(
             GameAchievementId gameAchievementId,
