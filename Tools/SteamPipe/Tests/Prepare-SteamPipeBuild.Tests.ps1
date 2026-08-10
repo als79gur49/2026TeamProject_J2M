@@ -536,6 +536,68 @@ try {
         }
     }
 
+    Invoke-Case "cached validator post-load rechecks live canonical sources" {
+        $copyRoot = Join-Path $script:FixtureRoot "post-load-source-root"
+        foreach ($relativePath in @(
+            "Tools\Build\Stage-WindowsDistribution.ps1",
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs",
+            "Assets\_Features\Stages\Editor\Build\SteamPipeStagingSanitizerPolicy.cs",
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionStager.cs")) {
+            $source = Join-Path $script:RepositoryRoot $relativePath
+            $destination = Join-Path $copyRoot $relativePath
+            [IO.Directory]::CreateDirectory(
+                [IO.Path]::GetDirectoryName($destination)) | Out-Null
+            [IO.File]::Copy($source, $destination, $true)
+        }
+        $cacheRoot = Join-Path ([IO.Path]::GetTempPath()) `
+            "VectorQuakeDistributionStagerOfflineOnly"
+        $mutationPath = Join-Path $copyRoot `
+            "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs"
+        $job = Start-Job -ScriptBlock {
+            param($Repository, $Cache, $MutationPath)
+            $ErrorActionPreference = "Stop"
+            Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+            $env:VECTORQUAKE_DISTRIBUTION_STAGER_TEST_MODE = "1"
+            . (Join-Path $Repository `
+                "Tools\Build\Stage-WindowsDistribution.ps1") `
+                -RepositoryRoot $Repository
+            $script:OriginalPostLoadIdentityAssertion =
+                (Get-Command Assert-WindowsDistributionStagerIdentity).ScriptBlock
+            Set-Item Function:\Assert-WindowsDistributionStagerIdentity {
+                param([type]$StagerType, [string]$ExpectedIdentity)
+                & $script:OriginalPostLoadIdentityAssertion `
+                    -StagerType $StagerType `
+                    -ExpectedIdentity $ExpectedIdentity
+                [IO.File]::AppendAllText(
+                    $MutationPath,
+                    "`n",
+                    [Text.UTF8Encoding]::new($false))
+            }
+            try {
+                Import-WindowsDistributionStagerTypes `
+                    -Root $Repository `
+                    -OfflineOnly `
+                    -CacheRoot $Cache
+            } catch {
+                if ($_.Exception.Message.Contains(
+                    "STAGING_POLICY_LIVE_SOURCE_MISMATCH")) {
+                    "POST_LOAD_SOURCE_RECHECK_PASS"
+                    return
+                }
+                throw
+            }
+            throw "Expected STAGING_POLICY_LIVE_SOURCE_MISMATCH."
+        } -ArgumentList $copyRoot, $cacheRoot, $mutationPath
+        try {
+            $null = Wait-Job -Job $job -Timeout 120
+            $output = @($job | Receive-Job)
+            Assert-Equal "Completed" $job.State
+            Assert-True ($output -contains "POST_LOAD_SOURCE_RECHECK_PASS")
+        } finally {
+            $job | Remove-Job -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     Invoke-Case "validator cache rejects mapped drives and reparse ancestors" {
         $stageWrapper = Join-Path $script:RepositoryRoot `
             "Tools\Build\Stage-WindowsDistribution.ps1"

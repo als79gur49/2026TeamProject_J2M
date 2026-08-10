@@ -437,6 +437,10 @@ public static class WindowsDistributionStagerCompiledIdentity
     Assert-WindowsDistributionStagerIdentity `
         -StagerType $loadedStagerType `
         -ExpectedIdentity $cacheKey
+    Assert-WindowsDistributionSourceHashes `
+        -Paths $sourcePaths `
+        -ExpectedHashes $sourceHashes `
+        -FailureCode "STAGING_POLICY_LIVE_SOURCE_MISMATCH"
 }
 
 function Get-StagingSourceIdentity {
