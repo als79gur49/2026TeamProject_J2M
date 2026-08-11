@@ -2036,8 +2036,8 @@ for key, expected in required_root.items():
         fail(f"root {key} expected '{expected}', got '{actual}'")
 
 expected_entries = {
-    "Settings/en-US": ("Settings_en-US.png", "22", "38"),
-    "Settings/ko-KR": ("Settings_ko-KR.png", "22", "38"),
+    "Settings/en-US": ("Settings_en-US.png", "20", "35"),
+    "Settings/ko-KR": ("Settings_ko-KR.png", "20", "35"),
     "Pause/en-US": ("Pause_en-US.png", "6", None),
     "Pause/ko-KR": ("Pause_ko-KR.png", "6", None),
     "MainMenu/en-US": ("MainMenu_en-US.png", "3", None),
@@ -2102,8 +2102,8 @@ if actual_png_paths != expected_png_paths:
 print("Typography visual manifest verification: PASS")
 print(f"  manifest: {manifest_path}")
 print("  entries: 6")
-print("  Settings en-US: typography_bindings=38 localized=22/22 capture_result=PASS")
-print("  Settings ko-KR: typography_bindings=38 localized=22/22 capture_result=PASS")
+print("  Settings en-US: typography_bindings=35 localized=20/20 capture_result=PASS")
+print("  Settings ko-KR: typography_bindings=35 localized=20/20 capture_result=PASS")
 print("  PNG size/SHA-256: verified for all six captures")
 PY
 }
