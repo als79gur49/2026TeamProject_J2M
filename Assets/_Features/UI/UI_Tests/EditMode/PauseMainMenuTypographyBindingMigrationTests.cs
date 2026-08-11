@@ -454,7 +454,7 @@ namespace Game.Feature.UI.Tests
                     authoredFontSizeMin,
                     authoredFontSizeMax,
                     "ko-KR");
-                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKrFont()));
+                Assert.That(title.font, Is.SameAs(UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font()));
                 Assert.That(title.fontStyle, Is.EqualTo(FontStyles.Normal));
 
                 resolver.SetLocale("en-US");
@@ -801,9 +801,12 @@ namespace Game.Feature.UI.Tests
 
                 if (string.Equals(localeCode, "ko-KR", StringComparison.Ordinal))
                 {
+                    var expectedGuid = target.ExpectedTag == TypographyStyleTag.HeaderLarge
+                        ? "40d61154fd6576b4d85c2d78460b16ad"
+                        : "7dfd9aae81fc1d242b007a3b7a042fb0";
                     AssertAssetIdentity(
                         target.Text.font,
-                        "40d61154fd6576b4d85c2d78460b16ad",
+                        expectedGuid,
                         11400000,
                         $"{context} Climate font");
                 }

@@ -750,6 +750,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.PausePopupPrefabPath,
                 UiTestPrefabAssetUtility.MainMenuScreenPrefabPath,
                 UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
+                UiTestPrefabAssetUtility.ClimateCrisisKr2019FontAssetPath,
                 TmpSettingsAssetPath,
             };
 
@@ -863,6 +864,7 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.PausePopupPrefabPath,
                 UiTestPrefabAssetUtility.ConfirmPopupPrefabPath,
                 UiTestPrefabAssetUtility.ClimateCrisisKrFontAssetPath,
+                UiTestPrefabAssetUtility.ClimateCrisisKr2019FontAssetPath,
                 TmpSettingsAssetPath,
             };
 

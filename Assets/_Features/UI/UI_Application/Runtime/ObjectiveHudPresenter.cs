@@ -405,10 +405,10 @@ namespace Game.Feature.UI.Application
                         return Format("Reach the designated zone ({0}/{1})", descriptor.Arguments);
 
                     case ObjectiveHudLocalization.Keys.ActivateButton:
-                        return Format("Place a push box on the button ({0}/{1})", descriptor.Arguments);
+                        return Format("Place a pushable box on the button ({0}/{1})", descriptor.Arguments);
 
                     case ObjectiveHudLocalization.Keys.ActivateMoonButton:
-                        return Format("Place the MoonBlock on the button ({0}/{1})", descriptor.Arguments);
+                        return Format("Place the moon-marked box on the button ({0}/{1})", descriptor.Arguments);
 
                     default:
                         return string.Empty;

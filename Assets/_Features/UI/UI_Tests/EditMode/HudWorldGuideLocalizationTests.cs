@@ -23,7 +23,7 @@ namespace Game.Feature.UI.Tests
         private const string ThemePath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
         private const string ClimatePath =
-            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
 
         [Test]
         public void Contract_HasThreeUniqueNonBlankWorldGuideLocaleEntries()

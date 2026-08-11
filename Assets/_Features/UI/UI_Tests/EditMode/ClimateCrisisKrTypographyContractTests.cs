@@ -23,31 +23,41 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
         private const string PausePrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         private const string SettingsPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
-        private const string SourceFontPath = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf";
-        private const string FontAssetPath = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string SourceFont2000Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf";
+        private const string FontAsset2000Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string SourceFont2019Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf";
+        private const string FontAsset2019Path = "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         private const string UiKoreanStringTablePath =
             "Assets/Localization/StringTables/UI/UI_ko-KR.asset";
         private const string StageKoreanStringTablePath =
             "Assets/Localization/StringTables/Stage/Stage_ko-KR.asset";
-        private const string ClimateFontGuid = "40d61154fd6576b4d85c2d78460b16ad";
+        private const string Climate2000FontGuid = "40d61154fd6576b4d85c2d78460b16ad";
+        private const string Climate2019FontGuid = "7dfd9aae81fc1d242b007a3b7a042fb0";
         private const long ClimateFontLocalId = 11400000;
-        private const long ClimateMaterialLocalId = 1352911973252649374;
+        private const long Climate2000MaterialLocalId = 1352911973252649374;
+        private const long Climate2019MaterialLocalId = 7808543287137721147;
         private const string EnglishContractSha256 =
             "3def0381e783b5bd7286e824a6fcea11dddb659ed5a3aab667a239d070868f92";
 
         [Test]
         public void ClimateAssets_KeepRuntimeIdentityAndCanonicalReferences()
         {
-            var fontAsset = LoadClimateFont();
-            var material = fontAsset.material;
-
-            Assert.That(AssetDatabase.AssetPathToGUID(SourceFontPath), Is.EqualTo("5360535d0de75234ca21822297323672"));
-            AssertAssetIdentity(fontAsset, ClimateFontGuid, ClimateFontLocalId, "Climate TMP font");
-            AssertAssetIdentity(material, ClimateFontGuid, ClimateMaterialLocalId, "Climate canonical material");
-            Assert.That(fontAsset.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static));
-            Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1));
-            Assert.That(fontAsset.atlasTextures[0], Is.Not.Null);
-            Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
+            AssertClimateAssetContract(
+                LoadClimate2000Font(),
+                SourceFont2000Path,
+                "5360535d0de75234ca21822297323672",
+                Climate2000FontGuid,
+                Climate2000MaterialLocalId,
+                277,
+                "Climate 2000");
+            AssertClimateAssetContract(
+                LoadClimate2019Font(),
+                SourceFont2019Path,
+                "56e1f07e315e49a4a8e5043a11e04e29",
+                Climate2019FontGuid,
+                Climate2019MaterialLocalId,
+                295,
+                "Climate 2019");
         }
 
         [Test]
@@ -75,6 +85,9 @@ namespace Game.Feature.UI.Tests
                 runner,
                 Does.Contain("sha256sum \"$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET\""),
                 "The candidate Climate SDF hash must come from the current worktree.");
+            Assert.That(runner, Does.Contain("CLIMATE_2019_SOURCE_TTF_SHA256"));
+            Assert.That(runner, Does.Contain("CLIMATE_2019_COMMITTED_SDF_SHA256"));
+            Assert.That(runner, Does.Contain("$CLIMATE_2019_SDF_ASSET"));
             Assert.That(
                 runner,
                 Does.Contain("require_worktree_file_text"),
@@ -114,7 +127,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void ClimateSdf_NativelyCoversManagedKoreanStringTables()
         {
-            var fontAsset = LoadClimateFont();
+            var fontAssets = new[] { LoadClimate2000Font(), LoadClimate2019Font() };
             var tablePaths = AssetDatabase
                 .FindAssets("t:StringTable", new[] { "Assets/Localization/StringTables" })
                 .Select(AssetDatabase.GUIDToAssetPath)
@@ -132,9 +145,6 @@ namespace Game.Feature.UI.Tests
                 .Distinct()
                 .OrderBy(character => character)
                 .ToArray();
-            var missing = codepoints
-                .Where(character => !fontAsset.HasCharacter(character, searchFallbacks: false, tryAddCharacter: false))
-                .ToArray();
 
             Assert.That(
                 tablePaths,
@@ -151,17 +161,40 @@ namespace Game.Feature.UI.Tests
             Assert.That(values, Does.Contain("병동[A]-01"));
             Assert.That(values, Does.Contain("영안실-01"));
             Assert.That(codepoints, Has.Length.EqualTo(186));
-            Assert.That(missing, Is.Empty, FormatCharacters(missing));
-            Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty);
+            foreach (var fontAsset in fontAssets)
+            {
+                var missing = codepoints
+                    .Where(character => !fontAsset.HasCharacter(
+                        character,
+                        searchFallbacks: false,
+                        tryAddCharacter: false))
+                    .ToArray();
+                Assert.That(missing, Is.Empty, $"{fontAsset.name}: {FormatCharacters(missing)}");
+                Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty, fontAsset.name);
+            }
             Assert.That(TMP_Settings.fallbackFontAssets, Is.Empty);
         }
 
         [Test]
-        public void ProductionTheme_ResolvesNineteenClimateNormalKoreanRolesWithoutSizing()
+        public void ProductionTheme_ResolvesKoreanHierarchyAcross2019And2000WithoutSizing()
         {
             var theme = LoadTheme();
-            var fontAsset = LoadClimateFont();
+            var climate2000 = LoadClimate2000Font();
+            var climate2019 = LoadClimate2019Font();
             var roles = Enum.GetValues(typeof(TypographyStyleTag)).Cast<TypographyStyleTag>().ToArray();
+            var climate2019Roles = new[]
+            {
+                TypographyStyleTag.Default,
+                TypographyStyleTag.HeaderMedium,
+                TypographyStyleTag.HeaderSmall,
+                TypographyStyleTag.Body,
+                TypographyStyleTag.BodySmall,
+                TypographyStyleTag.Tooltip,
+                TypographyStyleTag.SettingsLabel,
+                TypographyStyleTag.PopupBody,
+                TypographyStyleTag.PopupAction,
+            };
+            var climate2000Roles = roles.Except(climate2019Roles).ToArray();
             var expectedMask =
                 TypographyApplyMask.Font |
                 TypographyApplyMask.Material |
@@ -209,13 +242,16 @@ namespace Game.Feature.UI.Tests
                 "Sparse overrides only need entries where ko-KR differs from the base rule.");
             Assert.That(koreanOverrideDuplicates, Is.Empty, "ko-KR role override duplicates");
             Assert.That(theme.BuildCache().Count, Is.EqualTo(38));
+            Assert.That(climate2019Roles, Has.Length.EqualTo(9));
+            Assert.That(climate2000Roles, Has.Length.EqualTo(10));
 
             foreach (var role in roles)
             {
                 Assert.That(theme.TryResolve("en-US", role, out _), Is.True, $"en-US {role}");
                 Assert.That(theme.TryResolve("ko-KR", role, out var korean), Is.True, $"ko-KR {role}");
-                Assert.That(korean.FontAsset, Is.SameAs(fontAsset), role.ToString());
-                Assert.That(korean.MaterialPreset, Is.SameAs(fontAsset.material), role.ToString());
+                var expectedFont = climate2019Roles.Contains(role) ? climate2019 : climate2000;
+                Assert.That(korean.FontAsset, Is.SameAs(expectedFont), role.ToString());
+                Assert.That(korean.MaterialPreset, Is.SameAs(expectedFont.material), role.ToString());
                 Assert.That(korean.FontStyle, Is.EqualTo(FontStyles.Normal), role.ToString());
                 Assert.That(korean.ApplyMask, Is.EqualTo(expectedMask), role.ToString());
                 Assert.That(korean.SizingSource, Is.EqualTo(TypographySizingSource.Hybrid), role.ToString());
@@ -480,11 +516,38 @@ namespace Game.Feature.UI.Tests
             return theme;
         }
 
-        private static TMP_FontAsset LoadClimateFont()
+        private static TMP_FontAsset LoadClimate2000Font()
         {
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
-            Assert.That(fontAsset, Is.Not.Null, FontAssetPath);
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAsset2000Path);
+            Assert.That(fontAsset, Is.Not.Null, FontAsset2000Path);
             return fontAsset;
+        }
+
+        private static TMP_FontAsset LoadClimate2019Font()
+        {
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAsset2019Path);
+            Assert.That(fontAsset, Is.Not.Null, FontAsset2019Path);
+            return fontAsset;
+        }
+
+        private static void AssertClimateAssetContract(
+            TMP_FontAsset fontAsset,
+            string sourceFontPath,
+            string sourceFontGuid,
+            string fontGuid,
+            long materialLocalId,
+            int expectedCharacterCount,
+            string label)
+        {
+            Assert.That(AssetDatabase.AssetPathToGUID(sourceFontPath), Is.EqualTo(sourceFontGuid));
+            AssertAssetIdentity(fontAsset, fontGuid, ClimateFontLocalId, $"{label} TMP font");
+            AssertAssetIdentity(fontAsset.material, fontGuid, materialLocalId, $"{label} canonical material");
+            Assert.That(fontAsset.characterTable, Has.Count.EqualTo(expectedCharacterCount), label);
+            Assert.That(fontAsset.HasCharacter(' ', false, false), Is.True, label);
+            Assert.That(fontAsset.atlasPopulationMode, Is.EqualTo(AtlasPopulationMode.Static), label);
+            Assert.That(fontAsset.atlasTextures, Has.Length.EqualTo(1), label);
+            Assert.That(fontAsset.atlasTextures[0], Is.Not.Null, label);
+            Assert.That(fontAsset.fallbackFontAssetTable, Is.Empty, label);
         }
 
         private static StringTable LoadStringTable(string path)

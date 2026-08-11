@@ -10,10 +10,14 @@ namespace Game.Feature.UI.Composition.Editor
 {
     public static class ClimateCrisisKrGlyphUpdateUtility
     {
-        private const string SourceFontPath =
+        private const string SourceFont2000Path =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf";
-        private const string FontAssetPath =
+        private const string FontAsset2000Path =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string SourceFont2019Path =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf";
+        private const string FontAsset2019Path =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         private const string NanumSourceFontPath =
             "Assets/_Shared/UI/Fonts/NanumGothic.ttf";
         private const string NanumFontAssetPath =
@@ -33,69 +37,51 @@ namespace Game.Feature.UI.Composition.Editor
 
         public static TMP_FontAsset GenerateOrThrow()
         {
-            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(SourceFontPath);
-            if (sourceFont == null)
-            {
-                throw new InvalidOperationException($"Missing canonical Climate source font: {SourceFontPath}");
-            }
-
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
-            if (fontAsset == null)
-            {
-                throw new InvalidOperationException($"Missing canonical Climate TMP font asset: {FontAssetPath}");
-            }
-
-            var climateBefore = CaptureContractSnapshot(fontAsset);
-            var requiredCharacters = BuildRequiredCharacterSet(fontAsset);
-            var charactersToAdd = GetMissingCharacters(fontAsset, requiredCharacters);
-            if (charactersToAdd.Length > 0)
-            {
-                AssignSourceFont(fontAsset, sourceFont);
-                fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
-                if (!fontAsset.TryAddCharacters(charactersToAdd, out var missingCharacters))
-                {
-                    throw new InvalidOperationException(
-                        $"Climate source TTF cannot supply managed glyphs: " +
-                        FormatCharacters(missingCharacters));
-                }
-            }
-
-            fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
-            RestoreCanonicalClimateScaleRatios(fontAsset);
-            fontAsset.ReadFontAssetDefinition();
-            EditorUtility.SetDirty(fontAsset);
-            AssetDatabase.SaveAssets();
-            ImportAndPersistCanonicalSerialization(FontAssetPath);
-
-            var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontAssetPath);
-            ValidateContractOrThrow(
-                "Climate",
-                reloaded,
-                sourceFont,
-                climateBefore,
+            var climate2000 = UpdateFontOrThrow(
+                "Climate 2000",
+                SourceFont2000Path,
+                FontAsset2000Path,
                 requireScaleRatios: true);
-
-            UpdateRetainedNanumValidationFontOrThrow();
+            UpdateFontOrThrow(
+                "Climate 2019",
+                SourceFont2019Path,
+                FontAsset2019Path,
+                requireScaleRatios: true);
+            UpdateFontOrThrow(
+                "Nanum",
+                NanumSourceFontPath,
+                NanumFontAssetPath,
+                requireScaleRatios: false);
             Debug.Log(
-                $"Climate managed glyph update complete: {requiredCharacters.Length} retained/required characters, " +
+                "Climate 2000/2019 and Nanum managed glyph update complete: " +
                 "0 missing, 0 fallback.");
             Debug.Log(
                 "GLYPH_UPDATE_VALIDATION missing=0 fallback=0 glyph_loss=0 glyph_remap=0 " +
                 "atlas_page_drift=0 source_linkage=PASS scale_ratio=PASS");
-            return reloaded;
+            return climate2000;
         }
 
-        private static void UpdateRetainedNanumValidationFontOrThrow()
+        private static TMP_FontAsset UpdateFontOrThrow(
+            string label,
+            string sourceFontPath,
+            string fontAssetPath,
+            bool requireScaleRatios)
         {
-            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(NanumSourceFontPath);
-            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumFontAssetPath);
-            if (sourceFont == null || fontAsset == null)
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(sourceFontPath);
+            if (sourceFont == null)
             {
                 throw new InvalidOperationException(
-                    "The retained Nanum validation source and TMP asset must exist.");
+                    $"Missing {label} source font: {sourceFontPath}");
             }
 
-            var nanumBefore = CaptureContractSnapshot(fontAsset);
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontAssetPath);
+            if (fontAsset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing {label} TMP font asset: {fontAssetPath}");
+            }
+
+            var before = CaptureContractSnapshot(fontAsset);
             var requiredCharacters = BuildRequiredCharacterSet(fontAsset);
             var charactersToAdd = GetMissingCharacters(fontAsset, requiredCharacters);
             if (charactersToAdd.Length > 0)
@@ -105,24 +91,29 @@ namespace Game.Feature.UI.Composition.Editor
                 if (!fontAsset.TryAddCharacters(charactersToAdd, out var missingCharacters))
                 {
                     throw new InvalidOperationException(
-                        $"Nanum source TTF cannot supply managed glyphs: " +
+                        $"{label} source TTF cannot supply managed glyphs: " +
                         FormatCharacters(missingCharacters));
                 }
             }
 
             fontAsset.atlasPopulationMode = AtlasPopulationMode.Static;
+            if (requireScaleRatios)
+            {
+                RestoreCanonicalClimateScaleRatios(fontAsset, label);
+            }
             fontAsset.ReadFontAssetDefinition();
             EditorUtility.SetDirty(fontAsset);
             AssetDatabase.SaveAssets();
-            ImportAndPersistCanonicalSerialization(NanumFontAssetPath);
+            ImportAndPersistCanonicalSerialization(fontAssetPath);
 
-            var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(NanumFontAssetPath);
+            var reloaded = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontAssetPath);
             ValidateContractOrThrow(
-                "Nanum",
+                label,
                 reloaded,
                 sourceFont,
-                nanumBefore,
-                requireScaleRatios: false);
+                before,
+                requireScaleRatios);
+            return reloaded;
         }
 
         private static FontContractSnapshot CaptureContractSnapshot(TMP_FontAsset fontAsset)
@@ -280,7 +271,7 @@ namespace Game.Feature.UI.Composition.Editor
             AssetDatabase.SaveAssets();
         }
 
-        private static void RestoreCanonicalClimateScaleRatios(TMP_FontAsset fontAsset)
+        private static void RestoreCanonicalClimateScaleRatios(TMP_FontAsset fontAsset, string label)
         {
             var material = fontAsset.material;
             if (material == null ||
@@ -288,7 +279,7 @@ namespace Game.Feature.UI.Composition.Editor
                 !material.HasProperty("_ScaleRatioC"))
             {
                 throw new InvalidOperationException(
-                    "Canonical Climate material is missing its TMP scale-ratio properties.");
+                    $"{label} canonical material is missing its TMP scale-ratio properties.");
             }
 
             material.SetFloat("_ScaleRatioA", 1f);

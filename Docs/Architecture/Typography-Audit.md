@@ -7,8 +7,8 @@ The current production decision is recorded in
 It supersedes the Nanum candidate mappings, synthetic-bold risks, open
 questions, and “next implementation” wording retained later in this audit.
 
-- ko-KR uses the canonical Climate Crisis KR font/material with Normal style
-  for all 19 semantic roles.
+- ko-KR uses Climate 2000 for Display/UI/Utility (10 roles) and Climate 2019
+  for Heading/Body (9 roles), with Normal style for all 19 semantic roles.
 - Authored sizing is preserved. SettingsStatus remains `14 / Auto / 10-14`
   at height `28` and may use two lines.
 - Pause title width is `160` with center preserved; audio values use effective
