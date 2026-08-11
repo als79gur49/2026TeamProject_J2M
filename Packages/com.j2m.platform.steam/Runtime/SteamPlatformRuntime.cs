@@ -43,6 +43,8 @@ namespace Game.Platform.Steam
         private int callbackPumpCount;
         private int callbackAttemptCount;
         private int shutdownCallCount;
+        private SteamPlatformFailureReason initializationFailureReason =
+            SteamPlatformFailureReason.None;
         private SteamPlatformFailureReason lastFailureReason;
         private string lastExceptionType = string.Empty;
         private bool smokeResultEmitted;
@@ -285,6 +287,7 @@ namespace Game.Platform.Steam
             string detail,
             Exception exception = null)
         {
+            CaptureInitializationFailure(failureReason);
             state = IsNativeLoadFailure(failureReason)
                 ? SteamPlatformRuntimeState.Faulted
                 : SteamPlatformRuntimeState.Unavailable;
@@ -302,6 +305,15 @@ namespace Game.Platform.Steam
             initializationResult = PlatformInitializationResult.Failure(
                 failureReason + ": " + detail);
             return initializationResult;
+        }
+
+        private void CaptureInitializationFailure(
+            SteamPlatformFailureReason failureReason)
+        {
+            if (initializationFailureReason == SteamPlatformFailureReason.None)
+            {
+                initializationFailureReason = failureReason;
+            }
         }
 
         private void ObserveOptionalRuntimeDiagnostics()
@@ -412,12 +424,16 @@ namespace Game.Platform.Steam
             }
 
             smokeResultEmitted = true;
-            var selectionStatus = initializationSucceeded
+            var initializationFailureKind = initializationSucceeded
+                ? SteamPlatformFailureReason.None
+                : initializationFailureReason;
+            var finalFailureKind = lastFailureReason;
+            var finalProviderAvailable = initializationSucceeded &&
+                finalFailureKind == SteamPlatformFailureReason.None &&
+                steamAvailability.IsAvailable;
+            var selectionStatus = finalProviderAvailable
                 ? PlatformRuntimeSelectionStatus.ExplicitProviderSelected
                 : PlatformRuntimeSelectionStatus.RequestedProviderUnavailable;
-            var failureKind = initializationSucceeded
-                ? SteamPlatformFailureReason.None
-                : lastFailureReason;
             var exceptionType = string.IsNullOrEmpty(lastExceptionType)
                 ? "none"
                 : lastExceptionType;
@@ -427,7 +443,8 @@ namespace Game.Platform.Steam
                 "\"selectionStatus\":\"" + selectionStatus + "\"," +
                 "\"fallbackUsed\":false," +
                 "\"initSucceeded\":" + ToJsonBoolean(initializationSucceeded) + "," +
-                "\"initializationFailureKind\":\"" + failureKind + "\"," +
+                "\"initializationFailureKind\":\"" + initializationFailureKind + "\"," +
+                "\"finalFailureKind\":\"" + finalFailureKind + "\"," +
                 "\"observedAppId\":" + observedAppId + "," +
                 "\"steamIdValid\":" + ToJsonBoolean(steamIdentityValid) + "," +
                 "\"loggedOn\":" + ToJsonBoolean(loggedOn) + "," +
