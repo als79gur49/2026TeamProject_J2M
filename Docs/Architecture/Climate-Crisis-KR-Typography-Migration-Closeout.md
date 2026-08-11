@@ -69,7 +69,7 @@ blocker.
   Every ko-KR role keeps Normal style and a sizing mask that does not own
   authored sizing.
 - Managed `*_ko-KR.asset` String Tables are scanned dynamically. The closeout
-  set contains 66 values, 65 distinct values, and 116 distinct non-ASCII
+  set contains 123 values, 113 distinct values, and 186 distinct non-ASCII
   codepoints; missing native Climate glyphs and fallback dependencies are `0`.
 - The Nanum TTF/meta, SDF/meta, and SyntheticBold material/meta remain tracked.
   Retention is independent from the fact that current ko-KR role mapping no
