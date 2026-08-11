@@ -43,6 +43,8 @@ namespace Game.Platform.Steam
         private int callbackPumpCount;
         private int callbackAttemptCount;
         private int shutdownCallCount;
+        private SteamPlatformFailureReason initializationFailureReason =
+            SteamPlatformFailureReason.None;
         private SteamPlatformFailureReason lastFailureReason;
         private string lastExceptionType = string.Empty;
         private bool smokeResultEmitted;
@@ -285,6 +287,7 @@ namespace Game.Platform.Steam
             string detail,
             Exception exception = null)
         {
+            CaptureInitializationFailure(failureReason);
             state = IsNativeLoadFailure(failureReason)
                 ? SteamPlatformRuntimeState.Faulted
                 : SteamPlatformRuntimeState.Unavailable;
@@ -302,6 +305,15 @@ namespace Game.Platform.Steam
             initializationResult = PlatformInitializationResult.Failure(
                 failureReason + ": " + detail);
             return initializationResult;
+        }
+
+        private void CaptureInitializationFailure(
+            SteamPlatformFailureReason failureReason)
+        {
+            if (initializationFailureReason == SteamPlatformFailureReason.None)
+            {
+                initializationFailureReason = failureReason;
+            }
         }
 
         private void ObserveOptionalRuntimeDiagnostics()
@@ -414,7 +426,7 @@ namespace Game.Platform.Steam
             smokeResultEmitted = true;
             var initializationFailureKind = initializationSucceeded
                 ? SteamPlatformFailureReason.None
-                : lastFailureReason;
+                : initializationFailureReason;
             var finalFailureKind = lastFailureReason;
             var finalProviderAvailable = initializationSucceeded &&
                 finalFailureKind == SteamPlatformFailureReason.None &&

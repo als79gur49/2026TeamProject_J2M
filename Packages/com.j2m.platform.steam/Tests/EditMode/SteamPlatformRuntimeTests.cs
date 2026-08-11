@@ -231,6 +231,44 @@ namespace Game.Platform.Steam.Tests.EditMode
         }
 
         [Test]
+        public void SmokeInitializationFailure_PreservesOriginalKindWhenCleanupShutdownThrows()
+        {
+            var logs = new List<string>();
+            var native = new FakeSteamNativeApi
+            {
+                AppId = 0,
+                ShutdownException = new InvalidOperationException("shutdown failed"),
+            };
+            var runtime = new SteamPlatformRuntime(
+                native,
+                smokeRequested: true,
+                smokeLogger: logs.Add);
+            var lifecycle = CreateLifecycle(runtime);
+            LogAssert.Expect(
+                LogType.Error,
+                "Platform runtime 'steam' initialization failed: " +
+                "AppIdUnavailable: SteamAPI initialized but returned AppID 0.");
+
+            InvokeLifecycle(lifecycle, "InitializeOnce");
+            InvokeLifecycle(lifecycle, "ShutdownOnce");
+
+            Assert.That(logs, Has.Count.EqualTo(1));
+            Assert.That(logs[0], Does.Contain("\"initSucceeded\":false"));
+            Assert.That(logs[0], Does.Contain(
+                "\"selectionStatus\":\"RequestedProviderUnavailable\""));
+            Assert.That(logs[0], Does.Contain(
+                "\"initializationFailureKind\":\"AppIdUnavailable\""));
+            Assert.That(logs[0], Does.Contain(
+                "\"finalFailureKind\":\"ShutdownException\""));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpAttemptCount\":0"));
+            Assert.That(logs[0], Does.Contain("\"callbackPumpSuccessCount\":0"));
+            Assert.That(logs[0], Does.Contain(
+                "\"nativeExceptionType\":\"InvalidOperationException\""));
+            Assert.That(logs[0], Does.Contain("\"shutdownNativeCallCount\":1"));
+            Assert.That(native.ShutdownCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void SmokeCallbackException_ReportsFinalProviderUnavailableAndFailure()
         {
             var logs = new List<string>();
