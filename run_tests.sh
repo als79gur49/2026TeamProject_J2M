@@ -1964,6 +1964,11 @@ typography_visual_nanum_diff_sha256() {
 verify_typography_visual_manifest() {
     local expected_head="$1"
     local expected_output_directory="${TYPOGRAPHY_VISUAL_OUTPUT_DIR#"$PROJECT_PATH_WSL/"}"
+    local expected_output_directory_win
+
+    expected_output_directory_win="$(
+        wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" | tr '\\' '/'
+    )"
 
     python3 - \
         "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" \
@@ -1972,7 +1977,8 @@ verify_typography_visual_manifest() {
         "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD" \
         "$TYPOGRAPHY_VISUAL_WIDTH" \
         "$TYPOGRAPHY_VISUAL_HEIGHT" \
-        "$expected_output_directory" <<'PY'
+        "$expected_output_directory" \
+        "$expected_output_directory_win" <<'PY'
 import hashlib
 import re
 import sys
@@ -1985,6 +1991,7 @@ expected_command = sys.argv[4]
 expected_width = sys.argv[5]
 expected_height = sys.argv[6]
 expected_output_directory = sys.argv[7]
+expected_output_directory_win = sys.argv[8]
 
 
 def fail(message):
@@ -2019,7 +2026,6 @@ required_root = {
     "git_head": expected_head,
     "capture_command": expected_command,
     "capture_mode": "RECONSTRUCTED_FROM_SPLIT_LOGS",
-    "output_directory": expected_output_directory,
     "width": expected_width,
     "height": expected_height,
     "resolution": f"{expected_width}x{expected_height}",
@@ -2034,6 +2040,17 @@ for key, expected in required_root.items():
     actual = root.get(key)
     if actual != expected:
         fail(f"root {key} expected '{expected}', got '{actual}'")
+
+actual_output_directory = root.get("output_directory")
+if actual_output_directory not in {
+    expected_output_directory,
+    expected_output_directory_win,
+}:
+    fail(
+        "root output_directory expected either "
+        f"'{expected_output_directory}' or '{expected_output_directory_win}', "
+        f"got '{actual_output_directory}'"
+    )
 
 expected_entries = {
     "Settings/en-US": ("Settings_en-US.png", "20", "35"),
