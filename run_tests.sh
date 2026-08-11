@@ -2200,8 +2200,8 @@ for locale in locales:
         status_proof = proofs[0]
         expected_frame_proofs = (
             ("/Title", None, None),
-            (None, "/PushKeyDisplay/", "E"),
-            (None, "/FlipKeyDisplay/", "Q"),
+            (None, "/PushKeyDisplay/", "J"),
+            (None, "/FlipKeyDisplay/", "K"),
         )
         for renderer_suffix, required_parent, expected_text in expected_frame_proofs:
             candidates = [
@@ -2221,7 +2221,7 @@ for locale in locales:
                     f"ERROR: unexpected keycap text for {renderer_suffix}: "
                     f"{candidates[0][1]!r}"
                 )
-        if "PixelProof=4/4" not in text or "| True |" not in text:
+        if "| True |" not in text or "| 35 | 21 | PixelProof=4/4 |" not in text:
             raise SystemExit(f"ERROR: capture summary is incomplete for {target}/{locale}")
         frame_anchor = re.search(
             rf"M2B_FRAME_ANCHOR target={re.escape(target)} "
@@ -2247,9 +2247,9 @@ for locale in locales:
                 "full_frame_pixel_proofs=4/4",
                 f"frame_anchor_pixels={','.join(frame_anchor.groups())}",
                 "frame_anchor_proof=PASS",
-                "localized_texts=23/23",
-                "typography_bindings=38",
-                "keycaps=E,Q",
+                "localized_texts=21/21",
+                "typography_bindings=35",
+                "keycaps=J,K",
                 "raw_identifier_absence=PASS",
                 "capture_result=PASS",
             )

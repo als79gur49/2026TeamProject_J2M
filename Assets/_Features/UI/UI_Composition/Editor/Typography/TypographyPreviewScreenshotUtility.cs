@@ -490,7 +490,7 @@ namespace Game.Feature.UI.Composition.Editor
                 case "M2BMovementConflict":
                 case "M2BAlreadyRebinding":
                 case "M2BRebindingPrompt":
-                    return 23;
+                    return 21;
 
                 default:
                     return 0;
