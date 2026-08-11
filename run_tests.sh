@@ -2055,8 +2055,8 @@ if actual_output_directory not in {
 expected_entries = {
     "Settings/en-US": ("Settings_en-US.png", "20", "35"),
     "Settings/ko-KR": ("Settings_ko-KR.png", "20", "35"),
-    "Pause/en-US": ("Pause_en-US.png", "6", None),
-    "Pause/ko-KR": ("Pause_ko-KR.png", "6", None),
+    "Pause/en-US": ("Pause_en-US.png", "5", None),
+    "Pause/ko-KR": ("Pause_ko-KR.png", "5", None),
     "MainMenu/en-US": ("MainMenu_en-US.png", "3", None),
     "MainMenu/ko-KR": ("MainMenu_ko-KR.png", "3", None),
 }
