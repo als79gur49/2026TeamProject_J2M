@@ -3,58 +3,17 @@ using System.Collections.Generic;
 
 namespace Game.Feature.Stages
 {
-    public sealed class MinimalStageCompletionResult
-    {
-        public MinimalStageCompletionResult(
-            StageId stageId,
-            StageRunId stageRunId,
-            StageCompletionAttemptId attemptId,
-            StageTerminalReason terminalReason,
-            bool wasCleared,
-            int finalTickIndex,
-            StageObjectiveProgressSnapshot objectiveSnapshot,
-            StageClearSource clearSource)
-        {
-            StageId = stageId;
-            StageRunId = stageRunId;
-            AttemptId = attemptId;
-            TerminalReason = terminalReason;
-            WasCleared = wasCleared;
-            FinalTickIndex = finalTickIndex;
-            ObjectiveSnapshot = objectiveSnapshot;
-            ClearSource = clearSource;
-        }
-
-        public StageId StageId { get; }
-
-        public StageRunId StageRunId { get; }
-
-        public StageCompletionAttemptId AttemptId { get; }
-
-        public StageTerminalReason TerminalReason { get; }
-
-        public bool WasCleared { get; }
-
-        public int FinalTickIndex { get; }
-
-        public StageObjectiveProgressSnapshot ObjectiveSnapshot { get; }
-
-        public StageClearSource ClearSource { get; }
-    }
-
     public sealed class MinimalStageCompletionReadModel
     {
         public MinimalStageCompletionReadModel(
             StageId stageId,
-            string displayNameKey,
-            MinimalStageCompletionResult result,
+            int finalTickIndex,
             StageNavigationRequest continueRequest,
             StageNavigationRequest retryRequest,
             StageNavigationRequest nextStageRequest)
         {
             StageId = stageId;
-            DisplayNameKey = StageDisplayNameKeys.Normalize(displayNameKey);
-            Result = result ?? throw new ArgumentNullException(nameof(result));
+            FinalTickIndex = finalTickIndex;
             ContinueRequest = continueRequest;
             RetryRequest = retryRequest;
             NextStageRequest = nextStageRequest;
@@ -62,9 +21,7 @@ namespace Game.Feature.Stages
 
         public StageId StageId { get; }
 
-        public string DisplayNameKey { get; }
-
-        public MinimalStageCompletionResult Result { get; }
+        public int FinalTickIndex { get; }
 
         public StageNavigationRequest ContinueRequest { get; }
 
@@ -75,12 +32,10 @@ namespace Game.Feature.Stages
 
     public static class MinimalStageCompletionReadModelBuilder
     {
-        private static readonly Lazy<CampaignStageSequenceResolver> CanonicalCampaignResolver =
-            new(() => new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
-
         public static MinimalStageCompletionReadModel Build(
             StageContentEntry entry,
-            StageClearResult clearResult)
+            StageClearResult clearResult,
+            CampaignStageSequenceResolver sequenceResolver = null)
         {
             if (clearResult == null)
             {
@@ -90,26 +45,21 @@ namespace Game.Feature.Stages
             var stageId = clearResult.StageId.IsValid
                 ? clearResult.StageId
                 : entry != null ? entry.StageId : StageId.None;
-            var presentation = entry != null
-                ? StagePresentationAssembler.Resolve(entry.PresentationDefinition)
-                : StagePresentationAssembler.EmptyResolvedData;
-            var result = new MinimalStageCompletionResult(
-                stageId,
-                clearResult.StageRunId,
-                StageCompletionAttemptId.New(),
-                clearResult.EndReason,
-                clearResult.WasCleared,
-                clearResult.FinalTickIndex,
-                clearResult.FinalObjectiveProgress,
-                clearResult.ClearSource);
-            var nextStageRequest = ResolveNextStageRequest(stageId);
+            if (entry != null)
+            {
+                var presentation = StagePresentationAssembler.Resolve(entry.PresentationDefinition);
+                StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey);
+            }
+
+            var nextStageRequest = ResolveNextStageRequest(stageId, sequenceResolver);
             var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
             if (nextStageRequest.IsValid)
             {
                 nextStageRequest =
                     nextStageRequest
                         .WithTransitionIntent(SceneTransitionIntent.StageAdvance)
-                        .WithEditorDirectPlayContext(directPlayContext);
+                        .WithEditorDirectPlayContext(
+                            directPlayContext.ForStage(nextStageRequest.StageId));
             }
 
             var continueRequest = nextStageRequest.IsValid
@@ -131,10 +81,7 @@ namespace Game.Feature.Stages
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                entry != null
-                    ? StageDisplayNameKeys.RequireForStage(stageId, presentation.DisplayNameKey)
-                    : StageDisplayNameKeys.ForStage(stageId),
-                result,
+                clearResult.FinalTickIndex,
                 continueRequest,
                 retryRequest,
                 nextStageRequest.IsValid
@@ -142,18 +89,14 @@ namespace Game.Feature.Stages
                     : StageNavigationRequest.None);
         }
 
-        private static StageNavigationRequest ResolveNextStageRequest(StageId stageId)
+        private static StageNavigationRequest ResolveNextStageRequest(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver)
         {
-            if (CampaignStageResultNavigationStore.TryGet(stageId, out var campaignNavigationPlan))
-            {
-                CampaignStageResultNavigationStore.Clear();
-                return campaignNavigationPlan.NextStageRequest;
-            }
-
-            var resolver = CanonicalCampaignResolver.Value;
-            if (!resolver.Contains(stageId) ||
-                resolver.IsFinal(stageId) ||
-                !resolver.TryGetNext(stageId, out var nextStageId))
+            if (sequenceResolver == null ||
+                !sequenceResolver.Contains(stageId) ||
+                sequenceResolver.IsFinal(stageId) ||
+                !sequenceResolver.TryGetNext(stageId, out var nextStageId))
             {
                 return StageNavigationRequest.None;
             }

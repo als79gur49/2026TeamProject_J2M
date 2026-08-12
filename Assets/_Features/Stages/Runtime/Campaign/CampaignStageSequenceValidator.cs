@@ -5,152 +5,365 @@ namespace Game.Feature.Stages
 {
     public sealed class CampaignStageSequenceValidator
     {
-        public StageValidationReport Validate(
+        /// <summary>
+        /// Long-lived production contract. This validation intentionally derives validity from the
+        /// authored sequence asset and production catalog, never from the legacy canonical arrays.
+        /// </summary>
+        public StageValidationReport ValidateAuthoritativeAsset(
             CampaignStageSequenceDefinition definition,
-            IEnumerable<StageContentEntry> catalogEntries = null,
+            IEnumerable<StageContentEntry> catalogEntries,
+            StageIdAliasTable aliasTable,
             StageValidationTiming timing = StageValidationTiming.EditorAuthoring)
+        {
+            return ValidateAuthoritativeAssetCore(
+                definition,
+                catalogEntries,
+                aliasTable,
+                timing,
+                requireAliasTable: true);
+        }
+
+        private static StageValidationReport ValidateAuthoritativeAssetCore(
+            CampaignStageSequenceDefinition definition,
+            IEnumerable<StageContentEntry> catalogEntries,
+            StageIdAliasTable aliasTable,
+            StageValidationTiming timing,
+            bool requireAliasTable)
         {
             var report = new StageValidationReport();
             if (definition == null)
             {
                 report.Add(
                     StageValidationSeverity.Error,
-                    "campaign-sequence.missing",
-                    "Campaign stage sequence definition is missing.",
+                    "campaign-sequence.authoritative.source-null",
+                    "Authoritative campaign stage sequence definition is missing.",
                     timing: timing);
                 return report;
             }
 
-            ValidateEntries(definition, report, timing);
-            ValidateCatalogMembership(definition, catalogEntries, report, timing);
-            return report;
-        }
-
-        private static void ValidateEntries(
-            CampaignStageSequenceDefinition definition,
-            StageValidationReport report,
-            StageValidationTiming timing)
-        {
             var entries = definition.Entries;
-            if (entries.Count != CampaignStageSequenceDefinition.CanonicalStageIdValues.Length)
+            if (entries == null || entries.Count == 0)
             {
                 report.Add(
                     StageValidationSeverity.Error,
-                    "campaign-sequence.count",
-                    $"Campaign stage sequence must contain exactly {CampaignStageSequenceDefinition.CanonicalStageIdValues.Length} canonical stages.",
+                    "campaign-sequence.authoritative.entries-empty",
+                    "Authoritative campaign stage sequence must contain at least one entry.",
+                    definition,
+                    timing: timing);
+            }
+
+            var catalogEntriesByStageId = BuildCatalogLookup(catalogEntries, report, definition, timing);
+            if (requireAliasTable && aliasTable == null)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.alias-table-null",
+                    "Authoritative campaign sequence validation requires the production StageIdAliasTable.",
                     definition,
                     timing: timing);
             }
 
             var seenStageIds = new HashSet<StageId>();
-            var count = Math.Min(entries.Count, CampaignStageSequenceDefinition.CanonicalStageIdValues.Length);
+            var seenLevelGroups = new HashSet<string>(StringComparer.Ordinal);
+            var previousLevelGroupId = string.Empty;
+
             for (var i = 0; i < entries.Count; i++)
-            {
-                var entry = entries[i];
-                if (entry == null || !entry.StageId.IsValid)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "campaign-sequence.stage-id.invalid",
-                        $"Campaign stage sequence entry at index {i} has an invalid stage id.",
-                        definition,
-                        timing: timing);
-                    continue;
-                }
-
-                if (!seenStageIds.Add(entry.StageId))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "campaign-sequence.stage-id.duplicate",
-                        $"Campaign stage sequence contains duplicate stage id '{entry.StageId.Value}'.",
-                        definition,
-                        timing: timing);
-                }
-            }
-
-            for (var i = 0; i < count; i++)
             {
                 var entry = entries[i];
                 if (entry == null)
                 {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "campaign-sequence.authoritative.entry-null",
+                        $"Authoritative campaign stage sequence entry at index {i} is null.",
+                        definition,
+                        timing: timing);
                     continue;
                 }
 
-                var expectedStageId = CampaignStageSequenceDefinition.CanonicalStageIdValues[i];
-                var expectedDisplayName = CampaignStageSequenceDefinition.CanonicalDisplayNames[i];
-                var expectedLevelGroup = CampaignStageSequenceDefinition.CanonicalLevelGroupIds[i];
-
-                if (!string.Equals(entry.StageId.Value, expectedStageId, StringComparison.Ordinal))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "campaign-sequence.stage-id.order",
-                        $"Campaign stage sequence entry {i} must be '{expectedStageId}', but was '{entry.StageId.Value}'.",
-                        definition,
-                        timing: timing);
-                }
-
-                if (!string.Equals(entry.DisplayName, expectedDisplayName, StringComparison.Ordinal))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "campaign-sequence.display-name",
-                        $"Campaign stage '{entry.StageId.Value}' must display as '{expectedDisplayName}', but was '{entry.DisplayName}'.",
-                        definition,
-                        timing: timing);
-                }
-
-                if (!string.Equals(entry.LevelGroupId, expectedLevelGroup, StringComparison.Ordinal))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "campaign-sequence.level-group",
-                        $"Campaign stage '{entry.StageId.Value}' must belong to level group '{expectedLevelGroup}', but was '{entry.LevelGroupId}'.",
-                        definition,
-                        timing: timing);
-                }
+                ValidateStageId(
+                    entry,
+                    i,
+                    definition,
+                    aliasTable,
+                    catalogEntriesByStageId,
+                    seenStageIds,
+                    report,
+                    timing);
+                ValidateLevelGroup(
+                    entry,
+                    i,
+                    definition,
+                    seenLevelGroups,
+                    ref previousLevelGroupId,
+                    report,
+                    timing);
             }
+
+            ValidateCatalogEligibilityCoverage(
+                catalogEntriesByStageId,
+                seenStageIds,
+                definition,
+                report,
+                timing);
+            return report;
         }
 
-        private static void ValidateCatalogMembership(
-            CampaignStageSequenceDefinition definition,
+        private static Dictionary<StageId, List<StageContentEntry>> BuildCatalogLookup(
             IEnumerable<StageContentEntry> catalogEntries,
             StageValidationReport report,
+            CampaignStageSequenceDefinition definition,
             StageValidationTiming timing)
         {
+            var result = new Dictionary<StageId, List<StageContentEntry>>();
             if (catalogEntries == null)
             {
-                return;
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.catalog-null",
+                    "Authoritative campaign sequence validation requires the production StageCatalog entries.",
+                    definition,
+                    timing: timing);
+                return result;
             }
 
-            var catalogStageIds = new HashSet<StageId>();
-            foreach (var entry in catalogEntries)
+            foreach (var catalogEntry in catalogEntries)
             {
-                if (entry != null && entry.StageId.IsValid)
-                {
-                    catalogStageIds.Add(entry.StageId);
-                }
-            }
-
-            foreach (var sequenceEntry in definition.Entries)
-            {
-                if (sequenceEntry == null || !sequenceEntry.StageId.IsValid)
+                if (catalogEntry == null || !catalogEntry.StageId.IsValid)
                 {
                     continue;
                 }
 
-                if (catalogStageIds.Contains(sequenceEntry.StageId))
+                if (!result.TryGetValue(catalogEntry.StageId, out var matches))
+                {
+                    matches = new List<StageContentEntry>();
+                    result.Add(catalogEntry.StageId, matches);
+                }
+
+                matches.Add(catalogEntry);
+            }
+
+            foreach (var pair in result)
+            {
+                if (pair.Value.Count <= 1)
                 {
                     continue;
                 }
 
                 report.Add(
                     StageValidationSeverity.Error,
-                    "campaign-sequence.catalog-missing",
-                    $"Campaign stage sequence references '{sequenceEntry.StageId.Value}', but the stage catalog does not contain that stage.",
+                    "campaign-sequence.authoritative.catalog-duplicate",
+                    $"Production StageCatalog contains {pair.Value.Count} entries for StageId '{pair.Key.Value}'; exactly one is required.",
                     definition,
                     timing: timing);
+            }
+
+            return result;
+        }
+
+        private static void ValidateStageId(
+            CampaignStageSequenceEntry entry,
+            int index,
+            CampaignStageSequenceDefinition definition,
+            StageIdAliasTable aliasTable,
+            IReadOnlyDictionary<StageId, List<StageContentEntry>> catalogEntriesByStageId,
+            ISet<StageId> seenStageIds,
+            StageValidationReport report,
+            StageValidationTiming timing)
+        {
+            if (!entry.StageId.IsValid ||
+                !StageId.TryCreate(entry.StageId.Value, out var parsedStageId) ||
+                !parsedStageId.Equals(entry.StageId))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.stage-id-invalid",
+                    $"Authoritative campaign sequence entry at index {index} has an empty or non-canonical StageId.",
+                    definition,
+                    timing: timing);
+                return;
+            }
+
+            if (!seenStageIds.Add(entry.StageId))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.stage-id-duplicate",
+                    $"Authoritative campaign sequence contains duplicate StageId '{entry.StageId.Value}'.",
+                    definition,
+                    timing: timing);
+            }
+
+            if (aliasTable != null)
+            {
+                var canonicalizedAlias = aliasTable.Resolve(entry.StageId.Value);
+                if (canonicalizedAlias.IsValid)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "campaign-sequence.authoritative.stage-id-alias",
+                        $"Authoritative campaign sequence uses deprecated alias source StageId '{entry.StageId.Value}' instead of canonical StageId '{canonicalizedAlias.Value}'.",
+                        definition,
+                        timing: timing);
+                }
+            }
+
+            if (!catalogEntriesByStageId.TryGetValue(entry.StageId, out var matches) || matches.Count == 0)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.catalog-missing",
+                    $"Authoritative campaign sequence StageId '{entry.StageId.Value}' does not resolve to a production StageCatalog entry.",
+                    definition,
+                    timing: timing);
+                return;
+            }
+
+            if (matches.Count != 1)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.catalog-duplicate",
+                    $"Authoritative campaign sequence StageId '{entry.StageId.Value}' resolves to {matches.Count} production StageCatalog entries; exactly one is required.",
+                    definition,
+                    timing: timing);
+                return;
+            }
+
+            if (matches[0].GameplayDefinition == null)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.catalog-loading-identity-incomplete",
+                    $"Production StageCatalog entry '{entry.StageId.Value}' has no gameplay definition required for stage loading.",
+                    matches[0],
+                    timing: timing);
+            }
+        }
+
+        private static void ValidateLevelGroup(
+            CampaignStageSequenceEntry entry,
+            int index,
+            CampaignStageSequenceDefinition definition,
+            ISet<string> seenLevelGroups,
+            ref string previousLevelGroupId,
+            StageValidationReport report,
+            StageValidationTiming timing)
+        {
+            var levelGroupId = entry.LevelGroupId;
+            if (string.IsNullOrWhiteSpace(levelGroupId))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.level-group-empty",
+                    $"Authoritative campaign sequence entry at index {index} must define a level group for retry/checkpoint progression.",
+                    definition,
+                    timing: timing);
+                return;
+            }
+
+            if (!StageIdNormalizer.IsCanonical(levelGroupId))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.level-group-invalid",
+                    $"Authoritative campaign sequence entry '{entry.StageId.Value}' has non-canonical level group '{levelGroupId}'.",
+                    definition,
+                    timing: timing);
+                return;
+            }
+
+            if (string.Equals(previousLevelGroupId, levelGroupId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (seenLevelGroups.Contains(levelGroupId))
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "campaign-sequence.authoritative.level-group-noncontiguous",
+                    $"Authoritative campaign sequence level group '{levelGroupId}' reappears after another group. Retry/checkpoint groups must be contiguous.",
+                    definition,
+                    timing: timing);
+            }
+            else
+            {
+                seenLevelGroups.Add(levelGroupId);
+            }
+
+            previousLevelGroupId = levelGroupId;
+        }
+
+        private static void ValidateCatalogEligibilityCoverage(
+            IReadOnlyDictionary<StageId, List<StageContentEntry>> catalogEntriesByStageId,
+            ISet<StageId> sequencedStageIds,
+            CampaignStageSequenceDefinition definition,
+            StageValidationReport report,
+            StageValidationTiming timing)
+        {
+            foreach (var pair in catalogEntriesByStageId)
+            {
+                for (var i = 0; i < pair.Value.Count; i++)
+                {
+                    var catalogEntry = pair.Value[i];
+                    var isSequenced = sequencedStageIds.Contains(pair.Key);
+                    switch (catalogEntry.CampaignParticipation)
+                    {
+                        case CampaignParticipation.Campaign:
+                            if (catalogEntry.CatalogOnlyReason != CatalogOnlyReason.None)
+                            {
+                                report.Add(
+                                    StageValidationSeverity.Error,
+                                    "campaign-sequence.authoritative.campaign-entry-has-catalog-only-reason",
+                                    $"Campaign-eligible catalog entry '{pair.Key.Value}' must not define a CatalogOnly reason.",
+                                    catalogEntry,
+                                    timing: timing);
+                            }
+
+                            if (!isSequenced)
+                            {
+                                report.Add(
+                                    StageValidationSeverity.Error,
+                                    "campaign-sequence.authoritative.eligible-catalog-entry-unsequenced",
+                                    $"Campaign-eligible catalog entry '{pair.Key.Value}' is missing from the authoritative campaign sequence.",
+                                    catalogEntry,
+                                    timing: timing);
+                            }
+
+                            break;
+                        case CampaignParticipation.CatalogOnly:
+                            if (catalogEntry.CatalogOnlyReason == CatalogOnlyReason.None)
+                            {
+                                report.Add(
+                                    StageValidationSeverity.Error,
+                                    "campaign-sequence.authoritative.catalog-only-reason-missing",
+                                    $"CatalogOnly entry '{pair.Key.Value}' must define an explicit exclusion reason.",
+                                    catalogEntry,
+                                    timing: timing);
+                            }
+
+                            if (isSequenced)
+                            {
+                                report.Add(
+                                    StageValidationSeverity.Error,
+                                    "campaign-sequence.authoritative.catalog-only-entry-sequenced",
+                                    $"CatalogOnly entry '{pair.Key.Value}' must not appear in the authoritative campaign sequence.",
+                                    catalogEntry,
+                                    timing: timing);
+                            }
+
+                            break;
+                        default:
+                            report.Add(
+                                StageValidationSeverity.Error,
+                                "campaign-sequence.authoritative.catalog-eligibility-unset",
+                                $"Production catalog entry '{pair.Key.Value}' must explicitly declare Campaign or CatalogOnly participation.",
+                                catalogEntry,
+                                timing: timing);
+                            break;
+                    }
+                }
             }
         }
     }

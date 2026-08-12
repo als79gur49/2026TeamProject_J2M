@@ -973,7 +973,15 @@ namespace Game.Feature.UI.Composition.Editor
                     return scope;
                 }
 
-                var sequenceDefinition = CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+                var sequenceDefinition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                    StageContentPaths.CampaignStageSequenceAssetPath);
+                if (sequenceDefinition == null)
+                {
+                    capture.AddError(
+                        $"{target.Name}: authoritative campaign sequence asset was not found at '{StageContentPaths.CampaignStageSequenceAssetPath}'.");
+                    return scope;
+                }
+
                 var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
                 var slots = CreateStageVisualSaveSlots(target.FileStem);
                 view.BindStaticLocalization(

@@ -27,11 +27,14 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             GameplayTickViewPresenter presenter,
             StageContentEntry stageContentEntry = null,
             GameplayTimingProfile timingProfile = null,
-            GameplayPresentationBarrierTracker barrierTracker = null)
+            GameplayPresentationBarrierTracker barrierTracker = null,
+            CampaignStageSequenceResolver campaignStageSequenceResolver = null)
         {
             _inputHost = inputHost ?? throw new ArgumentNullException(nameof(inputHost));
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(stageContentEntry);
+            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(
+                stageContentEntry,
+                campaignStageSequenceResolver);
             _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             _barrierTracker = barrierTracker ?? new GameplayPresentationBarrierTracker();
             CurrentState = CreateCurrentState();
@@ -161,7 +164,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             if (readModel != null)
             {
                 var terminalTickIndex = Math.Max(
-                    Math.Max(1, readModel.Result.FinalTickIndex),
+                    Math.Max(1, readModel.FinalTickIndex),
                     (_lastTickResult?.TickIndex ?? 0) + 1);
                 TerminalRuntimeTrace.Record(
                     TerminalSessionRegistry.Current,

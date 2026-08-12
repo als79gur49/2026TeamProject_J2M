@@ -3,6 +3,23 @@ using Game.Feature.Stages;
 
 namespace Game.Product.Achievements.CampaignIntegration
 {
+    internal readonly struct NormalCampaignCompletionFact
+    {
+        internal NormalCampaignCompletionFact(StageId stageId)
+        {
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException(
+                    "Normal Campaign completion requires a valid StageId.",
+                    nameof(stageId));
+            }
+
+            StageId = stageId;
+        }
+
+        internal StageId StageId { get; }
+    }
+
     public enum NormalCampaignCompletionAchievementResult
     {
         NotAttempted = 0,
@@ -21,9 +38,7 @@ namespace Game.Product.Achievements.CampaignIntegration
     internal interface INormalCampaignCompletionAchievementIntegration
     {
         NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
-            EditorDirectPlayContext directPlayContext,
-            MinimalStageCompletionResult completionResult,
-            StageId completedStageId,
+            NormalCampaignCompletionFact completion,
             CampaignStageSequenceResolver sequenceResolver,
             SaveSlotData committedSlot);
     }
@@ -40,20 +55,24 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
-            EditorDirectPlayContext directPlayContext,
-            MinimalStageCompletionResult completionResult,
-            StageId completedStageId,
+            NormalCampaignCompletionFact completion,
             CampaignStageSequenceResolver sequenceResolver,
             SaveSlotData committedSlot)
         {
-            var currentEligibility = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                directPlayContext,
-                completionResult,
-                completedStageId,
-                sequenceResolver);
-            if (!currentEligibility.IsEligible)
+            if (sequenceResolver == null ||
+                !sequenceResolver.Contains(completion.StageId) ||
+                !sequenceResolver.IsFinal(completion.StageId))
             {
                 return NormalCampaignCompletionAchievementResult.NotAttempted;
+            }
+
+            if (committedSlot?.NormalCampaignCompletionReceipt == null ||
+                !StageId.TryCreate(
+                    committedSlot.NormalCampaignCompletionReceipt.CompletedStageId,
+                    out var receiptStageId) ||
+                !receiptStageId.Equals(completion.StageId))
+            {
+                return NormalCampaignCompletionAchievementResult.InvalidReceipt;
             }
 
             return TryEarnFromPersistedReceipt(committedSlot, sequenceResolver);
@@ -122,9 +141,7 @@ namespace Game.Product.Achievements.CampaignIntegration
         }
 
         public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
-            EditorDirectPlayContext directPlayContext,
-            MinimalStageCompletionResult completionResult,
-            StageId completedStageId,
+            NormalCampaignCompletionFact completion,
             CampaignStageSequenceResolver sequenceResolver,
             SaveSlotData committedSlot)
         {

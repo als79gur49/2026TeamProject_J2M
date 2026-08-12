@@ -30,7 +30,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void MainMenuSlotViewModelMapper_MapsEmptyExistingAndCompletedSlots()
         {
-            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var slots = new[]
             {
                 SaveSlotData.CreateEmpty(1),
@@ -83,7 +83,7 @@ namespace Game.Feature.UI.Tests
             var controller = new MainMenuController(
                 repairingStore,
                 launchHandoffStore,
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                CampaignStageSequenceTestAsset.LoadProductionResolver(),
                 new FakeStageLaunchRouter(),
                 confirmPort);
             saveStore.ClearAll();

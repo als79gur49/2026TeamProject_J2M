@@ -189,6 +189,7 @@ namespace Game.Feature.Gameplay.Host
         public ISceneEntryPresentationReadModel SceneEntryPresentationReadModel = SceneEntryPresentationRegistry.ReadModel;
         public GameplayPresentationAudioConfig GameplayPresentationAudioConfig;
         public ICampaignChancesReadSource CampaignChancesReadSource;
+        public CampaignStageSequenceResolver CampaignStageSequenceResolver;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public GameplayEntityView PlayerViewPrefab;
         public Camera ViewCamera;

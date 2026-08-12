@@ -63,24 +63,17 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void ReadSource_UsesCurrentPresentationStageAndCopiesCanonicalSequence()
         {
-            var definition = CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            var definition = CampaignStageSequenceTestAsset.LoadProductionDefinition();
             var presentationSource = new ManualGameplayUiPresentationSource();
             presentationSource.PublishSnapshot(CreateSnapshotForStage(StageId.CreateOrThrow("stage-3-1")));
             var source = new CampaignPauseProgressionReadSource(
                 new CampaignStageSequenceResolver(definition),
                 presentationSource);
 
-            try
-            {
-                Assert.That(source.TryRead(out var snapshot), Is.True);
-                Assert.That(snapshot.IsAvailable, Is.True);
-                Assert.That(snapshot.Stages, Has.Count.EqualTo(13));
-                Assert.That(snapshot.CurrentStageKey, Is.EqualTo("stage-3-1"));
-            }
-            finally
-            {
-                Object.DestroyImmediate(definition);
-            }
+            Assert.That(source.TryRead(out var snapshot), Is.True);
+            Assert.That(snapshot.IsAvailable, Is.True);
+            Assert.That(snapshot.Stages, Has.Count.EqualTo(definition.Entries.Count));
+            Assert.That(snapshot.CurrentStageKey, Is.EqualTo("stage-3-1"));
         }
 
         [Test]
@@ -221,13 +214,13 @@ namespace Game.Feature.UI.Tests
 
         private static PauseProgressionSnapshot CreateCanonicalSnapshot(string currentStageKey)
         {
-            var stages = new PauseProgressionStageSnapshot[
-                CampaignStageSequenceDefinition.CanonicalStageIdValues.Length];
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
+            var stages = new PauseProgressionStageSnapshot[resolver.Entries.Count];
             for (var i = 0; i < stages.Length; i++)
             {
                 stages[i] = new PauseProgressionStageSnapshot(
-                    CampaignStageSequenceDefinition.CanonicalStageIdValues[i],
-                    CampaignStageSequenceDefinition.CanonicalLevelGroupIds[i]);
+                    resolver.Entries[i].StageId.Value,
+                    resolver.Entries[i].LevelGroupId);
             }
 
             return new PauseProgressionSnapshot(true, stages, currentStageKey);

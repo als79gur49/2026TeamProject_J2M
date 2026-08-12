@@ -206,7 +206,8 @@ namespace Game.Feature.Stages
             {
                 return new StageAuthoringNormalizedPresentationSnapshot(
                     Array.Empty<StageAuthoringNormalizedPresentationBinding>(),
-                    Array.Empty<StageAuthoringNormalizedPresentationBinding>());
+                    Array.Empty<StageAuthoringNormalizedPresentationBinding>(),
+                    Array.Empty<StageAuthoringNormalizedTileFeaturePresentationSelection>());
             }
 
             allocationPlan ??= BuildAllocationPlan(source);
@@ -241,7 +242,10 @@ namespace Game.Feature.Stages
                 }
             }
 
-            return new StageAuthoringNormalizedPresentationSnapshot(SortBindings(enemy), SortBindings(statics));
+            return new StageAuthoringNormalizedPresentationSnapshot(
+                SortBindings(enemy),
+                SortBindings(statics),
+                ProjectTileFeaturePresentationSelections(source.TileFeaturePresentationSelections));
         }
 
         public static StageAuthoringNormalizedPresentationSnapshot ProjectActualPresentation(
@@ -254,7 +258,35 @@ namespace Game.Feature.Stages
 
             return new StageAuthoringNormalizedPresentationSnapshot(
                 ProjectEnemyBindings(presentation.EnemyPresentationBindings),
-                ProjectStaticBindings(presentation.StaticEntityPresentationBindings));
+                ProjectStaticBindings(presentation.StaticEntityPresentationBindings),
+                ProjectTileFeaturePresentationSelections(presentation.TileFeaturePresentationBindings));
+        }
+
+        private static StageAuthoringNormalizedTileFeaturePresentationSelection[] ProjectTileFeaturePresentationSelections(
+            IReadOnlyList<TileFeaturePresentationBinding> selections)
+        {
+            if (selections == null || selections.Count == 0)
+            {
+                return Array.Empty<StageAuthoringNormalizedTileFeaturePresentationSelection>();
+            }
+
+            var normalized = new List<StageAuthoringNormalizedTileFeaturePresentationSelection>(selections.Count);
+            for (var i = 0; i < selections.Count; i++)
+            {
+                var selection = selections[i];
+                if (selection == null)
+                {
+                    continue;
+                }
+
+                normalized.Add(new StageAuthoringNormalizedTileFeaturePresentationSelection(
+                    selection.TileId,
+                    Normalize(selection.PresentationKey),
+                    selection.VisualPrefab));
+            }
+
+            normalized.Sort((left, right) => left.TileId.CompareTo(right.TileId));
+            return normalized.ToArray();
         }
 
         public static string Normalize(string value)
@@ -339,8 +371,7 @@ namespace Game.Feature.Stages
                     tileFeature.ActivationRule,
                     tileFeature.Direction,
                     tileFeature.BoxSelector,
-                    tileFeature.BoundEntityId,
-                    Normalize(tileFeature.PresentationKey)));
+                    tileFeature.BoundEntityId));
             }
 
             normalized.Sort((left, right) => left.TileId.CompareTo(right.TileId));
@@ -354,9 +385,7 @@ namespace Game.Feature.Stages
             {
                 return new StageAuthoringNormalizedObjective(
                     objective.CompletionPolicy,
-                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>(),
-                    Normalize(objective.ObjectiveTitle),
-                    Normalize(objective.ObjectiveSummary));
+                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>());
             }
 
             var conditions = new StageAuthoringNormalizedObjectiveCondition[entries.Length];
@@ -373,9 +402,7 @@ namespace Game.Feature.Stages
 
             return new StageAuthoringNormalizedObjective(
                 objective.CompletionPolicy,
-                conditions,
-                Normalize(objective.ObjectiveTitle),
-                Normalize(objective.ObjectiveSummary));
+                conditions);
         }
 
         private static StageAuthoringNormalizedPresentationBinding[] ProjectEnemyBindings(IReadOnlyList<EnemyPresentationBinding> bindings)

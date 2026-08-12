@@ -606,9 +606,13 @@ namespace Game.Feature.Stages.Editor
         {
             var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
                 StageContentPaths.CampaignStageSequenceAssetPath);
-            return definition != null
-                ? definition
-                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
+            if (definition == null)
+            {
+                throw new InvalidOperationException(
+                    $"Campaign Direct Play requires the authoritative campaign sequence asset at '{StageContentPaths.CampaignStageSequenceAssetPath}'.");
+            }
+
+            return definition;
         }
     }
 }

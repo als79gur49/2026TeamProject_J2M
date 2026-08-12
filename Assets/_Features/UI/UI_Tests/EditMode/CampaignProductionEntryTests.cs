@@ -88,7 +88,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(
                     installer,
                     "_campaignStageSequenceDefinition",
-                    CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+                    LoadProductionCampaignSequence());
                 installer.Install();
 
                 var policy = SceneTransitionRoutePolicyCatalog.ResolveProduction(
@@ -158,12 +158,26 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
-                SetPrivateField(installer, "_campaignStageSequenceDefinition", CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+                SetPrivateField(installer, "_campaignStageSequenceDefinition", LoadProductionCampaignSequence());
 
                 installer.Install();
 
                 Assert.That(installer.Controller, Is.Not.Null);
                 Assert.That(installer.HubController, Is.Not.Null);
+                var compositionResolver = GetPrivateField<CampaignStageSequenceResolver>(
+                    installer,
+                    "_campaignStageSequenceResolver");
+                var controllerResolver = GetPrivateField<CampaignStageSequenceResolver>(
+                    installer.Controller,
+                    "_sequenceResolver");
+                var validationService = GetPrivateField<SaveSlotValidationService>(
+                    installer.Controller,
+                    "_saveSlotValidationService");
+                var validationResolver = GetPrivateField<CampaignStageSequenceResolver>(
+                    validationService,
+                    "_sequenceResolver");
+                Assert.That(controllerResolver, Is.SameAs(compositionResolver));
+                Assert.That(validationResolver, Is.SameAs(compositionResolver));
                 UiTestPrefabAssetUtility.AssertOverlayCanvasScaling(root);
                 Assert.That(installer.MainMenuScreenView, Is.Not.Null);
                 Assert.That(installer.MainMenuScreenView.SaveSlotPanel, Is.Not.Null);
@@ -200,7 +214,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(installer, "_uiAudioCueMap", uiAudioCueMap);
                 SetPrivateField(installer, "_routeConfig", routeConfig);
                 SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
-                SetPrivateField(installer, "_campaignStageSequenceDefinition", CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+                SetPrivateField(installer, "_campaignStageSequenceDefinition", LoadProductionCampaignSequence());
 
                 installer.Install();
                 var popupLayer = GetPrivateField<PopupLayerView>(installer, "_popupLayerView");
@@ -331,6 +345,73 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 harness.Dispose();
+            }
+        }
+
+        [Test]
+        public void MainMenu_NewGameAndContinue_UseInjectedDivergentSequence()
+        {
+            var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            var provider = CreateProvider("fixture-a", "fixture-c", "fixture-b");
+            var saveKey = CreatePrefsKey("divergent-menu-saves");
+            var activeKey = CreatePrefsKey("divergent-menu-active");
+            var saveStore = new SaveSlotStore(saveKey);
+            var activeStorage = new PlayerPrefsActiveSlotStorage(activeKey);
+            var handoffStore = new RecordingCampaignLaunchHandoffStore();
+            try
+            {
+                definition.SetEntries(new[]
+                {
+                    CreateCampaignSequenceEntry("fixture-a", "group-a"),
+                    CreateCampaignSequenceEntry("fixture-c", "group-b"),
+                    CreateCampaignSequenceEntry("fixture-b", "group-b"),
+                });
+                var resolver = new CampaignStageSequenceResolver(definition);
+                var router = new FakeStageLaunchRouter();
+                using var controller = new MainMenuController(
+                    new CampaignLaunchStateRepairingCampaignSaveSlotStore(
+                        saveStore,
+                        activeStorage,
+                        handoffStore),
+                    handoffStore,
+                    resolver,
+                    router,
+                    new FakeConfirmPopupPort(),
+                    new SaveSlotValidationService(resolver, provider.Provider));
+                saveStore.ClearAll();
+
+                controller.HandleIntent(new SaveSlotIntent(1, SaveSlotIntentKind.NewGame));
+
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-a")));
+                Assert.That(saveStore.LoadSlot(1).CurrentLevelGroupId, Is.EqualTo("group-a"));
+                Assert.That(router.Requests[0].StageId, Is.EqualTo(StageId.CreateOrThrow("fixture-a")));
+                Assert.That(handoffStore.TryPeek(out var newGameHandoff), Is.True);
+                Assert.That(handoffStore.TryClear(newGameHandoff.Token), Is.True);
+
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 2,
+                    CurrentStageId = StageId.CreateOrThrow("fixture-c"),
+                    CurrentLevelGroupId = "stale-group",
+                    RemainingChances = 2,
+                });
+                controller.Continue(2);
+
+                Assert.That(saveStore.LoadSlot(2).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
+                Assert.That(saveStore.LoadSlot(2).CurrentLevelGroupId, Is.EqualTo("group-b"));
+                Assert.That(router.Requests[1].StageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                activeStorage.ClearActiveSlot();
+                if (handoffStore.TryPeek(out var handoff))
+                {
+                    handoffStore.TryClear(handoff.Token);
+                }
+
+                provider.Dispose();
+                UnityEngine.Object.DestroyImmediate(definition);
             }
         }
 
@@ -883,7 +964,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(options.PathProvider, Is.TypeOf<ApplicationPersistentDataSavePathProvider>());
             Assert.That(options.PathProvider.SaveRootPath, Is.EqualTo(expectedRoot));
 
-            var profileServices = CampaignSaveServiceFactory.CreateForTests(
+            var profileServices = CampaignSaveServiceFactory.Create(
                 new CampaignSaveServiceFactoryOptions
                 {
                     PathProvider = options.PathProvider,
@@ -994,13 +1075,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CompletedSlotDisplay_UsesStageLocalizationTable_NotSequenceRawDisplay()
+        public void CompletedSlotDisplay_UsesStageLocalizationTableWithoutSequenceDisplayField()
         {
             var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
             try
             {
                 var entry = new CampaignStageSequenceEntry();
-                entry.Set(StageId.CreateOrThrow("stage-4-2"), "DO NOT USE", "level-4");
+                entry.Set(StageId.CreateOrThrow("stage-4-2"), "level-4");
                 definition.SetEntries(new[] { entry });
                 var resolver = new CampaignStageSequenceResolver(definition);
                 var viewModel = MainMenuSlotViewModelMapper.MapSlot(
@@ -1045,6 +1126,67 @@ namespace Game.Feature.UI.Tests
             var source = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
             Assert.That(source, Does.Not.Contain("CurrentSceneStageLaunchRouter"));
             Assert.That(source, Does.Contain("ConfiguredGameplayStageLaunchRouter"));
+        }
+
+        [Test]
+        public void MainMenuComposition_MissingCampaignSequence_FailsBeforeUiBootstrap()
+        {
+            var root = new GameObject("main-menu-missing-campaign-sequence");
+            var provider = CreateProvider("fixture-a");
+            var routeConfig = ScriptableObject.CreateInstance<GameplayStageLaunchRouteConfig>();
+            try
+            {
+                routeConfig.SetScenePathsForTests(MainMenuScenePath, GameplayShellScenePath);
+                var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                SetPrivateField(installer, "_installOnStart", false);
+                SetPrivateField(installer, "_routeConfig", routeConfig);
+                SetPrivateField(installer, "_stageCatalogProvider", provider.Provider);
+
+                var exception = Assert.Throws<InvalidOperationException>(() => installer.Install());
+
+                Assert.That(exception.Message, Does.Contain("MainMenuUiFlowInstaller"));
+                Assert.That(exception.Message, Does.Contain("authoritative serialized CampaignStageSequenceDefinition"));
+                Assert.That(installer.Controller, Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(routeConfig);
+                provider.Dispose();
+            }
+        }
+
+        [Test]
+        public void MainMenuSequenceProvider_BeforeStart_LazilyCreatesOneSerializedResolver()
+        {
+            var root = new GameObject("main-menu-sequence-provider-before-start");
+            var definition = LoadProductionCampaignSequence();
+            try
+            {
+                var installer = root.AddComponent<MainMenuUiFlowInstaller>();
+                SetPrivateField(installer, "_installOnStart", false);
+                SetPrivateField(installer, "_campaignStageSequenceDefinition", definition);
+                var provider = (ICampaignStageSequenceResolverProvider)installer;
+
+                Assert.That(
+                    provider.TryCreateCampaignStageSequenceResolver(out var first),
+                    Is.True);
+                Assert.That(first, Is.Not.Null);
+                Assert.That(first.Contains(first.FirstStageId), Is.True);
+                Assert.That(
+                    provider.TryCreateCampaignStageSequenceResolver(out var second),
+                    Is.True);
+                Assert.That(second, Is.SameAs(first));
+                Assert.That(
+                    GetPrivateField<CampaignStageSequenceResolver>(
+                        installer,
+                        "_campaignStageSequenceResolver"),
+                    Is.SameAs(first));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
         }
 
         [Test]
@@ -1684,7 +1826,7 @@ namespace Game.Feature.UI.Tests
                 launchHandoffStore);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();
-            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = new CampaignStageSequenceResolver(LoadProductionCampaignSequence());
             var confirmPort = new FakeConfirmPopupPort();
             var router = new FakeStageLaunchRouter();
             var validationService = new SaveSlotValidationService(resolver, provider.Provider);
@@ -1942,6 +2084,28 @@ namespace Game.Feature.UI.Tests
             providerField.SetValue(installer, provider);
         }
 
+        private static CampaignStageSequenceDefinition LoadProductionCampaignSequence()
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                StageContentPaths.CampaignStageSequenceAssetPath);
+            Assert.That(
+                definition,
+                Is.Not.Null,
+                $"Missing campaign sequence at '{StageContentPaths.CampaignStageSequenceAssetPath}'.");
+            return definition;
+        }
+
+        private static CampaignStageSequenceEntry CreateCampaignSequenceEntry(
+            string stageId,
+            string levelGroupId)
+        {
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(
+                StageId.CreateOrThrow(stageId),
+                levelGroupId);
+            return entry;
+        }
+
         private static void DisableAutoCreateViews(StageBackedGameplaySceneInstaller installer)
         {
             var autoCreateViewsField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
@@ -2000,6 +2164,12 @@ namespace Game.Feature.UI.Tests
 
         private static object BuildInitialGameplayState(StageBackedGameplaySceneInstaller installer)
         {
+            var sequenceField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
+                "campaignStageSequenceDefinition",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(sequenceField, Is.Not.Null);
+            sequenceField.SetValue(installer, LoadProductionCampaignSequence());
+
             var buildInitialStateMethod = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
                 "BuildInitialGameplayState",
                 BindingFlags.Instance | BindingFlags.NonPublic);

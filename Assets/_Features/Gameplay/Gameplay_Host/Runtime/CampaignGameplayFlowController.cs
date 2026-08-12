@@ -412,6 +412,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var runningSlotNumber = _runningSlotContext.SlotNumber;
+            var normalCompletion = TryCreateNormalCampaignCompletionFact(
+                result,
+                readModel,
+                claim,
+                completedStageId,
+                out var completionFact)
+                ? completionFact
+                : (NormalCampaignCompletionFact?)null;
             if (_sequenceResolver.IsFinal(completedStageId))
             {
                 if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
@@ -422,11 +430,6 @@ namespace Game.Feature.Gameplay.Host
                         $"Accepted terminal token {claim.Token} could not bind the GameClear destination.");
                 }
 
-                var receiptCreation = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                    _editorDirectPlayContext,
-                    readModel?.Result,
-                    completedStageId,
-                    _sequenceResolver);
                 _saveSlotStore.UpdateSlot(
                     runningSlotNumber,
                     mutableSlot =>
@@ -434,23 +437,23 @@ namespace Game.Feature.Gameplay.Host
                         mutableSlot.CurrentStageId = completedStageId;
                         mutableSlot.CurrentLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
                         mutableSlot.CampaignCompleted = true;
-                        if (receiptCreation.IsEligible &&
+                        if (normalCompletion.HasValue &&
                             !mutableSlot.HasNormalCampaignCompletionReceipt &&
                             mutableSlot.NormalCampaignCompletionReceipt == null)
                         {
                             mutableSlot.HasNormalCampaignCompletionReceipt = true;
                             mutableSlot.NormalCampaignCompletionReceipt =
-                                receiptCreation.Receipt.Clone();
+                                NormalCampaignCompletionReceiptPolicy.CreateV2(
+                                    normalCompletion.Value.StageId);
                         }
 
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                     });
-                if (receiptCreation.IsEligible)
+                if (normalCompletion.HasValue)
                 {
                     TryEarnNormalCampaignCompletionAchievement(
                         runningSlotNumber,
-                        readModel?.Result,
-                        completedStageId);
+                        normalCompletion.Value);
                 }
             }
             else
@@ -508,17 +511,14 @@ namespace Game.Feature.Gameplay.Host
 
         private void TryEarnNormalCampaignCompletionAchievement(
             int runningSlotNumber,
-            MinimalStageCompletionResult completionResult,
-            StageId completedStageId)
+            NormalCampaignCompletionFact completion)
         {
             try
             {
                 var committedSlot = _saveSlotStore.LoadSlot(runningSlotNumber);
                 _normalCampaignCompletionAchievementIntegration
                     .TryEarnAfterCommittedCompletion(
-                        _editorDirectPlayContext,
-                        completionResult,
-                        completedStageId,
+                        completion,
                         _sequenceResolver,
                         committedSlot);
             }
@@ -527,6 +527,33 @@ namespace Game.Feature.Gameplay.Host
                 // Product achievement earning is a non-critical side effect. The durable
                 // Campaign receipt remains the next startup's recovery source.
             }
+        }
+
+        private bool TryCreateNormalCampaignCompletionFact(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel,
+            TerminalClaimResult claim,
+            StageId completedStageId,
+            out NormalCampaignCompletionFact completion)
+        {
+            completion = default;
+            if (!claim.Accepted ||
+                claim.TerminalKind != TerminalTransitionKind.Victory ||
+                result == null ||
+                result.ObjectiveResult == null ||
+                !result.ObjectiveResult.ClearedThisTick ||
+                readModel == null ||
+                !readModel.StageId.Equals(completedStageId) ||
+                readModel.FinalTickIndex != result.TickIndex ||
+                _editorDirectPlayContext.Mode != EditorDirectPlayMode.None ||
+                !_sequenceResolver.Contains(completedStageId) ||
+                !_sequenceResolver.IsFinal(completedStageId))
+            {
+                return false;
+            }
+
+            completion = new NormalCampaignCompletionFact(completedStageId);
+            return true;
         }
 
         private void BeginVictoryTerminal(TerminalClaimResult claim)

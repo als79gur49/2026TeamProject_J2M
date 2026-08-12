@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Stages;
 using Game.Product.Achievements.CampaignIntegration;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Product.Achievements.Composition
 {
@@ -39,7 +40,7 @@ namespace Game.Product.Achievements.Composition
             _campaignSaveSlotStoreFactory = campaignSaveSlotStoreFactory;
             _directPlayContextProvider = directPlayContextProvider ??
                 EditorDirectPlayContextStore.GetCurrentOrNone;
-            _sequenceResolverFactory = sequenceResolverFactory ?? CreateCanonicalSequenceResolver;
+            _sequenceResolverFactory = sequenceResolverFactory;
         }
 
         public IProductAchievementEarningSink EarningSink => _host?.EarningSink;
@@ -114,9 +115,15 @@ namespace Game.Product.Achievements.Composition
                     _registeredEarningSink);
                 _startupReconciler = new NormalCampaignCompletionAchievementStartupReconciler(
                     integration);
+                var sequenceResolver = _sequenceResolverFactory?.Invoke();
+                if (sequenceResolver == null)
+                {
+                    return NormalCampaignCompletionAchievementResult.ProfileUnavailable;
+                }
+
                 return _startupReconciler.Reconcile(
                     _campaignSaveSlotStoreFactory(),
-                    _sequenceResolverFactory(),
+                    sequenceResolver,
                     directPlayContext);
             }
             catch
@@ -149,10 +156,66 @@ namespace Game.Product.Achievements.Composition
                 publicationSink);
         }
 
-        private static CampaignStageSequenceResolver CreateCanonicalSequenceResolver()
+    }
+
+    internal static class ActiveSceneCampaignStageSequenceResolverFactory
+    {
+        internal static CampaignStageSequenceResolver ResolveOrNull()
         {
-            return new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var activeScene = SceneManager.GetActiveScene();
+            if (!activeScene.IsValid() || !activeScene.isLoaded)
+            {
+                Debug.LogWarning(
+                    "Product achievement startup reconciliation skipped: active scene is unavailable.");
+                return null;
+            }
+
+            ICampaignStageSequenceResolverProvider candidate = null;
+            var providerCount = 0;
+            var roots = activeScene.GetRootGameObjects();
+            for (var rootIndex = 0; rootIndex < roots.Length; rootIndex++)
+            {
+                var behaviours = roots[rootIndex].GetComponentsInChildren<MonoBehaviour>(true);
+                for (var behaviourIndex = 0; behaviourIndex < behaviours.Length; behaviourIndex++)
+                {
+                    if (behaviours[behaviourIndex] is not ICampaignStageSequenceResolverProvider provider)
+                    {
+                        continue;
+                    }
+
+                    providerCount++;
+                    candidate = provider;
+                }
+            }
+
+            return ResolveCandidateOrNull(candidate, providerCount, Debug.LogWarning);
+        }
+
+        internal static CampaignStageSequenceResolver ResolveCandidateOrNull(
+            ICampaignStageSequenceResolverProvider candidate,
+            int providerCount,
+            Action<string> warningSink)
+        {
+            warningSink ??= _ => { };
+            if (providerCount != 1)
+            {
+                warningSink(
+                    providerCount == 0
+                        ? "Product achievement startup reconciliation skipped: active scene has no Campaign sequence resolver provider."
+                        : $"Product achievement startup reconciliation skipped: active scene has {providerCount} Campaign sequence resolver providers; exactly one is required.");
+                return null;
+            }
+
+            if (candidate == null ||
+                !candidate.TryCreateCampaignStageSequenceResolver(out var resolver) ||
+                resolver == null)
+            {
+                warningSink(
+                    "Product achievement startup reconciliation skipped: the active-scene Campaign sequence provider could not supply its serialized resolver.");
+                return null;
+            }
+
+            return resolver;
         }
     }
 
@@ -181,7 +244,9 @@ namespace Game.Product.Achievements.Composition
             _owner = new ProductAchievementApplicationLifetimeOwner(
                 new ApplicationPersistentDataSavePathProvider(),
                 campaignSaveSlotStoreFactory:
-                    CampaignSaveCompositionProvider.CreateProductionProfileBacked);
+                    CampaignSaveCompositionProvider.CreateProductionProfileBacked,
+                sequenceResolverFactory:
+                    ActiveSceneCampaignStageSequenceResolverFactory.ResolveOrNull);
             RegisterQuitHandler();
             try
             {

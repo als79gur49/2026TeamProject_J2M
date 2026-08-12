@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
   m_Name: stage-2-1_Presentation
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   ownerEntry: {fileID: 11400000, guid: 2d624e0416aeae8041cad012849eeb3a, type: 2}
   ownerEntryGuid: 2d624e0416aeae8041cad012849eeb3a
   displayNameKey: stage.stage-2-1.display_name
@@ -626,6 +626,177 @@ MonoBehaviour:
       y: 2
     styleKey: board.paint.level2
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
-  tileFeaturePresentationBindings: []
+  tileFeaturePresentationBindings:
+  - TileId: 8
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 9
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 10
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 11
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 12
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 13
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 14
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 15
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 16
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 17
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 18
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 19
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 20
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 21
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 22
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 23
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 24
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 25
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 26
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 27
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 28
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 29
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 30
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 31
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 32
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 33
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 34
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 35
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 36
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 37
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 38
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 39
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 40
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 41
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 42
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 43
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 44
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 45
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 46
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 47
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 48
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 49
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 50
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 51
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 52
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 53
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 54
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 55
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 56
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 57
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 58
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 59
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 60
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 61
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 62
+    PresentationKey:
+    VisualPrefab: {fileID: 0}
+  - TileId: 63
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 64
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []

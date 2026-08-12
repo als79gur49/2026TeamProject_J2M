@@ -75,7 +75,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DemoStageControl_StartStage_UpdatesCampaignActiveStage_AndWritesLaunchContext()
         {
             var first = CreateEntry("stage-0-1");
-            var selected = CreateEntry("stage-0-2");
+            var selected = CreateEntry("stage-1-1");
             var service = CreateService(new[] { first, selected }, out var saveStore, out var router);
             var directPlayContext = EditorDirectPlayContext.CreateCampaignTempSlot(
                 first.StageId,
@@ -86,6 +86,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.Success, Is.True);
             Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(selected.StageId));
+            Assert.That(saveStore.LoadSlot(1).CurrentLevelGroupId, Is.EqualTo("level-1"));
             Assert.That(
                 StageLaunchContextStore.TryGetCurrent(out _),
                 Is.False,
@@ -142,7 +143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DemoStageControl_GetStages_UsesCampaignSequenceOrder_AndExcludesCatalogExtras()
         {
             var first = CreateEntry("stage-0-1");
-            var second = CreateEntry("stage-0-2");
+            var second = CreateEntry("stage-0-2", initiallyAvailable: false);
             var extra = CreateEntry("catalog-stage-b");
             var service = CreateService(new[] { second, extra, first }, out _, out _);
 
@@ -151,8 +152,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(stages, Has.Count.EqualTo(2));
             Assert.That(stages[0].StageId, Is.EqualTo(first.StageId));
             Assert.That(stages[0].DisplayNameKey, Is.EqualTo("stage.stage-0-1.display_name"));
+            Assert.That(stages[0].IsUnlocked, Is.True);
             Assert.That(stages[1].StageId, Is.EqualTo(second.StageId));
             Assert.That(stages[1].DisplayNameKey, Is.EqualTo("stage.stage-0-2.display_name"));
+            Assert.That(stages[1].IsUnlocked, Is.False);
         }
 
         [Test]
@@ -191,7 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var bridge = new DemoStageControlCampaignBridge(
                 saveStore,
                 activeSlotProvider,
-                CreateCanonicalSequenceResolver());
+                LoadProductionSequenceResolver());
 
             var result = bridge.TrySetActiveStage(extra, out var message);
 
@@ -207,8 +210,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             tracker.Start(StageId.CreateOrThrow("stage-0-1"));
 
             Assert.That(tracker.TryEmitForcedClear(out var result), Is.True);
-            Assert.That(result.WasCleared, Is.True);
-            Assert.That(result.ClearSource, Is.EqualTo(StageClearSource.ForcedByDemoStageControl));
+            Assert.That(result.StageId, Is.EqualTo(StageId.CreateOrThrow("stage-0-1")));
+            Assert.That(result.FinalTickIndex, Is.Zero);
+            Assert.That(tracker.CurrentState.IsTerminal, Is.True);
+            Assert.That(tracker.CurrentState.TerminalReason, Is.EqualTo(StageTerminalReason.Cleared));
             Assert.That(tracker.TryEmitForcedClear(out _), Is.False);
         }
 
@@ -220,9 +225,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var readModel = runtime.ForceClearCurrentStage();
 
-            Assert.That(readModel.Result.WasCleared, Is.True);
-            Assert.That(readModel.Result.ClearSource, Is.EqualTo(StageClearSource.ForcedByDemoStageControl));
-            Assert.That(readModel.Result.AttemptId.IsValid, Is.True);
+            Assert.That(readModel.StageId, Is.EqualTo(entry.StageId));
+            Assert.That(readModel.FinalTickIndex, Is.Zero);
             Assert.That(readModel.ContinueRequest.IsValid, Is.True);
             Assert.That(readModel.RetryRequest.IsValid, Is.True);
         }
@@ -360,7 +364,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             if (sequenceResolver == null)
             {
-                sequenceResolver = CreateCanonicalSequenceResolver();
+                sequenceResolver = LoadProductionSequenceResolver();
             }
 
             var provider = new TestStageCatalogProvider(entries);
@@ -396,7 +400,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
             _createdObjects.Add(entry);
             entry.AssignStageId(StageId.CreateOrThrow(rawStageId));
-            entry.AssignCatalogMetadata(string.Empty, "level-0", 0, initiallyAvailable);
+            entry.AssignInitialAvailability(initiallyAvailable);
             var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             _createdObjects.Add(presentationDefinition);
             SetPrivateField(presentationDefinition, "displayNameKey", StageDisplayNameKeys.ForStage(entry.StageId));
@@ -405,9 +409,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entry;
         }
 
-        private static CampaignStageSequenceResolver CreateCanonicalSequenceResolver()
+        private static CampaignStageSequenceResolver LoadProductionSequenceResolver()
         {
-            return new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            return CampaignStageSequenceTestAsset.LoadProductionResolver();
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

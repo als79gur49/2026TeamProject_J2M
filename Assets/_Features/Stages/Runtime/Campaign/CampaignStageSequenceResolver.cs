@@ -8,11 +8,24 @@ namespace Game.Feature.Stages
         bool TryCreateCampaignStageSequenceResolver(out CampaignStageSequenceResolver resolver);
     }
 
+    public readonly struct CampaignStageSequenceSnapshotEntry
+    {
+        internal CampaignStageSequenceSnapshotEntry(StageId stageId, string levelGroupId)
+        {
+            StageId = stageId;
+            LevelGroupId = levelGroupId;
+        }
+
+        public StageId StageId { get; }
+
+        public string LevelGroupId { get; }
+    }
+
     public sealed class CampaignStageSequenceResolver
     {
         private readonly Dictionary<StageId, int> _indicesByStageId = new();
         private readonly Dictionary<string, StageId> _firstStageByLevelGroupId = new(StringComparer.Ordinal);
-        private readonly IReadOnlyList<CampaignStageSequenceEntry> _entries;
+        private readonly IReadOnlyList<CampaignStageSequenceSnapshotEntry> _entries;
 
         public CampaignStageSequenceResolver(CampaignStageSequenceDefinition definition)
         {
@@ -21,40 +34,51 @@ namespace Game.Feature.Stages
                 throw new ArgumentNullException(nameof(definition));
             }
 
-            _entries = definition.Entries;
-            if (_entries.Count == 0)
+            var sourceEntries = definition.Entries;
+            if (sourceEntries == null || sourceEntries.Count == 0)
             {
                 throw new ArgumentException("Campaign stage sequence requires at least one stage.", nameof(definition));
             }
 
-            for (var i = 0; i < _entries.Count; i++)
+            var entries = new CampaignStageSequenceSnapshotEntry[sourceEntries.Count];
+            for (var i = 0; i < sourceEntries.Count; i++)
             {
-                var entry = _entries[i];
-                if (entry == null || !entry.StageId.IsValid)
+                var sourceEntry = sourceEntries[i];
+                if (sourceEntry == null || !sourceEntry.StageId.IsValid)
                 {
                     throw new ArgumentException("Campaign stage sequence contains an invalid stage id.", nameof(definition));
                 }
 
-                if (!_indicesByStageId.TryAdd(entry.StageId, i))
+                if (!_indicesByStageId.TryAdd(sourceEntry.StageId, i))
                 {
                     throw new ArgumentException(
-                        $"Campaign stage sequence contains duplicate stage id '{entry.StageId.Value}'.",
+                        $"Campaign stage sequence contains duplicate stage id '{sourceEntry.StageId.Value}'.",
                         nameof(definition));
                 }
 
-                if (!string.IsNullOrWhiteSpace(entry.LevelGroupId) &&
-                    !_firstStageByLevelGroupId.ContainsKey(entry.LevelGroupId))
+                var levelGroupId = sourceEntry.LevelGroupId;
+                if (string.IsNullOrWhiteSpace(levelGroupId) ||
+                    !StageIdNormalizer.IsCanonical(levelGroupId))
                 {
-                    _firstStageByLevelGroupId.Add(entry.LevelGroupId, entry.StageId);
+                    throw new ArgumentException(
+                        $"Campaign stage sequence entry '{sourceEntry.StageId.Value}' contains an invalid level group id.",
+                        nameof(definition));
                 }
+
+                entries[i] = new CampaignStageSequenceSnapshotEntry(
+                    sourceEntry.StageId,
+                    levelGroupId);
+                _firstStageByLevelGroupId.TryAdd(levelGroupId, sourceEntry.StageId);
             }
+
+            _entries = Array.AsReadOnly(entries);
         }
 
         public StageId FirstStageId => _entries[0].StageId;
 
         public StageId FinalStageId => _entries[_entries.Count - 1].StageId;
 
-        public IReadOnlyList<CampaignStageSequenceEntry> Entries => _entries;
+        public IReadOnlyList<CampaignStageSequenceSnapshotEntry> Entries => _entries;
 
         public bool Contains(StageId stageId)
         {
@@ -97,11 +121,6 @@ namespace Game.Feature.Stages
             return true;
         }
 
-        public string GetDisplayName(StageId stageId)
-        {
-            return TryGetEntry(stageId, out var entry) ? entry.DisplayName : string.Empty;
-        }
-
         public string GetLevelGroupId(StageId stageId)
         {
             return TryGetEntry(stageId, out var entry) ? entry.LevelGroupId : string.Empty;
@@ -126,7 +145,7 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        public CampaignStageSequenceEntry GetEntryOrThrow(StageId stageId)
+        public CampaignStageSequenceSnapshotEntry GetEntryOrThrow(StageId stageId)
         {
             if (TryGetEntry(stageId, out var entry))
             {
@@ -136,7 +155,7 @@ namespace Game.Feature.Stages
             throw new ArgumentException($"Stage id '{stageId.Value}' is not part of the campaign sequence.", nameof(stageId));
         }
 
-        public bool TryGetEntry(StageId stageId, out CampaignStageSequenceEntry entry)
+        public bool TryGetEntry(StageId stageId, out CampaignStageSequenceSnapshotEntry entry)
         {
             if (stageId.IsValid && _indicesByStageId.TryGetValue(stageId, out var index))
             {
@@ -144,7 +163,7 @@ namespace Game.Feature.Stages
                 return true;
             }
 
-            entry = null;
+            entry = default;
             return false;
         }
     }

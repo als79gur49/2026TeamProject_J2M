@@ -24,6 +24,11 @@ namespace Game.Feature.Stages.Editor
 
         public static int Run()
         {
+            return Run(campaignSequenceOverride: null);
+        }
+
+        internal static int Run(CampaignStageSequenceProductionValidation campaignSequenceOverride)
+        {
             var options = new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
@@ -36,6 +41,8 @@ namespace Game.Feature.Stages.Editor
             var auditor = new StageCompatUsageAuditor();
             var auditReport = auditor.Audit(StageContentPaths.StageCatalogAssetPath);
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
+            var campaignSequenceValidation = campaignSequenceOverride ??
+                CampaignStageSequenceProductionValidation.Validate(catalog, options.Timing);
             var validator = new StageCatalogValidator();
             var catalogReport = validator.Validate(catalog, options);
             var knownWarningLedger = AssetDatabase.LoadAssetAtPath<StageCatalogKnownWarningLedger>(KnownWarningLedgerAssetPath);
@@ -46,7 +53,9 @@ namespace Game.Feature.Stages.Editor
                 aliasGovernanceLedger);
             var aliasUsageReport = new StageAliasUsageScanner().ValidateNoHits(StageAliasUsageScanner.P3HistoricalAliasIds);
             var sceneValidator = new StageSceneBootstrapValidator();
-            var sceneReport = sceneValidator.ValidateEnabledBuildScenes(options);
+            var sceneReport = sceneValidator.ValidateEnabledBuildScenes(
+                options,
+                campaignSequenceValidation.Definition);
             var campaignContentReport = new StageCampaignContentGovernanceValidator().Validate(options.Timing);
             var summary = sceneValidator.SummarizeEnabledBuildSceneModes();
 
@@ -60,14 +69,18 @@ namespace Game.Feature.Stages.Editor
                 aliasGovernanceReport,
                 aliasUsageReport,
                 campaignContentReport,
+                campaignSequenceValidation,
                 sceneReport,
                 summary);
+
+            LogCampaignSequenceSummary(campaignSequenceValidation);
 
             if (catalogReport.HasErrors ||
                 knownWarningReport.HasErrors ||
                 aliasGovernanceReport.HasErrors ||
                 aliasUsageReport.HasErrors ||
                 campaignContentReport.HasErrors ||
+                campaignSequenceValidation.HasErrors ||
                 sceneReport.HasErrors)
             {
                 LogIssues("Catalog", catalogReport);
@@ -75,6 +88,8 @@ namespace Game.Feature.Stages.Editor
                 LogIssues("Alias Governance", aliasGovernanceReport);
                 LogIssues("Alias Usage", aliasUsageReport);
                 LogIssues("Campaign Content Governance", campaignContentReport);
+                LogIssues("Campaign Sequence Source", campaignSequenceValidation.SourceReport);
+                LogIssues("Campaign Sequence Authoritative Asset Contract", campaignSequenceValidation.AuthoritativeReport);
                 LogIssues("Scene", sceneReport);
                 Debug.LogError($"Stage catalog CI validation failed. See {ReportPath}");
                 return 1;
@@ -84,6 +99,26 @@ namespace Game.Feature.Stages.Editor
             return 0;
         }
 
+        private static void LogCampaignSequenceSummary(
+            CampaignStageSequenceProductionValidation validation)
+        {
+            var authoritativeErrorCount =
+                CountSeverity(validation.SourceReport, StageValidationSeverity.Error) +
+                CountSeverity(validation.AuthoritativeReport, StageValidationSeverity.Error);
+            var authoritativeWarningCount =
+                CountSeverity(validation.SourceReport, StageValidationSeverity.Warning) +
+                CountSeverity(validation.AuthoritativeReport, StageValidationSeverity.Warning);
+            Debug.Log(
+                "Campaign sequence validation: " +
+                $"SourcePath='{validation.SourcePath}' " +
+                $"SourceGuid='{validation.SourceGuid}' " +
+                $"EntryCount={validation.EntryCount} " +
+                $"AuthoritativeAssetContract={(authoritativeErrorCount == 0 ? "Passed" : "Failed")} " +
+                $"CampaignEligibilityCoverage={(HasErrorWithCodeFragment(validation.AuthoritativeReport, "eligibility-") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "eligible-catalog-entry-") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "catalog-only-") ? "Failed" : "Passed")} " +
+                $"AuthoritativeErrorCount={authoritativeErrorCount} " +
+                $"AuthoritativeWarningCount={authoritativeWarningCount}.");
+        }
+
         private static void WriteReport(
             string outputPath,
             StageValidationReport catalogReport,
@@ -91,6 +126,7 @@ namespace Game.Feature.Stages.Editor
             StageValidationReport aliasGovernanceReport,
             StageValidationReport aliasUsageReport,
             StageValidationReport campaignContentReport,
+            CampaignStageSequenceProductionValidation campaignSequenceValidation,
             StageValidationReport sceneReport,
             StageSceneBootstrapUsageSummary summary)
         {
@@ -114,7 +150,18 @@ namespace Game.Feature.Stages.Editor
             WriteIssues(writer, "Alias Governance Issues", aliasGovernanceReport);
             WriteIssues(writer, "Alias Usage Issues", aliasUsageReport);
             WriteIssues(writer, "Campaign Content Governance Issues", campaignContentReport);
+            WriteCampaignSequenceValidation(writer, campaignSequenceValidation);
             WriteIssues(writer, "Scene Issues", sceneReport);
+            WriteFinalCounts(
+                writer,
+                catalogReport,
+                knownWarningReport,
+                aliasGovernanceReport,
+                aliasUsageReport,
+                campaignContentReport,
+                campaignSequenceValidation.SourceReport,
+                campaignSequenceValidation.AuthoritativeReport,
+                sceneReport);
         }
 
         private static string GetProjectRoot()
@@ -262,6 +309,102 @@ namespace Game.Feature.Stages.Editor
             }
 
             writer.WriteLine();
+        }
+
+        private static void WriteCampaignSequenceValidation(
+            StreamWriter writer,
+            CampaignStageSequenceProductionValidation validation)
+        {
+            writer.WriteLine("## Campaign Sequence — Authoritative Asset Contract");
+            writer.WriteLine($"SourcePath: {validation.SourcePath}");
+            writer.WriteLine($"SourceGuid: {validation.SourceGuid}");
+            writer.WriteLine($"TypedLoad: {(validation.Definition != null && !validation.SourceReport.HasErrors ? "Passed" : "Failed")}");
+            writer.WriteLine($"EntryCount: {validation.EntryCount}");
+            writer.WriteLine($"AuthoritativeValidation: {(validation.SourceReport.HasErrors || validation.AuthoritativeReport.HasErrors ? "Failed" : "Passed")}");
+            writer.WriteLine($"StructuralValidity: {(HasErrorWithCodeFragment(validation.SourceReport, "source.") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "entries-") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "entry-null") ? "Failed" : "Passed")}");
+            writer.WriteLine($"StageIdCatalogResolution: {(HasErrorWithCodeFragment(validation.AuthoritativeReport, "stage-id-") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "catalog-") ? "Failed" : "Passed")}");
+            writer.WriteLine($"LevelGroupValidity: {(HasErrorWithCodeFragment(validation.AuthoritativeReport, "level-group-") ? "Failed" : "Passed")}");
+            writer.WriteLine($"AliasCanonicality: {(HasErrorWithCodeFragment(validation.AuthoritativeReport, "stage-id-alias") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "alias-table-null") ? "Failed" : "Passed")}");
+            writer.WriteLine($"CampaignEligibilityCoverage: {(HasErrorWithCodeFragment(validation.AuthoritativeReport, "eligibility-") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "eligible-catalog-entry-") || HasErrorWithCodeFragment(validation.AuthoritativeReport, "catalog-only-") ? "Failed" : "Passed")}");
+            writer.WriteLine($"AuthoritativeErrorCount: {CountSeverity(validation.SourceReport, StageValidationSeverity.Error) + CountSeverity(validation.AuthoritativeReport, StageValidationSeverity.Error)}");
+            writer.WriteLine($"AuthoritativeWarningCount: {CountSeverity(validation.SourceReport, StageValidationSeverity.Warning) + CountSeverity(validation.AuthoritativeReport, StageValidationSeverity.Warning)}");
+            writer.WriteLine();
+            WriteIssues(writer, "Campaign Sequence Source Issues", validation.SourceReport);
+            WriteIssues(writer, "Campaign Sequence Authoritative Asset Issues", validation.AuthoritativeReport);
+        }
+
+        private static void WriteFinalCounts(StreamWriter writer, params StageValidationReport[] reports)
+        {
+            var errorCount = 0;
+            var warningCount = 0;
+            for (var i = 0; i < reports.Length; i++)
+            {
+                errorCount += CountSeverity(reports[i], StageValidationSeverity.Error);
+                warningCount += CountSeverity(reports[i], StageValidationSeverity.Warning);
+            }
+
+            writer.WriteLine("## Final Validation Counts");
+            writer.WriteLine($"ErrorCount: {errorCount}");
+            writer.WriteLine($"WarningCount: {warningCount}");
+            writer.WriteLine();
+        }
+
+        private static bool HasErrorWithCodeFragment(StageValidationReport report, string codeFragment)
+        {
+            if (report == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                if (issue.Severity == StageValidationSeverity.Error &&
+                    issue.Code.Contains(codeFragment, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int CountCode(StageValidationReport report, string code)
+        {
+            var count = 0;
+            if (report == null)
+            {
+                return count;
+            }
+
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                if (string.Equals(report.Issues[i].Code, code, StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountSeverity(StageValidationReport report, StageValidationSeverity severity)
+        {
+            var count = 0;
+            if (report == null)
+            {
+                return count;
+            }
+
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                if (report.Issues[i].Severity == severity)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static void WriteLines(StreamWriter writer, string title, IReadOnlyList<string> values)

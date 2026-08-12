@@ -6,6 +6,7 @@ using Game.Product.Achievements.CampaignIntegration;
 using Game.Product.Achievements.Composition;
 using Game.Product.Achievements.Infrastructure;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Product.Achievements.Tests
 {
@@ -14,6 +15,7 @@ namespace Game.Product.Achievements.Tests
     public sealed class NormalCampaignCompletionAchievementIntegrationTests
     {
         private string _saveRoot;
+        private CampaignStageSequenceDefinition _sequenceDefinition;
         private CampaignStageSequenceResolver _resolver;
 
         [SetUp]
@@ -23,9 +25,13 @@ namespace Game.Product.Achievements.Tests
                 Path.GetTempPath(),
                 "j2m-campaign-achievement-" + Guid.NewGuid().ToString("N"),
                 "Saves");
-            _resolver = new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            _sequenceDefinition = CreateSequenceDefinition();
+            _resolver = new CampaignStageSequenceResolver(_sequenceDefinition);
             ProductAchievementEarningSinkHandoff.ResetForTests();
+            if (_sequenceDefinition != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_sequenceDefinition);
+            }
         }
 
         [TearDown]
@@ -45,11 +51,9 @@ namespace Game.Product.Achievements.Tests
             var integration = new NormalCampaignCompletionAchievementIntegration(sink);
 
             var result = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3", "immediate-run"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1, "existing-or-new-run"));
+                CreateValidCompletedSlot(1));
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
             Assert.That(sink.EarnCount, Is.EqualTo(1));
@@ -63,8 +67,6 @@ namespace Game.Product.Achievements.Tests
         [TestCase("future-version")]
         [TestCase("invalid-stage")]
         [TestCase("non-final-stage")]
-        [TestCase("empty-run")]
-        [TestCase("forced-source")]
         public void Immediate_InvalidPersistedReceiptMatrix_EarnsZero(string invalidCase)
         {
             var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
@@ -72,9 +74,7 @@ namespace Game.Product.Achievements.Tests
             var slot = CreateInvalidCompletedSlot(invalidCase);
 
             var result = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3", "current-eligible-run"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
                 slot);
 
@@ -82,57 +82,36 @@ namespace Game.Product.Achievements.Tests
             Assert.That(sink.EarnCount, Is.Zero);
         }
 
-        [TestCase(EditorDirectPlayMode.NonCampaign)]
-        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
-        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
-        public void Immediate_EveryDirectPlayMode_EarnsZero(
-            EditorDirectPlayMode mode)
+        [Test]
+        public void Immediate_V2LegacyPhysicalFields_DoNotAffectEligibility()
         {
             var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
             var integration = new NormalCampaignCompletionAchievementIntegration(sink);
-            var context = new EditorDirectPlayContext(
-                mode,
-                StageId.CreateOrThrow("stage-4-3"),
-                "test-save",
-                "test-active",
-                3,
-                suppressCampaignFlow: false);
+            var slot = CreateValidCompletedSlot(1);
+            slot.NormalCampaignCompletionReceipt.StageRunId = "ignored-v2-legacy-run";
+            slot.NormalCampaignCompletionReceipt.ClearSource = 0;
 
             var result = integration.TryEarnAfterCommittedCompletion(
-                context,
-                CreateCompletion("stage-4-3", "direct-play-run"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1, "historical-valid-run"));
+                slot);
 
-            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
-            Assert.That(sink.EarnCount, Is.Zero);
+            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(sink.EarnCount, Is.EqualTo(1));
         }
 
         [Test]
-        public void Immediate_ForcedOrNonFinalCurrentCompletion_DoesNotReplayHistoricalReceipt()
+        public void Immediate_NonFinalFactDoesNotReplayHistoricalFinalReceipt()
         {
             var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
             var integration = new NormalCampaignCompletionAchievementIntegration(sink);
-            var historicalSlot = CreateValidCompletedSlot(1, "historical-valid-run");
+            var historicalSlot = CreateValidCompletedSlot(1);
 
-            var forcedResult = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion(
-                    "stage-4-3",
-                    "forced-run",
-                    StageClearSource.ForcedByDemoStageControl),
-                StageId.CreateOrThrow("stage-4-3"),
-                _resolver,
-                historicalSlot);
             var nonFinalResult = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-2", "non-final-run"),
-                StageId.CreateOrThrow("stage-4-2"),
+                CreateCompletionFact("stage-4-2"),
                 _resolver,
                 historicalSlot);
 
-            Assert.That(forcedResult, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
             Assert.That(nonFinalResult, Is.EqualTo(NormalCampaignCompletionAchievementResult.NotAttempted));
             Assert.That(sink.EarnCount, Is.Zero);
         }
@@ -157,11 +136,9 @@ namespace Game.Product.Achievements.Tests
                 new RecordingEarningSink(earnResult));
 
             var result = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3", "mapped-result-run"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1, "valid-run"));
+                CreateValidCompletedSlot(1));
 
             Assert.That(result, Is.EqualTo(expected));
         }
@@ -175,11 +152,9 @@ namespace Game.Product.Achievements.Tests
                     new InvalidOperationException("simulated product failure")));
 
             var result = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3", "exception-run"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
-                CreateValidCompletedSlot(1, "valid-run"));
+                CreateValidCompletedSlot(1));
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.ExceptionContained));
         }
@@ -210,8 +185,6 @@ namespace Game.Product.Achievements.Tests
         [TestCase("future-version")]
         [TestCase("invalid-stage")]
         [TestCase("non-final-stage")]
-        [TestCase("empty-run")]
-        [TestCase("forced-source")]
         public void Startup_InvalidOrBareReceiptMatrix_EarnsZero(string invalidCase)
         {
             var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
@@ -307,6 +280,21 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
+        public void Startup_ValidV1Receipt_RemainsRecoverable()
+        {
+            var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
+            var reconciler = CreateReconciler(sink);
+            var store = new RecordingCampaignStore(
+                CampaignSaveLoadStatus.Loaded,
+                CreateValidV1CompletedSlot(1));
+
+            var result = reconciler.Reconcile(store, _resolver, EditorDirectPlayContext.None);
+
+            Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.EarnedNew));
+            Assert.That(sink.EarnCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Startup_ReadinessReplay_IsSessionBoundedToOneScan()
         {
             var sink = new RecordingEarningSink(AchievementEarnResult.EarnedNew);
@@ -347,16 +335,12 @@ namespace Game.Product.Achievements.Tests
         }
 
         [Test]
-        public void Startup_CanonicalCampaignProfile_CrashRecoveryUsesPostMigrationSaveBoundary()
+        public void Startup_CanonicalCampaignProfile_CrashRecoveryUsesPublicSaveBoundary()
         {
-            var facade = CampaignSaveFacadeFactory.Create(new CampaignSaveCompositionOptions
-            {
-                BackendMode = CampaignSaveBackendMode.ProfileJsonExplicit,
-                EnableProfileWrite = true,
-                AllowLegacyImport = false,
-                PathProvider = new TemporarySavePathProvider(_saveRoot),
-            });
-            var campaignStore = facade.CampaignSaveSlots;
+            var campaignStore = new SaveSlotStoreCompatibilityAdapter(
+                new CampaignSaveService(
+                    new FileCampaignProfileRepository(
+                        new AtomicTextFileStore(_saveRoot))));
             campaignStore.InitializeNewGame(1, _resolver, "2026-08-10T00:00:00.0000000Z");
             campaignStore.UpdateSlot(
                 1,
@@ -427,15 +411,11 @@ namespace Game.Product.Achievements.Tests
             var integration = new NormalCampaignCompletionAchievementIntegration(host.EarningSink);
 
             var first = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3", "slot-one-current"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
                 CreateValidCompletedSlot(1, "slot-one-receipt"));
             var second = integration.TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3", "slot-two-current"),
-                StageId.CreateOrThrow("stage-4-3"),
+                CreateCompletionFact("stage-4-3"),
                 _resolver,
                 CreateValidCompletedSlot(2, "slot-two-receipt"));
             var snapshot = host.Coordinator.GetSnapshot();
@@ -477,26 +457,15 @@ namespace Game.Product.Achievements.Tests
                 new NormalCampaignCompletionAchievementIntegration(sink));
         }
 
-        private static MinimalStageCompletionResult CreateCompletion(
-            string stageId,
-            string stageRunId,
-            StageClearSource clearSource = StageClearSource.Objective)
+        private static NormalCampaignCompletionFact CreateCompletionFact(
+            string stageId)
         {
-            var id = StageId.CreateOrThrow(stageId);
-            return new MinimalStageCompletionResult(
-                id,
-                new StageRunId(stageRunId),
-                new StageCompletionAttemptId("attempt-" + stageRunId),
-                StageTerminalReason.Cleared,
-                wasCleared: true,
-                finalTickIndex: 100,
-                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                clearSource);
+            return new NormalCampaignCompletionFact(StageId.CreateOrThrow(stageId));
         }
 
         private static SaveSlotData CreateValidCompletedSlot(
             int slotNumber,
-            string stageRunId)
+            string ignoredLegacyStageRunId = null)
         {
             return new SaveSlotData
             {
@@ -509,8 +478,8 @@ namespace Game.Product.Achievements.Tests
                 {
                     Version = NormalCampaignCompletionReceipt.CurrentVersion,
                     CompletedStageId = "stage-4-3",
-                    StageRunId = stageRunId,
-                    ClearSource = (int)StageClearSource.Objective,
+                    StageRunId = string.Empty,
+                    ClearSource = -1,
                 },
             };
         }
@@ -542,18 +511,44 @@ namespace Game.Product.Achievements.Tests
                 case "non-final-stage":
                     slot.NormalCampaignCompletionReceipt.CompletedStageId = "stage-4-2";
                     break;
-                case "empty-run":
-                    slot.NormalCampaignCompletionReceipt.StageRunId = string.Empty;
-                    break;
-                case "forced-source":
-                    slot.NormalCampaignCompletionReceipt.ClearSource =
-                        (int)StageClearSource.ForcedByDemoStageControl;
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(invalidCase), invalidCase, null);
             }
 
             return slot;
+        }
+
+        private static SaveSlotData CreateValidV1CompletedSlot(int slotNumber)
+        {
+            var slot = CreateValidCompletedSlot(slotNumber);
+            slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
+            {
+                Version = NormalCampaignCompletionReceipt.LegacyVersion,
+                CompletedStageId = "stage-4-3",
+                StageRunId = "persisted-v1-run",
+                ClearSource = 0,
+            };
+            return slot;
+        }
+
+        private static CampaignStageSequenceDefinition CreateSequenceDefinition()
+        {
+            var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            definition.SetEntries(new[]
+            {
+                CreateSequenceEntry("stage-4-2", "level-4"),
+                CreateSequenceEntry("stage-4-3", "level-4"),
+            });
+            return definition;
+        }
+
+        private static CampaignStageSequenceEntry CreateSequenceEntry(
+            string stageId,
+            string levelGroupId)
+        {
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(StageId.CreateOrThrow(stageId), levelGroupId);
+            return entry;
         }
 
         private sealed class RecordingEarningSink : IProductAchievementEarningSink

@@ -11,23 +11,27 @@ namespace Game.Feature.Stages
     public readonly struct TileFeaturePresentationResolvedBinding
     {
         public TileFeaturePresentationResolvedBinding(int tileId, GameObject visualPrefab)
-            : this(tileId, visualPrefab, TileFeatureKind.Unknown, VfxStyleKey.Default)
+            : this(tileId, string.Empty, visualPrefab, TileFeatureKind.Unknown, VfxStyleKey.Default)
         {
         }
 
         public TileFeaturePresentationResolvedBinding(
             int tileId,
+            string presentationKey,
             GameObject visualPrefab,
             TileFeatureKind kind,
             VfxStyleKey vfxStyleKey)
         {
             TileId = tileId;
+            PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
             VisualPrefab = visualPrefab;
             Kind = kind;
             VfxStyleKey = vfxStyleKey;
         }
 
         public int TileId { get; }
+
+        public string PresentationKey { get; }
 
         public GameObject VisualPrefab { get; }
 
@@ -295,6 +299,7 @@ namespace Game.Feature.Stages
                 bindings[i] = new TileFeaturePresentationBinding
                 {
                     TileId = source[i].TileId,
+                    PresentationKey = source[i].PresentationKey,
                     VisualPrefab = source[i].VisualPrefab,
                 };
             }
@@ -362,7 +367,12 @@ namespace Game.Feature.Stages
                 var binding = normalized[i];
                 bindings[i] = binding == null
                     ? default
-                    : new TileFeaturePresentationResolvedBinding(binding.TileId, binding.VisualPrefab);
+                    : new TileFeaturePresentationResolvedBinding(
+                        binding.TileId,
+                        binding.PresentationKey,
+                        binding.VisualPrefab,
+                        TileFeatureKind.Unknown,
+                        VfxStyleKey.Default);
             }
 
             return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(bindings);
@@ -419,10 +429,10 @@ namespace Game.Feature.Stages
                 return ResolveTileFeatureBindings(directBindings);
             }
 
-            var directByTileId = BuildDirectBindingsByTileId(directBindings);
+            var selectionsByTileId = BuildSelectionsByTileId(directBindings);
             var tileFeatures = gameplayDefinition.TileFeatures;
             if ((tileFeatures == null || tileFeatures.Length == 0) &&
-                directByTileId.Count == 0)
+                selectionsByTileId.Count == 0)
             {
                 return Array.Empty<TileFeaturePresentationResolvedBinding>();
             }
@@ -438,27 +448,39 @@ namespace Game.Feature.Stages
                         continue;
                     }
 
-                    if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
+                    if (!selectionsByTileId.TryGetValue(tileFeature.TileId, out var selection))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"TileFeature TileId {tileFeature.TileId} has no presentation selection in StagePresentationDefinition.");
+                        continue;
+                    }
+
+                    var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(
+                        selection.PresentationKey);
+                    if (selection.VisualPrefab != null)
                     {
                         ResolveCatalogKeyKind(
                             catalog,
-                            tileFeature,
+                            presentationKey,
                             out var directKind);
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
-                            directBinding.TileId,
-                            directBinding.VisualPrefab,
+                            selection.TileId,
+                            presentationKey,
+                            selection.VisualPrefab,
                             directKind,
-                            ResolveCatalogKeyVfxStyle(catalog, tileFeature)));
+                            ResolveCatalogKeyVfxStyle(catalog, tileFeature, presentationKey)));
                         continue;
                     }
 
                     if (TryResolveCatalogEntry(
                             catalog,
                             tileFeature,
+                            presentationKey,
                             out var catalogEntry))
                     {
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             tileFeature.TileId,
+                            presentationKey,
                             catalogEntry.VisualPrefab,
                             catalogEntry.Kind,
                             ResolveTileFeatureVfxStyleKey(tileFeature, catalogEntry.VfxStyleKey)));
@@ -475,34 +497,35 @@ namespace Game.Feature.Stages
             return new ReadOnlyCollection<TileFeaturePresentationResolvedBinding>(resolved);
         }
 
-        private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectBindingsByTileId(
-            IReadOnlyList<TileFeaturePresentationBinding> directBindings)
+        private static Dictionary<int, TileFeaturePresentationBinding> BuildSelectionsByTileId(
+            IReadOnlyList<TileFeaturePresentationBinding> selections)
         {
-            var directByTileId = new Dictionary<int, TileFeaturePresentationBinding>();
-            if (directBindings == null)
+            var selectionsByTileId = new Dictionary<int, TileFeaturePresentationBinding>();
+            if (selections == null)
             {
-                return directByTileId;
+                return selectionsByTileId;
             }
 
-            for (var i = 0; i < directBindings.Count; i++)
+            for (var i = 0; i < selections.Count; i++)
             {
-                var binding = directBindings[i];
+                var binding = selections[i];
                 if (binding == null ||
                     binding.TileId <= 0 ||
-                    directByTileId.ContainsKey(binding.TileId))
+                    selectionsByTileId.ContainsKey(binding.TileId))
                 {
                     continue;
                 }
 
-                directByTileId.Add(binding.TileId, binding);
+                selectionsByTileId.Add(binding.TileId, binding);
             }
 
-            return directByTileId;
+            return selectionsByTileId;
         }
 
         private static bool TryResolveCatalogEntry(
             TileFeaturePresentationCatalog catalog,
             StageTileFeatureDefinition tileFeature,
+            string presentationKey,
             out TileFeaturePresentationCatalogEntry entry)
         {
             entry = null;
@@ -511,7 +534,6 @@ namespace Game.Feature.Stages
                 return false;
             }
 
-            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
             if (!string.IsNullOrEmpty(presentationKey))
             {
                 if (catalog.TryGetEntry(presentationKey, out var keyedEntry) &&
@@ -539,7 +561,7 @@ namespace Game.Feature.Stages
 
         private static void ResolveCatalogKeyKind(
             TileFeaturePresentationCatalog catalog,
-            StageTileFeatureDefinition tileFeature,
+            string presentationKey,
             out TileFeatureKind kind)
         {
             kind = TileFeatureKind.Unknown;
@@ -548,7 +570,6 @@ namespace Game.Feature.Stages
                 return;
             }
 
-            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
             if (string.IsNullOrEmpty(presentationKey))
             {
                 return;
@@ -564,14 +585,14 @@ namespace Game.Feature.Stages
 
         private static VfxStyleKey ResolveCatalogKeyVfxStyle(
             TileFeaturePresentationCatalog catalog,
-            StageTileFeatureDefinition tileFeature)
+            StageTileFeatureDefinition tileFeature,
+            string presentationKey)
         {
             if (catalog == null)
             {
                 return ResolveTileFeatureVfxStyleKey(tileFeature, VfxStyleKey.Default);
             }
 
-            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
             if (string.IsNullOrEmpty(presentationKey) ||
                 !catalog.TryGetEntry(presentationKey, out var entry))
             {

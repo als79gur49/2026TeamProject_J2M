@@ -218,32 +218,6 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NormalizedDrift_ObjectiveTitleMismatch_ReportsGameplayDriftObjectiveMismatch()
-        {
-            var expected = CreateObjectiveSnapshot(
-                new StageAuthoringNormalizedObjective(
-                    StageCompletionPolicy.RequireAllConditions,
-                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>(),
-                    "Reach the Exit",
-                    "Move to the exit zone."));
-            var actual = CreateObjectiveSnapshot(
-                new StageAuthoringNormalizedObjective(
-                    StageCompletionPolicy.RequireAllConditions,
-                    Array.Empty<StageAuthoringNormalizedObjectiveCondition>(),
-                    string.Empty,
-                    "Move to the exit zone."));
-
-            var issues = CompareGameplay(expected, actual, "objective-title");
-
-            Assert.That(
-                issues.Any(issue =>
-                    issue.Code == "GameplayDrift.ObjectiveMismatch" &&
-                    issue.FieldName == "Objective.ObjectiveTitle"),
-                Is.True,
-                FormatIssues(issues));
-        }
-
-        [Test]
         public void NormalizedDrift_ObjectiveConditionAuthoringLabelMismatch_ReportsGameplayDriftObjectiveMismatch()
         {
             var expected = CreateObjectiveSnapshot(
@@ -258,9 +232,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             "primary-goal",
                             "Reach the Exit Zone",
                             sortOrder: 0),
-                    },
-                    "Reach the Exit",
-                    "Move to the exit zone."));
+                    }));
             var actual = CreateObjectiveSnapshot(
                 new StageAuthoringNormalizedObjective(
                     StageCompletionPolicy.RequireAllConditions,
@@ -273,9 +245,7 @@ namespace Game.Feature.Stages.Editor.Tests
                             "primary-goal",
                             string.Empty,
                             sortOrder: 10),
-                    },
-                    "Reach the Exit",
-                    "Move to the exit zone."));
+                    }));
 
             var issues = CompareGameplay(expected, actual, "objective-authoring-label");
 
@@ -344,6 +314,59 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 SetBindingPresentationId(fixture.Presentation, "enemyPresentationBindings", 0, "changed");
                 AssertHasCode(fixture.Validate(), "PresentationDrift.BindingFieldMismatch");
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
+        public void NormalizedPresentationDrift_PresentationKeyChangeDoesNotReportGameplayDrift()
+        {
+            var fixture = StageAuthoringTestFixture.Create();
+            try
+            {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 100,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        Kind = TileFeatureKind.Button,
+                        ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                        Direction = Direction2D.None,
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                fixture.Authoring.SetTileFeaturePresentationSelections(new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        PresentationKey = "button-a",
+                    },
+                });
+                var generationReport = StageAuthoringGenerator.Generate(
+                    fixture.Authoring,
+                    StageAuthoringGenerateOptions.WriteAll);
+                Assert.That(generationReport.HasErrors, Is.False, StageAuthoringTestFixture.FormatGenerationIssues(generationReport));
+
+                fixture.Authoring.SetTileFeaturePresentationSelections(new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        PresentationKey = "button-b",
+                    },
+                });
+                var report = fixture.Validate();
+
+                AssertHasCode(report, "PresentationDrift.TileFeatureSelectionFieldMismatch");
+                Assert.That(
+                    report.Issues.Any(issue => issue.Code.StartsWith("GameplayDrift.", StringComparison.Ordinal)),
+                    Is.False,
+                    FormatIssues(report));
             }
             finally
             {

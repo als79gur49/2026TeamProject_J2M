@@ -8,169 +8,88 @@ namespace Game.Feature.Stages.Editor.Tests
     public sealed class NormalCampaignCompletionReceiptTests
     {
         [Test]
-        public void StructurallyValid_RequiresV1FinalFactFieldsAndObjectiveSource()
+        public void V1_RequiresCanonicalStageLegacyRunIdAndObjectiveSource()
         {
-            var receipt = CreateReceipt();
+            var receipt = CreateV1Receipt();
 
             Assert.That(receipt.IsStructurallyValid, Is.True);
 
-            receipt.Version = 0;
-            Assert.That(receipt.IsStructurallyValid, Is.False);
-            receipt.Version = NormalCampaignCompletionReceipt.CurrentVersion + 1;
-            Assert.That(receipt.IsStructurallyValid, Is.False);
-            receipt.Version = NormalCampaignCompletionReceipt.CurrentVersion;
-            receipt.CompletedStageId = string.Empty;
-            Assert.That(receipt.IsStructurallyValid, Is.False);
-            receipt.CompletedStageId = " Stage-4-3 ";
-            Assert.That(receipt.IsStructurallyValid, Is.False);
-            receipt.CompletedStageId = "stage-4-3";
             receipt.StageRunId = string.Empty;
             Assert.That(receipt.IsStructurallyValid, Is.False);
-            receipt.StageRunId = "run-final";
-            receipt.ClearSource = (int)StageClearSource.ForcedByDemoStageControl;
+            receipt.StageRunId = "legacy-run-final";
+            receipt.ClearSource = 1;
+            Assert.That(receipt.IsStructurallyValid, Is.False);
+            receipt.ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource;
+            receipt.CompletedStageId = " Stage-4-3 ";
             Assert.That(receipt.IsStructurallyValid, Is.False);
         }
 
         [Test]
-        public void Evaluate_NormalObjectiveCanonicalFinalStage_CreatesV1ReceiptFromStageRunId()
+        public void V2_UsesStageIdOnlySemanticsAndIgnoresLegacyPhysicalFields()
         {
-            var result = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-3"),
-                StageId.CreateOrThrow("stage-4-3"),
-                CreateResolver());
+            var receipt = NormalCampaignCompletionReceiptPolicy.CreateV2(
+                StageId.CreateOrThrow("stage-4-3"));
 
-            Assert.That(result.Eligibility, Is.EqualTo(NormalCampaignCompletionReceiptEligibility.Eligible));
-            Assert.That(result.Receipt.Version, Is.EqualTo(1));
-            Assert.That(result.Receipt.CompletedStageId, Is.EqualTo("stage-4-3"));
-            Assert.That(result.Receipt.StageRunId, Is.EqualTo("run-final"));
-            Assert.That(result.Receipt.ClearSource, Is.EqualTo((int)StageClearSource.Objective));
+            Assert.That(receipt.Version, Is.EqualTo(2));
+            Assert.That(receipt.CompletedStageId, Is.EqualTo("stage-4-3"));
+            Assert.That(receipt.StageRunId, Is.Empty);
+            Assert.That(
+                receipt.ClearSource,
+                Is.EqualTo(NormalCampaignCompletionReceipt.LegacyClearSourceAbsent));
+            Assert.That(receipt.IsStructurallyValid, Is.True);
+
+            receipt.StageRunId = "ignored-legacy-value";
+            receipt.ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource;
+            Assert.That(receipt.IsStructurallyValid, Is.True);
+        }
+
+        [TestCase(0)]
+        [TestCase(3)]
+        [TestCase(99)]
+        public void UnknownVersion_FailsClosed(int version)
+        {
+            var receipt = CreateV1Receipt();
+            receipt.Version = version;
+
+            Assert.That(receipt.IsStructurallyValid, Is.False);
+            Assert.That(
+                NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
+                    receipt,
+                    CreateResolver()),
+                Is.False);
         }
 
         [Test]
-        public void Evaluate_NonFinalAndNonCampaignStages_AreIneligible()
+        public void PersistedReceipt_FinalityComesFromInjectedResolver()
         {
             var resolver = CreateResolver();
+            var finalReceipt = NormalCampaignCompletionReceiptPolicy.CreateV2(
+                StageId.CreateOrThrow("stage-4-3"));
+            var nonFinalReceipt = NormalCampaignCompletionReceiptPolicy.CreateV2(
+                StageId.CreateOrThrow("stage-4-2"));
 
-            var nonFinal = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                EditorDirectPlayContext.None,
-                CreateCompletion("stage-4-2"),
-                StageId.CreateOrThrow("stage-4-2"),
-                resolver);
-            var nonCampaign = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                EditorDirectPlayContext.None,
-                CreateCompletion("debug-stage"),
-                StageId.CreateOrThrow("debug-stage"),
-                resolver);
-
-            Assert.That(nonFinal.Eligibility, Is.EqualTo(NormalCampaignCompletionReceiptEligibility.NotFinalStage));
-            Assert.That(nonFinal.Receipt, Is.Null);
-            Assert.That(nonCampaign.Eligibility, Is.EqualTo(NormalCampaignCompletionReceiptEligibility.NotCampaignStage));
-            Assert.That(nonCampaign.Receipt, Is.Null);
+            Assert.That(
+                NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
+                    finalReceipt,
+                    resolver),
+                Is.True);
+            Assert.That(
+                NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
+                    nonFinalReceipt,
+                    resolver),
+                Is.False);
         }
 
         [Test]
-        public void Evaluate_ForcedClear_IsIneligible()
+        public void CloneAndBothSaveMappings_PreserveV1AndV2PhysicalFields()
         {
-            var result = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                EditorDirectPlayContext.None,
-                CreateCompletion(
-                    "stage-4-3",
-                    clearSource: StageClearSource.ForcedByDemoStageControl),
-                StageId.CreateOrThrow("stage-4-3"),
-                CreateResolver());
-
-            Assert.That(result.Eligibility, Is.EqualTo(NormalCampaignCompletionReceiptEligibility.NonObjectiveSource));
-            Assert.That(result.Receipt, Is.Null);
-        }
-
-        [TestCase(EditorDirectPlayMode.NonCampaign)]
-        [TestCase(EditorDirectPlayMode.CampaignTempSlot)]
-        [TestCase(EditorDirectPlayMode.CampaignProductionSlot)]
-        public void Evaluate_EveryDirectPlayMode_IsIneligible(EditorDirectPlayMode mode)
-        {
-            var result = NormalCampaignCompletionReceiptPolicy.Evaluate(
-                new EditorDirectPlayContext(
-                    mode,
-                    StageId.CreateOrThrow("stage-4-3"),
-                    string.Empty,
-                    string.Empty,
-                    3,
-                    suppressCampaignFlow: false),
-                CreateCompletion("stage-4-3"),
-                StageId.CreateOrThrow("stage-4-3"),
-                CreateResolver());
-
-            Assert.That(result.Eligibility, Is.EqualTo(NormalCampaignCompletionReceiptEligibility.DirectPlay));
-            Assert.That(result.Receipt, Is.Null);
+            AssertRoundTrip(CreateV1Receipt());
+            AssertRoundTrip(NormalCampaignCompletionReceiptPolicy.CreateV2(
+                StageId.CreateOrThrow("stage-4-3")));
         }
 
         [Test]
-        public void Evaluate_MissingOrInvalidProvenance_FailsClosed()
-        {
-            var resolver = CreateResolver();
-            var finalStage = StageId.CreateOrThrow("stage-4-3");
-
-            Assert.That(
-                NormalCampaignCompletionReceiptPolicy.Evaluate(
-                    EditorDirectPlayContext.None,
-                    null,
-                    finalStage,
-                    resolver).Eligibility,
-                Is.EqualTo(NormalCampaignCompletionReceiptEligibility.MissingCompletionResult));
-            Assert.That(
-                NormalCampaignCompletionReceiptPolicy.Evaluate(
-                    EditorDirectPlayContext.None,
-                    CreateCompletion("stage-4-3", wasCleared: false),
-                    finalStage,
-                    resolver).Eligibility,
-                Is.EqualTo(NormalCampaignCompletionReceiptEligibility.NotCleared));
-            Assert.That(
-                NormalCampaignCompletionReceiptPolicy.Evaluate(
-                    EditorDirectPlayContext.None,
-                    CreateCompletion("stage-4-3", runId: string.Empty),
-                    finalStage,
-                    resolver).Eligibility,
-                Is.EqualTo(NormalCampaignCompletionReceiptEligibility.InvalidRunId));
-            Assert.That(
-                NormalCampaignCompletionReceiptPolicy.Evaluate(
-                    EditorDirectPlayContext.None,
-                    CreateCompletion("stage-4-3"),
-                    StageId.None,
-                    resolver).Eligibility,
-                Is.EqualTo(NormalCampaignCompletionReceiptEligibility.InvalidStage));
-            Assert.That(
-                NormalCampaignCompletionReceiptPolicy.Evaluate(
-                    EditorDirectPlayContext.None,
-                    CreateCompletion("stage-4-3", clearSource: (StageClearSource)999),
-                    finalStage,
-                    resolver).Eligibility,
-                Is.EqualTo(NormalCampaignCompletionReceiptEligibility.NonObjectiveSource));
-        }
-
-        [Test]
-        public void CloneAndBothSaveMappings_PreserveReceiptValues()
-        {
-            var slot = SaveSlotData.CreateEmpty(1);
-            slot.CurrentStageId = StageId.CreateOrThrow("stage-4-3");
-            slot.CampaignCompleted = true;
-            slot.NormalCampaignCompletionReceipt = CreateReceipt();
-
-            var clone = slot.Clone();
-            var compatibilityRoundTrip = SaveSlotDtoMapper.FromDto(
-                SaveSlotDtoMapper.ToDto(new[] { slot }))[0];
-            var document = CampaignProfileDocumentMapper.ToSlotDocument(slot);
-            var documentRoundTrip = CampaignProfileDocumentMapper.ToReceipt(
-                document.NormalCampaignCompletionReceipt);
-
-            AssertReceipt(clone.NormalCampaignCompletionReceipt);
-            AssertReceipt(compatibilityRoundTrip.NormalCampaignCompletionReceipt);
-            AssertReceipt(documentRoundTrip);
-            Assert.That(clone.NormalCampaignCompletionReceipt, Is.Not.SameAs(slot.NormalCampaignCompletionReceipt));
-        }
-
-        [Test]
-        public void CampaignDocumentSerialization_RoundTripsReceipt()
+        public void CampaignDocumentSerialization_RoundTripsV2WithoutRootSchemaMigration()
         {
             var document = CampaignProfileDocumentMapper.ToDocument(
                 new[]
@@ -180,7 +99,10 @@ namespace Game.Feature.Stages.Editor.Tests
                         SlotNumber = 1,
                         CurrentStageId = StageId.CreateOrThrow("stage-4-3"),
                         CampaignCompleted = true,
-                        NormalCampaignCompletionReceipt = CreateReceipt(),
+                        HasNormalCampaignCompletionReceipt = true,
+                        NormalCampaignCompletionReceipt =
+                            NormalCampaignCompletionReceiptPolicy.CreateV2(
+                                StageId.CreateOrThrow("stage-4-3")),
                     },
                 },
                 "profile",
@@ -190,20 +112,20 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var json = JsonUtility.ToJson(document);
             var roundTripped = JsonUtility.FromJson<CampaignProfileDocument>(json);
+            var receipt = CampaignProfileDocumentMapper.ToReceipt(
+                roundTripped.Slots[0].NormalCampaignCompletionReceipt);
 
-            AssertReceipt(CampaignProfileDocumentMapper.ToReceipt(
-                roundTripped.Slots[0].NormalCampaignCompletionReceipt));
+            Assert.That(roundTripped.SchemaVersion, Is.EqualTo(1));
+            Assert.That(receipt.Version, Is.EqualTo(2));
+            Assert.That(receipt.IsStructurallyValid, Is.True);
         }
 
         [Test]
-        public void MissingReceiptInOldProfile_LoadsAsNullAndPreservesCampaignState()
+        public void OldProfileMissingReceipt_RemainsMissingAndIsNotInferred()
         {
-            var root = Path.Combine(
-                Path.GetTempPath(),
-                "j2m-old-profile-receipt-" + Guid.NewGuid().ToString("N"));
+            var root = CreateTemporaryRoot("old-profile");
             try
             {
-                Directory.CreateDirectory(root);
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
                     "{\"SchemaVersion\":1,\"ProfileId\":\"old-profile\",\"Slots\":[{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true}]}");
@@ -213,195 +135,157 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(load.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
                 Assert.That(load.Document.Slots[0].CampaignCompleted, Is.True);
-                Assert.That(load.Document.Slots[0].StageId, Is.EqualTo("stage-4-3"));
+                Assert.That(load.Document.Slots[0].HasNormalCampaignCompletionReceipt, Is.False);
                 Assert.That(load.Document.Slots[0].NormalCampaignCompletionReceipt, Is.Null);
             }
             finally
             {
-                if (Directory.Exists(root))
-                {
-                    Directory.Delete(root, recursive: true);
-                }
+                Directory.Delete(root, recursive: true);
             }
         }
 
         [Test]
-        public void MixedOldAndReceiptSlots_PreservePerSlotFieldPresence()
+        public void RawV1Receipt_LoadsAndRemainsEligibleWithoutRuntimeIdentityTypes()
         {
-            var root = Path.Combine(
-                Path.GetTempPath(),
-                "j2m-mixed-profile-receipt-" + Guid.NewGuid().ToString("N"));
+            var root = CreateTemporaryRoot("v1-profile");
             try
             {
-                Directory.CreateDirectory(root);
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    "{\"SchemaVersion\":1,\"ProfileId\":\"mixed-profile\",\"Slots\":[" +
-                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-2\"}," +
-                    "{\"SlotNumber\":2,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true," +
+                    "{\"SchemaVersion\":1,\"ProfileId\":\"v1-profile\",\"Slots\":[" +
+                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true," +
                     "\"HasNormalCampaignCompletionReceipt\":true," +
                     "\"NormalCampaignCompletionReceipt\":{\"Version\":1,\"CompletedStageId\":\"stage-4-3\"," +
-                    "\"StageRunId\":\"run-slot-2\",\"ClearSource\":0}}]}");
+                    "\"StageRunId\":\"legacy-run\",\"ClearSource\":0}}]}");
                 var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
 
                 var load = repository.Load();
+                var receipt = CampaignProfileDocumentMapper.ToReceipt(
+                    load.Document.Slots[0].NormalCampaignCompletionReceipt);
 
-                Assert.That(load.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
-                Assert.That(load.Document.Slots[0].NormalCampaignCompletionReceipt, Is.Null);
-                Assert.That(load.Document.Slots[1].NormalCampaignCompletionReceipt, Is.Not.Null);
+                Assert.That(receipt.Version, Is.EqualTo(1));
+                Assert.That(receipt.IsStructurallyValid, Is.True);
                 Assert.That(
-                    load.Document.Slots[1].NormalCampaignCompletionReceipt.StageRunId,
-                    Is.EqualTo("run-slot-2"));
+                    NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
+                        receipt,
+                        CreateResolver()),
+                    Is.True);
             }
             finally
             {
-                if (Directory.Exists(root))
-                {
-                    Directory.Delete(root, recursive: true);
-                }
+                Directory.Delete(root, recursive: true);
             }
+        }
+
+        [Test]
+        public void InvalidAndPresentNullReceipts_ArePreservedWithoutRepair()
+        {
+            var invalid = CreateV1Receipt();
+            invalid.Version = 99;
+            var mapped = CampaignProfileDocumentMapper.ToReceipt(
+                CampaignProfileDocumentMapper.ToReceiptDocument(invalid));
+            var presentNullSlot = SaveSlotData.CreateEmpty(1);
+            presentNullSlot.CampaignCompleted = true;
+            presentNullSlot.HasNormalCampaignCompletionReceipt = true;
+            presentNullSlot.NormalCampaignCompletionReceipt = null;
+
+            Assert.That(mapped.Version, Is.EqualTo(99));
+            Assert.That(mapped.IsStructurallyValid, Is.False);
+            Assert.That(presentNullSlot.Clone().HasNormalCampaignCompletionReceipt, Is.True);
+            Assert.That(presentNullSlot.Clone().NormalCampaignCompletionReceipt, Is.Null);
         }
 
         [Test]
         public void UnsupportedForwardProfileVersion_FailsClosed()
         {
-            var root = Path.Combine(
-                Path.GetTempPath(),
-                "j2m-forward-profile-receipt-" + Guid.NewGuid().ToString("N"));
+            var root = CreateTemporaryRoot("forward-profile");
             try
             {
-                Directory.CreateDirectory(root);
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
                     "{\"SchemaVersion\":2,\"ProfileId\":\"future-profile\",\"Slots\":[]}");
-                var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
-
-                var load = repository.Load();
+                var load = new FileCampaignProfileRepository(
+                    new AtomicTextFileStore(root)).Load();
 
                 Assert.That(load.Status, Is.EqualTo(CampaignProfileLoadStatus.SchemaInvalid));
                 Assert.That(load.Document, Is.Null);
             }
             finally
             {
-                if (Directory.Exists(root))
-                {
-                    Directory.Delete(root, recursive: true);
-                }
+                Directory.Delete(root, recursive: true);
             }
         }
 
-        [Test]
-        public void InvalidReceipt_RemainsPresentButCannotBecomeEligible()
+        private static void AssertRoundTrip(NormalCampaignCompletionReceipt receipt)
         {
-            var receipt = CreateReceipt();
-            receipt.Version = 99;
-            var mapped = CampaignProfileDocumentMapper.ToReceipt(
-                CampaignProfileDocumentMapper.ToReceiptDocument(receipt));
+            var slot = SaveSlotData.CreateEmpty(1);
+            slot.CurrentStageId = StageId.CreateOrThrow("stage-4-3");
+            slot.CampaignCompleted = true;
+            slot.HasNormalCampaignCompletionReceipt = true;
+            slot.NormalCampaignCompletionReceipt = receipt;
 
-            Assert.That(mapped, Is.Not.Null);
-            Assert.That(mapped.Version, Is.EqualTo(99));
-            Assert.That(mapped.IsStructurallyValid, Is.False);
-            Assert.That(
-                NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
-                    mapped,
-                    CreateResolver()),
-                Is.False);
+            var clone = slot.Clone().NormalCampaignCompletionReceipt;
+            var compatibility = SaveSlotDtoMapper.FromDto(
+                SaveSlotDtoMapper.ToDto(new[] { slot }))[0]
+                .NormalCampaignCompletionReceipt;
+            var profile = CampaignProfileDocumentMapper.ToReceipt(
+                CampaignProfileDocumentMapper.ToSlotDocument(slot)
+                    .NormalCampaignCompletionReceipt);
+
+            AssertPhysicalEquality(receipt, clone);
+            AssertPhysicalEquality(receipt, compatibility);
+            AssertPhysicalEquality(receipt, profile);
         }
 
-        [Test]
-        public void InvalidReceipt_LoadsWithoutRepairAndRemainsIneligible()
+        private static void AssertPhysicalEquality(
+            NormalCampaignCompletionReceipt expected,
+            NormalCampaignCompletionReceipt actual)
         {
-            var root = Path.Combine(
-                Path.GetTempPath(),
-                "j2m-invalid-profile-receipt-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                Directory.CreateDirectory(root);
-                File.WriteAllText(
-                    Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    "{\"SchemaVersion\":1,\"ProfileId\":\"invalid-receipt-profile\",\"Slots\":[" +
-                    "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true," +
-                    "\"HasNormalCampaignCompletionReceipt\":true," +
-                    "\"NormalCampaignCompletionReceipt\":{\"Version\":99,\"CompletedStageId\":\"stage-4-3\"," +
-                    "\"StageRunId\":\"invalid-version-run\",\"ClearSource\":0}}]}");
-                var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
-
-                var load = repository.Load();
-                Assert.That(load.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
-                var receipt = CampaignProfileDocumentMapper.ToReceipt(
-                    load.Document.Slots[0].NormalCampaignCompletionReceipt);
-
-                Assert.That(receipt, Is.Not.Null);
-                Assert.That(receipt.Version, Is.EqualTo(99));
-                Assert.That(
-                    NormalCampaignCompletionReceiptPolicy.IsEligiblePersistedReceipt(
-                        receipt,
-                        CreateResolver()),
-                    Is.False);
-            }
-            finally
-            {
-                if (Directory.Exists(root))
-                {
-                    Directory.Delete(root, recursive: true);
-                }
-            }
+            Assert.That(actual, Is.Not.Null);
+            Assert.That(actual.Version, Is.EqualTo(expected.Version));
+            Assert.That(actual.CompletedStageId, Is.EqualTo(expected.CompletedStageId));
+            Assert.That(actual.StageRunId, Is.EqualTo(expected.StageRunId));
+            Assert.That(actual.ClearSource, Is.EqualTo(expected.ClearSource));
         }
 
-        [Test]
-        public void NewGameAndEmptySlot_StartWithoutReceipt()
-        {
-            var resolver = CreateResolver();
-
-            Assert.That(SaveSlotData.CreateEmpty(1).NormalCampaignCompletionReceipt, Is.Null);
-            Assert.That(
-                SaveSlotData.CreateNewGame(1, resolver, "2026-08-09T00:00:00Z")
-                    .NormalCampaignCompletionReceipt,
-                Is.Null);
-        }
-
-        private static NormalCampaignCompletionReceipt CreateReceipt()
+        private static NormalCampaignCompletionReceipt CreateV1Receipt()
         {
             return new NormalCampaignCompletionReceipt
             {
-                Version = 1,
+                Version = NormalCampaignCompletionReceipt.LegacyVersion,
                 CompletedStageId = "stage-4-3",
-                StageRunId = "run-final",
-                ClearSource = (int)StageClearSource.Objective,
+                StageRunId = "legacy-run-final",
+                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
             };
-        }
-
-        private static MinimalStageCompletionResult CreateCompletion(
-            string stageId,
-            string runId = "run-final",
-            bool wasCleared = true,
-            StageClearSource clearSource = StageClearSource.Objective)
-        {
-            var parsedStageId = StageId.CreateOrThrow(stageId);
-            return new MinimalStageCompletionResult(
-                parsedStageId,
-                new StageRunId(runId),
-                new StageCompletionAttemptId("derived-attempt"),
-                StageTerminalReason.Cleared,
-                wasCleared,
-                100,
-                new StageObjectiveProgressSnapshot(true, true, true, wasCleared, 1, 1),
-                clearSource);
         }
 
         private static CampaignStageSequenceResolver CreateResolver()
         {
-            return new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            definition.SetEntries(new[]
+            {
+                CreateEntry("stage-4-2", "level-4"),
+                CreateEntry("stage-4-3", "level-4"),
+            });
+            var resolver = new CampaignStageSequenceResolver(definition);
+            UnityEngine.Object.DestroyImmediate(definition);
+            return resolver;
         }
 
-        private static void AssertReceipt(NormalCampaignCompletionReceipt receipt)
+        private static CampaignStageSequenceEntry CreateEntry(string stageId, string levelGroupId)
         {
-            Assert.That(receipt, Is.Not.Null);
-            Assert.That(receipt.Version, Is.EqualTo(1));
-            Assert.That(receipt.CompletedStageId, Is.EqualTo("stage-4-3"));
-            Assert.That(receipt.StageRunId, Is.EqualTo("run-final"));
-            Assert.That(receipt.ClearSource, Is.EqualTo((int)StageClearSource.Objective));
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(StageId.CreateOrThrow(stageId), levelGroupId);
+            return entry;
+        }
+
+        private static string CreateTemporaryRoot(string suffix)
+        {
+            var root = Path.Combine(
+                Path.GetTempPath(),
+                "j2m-receipt-" + suffix + "-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            return root;
         }
     }
 }

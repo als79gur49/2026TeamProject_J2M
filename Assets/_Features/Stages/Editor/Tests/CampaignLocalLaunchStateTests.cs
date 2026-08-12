@@ -257,8 +257,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             using var harness = new Harness();
-            var resolver = new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var stageId = StageId.CreateOrThrow("stage-2-2");
             const int playerPrefsActiveSentinel = 3;
             const string playerPrefsSaveSentinel = "retained-stage-clear-save-slots-sentinel";

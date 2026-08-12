@@ -345,13 +345,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(prefabField, Is.Not.Null);
                 prefabField.SetValue(installer, playerPrefabView);
 
-                var factory = CreateViewFactory(installer, boardRoot);
+                var factory = CreateViewFactory(installer, boardRoot, out var playerEntityId);
                 Assert.That(factory, Is.Not.Null);
 
                 var playerView = factory.CreateView(
                     new EntityState
                     {
-                        entityId = 10,
+                        entityId = playerEntityId,
                         position = new SurfaceCell(FaceId.Floor, 1, 1),
                         hp = 3,
                         maxHp = 3,
@@ -382,6 +382,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
                     });
 
+                Assert.That(boxView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
+                Assert.That(boxView.transform.Find("PrefabMarker"), Is.Null);
                 Assert.That(boxView.transform.Find("CapabilityLabel"), Is.Null);
             }
             finally
@@ -1734,6 +1736,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void StageBackedGameplaySceneInstaller_ConfigurationAndProviderShareSequenceResolver()
+        {
+            var installerObject = new GameObject(
+                "StageBackedGameplaySceneInstaller_ConfigurationAndProviderShareSequenceResolver");
+
+            try
+            {
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
+                AssignStageContentEntry(installer);
+                AssignTimingPresets(installer);
+
+                var configuration = BuildConfiguration(installer);
+                var provider = (ICampaignStageSequenceResolverProvider)installer;
+
+                Assert.That(configuration.CampaignStageSequenceResolver, Is.Not.Null);
+                Assert.That(provider.TryCreateCampaignStageSequenceResolver(out var provided), Is.True);
+                Assert.That(provided, Is.SameAs(configuration.CampaignStageSequenceResolver));
+            }
+            finally
+            {
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureDefinitions()
         {
             var installerObject = new GameObject("StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureDefinitions");
@@ -1773,14 +1802,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var configuration = BuildConfiguration(installer);
                 var resolvedPresentation =
                     StagePresentationAssembler.Resolve(configuration.StageContentEntry.PresentationDefinition);
-
                 Assert.That(configuration.TileFeaturePresentationBindings, Is.Not.Null);
-                Assert.That(
-                    configuration.TileFeaturePresentationBindings.Select(binding => binding.TileId).ToArray(),
-                    Is.EqualTo(configuration.StageContentEntry.GameplayDefinition.TileFeatures.Select(feature => feature.TileId).ToArray()));
-                Assert.That(
-                    resolvedPresentation.TileFeatureBindings.Select(binding => binding.TileId).ToArray(),
-                    Is.EqualTo(new[] { 905 }));
+                var gameplayTileIds = configuration.StageContentEntry.GameplayDefinition.TileFeatures
+                    .Select(feature => feature.TileId)
+                    .ToArray();
+                var configurationTileIds = configuration.TileFeaturePresentationBindings
+                    .Select(binding => binding.TileId)
+                    .ToArray();
+                var resolvedTileIds = resolvedPresentation.TileFeatureBindings
+                    .Select(binding => binding.TileId)
+                    .ToArray();
+
+                Assert.That(gameplayTileIds, Has.Length.EqualTo(23));
+                Assert.That(configurationTileIds, Is.EqualTo(gameplayTileIds));
+                Assert.That(resolvedTileIds, Is.EqualTo(gameplayTileIds));
+                Assert.That(resolvedTileIds.Distinct().Count(), Is.EqualTo(resolvedTileIds.Length));
             }
             finally
             {
@@ -1967,6 +2003,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return effect;
         }
 
+        [Test]
+        public void CampaignSequence_MissingSerializedSource_FailsAtGameplayBootstrap()
+        {
+            var root = new GameObject("gameplay-missing-campaign-sequence");
+            try
+            {
+                var installer = root.AddComponent<StageBackedGameplaySceneInstaller>();
+                var method = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
+                    "BuildInitialGameplayState",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(method, Is.Not.Null);
+
+                var exception = Assert.Throws<TargetInvocationException>(() =>
+                    method.Invoke(installer, Array.Empty<object>()));
+
+                Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>());
+                Assert.That(exception.InnerException.Message, Does.Contain("StageBackedGameplaySceneInstallerBase"));
+                Assert.That(exception.InnerException.Message, Does.Contain("authoritative serialized"));
+                Assert.That(exception.InnerException.Message, Does.Contain("Component='StageBackedGameplaySceneInstaller'"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void CampaignSequence_ProviderReturnsCompositionResolverInstance()
+        {
+            var root = new GameObject("gameplay-shared-campaign-sequence");
+            var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            try
+            {
+                definition.SetEntries(new[]
+                {
+                    CreateSequenceEntry("fixture-a", "group-a"),
+                    CreateSequenceEntry("fixture-c", "group-b"),
+                    CreateSequenceEntry("fixture-b", "group-b"),
+                });
+                var installer = root.AddComponent<StageBackedGameplaySceneInstaller>();
+                SetInstallerField(installer, "campaignStageSequenceDefinition", definition);
+                SetInstallerField(installer, "_campaignRuntimeActive", true);
+                var provider = (ICampaignStageSequenceResolverProvider)installer;
+
+                Assert.That(provider.TryCreateCampaignStageSequenceResolver(out var first), Is.True);
+                Assert.That(provider.TryCreateCampaignStageSequenceResolver(out var second), Is.True);
+
+                Assert.That(second, Is.SameAs(first));
+                Assert.That(first.TryGetNext(StageId.CreateOrThrow("fixture-a"), out var next), Is.True);
+                Assert.That(next, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(definition);
+            }
+        }
+
         private static void AssignStageContentEntry(StageBackedGameplaySceneInstaller installer)
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(StageCatalogProviderAssetPath);
@@ -1977,6 +2071,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(providerField, Is.Not.Null);
             providerField.SetValue(installer, provider);
+            AssignProductionCampaignSequence(installer);
 
             PrimeCampaignLaunchContext(StageId.CreateOrThrow(CombinedLaunchStageId));
         }
@@ -1993,6 +2088,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(providerField, Is.Not.Null);
             providerField.SetValue(installer, provider);
+            AssignProductionCampaignSequence(installer);
 
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
@@ -2074,9 +2170,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageBackedGameplaySceneInstaller installer,
             GameplayBoardRoot boardRoot)
         {
+            return CreateViewFactory(installer, boardRoot, out _);
+        }
+
+        private static IGameplayEntityViewFactory CreateViewFactory(
+            StageBackedGameplaySceneInstaller installer,
+            GameplayBoardRoot boardRoot,
+            out int playerEntityId)
+        {
             AssignStageContentEntry(installer);
             AssignTimingPresets(installer);
             var initialState = BuildInitialGameplayState(installer);
+            var playerEntityIdProperty = initialState.GetType().GetProperty(
+                "PlayerEntityId",
+                BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(playerEntityIdProperty, Is.Not.Null);
+            playerEntityId = (int)playerEntityIdProperty.GetValue(initialState);
 
             var factoryMethod = installer.GetType().GetMethod(
                 "CreateViewFactory",
@@ -2152,11 +2261,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static object BuildInitialGameplayState(StageBackedGameplaySceneInstaller installer)
         {
+            AssignProductionCampaignSequence(installer);
             var buildInitialStateMethod = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
                 "BuildInitialGameplayState",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(buildInitialStateMethod, Is.Not.Null);
             return buildInitialStateMethod.Invoke(installer, Array.Empty<object>());
+        }
+
+        private static void AssignProductionCampaignSequence(StageBackedGameplaySceneInstaller installer)
+        {
+            var field = typeof(StageBackedGameplaySceneInstallerBase).GetField(
+                "campaignStageSequenceDefinition",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            if (field.GetValue(installer) != null)
+            {
+                return;
+            }
+
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                StageContentPaths.CampaignStageSequenceAssetPath);
+            Assert.That(
+                definition,
+                Is.Not.Null,
+                $"Missing campaign sequence at '{StageContentPaths.CampaignStageSequenceAssetPath}'.");
+            field.SetValue(installer, definition);
+        }
+
+        private static CampaignStageSequenceEntry CreateSequenceEntry(
+            string stageId,
+            string levelGroupId)
+        {
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(
+                StageId.CreateOrThrow(stageId),
+                levelGroupId);
+            return entry;
+        }
+
+        private static void SetInstallerField(
+            StageBackedGameplaySceneInstaller installer,
+            string fieldName,
+            object value)
+        {
+            var field = typeof(StageBackedGameplaySceneInstallerBase).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(installer, value);
         }
 
         private static GameplaySceneHostConfiguration BuildConfiguration(StageBackedGameplaySceneInstaller installer)

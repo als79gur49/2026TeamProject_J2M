@@ -9,8 +9,6 @@ namespace Game.Feature.Stages.Editor
 {
     public static class StageCampaignMainContentSmokeCheck
     {
-        private const string Stage0_1StageId = "stage-0-1";
-        private const string Stage1_1StageId = "stage-1-1";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string ReportDirectory = "Temp/StageCampaignMainSmoke";
 
@@ -34,7 +32,9 @@ namespace Game.Feature.Stages.Editor
                 errors);
             var catalog = LoadRequired<StageCatalog>(StageContentPaths.StageCatalogAssetPath, errors);
             var aliasTable = LoadRequired<StageIdAliasTable>(StageContentPaths.StageIdAliasTableAssetPath, errors);
-            LoadRequired<UnityEngine.Object>(StageContentPaths.CampaignStageSequenceAssetPath, errors);
+            var sequence = LoadRequired<CampaignStageSequenceDefinition>(
+                CampaignStageSequenceAssetLoader.CanonicalAssetPath,
+                errors);
 
             if (provider != null && catalog != null && provider.Catalog != catalog)
             {
@@ -49,8 +49,11 @@ namespace Game.Feature.Stages.Editor
             if (provider != null && catalog != null)
             {
                 ValidateCatalogGraph(provider, catalog, errors, facts);
-                ValidateLaunchContextResolver(provider, Stage0_1StageId, errors);
-                ValidateLaunchContextResolver(provider, Stage1_1StageId, errors);
+            }
+
+            if (provider != null && catalog != null && aliasTable != null && sequence != null)
+            {
+                ValidateCampaignSequenceSmoke(provider, catalog, aliasTable, sequence, errors, facts);
             }
 
             ValidateDirectPlayCatalog(errors);
@@ -122,9 +125,99 @@ namespace Game.Feature.Stages.Editor
                 ValidatePresentationReferences(entry, errors);
             }
 
-            var resolver = new StageCatalogResolver(provider);
-            RequireCatalogResolve(resolver, Stage0_1StageId, errors);
-            RequireCatalogResolve(resolver, Stage1_1StageId, errors);
+        }
+
+        private static void ValidateCampaignSequenceSmoke(
+            ScriptableObjectStageCatalogProvider provider,
+            StageCatalog catalog,
+            StageIdAliasTable aliasTable,
+            CampaignStageSequenceDefinition sequence,
+            List<string> errors,
+            List<string> facts)
+        {
+            var validator = new CampaignStageSequenceValidator();
+            var authoritativeReport = validator.ValidateAuthoritativeAsset(
+                sequence,
+                catalog.Entries,
+                aliasTable,
+                StageValidationTiming.TestOrCi);
+            AddValidationErrors("Authoritative sequence", authoritativeReport, errors);
+
+            for (var i = 0; i < authoritativeReport.Issues.Count; i++)
+            {
+                var issue = authoritativeReport.Issues[i];
+                if (issue.Severity != StageValidationSeverity.Error)
+                {
+                    facts.Add($"SequenceDiagnostic[{issue.Code}]={issue.Message}");
+                }
+            }
+
+            if (sequence.Entries.Count == 0)
+            {
+                errors.Add("CampaignMain_StageSequence has no entries.");
+                return;
+            }
+
+            CampaignStageSequenceResolver sequenceResolver;
+            try
+            {
+                sequenceResolver = new CampaignStageSequenceResolver(sequence);
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"CampaignMain_StageSequence resolver creation failed: {exception.Message}");
+                return;
+            }
+
+            facts.Add($"CampaignSequenceEntryCount={sequenceResolver.Entries.Count}");
+            var catalogResolver = new StageCatalogResolver(provider);
+            var sampleStageIds = GetFirstMiddleFinalStageIds(sequenceResolver);
+            for (var i = 0; i < sampleStageIds.Count; i++)
+            {
+                RequireCatalogResolve(catalogResolver, sampleStageIds[i], errors);
+                ValidateLaunchContextResolver(provider, sampleStageIds[i], errors);
+            }
+
+            if (!sequenceResolver.FirstStageId.IsValid || !sequenceResolver.FinalStageId.IsValid)
+            {
+                errors.Add("CampaignMain_StageSequence first and final StageIds must both be canonical.");
+            }
+
+            try
+            {
+                for (var i = 0; i < sequenceResolver.Entries.Count; i++)
+                {
+                    var entry = sequenceResolver.Entries[i];
+                    sequenceResolver.GetEntryOrThrow(entry.StageId);
+                    var levelGroupId = sequenceResolver.GetLevelGroupId(entry.StageId);
+                    if (string.IsNullOrWhiteSpace(levelGroupId) ||
+                        !sequenceResolver.TryGetFirstStageInLevelGroup(levelGroupId, out _))
+                    {
+                        errors.Add($"Campaign sequence StageId '{entry.StageId.Value}' has no resolvable level group.");
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"Campaign sequence enumeration failed: {exception.Message}");
+            }
+
+            if (sequenceResolver.TryGetNext(sequenceResolver.FinalStageId, out var nextAfterFinal) ||
+                nextAfterFinal.IsValid)
+            {
+                errors.Add("Campaign sequence final StageId must not resolve a next stage.");
+            }
+
+            var unknownStageIdValue = sequenceResolver.FirstStageId.Value + "-smoke-unknown";
+            while (sequenceResolver.Contains(StageId.CreateOrThrow(unknownStageIdValue)))
+            {
+                unknownStageIdValue += "-x";
+            }
+
+            if (sequenceResolver.Contains(StageId.CreateOrThrow(unknownStageIdValue)))
+            {
+                errors.Add("Campaign sequence resolver unexpectedly accepted a derived unknown StageId.");
+            }
         }
 
         private static void ValidateEntryCompanions(StageContentEntry entry, string entryPath, List<string> errors)
@@ -274,25 +367,24 @@ namespace Game.Feature.Stages.Editor
 
         private static void ValidateLaunchContextResolver(
             ScriptableObjectStageCatalogProvider provider,
-            string stageIdValue,
+            StageId stageId,
             List<string> errors)
         {
             try
             {
                 StageLaunchContextStore.Clear();
-                var stageId = StageId.CreateOrThrow(stageIdValue);
                 StageLaunchContextStore.SetCurrent(stageId);
-                var request = StageLoadRequest.CreateLaunchContextOnly(provider, $"Smoke:{stageIdValue}");
+                var request = StageLoadRequest.CreateLaunchContextOnly(provider, $"Smoke:{stageId.Value}");
                 var resolved = new StageRuntimeContentResolver().Resolve(request);
                 if (!resolved.UsedLaunchContext ||
-                    !string.Equals(resolved.Entry.StageId.Value, stageIdValue, StringComparison.Ordinal))
+                    !resolved.Entry.StageId.Equals(stageId))
                 {
-                    errors.Add($"StageRuntimeContentResolver did not resolve launch-context StageId '{stageIdValue}'.");
+                    errors.Add($"StageRuntimeContentResolver did not resolve launch-context StageId '{stageId.Value}'.");
                 }
             }
             catch (Exception exception)
             {
-                errors.Add($"StageRuntimeContentResolver failed for StageId '{stageIdValue}': {exception.Message}");
+                errors.Add($"StageRuntimeContentResolver failed for StageId '{stageId.Value}': {exception.Message}");
             }
             finally
             {
@@ -314,8 +406,6 @@ namespace Game.Feature.Stages.Editor
                 errors.Add($"Direct-play catalog canonical shell must be '{UiAudioScenePath}'.");
             }
 
-            RequireSupportedStage(directPlayCatalog, Stage0_1StageId, errors);
-            RequireSupportedStage(directPlayCatalog, Stage1_1StageId, errors);
         }
 
         private static void ValidateForbiddenFolders(List<string> errors, List<string> facts)
@@ -421,12 +511,12 @@ namespace Game.Feature.Stages.Editor
 
         private static void RequireCatalogResolve(
             StageCatalogResolver resolver,
-            string stageIdValue,
+            StageId stageId,
             List<string> errors)
         {
-            if (!resolver.TryResolve(stageIdValue, out var entry) || entry == null)
+            if (!resolver.TryResolve(stageId, out var entry) || entry == null)
             {
-                errors.Add($"CampaignMain_StageCatalog cannot resolve StageId '{stageIdValue}'.");
+                errors.Add($"CampaignMain_StageCatalog cannot resolve StageId '{stageId.Value}'.");
             }
         }
 
@@ -457,14 +547,41 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static void RequireSupportedStage(
-            StageEditorDirectPlayCatalog catalog,
-            string expectedStageId,
-            List<string> errors)
+        private static IReadOnlyList<StageId> GetFirstMiddleFinalStageIds(
+            CampaignStageSequenceResolver resolver)
         {
-            if (!catalog.HasSupportedStageId(StageId.CreateOrThrow(expectedStageId)))
+            var samples = new List<StageId>(3);
+            AddDistinct(samples, resolver.FirstStageId);
+            AddDistinct(samples, resolver.Entries[resolver.Entries.Count / 2].StageId);
+            AddDistinct(samples, resolver.FinalStageId);
+            return samples;
+        }
+
+        private static void AddDistinct(ICollection<StageId> values, StageId stageId)
+        {
+            foreach (var value in values)
             {
-                errors.Add($"Direct-play catalog does not list supported StageId '{expectedStageId}'.");
+                if (value.Equals(stageId))
+                {
+                    return;
+                }
+            }
+
+            values.Add(stageId);
+        }
+
+        private static void AddValidationErrors(
+            string scope,
+            StageValidationReport report,
+            ICollection<string> errors)
+        {
+            for (var i = 0; i < report.Issues.Count; i++)
+            {
+                var issue = report.Issues[i];
+                if (issue.Severity == StageValidationSeverity.Error)
+                {
+                    errors.Add($"{scope} {issue.Code}: {issue.Message}");
+                }
             }
         }
 

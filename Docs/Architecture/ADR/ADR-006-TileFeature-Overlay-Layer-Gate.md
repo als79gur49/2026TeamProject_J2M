@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-04-30
-- Last updated: 2026-06-13
+- Last updated: 2026-08-10
 
 ## Decision
 
@@ -16,7 +16,7 @@ TileFeature may coexist with Unit and Box occupants on the same `SurfaceCell`. W
 
 TileFeature overlay names are not interpreted uniformly as blockers. Activated DestroyTile is a non-hard-blocking risk tile: movement, summon candidate selection, and jump landing fallback selection should avoid it when a legal neutral alternative exists, but it does not fail legality like Solid. Activated Barricade is a hard TileFeature blocker: it blocks Unit placement and settlement without creating Solid occupancy. MoonBlockGenerator remains non-blocking as a feature; the generated MoonBlock Solid is the authoritative blocker. All checks are `SurfaceCell(face,x,y)`-aware and must not flatten same-planar coordinates across faces.
 
-`StageRuntimeBuildResult` is a gameplay-only seed. Presentation prefab and binding data are owned by `StagePresentationDefinition` or a presentation companion. VFX, audio, and UI consume facts derived from `TilePresentationEvent` or `TilePresentationRequest`; they must not call `WorldState.CreateSnapshot` to infer TileFeature state. `TickPipeline` transports presentation facts where necessary but must not execute prefab, audio, or UI work.
+`StageDefinition` is a gameplay-only generated output. `StageRuntimeBuildResult` is a gameplay-only seed. Presentation prefab and binding data are owned by `StagePresentationDefinition`, the generated presentation companion, and TileFeature visual selections join to gameplay by stage-local stable `TileId`. VFX, audio, and UI consume facts derived from `TilePresentationEvent` or `TilePresentationRequest`; they must not call `WorldState.CreateSnapshot` to infer TileFeature state. `TickPipeline` transports presentation facts where necessary but must not execute prefab, audio, or UI work.
 
 ## Implemented Order
 
@@ -113,6 +113,21 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - Multiple destroyed entities may create multiple events.
 - DestroyTile supports `BottomFaceOnly`, `FrontFaceOnly`, `ActiveFaceOnly`, and `InactiveFaceOnly` activation; default authoring remains `BottomFaceOnly`.
 - `DestroyTileTriggered` event `TargetEntityId` is the destroyed entity id.
+
+### Destroy presentation alias policy
+
+Destroy gameplay activation, static presentation selection, and runtime active state are separate contracts.
+
+- `destroy.bottom` is the explicit default Destroy presentation and uses `TileFeature_Destroy_Bottom`.
+- `destroy.front` is the explicit Front-face presentation and uses `TileFeature_Destroy_Front`.
+- `destroy.active` is a supported static authoring alias for `ActiveFaceOnly`-oriented content. It intentionally shares the `TileFeature_Destroy_Bottom` prefab and that prefab's profile, material, and VFX ownership.
+- `destroy.inactive` is a supported static authoring alias for `InactiveFaceOnly`-oriented content. It intentionally shares the `TileFeature_Destroy_Front` prefab and that prefab's profile, material, and VFX ownership.
+- `destroy.active` and `destroy.inactive` are non-default aliases. Catalog ordering does not select a default; the catalog's explicit `IsDefaultForKind` contract keeps `destroy.bottom` as the only Destroy default.
+- These aliases are static `PresentationKey` choices made during stage authoring. They are not runtime state identifiers, and runtime topology changes do not switch an instantiated Destroy visual between catalog keys.
+- Runtime active/inactive visual transitions update the same resolved prefab through `DestroyTileActivated`, `DestroyTileDeactivated`, and `DestroyTileActiveState` cues/profile handling.
+- The Editor Destroy presentation dropdown enumerates all matching-kind catalog entries, so `destroy.bottom`, `destroy.front`, `destroy.active`, and `destroy.inactive` remain selectable independent of the feature's activation rule.
+- A new Destroy placement starts with `ActivationRule = BottomFaceOnly` and an empty `PresentationKey`; the empty key resolves through the explicit `destroy.bottom` default. Changing the activation rule to `ActiveFaceOnly` or `InactiveFaceOnly` does not automatically change the presentation key. Any future rule-to-key auto-selection requires a separate authoring UX decision.
+- Presentation aliases are not save identity and do not open save migration. Gameplay schema, `WorldState`, deterministic identity/hash, objective state, and campaign progression remain independent of `PresentationKey`.
 
 ## SlideTile Policy
 
@@ -340,9 +355,12 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - Missing visual targets and unsupported optional target interfaces are no-op with optional diagnostics.
 - Duplicate requests are not deduped.
 - TileFeature visual binding is owned by `StagePresentationDefinition`.
-- Direct `TileId -> VisualPrefab` binding is the MVP.
+- `StagePresentationDefinition` owns `TileId -> PresentationKey / optional VisualPrefab` selection rows.
+- `TileFeaturePresentationCatalog` owns `PresentationKey -> VisualPrefab / presentation Kind / VfxStyleKey` resolution.
+- Resolution precedence is direct `VisualPrefab`, then non-empty `PresentationKey` catalog lookup, then gameplay Kind default, then warning plus skip.
 - `StageRuntimeBuildResult` must not contain TileFeature visual prefab or binding data.
-- `StageDefinition` must not contain TileFeature visual prefab references.
+- `StageDefinition` and `TileFeatureRuntimeDefinition` must not contain `PresentationKey`, visual prefab references, or presentation style data.
+- Gameplay equality and determinism are independent of presentation selection.
 - Transform placement is instantiate/register only; `SurfaceCell` world-position mapping is not implemented.
 
 ## Audio Rule
@@ -363,9 +381,16 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 
 ## StagePresentationDefinition TileFeature Binding Rule
 
-- TileFeature visual binding is owned by `StagePresentationDefinition`.
-- Direct TileId binding is the MVP.
-- PresentationKey/catalog is a future step.
+- TileFeature visual selection is owned by the generated `StagePresentationDefinition` companion.
+- `TileId` is the stage-local gameplay-to-presentation join identity; array index and authoring order are not identities.
+- Every gameplay TileFeature has exactly one companion selection row, and duplicate, invalid, orphan, or missing `TileId` rows are errors.
+- A selection row owns `TileId`, `PresentationKey`, and an optional direct `VisualPrefab` override. It does not duplicate gameplay Kind, Direction, ActivationRule, or BoxSelector.
+- An empty `PresentationKey` with no direct override explicitly selects gameplay Kind default resolution.
+- `TileFeaturePresentationCatalog` resolves non-empty keys to visual prefab, presentation Kind, and `VfxStyleKey`.
+- Direct override takes precedence over key lookup; key lookup takes precedence over gameplay Kind default; unresolved selection warns and skips.
+- Gameplay Kind compatibility is checked after the `TileId` join against the resolved catalog entry.
+- `StageDefinition`, `StageRuntimeBuildResult`, and `TileFeatureRuntimeDefinition` do not own or read `PresentationKey`.
+- Gameplay runtime equality, hash participation, replay, and deterministic identity are independent of visual variant selection.
 - Runtime configure is the source of truth. Prefab serialized TileId may be a placeholder.
 - Duplicate registry policy is warning plus first-win.
 - Missing visual binding has no gameplay effect.

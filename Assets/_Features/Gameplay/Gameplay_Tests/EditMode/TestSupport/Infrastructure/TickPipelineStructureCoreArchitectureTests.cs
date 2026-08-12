@@ -233,12 +233,14 @@ namespace Game.Feature.Gameplay.Tests.Core
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(TickInputBuffer) },
                 modifiers: null);
-            var runnerWithLogicFactory = typeof(GameplayCompositionRoot).GetMethod(
+            var runnerWithLogicFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayCompositionRoot),
                 nameof(GameplayCompositionRoot.CreateTickRunner),
                 BindingFlags.Static | BindingFlags.Public,
-                binder: null,
-                types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>), typeof(TickInputBuffer), typeof(int) },
-                modifiers: null);
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(TickInputBuffer),
+                typeof(int));
 
             Assert.That(defaultBootstrapperFactory, Is.Not.Null);
             Assert.That(defaultBootstrapperFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
@@ -252,6 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(runnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
             Assert.That(runnerWithLogicFactory, Is.Not.Null);
             Assert.That(runnerWithLogicFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+            AssertDefaultRunnerCreationParameters(runnerWithLogicFactory);
         }
 
         [Test]
@@ -264,17 +267,20 @@ namespace Game.Feature.Gameplay.Tests.Core
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(TickInputBuffer) },
                 modifiers: null);
-            var runnerWithLogicFactory = typeof(GameplayBootstrapper).GetMethod(
+            var runnerWithLogicFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayBootstrapper),
                 nameof(GameplayBootstrapper.CreateTickRunner),
                 BindingFlags.Instance | BindingFlags.Public,
-                binder: null,
-                types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>), typeof(TickInputBuffer), typeof(int) },
-                modifiers: null);
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(TickInputBuffer),
+                typeof(int));
 
             Assert.That(runnerFactory, Is.Not.Null);
             Assert.That(runnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
             Assert.That(runnerWithLogicFactory, Is.Not.Null);
             Assert.That(runnerWithLogicFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+            AssertDefaultRunnerCreationParameters(runnerWithLogicFactory);
         }
 
         [Test]
@@ -417,6 +423,22 @@ namespace Game.Feature.Gameplay.Tests.Core
                 .FirstOrDefault(method =>
                     method.Name == methodName &&
                     HasLeadingParameterTypes(method, parameterTypes));
+        }
+
+        private static void AssertDefaultRunnerCreationParameters(MethodInfo method)
+        {
+            var parameters = method.GetParameters();
+
+            Assert.That(parameters, Has.Length.EqualTo(5));
+            Assert.That(parameters[3].Name, Is.EqualTo("startTickIndex"));
+            Assert.That(parameters[3].IsOptional, Is.True);
+            Assert.That(parameters[3].DefaultValue, Is.EqualTo(1));
+            Assert.That(
+                parameters[4].ParameterType,
+                Is.EqualTo(typeof(IDemoGameplayOverrideSnapshotSource)));
+            Assert.That(parameters[4].Name, Is.EqualTo("demoGameplayOverrideSnapshotSource"));
+            Assert.That(parameters[4].IsOptional, Is.True);
+            Assert.That(parameters[4].DefaultValue, Is.Null);
         }
 
         private static bool HasParameterTypes(

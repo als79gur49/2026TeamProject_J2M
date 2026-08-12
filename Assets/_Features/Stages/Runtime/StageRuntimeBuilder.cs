@@ -95,8 +95,7 @@ namespace Game.Feature.Stages
                     tileFeature.ActivationRule,
                     tileFeature.Direction,
                     tileFeature.BoxSelector,
-                    tileFeature.BoundEntityId,
-                    tileFeature.PresentationKey);
+                    tileFeature.BoundEntityId);
             }
 
             Array.Sort(definitions, (left, right) => left.TileId.CompareTo(right.TileId));

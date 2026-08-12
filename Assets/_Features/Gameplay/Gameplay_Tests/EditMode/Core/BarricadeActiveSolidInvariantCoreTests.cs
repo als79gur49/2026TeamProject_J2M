@@ -95,8 +95,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 activationRule,
                 direction,
                 selector,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static EntityState CreateBox(int entityId, SurfaceCell position)

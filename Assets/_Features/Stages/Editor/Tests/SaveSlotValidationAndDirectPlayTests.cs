@@ -38,7 +38,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             ClearStageSavePrefsForTests();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var stageId = StageId.CreateOrThrow("stage-2-2");
 
             StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(stageId, resolver, remainingChances: 2);
@@ -379,7 +379,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void CampaignTempDirectPlay_PrimesSlot1WithSelectedStageDerivedLevelGroupAndRemainingChances()
         {
-            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var stageId = StageId.CreateOrThrow("stage-3-2");
 
             StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(stageId, resolver, remainingChances: 1);
@@ -398,7 +398,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var seedPath = CreateTempSeedPath();
             var provider = CreateProvider("stage-2-2");
-            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var saveRootPath = Path.Combine("Temp", "StandaloneCampaignSeedProfileTests", Guid.NewGuid().ToString("N"));
             var saveStore = CampaignSaveCompositionProvider.Create(new CampaignSaveCompositionOptions
             {
@@ -460,7 +460,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var seedPath = CreateTempSeedPath();
             var provider = CreateProvider("stage-0-1");
-            var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var saveStore = new SaveSlotStore();
             var activeSlotProvider = new ActiveSlotProvider();
             saveStore.ClearAll();
@@ -504,7 +504,7 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 var validation = new SaveSlotValidationService(
-                    new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                    CampaignStageSequenceTestAsset.LoadProductionResolver(),
                     provider.Provider);
 
                 Assert.That(
@@ -555,7 +555,7 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 var validation = new SaveSlotValidationService(
-                    new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                    CampaignStageSequenceTestAsset.LoadProductionResolver(),
                     provider.Provider);
 
                 var result = validation.Validate(new SaveSlotData
@@ -580,7 +580,7 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 var validation = new SaveSlotValidationService(
-                    new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                    CampaignStageSequenceTestAsset.LoadProductionResolver(),
                     provider.Provider);
 
                 var result = validation.Validate(new SaveSlotData
@@ -605,7 +605,7 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 var validation = new SaveSlotValidationService(
-                    new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                    CampaignStageSequenceTestAsset.LoadProductionResolver(),
                     provider.Provider);
 
                 var result = validation.Validate(new SaveSlotData
@@ -634,7 +634,7 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 var validation = new SaveSlotValidationService(
-                    new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                    CampaignStageSequenceTestAsset.LoadProductionResolver(),
                     provider.Provider);
                 var legacySlot = new SaveSlotData
                 {

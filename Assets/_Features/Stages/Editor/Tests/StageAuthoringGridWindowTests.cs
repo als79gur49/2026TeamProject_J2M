@@ -269,7 +269,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     Assert.That(added.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
                     Assert.That(added.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
                     Assert.That(added.Direction, Is.EqualTo(Direction2D.None));
-                    Assert.That(added.PresentationKey, Is.Empty);
+                    Assert.That(
+                        authoring.TileFeaturePresentationSelections.Single(binding => binding.TileId == added.TileId).PresentationKey,
+                        Is.Empty);
                     Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(added.TileId));
                 });
         }
@@ -299,7 +301,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     Assert.That(added.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
                     Assert.That(added.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
                     Assert.That(added.Direction, Is.EqualTo(Direction2D.None));
-                    Assert.That(added.PresentationKey, Is.Empty);
+                    Assert.That(
+                        authoring.TileFeaturePresentationSelections.Single(binding => binding.TileId == added.TileId).PresentationKey,
+                        Is.Empty);
                     Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(added.TileId));
                 });
         }
@@ -344,7 +348,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     var updated = authoring.TileFeatures.Single();
                     Assert.That(updated.Kind, Is.EqualTo(TileFeatureKind.Slide));
                     Assert.That(updated.Direction, Is.EqualTo(Direction2D.Right));
-                    Assert.That(updated.PresentationKey, Is.EqualTo("slide-key"));
+                    Assert.That(
+                        authoring.TileFeaturePresentationSelections.Single(binding => binding.TileId == updated.TileId).PresentationKey,
+                        Is.EqualTo("slide-key"));
                 });
         }
 
@@ -557,7 +563,15 @@ namespace Game.Feature.Stages.Editor.Tests
                 (window, authoring) =>
                 {
                     authoring.SetBoard(Board(0, 0, 2, 2));
-                    authoring.SetTileFeatures(new[] { TileFeature(7, FaceId.Floor, 0, 0, "button-key") });
+                    authoring.SetTileFeatures(new[] { TileFeature(7, FaceId.Floor, 0, 0) });
+                    authoring.SetTileFeaturePresentationSelections(new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 7,
+                            PresentationKey = "button-key",
+                        },
+                    });
                     window.SetEditModeForTests(StageAuthoringGridEditMode.TileFeaturePlacement);
                     window.SelectTileFeatureByIdForTests(7);
                     window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(2, 2));
@@ -572,7 +586,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     Assert.That(moved.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
                     Assert.That(moved.Direction, Is.EqualTo(Direction2D.None));
                     Assert.That(moved.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.AnyPushableBox));
-                    Assert.That(moved.PresentationKey, Is.EqualTo("button-key"));
+                    Assert.That(
+                        authoring.TileFeaturePresentationSelections.Single(binding => binding.TileId == moved.TileId).PresentationKey,
+                        Is.EqualTo("button-key"));
                     Assert.That(window.SelectedTileFeatureIdForTests, Is.EqualTo(7));
                 });
         }
@@ -741,7 +757,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 var removed = window.RemoveSelectedTileFeatureVisualBindingForTests(out var error);
 
                 Assert.That(removed, Is.True, error);
-                Assert.That(presentation.TileFeaturePresentationBindings, Is.Empty);
+                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.Null);
             });
         }
 
@@ -779,12 +797,17 @@ namespace Game.Feature.Stages.Editor.Tests
                     0,
                     "gameplay-key");
 
-                var selected = authoring.TileFeatures.Single(feature => feature.TileId == 1);
-                var updated = selected;
-                updated.PresentationKey = "gameplay-key";
-                Assert.That(StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out _), Is.True);
+                Assert.That(
+                    StageAuthoringPlacementCommands.TrySetTileFeaturePresentationKey(
+                        authoring,
+                        1,
+                        "gameplay-key",
+                        out _),
+                    Is.True);
 
-                Assert.That(authoring.TileFeatures.Single(feature => feature.TileId == 1).PresentationKey, Is.EqualTo("gameplay-key"));
+                Assert.That(
+                    authoring.TileFeaturePresentationSelections.Single(binding => binding.TileId == 1).PresentationKey,
+                    Is.EqualTo("gameplay-key"));
                 Assert.That(presentation.TileFeaturePresentationBindings.Single().VisualPrefab, Is.SameAs(prefab));
             });
         }
@@ -1143,8 +1166,7 @@ namespace Game.Feature.Stages.Editor.Tests
             int tileId,
             FaceId face,
             int x,
-            int y,
-            string presentationKey = "")
+            int y)
         {
             return new StageTileFeatureDefinition
             {
@@ -1154,7 +1176,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
                 Direction = Direction2D.None,
                 BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
-                PresentationKey = presentationKey,
             };
         }
 
@@ -1189,8 +1210,7 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureKind kind,
             TileFeatureActivationRule activationRule,
             Direction2D direction,
-            TileFeatureBoxSelector boxSelector,
-            string presentationKey = "")
+            TileFeatureBoxSelector boxSelector)
         {
             return new StageTileFeatureDefinition
             {
@@ -1200,7 +1220,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 ActivationRule = activationRule,
                 Direction = direction,
                 BoxSelector = boxSelector,
-                PresentationKey = presentationKey,
             };
         }
 

@@ -1297,7 +1297,6 @@ namespace Game.Feature.Stages.Editor.Tests
                     ? TileFeatureBoxSelector.AnyPushableBox
                     : TileFeatureBoxSelector.None,
                 BoundEntityId = 0,
-                PresentationKey = string.Empty,
             };
         }
 
@@ -1333,8 +1332,6 @@ namespace Game.Feature.Stages.Editor.Tests
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = policy,
-                ObjectiveTitle = string.Empty,
-                ObjectiveSummary = string.Empty,
                 ConditionEntries = entries,
             };
         }

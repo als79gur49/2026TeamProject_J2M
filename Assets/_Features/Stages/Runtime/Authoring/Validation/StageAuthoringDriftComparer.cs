@@ -38,7 +38,76 @@ namespace Game.Feature.Stages
 
             CompareBindings("EnemyPresentationBindings", expected.EnemyBindings, actual.EnemyBindings, context, issues);
             CompareBindings("StaticEntityPresentationBindings", expected.StaticBindings, actual.StaticBindings, context, issues);
+            CompareTileFeatureSelections(expected.TileFeatureSelections, actual.TileFeatureSelections, context, issues);
             return issues.ToArray();
+        }
+
+        private static void CompareTileFeatureSelections(
+            IReadOnlyList<StageAuthoringNormalizedTileFeaturePresentationSelection> expected,
+            IReadOnlyList<StageAuthoringNormalizedTileFeaturePresentationSelection> actual,
+            StageAuthoringDriftContext context,
+            ICollection<StageValidationIssue> issues)
+        {
+            var actualByTileId = new Dictionary<int, StageAuthoringNormalizedTileFeaturePresentationSelection>();
+            for (var i = 0; i < actual.Count; i++)
+            {
+                actualByTileId[actual[i].TileId] = actual[i];
+            }
+
+            var expectedTileIds = new HashSet<int>();
+            for (var i = 0; i < expected.Count; i++)
+            {
+                var expectedSelection = expected[i];
+                expectedTileIds.Add(expectedSelection.TileId);
+                if (!actualByTileId.TryGetValue(expectedSelection.TileId, out var actualSelection))
+                {
+                    issues.Add(CreateIssue(
+                        context,
+                        "PresentationDrift.TileFeatureSelectionMissing",
+                        $"Expected TileFeature presentation selection TileId={expectedSelection.TileId} is missing.",
+                        "TileFeaturePresentationBindings",
+                        expectedSelection.PresentationKey,
+                        string.Empty,
+                        expectedSelection.TileId,
+                        string.Empty));
+                    continue;
+                }
+
+                AddIfDifferent(
+                    issues,
+                    context,
+                    "PresentationDrift.TileFeatureSelectionFieldMismatch",
+                    $"TileFeaturePresentationBindings[{expectedSelection.TileId}].PresentationKey",
+                    expectedSelection.PresentationKey,
+                    actualSelection.PresentationKey,
+                    expectedSelection.TileId);
+                AddIfDifferent(
+                    issues,
+                    context,
+                    "PresentationDrift.TileFeatureSelectionFieldMismatch",
+                    $"TileFeaturePresentationBindings[{expectedSelection.TileId}].VisualPrefab",
+                    expectedSelection.VisualPrefab,
+                    actualSelection.VisualPrefab,
+                    expectedSelection.TileId);
+            }
+
+            for (var i = 0; i < actual.Count; i++)
+            {
+                if (expectedTileIds.Contains(actual[i].TileId))
+                {
+                    continue;
+                }
+
+                issues.Add(CreateIssue(
+                    context,
+                    "PresentationDrift.TileFeatureSelectionUnexpected",
+                    $"Unexpected TileFeature presentation selection TileId={actual[i].TileId} exists.",
+                    "TileFeaturePresentationBindings",
+                    string.Empty,
+                    actual[i].PresentationKey,
+                    actual[i].TileId,
+                    string.Empty));
+            }
         }
 
         private static void CompareBoard(
@@ -258,7 +327,6 @@ namespace Game.Feature.Stages
             AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].Direction", expected.Direction, actual.Direction, expected.TileId);
             AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].BoxSelector", expected.BoxSelector, actual.BoxSelector, expected.TileId);
             AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].BoundEntityId", expected.BoundEntityId, actual.BoundEntityId, expected.TileId);
-            AddIfDifferent(issues, context, "GameplayDrift.TileFeatureFieldMismatch", $"TileFeatures[{expected.TileId}].PresentationKey", expected.PresentationKey, actual.PresentationKey, expected.TileId);
         }
 
         private static void CompareObjective(
@@ -268,8 +336,6 @@ namespace Game.Feature.Stages
             ICollection<StageValidationIssue> issues)
         {
             AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.CompletionPolicy", expected.CompletionPolicy, actual.CompletionPolicy);
-            AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.ObjectiveTitle", expected.ObjectiveTitle, actual.ObjectiveTitle);
-            AddIfDifferent(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.ObjectiveSummary", expected.ObjectiveSummary, actual.ObjectiveSummary);
             if (expected.Conditions.Length != actual.Conditions.Length)
             {
                 AddMismatch(issues, context, "GameplayDrift.ObjectiveMismatch", "Objective.ConditionEntries.Count", expected.Conditions.Length.ToString(), actual.Conditions.Length.ToString());

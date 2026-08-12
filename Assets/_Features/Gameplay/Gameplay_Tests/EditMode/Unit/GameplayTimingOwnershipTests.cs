@@ -1258,6 +1258,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayHostPresentationFeed_Victory_PlayerPrefab");
             StageContentEntry stageContentEntry = null;
             StagePresentationDefinition presentationDefinition = null;
+            TerminalSessionRegistry.ResetForTests();
 
             try
             {
@@ -1274,6 +1275,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var inputHost = rootObject.AddComponent<GameplayInputHost>();
+                SetPrivateField(inputHost, "_playerEntityId", 10);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var binder = new GameplayEntityViewBinder(
@@ -1318,15 +1320,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(feed.ReleaseStageClearTerminalGate(acceptedToken), Is.True);
                 Assert.That(feed.HasPendingStageClearPresentation, Is.False);
                 Assert.That(frames, Has.Count.EqualTo(2));
+                Assert.That(feed.CurrentMinimalStageCompletion.FinalTickIndex, Is.EqualTo(7));
+                Assert.That(frames[1].TickIndex, Is.EqualTo(7));
                 Assert.That(frames[1].StageEvent.HasValue, Is.True);
                 Assert.That(frames[1].StageEvent.Value.EventKind, Is.EqualTo(GameplayStageEventKind.Cleared));
                 feed.Dispose();
             }
             finally
             {
+                TerminalSessionRegistry.ResetForTests();
                 UnityEngine.Object.DestroyImmediate(presentationDefinition);
                 UnityEngine.Object.DestroyImmediate(stageContentEntry);
                 UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHostPresentationFeed_DemoForcedClear_PublishesSyntheticTickAfterLastPresentedTick()
+        {
+            var rootObject = new GameObject("GameplayHostPresentationFeed_DemoForcedClear_SyntheticTick");
+            var entry = CreateStageContentEntry("stage-1-1");
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(
+                presentationDefinition,
+                "displayNameKey",
+                StageDisplayNameKeys.ForStage(entry.StageId));
+            entry.AssignPresentationDefinition(presentationDefinition);
+            TerminalSessionRegistry.ResetForTests();
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+                var inputHost = rootObject.AddComponent<GameplayInputHost>();
+                var feed = new GameplayHostPresentationFeed(inputHost, presenter, entry);
+                feed.ConfigureTerminalArbiter(new TerminalArbitrationOwner());
+                var frames = new List<GameplayPresentationFrame>();
+                TerminalSessionToken acceptedToken = default;
+                feed.FramePublished += frames.Add;
+                feed.TerminalClaimAccepted += (_, _, claim) => acceptedToken = claim.Token;
+
+                InvokePresentationFeedTickCompleted(
+                    feed,
+                    new TickResult(7, Array.Empty<TickPhase>(), Array.Empty<string>()));
+                var forcedClear = new GameplayHostDemoStageControlCompletionBridge(feed)
+                    .ForceClearCurrentStage();
+
+                Assert.That(forcedClear.Success, Is.True, forcedClear.Message);
+                Assert.That(acceptedToken.IsValid, Is.True);
+                Assert.That(feed.ReleaseStageClearTerminalGate(acceptedToken), Is.True);
+                Assert.That(frames, Has.Count.EqualTo(2));
+                Assert.That(frames[0].TickIndex, Is.EqualTo(7));
+                Assert.That(frames[1].TickIndex, Is.GreaterThan(frames[0].TickIndex));
+                Assert.That(frames[1].TickIndex, Is.GreaterThanOrEqualTo(1));
+                Assert.That(
+                    frames[1].TickIndex,
+                    Is.GreaterThanOrEqualTo(feed.CurrentMinimalStageCompletion.FinalTickIndex));
+                Assert.That(frames[1].StageEvent.HasValue, Is.True);
+                Assert.That(
+                    frames[1].StageEvent.Value.EventKind,
+                    Is.EqualTo(GameplayStageEventKind.Cleared));
+                feed.Dispose();
+            }
+            finally
+            {
+                TerminalSessionRegistry.ResetForTests();
+                UnityEngine.Object.DestroyImmediate(presentationDefinition);
+                UnityEngine.Object.DestroyImmediate(entry);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -3589,13 +3650,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
+                fixture.Animator.Update(0f);
                 Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(
+                    fixture.Animator.GetCurrentAnimatorStateInfo(0).IsName("JumpAirborne"),
+                    Is.True);
+                var activePlayback = CaptureAnimatorPlayback(fixture.Animator);
 
-                fixture.Root.SetActive(false);
+                fixture.Animator.enabled = false;
                 fixture.Driver.Apply(CreateJumpLandingPresentationState());
 
-                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
-                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.Not.EqualTo("Move"));
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
+                Assert.That(
+                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
+                    Is.EqualTo("Move"));
+                fixture.Animator.enabled = true;
+                fixture.Animator.Update(0f);
+                AssertAnimatorPlaybackUnchanged(
+                    activePlayback,
+                    CaptureAnimatorPlayback(fixture.Animator),
+                    "Inactive landing must retain Move without queuing or mutating Animator playback.");
                 LogAssert.NoUnexpectedReceived();
             }
             finally
@@ -3613,14 +3687,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 fixture.Driver.Apply(CreateJumpAirbornePresentationState(startedAirborne: true));
-                fixture.Root.SetActive(false);
+                fixture.Animator.Update(0f);
+                var activePlayback = CaptureAnimatorPlayback(fixture.Animator);
+                fixture.Animator.enabled = false;
                 fixture.Driver.Apply(CreateJumpLandingPresentationState());
-                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
+                Assert.That(
+                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
+                    Is.EqualTo("Move"));
+                fixture.Animator.enabled = true;
+                fixture.Animator.Update(0f);
+                AssertAnimatorPlaybackUnchanged(
+                    activePlayback,
+                    CaptureAnimatorPlayback(fixture.Animator),
+                    "Reactivation alone must not apply the pending Move crossfade.");
 
-                fixture.Root.SetActive(true);
                 fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Animator.Update(0f);
 
                 Assert.That(fixture.Driver.LastCrossFadedStateName, Is.EqualTo("Move"));
+                Assert.That(
+                    fixture.Animator.GetCurrentAnimatorStateInfo(0).IsName("Move"),
+                    Is.True);
+                Assert.That(
+                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
+                    Is.Empty);
+
+                var consumedPlayback = CaptureAnimatorPlayback(fixture.Animator);
+                fixture.Driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+                fixture.Animator.Update(0f);
+
+                Assert.That(
+                    GetPrivateInstanceField<string>(fixture.Driver, "_pendingCrossFadeStateName"),
+                    Is.Empty,
+                    "A consumed Move request must not be queued or consumed a second time.");
+                AssertAnimatorPlaybackUnchanged(
+                    consumedPlayback,
+                    CaptureAnimatorPlayback(fixture.Animator),
+                    "A second runtime sync must not replay the already-consumed Move crossfade.");
                 LogAssert.NoUnexpectedReceived();
             }
             finally
@@ -4946,6 +5050,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return (T)field.GetValue(target);
         }
 
+        private static AnimatorPlaybackSnapshot CaptureAnimatorPlayback(Animator animator)
+        {
+            var current = animator.GetCurrentAnimatorStateInfo(0);
+            var next = animator.GetNextAnimatorStateInfo(0);
+            var parameterValues = animator.parameters
+                .Where(parameter =>
+                    parameter.type == AnimatorControllerParameterType.Bool ||
+                    parameter.type == AnimatorControllerParameterType.Float ||
+                    parameter.type == AnimatorControllerParameterType.Int)
+                .OrderBy(parameter => parameter.nameHash)
+                .Select(parameter =>
+                {
+                    switch (parameter.type)
+                    {
+                        case AnimatorControllerParameterType.Bool:
+                            return $"{parameter.nameHash}:Bool:{animator.GetBool(parameter.nameHash)}";
+                        case AnimatorControllerParameterType.Float:
+                            return $"{parameter.nameHash}:Float:{animator.GetFloat(parameter.nameHash):R}";
+                        default:
+                            return $"{parameter.nameHash}:Int:{animator.GetInteger(parameter.nameHash)}";
+                    }
+                });
+            return new AnimatorPlaybackSnapshot(
+                current.fullPathHash,
+                current.normalizedTime,
+                next.fullPathHash,
+                next.normalizedTime,
+                animator.IsInTransition(0),
+                string.Join("|", parameterValues));
+        }
+
+        private static void AssertAnimatorPlaybackUnchanged(
+            AnimatorPlaybackSnapshot expected,
+            AnimatorPlaybackSnapshot actual,
+            string message)
+        {
+            Assert.That(actual.CurrentStateHash, Is.EqualTo(expected.CurrentStateHash), message);
+            Assert.That(actual.CurrentNormalizedTime,
+                Is.EqualTo(expected.CurrentNormalizedTime).Within(0.0001f), message);
+            Assert.That(actual.NextStateHash, Is.EqualTo(expected.NextStateHash), message);
+            Assert.That(actual.NextNormalizedTime,
+                Is.EqualTo(expected.NextNormalizedTime).Within(0.0001f), message);
+            Assert.That(actual.IsInTransition, Is.EqualTo(expected.IsInTransition), message);
+            Assert.That(actual.ParameterValues, Is.EqualTo(expected.ParameterValues), message);
+        }
+
         private static void ConfigureEnemyAnimationTimingAuthoring(
             EnemyAnimationTimingAuthoring authoring,
             float attackWindupAnimatorDurationSeconds,
@@ -5148,6 +5298,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(ReferenceClip);
                 UnityEngine.Object.DestroyImmediate(Root);
             }
+        }
+
+        private readonly struct AnimatorPlaybackSnapshot
+        {
+            public AnimatorPlaybackSnapshot(
+                int currentStateHash,
+                float currentNormalizedTime,
+                int nextStateHash,
+                float nextNormalizedTime,
+                bool isInTransition,
+                string parameterValues)
+            {
+                CurrentStateHash = currentStateHash;
+                CurrentNormalizedTime = currentNormalizedTime;
+                NextStateHash = nextStateHash;
+                NextNormalizedTime = nextNormalizedTime;
+                IsInTransition = isInTransition;
+                ParameterValues = parameterValues;
+            }
+
+            public int CurrentStateHash { get; }
+
+            public float CurrentNormalizedTime { get; }
+
+            public int NextStateHash { get; }
+
+            public float NextNormalizedTime { get; }
+
+            public bool IsInTransition { get; }
+
+            public string ParameterValues { get; }
         }
 
         private static AnimatorState FindState(AnimatorStateMachine stateMachine, string stateName)

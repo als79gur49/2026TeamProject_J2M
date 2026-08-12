@@ -292,6 +292,11 @@ namespace Game.Feature.Stages
             }
 
             ValidateAuthoringTileFeatures(authoring, authoringPath, options, severity, boardBoundsValid, boardBounds, wallCells, report);
+            ValidateAuthoringTileFeaturePresentationSelections(
+                authoring,
+                authoringPath,
+                options,
+                report);
 
             var mappings = authoring.EntityIdMappings;
             for (var i = 0; i < mappings.Count; i++)
@@ -766,6 +771,92 @@ namespace Game.Feature.Stages
             return null;
         }
 
+        private static void ValidateAuthoringTileFeaturePresentationSelections(
+            StageAuthoringDefinition authoring,
+            string authoringPath,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var gameplayTileIds = new HashSet<int>();
+            var tileFeatures = authoring.TileFeatures;
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                if (tileFeatures[i].TileId > 0)
+                {
+                    gameplayTileIds.Add(tileFeatures[i].TileId);
+                }
+            }
+
+            var selectionTileIds = new HashSet<int>();
+            var selections = authoring.TileFeaturePresentationSelections;
+            for (var i = 0; i < selections.Count; i++)
+            {
+                var selection = selections[i];
+                if (selection == null)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.tile-feature-presentation.selection-null",
+                        $"StageAuthoringDefinition '{authoring.name}' presentation selection[{i}] is null.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (selection.TileId <= 0)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.tile-feature-presentation.id-invalid",
+                        $"StageAuthoringDefinition '{authoring.name}' presentation selection[{i}] must use a positive TileId.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!selectionTileIds.Add(selection.TileId))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.tile-feature-presentation.id-duplicate",
+                        $"StageAuthoringDefinition '{authoring.name}' contains duplicate presentation selection TileId {selection.TileId}.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (!gameplayTileIds.Contains(selection.TileId))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "authoring.tile-feature-presentation.orphan",
+                        $"StageAuthoringDefinition '{authoring.name}' presentation selection TileId {selection.TileId} has no gameplay TileFeature.",
+                        authoring,
+                        authoringPath,
+                        options.Timing);
+                }
+            }
+
+            foreach (var tileId in gameplayTileIds)
+            {
+                if (selectionTileIds.Contains(tileId))
+                {
+                    continue;
+                }
+
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "authoring.tile-feature-presentation.missing",
+                    $"StageAuthoringDefinition '{authoring.name}' TileFeature TileId {tileId} has no presentation selection.",
+                    authoring,
+                    authoringPath,
+                    options.Timing);
+            }
+        }
+
         private static bool IsCardinalDirection(Direction2D direction)
         {
             return direction == Direction2D.Up ||
@@ -839,7 +930,7 @@ namespace Game.Feature.Stages
             StageValidationReport report)
         {
             if (entry.GameplayDefinition == null ||
-                !IsProductionCampaignStage(entry.StageId))
+                entry.CampaignParticipation != CampaignParticipation.Campaign)
             {
                 return;
             }
@@ -856,28 +947,6 @@ namespace Game.Feature.Stages
                     gameplayAssetPath,
                     options.Timing);
                 return;
-            }
-
-            if (string.IsNullOrWhiteSpace(objective.ObjectiveTitle))
-            {
-                report.Add(
-                    StageValidationSeverity.Error,
-                    "objective.title-missing",
-                    $"Production campaign stage '{entry.StageId.Value}' objective is missing ObjectiveTitle.",
-                    entry.GameplayDefinition,
-                    gameplayAssetPath,
-                    options.Timing);
-            }
-
-            if (string.IsNullOrWhiteSpace(objective.ObjectiveSummary))
-            {
-                report.Add(
-                    StageValidationSeverity.Error,
-                    "objective.summary-missing",
-                    $"Production campaign stage '{entry.StageId.Value}' objective is missing ObjectiveSummary.",
-                    entry.GameplayDefinition,
-                    gameplayAssetPath,
-                    options.Timing);
             }
 
             var conditionEntries = objective.GetConditionEntriesOrEmpty();
@@ -907,28 +976,6 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
             }
-        }
-
-        private static bool IsProductionCampaignStage(StageId stageId)
-        {
-            if (!stageId.IsValid)
-            {
-                return false;
-            }
-
-            var stageIdValue = stageId.Value;
-            for (var i = 0; i < CampaignStageSequenceDefinition.CanonicalStageIdValues.Length; i++)
-            {
-                if (string.Equals(
-                        CampaignStageSequenceDefinition.CanonicalStageIdValues[i],
-                        stageIdValue,
-                        StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static void ValidateEntryPath(
@@ -1558,8 +1605,21 @@ namespace Game.Feature.Stages
             var presentation = entry.PresentationDefinition;
             var catalog = presentation.TileFeaturePresentationCatalog;
             var presentationPath = GetAssetPath(presentation, options);
-            var directTileIds = BuildDirectTileFeatureBindingIds(presentation);
             var tileFeatures = entry.GameplayDefinition.TileFeatures;
+            var gameplayTileIds = new HashSet<int>();
+            for (var i = 0; i < tileFeatures.Length; i++)
+            {
+                if (tileFeatures[i].TileId > 0)
+                {
+                    gameplayTileIds.Add(tileFeatures[i].TileId);
+                }
+            }
+            var selectionsByTileId = ValidateAndBuildTileFeatureSelections(
+                presentation,
+                presentationPath,
+                gameplayTileIds,
+                options,
+                report);
             for (var i = 0; i < tileFeatures.Length; i++)
             {
                 var tileFeature = tileFeatures[i];
@@ -1568,8 +1628,20 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                var hasDirectOverride = directTileIds.Contains(tileFeature.TileId);
-                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+                if (!selectionsByTileId.TryGetValue(tileFeature.TileId, out var selection))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.selection-missing",
+                        $"TileFeature TileId {tileFeature.TileId} has no presentation selection.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                var hasDirectOverride = selection.VisualPrefab != null;
+                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(selection.PresentationKey);
                 if (catalog == null)
                 {
                     if (!hasDirectOverride)
@@ -1645,26 +1717,68 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static HashSet<int> BuildDirectTileFeatureBindingIds(StagePresentationDefinition presentation)
+        private static Dictionary<int, TileFeaturePresentationBinding> ValidateAndBuildTileFeatureSelections(
+            StagePresentationDefinition presentation,
+            string presentationPath,
+            HashSet<int> gameplayTileIds,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
         {
-            var tileIds = new HashSet<int>();
-            if (presentation == null)
-            {
-                return tileIds;
-            }
-
+            var selectionsByTileId = new Dictionary<int, TileFeaturePresentationBinding>();
             var bindings = presentation.TileFeaturePresentationBindings;
             for (var i = 0; i < bindings.Length; i++)
             {
                 var binding = bindings[i];
-                if (binding != null &&
-                    binding.TileId > 0)
+                if (binding == null)
                 {
-                    tileIds.Add(binding.TileId);
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.selection-null",
+                        $"TileFeature presentation selection[{i}] is null.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (binding.TileId <= 0)
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.selection-id-invalid",
+                        $"TileFeature presentation selection[{i}] must use a positive TileId.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                if (selectionsByTileId.ContainsKey(binding.TileId))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.selection-duplicate",
+                        $"TileFeature presentation selection TileId {binding.TileId} is duplicated.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
+                    continue;
+                }
+
+                selectionsByTileId.Add(binding.TileId, binding);
+                if (!gameplayTileIds.Contains(binding.TileId))
+                {
+                    report.Add(
+                        StageValidationSeverity.Error,
+                        "presentation.tile-feature.selection-orphan",
+                        $"TileFeature presentation selection TileId {binding.TileId} has no gameplay TileFeature.",
+                        presentation,
+                        presentationPath,
+                        options.Timing);
                 }
             }
 
-            return tileIds;
+            return selectionsByTileId;
         }
 
         private static void ValidateReplaceBaseTilePolicy(
@@ -1680,7 +1794,7 @@ namespace Game.Feature.Stages
 
             var presentation = entry.PresentationDefinition;
             var presentationPath = GetAssetPath(presentation, options);
-            var directBindings = BuildDirectTileFeatureBindingsById(presentation);
+            var selections = BuildTileFeatureSelectionsById(presentation);
             var replaceTileIdsByCell = new Dictionary<SurfaceCell, List<int>>();
             var hasBoardBounds = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
             var tileFeatures = entry.GameplayDefinition.TileFeatures;
@@ -1694,7 +1808,7 @@ namespace Game.Feature.Stages
 
                 if (!TryResolveEffectiveTileFeatureVisual(
                         presentation.TileFeaturePresentationCatalog,
-                        directBindings,
+                        selections,
                         tileFeature,
                         out var resolvedKind,
                         out var visualPrefab))
@@ -1819,7 +1933,7 @@ namespace Game.Feature.Stages
             return kind == TileFeatureKind.Exit;
         }
 
-        private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectTileFeatureBindingsById(
+        private static Dictionary<int, TileFeaturePresentationBinding> BuildTileFeatureSelectionsById(
             StagePresentationDefinition presentation)
         {
             var bindingsById = new Dictionary<int, TileFeaturePresentationBinding>();
@@ -1847,18 +1961,23 @@ namespace Game.Feature.Stages
 
         private static bool TryResolveEffectiveTileFeatureVisual(
             TileFeaturePresentationCatalog catalog,
-            IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
+            IReadOnlyDictionary<int, TileFeaturePresentationBinding> selections,
             StageTileFeatureDefinition tileFeature,
             out TileFeatureKind resolvedKind,
             out GameObject visualPrefab)
         {
             resolvedKind = TileFeatureKind.Unknown;
             visualPrefab = null;
-            if (directBindings != null &&
-                directBindings.TryGetValue(tileFeature.TileId, out var directBinding))
+            if (selections == null ||
+                !selections.TryGetValue(tileFeature.TileId, out var selection))
             {
-                visualPrefab = directBinding.VisualPrefab;
-                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
+                return false;
+            }
+
+            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(selection.PresentationKey);
+            if (selection.VisualPrefab != null)
+            {
+                visualPrefab = selection.VisualPrefab;
                 if (catalog != null &&
                     !string.IsNullOrEmpty(presentationKey) &&
                     catalog.TryGetEntry(presentationKey, out var keyedEntry))
@@ -1874,9 +1993,8 @@ namespace Game.Feature.Stages
                 return false;
             }
 
-            var key = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeature.PresentationKey);
-            if (!string.IsNullOrEmpty(key) &&
-                catalog.TryGetEntry(key, out var keyedCatalogEntry))
+            if (!string.IsNullOrEmpty(presentationKey) &&
+                catalog.TryGetEntry(presentationKey, out var keyedCatalogEntry))
             {
                 resolvedKind = keyedCatalogEntry.Kind;
                 visualPrefab = keyedCatalogEntry.VisualPrefab;
@@ -1986,13 +2104,6 @@ namespace Game.Feature.Stages
 
                 if (binding.VisualPrefab == null)
                 {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.tile-feature.prefab-null",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must assign a visual prefab.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
                     continue;
                 }
 

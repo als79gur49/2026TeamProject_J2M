@@ -76,6 +76,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(added, Is.True);
                 Assert.That(authoring.TileFeatures.Select(feature => feature.TileId), Does.Contain(11));
+                Assert.That(
+                    authoring.TileFeaturePresentationSelections.Select(selection => selection.TileId),
+                    Is.EquivalentTo(authoring.TileFeatures.Select(feature => feature.TileId)));
             });
         }
 
@@ -164,6 +167,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(removed, Is.True);
                 Assert.That(authoring.TileFeatures.Select(feature => feature.TileId), Is.EquivalentTo(new[] { 2 }));
+                Assert.That(
+                    authoring.TileFeaturePresentationSelections.Select(selection => selection.TileId),
+                    Is.EquivalentTo(new[] { 2 }));
             });
         }
 
@@ -198,6 +204,58 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(removedCount, Is.EqualTo(1));
                 Assert.That(authoring.Placements, Has.Count.EqualTo(1));
                 Assert.That(authoring.TileFeatures, Is.Empty);
+                Assert.That(authoring.TileFeaturePresentationSelections, Is.Empty);
+            });
+        }
+
+        [Test]
+        public void PresentationKeyEdit_ChangesOnlyPresentationSelection()
+        {
+            WithAuthoring(authoring =>
+            {
+                var feature = CreateFeature(1, TileFeatureKind.Button, new SurfaceCell(FaceId.Floor, 0, 0));
+                authoring.SetTileFeatures(new[] { feature });
+
+                var changed = StageAuthoringPlacementCommands.TrySetTileFeaturePresentationKey(
+                    authoring,
+                    feature.TileId,
+                    " button.moon-only ",
+                    out var error);
+
+                Assert.That(changed, Is.True, error);
+                Assert.That(authoring.TileFeatures.Single(), Is.EqualTo(feature));
+                Assert.That(authoring.TileFeaturePresentationSelections.Single().PresentationKey, Is.EqualTo("button.moon-only"));
+            });
+        }
+
+        [Test]
+        public void AddTileFeature_RejectsStalePresentationSelectionForReusedTileId()
+        {
+            WithAuthoring(authoring =>
+            {
+                SetPrivateField(
+                    authoring,
+                    "tileFeaturePresentationSelections",
+                    new System.Collections.Generic.List<TileFeaturePresentationBinding>
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 1,
+                            PresentationKey = "stale",
+                        },
+                    });
+                var feature = CreateFeature(1, TileFeatureKind.Button, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                var added = StageAuthoringPlacementCommands.TryAddTileFeature(
+                    authoring,
+                    feature.Cell,
+                    feature,
+                    string.Empty,
+                    out _);
+
+                Assert.That(added, Is.False);
+                Assert.That(authoring.TileFeatures, Is.Empty);
+                Assert.That(authoring.TileFeaturePresentationSelections.Single().PresentationKey, Is.EqualTo("stale"));
             });
         }
 
@@ -209,13 +267,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 var original = CreateFeature(1, TileFeatureKind.Button, new SurfaceCell(FaceId.Floor, 0, 0));
                 authoring.SetTileFeatures(new[] { original });
                 var updated = original;
-                updated.PresentationKey = "updated-key";
 
                 var changed = StageAuthoringPlacementCommands.TryUpdateTileFeature(authoring, updated, out _);
 
                 Assert.That(changed, Is.True);
                 Assert.That(authoring.TileFeatures.Single().TileId, Is.EqualTo(1));
-                Assert.That(authoring.TileFeatures.Single().PresentationKey, Is.EqualTo("updated-key"));
+                Assert.That(
+                    authoring.TileFeaturePresentationSelections.Single().PresentationKey,
+                    Is.Empty);
             });
         }
 
@@ -228,8 +287,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureActivationRule.Always,
                 Direction2D.Left,
                 TileFeatureBoxSelector.AnyPushableBox,
-                99,
-                string.Empty);
+                99);
 
             Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
             Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
@@ -246,8 +304,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureActivationRule.FrontFaceOnly,
                 Direction2D.Left,
                 TileFeatureBoxSelector.AnyPushableBox,
-                99,
-                string.Empty);
+                99);
 
             Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
             Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
@@ -283,8 +340,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     TileFeatureActivationRule.BottomFaceOnly,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
-                    0,
-                    string.Empty);
+                    0);
 
                 var added = StageAuthoringPlacementCommands.TryAddTileFeature(
                     authoring,
@@ -305,8 +361,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureActivationRule.BottomFaceOnly,
                 Direction2D.Left,
                 TileFeatureBoxSelector.AnyPushableBox,
-                99,
-                string.Empty);
+                99);
 
             Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
             Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
@@ -323,8 +378,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureActivationRule.BottomFaceOnly,
                 Direction2D.Left,
                 TileFeatureBoxSelector.AnyPushableBox,
-                99,
-                string.Empty);
+                99);
 
             Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.ActiveFaceOnly));
             Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
@@ -361,8 +415,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureActivationRule.Always,
                 Direction2D.Left,
                 TileFeatureBoxSelector.AnyPushableBox,
-                99,
-                string.Empty);
+                99);
 
             Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.BottomFaceOnly));
             Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
@@ -572,8 +625,15 @@ namespace Game.Feature.Stages.Editor.Tests
                 original.Direction = Direction2D.Left;
                 original.BoxSelector = TileFeatureBoxSelector.BoundEntity;
                 original.BoundEntityId = 42;
-                original.PresentationKey = "button-key";
                 authoring.SetTileFeatures(new[] { original });
+                authoring.SetTileFeaturePresentationSelections(new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = original.TileId,
+                        PresentationKey = "button-key",
+                    },
+                });
 
                 var duplicated = StageAuthoringPlacementCommands.TryDuplicateSelectedTileFeatureToTarget(
                     authoring,
@@ -592,7 +652,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(duplicate.Direction, Is.EqualTo(original.Direction));
                 Assert.That(duplicate.BoxSelector, Is.EqualTo(original.BoxSelector));
                 Assert.That(duplicate.BoundEntityId, Is.EqualTo(original.BoundEntityId));
-                Assert.That(duplicate.PresentationKey, Is.EqualTo(original.PresentationKey));
+                Assert.That(
+                    authoring.TileFeaturePresentationSelections.Single(binding => binding.TileId == duplicatedTileId).PresentationKey,
+                    Is.EqualTo("button-key"));
 
                 var selection = new StageAuthoringGridSelectionState();
                 selection.SelectTileFeatureById(duplicatedTileId, authoring.TileFeatures);
@@ -702,7 +764,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void DuplicateSelectedTileFeatureToTarget_DoesNotCopyDirectVisualBinding()
+        public void DuplicateSelectedTileFeatureToTarget_CopiesPresentationSelectionAndDirectOverride()
         {
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             var prefab = new GameObject("DirectTileFeatureBindingPrefab");
@@ -711,12 +773,16 @@ namespace Game.Feature.Stages.Editor.Tests
                 WithAuthoring(authoring =>
                 {
                     var original = CreateFeature(1, TileFeatureKind.Button, new SurfaceCell(FaceId.Floor, 0, 0));
-                    original.PresentationKey = "button-key";
                     authoring.SetTileFeatures(new[] { original });
-                    SetPrivateField(
-                        presentation,
-                        "tileFeaturePresentationBindings",
-                        new[] { new TileFeaturePresentationBinding { TileId = original.TileId, VisualPrefab = prefab } });
+                    authoring.SetTileFeaturePresentationSelections(new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = original.TileId,
+                            PresentationKey = "button-key",
+                            VisualPrefab = prefab,
+                        },
+                    });
 
                     var duplicated = StageAuthoringPlacementCommands.TryDuplicateSelectedTileFeatureToTarget(
                         authoring,
@@ -726,12 +792,10 @@ namespace Game.Feature.Stages.Editor.Tests
                         out var error);
 
                     Assert.That(duplicated, Is.True, error);
-                    Assert.That(authoring.TileFeatures.Single(feature => feature.TileId == duplicatedTileId).PresentationKey, Is.EqualTo("button-key"));
-                    Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
-                    Assert.That(presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(original.TileId));
-                    Assert.That(
-                        presentation.TileFeaturePresentationBindings.Any(binding => binding.TileId == duplicatedTileId),
-                        Is.False);
+                    var duplicatedSelection = authoring.TileFeaturePresentationSelections.Single(
+                        binding => binding.TileId == duplicatedTileId);
+                    Assert.That(duplicatedSelection.PresentationKey, Is.EqualTo("button-key"));
+                    Assert.That(duplicatedSelection.VisualPrefab, Is.SameAs(prefab));
                 });
             }
             finally
@@ -802,8 +866,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     TileFeatureActivationRule.BottomFaceOnly,
                     Direction2D.None,
                     TileFeatureBoxSelector.AnyPushableBox,
-                    0,
-                    string.Empty),
+                    0),
                 out _);
         }
 
@@ -842,7 +905,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Direction = kind == TileFeatureKind.Slide ? Direction2D.Right : Direction2D.None,
                 BoxSelector = kind == TileFeatureKind.Button ? TileFeatureBoxSelector.AnyPushableBox : TileFeatureBoxSelector.None,
                 BoundEntityId = kind == TileFeatureKind.MoonBlockGenerator ? 100 : 0,
-                PresentationKey = string.Empty,
             };
         }
 

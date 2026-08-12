@@ -266,7 +266,8 @@ namespace Game.Feature.Gameplay.Host
                 presenter,
                 configuration.StageContentEntry,
                 generalTimingProfile,
-                presentationBarrierTracker);
+                presentationBarrierTracker,
+                configuration.CampaignStageSequenceResolver);
             var uiAccess = new GameplayHostUiAccessContext(
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
@@ -282,7 +283,8 @@ namespace Game.Feature.Gameplay.Host
                 presentationFeed,
                 pauseService,
                 demoGameplayOverrideRuntime,
-                new GameplayHostDemoStageControlCompletionBridge(presentationFeed));
+                new GameplayHostDemoStageControlCompletionBridge(presentationFeed),
+                configuration.CampaignStageSequenceResolver);
 
             return new GameplayHostRuntimeContext(
                 boardRoot,

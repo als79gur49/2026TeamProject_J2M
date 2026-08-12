@@ -12,12 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 906fc9c2f2d2439ea6203f8d58883b37, type: 3}
   m_Name: StageCatalogKnownWarningLedger
   m_EditorClassIdentifier:
-  entries:
-  - IssueCode: presentation.tile-feature.catalog-kind-mismatch
-    AssetGuid: 7dc498f65de18c8742a4ab86e2152ce9
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Presentation.asset
-    ExpectedAssetName: legacy-stage-5-1_Presentation
-    ExpectedStageId: legacy-stage-5-1
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; tile feature presentation key needs authored kind cleanup.
-    RemovalGate: Align the tile feature presentation key with the authored gameplay tile kind.
+  entries: []

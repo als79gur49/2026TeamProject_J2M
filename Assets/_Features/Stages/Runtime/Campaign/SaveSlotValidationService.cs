@@ -102,7 +102,7 @@ namespace Game.Feature.Stages
 
             if (!_sequenceResolver.Contains(mutableSlot.CurrentStageId))
             {
-                if (CampaignStageSequenceDefinition.IsRetiredCompletedStageId(mutableSlot.CurrentStageId))
+                if (RetiredCampaignSaveCompatibilityPolicy.IsRetiredCompletedStageId(mutableSlot.CurrentStageId))
                 {
                     return ValidateRetiredCompletedStage(mutableSlot);
                 }

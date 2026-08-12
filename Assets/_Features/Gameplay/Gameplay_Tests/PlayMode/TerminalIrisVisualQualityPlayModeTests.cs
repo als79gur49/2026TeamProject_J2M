@@ -619,9 +619,33 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator TerminalIrisTemporalStability_RuntimePlaybackMeetsSemanticAcceptance()
+        {
+            var evaluation = EvaluateTemporalStability();
+            AssertTemporalAcceptance(evaluation.Records);
+            yield break;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        [Category("TerminalIrisCapture")]
         public IEnumerator TerminalIrisTemporalStability_RuntimePlaybackProducesEvidence()
         {
-            var context = QualityCaptureContext.Create("temporal-stability");
+            var context = QualityCaptureContext.Create(
+                "temporal-stability",
+                "Run ./run_tests.sh terminal-iris-temporal-stability.");
+            var evaluation = EvaluateTemporalStability();
+            WriteTemporalMetrics(context, evaluation);
+            if (!context.IsBefore)
+            {
+                AssertTemporalAcceptance(evaluation.Records);
+            }
+
+            yield break;
+        }
+
+        private static TemporalEvaluationResult EvaluateTemporalStability()
+        {
             var profile = Resources.Load<TerminalIrisMotionProfile>(
                 "UI/Transitions/TerminalIrisMotionProfile");
             Assert.That(profile, Is.Not.Null);
@@ -673,8 +697,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 }
             }
 
+            return new TemporalEvaluationResult(records, BuildTemporalSummaries(records));
+        }
+
+        private static void WriteTemporalMetrics(
+            QualityCaptureContext context,
+            TemporalEvaluationResult evaluation)
+        {
             var builder = new StringBuilder();
-            var summaries = BuildTemporalSummaries(records);
             builder.AppendLine("{");
             builder.AppendLine("  \"schemaVersion\": 3,");
             builder.AppendLine($"  \"phase\": \"{context.Phase}\",");
@@ -683,18 +713,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             builder.AppendLine(
                 "  \"temporalVisualEvidenceSource\": \"graphics Player capture and manual QA\",");
             builder.AppendLine("  \"records\": [");
-            for (var index = 0; index < records.Count; index++)
+            for (var index = 0; index < evaluation.Records.Count; index++)
             {
-                builder.Append("    ").Append(records[index].ToJson());
-                builder.AppendLine(index + 1 < records.Count ? "," : string.Empty);
+                builder.Append("    ").Append(evaluation.Records[index].ToJson());
+                builder.AppendLine(
+                    index + 1 < evaluation.Records.Count ? "," : string.Empty);
             }
 
             builder.AppendLine("  ],");
             builder.AppendLine("  \"summaries\": [");
-            for (var index = 0; index < summaries.Count; index++)
+            for (var index = 0; index < evaluation.Summaries.Count; index++)
             {
-                builder.Append("    ").Append(summaries[index].ToJson());
-                builder.AppendLine(index + 1 < summaries.Count ? "," : string.Empty);
+                builder.Append("    ").Append(evaluation.Summaries[index].ToJson());
+                builder.AppendLine(
+                    index + 1 < evaluation.Summaries.Count ? "," : string.Empty);
             }
 
             builder.AppendLine("  ]");
@@ -702,12 +734,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             File.WriteAllText(
                 Path.Combine(context.OutputDirectory, "temporal-metrics.json"),
                 builder.ToString());
-            if (!context.IsBefore)
-            {
-                AssertTemporalAcceptance(records);
-            }
-
-            yield break;
         }
 
         [UnityTest]
@@ -1986,11 +2012,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             public bool IsBefore => string.Equals(Phase, "before", StringComparison.Ordinal);
 
-            public static QualityCaptureContext Create(string lane)
+            public static QualityCaptureContext Create(
+                string lane,
+                string missingOutputGuidance = null)
             {
                 var outputRoot = ReadCommandLineValue("-terminalIrisQualityOutput");
                 Assert.That(outputRoot, Is.Not.Null.And.Not.Empty,
-                    "Terminal Iris quality lanes require -terminalIrisQualityOutput.");
+                    "Specialized Terminal Iris capture producers require " +
+                    "-terminalIrisQualityOutput. " +
+                    (missingOutputGuidance ?? "Use the matching ./run_tests.sh terminal-iris-* lane."));
                 var phase = ReadCommandLineValue("-terminalIrisQualityPhase") ?? "after";
                 var outputDirectory = Path.Combine(outputRoot, lane);
                 Directory.CreateDirectory(outputDirectory);
@@ -3584,6 +3614,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                        (exactClosed ? "true" : "false") +
                        "}";
             }
+        }
+
+        private readonly struct TemporalEvaluationResult
+        {
+            public TemporalEvaluationResult(
+                IReadOnlyList<TemporalMetricRecord> records,
+                IReadOnlyList<TemporalSummaryRecord> summaries)
+            {
+                Records = records;
+                Summaries = summaries;
+            }
+
+            public IReadOnlyList<TemporalMetricRecord> Records { get; }
+
+            public IReadOnlyList<TemporalSummaryRecord> Summaries { get; }
         }
 
         private readonly struct TemporalSummaryRecord

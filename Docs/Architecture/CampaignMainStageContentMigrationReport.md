@@ -1,5 +1,10 @@
 # Campaign Main Stage Content Migration Report
 
+> Historical snapshot — not current authority. Current Campaign membership/order,
+> eligibility, Player inclusion, and closeout status are defined in
+> `Campaign-Stage-Sequence-Authority.md`. Counts and supported-stage lists below
+> describe the 2026-05-09 migration checkpoint only.
+
 Generated: 2026-05-09
 
 ## Summary
@@ -182,7 +187,7 @@ Not allowed:
   - `StageContentAndClearFlowTests`
   - `StageDefaultStageIdPolicyTests`
   - `StageSceneBootstrapValidatorTests`
-  - `StageLoadSourceModeArchitectureTests`
+  - `StageLoadArchitectureTests`
   - `GameplayUiFlowIntegrationTests`
   - `UiArchitectureTests`
   - `AudioArchitectureTests`

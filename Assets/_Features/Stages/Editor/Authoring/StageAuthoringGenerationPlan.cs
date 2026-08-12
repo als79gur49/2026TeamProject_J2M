@@ -38,6 +38,8 @@ namespace Game.Feature.Stages.Editor
         public List<EnemyPresentationBinding> EnemyPresentationBindings { get; } = new();
 
         public List<StaticEntityPresentationBinding> StaticEntityPresentationBindings { get; } = new();
+
+        public List<TileFeaturePresentationBinding> TileFeaturePresentationBindings { get; } = new();
     }
 
     internal sealed class StageAuthoringBuildData
@@ -84,6 +86,9 @@ namespace Game.Feature.Stages.Editor
 
         public List<StaticEntityPresentationBinding> StaticEntityPresentationBindings =>
             PresentationBindingPayload.StaticEntityPresentationBindings;
+
+        public List<TileFeaturePresentationBinding> TileFeaturePresentationBindings =>
+            PresentationBindingPayload.TileFeaturePresentationBindings;
     }
 
     internal sealed class StageAuthoringGenerationPlan

@@ -362,7 +362,6 @@ namespace Game.Feature.Stages
                     Direction = tileFeature.Direction,
                     BoxSelector = tileFeature.BoxSelector,
                     BoundEntityId = tileFeature.BoundEntityId,
-                    PresentationKey = tileFeature.PresentationKey?.Trim() ?? string.Empty,
                 };
             }
 
@@ -531,8 +530,6 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = objective.CompletionPolicy,
-                ObjectiveTitle = objective.ObjectiveTitle?.Trim() ?? string.Empty,
-                ObjectiveSummary = objective.ObjectiveSummary?.Trim() ?? string.Empty,
                 ConditionEntries = normalizedConditionEntries,
             };
         }

@@ -23,9 +23,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     out var error);
 
                 Assert.That(changed, Is.True, error);
-                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
-                Assert.That(presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(1));
-                Assert.That(presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(prefab));
+                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(2));
+                Assert.That(
+                    presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 1).VisualPrefab,
+                    Is.SameAs(prefab));
+                Assert.That(
+                    presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 2).VisualPrefab,
+                    Is.Null);
             });
         }
 
@@ -52,8 +56,10 @@ namespace Game.Feature.Stages.Editor.Tests
                         out var error);
 
                     Assert.That(changed, Is.True, error);
-                    Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
-                    Assert.That(presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(replacement));
+                    Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(2));
+                    Assert.That(
+                        presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 1).VisualPrefab,
+                        Is.SameAs(replacement));
                 }
                 finally
                 {
@@ -90,8 +96,15 @@ namespace Game.Feature.Stages.Editor.Tests
                         out var error);
 
                     Assert.That(removed, Is.True, error);
-                    Assert.That(presentation.TileFeaturePresentationBindings.Select(binding => binding.TileId), Is.EqualTo(new[] { 2 }));
-                    Assert.That(presentation.TileFeaturePresentationBindings[0].VisualPrefab, Is.SameAs(other));
+                    Assert.That(
+                        presentation.TileFeaturePresentationBindings.Select(binding => binding.TileId).ToArray(),
+                        Is.EqualTo(new[] { 1, 2 }));
+                    Assert.That(
+                        presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 1).VisualPrefab,
+                        Is.Null);
+                    Assert.That(
+                        presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 2).VisualPrefab,
+                        Is.SameAs(other));
                 }
                 finally
                 {
@@ -192,7 +205,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(changed, Is.True, error);
                 Assert.That(prefabTarget.TileId, Is.Not.EqualTo(2));
-                Assert.That(presentation.TileFeaturePresentationBindings.Single().TileId, Is.EqualTo(2));
+                Assert.That(
+                    presentation.TileFeaturePresentationBindings.Single(binding => binding.VisualPrefab != null).TileId,
+                    Is.EqualTo(2));
             });
         }
 
@@ -249,8 +264,10 @@ namespace Game.Feature.Stages.Editor.Tests
                     out var error);
 
                 Assert.That(changed, Is.True, error);
-                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
-                Assert.That(presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(1));
+                Assert.That(presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(2));
+                Assert.That(
+                    presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 1).VisualPrefab,
+                    Is.SameAs(prefab));
             });
         }
 
@@ -273,7 +290,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
                     Assert.That(changed, Is.True, error);
                     Assert.That(authoring.GeneratedGameplayDefinition, Is.SameAs(gameplay));
-                    Assert.That(presentation.TileFeaturePresentationBindings.Single().VisualPrefab, Is.SameAs(prefab));
+                    Assert.That(
+                        presentation.TileFeaturePresentationBindings.Single(binding => binding.TileId == 1).VisualPrefab,
+                        Is.SameAs(prefab));
                 });
             }
             finally

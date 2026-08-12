@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.UI.Composition;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -30,7 +31,12 @@ namespace Game.Feature.Stages.Editor
 
     public sealed class StageSceneBootstrapValidator
     {
-        public StageValidationReport ValidateEnabledBuildScenes(StageCatalogValidationOptions options = null)
+        internal const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
+        internal const string GameplayUiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+
+        public StageValidationReport ValidateEnabledBuildScenes(
+            StageCatalogValidationOptions options = null,
+            CampaignStageSequenceDefinition expectedCampaignSequence = null)
         {
             var scenePaths = new List<string>();
             var scenes = EditorBuildSettings.scenes;
@@ -42,15 +48,24 @@ namespace Game.Feature.Stages.Editor
                 }
             }
 
-            return ValidateScenes(scenePaths, options);
+            var report = ValidateScenes(scenePaths, options, expectedCampaignSequence);
+            RequireEnabledBuildScene(scenePaths, MainMenuScenePath, options, report);
+            RequireEnabledBuildScene(scenePaths, GameplayUiAudioScenePath, options, report);
+            return report;
         }
 
         public StageValidationReport ValidateScenes(
             IReadOnlyList<string> scenePaths,
-            StageCatalogValidationOptions options = null)
+            StageCatalogValidationOptions options = null,
+            CampaignStageSequenceDefinition expectedCampaignSequence = null)
         {
             options ??= StageCatalogValidationOptions.Default;
             var report = new StageValidationReport();
+            if (expectedCampaignSequence == null)
+            {
+                expectedCampaignSequence = CampaignStageSequenceAssetLoader.LoadCanonical(report, options.Timing);
+            }
+
             var directPlayCatalog = StageEditorDirectPlayCatalog.LoadDefault();
             var cameraTopologyPresetPathByStageId = new Dictionary<StageId, string>();
             if (scenePaths == null)
@@ -64,6 +79,7 @@ namespace Game.Feature.Stages.Editor
                     scenePaths[i],
                     directPlayCatalog,
                     cameraTopologyPresetPathByStageId,
+                    expectedCampaignSequence,
                     options,
                     report);
             }
@@ -84,7 +100,14 @@ namespace Game.Feature.Stages.Editor
                     continue;
                 }
 
-                var scene = EditorSceneManager.OpenScene(scenes[i].path, OpenSceneMode.Additive);
+                var scene = SceneManager.GetSceneByPath(scenes[i].path);
+                var openedForValidation = !scene.IsValid() || !scene.isLoaded;
+                var previousActiveScene = SceneManager.GetActiveScene();
+                if (openedForValidation)
+                {
+                    scene = EditorSceneManager.OpenScene(scenes[i].path, OpenSceneMode.Additive);
+                }
+
                 try
                 {
                     var installers = scene.GetRootGameObjects();
@@ -116,7 +139,11 @@ namespace Game.Feature.Stages.Editor
                 }
                 finally
                 {
-                    EditorSceneManager.CloseScene(scene, removeScene: true);
+                    if (openedForValidation)
+                    {
+                        EditorSceneManager.CloseScene(scene, removeScene: true);
+                        RestoreActiveScene(previousActiveScene);
+                    }
                 }
             }
 
@@ -130,6 +157,7 @@ namespace Game.Feature.Stages.Editor
             string scenePath,
             StageEditorDirectPlayCatalog directPlayCatalog,
             IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
+            CampaignStageSequenceDefinition expectedCampaignSequence,
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
@@ -138,10 +166,15 @@ namespace Game.Feature.Stages.Editor
                 return;
             }
 
-            Scene scene;
+            var scene = SceneManager.GetSceneByPath(scenePath);
+            var openedForValidation = !scene.IsValid() || !scene.isLoaded;
+            var previousActiveScene = SceneManager.GetActiveScene();
             try
             {
-                scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+                if (openedForValidation)
+                {
+                    scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+                }
             }
             catch (Exception exception)
             {
@@ -160,20 +193,33 @@ namespace Game.Feature.Stages.Editor
                 var hasStageInstaller = false;
                 for (var i = 0; i < installers.Length; i++)
                 {
-                    var stageInstaller = installers[i].GetComponentInChildren<StageBackedGameplaySceneInstallerBase>(true);
-                    if (stageInstaller == null)
+                    var stageInstallers = installers[i]
+                        .GetComponentsInChildren<StageBackedGameplaySceneInstallerBase>(true);
+                    for (var installerIndex = 0; installerIndex < stageInstallers.Length; installerIndex++)
                     {
-                        continue;
+                        hasStageInstaller = true;
+                        ValidateInstaller(
+                            scenePath,
+                            stageInstallers[installerIndex],
+                            directPlayCatalog,
+                            cameraTopologyPresetPathByStageId,
+                            expectedCampaignSequence,
+                            options,
+                            report);
                     }
 
-                    hasStageInstaller = true;
-                    ValidateInstaller(
-                        scenePath,
-                        stageInstaller,
-                        directPlayCatalog,
-                        cameraTopologyPresetPathByStageId,
-                        options,
-                        report);
+                    var mainMenuInstallers = installers[i]
+                        .GetComponentsInChildren<MainMenuUiFlowInstaller>(true);
+                    for (var installerIndex = 0; installerIndex < mainMenuInstallers.Length; installerIndex++)
+                    {
+                        ValidateSerializedCampaignSequenceReference(
+                            scenePath,
+                            mainMenuInstallers[installerIndex],
+                            "_campaignStageSequenceDefinition",
+                            expectedCampaignSequence,
+                            options,
+                            report);
+                    }
                 }
 
                 if (hasStageInstaller)
@@ -183,7 +229,11 @@ namespace Game.Feature.Stages.Editor
             }
             finally
             {
-                EditorSceneManager.CloseScene(scene, removeScene: true);
+                if (openedForValidation && scene.IsValid())
+                {
+                    EditorSceneManager.CloseScene(scene, removeScene: true);
+                    RestoreActiveScene(previousActiveScene);
+                }
             }
         }
 
@@ -192,6 +242,7 @@ namespace Game.Feature.Stages.Editor
             StageBackedGameplaySceneInstallerBase installer,
             StageEditorDirectPlayCatalog directPlayCatalog,
             IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
+            CampaignStageSequenceDefinition expectedCampaignSequence,
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
@@ -204,6 +255,14 @@ namespace Game.Feature.Stages.Editor
             var staticCatalogProperty = serializedInstaller.FindProperty("staticEntityPresentationCatalog");
             var hasCompatModeProperty = modeProperty != null;
             var usesCompatMode = hasCompatModeProperty && modeProperty.enumValueIndex != 0;
+
+            ValidateSerializedCampaignSequenceReference(
+                scenePath,
+                installer,
+                "campaignStageSequenceDefinition",
+                expectedCampaignSequence,
+                options,
+                report);
 
             if (stageDefinitionProperty != null && stageDefinitionProperty.objectReferenceValue != null)
             {
@@ -419,6 +478,100 @@ namespace Game.Feature.Stages.Editor
             return options.Phase >= StageValidationPhase.Phase4_ProductionBootstrapConversion
                 ? StageValidationSeverity.Error
                 : StageValidationSeverity.Warning;
+        }
+
+        internal static void ValidateCampaignSequenceReference(
+            string scenePath,
+            UnityEngine.Object owner,
+            CampaignStageSequenceDefinition actualSequence,
+            CampaignStageSequenceDefinition expectedSequence,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            options ??= StageCatalogValidationOptions.Default;
+            if (actualSequence == null)
+            {
+                report.Add(
+                    ResolveProductionSceneContractSeverity(options),
+                    "scene.campaign-sequence.null",
+                    $"Enabled production scene '{scenePath}' has a null campaign sequence reference.",
+                    owner,
+                    scenePath,
+                    options.Timing);
+                return;
+            }
+
+            if (expectedSequence != null && actualSequence != expectedSequence)
+            {
+                report.Add(
+                    ResolveProductionSceneContractSeverity(options),
+                    "scene.campaign-sequence.non-authoritative",
+                    $"Enabled production scene '{scenePath}' references campaign sequence '{AssetDatabase.GetAssetPath(actualSequence)}' instead of authoritative asset '{CampaignStageSequenceAssetLoader.CanonicalAssetPath}'.",
+                    owner,
+                    scenePath,
+                    options.Timing);
+            }
+        }
+
+        private static void ValidateSerializedCampaignSequenceReference(
+            string scenePath,
+            UnityEngine.Object owner,
+            string propertyName,
+            CampaignStageSequenceDefinition expectedSequence,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var serializedOwner = new SerializedObject(owner);
+            var sequenceProperty = serializedOwner.FindProperty(propertyName);
+            if (sequenceProperty == null)
+            {
+                report.Add(
+                    ResolveProductionSceneContractSeverity(options),
+                    "scene.campaign-sequence.field-missing",
+                    $"Enabled production scene '{scenePath}' component '{owner.GetType().Name}' has no serialized campaign sequence field '{propertyName}'.",
+                    owner,
+                    scenePath,
+                    options.Timing);
+                return;
+            }
+
+            ValidateCampaignSequenceReference(
+                scenePath,
+                owner,
+                sequenceProperty.objectReferenceValue as CampaignStageSequenceDefinition,
+                expectedSequence,
+                options,
+                report);
+        }
+
+        private static void RequireEnabledBuildScene(
+            IReadOnlyList<string> enabledScenePaths,
+            string requiredScenePath,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            for (var i = 0; i < enabledScenePaths.Count; i++)
+            {
+                if (string.Equals(enabledScenePaths[i], requiredScenePath, StringComparison.Ordinal))
+                {
+                    return;
+                }
+            }
+
+            report.Add(
+                ResolveProductionSceneContractSeverity(options ?? StageCatalogValidationOptions.Default),
+                "scene.campaign-sequence.required-build-scene-disabled",
+                $"Required production scene '{requiredScenePath}' must be enabled so its authoritative campaign sequence reference is included in Player builds.",
+                assetPath: requiredScenePath,
+                timing: options?.Timing ?? StageValidationTiming.EditorAuthoring);
+        }
+
+        private static void RestoreActiveScene(Scene previousActiveScene)
+        {
+            if (previousActiveScene.IsValid() && previousActiveScene.isLoaded)
+            {
+                SceneManager.SetActiveScene(previousActiveScene);
+            }
         }
 
         private static void AddSceneIssue(

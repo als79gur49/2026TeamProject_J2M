@@ -205,8 +205,7 @@ namespace Game.Feature.Stages.Editor
             TileFeatureActivationRule selectedActivationRule,
             Direction2D selectedDirection,
             TileFeatureBoxSelector selectedBoxSelector,
-            int selectedBoundEntityId,
-            string selectedPresentationKey)
+            int selectedBoundEntityId)
         {
             var feature = new StageTileFeatureDefinition
             {
@@ -217,7 +216,6 @@ namespace Game.Feature.Stages.Editor
                 Direction = Direction2D.None,
                 BoxSelector = TileFeatureBoxSelector.None,
                 BoundEntityId = 0,
-                PresentationKey = selectedPresentationKey ?? string.Empty,
             };
 
             switch (kind)
@@ -262,6 +260,16 @@ namespace Game.Feature.Stages.Editor
             StageTileFeatureDefinition template,
             out string error)
         {
+            return TryAddTileFeature(authoring, cell, template, string.Empty, out error);
+        }
+
+        public static bool TryAddTileFeature(
+            StageAuthoringDefinition authoring,
+            SurfaceCell cell,
+            StageTileFeatureDefinition template,
+            string presentationKey,
+            out string error)
+        {
             error = string.Empty;
             if (authoring == null)
             {
@@ -281,12 +289,29 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
+            if (authoring.TileFeaturePresentationSelections.Any(selection =>
+                    selection != null && selection.TileId == feature.TileId))
+            {
+                error = $"TileFeature TileId {feature.TileId} has a stale presentation selection and cannot be reused.";
+                return false;
+            }
+
             var next = new List<StageTileFeatureDefinition>(authoring.TileFeatures)
             {
                 feature,
             };
+            var nextSelections = new List<TileFeaturePresentationBinding>(authoring.TileFeaturePresentationSelections)
+            {
+                new()
+                {
+                    TileId = feature.TileId,
+                    PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey),
+                    VisualPrefab = null,
+                },
+            };
             Undo.RecordObject(authoring, "Add Stage TileFeature");
             authoring.SetTileFeatures(next);
+            authoring.SetTileFeaturePresentationSelections(nextSelections);
             EditorUtility.SetDirty(authoring);
             return true;
         }
@@ -313,6 +338,9 @@ namespace Game.Feature.Stages.Editor
 
             Undo.RecordObject(authoring, "Remove Stage TileFeature");
             authoring.SetTileFeatures(next);
+            authoring.SetTileFeaturePresentationSelections(
+                authoring.TileFeaturePresentationSelections.Where(selection =>
+                    selection == null || selection.TileId != tileId));
             EditorUtility.SetDirty(authoring);
             return true;
         }
@@ -329,7 +357,10 @@ namespace Game.Feature.Stages.Editor
             }
 
             var next = new List<StageTileFeatureDefinition>(authoring.TileFeatures);
-            removedCount = next.RemoveAll(feature => feature.Cell == cell);
+            var removedTileIds = new HashSet<int>(next
+                .Where(feature => feature.Cell == cell)
+                .Select(feature => feature.TileId));
+            removedCount = next.RemoveAll(feature => removedTileIds.Contains(feature.TileId));
             if (removedCount <= 0)
             {
                 return false;
@@ -337,6 +368,9 @@ namespace Game.Feature.Stages.Editor
 
             Undo.RecordObject(authoring, "Remove Stage TileFeatures At Cell");
             authoring.SetTileFeatures(next);
+            authoring.SetTileFeaturePresentationSelections(
+                authoring.TileFeaturePresentationSelections.Where(selection =>
+                    selection == null || !removedTileIds.Contains(selection.TileId)));
             EditorUtility.SetDirty(authoring);
             return true;
         }
@@ -413,6 +447,15 @@ namespace Game.Feature.Stages.Editor
             }
 
             var duplicate = authoring.TileFeatures[selectedTileFeatureIndex];
+            var sourceSelections = authoring.TileFeaturePresentationSelections
+                .Where(selection => selection != null && selection.TileId == duplicate.TileId)
+                .ToArray();
+            if (sourceSelections.Length != 1)
+            {
+                error = $"TileFeature TileId {duplicate.TileId} must have exactly one presentation selection before duplication.";
+                return false;
+            }
+
             duplicate.TileId = AllocateNextTileId(authoring);
             duplicate.Cell = cell;
             if (!ValidateTileFeatureForPlacement(authoring, duplicate, ignoredTileId: 0, out error))
@@ -424,10 +467,81 @@ namespace Game.Feature.Stages.Editor
             {
                 duplicate,
             };
+            var nextSelections = new List<TileFeaturePresentationBinding>(authoring.TileFeaturePresentationSelections)
+            {
+                new()
+                {
+                    TileId = duplicate.TileId,
+                    PresentationKey = sourceSelections[0].PresentationKey,
+                    VisualPrefab = sourceSelections[0].VisualPrefab,
+                },
+            };
             Undo.RecordObject(authoring, "Duplicate Stage TileFeature");
             authoring.SetTileFeatures(next);
+            authoring.SetTileFeaturePresentationSelections(nextSelections);
             EditorUtility.SetDirty(authoring);
             duplicatedTileId = duplicate.TileId;
+            return true;
+        }
+
+        public static bool TrySetTileFeaturePresentationKey(
+            StageAuthoringDefinition authoring,
+            int tileId,
+            string presentationKey,
+            out string error)
+        {
+            error = string.Empty;
+            if (authoring == null)
+            {
+                error = "StageAuthoringDefinition is missing.";
+                return false;
+            }
+
+            var selections = authoring.TileFeaturePresentationSelections;
+            var matches = selections
+                .Select((selection, index) => new { selection, index })
+                .Where(item => item.selection != null && item.selection.TileId == tileId)
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                error = $"TileFeature TileId {tileId} must have exactly one presentation selection.";
+                return false;
+            }
+
+            var next = new List<TileFeaturePresentationBinding>(selections);
+            var current = matches[0].selection;
+            next[matches[0].index] = new TileFeaturePresentationBinding
+            {
+                TileId = current.TileId,
+                PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey),
+                VisualPrefab = current.VisualPrefab,
+            };
+            Undo.RecordObject(authoring, "Update Stage TileFeature Presentation");
+            authoring.SetTileFeaturePresentationSelections(next);
+            EditorUtility.SetDirty(authoring);
+            return true;
+        }
+
+        public static bool TryGetTileFeaturePresentationSelection(
+            StageAuthoringDefinition authoring,
+            int tileId,
+            out TileFeaturePresentationBinding selection)
+        {
+            selection = null;
+            if (authoring == null)
+            {
+                return false;
+            }
+
+            var matches = authoring.TileFeaturePresentationSelections
+                .Where(candidate => candidate != null && candidate.TileId == tileId)
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                return false;
+            }
+
+            selection = matches[0];
             return true;
         }
 

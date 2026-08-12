@@ -43,7 +43,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SequenceResolver_UsesCanonicalOrderDisplayNamesAndLevelGroups()
+        public void SequenceResolver_UsesCanonicalOrderAndLevelGroups()
         {
             var resolver = CreateResolver();
 
@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolver.IsFinal(StageId.CreateOrThrow("stage-4-3")), Is.True);
             Assert.That(resolver.Contains(StageId.CreateOrThrow("stage-5-1")), Is.False);
             Assert.That(
-                CampaignStageSequenceDefinition.IsRetiredCompletedStageId(StageId.CreateOrThrow("stage-5-1")),
+                RetiredCampaignSaveCompatibilityPolicy.IsRetiredCompletedStageId(StageId.CreateOrThrow("stage-5-1")),
                 Is.True);
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-2-1")).Value, Is.EqualTo("stage-2-2"));
             Assert.That(resolver.GetFirstStageInLevelGroupOrNone("level-2").Value, Is.EqualTo("stage-2-1"));
@@ -62,26 +62,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-2-2")).Value, Is.EqualTo("stage-3-1"));
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-3-3")).Value, Is.EqualTo("stage-4-1"));
             Assert.That(resolver.GetNextOrNone(StageId.CreateOrThrow("stage-4-2")).Value, Is.EqualTo("stage-4-3"));
-            Assert.That(
-                resolver.Entries.Select(entry => entry.StageId.Value).ToArray(),
-                Is.EqualTo(CampaignStageSequenceDefinition.CanonicalStageIdValues));
-            Assert.That(
-                resolver.Entries.Select(entry => entry.DisplayName).ToArray(),
-                Is.EqualTo(CampaignStageSequenceDefinition.CanonicalDisplayNames));
+            Assert.That(resolver.Entries.Count, Is.GreaterThan(0));
         }
 
         [Test]
         [Category("Extended")]
         public void SequenceValidator_ReportsCatalogMissingStageIds()
         {
-            var definition = CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
-            var report = new CampaignStageSequenceValidator().Validate(
-                definition,
-                new[] { CreateEntry("stage-0-1") },
-                StageValidationTiming.TestOrCi);
+            var definition = CampaignStageSequenceTestAsset.LoadProductionDefinition();
+            var aliasTable = ScriptableObject.CreateInstance<StageIdAliasTable>();
+            try
+            {
+                var report = new CampaignStageSequenceValidator().ValidateAuthoritativeAsset(
+                    definition,
+                    new[] { CreateEntry("stage-0-1") },
+                    aliasTable,
+                    StageValidationTiming.TestOrCi);
 
-            Assert.That(report.Issues.Any(issue => issue.Code == "campaign-sequence.catalog-missing"), Is.True);
-            Assert.That(report.HasErrors, Is.True);
+                Assert.That(
+                    report.Issues.Any(issue =>
+                        issue.Code == "campaign-sequence.authoritative.catalog-missing"),
+                    Is.True);
+                Assert.That(report.HasErrors, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(aliasTable);
+            }
         }
 
         [Test]
@@ -679,34 +686,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(last.RemainingChances, Is.EqualTo(SaveSlotStore.DefaultRemainingChances));
         }
 
-        [Test]
-        [Category("Extended")]
-        public void StageResultNavigationStore_StoresNextStageAndFinalCompletionPlans()
-        {
-            CampaignStageResultNavigationStore.Clear();
-            var completedStageId = StageId.CreateOrThrow("stage-1-1");
-            var nextStageId = StageId.CreateOrThrow("stage-1-2");
-
-            CampaignStageResultNavigationStore.Set(
-                new CampaignStageResultNavigationPlan(
-                    completedStageId,
-                    new StageNavigationRequest(nextStageId, StageNavigationKind.NextStage, "test"),
-                    campaignCompleted: false));
-
-            Assert.That(CampaignStageResultNavigationStore.TryGet(completedStageId, out var nextPlan), Is.True);
-            Assert.That(nextPlan.NextStageRequest.StageId.Value, Is.EqualTo("stage-1-2"));
-            Assert.That(nextPlan.CampaignCompleted, Is.False);
-
-            CampaignStageResultNavigationStore.Set(
-                new CampaignStageResultNavigationPlan(
-                    StageId.CreateOrThrow("stage-4-3"),
-                    StageNavigationRequest.None,
-                    campaignCompleted: true));
-            Assert.That(CampaignStageResultNavigationStore.TryGet(StageId.CreateOrThrow("stage-4-3"), out var finalPlan), Is.True);
-            Assert.That(finalPlan.CampaignCompleted, Is.True);
-            Assert.That(finalPlan.NextStageRequest.IsValid, Is.False);
-        }
-
         [TestCase("stage-0-3", "level-0", "stage-1-1", "level-1")]
         [TestCase("stage-1-2", "level-1", "stage-2-1", "level-2")]
         [TestCase("stage-2-2", "level-2", "stage-3-1", "level-3")]
@@ -758,6 +737,111 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DivergentSequence_ClearAlignsResultNextSavedCursorAndRetryGroupFirst()
+        {
+            var saveKey = CreatePrefsKey(nameof(DivergentSequence_ClearAlignsResultNextSavedCursorAndRetryGroupFirst));
+            var saveStore = new SaveSlotStore(saveKey);
+            var hostObject = new GameObject("divergent-sequence-clear-host");
+            var resolver = CreateDivergentResolver(out var definition);
+            try
+            {
+                saveStore.ClearAll();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("fixture-a"),
+                    CurrentLevelGroupId = "group-a",
+                    RemainingChances = 2,
+                });
+                var readModel = MinimalStageCompletionReadModelBuilder.Build(
+                    entry: null,
+                    clearResult: CreateClearResult("fixture-a"),
+                    sequenceResolver: resolver);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    resolver,
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
+
+                GetHandleStageClearMethod().Invoke(controller, new object[] { null, readModel });
+
+                Assert.That(readModel.NextStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
+                Assert.That(saveStore.LoadSlot(1).CurrentLevelGroupId, Is.EqualTo("group-b"));
+
+                var retryRoute = new StageRetryChanceTracker(resolver).ResolveDeathRoute(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("fixture-b"),
+                    CurrentLevelGroupId = "group-b",
+                    RemainingChances = 1,
+                });
+                Assert.That(retryRoute.NextStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-c")));
+                Assert.That(retryRoute.RouteKind, Is.EqualTo(StageRetryRouteKind.ReturnToLevelGroupFirstStage));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void DivergentSequence_FinalClearAlignsReadModelSaveAndTerminalDestination()
+        {
+            var saveKey = CreatePrefsKey(nameof(DivergentSequence_FinalClearAlignsReadModelSaveAndTerminalDestination));
+            var saveStore = new SaveSlotStore(saveKey);
+            var hostObject = new GameObject("divergent-sequence-final-host");
+            var resolver = CreateDivergentResolver(out var definition);
+            try
+            {
+                saveStore.ClearAll();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = StageId.CreateOrThrow("fixture-b"),
+                    CurrentLevelGroupId = "group-b",
+                    RemainingChances = 2,
+                });
+                var readModel = MinimalStageCompletionReadModelBuilder.Build(
+                    entry: null,
+                    clearResult: CreateClearResult("fixture-b"),
+                    sequenceResolver: resolver);
+                var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
+                var controller = new CampaignGameplayFlowController(
+                    host,
+                    saveStore,
+                    new CampaignRunningSlotContext(1),
+                    resolver,
+                    new FakeStageLaunchRouter(),
+                    chanceDisplayOverride: null,
+                    terminalTransitionPort: new FakeTerminalTransitionPort());
+
+                GetHandleStageClearMethod().Invoke(controller, new object[] { null, readModel });
+
+                Assert.That(readModel.NextStageRequest.IsValid, Is.False);
+                Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(StageId.CreateOrThrow("fixture-b")));
+                Assert.That(saveStore.LoadSlot(1).CampaignCompleted, Is.True);
+                Assert.That(
+                    TerminalSessionRegistry.Current.DestinationKind,
+                    Is.EqualTo(TerminalDestinationKind.SameSceneGameClear));
+            }
+            finally
+            {
+                saveStore.ClearAll();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void NormalFinalObjectiveClear_CommitsCampaignCompletedAndReceiptInOneSlotUpdate()
         {
             var store = RecordingCampaignSaveSlotStore.WithSlot(
@@ -779,20 +863,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     CreateMinimalStageCompletionReadModel(
                         "stage-4-3",
-                        tickIndex: 101,
-                        stageRunId: "authoritative-final-run"));
+                        tickIndex: 101));
 
                 var saved = store.LoadSlot(1);
                 Assert.That(store.UpdateCount, Is.EqualTo(1));
                 Assert.That(store.SaveCount, Is.EqualTo(1));
                 Assert.That(saved.CampaignCompleted, Is.True);
                 Assert.That(saved.NormalCampaignCompletionReceipt, Is.Not.Null);
-                Assert.That(saved.NormalCampaignCompletionReceipt.Version, Is.EqualTo(1));
+                Assert.That(saved.NormalCampaignCompletionReceipt.Version, Is.EqualTo(2));
                 Assert.That(saved.NormalCampaignCompletionReceipt.CompletedStageId, Is.EqualTo("stage-4-3"));
-                Assert.That(saved.NormalCampaignCompletionReceipt.StageRunId, Is.EqualTo("authoritative-final-run"));
-                Assert.That(
-                    saved.NormalCampaignCompletionReceipt.ClearSource,
-                    Is.EqualTo((int)StageClearSource.Objective));
+                Assert.That(saved.NormalCampaignCompletionReceipt.StageRunId, Is.Empty);
+                Assert.That(saved.NormalCampaignCompletionReceipt.ClearSource, Is.EqualTo(-1));
                 Assert.That(store.LastMutationObservedCampaignCompleted, Is.True);
                 Assert.That(store.LastMutationObservedReceipt, Is.True);
                 Assert.That(earningSink.EarnCount, Is.EqualTo(1));
@@ -866,8 +947,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     CreateMinimalStageCompletionReadModel(
                         "stage-4-3",
-                        tickIndex: 103,
-                        clearSource: StageClearSource.ForcedByDemoStageControl));
+                        tickIndex: 103),
+                    hasObjectiveClear: false);
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
@@ -930,7 +1011,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Version = 1,
                 CompletedStageId = "stage-4-3",
                 StageRunId = "original-run",
-                ClearSource = (int)StageClearSource.Objective,
+                ClearSource = 0,
             };
             var slot = CreateCampaignSlot(1, "stage-4-3");
             slot.CampaignCompleted = true;
@@ -953,8 +1034,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     CreateMinimalStageCompletionReadModel(
                         "stage-4-3",
-                        tickIndex: 105,
-                        stageRunId: "later-run"));
+                        tickIndex: 105));
 
                 Assert.That(store.UpdateCount, Is.EqualTo(1));
                 Assert.That(store.SaveCount, Is.EqualTo(1));
@@ -980,7 +1060,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Version = 99,
                 CompletedStageId = "stage-4-3",
                 StageRunId = "invalid-version-run",
-                ClearSource = (int)StageClearSource.Objective,
+                ClearSource = 0,
             };
             var store = RecordingCampaignSaveSlotStore.WithSlot(slot);
             var earningSink = new RecordingProductAchievementEarningSink(
@@ -1069,8 +1149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     CreateMinimalStageCompletionReadModel(
                         "stage-4-3",
-                        tickIndex: 108,
-                        stageRunId: "product-failure-run")));
+                        tickIndex: 108)));
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Not.Null);
@@ -1101,8 +1180,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     CreateMinimalStageCompletionReadModel(
                         "stage-4-3",
-                        tickIndex: 109,
-                        stageRunId: "integration-exception-run")));
+                        tickIndex: 109)));
 
                 Assert.That(store.LoadSlot(1).CampaignCompleted, Is.True);
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Not.Null);
@@ -1155,7 +1233,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Version = 1,
                 CompletedStageId = "stage-4-3",
                 StageRunId = "slot-one-run",
-                ClearSource = (int)StageClearSource.Objective,
+                ClearSource = 0,
             };
             var store = new RecordingCampaignSaveSlotStore(
                 first,
@@ -1169,12 +1247,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     controller,
                     CreateMinimalStageCompletionReadModel(
                         "stage-4-3",
-                        tickIndex: 107,
-                        stageRunId: "slot-two-run"));
+                        tickIndex: 107));
 
                 Assert.That(store.LastUpdatedSlotNumber, Is.EqualTo(2));
                 Assert.That(store.LoadSlot(1).NormalCampaignCompletionReceipt.StageRunId, Is.EqualTo("slot-one-run"));
-                Assert.That(store.LoadSlot(2).NormalCampaignCompletionReceipt.StageRunId, Is.EqualTo("slot-two-run"));
+                Assert.That(store.LoadSlot(2).NormalCampaignCompletionReceipt.Version, Is.EqualTo(2));
+                Assert.That(store.LoadSlot(2).NormalCampaignCompletionReceipt.StageRunId, Is.Empty);
             }
             finally
             {
@@ -2479,7 +2557,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new NormalCampaignCompletionAchievementIntegration(earningSink));
                 var handleTickCompleted = GetHandleTickCompletedMethod();
                 var handleStageClearCommitted = GetHandleStageClearCommittedMethod();
-                var deathAndClearTick = CreateDeathTickResult(50, eligibleTick: 53);
+                var deathAndClearTick = CreateDeathTickResult(
+                    50,
+                    eligibleTick: 53,
+                    objectiveCleared: true);
 
                 handleStageClearCommitted.Invoke(
                     controller,
@@ -2913,7 +2994,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static CampaignStageSequenceResolver CreateResolver()
         {
-            return new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            return CampaignStageSequenceTestAsset.LoadProductionResolver();
+        }
+
+        private static CampaignStageSequenceResolver CreateDivergentResolver(
+            out CampaignStageSequenceDefinition definition)
+        {
+            definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            definition.SetEntries(new[]
+            {
+                CreateSequenceEntry("fixture-a", "group-a"),
+                CreateSequenceEntry("fixture-c", "group-b"),
+                CreateSequenceEntry("fixture-b", "group-b"),
+            });
+            return new CampaignStageSequenceResolver(definition);
+        }
+
+        private static CampaignStageSequenceEntry CreateSequenceEntry(
+            string stageId,
+            string levelGroupId)
+        {
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(
+                StageId.CreateOrThrow(stageId),
+                levelGroupId);
+            return entry;
+        }
+
+        private static StageClearResult CreateClearResult(string stageId)
+        {
+            return new StageClearResult(
+                StageId.CreateOrThrow(stageId),
+                finalTickIndex: 1);
+        }
+
+        private static MethodInfo GetHandleStageClearMethod()
+        {
+            var method = typeof(CampaignGameplayFlowController).GetMethod(
+                "HandleStageClear",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return method;
         }
 
         private static CampaignGameplayFlowController CreateReceiptController(
@@ -2941,13 +3062,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void InvokeStageClear(
             CampaignGameplayFlowController controller,
-            MinimalStageCompletionReadModel readModel)
+            MinimalStageCompletionReadModel readModel,
+            bool hasObjectiveClear = true)
         {
             var method = typeof(CampaignGameplayFlowController).GetMethod(
                 "HandleStageClear",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
-            method.Invoke(controller, new object[] { null, readModel });
+            method.Invoke(
+                controller,
+                new object[]
+                {
+                    hasObjectiveClear
+                        ? CreateObjectiveClearTickResult(readModel.FinalTickIndex)
+                        : null,
+                    readModel,
+                });
         }
 
         private static SaveSlotData CreateCampaignSlot(
@@ -3174,7 +3304,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return (bool)field.GetValue(inputHost);
         }
 
-        private static TickResult CreateDeathTickResult(int tickIndex, int eligibleTick)
+        private static TickResult CreateDeathTickResult(
+            int tickIndex,
+            int eligibleTick,
+            bool objectiveCleared = false)
         {
             var presentationData = new TickPresentationData(
                 Array.Empty<TickEntityMotion>(),
@@ -3211,7 +3344,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         startedThisTick: true),
                 });
 
-            return CreateTickResult(tickIndex, presentationData);
+            return CreateTickResult(
+                tickIndex,
+                presentationData,
+                Array.Empty<string>(),
+                objectiveCleared
+                    ? CreateClearedObjectiveResult()
+                    : StageObjectiveTickResult.NoObjective);
         }
 
         private static TickResult CreateEmptyTickResult(int tickIndex)
@@ -3239,7 +3378,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickResult CreateTickResult(
             int tickIndex,
             TickPresentationData presentationData,
-            IEnumerable<string> eventLog)
+            IEnumerable<string> eventLog,
+            StageObjectiveTickResult objectiveResult = null)
         {
             var constructor = typeof(TickResult).GetConstructor(
                 BindingFlags.Instance | BindingFlags.NonPublic,
@@ -3275,34 +3415,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData,
                 string.Empty,
                 TickTrace.Empty,
-                StageObjectiveTickResult.NoObjective,
+                objectiveResult ?? StageObjectiveTickResult.NoObjective,
             });
         }
 
         private static MinimalStageCompletionReadModel CreateMinimalStageCompletionReadModel(
             string stageIdValue,
-            int tickIndex,
-            string stageRunId = null,
-            StageClearSource clearSource = StageClearSource.Objective)
+            int tickIndex)
         {
             var stageId = StageId.CreateOrThrow(stageIdValue);
-            var result = new MinimalStageCompletionResult(
-                stageId,
-                new StageRunId(stageRunId ?? $"campaign-test-run-{tickIndex}"),
-                new StageCompletionAttemptId($"campaign-test-attempt-{tickIndex}"),
-                StageTerminalReason.Cleared,
-                wasCleared: true,
-                finalTickIndex: tickIndex,
-                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                clearSource);
-
             return new MinimalStageCompletionReadModel(
                 stageId,
-                StageDisplayNameKeys.ForStage(stageId),
-                result,
+                tickIndex,
                 new StageNavigationRequest(stageId, StageNavigationKind.Continue, "campaign-test-continue"),
                 new StageNavigationRequest(stageId, StageNavigationKind.Retry, "campaign-test-retry"),
                 StageNavigationRequest.None);
+        }
+
+        private static TickResult CreateObjectiveClearTickResult(int tickIndex)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                Array.Empty<EntityState>(),
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                TickPresentationData.Empty,
+                string.Empty,
+                TickTrace.Empty,
+                CreateClearedObjectiveResult());
+        }
+
+        private static StageObjectiveTickResult CreateClearedObjectiveResult()
+        {
+            return new StageObjectiveTickResult(
+                hasObjective: true,
+                goalReached: true,
+                allConditionsSatisfied: true,
+                clearedThisTick: true,
+                isCleared: true,
+                Array.Empty<StageConditionStatus>());
         }
 
         private static string CreatePrefsKey(string suffix)
@@ -3581,9 +3736,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             INormalCampaignCompletionAchievementIntegration
         {
             public NormalCampaignCompletionAchievementResult TryEarnAfterCommittedCompletion(
-                EditorDirectPlayContext directPlayContext,
-                MinimalStageCompletionResult completionResult,
-                StageId completedStageId,
+                NormalCampaignCompletionFact completion,
                 CampaignStageSequenceResolver sequenceResolver,
                 SaveSlotData committedSlot)
             {

@@ -377,7 +377,7 @@ namespace Game.Feature.UI.Tests
             return new MainMenuController(
                 store,
                 launchHandoffStore ?? new RecordingCampaignLaunchHandoffStore(),
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                CampaignStageSequenceTestAsset.LoadProductionResolver(),
                 router ?? new RecordingStageLaunchRouter(),
                 confirmPopupPort ?? new RecordingConfirmPopupPort(),
                 saveDiagnosticPort: saveDiagnosticPort);

@@ -2,6 +2,19 @@ using UnityEngine;
 
 namespace Game.Feature.Stages
 {
+    public enum CampaignParticipation
+    {
+        Unspecified = 0,
+        Campaign = 1,
+        CatalogOnly = 2,
+    }
+
+    public enum CatalogOnlyReason
+    {
+        None = 0,
+        LegacyArchived = 1,
+    }
+
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Content Entry", fileName = "stage-content-entry")]
     public sealed class StageContentEntry : ScriptableObject
     {
@@ -10,10 +23,9 @@ namespace Game.Feature.Stages
         [SerializeField] private StageDefinition gameplayDefinition;
         [SerializeField] private StagePresentationDefinition presentationDefinition;
         [SerializeField] private StageAudioDefinition audioDefinition;
-        [SerializeField] private string catalogWorldId = string.Empty;
-        [SerializeField] private string catalogChapterId = string.Empty;
-        [SerializeField] private int catalogSortOrder;
         [SerializeField] private bool isInitiallyAvailable = true;
+        [SerializeField] private CampaignParticipation campaignParticipation;
+        [SerializeField] private CatalogOnlyReason catalogOnlyReason;
 
         public StageId StageId => stageId;
 
@@ -25,13 +37,11 @@ namespace Game.Feature.Stages
 
         public StageAudioDefinition AudioDefinition => audioDefinition;
 
-        public string CatalogWorldId => catalogWorldId ?? string.Empty;
-
-        public string CatalogChapterId => catalogChapterId ?? string.Empty;
-
-        public int CatalogSortOrder => catalogSortOrder;
-
         public bool IsInitiallyAvailable => isInitiallyAvailable;
+
+        public CampaignParticipation CampaignParticipation => campaignParticipation;
+
+        public CatalogOnlyReason CatalogOnlyReason => catalogOnlyReason;
 
         public void AssignStageId(StageId value)
         {
@@ -58,16 +68,17 @@ namespace Game.Feature.Stages
             audioDefinition = definition;
         }
 
-        public void AssignCatalogMetadata(
-            string worldId,
-            string chapterId,
-            int sortOrder,
-            bool initiallyAvailable)
+        public void AssignInitialAvailability(bool value)
         {
-            catalogWorldId = worldId ?? string.Empty;
-            catalogChapterId = chapterId ?? string.Empty;
-            catalogSortOrder = sortOrder;
-            isInitiallyAvailable = initiallyAvailable;
+            isInitiallyAvailable = value;
+        }
+
+        public void AssignCampaignParticipation(
+            CampaignParticipation participation,
+            CatalogOnlyReason exclusionReason = CatalogOnlyReason.None)
+        {
+            campaignParticipation = participation;
+            catalogOnlyReason = exclusionReason;
         }
     }
 }

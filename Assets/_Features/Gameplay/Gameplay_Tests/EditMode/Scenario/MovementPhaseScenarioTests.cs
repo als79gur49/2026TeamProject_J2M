@@ -5017,8 +5017,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 activationRule,
                 Direction2D.None,
                 TileFeatureBoxSelector.None,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static EntityState CreateFrontFaceEnemy(int entityId, SurfaceCell position, int hp = 3)

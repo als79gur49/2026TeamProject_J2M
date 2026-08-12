@@ -325,6 +325,21 @@ MonoBehaviour:
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
-  tileFeaturePresentationBindings: []
+  tileFeaturePresentationBindings:
+  - TileId: 1
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []

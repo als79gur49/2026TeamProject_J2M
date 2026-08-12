@@ -11,8 +11,6 @@ namespace Game.Feature.Stages
         public const string CampaignLevel01Root = CampaignLevelsRoot + "/level-01";
         public const string CampaignLevel01StagesRoot = CampaignLevel01Root + "/Stages";
 
-        public const string CampaignMainAssetPath = CampaignRoot + "/CampaignMain.asset";
-        public const string Level01AssetPath = CampaignLevel01Root + "/Level01.asset";
         public const string StageCatalogAssetPath = CampaignCatalogRoot + "/CampaignMain_StageCatalog.asset";
         public const string StageCatalogProviderAssetPath =
             CampaignCatalogRoot + "/CampaignMain_StageCatalogProvider.asset";

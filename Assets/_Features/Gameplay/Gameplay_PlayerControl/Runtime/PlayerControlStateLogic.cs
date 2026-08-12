@@ -108,7 +108,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             var previousAction = nextState.activeAction;
             var canStartAction =
                 snapshot.CanStartAction(_entityId, input.TickIndex) &&
-                PlayerControlQueries.IsExplicitActionStartAllowed(nextState, input.TickIndex);
+                PlayerControlQueries.CanStartExplicitAction(nextState, input.TickIndex);
             var isSettledAtAnchor = UnitSpatialQuery.IsSettledAtAnchor(snapshot, _entityId);
             var canStartSettledAction = canStartAction && isSettledAtAnchor;
             var canUseMoveDirectionForActionState =

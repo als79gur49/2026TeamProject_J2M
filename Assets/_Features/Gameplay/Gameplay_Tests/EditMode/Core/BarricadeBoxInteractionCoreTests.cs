@@ -257,8 +257,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 activationRule,
                 direction,
                 selector,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static EntityState CreatePlayerUnit(int entityId, SurfaceCell position)

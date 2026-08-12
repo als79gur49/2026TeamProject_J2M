@@ -63,7 +63,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Version = 1,
                 CompletedStageId = "stage-4-3",
                 StageRunId = "adapter-receipt-run",
-                ClearSource = (int)StageClearSource.Objective,
+                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
             };
 
             legacy.SaveSlot(slot);
@@ -84,7 +84,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Version = 1,
                 CompletedStageId = "stage-4-3",
                 StageRunId = "receipt-to-clear",
-                ClearSource = (int)StageClearSource.Objective,
+                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
             };
             adapter.SaveSlot(completed);
 
@@ -105,8 +105,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var legacy = CreateLegacyStore();
             var adapter = CreateAdapter();
-            var resolver = new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var resolver = CampaignStageSequenceTestAsset.LoadProductionResolver();
 
             var legacySlot = legacy.InitializeNewGame(1, resolver, FixedNowUtc);
             var adapterSlot = adapter.InitializeNewGame(1, resolver, FixedNowUtc);

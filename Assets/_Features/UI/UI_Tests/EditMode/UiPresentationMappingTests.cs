@@ -308,8 +308,6 @@ namespace Game.Feature.UI.Tests
                 CreateRefreshInput(objective: objective));
 
             Assert.That(result.Snapshot.Objective.HasObjective, Is.True);
-            Assert.That(result.Snapshot.Objective.Title, Is.Empty);
-            Assert.That(result.Snapshot.Objective.Summary, Is.Empty);
             Assert.That(result.Snapshot.Objective.Conditions, Has.Count.EqualTo(1));
             Assert.That(
                 result.Snapshot.Objective.Conditions[0].PresentationKind,
@@ -368,8 +366,6 @@ namespace Game.Feature.UI.Tests
                 CreateRefreshInput(objective: GameplayObjectiveReadModel.NoObjective));
 
             Assert.That(result.Snapshot.Objective.HasObjective, Is.False);
-            Assert.That(result.Snapshot.Objective.Title, Is.Empty);
-            Assert.That(result.Snapshot.Objective.Summary, Is.Empty);
             Assert.That(result.Snapshot.Objective.Conditions, Is.Empty);
         }
 
@@ -415,8 +411,6 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(result.Snapshot.Objective.HasObjective, Is.True);
             Assert.That(result.Snapshot.Objective.Conditions, Is.Empty);
-            Assert.That(result.Snapshot.Objective.Title, Is.Empty);
-            Assert.That(result.Snapshot.Objective.Summary, Is.Empty);
         }
 
         [Test]
@@ -639,6 +633,32 @@ namespace Game.Feature.UI.Tests
             Assert.That(source.CurrentSnapshot.Player.CanStartActionThisTick, Is.True);
             Assert.That(source.CurrentSnapshot.Player.CanStartAnyActionThisTick, Is.True);
             Assert.That(source.CurrentSnapshot.Player.HasExplicitPushCandidateInCurrentDirection, Is.True);
+
+            queryFacade.SetPlayerHud(new GameplayPlayerHudReadModel(
+                isAvailable: true,
+                playerEntityId: 10,
+                currentHp: 3,
+                maxHp: 3,
+                facing: GameplayUiDirection.Right,
+                activeActionKind: GameplayUiActionKind.Push,
+                activeActionDirection: GameplayUiDirection.Right,
+                activeTargetEntityId: 20,
+                isActionInProgress: true,
+                isActionInRecoveryPhase: true,
+                canMoveThisTick: false,
+                canStartActionThisTick: false,
+                recoveryCooldown: null,
+                canStartAnyActionThisTick: false,
+                hasExplicitPushCandidateInCurrentDirection: false));
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Front),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Player.CanStartActionThisTick, Is.False);
+            Assert.That(source.CurrentSnapshot.Player.CanStartAnyActionThisTick, Is.False);
+            Assert.That(source.CurrentSnapshot.Player.HasExplicitPushCandidateInCurrentDirection, Is.False);
         }
 
         [Test]
@@ -749,7 +769,6 @@ namespace Game.Feature.UI.Tests
                 isTopologyTransitionActive: false));
 
             Assert.That(source.CurrentSnapshot.Objective.HasObjective, Is.True);
-            Assert.That(source.CurrentSnapshot.Objective.Summary, Is.Empty);
             Assert.That(
                 source.CurrentSnapshot.Objective.Conditions[0].TextDescriptor.Key,
                 Is.EqualTo(ObjectiveHudLocalization.Keys.ReachExit));

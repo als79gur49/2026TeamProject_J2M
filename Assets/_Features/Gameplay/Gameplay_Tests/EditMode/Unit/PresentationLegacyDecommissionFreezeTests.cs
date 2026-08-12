@@ -243,6 +243,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void AnalyzerSelfTest_DistinguishesTransactionalRollbackFromPresentationRouteResidue()
+        {
+            var manifest = new[]
+            {
+                new ResidueBudget(
+                    "Player Action Animation",
+                    "ROLLBACK_OR_FALLBACK",
+                    "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Allowed.cs",
+                    "PlayerActionAnimationLaneRuntime",
+                    "Route",
+                    "Rollback",
+                    0,
+                    "retired presentation rollback route",
+                    "Presentation Legacy Decommission"),
+                new ResidueBudget(
+                    "Player Action Animation",
+                    "ROUTE_BRANCH",
+                    "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Allowed.cs",
+                    "PlayerActionAnimationLaneRuntime",
+                    "Route",
+                    "UseProduction",
+                    0,
+                    "retired presentation production branch",
+                    "Presentation Legacy Decommission"),
+            };
+            var transactionalInstaller = new Dictionary<string, string>
+            {
+                ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"] =
+                    "private bool TryRollbackActive() => canUseProductionHandoff;",
+            };
+            var retiredPresentationRoute = new Dictionary<string, string>
+            {
+                ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/ReintroducedPresentationRoute.cs"] =
+                    "PlayerActionAnimationExecutionMode.Rollback; UseProductionExecutor();",
+            };
+
+            Assert.That(
+                PresentationLegacyFreezeAnalyzer.Analyze(
+                    transactionalInstaller,
+                    manifest,
+                    Array.Empty<string>()).HasViolations,
+                Is.False);
+            Assert.That(
+                PresentationLegacyFreezeAnalyzer.Analyze(
+                    retiredPresentationRoute,
+                    manifest,
+                    Array.Empty<string>()).HasViolations,
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void AnalyzerSelfTest_AcceptsRetainedPendingPlanDeletionAndSerializedProperties()
         {
             var pendingManifest = new[]
@@ -1105,6 +1157,24 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
 
         private static class PresentationLegacyFreezeAnalyzer
         {
+            private static readonly string[] PresentationRollbackOwnerTokens =
+            {
+                "BoxMotionPresentationExecutionMode",
+                "CoreGameplaySfxRoute",
+                "DamageDeathVfxExecutionMode",
+                "EnemyPresentationExecutionMode",
+                "ActionAudioExecutionMode",
+                "EnemyAudioExecutionMode",
+                "PlayerActionAnimationExecutionMode",
+                "TopologyPresentationExecutionMode",
+            };
+
+            private static readonly Regex UseProductionExecutorRegex =
+                new Regex(@"\bUseProductionExecutor\b", RegexOptions.Compiled);
+
+            private static readonly Regex StageInstallerPresentationSuppressionRegex =
+                new Regex(@"\bSuppressedBaseTileCells\b", RegexOptions.Compiled);
+
             private static readonly Regex ConfigureFacadeRegex =
                 new Regex(@"\bConfigure[A-Za-z0-9_]*Execution\b", RegexOptions.Compiled);
 
@@ -1812,7 +1882,7 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                 {
                     foreach (var symbol in symbols)
                     {
-                        var count = CountOccurrences(source.Value, symbol);
+                        var count = CountOccurrences(source.Key, source.Value, symbol);
                         if (count > 0)
                         {
                             actual[(source.Key, symbol)] = count;
@@ -1823,8 +1893,29 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                 return actual;
             }
 
-            private static int CountOccurrences(string source, string value)
+            private static int CountOccurrences(string relativePath, string source, string value)
             {
+                if (string.Equals(value, "Suppressed", StringComparison.Ordinal) &&
+                    relativePath.EndsWith(
+                        "/StageBackedGameplaySceneInstallerBase.cs",
+                        StringComparison.Ordinal))
+                {
+                    return StageInstallerPresentationSuppressionRegex.Matches(source).Count;
+                }
+
+                if (string.Equals(value, "UseProduction", StringComparison.Ordinal))
+                {
+                    return UseProductionExecutorRegex.Matches(source).Count;
+                }
+
+                if (string.Equals(value, "Rollback", StringComparison.Ordinal) &&
+                    !PresentationRollbackOwnerTokens.Any(token =>
+                        relativePath.Contains(token, StringComparison.Ordinal) ||
+                        source.Contains(token, StringComparison.Ordinal)))
+                {
+                    return 0;
+                }
+
                 var count = 0;
                 var index = 0;
                 while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)

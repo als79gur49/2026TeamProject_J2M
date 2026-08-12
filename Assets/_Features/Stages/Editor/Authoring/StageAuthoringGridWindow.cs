@@ -519,6 +519,7 @@ namespace Game.Feature.Stages.Editor
             return StageAuthoringTileFeaturePresentationCatalogCommands.ResolveStatus(
                 authoring.GeneratedPresentationDefinition,
                 draftFeature,
+                tileFeatureDraft.PresentationKey,
                 IsDirectOverrideActive(bindingStatus));
         }
 
@@ -1742,6 +1743,7 @@ namespace Game.Feature.Stages.Editor
             var catalogStatus = StageAuthoringTileFeaturePresentationCatalogCommands.ResolveStatus(
                 presentation,
                 feature,
+                tileFeatureDraft.PresentationKey,
                 directOverrideActive);
             DrawTileFeatureCatalogStatus(catalogStatus);
             if (StageAuthoringPresentationBindingCommands.ResolvesTileFeatureVisual(
@@ -1765,7 +1767,7 @@ namespace Game.Feature.Stages.Editor
                 presentation,
                 feature.Kind);
             var labels = options.Select(option => option.Label).ToArray();
-            var currentKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+            var currentKey = TileFeaturePresentationCatalog.NormalizePresentationKey(tileFeatureDraft.PresentationKey);
             var selectedIndex = 0;
             for (var i = 0; i < options.Length; i++)
             {
@@ -2293,8 +2295,7 @@ namespace Game.Feature.Stages.Editor
                 TileFeatureActivationRule.BottomFaceOnly,
                 Direction2D.None,
                 TileFeatureBoxSelector.AnyPushableBox,
-                selectedBoundEntityId: 0,
-                selectedPresentationKey: string.Empty);
+                selectedBoundEntityId: 0);
         }
 
         private static StageTileFeatureDefinition BuildTileFeatureDraft(
@@ -2307,8 +2308,7 @@ namespace Game.Feature.Stages.Editor
                 draft.ActivationRule,
                 draft.Direction,
                 draft.BoxSelector,
-                draft.BoundEntityId,
-                draft.PresentationKey);
+                draft.BoundEntityId);
         }
 
         private static void ApplyTileFeatureKindDefaults(ref TileFeatureDraftState draft, TileFeatureKind kind)
@@ -2353,13 +2353,19 @@ namespace Game.Feature.Stages.Editor
         private void LoadTileFeatureEditorState(StageTileFeatureDefinition feature)
         {
             loadedTileFeatureId = feature.TileId;
+            var presentationKey = StageAuthoringPlacementCommands.TryGetTileFeaturePresentationSelection(
+                authoring,
+                feature.TileId,
+                out var presentationSelection)
+                ? presentationSelection.PresentationKey
+                : string.Empty;
             tileFeatureDraft = CreateTileFeatureDraftState(
                 feature.Kind,
                 feature.ActivationRule,
                 feature.Direction,
                 feature.BoxSelector,
                 feature.BoundEntityId,
-                feature.PresentationKey);
+                presentationKey);
             selectedTileFeatureVisualPrefab = ResolveTileFeatureVisualPrefab(feature.TileId);
             loadedButtonObjectiveAuthoringLabelTileId = feature.TileId;
             buttonObjectiveAuthoringLabel = feature.Kind == TileFeatureKind.Button
@@ -2407,8 +2413,24 @@ namespace Game.Feature.Stages.Editor
 
         private bool SetSelectedTileFeaturePresentationKey(string presentationKey)
         {
-            tileFeatureDraft.PresentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
-            return TryUpdateSelectedTileFeatureFromDraft();
+            var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
+            if (!StageAuthoringPlacementCommands.TrySetTileFeaturePresentationKey(
+                    authoring,
+                    selection.SelectedTileFeatureId,
+                    normalizedKey,
+                    out var error))
+            {
+                SetTileFeatureFeedback(error, MessageType.Error);
+                return false;
+            }
+
+            tileFeatureDraft.PresentationKey = normalizedKey;
+            serializedAuthoring.Update();
+            SetTileFeatureFeedback(
+                $"Updated TileFeature presentation selection {selection.SelectedTileFeatureId}.",
+                MessageType.Info);
+            Repaint();
+            return true;
         }
 
         private bool EnableSelectedExitObjective(out string error)

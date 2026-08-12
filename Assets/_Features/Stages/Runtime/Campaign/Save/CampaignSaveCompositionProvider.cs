@@ -23,17 +23,12 @@ namespace Game.Feature.Stages
             return productionProfileBackedStore;
         }
 
-        public static CampaignSaveFacadeFactoryResult CreateProductionProfileBackedFacade()
-        {
-            return CampaignSaveFacadeFactory.Create(CreateProductionProfileBackedOptions());
-        }
-
         public static ICampaignSaveSlotStore CreateProductionLegacyRollback()
         {
             return Create(CreateProductionLegacyRollbackOptions());
         }
 
-        public static ICampaignSaveSlotStore Create(CampaignSaveCompositionOptions options)
+        internal static ICampaignSaveSlotStore Create(CampaignSaveCompositionOptions options)
         {
             return CampaignSaveFacadeFactory.Create(options).CampaignSaveSlots;
         }
@@ -52,7 +47,7 @@ namespace Game.Feature.Stages
             return new ActiveSlotProvider(storage);
         }
 
-        public static CampaignSaveCompositionOptions CreateProductionProfileBackedOptions()
+        internal static CampaignSaveCompositionOptions CreateProductionProfileBackedOptions()
         {
             return new CampaignSaveCompositionOptions
             {
@@ -64,7 +59,7 @@ namespace Game.Feature.Stages
             };
         }
 
-        public static CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()
+        internal static CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()
         {
             return new CampaignSaveCompositionOptions
             {
@@ -72,7 +67,7 @@ namespace Game.Feature.Stages
             };
         }
 
-        public static void ResetProductionProfileBackedForTests()
+        internal static void ResetProductionProfileBackedForTests()
         {
             productionProfileBackedStore = null;
         }

@@ -5,6 +5,7 @@ using Game.Product.Achievements.CampaignIntegration;
 using Game.Product.Achievements.Composition;
 using Game.Product.Achievements.Infrastructure;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Game.Product.Achievements.Tests
 {
@@ -168,7 +169,8 @@ namespace Game.Product.Achievements.Tests
                 {
                     campaignFactoryCount++;
                     return campaignStore;
-                });
+                },
+                sequenceResolverFactory: CreateResolver);
 
             Assert.That(owner.Initialize(), Is.True);
             var first = owner.ReconcileNormalCampaignCompletionReceipt();
@@ -192,6 +194,7 @@ namespace Game.Product.Achievements.Tests
         {
             var campaignStore = new ReceiptCampaignStore(CreateValidReceiptSlot());
             var campaignFactoryCount = 0;
+            var sequenceFactoryCount = 0;
             using var owner = new ProductAchievementApplicationLifetimeOwner(
                 new TemporarySavePathProvider(_canonicalSavesRoot),
                 campaignSaveSlotStoreFactory: () =>
@@ -205,15 +208,67 @@ namespace Game.Product.Achievements.Tests
                     "direct-play-save",
                     "direct-play-active",
                     3,
-                    suppressCampaignFlow: false));
+                    suppressCampaignFlow: false),
+                sequenceResolverFactory: () =>
+                {
+                    sequenceFactoryCount++;
+                    return CreateResolver();
+                });
 
             Assert.That(owner.Initialize(), Is.True);
             var result = owner.ReconcileNormalCampaignCompletionReceipt();
 
             Assert.That(result, Is.EqualTo(NormalCampaignCompletionAchievementResult.DirectPlayExcluded));
             Assert.That(campaignFactoryCount, Is.Zero);
+            Assert.That(sequenceFactoryCount, Is.Zero);
             Assert.That(campaignStore.LoadCount, Is.Zero);
             Assert.That(File.Exists(AchievementPath), Is.False);
+        }
+
+        [TestCase(0, "no Campaign sequence resolver provider")]
+        [TestCase(2, "exactly one is required")]
+        public void ActiveSceneResolverFactory_MissingOrAmbiguousProvider_FailsClosed(
+            int providerCount,
+            string expectedWarning)
+        {
+            string warning = null;
+
+            var resolver = ActiveSceneCampaignStageSequenceResolverFactory.ResolveCandidateOrNull(
+                providerCount == 0 ? null : new StubSequenceResolverProvider(CreateResolver()),
+                providerCount,
+                message => warning = message);
+
+            Assert.That(resolver, Is.Null);
+            Assert.That(warning, Does.Contain(expectedWarning));
+        }
+
+        [Test]
+        public void ActiveSceneResolverFactory_ProviderWithoutResolver_FailsClosed()
+        {
+            string warning = null;
+
+            var resolver = ActiveSceneCampaignStageSequenceResolverFactory.ResolveCandidateOrNull(
+                new StubSequenceResolverProvider(null),
+                1,
+                message => warning = message);
+
+            Assert.That(resolver, Is.Null);
+            Assert.That(warning, Does.Contain("could not supply its serialized resolver"));
+        }
+
+        [Test]
+        public void ActiveSceneResolverFactory_ExactProvider_ReturnsItsResolver()
+        {
+            var expected = CreateResolver();
+            var warnings = 0;
+
+            var resolver = ActiveSceneCampaignStageSequenceResolverFactory.ResolveCandidateOrNull(
+                new StubSequenceResolverProvider(expected),
+                1,
+                _ => warnings++);
+
+            Assert.That(resolver, Is.SameAs(expected));
+            Assert.That(warnings, Is.Zero);
         }
 
         private string AchievementPath => Path.Combine(
@@ -270,10 +325,23 @@ namespace Game.Product.Achievements.Tests
                 {
                     Version = NormalCampaignCompletionReceipt.CurrentVersion,
                     CompletedStageId = "stage-4-3",
-                    StageRunId = "composition-startup-run",
-                    ClearSource = (int)StageClearSource.Objective,
+                    StageRunId = string.Empty,
+                    ClearSource = -1,
                 },
             };
+        }
+
+        private static CampaignStageSequenceResolver CreateResolver()
+        {
+            var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            var nonFinal = new CampaignStageSequenceEntry();
+            nonFinal.Set(StageId.CreateOrThrow("stage-4-2"), "level-4");
+            var final = new CampaignStageSequenceEntry();
+            final.Set(StageId.CreateOrThrow("stage-4-3"), "level-4");
+            definition.SetEntries(new[] { nonFinal, final });
+            var resolver = new CampaignStageSequenceResolver(definition);
+            UnityEngine.Object.DestroyImmediate(definition);
+            return resolver;
         }
 
         private sealed class ReceiptCampaignStore : ICampaignSaveSlotStore
@@ -320,6 +388,23 @@ namespace Game.Product.Achievements.Tests
             public void DeleteSlot(int slotNumber) => throw new NotSupportedException();
 
             public void ClearAll() => throw new NotSupportedException();
+        }
+
+        private sealed class StubSequenceResolverProvider : ICampaignStageSequenceResolverProvider
+        {
+            private readonly CampaignStageSequenceResolver _resolver;
+
+            public StubSequenceResolverProvider(CampaignStageSequenceResolver resolver)
+            {
+                _resolver = resolver;
+            }
+
+            public bool TryCreateCampaignStageSequenceResolver(
+                out CampaignStageSequenceResolver resolver)
+            {
+                resolver = _resolver;
+                return resolver != null;
+            }
         }
     }
 }

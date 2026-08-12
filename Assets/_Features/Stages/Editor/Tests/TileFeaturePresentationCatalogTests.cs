@@ -56,7 +56,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var entry = CreateEntry("button", TileFeatureKind.Button, null);
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, "button")));
 
             try
             {
@@ -78,7 +78,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, "button")));
 
             try
             {
@@ -99,7 +99,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, "button")));
 
             try
             {
@@ -211,7 +211,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("CatalogResolvedPrefab");
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
 
             try
             {
@@ -235,7 +235,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("CatalogVfxStylePrefab");
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab, vfxStyleKey: VfxStyleKey.Green));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
 
             try
             {
@@ -270,7 +270,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureKind.Destroy,
                 prefab,
                 isDefault: true));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(
+                catalog,
+                Selection(100, string.Empty),
+                Selection(101, string.Empty));
 
             try
             {
@@ -296,7 +299,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
 
             try
             {
@@ -321,7 +324,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, catalogPrefab));
             var presentation = CreatePresentation(
                 catalog,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
+                Selection(100, "button", directPrefab));
 
             try
             {
@@ -349,7 +352,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 catalogPrefab));
             var presentation = CreatePresentation(
                 catalog,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
+                Selection(100, "exit.default", directPrefab));
 
             try
             {
@@ -374,7 +377,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Exit, string.Empty, cell));
             var presentation = CreatePresentation(
                 null,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
+                Selection(100, string.Empty, directPrefab));
 
             try
             {
@@ -398,7 +401,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var cell = new SurfaceCell(FaceId.Front, 1, 0);
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
 
             try
             {
@@ -423,7 +426,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "exit",
                 TileFeatureKind.Exit,
                 prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "exit"));
 
             try
             {
@@ -458,7 +461,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
 
             try
             {
@@ -480,7 +483,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("DefaultPrefab");
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var catalog = CreateCatalog(Entry("button-default", TileFeatureKind.Button, prefab, isDefault: true));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, string.Empty));
 
             try
             {
@@ -505,7 +508,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 string.Empty,
                 new SurfaceCell(FaceId.Floor, 0, 0)));
             var catalog = CreateCatalog(Entry("entrance-default", TileFeatureKind.Entrance, prefab, isDefault: true));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, string.Empty));
 
             try
             {
@@ -527,7 +530,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var presentation = CreatePresentation(
                 null,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = prefab });
+                Selection(100, string.Empty, prefab));
 
             try
             {
@@ -547,7 +550,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var catalog = CreateCatalog();
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, string.Empty));
 
             try
             {
@@ -588,7 +591,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("CatalogResolvedRuntimePrefab");
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
             var parent = new GameObject("RuntimeFactoryCatalogParent");
             var registryObject = new GameObject("RuntimeFactoryCatalogRegistry");
             var registry = registryObject.AddComponent<TileFeatureVisualRegistry>();
@@ -714,6 +717,55 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainBoardCatalog_RetainsDestroyActiveInactiveAuthoringAliases()
+        {
+            const string catalogPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
+            const string bottomPrefabPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Destroy_Bottom.prefab";
+            const string frontPrefabPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Destroy_Front.prefab";
+            var catalog = AssetDatabase.LoadAssetAtPath<TileFeaturePresentationCatalog>(catalogPath);
+
+            Assert.That(catalog, Is.Not.Null, catalogPath);
+            Assert.That(catalog.TryGetEntry("destroy.bottom", out var bottomEntry), Is.True);
+            Assert.That(catalog.TryGetEntry("destroy.front", out var frontEntry), Is.True);
+            Assert.That(catalog.TryGetEntry("destroy.active", out var activeEntry), Is.True);
+            Assert.That(catalog.TryGetEntry("destroy.inactive", out var inactiveEntry), Is.True);
+
+            Assert.That(bottomEntry.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(frontEntry.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(activeEntry.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(inactiveEntry.Kind, Is.EqualTo(TileFeatureKind.Destroy));
+            Assert.That(AssetDatabase.GetAssetPath(bottomEntry.VisualPrefab), Is.EqualTo(bottomPrefabPath));
+            Assert.That(AssetDatabase.GetAssetPath(frontEntry.VisualPrefab), Is.EqualTo(frontPrefabPath));
+            Assert.That(activeEntry.VisualPrefab, Is.SameAs(bottomEntry.VisualPrefab));
+            Assert.That(inactiveEntry.VisualPrefab, Is.SameAs(frontEntry.VisualPrefab));
+            Assert.That(bottomEntry.IsDefaultForKind, Is.True);
+            Assert.That(frontEntry.IsDefaultForKind, Is.False);
+            Assert.That(activeEntry.IsDefaultForKind, Is.False);
+            Assert.That(inactiveEntry.IsDefaultForKind, Is.False);
+            Assert.That(bottomEntry.VfxStyleKey, Is.EqualTo(VfxStyleKey.Blue));
+            Assert.That(frontEntry.VfxStyleKey, Is.EqualTo(VfxStyleKey.Red));
+            Assert.That(activeEntry.VfxStyleKey, Is.EqualTo(VfxStyleKey.Default));
+            Assert.That(inactiveEntry.VfxStyleKey, Is.EqualTo(VfxStyleKey.Default));
+        }
+
+        [Test]
+        public void CampaignMainBoardCatalog_DestroyDefaultRemainsDestroyBottom()
+        {
+            const string catalogPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
+            var catalog = AssetDatabase.LoadAssetAtPath<TileFeaturePresentationCatalog>(catalogPath);
+
+            Assert.That(catalog, Is.Not.Null, catalogPath);
+            Assert.That(catalog.TryGetDefaultEntry(TileFeatureKind.Destroy, out var defaultEntry), Is.True);
+            Assert.That(defaultEntry.PresentationKey, Is.EqualTo("destroy.bottom"));
+            Assert.That(defaultEntry.IsDefaultForKind, Is.True);
+            Assert.That(defaultEntry.VfxStyleKey, Is.EqualTo(VfxStyleKey.Blue));
+        }
+
+        [Test]
         public void CampaignMainBoardCatalog_KeepsSlideDirectionSpecificEntries()
         {
             const string catalogPath =
@@ -748,7 +800,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Entry("button", TileFeatureKind.Button, prefab));
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, "button")));
 
             try
             {
@@ -770,7 +822,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty)),
                 CreatePresentation(
                     null,
-                    new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = prefab }));
+                    Selection(100, string.Empty, prefab)));
 
             try
             {
@@ -792,7 +844,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry("button-default", TileFeatureKind.Button, prefab, isDefault: true));
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty)),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, string.Empty)));
 
             try
             {
@@ -803,6 +855,69 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry, catalog, prefab);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsMissingTileFeaturePresentationSelection()
+        {
+            var stageEntry = CreateStageEntry(
+                CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty)),
+                CreatePresentation(null));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.tile-feature.selection-missing");
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsDuplicateTileFeaturePresentationSelection()
+        {
+            var stageEntry = CreateStageEntry(
+                CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty)),
+                CreatePresentation(
+                    null,
+                    Selection(100, "button-a"),
+                    Selection(100, "button-b")));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.tile-feature.selection-duplicate");
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsOrphanTileFeaturePresentationSelection()
+        {
+            var stageEntry = CreateStageEntry(
+                CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty)),
+                CreatePresentation(
+                    null,
+                    Selection(100, string.Empty),
+                    Selection(999, "orphan")));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.tile-feature.selection-orphan");
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry);
             }
         }
 
@@ -819,7 +934,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 CreateStage(
                     CreateTileFeature(100, TileFeatureKind.Button, "button", cell),
                     CreateTileFeature(101, TileFeatureKind.Button, "button", cell)),
-                CreatePresentation(catalog));
+                CreatePresentation(
+                    catalog,
+                    Selection(100, "button"),
+                    Selection(101, "button")));
 
             try
             {
@@ -843,7 +961,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(entry);
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, "button")));
 
             try
             {
@@ -871,7 +989,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     TileFeatureKind.Exit,
                     "exit",
                     new SurfaceCell(FaceId.Floor, 0, 0))),
-                CreatePresentation(catalog));
+                CreatePresentation(catalog, Selection(100, "exit")));
 
             try
             {
@@ -897,7 +1015,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 CreateStage(
                     CreateTileFeature(100, TileFeatureKind.Button, "replace", cell),
                     CreateTileFeature(101, TileFeatureKind.Button, "overlay", cell)),
-                CreatePresentation(catalog));
+                CreatePresentation(
+                    catalog,
+                    Selection(100, "replace"),
+                    Selection(101, "overlay")));
 
             try
             {
@@ -921,7 +1042,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 CreateStage(
                     CreateTileFeature(100, TileFeatureKind.Button, "overlay", cell),
                     CreateTileFeature(101, TileFeatureKind.Button, "overlay", cell)),
-                CreatePresentation(catalog));
+                CreatePresentation(
+                    catalog,
+                    Selection(100, "overlay"),
+                    Selection(101, "overlay")));
 
             try
             {
@@ -944,7 +1068,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Entry("button", TileFeatureKind.Button, buttonPrefab),
                 Entry("slide", TileFeatureKind.Slide, slidePrefab));
             var authoring = CreateAuthoring(
-                CreatePresentation(catalog),
+                CreatePresentation(catalog, Selection(100, string.Empty)),
                 CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
 
@@ -965,6 +1089,43 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageAuthoringGridWindow_DestroyVisualDropdown_OffersAllSupportedAliases()
+        {
+            const string catalogPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
+            var catalog = AssetDatabase.LoadAssetAtPath<TileFeaturePresentationCatalog>(catalogPath);
+            Assert.That(catalog, Is.Not.Null, catalogPath);
+            var authoring = CreateAuthoring(
+                CreatePresentation(catalog, Selection(100, string.Empty)),
+                CreateTileFeature(100, TileFeatureKind.Destroy, string.Empty));
+            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+
+            try
+            {
+                window.BindForTests(authoring);
+                window.SelectTileFeatureByIdForTests(100);
+
+                var presentationKeys = window.GetSelectedTileFeatureCatalogOptionsForTests()
+                    .Select(option => option.PresentationKey)
+                    .ToArray();
+
+                Assert.That(
+                    presentationKeys,
+                    Is.SupersetOf(new[]
+                    {
+                        "destroy.bottom",
+                        "destroy.front",
+                        "destroy.active",
+                        "destroy.inactive",
+                    }));
+            }
+            finally
+            {
+                DestroyObjects(window, authoring.GeneratedPresentationDefinition, authoring);
+            }
+        }
+
+        [Test]
         public void StageAuthoringGridWindow_TileFeatureVisualDropdown_UsesSelectedDraftKind()
         {
             var buttonPrefab = CreateValidPrefab("ButtonDraftOptionPrefab");
@@ -973,7 +1134,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Entry("button", TileFeatureKind.Button, buttonPrefab),
                 Entry("slide", TileFeatureKind.Slide, slidePrefab));
             var authoring = CreateAuthoring(
-                CreatePresentation(catalog),
+                CreatePresentation(catalog, Selection(100, string.Empty)),
                 CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
 
@@ -1005,7 +1166,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("WritesPresentationKeyPrefab");
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var authoring = CreateAuthoring(
-                CreatePresentation(catalog),
+                CreatePresentation(catalog, Selection(100, string.Empty)),
                 CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
             var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
 
@@ -1017,7 +1178,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 var changed = window.SetSelectedTileFeatureCatalogPresentationKeyForTests(" button ");
                 if (changed)
                 {
-                    Assert.That(authoring.TileFeatures.Single().PresentationKey, Is.EqualTo("button"));
+                    Assert.That(authoring.TileFeaturePresentationSelections.Single().PresentationKey, Is.EqualTo("button"));
                 }
             }
             finally
@@ -1034,7 +1195,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, catalogPrefab));
             var presentation = CreatePresentation(
                 catalog,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
+                Selection(100, "button", directPrefab));
             var authoring = CreateAuthoring(
                 presentation,
                 CreateTileFeature(100, TileFeatureKind.Button, "button"));
@@ -1061,7 +1222,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("CatalogNullDirectPrefab");
             var presentation = CreatePresentation(
                 null,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = prefab });
+                Selection(100, string.Empty, prefab));
             var authoring = CreateAuthoring(
                 presentation,
                 CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
@@ -1087,7 +1248,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var catalog = CreateCatalog();
             var authoring = CreateAuthoring(
-                CreatePresentation(catalog),
+                CreatePresentation(catalog, Selection(100, "missing")),
                 CreateTileFeature(100, TileFeatureKind.Button, "missing"));
             var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
 
@@ -1112,7 +1273,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var prefab = CreateValidPrefab("CatalogResolvedStatusPrefab");
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var authoring = CreateAuthoring(
-                CreatePresentation(catalog),
+                CreatePresentation(catalog, Selection(100, "button")),
                 CreateTileFeature(100, TileFeatureKind.Button, "button"));
             var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
 
@@ -1144,7 +1305,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 catalogPrefab));
             var presentation = CreatePresentation(
                 catalog,
-                new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
+                Selection(100, "exit.default", directPrefab));
             var authoring = CreateAuthoring(
                 presentation,
                 CreateTileFeature(100, TileFeatureKind.Exit, "exit.default"));
@@ -1178,7 +1339,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "button",
                 TileFeatureKind.Button,
                 prefab));
-            var presentation = CreatePresentation(catalog);
+            var presentation = CreatePresentation(catalog, Selection(100, "button"));
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
 
             try
@@ -1240,6 +1401,19 @@ namespace Game.Feature.Stages.Editor.Tests
             return presentation;
         }
 
+        private static TileFeaturePresentationBinding Selection(
+            int tileId,
+            string presentationKey,
+            GameObject visualPrefab = null)
+        {
+            return new TileFeaturePresentationBinding
+            {
+                TileId = tileId,
+                PresentationKey = presentationKey,
+                VisualPrefab = visualPrefab,
+            };
+        }
+
         private static StageDefinition CreateStage(params StageTileFeatureDefinition[] tileFeatures)
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
@@ -1273,6 +1447,10 @@ namespace Game.Feature.Stages.Editor.Tests
             authoring.name = "TileFeatureCatalogAuthoring";
             authoring.AssignGeneratedDefinitions(null, presentation);
             authoring.SetTileFeatures(tileFeatures);
+            authoring.SetTileFeaturePresentationSelections(
+                presentation != null
+                    ? presentation.TileFeaturePresentationBindings
+                    : Array.Empty<TileFeaturePresentationBinding>());
             return authoring;
         }
 
@@ -1307,7 +1485,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 BoxSelector = kind == TileFeatureKind.Button
                     ? TileFeatureBoxSelector.AnyPushableBox
                     : TileFeatureBoxSelector.None,
-                PresentationKey = presentationKey,
             };
         }
 

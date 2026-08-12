@@ -183,6 +183,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "EnemyPresentationBinding",
                 "StaticEntityPresentationBinding",
                 "TileFeaturePresentationBinding",
+                "PresentationKey",
                 "VisualPrefab",
                 "PresentationCatalog",
                 "BackgroundPrefab",
@@ -198,6 +199,45 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             Assert.That(source, Does.Contain(nameof(EnemyAiProfileOverride)));
+        }
+
+        [Test]
+        public void TileFeatureGameplaySchemas_DoNotOwnPresentationKey()
+        {
+            Assert.That(typeof(StageTileFeatureDefinition).GetField("PresentationKey"), Is.Null);
+            Assert.That(typeof(TileFeatureRuntimeDefinition).GetProperty("PresentationKey"), Is.Null);
+
+            var gameplaySources = new[]
+            {
+                "Assets/_Features/Stages/Runtime/StageDefinition.cs",
+                "Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs",
+                "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/TileFeatureRuntimeDefinition.cs",
+                "Assets/_Features/Stages/Runtime/Authoring/Validation/StageAuthoringNormalizedGameplaySnapshot.cs",
+            };
+            foreach (var sourcePath in gameplaySources)
+            {
+                Assert.That(
+                    File.ReadAllText(sourcePath),
+                    Does.Not.Contain("PresentationKey"),
+                    sourcePath);
+            }
+        }
+
+        [Test]
+        public void TileFeaturePresentationCompanion_OwnsSelectionAndAssemblerJoinsByTileId()
+        {
+            Assert.That(typeof(TileFeaturePresentationBinding).GetField("TileId"), Is.Not.Null);
+            Assert.That(typeof(TileFeaturePresentationBinding).GetField("PresentationKey"), Is.Not.Null);
+            Assert.That(typeof(TileFeaturePresentationBinding).GetField("VisualPrefab"), Is.Not.Null);
+
+            var definitionSource = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
+            var assemblerSource = File.ReadAllText(
+                "Assets/_Features/Stages/Runtime/Presentation/StagePresentationAssemblers.cs");
+            Assert.That(definitionSource, Does.Contain("TileFeaturePresentationBinding"));
+            Assert.That(definitionSource, Does.Contain("PresentationKey"));
+            Assert.That(assemblerSource, Does.Contain("selection.TileId"));
+            Assert.That(assemblerSource, Does.Contain("selection.PresentationKey"));
         }
 
         [Test]
@@ -493,16 +533,12 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var stageDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageDefinition.cs");
             var buildResultSource = File.ReadAllText("Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs");
-            var authoringDefinitionSource = File.ReadAllText("Assets/_Features/Stages/Runtime/Authoring/StageAuthoringDefinition.cs");
-
             Assert.That(stageDefinitionSource, Does.Not.Contain("VisualPrefab"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationCatalog"));
             Assert.That(stageDefinitionSource, Does.Not.Contain("TileFeaturePresentationBinding"));
             Assert.That(buildResultSource, Does.Not.Contain("VisualPrefab"));
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationCatalog"));
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));
-            Assert.That(authoringDefinitionSource, Does.Not.Contain("VisualPrefab"));
-            Assert.That(authoringDefinitionSource, Does.Not.Contain("TileFeaturePresentationCatalog"));
         }
 
         [Test]

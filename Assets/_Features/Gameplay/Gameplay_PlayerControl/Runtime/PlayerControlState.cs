@@ -309,6 +309,14 @@ namespace Game.Feature.Gameplay.PlayerControl
                    tickIndex >= state.nextExplicitActionAllowedTick;
         }
 
+        public static bool CanStartExplicitAction(
+            in PlayerControlState state,
+            int tickIndex)
+        {
+            return !state.activeAction.IsActive &&
+                   IsExplicitActionStartAllowed(state, tickIndex);
+        }
+
         public static bool HasQueuedFree2DAction(in PlayerControlState state)
         {
             return IsQueueableFree2DAction(state.queuedFree2DAction.kind, state.queuedFree2DAction.direction);

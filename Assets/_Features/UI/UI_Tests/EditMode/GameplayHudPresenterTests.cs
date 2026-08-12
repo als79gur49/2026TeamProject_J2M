@@ -348,7 +348,7 @@ namespace Game.Feature.UI.Tests
         {
             var presenter = new ObjectiveHudPresenter();
 
-            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+            presenter.Apply(CreateObjectiveSlice());
 
             Assert.That(presenter.ViewModel.IsVisible, Is.True);
             Assert.That(presenter.ViewModel.ObjectiveStableId, Is.EqualTo("test-objective"));
@@ -365,8 +365,6 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Move to the designated zone.",
-                title: "Reach the Zone",
                 conditions: new[]
                 {
                     CreateCondition(
@@ -390,8 +388,6 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Complete the required objectives.",
-                title: "Reach the Exit",
                 conditions: new[]
                 {
                     CreateCondition("primary-goal", isSatisfied: true, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
@@ -411,9 +407,8 @@ namespace Game.Feature.UI.Tests
         {
             var presenter = new ObjectiveHudPresenter();
 
-            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+            presenter.Apply(CreateObjectiveSlice());
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Move to the exit zone.",
                 conditions: new[]
                 {
                     CreateCondition(
@@ -433,9 +428,8 @@ namespace Game.Feature.UI.Tests
         {
             var presenter = new ObjectiveHudPresenter();
 
-            presenter.Apply(CreateObjectiveSlice(summary: "Move to the exit zone."));
+            presenter.Apply(CreateObjectiveSlice());
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Move to the exit zone.",
                 conditions: new[]
                 {
                     CreateCondition("primary-goal", isSatisfied: false, role: UIObjectiveConditionRole.PrimaryGoal, sortOrder: 0),
@@ -453,7 +447,6 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -476,7 +469,6 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -499,7 +491,6 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("generic-min", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -516,7 +507,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[] { (1, 2), (0, 2) }));
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("generic-min", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -533,7 +523,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[] { (1, 2), (0, 2) }));
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("generic-min", true, UIObjectiveConditionRole.SecondaryGoal, 30, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -556,7 +545,6 @@ namespace Game.Feature.UI.Tests
             var presenter = new ObjectiveHudPresenter();
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -567,7 +555,6 @@ namespace Game.Feature.UI.Tests
             var stableId = presenter.ViewModel.Rows[0].StableId;
 
             presenter.Apply(CreateObjectiveSlice(
-                summary: "Activate all buttons.",
                 conditions: new[]
                 {
                     CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -587,7 +574,6 @@ namespace Game.Feature.UI.Tests
             var resolver = new MutableObjectiveLocalizedTextResolver();
             using var presenter = new ObjectiveHudPresenter(resolver);
             presenter.Apply(CreateObjectiveSlice(
-                summary: string.Empty,
                 conditions: new[]
                 {
                     CreateCondition("button-1", true, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -626,7 +612,6 @@ namespace Game.Feature.UI.Tests
             var resolver = new MutableObjectiveLocalizedTextResolver { CollapseConditionCopy = true };
             using var presenter = new ObjectiveHudPresenter(resolver);
             presenter.Apply(CreateObjectiveSlice(
-                summary: string.Empty,
                 conditions: new[]
                 {
                     CreateCondition("button-1", false, UIObjectiveConditionRole.SecondaryGoal, 10, GameplayObjectivePresentationKind.ActivateButton, "activate-button|role-2"),
@@ -652,7 +637,7 @@ namespace Game.Feature.UI.Tests
         {
             var resolver = new MutableObjectiveLocalizedTextResolver();
             var presenter = new ObjectiveHudPresenter(resolver);
-            presenter.Apply(CreateObjectiveSlice(summary: string.Empty));
+            presenter.Apply(CreateObjectiveSlice());
 
             Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
             presenter.Dispose();
@@ -678,7 +663,7 @@ namespace Game.Feature.UI.Tests
                 objectiveHudPresenter,
                 playerStatusPresenter);
 
-            source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice(summary: "Move to the exit zone.")));
+            source.PublishSnapshot(CreateSnapshot(objective: CreateObjectiveSlice()));
 
             Assert.That(objectiveHudPresenter.ViewModel.IsVisible, Is.True);
             Assert.That(objectiveHudPresenter.ViewModel.Rows.Count, Is.EqualTo(1));
@@ -825,16 +810,12 @@ namespace Game.Feature.UI.Tests
         }
 
         private static UIObjectiveSlice CreateObjectiveSlice(
-            string summary,
-            string title = "Reach the Exit",
             bool isCleared = false,
             IReadOnlyList<UIObjectiveConditionSlice> conditions = null)
         {
             return new UIObjectiveSlice(
                 hasObjective: true,
                 objectiveStableId: "test-objective",
-                title,
-                summary,
                 goalReached: false,
                 allConditionsSatisfied: false,
                 isCleared,

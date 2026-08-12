@@ -393,15 +393,26 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var next = presentation.TileFeaturePresentationBindings
+            var sourceMatches = authoring.TileFeaturePresentationSelections
+                .Where(binding => binding != null && binding.TileId == tileId)
+                .ToArray();
+            if (sourceMatches.Length != 1)
+            {
+                error = $"TileFeature TileId {tileId} must have exactly one presentation selection.";
+                return false;
+            }
+
+            var next = authoring.TileFeaturePresentationSelections
                 .Where(binding => binding != null && binding.TileId != tileId)
                 .Select(CloneBinding)
                 .ToList();
             next.Add(new TileFeaturePresentationBinding
             {
                 TileId = tileId,
+                PresentationKey = sourceMatches[0].PresentationKey,
                 VisualPrefab = visualPrefab,
             });
+            WriteAuthoringSelections(authoring, next, "Set TileFeature Visual Override");
             WriteBindings(presentation, next, "Set TileFeature Visual Binding");
             return true;
         }
@@ -418,32 +429,25 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var removedCount = 0;
-            var next = new List<TileFeaturePresentationBinding>();
-            var bindings = presentation.TileFeaturePresentationBindings;
-            for (var i = 0; i < bindings.Length; i++)
+            var matches = authoring.TileFeaturePresentationSelections
+                .Where(binding => binding != null && binding.TileId == tileId)
+                .ToArray();
+            if (matches.Length != 1 || matches[0].VisualPrefab == null)
             {
-                var binding = bindings[i];
-                if (binding == null)
-                {
-                    continue;
-                }
-
-                if (binding.TileId == tileId)
-                {
-                    removedCount++;
-                    continue;
-                }
-
-                next.Add(CloneBinding(binding));
-            }
-
-            if (removedCount <= 0)
-            {
-                error = $"TileFeature visual binding for TileId {tileId} was not found.";
+                error = $"TileFeature direct visual override for TileId {tileId} was not found.";
                 return false;
             }
 
+            var next = authoring.TileFeaturePresentationSelections
+                .Where(binding => binding != null)
+                .Select(binding => new TileFeaturePresentationBinding
+                {
+                    TileId = binding.TileId,
+                    PresentationKey = binding.PresentationKey,
+                    VisualPrefab = binding.TileId == tileId ? null : binding.VisualPrefab,
+                })
+                .ToList();
+            WriteAuthoringSelections(authoring, next, "Remove TileFeature Visual Override");
             WriteBindings(presentation, next, "Remove TileFeature Visual Binding");
             return true;
         }
@@ -478,7 +482,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var matched = presentation.TileFeaturePresentationBindings
+            var matched = authoring.TileFeaturePresentationSelections
                 .Where(binding => binding != null && binding.TileId == tileId)
                 .ToArray();
             if (matched.Length == 0)
@@ -501,6 +505,17 @@ namespace Game.Feature.Stages.Editor
                     prefab,
                     matched.Length,
                     $"TileFeature visual binding is duplicated ({matched.Length}).");
+                return true;
+            }
+
+            if (prefab == null)
+            {
+                status = new TileFeatureVisualBindingStatus(
+                    TileFeatureVisualBindingStatusKind.MissingBinding,
+                    tileId,
+                    null,
+                    1,
+                    "TileFeature has no direct visual override.");
                 return true;
             }
 
@@ -564,17 +579,17 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var directBinding = FindDirectTileFeatureBinding(presentation, feature.TileId);
-            if (directBinding != null)
+            var selection = FindTileFeaturePresentationSelection(presentation, feature.TileId);
+            if (selection == null)
             {
-                if (directBinding.VisualPrefab == null)
-                {
-                    return false;
-                }
+                return false;
+            }
 
+            if (selection.VisualPrefab != null)
+            {
                 TryResolveCatalogKeyKind(
                     presentation,
-                    feature.PresentationKey,
+                    selection.PresentationKey,
                     out resolvedKind);
                 return true;
             }
@@ -582,12 +597,13 @@ namespace Game.Feature.Stages.Editor
             return TryResolveCatalogEntryForFeature(
                        presentation,
                        feature,
+                       selection.PresentationKey,
                        out var entry) &&
                    entry.VisualPrefab != null &&
                    TrySetResolvedKind(entry, out resolvedKind);
         }
 
-        private static TileFeaturePresentationBinding FindDirectTileFeatureBinding(
+        private static TileFeaturePresentationBinding FindTileFeaturePresentationSelection(
             StagePresentationDefinition presentation,
             int tileId)
         {
@@ -677,6 +693,7 @@ namespace Game.Feature.Stages.Editor
         private static bool TryResolveCatalogEntryForFeature(
             StagePresentationDefinition presentation,
             StageTileFeatureDefinition feature,
+            string presentationKey,
             out TileFeaturePresentationCatalogEntry entry)
         {
             entry = null;
@@ -686,7 +703,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+            var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
             if (!string.IsNullOrEmpty(normalizedKey) &&
                 catalog.TryGetEntry(normalizedKey, out entry))
             {
@@ -754,6 +771,7 @@ namespace Game.Feature.Stages.Editor
             return new TileFeaturePresentationBinding
             {
                 TileId = binding.TileId,
+                PresentationKey = binding.PresentationKey,
                 VisualPrefab = binding.VisualPrefab,
             };
         }
@@ -775,11 +793,27 @@ namespace Game.Feature.Stages.Editor
             {
                 var element = property.GetArrayElementAtIndex(i);
                 element.FindPropertyRelative("TileId").intValue = ordered[i].TileId;
+                element.FindPropertyRelative("PresentationKey").stringValue =
+                    TileFeaturePresentationCatalog.NormalizePresentationKey(ordered[i].PresentationKey);
                 element.FindPropertyRelative("VisualPrefab").objectReferenceValue = ordered[i].VisualPrefab;
             }
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(presentation);
+        }
+
+        private static void WriteAuthoringSelections(
+            StageAuthoringDefinition authoring,
+            IReadOnlyList<TileFeaturePresentationBinding> bindings,
+            string undoName)
+        {
+            Undo.RecordObject(authoring, undoName);
+            authoring.SetTileFeaturePresentationSelections(
+                bindings
+                    .Where(binding => binding != null)
+                    .OrderBy(binding => binding.TileId)
+                    .Select(CloneBinding));
+            EditorUtility.SetDirty(authoring);
         }
 
         private static bool ValidateBoardTilePaintTarget(

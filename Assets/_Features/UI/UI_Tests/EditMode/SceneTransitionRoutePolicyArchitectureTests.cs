@@ -387,10 +387,25 @@ namespace Game.Feature.UI.Tests
                 Does.Not.Contain("\"$player_path\" \\\n            -nographics"));
             Assert.That(smokeFunction, Does.Contain("for attempt in 1 2 3"));
             Assert.That(smokeFunction, Does.Contain("gameclear-sequential|stage-4-2"));
+            Assert.That(smokeFunction, Does.Contain("gameclear-normal|stage-4-3"));
+            Assert.That(smokeFunction, Does.Contain("--capture-campaign-normal-slot"));
             Assert.That(smokeFunction, Does.Contain("defeat-3-to-2|stage-2-2|defeat|pointer|3|1"));
             Assert.That(smokeFunction, Does.Contain("defeat-2-to-1|stage-2-2|defeat|pointer|2|1"));
             Assert.That(smokeFunction, Does.Contain("defeat-1-to-0|stage-2-2|defeat|pointer|1|1"));
-            Assert.That(smokeFunction, Does.Contain("mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||2"));
+            Assert.That(
+                smokeFunction,
+                Does.Contain(
+                    "mainmenu-new-game|stage-1-1|mainmenu-gameplay|pointer||1|NewGame|${campaign_first_stage}|"));
+            Assert.That(
+                smokeFunction,
+                Does.Contain(
+                    "mainmenu-continue|stage-1-1|mainmenu-gameplay|pointer||1|Continue|${campaign_continue_stage}|${campaign_continue_stage}"));
+            Assert.That(
+                smokeFunction,
+                Does.Contain("--terminal-player-campaign-expected-intent"));
+            Assert.That(
+                smokeFunction,
+                Does.Contain("--terminal-player-campaign-expected-stage"));
             Assert.That(smokeFunction, Does.Contain("pause-retry|stage-1-1|pause-retry|pointer||2"));
             Assert.That(smokeFunction, Does.Contain("level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2"));
             Assert.That(smokeFunction, Does.Contain("TERMINAL_PLAYER_SMOKE_PROFILE"));
@@ -413,6 +428,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(probe, Does.Contain("SetForegroundWindow"));
             Assert.That(probe, Does.Contain("InputSystem.DisableDevice"));
             Assert.That(probe, Does.Contain("RunDefeatSmoke"));
+            Assert.That(probe, Does.Contain("PresentObjectiveClearTick"));
+            Assert.That(probe, Does.Contain("NormalCampaignCompletionReceipt.CurrentVersion"));
+            Assert.That(probe, Does.Contain("campaign.complete"));
             Assert.That(
                 probe,
                 Does.Contain("defeat destination resolution mismatch"));

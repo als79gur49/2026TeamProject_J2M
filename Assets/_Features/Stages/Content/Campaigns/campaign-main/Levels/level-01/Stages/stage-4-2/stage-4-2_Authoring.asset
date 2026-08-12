@@ -2447,7 +2447,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 2
     Cell:
       face: 0
@@ -2458,7 +2457,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 3
     Cell:
       face: 0
@@ -2469,7 +2467,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 4
     Cell:
       face: 0
@@ -2480,7 +2477,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 5
     Cell:
       face: 0
@@ -2491,7 +2487,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 6
     Cell:
       face: 0
@@ -2502,7 +2497,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 7
     Cell:
       face: 0
@@ -2513,7 +2507,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 8
     Cell:
       face: 0
@@ -2524,7 +2517,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 9
     Cell:
       face: 0
@@ -2535,7 +2527,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 10
     Cell:
       face: 0
@@ -2546,7 +2537,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 11
     Cell:
       face: 0
@@ -2557,7 +2547,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 13
     Cell:
       face: 0
@@ -2568,7 +2557,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 242
-    PresentationKey: moon-generator.default
   - TileId: 14
     Cell:
       face: 1
@@ -2579,7 +2567,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 15
     Cell:
       face: 1
@@ -2590,7 +2577,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 16
     Cell:
       face: 1
@@ -2601,7 +2587,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 17
     Cell:
       face: 1
@@ -2612,7 +2597,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 18
     Cell:
       face: 1
@@ -2623,7 +2607,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 19
     Cell:
       face: 1
@@ -2634,7 +2617,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 20
     Cell:
       face: 1
@@ -2645,7 +2627,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 21
     Cell:
       face: 1
@@ -2656,7 +2637,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 22
     Cell:
       face: 1
@@ -2667,7 +2647,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 23
     Cell:
       face: 1
@@ -2678,7 +2657,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 24
     Cell:
       face: 1
@@ -2689,7 +2667,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 25
     Cell:
       face: 1
@@ -2700,7 +2677,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 4
     BoundEntityId: 0
-    PresentationKey: button.moon-only
   - TileId: 26
     Cell:
       face: 1
@@ -2711,7 +2687,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 4
     BoundEntityId: 0
-    PresentationKey: button.moon-only
   - TileId: 27
     Cell:
       face: 1
@@ -2722,7 +2697,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 28
     Cell:
       face: 1
@@ -2733,7 +2707,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 29
     Cell:
       face: 1
@@ -2744,7 +2717,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 30
     Cell:
       face: 1
@@ -2755,7 +2727,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 31
     Cell:
       face: 2
@@ -2766,7 +2737,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 32
     Cell:
       face: 2
@@ -2777,7 +2747,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 33
     Cell:
       face: 2
@@ -2788,7 +2757,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 34
     Cell:
       face: 2
@@ -2799,7 +2767,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 35
     Cell:
       face: 2
@@ -2810,7 +2777,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: exit.default
   - TileId: 36
     Cell:
       face: 2
@@ -2821,7 +2787,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 4
     BoundEntityId: 0
-    PresentationKey: button.moon-only
   - TileId: 37
     Cell:
       face: 3
@@ -2832,7 +2797,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 38
     Cell:
       face: 3
@@ -2843,7 +2807,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 39
     Cell:
       face: 3
@@ -2854,7 +2817,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 40
     Cell:
       face: 3
@@ -2865,7 +2827,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 41
     Cell:
       face: 3
@@ -2876,7 +2837,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 42
     Cell:
       face: 3
@@ -2887,7 +2847,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 43
     Cell:
       face: 3
@@ -2898,7 +2857,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 44
     Cell:
       face: 3
@@ -2909,7 +2867,6 @@ MonoBehaviour:
     Direction: 3
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.down
   - TileId: 45
     Cell:
       face: 3
@@ -2920,7 +2877,6 @@ MonoBehaviour:
     Direction: 3
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.down
   - TileId: 46
     Cell:
       face: 3
@@ -2931,7 +2887,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 47
     Cell:
       face: 3
@@ -2942,7 +2897,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 48
     Cell:
       face: 3
@@ -2953,7 +2907,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 49
     Cell:
       face: 3
@@ -2964,7 +2917,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 50
     Cell:
       face: 3
@@ -2975,7 +2927,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 51
     Cell:
       face: 3
@@ -2986,7 +2937,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 52
     Cell:
       face: 3
@@ -2997,7 +2947,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 53
     Cell:
       face: 3
@@ -3008,7 +2957,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 57
     Cell:
       face: 3
@@ -3019,7 +2967,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
   - TileId: 58
     Cell:
       face: 3
@@ -3030,7 +2977,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
   - TileId: 59
     Cell:
       face: 3
@@ -3041,7 +2987,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
   - TileId: 60
     Cell:
       face: 3
@@ -3052,7 +2997,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
   - TileId: 61
     Cell:
       face: 3
@@ -3063,7 +3007,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 62
     Cell:
       face: 3
@@ -3074,7 +3017,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 63
     Cell:
       face: 3
@@ -3085,7 +3027,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 64
     Cell:
       face: 0
@@ -3096,7 +3037,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: entrance.default
   - TileId: 65
     Cell:
       face: 3
@@ -3107,7 +3047,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.front
   - TileId: 66
     Cell:
       face: 3
@@ -3118,7 +3057,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 67
     Cell:
       face: 3
@@ -3129,7 +3067,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: destroy.bottom
   - TileId: 68
     Cell:
       face: 3
@@ -3140,7 +3077,199 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
+  tileFeaturePresentationSelections:
+  - TileId: 1
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 6
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 7
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 8
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 9
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 10
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 11
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 13
+    PresentationKey: moon-generator.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 14
     PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 15
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 16
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 17
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 18
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 19
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 20
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 21
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 22
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 23
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 24
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 25
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 26
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 27
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 28
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 29
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 30
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 31
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 32
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 33
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 34
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 35
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 36
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 37
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 38
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 39
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 40
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 41
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 42
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 43
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 44
+    PresentationKey: slide.down
+    VisualPrefab: {fileID: 0}
+  - TileId: 45
+    PresentationKey: slide.down
+    VisualPrefab: {fileID: 0}
+  - TileId: 46
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 47
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 48
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 49
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 50
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 51
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 52
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 53
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 57
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 58
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 59
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 60
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 61
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 62
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 63
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 64
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 65
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 66
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 67
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 68
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
   zones:
   - ZoneId: zone
     FaceId: 2
@@ -3154,8 +3283,6 @@ MonoBehaviour:
       MaxInclusive: {x: 13, y: 1}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 82e270c28ad141b18982ae4d3f64649e, type: 2}
       Required: 1

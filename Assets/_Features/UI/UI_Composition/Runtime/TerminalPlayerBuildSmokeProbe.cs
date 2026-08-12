@@ -2,14 +2,17 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -31,6 +34,10 @@ namespace Game.Feature.UI.Composition
         internal const string LaunchArgument = "--terminal-player-build-smoke";
         internal const string InputArgument = "--terminal-player-build-smoke-input";
         internal const string ScenarioArgument = "--terminal-player-build-smoke-scenario";
+        internal const string CampaignExpectedIntentArgument =
+            "--terminal-player-campaign-expected-intent";
+        internal const string CampaignExpectedStageArgument =
+            "--terminal-player-campaign-expected-stage";
         internal const string ChancesArgument = "--capture-campaign-temp-slot-chances";
         internal const string WidthArgument = "--terminal-player-build-smoke-width";
         internal const string HeightArgument = "--terminal-player-build-smoke-height";
@@ -63,6 +70,11 @@ namespace Game.Feature.UI.Composition
         private bool _inputReleased;
         private int _requestedWidth;
         private int _requestedHeight;
+        private StageId _authoritySourceStageId;
+        private StageId _authorityExpectedNextStageId;
+        private StageId _authoritySavedStageId;
+        private StageId _authorityResultNextStageId;
+        private bool _authorityCampaignCompleted;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InstallWhenRequested()
@@ -143,6 +155,11 @@ namespace Game.Feature.UI.Composition
                 scenario,
                 "gameclear",
                 StringComparison.OrdinalIgnoreCase);
+            var normalGameClearScenario = string.Equals(
+                scenario,
+                "gameclear-normal",
+                StringComparison.OrdinalIgnoreCase);
+            gameClearScenario |= normalGameClearScenario;
             var sequentialGameClearScenario = string.Equals(
                 scenario,
                 "gameclear-sequential",
@@ -214,10 +231,21 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
-            if (!StageLaunchContextStore.TryPeek(out var bootstrapContext) ||
-                !StageLaunchContextStore.TryConsume(bootstrapContext, out var consumedContext) ||
-                consumedContext == null ||
-                !consumedContext.Equals(bootstrapContext))
+            if (normalGameClearScenario)
+            {
+                if (EditorDirectPlayContextStore.GetCurrentOrNone().Mode !=
+                    EditorDirectPlayMode.None)
+                {
+                    Fail("normal Campaign capture unexpectedly retained DirectPlay context");
+                    yield break;
+                }
+            }
+            else if (!StageLaunchContextStore.TryPeek(out var bootstrapContext) ||
+                     !StageLaunchContextStore.TryConsume(
+                         bootstrapContext,
+                         out var consumedContext) ||
+                     consumedContext == null ||
+                     !consumedContext.Equals(bootstrapContext))
             {
                 Fail("exact capture bootstrap launch context was not consumable");
                 yield break;
@@ -330,16 +358,143 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            var sequenceResolver = host.UiAccess?.CampaignStageSequenceResolver;
+            var sourceStage = host.UiAccess?.QueryFacade.Stage.Read() ?? default;
+            var resolverProvider = host.GetComponents<MonoBehaviour>()
+                .OfType<ICampaignStageSequenceResolverProvider>()
+                .SingleOrDefault();
+            CampaignStageSequenceResolver providerResolver = null;
+            if (sequenceResolver == null ||
+                resolverProvider == null ||
+                !resolverProvider.TryCreateCampaignStageSequenceResolver(
+                    out providerResolver) ||
+                !ReferenceEquals(sequenceResolver, providerResolver) ||
+                !sourceStage.StageId.IsValid ||
+                !sequenceResolver.Contains(sourceStage.StageId) ||
+                string.IsNullOrWhiteSpace(sourceStage.DisplayNameKey) ||
+                StageId.TryCreate("legacy-stage-5-1", out var catalogOnlyStageId) &&
+                sequenceResolver.Contains(catalogOnlyStageId))
+            {
+                Fail(
+                    $"campaign authority bootstrap invalid resolver={(sequenceResolver != null)} " +
+                    $"provider={(resolverProvider != null)} sameInstance=" +
+                    $"{ReferenceEquals(sequenceResolver, providerResolver)} " +
+                    $"stage={sourceStage.StageId.Value} displayKey={sourceStage.DisplayNameKey}");
+                yield break;
+            }
+
+            if (!TryValidateDemoStageControl(
+                    installer,
+                    host,
+                    resolverProvider,
+                    sequenceResolver,
+                    out var demoStageControlFailure))
+            {
+                Fail($"Demo Stage Control validation failed: {demoStageControlFailure}");
+                yield break;
+            }
+
+            Debug.Log(
+                $"TERMINAL_PLAYER_BUILD_SMOKE:DEMO_STAGE_CONTROL_VALIDATED " +
+                $"count={sequenceResolver.Entries.Count}");
+
+            var sourceIsFinal = sequenceResolver.IsFinal(sourceStage.StageId);
+            var expectedNextStageId = sequenceResolver.GetNextOrNone(sourceStage.StageId);
+            if (gameClearScenario != sourceIsFinal ||
+                !gameClearScenario && !expectedNextStageId.IsValid)
+            {
+                Fail(
+                    $"campaign terminal classification mismatch stage={sourceStage.StageId.Value} " +
+                    $"isFinal={sourceIsFinal} scenario={_scenarioId} " +
+                    $"next={expectedNextStageId.Value}");
+                yield break;
+            }
+
             MoveViewToViewport(host.OutputCamera, playerView, new Vector2(0.2f, 0.5f));
             var projectedCenter = ProjectRendererBoundsCenter(host.OutputCamera, playerView);
-            if (!installer.TryForceClearCurrentStageForDiagnostics(out var forceClearMessage) ||
+            var achievementPath = Path.Combine(
+                UnityEngine.Application.persistentDataPath,
+                "Saves",
+                "achievements.json");
+            var achievementBefore = File.Exists(achievementPath)
+                ? File.ReadAllText(achievementPath)
+                : null;
+            var victoryStarted = normalGameClearScenario
+                ? PresentObjectiveClearTick(host)
+                : installer.TryForceClearCurrentStageForDiagnostics(out _);
+            if (!victoryStarted ||
                 !installer.TryGetTerminalTransitionPort(out var transitionPort) ||
                 transitionPort is not GameplayTerminalTransitionPort productionPort ||
                 productionPort.CurrentPlayback == null)
             {
-                Fail($"production victory failed: {forceClearMessage}");
+                Fail($"production victory failed scenario={_scenarioId}");
                 yield break;
             }
+
+            var completionReadModel =
+                host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion;
+            var savedSlot = normalGameClearScenario
+                ? CampaignSaveCompositionProvider.CreateProductionProfileBacked().LoadSlot(1)
+                : new SaveSlotStore(
+                        EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                        EditorDirectPlayContextStore.TempActiveSlotProviderKey)
+                    .LoadSlot(1);
+            var achievementAfter = File.Exists(achievementPath)
+                ? File.ReadAllText(achievementPath)
+                : null;
+            var achievementContractAligned = normalGameClearScenario
+                ? savedSlot.HasNormalCampaignCompletionReceipt &&
+                  savedSlot.NormalCampaignCompletionReceipt != null &&
+                  savedSlot.NormalCampaignCompletionReceipt.Version ==
+                      NormalCampaignCompletionReceipt.CurrentVersion &&
+                  string.Equals(
+                      savedSlot.NormalCampaignCompletionReceipt.CompletedStageId,
+                      sourceStage.StageId.Value,
+                      StringComparison.Ordinal) &&
+                  string.IsNullOrEmpty(savedSlot.NormalCampaignCompletionReceipt.StageRunId) &&
+                  !string.IsNullOrEmpty(achievementAfter) &&
+                  achievementAfter.Contains("campaign.complete", StringComparison.Ordinal)
+                : !savedSlot.HasNormalCampaignCompletionReceipt &&
+                  savedSlot.NormalCampaignCompletionReceipt == null &&
+                  string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal);
+            if (!achievementContractAligned)
+            {
+                Fail(
+                    $"Campaign Achievement contract diverged scenario={_scenarioId} " +
+                    $"receiptPresent={savedSlot.HasNormalCampaignCompletionReceipt} " +
+                    $"receiptVersion={savedSlot.NormalCampaignCompletionReceipt?.Version ?? 0} " +
+                    $"ledgerChanged={!string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal)}");
+                yield break;
+            }
+            var progressionAligned = gameClearScenario
+                ? completionReadModel != null &&
+                  completionReadModel.StageId.Equals(sourceStage.StageId) &&
+                  !completionReadModel.NextStageRequest.IsValid &&
+                  savedSlot.CurrentStageId.Equals(sourceStage.StageId) &&
+                  savedSlot.CampaignCompleted
+                : completionReadModel != null &&
+                  completionReadModel.StageId.Equals(sourceStage.StageId) &&
+                  completionReadModel.NextStageRequest.IsValid &&
+                  completionReadModel.NextStageRequest.StageId.Equals(
+                      expectedNextStageId) &&
+                  savedSlot.CurrentStageId.Equals(expectedNextStageId) &&
+                  !savedSlot.CampaignCompleted;
+            if (!progressionAligned)
+            {
+                Fail(
+                    $"campaign progression divergence source={sourceStage.StageId.Value} " +
+                    $"expectedNext={expectedNextStageId.Value} " +
+                    $"resultNext={completionReadModel?.NextStageRequest.StageId.Value ?? string.Empty} " +
+                    $"saved={savedSlot.CurrentStageId.Value} " +
+                    $"completed={savedSlot.CampaignCompleted}");
+                yield break;
+            }
+
+            _authoritySourceStageId = sourceStage.StageId;
+            _authorityExpectedNextStageId = expectedNextStageId;
+            _authoritySavedStageId = savedSlot.CurrentStageId;
+            _authorityResultNextStageId = completionReadModel.NextStageRequest.StageId;
+            _authorityCampaignCompleted = savedSlot.CampaignCompleted;
 
             var diagnostics = productionPort.LastFocusCaptureDiagnostics;
             var playback = productionPort.CurrentPlayback;
@@ -775,6 +930,9 @@ namespace Game.Feature.UI.Composition
                 $"projected={projectedCenter} captured={diagnostics.CapturedCenter} material={materialCenter} " +
                 $"fallback={diagnostics.IsFallback} resultHandoff=completed cleanup=nonblocking navigationRequests=1 " +
                 $"entryToken={entryToken} entryCenter={entryMaterialCenter} entryOpening=completed firstTick=1 " +
+                $"authorityResolver=same-instance sourceStage={sourceStage.StageId.Value} " +
+                $"savedNext={savedSlot.CurrentStageId.Value} resultNext=" +
+                $"{completionReadModel.NextStageRequest.StageId.Value} " +
                 $"shader={irisShaderName}");
             UnityEngine.Application.Quit(0);
         }
@@ -854,6 +1012,38 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            var expectedIntentValue = ReadArgumentValue(
+                CampaignExpectedIntentArgument);
+            var expectedStageValue = ReadArgumentValue(
+                CampaignExpectedStageArgument);
+            if (!Enum.TryParse(
+                    expectedIntentValue,
+                    ignoreCase: true,
+                    out SaveSlotIntentKind expectedIntent) ||
+                expectedIntent != SaveSlotIntentKind.NewGame &&
+                expectedIntent != SaveSlotIntentKind.Continue ||
+                !StageId.TryCreate(expectedStageValue, out var expectedStageId))
+            {
+                Fail(
+                    $"Main Menu campaign expectation is invalid intent=" +
+                    $"'{expectedIntentValue}' stage='{expectedStageValue}'");
+                yield break;
+            }
+
+            var mainMenuResolver =
+                mainMenu.CampaignStageSequenceResolverForDiagnostics;
+            if (mainMenuResolver == null ||
+                !mainMenuResolver.Contains(expectedStageId) ||
+                expectedIntent == SaveSlotIntentKind.NewGame &&
+                !mainMenuResolver.FirstStageId.Equals(expectedStageId))
+            {
+                Fail(
+                    $"Main Menu authoritative resolver mismatch resolver=" +
+                    $"{(mainMenuResolver != null)} expected={expectedStageId.Value} " +
+                    $"first={mainMenuResolver?.FirstStageId.Value ?? string.Empty}");
+                yield break;
+            }
+
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             {
                 Fail("Main Menu route rejected Null graphics device");
@@ -927,6 +1117,22 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            var expectedCard = mainMenu.Controller.BuildViewModel().SlotCards
+                .FirstOrDefault(candidate =>
+                    candidate != null &&
+                    candidate.PrimaryIntentKind != SaveSlotIntentKind.None);
+            if (expectedCard == null ||
+                expectedCard.PrimaryIntentKind != expectedIntent ||
+                expectedIntent == SaveSlotIntentKind.Continue &&
+                string.IsNullOrWhiteSpace(expectedCard.StageText))
+            {
+                Fail(
+                    $"Main Menu campaign card mismatch expectedIntent={expectedIntent} " +
+                    $"actualIntent={expectedCard?.PrimaryIntentKind} " +
+                    $"stageText='{expectedCard?.StageText ?? string.Empty}'");
+                yield break;
+            }
+
             var primaryClickCount = 0;
             var routeDispatchCount = 0;
             var selectedIntent = SaveSlotIntentKind.None;
@@ -942,31 +1148,99 @@ namespace Game.Feature.UI.Composition
                 card,
                 gameplayInstaller: null,
                 "Main Menu slot primary");
+            var entryIntent = SceneEntryPresentationRegistry.Current.TransitionIntent;
             if (!_pointerDispatchSucceeded ||
                 primaryClickCount != 1 ||
                 routeDispatchCount != 1 ||
-                (selectedIntent != SaveSlotIntentKind.NewGame &&
-                 selectedIntent != SaveSlotIntentKind.Continue) ||
+                selectedIntent != expectedIntent ||
                 !SceneEntryPresentationRegistry.IsActive ||
-                SceneEntryPresentationRegistry.Current.TransitionIntent !=
-                SceneTransitionIntent.GameplayEntry ||
-                SceneTransitionCoordinator.Instance.AcceptedTransitionCount -
-                acceptedBefore != 1)
+                entryIntent != SceneTransitionIntent.GameplayEntry &&
+                entryIntent != SceneTransitionIntent.CinematicToGameplay)
             {
                 Fail(
                     $"Main Menu route dispatch invalid click={primaryClickCount} " +
                     $"callback={routeDispatchCount} intent={selectedIntent} " +
                     $"entryActive={SceneEntryPresentationRegistry.IsActive} " +
+                    $"entryIntent={entryIntent} " +
+                    $"accepted={SceneTransitionCoordinator.Instance.AcceptedTransitionCount - acceptedBefore}");
+                yield break;
+            }
+
+            var introSkipDispatchCount = 0;
+            if (entryIntent == SceneTransitionIntent.CinematicToGameplay)
+            {
+                CinematicVideoOverlayView cinematic = null;
+                Button cinematicSkipButton = null;
+                deadline = Time.realtimeSinceStartup + TimeoutSeconds;
+                while (Time.realtimeSinceStartup < deadline)
+                {
+                    cinematic = FindFirstObjectByType<CinematicVideoOverlayView>(
+                        FindObjectsInactive.Include);
+                    cinematicSkipButton = FindNamedButton(cinematic, "Background");
+                    if (cinematic != null &&
+                        cinematic.IsPlaying &&
+                        cinematic.CurrentPresentationState ==
+                            CinematicPresentationState.Playing &&
+                        cinematicSkipButton != null &&
+                        cinematicSkipButton.interactable)
+                    {
+                        break;
+                    }
+
+                    yield return null;
+                }
+
+                if (cinematic == null ||
+                    !cinematic.IsPlaying ||
+                    cinematicSkipButton == null ||
+                    !cinematicSkipButton.interactable)
+                {
+                    Fail("Main Menu intro cinematic did not expose its production skip target");
+                    yield break;
+                }
+
+                cinematicSkipButton.onClick.AddListener(() => introSkipDispatchCount++);
+                yield return DispatchPointerClick(
+                    cinematicSkipButton,
+                    cinematic,
+                    gameplayInstaller: null,
+                    "Main Menu intro cinematic skip");
+                if (!_pointerDispatchSucceeded || introSkipDispatchCount != 1)
+                {
+                    Fail(
+                        $"Main Menu intro cinematic skip dispatch count was " +
+                        $"{introSkipDispatchCount}, expected exactly one");
+                    yield break;
+                }
+
+                deadline = Time.realtimeSinceStartup + TimeoutSeconds;
+                while (SceneTransitionCoordinator.Instance.AcceptedTransitionCount -
+                           acceptedBefore != 1 &&
+                       Time.realtimeSinceStartup < deadline)
+                {
+                    yield return null;
+                }
+            }
+
+            if (SceneTransitionCoordinator.Instance.AcceptedTransitionCount -
+                acceptedBefore != 1)
+            {
+                Fail(
+                    $"Main Menu gameplay transition was not accepted intent={entryIntent} " +
                     $"accepted={SceneTransitionCoordinator.Instance.AcceptedTransitionCount - acceptedBefore}");
                 yield break;
             }
 
             yield return AwaitGameplayEntryCompletion(
                 sourceHostInstanceId: 0,
-                expectedIntent: SceneTransitionIntent.GameplayEntry,
-                expectedSourceKind: GameplayEntrySourceCloseVisualKind.MainMenuIris,
+                expectedIntent: entryIntent,
+                expectedSourceKind: entryIntent == SceneTransitionIntent.CinematicToGameplay
+                    ? GameplayEntrySourceCloseVisualKind.CinematicOpaqueOwner
+                    : GameplayEntrySourceCloseVisualKind.MainMenuIris,
                 sourceIris: null,
-                sourceRootName: "MainMenuGameplayEntryIrisSource");
+                sourceRootName: entryIntent == SceneTransitionIntent.GameplayEntry
+                    ? "MainMenuGameplayEntryIrisSource"
+                    : string.Empty);
             if (!_gameplayEntryCompletionSucceeded)
             {
                 yield break;
@@ -982,11 +1256,62 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            var destinationHost = FindFirstObjectByType<GameplaySceneHost>(
+                FindObjectsInactive.Exclude);
+            var destinationStage =
+                destinationHost?.UiAccess?.QueryFacade.Stage.Read() ?? default;
+            var destinationResolver =
+                destinationHost?.UiAccess?.CampaignStageSequenceResolver;
+            var destinationProvider = destinationHost?.GetComponents<MonoBehaviour>()
+                .OfType<ICampaignStageSequenceResolverProvider>()
+                .SingleOrDefault();
+            var destinationSameInstance = destinationProvider != null &&
+                destinationProvider.TryCreateCampaignStageSequenceResolver(
+                    out var destinationProviderResolver) &&
+                ReferenceEquals(destinationResolver, destinationProviderResolver);
+            var savedSlot = CampaignSaveCompositionProvider
+                .CreateProductionProfileBacked()
+                .LoadSlot(expectedCard.SlotNumber);
+            if (destinationHost == null ||
+                destinationResolver == null ||
+                !destinationSameInstance ||
+                !destinationStage.StageId.Equals(expectedStageId) ||
+                string.IsNullOrWhiteSpace(destinationStage.DisplayNameKey) ||
+                !savedSlot.CurrentStageId.Equals(expectedStageId) ||
+                !string.Equals(
+                    savedSlot.CurrentLevelGroupId,
+                    destinationResolver.GetLevelGroupId(expectedStageId),
+                    StringComparison.Ordinal) ||
+                savedSlot.CampaignCompleted)
+            {
+                Fail(
+                    $"Main Menu campaign launch divergence intent={expectedIntent} " +
+                    $"expected={expectedStageId.Value} " +
+                    $"destination={destinationStage.StageId.Value} " +
+                    $"saved={savedSlot.CurrentStageId.Value} " +
+                    $"group={savedSlot.CurrentLevelGroupId} " +
+                    $"sameInstance={destinationSameInstance} " +
+                    $"displayKey={destinationStage.DisplayNameKey}");
+                yield break;
+            }
+
+            _authoritySourceStageId = expectedStageId;
+            _authorityExpectedNextStageId = StageId.None;
+            _authoritySavedStageId = savedSlot.CurrentStageId;
+            _authorityResultNextStageId = StageId.None;
+            _authorityCampaignCompleted = savedSlot.CampaignCompleted;
+
             LogRouteSuccess(
                 "GameplayEntryClose",
                 selectedIntent.ToString(),
                 routeDispatchCount,
-                SceneManager.GetActiveScene().name);
+                SceneManager.GetActiveScene().name,
+                $"campaignIntent={selectedIntent} " +
+                $"campaignStage={destinationStage.StageId.Value} " +
+                $"campaignGroup={savedSlot.CurrentLevelGroupId} " +
+                $"presentationKey={destinationStage.DisplayNameKey} " +
+                $"entryIntent={entryIntent} introSkipDispatchCount={introSkipDispatchCount} " +
+                "mainMenuResolver=true gameplayResolverSameInstance=true");
         }
 
         private IEnumerator RunPauseRetrySmoke(
@@ -1125,6 +1450,12 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            var cinematicHandoffToken =
+                expectedSourceKind ==
+                GameplayEntrySourceCloseVisualKind.CinematicOpaqueOwner
+                    ? CinematicOpaqueHandoffRegistry.Current.Token
+                    : default;
+
             var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
                 claimed.Token,
                 expectedIntent);
@@ -1159,6 +1490,16 @@ namespace Game.Feature.UI.Composition
 
                 _sourceOpaqueAcknowledged |=
                     sourceIris != null && sourceIris.HasRenderedEntryClosedFrame;
+                var cinematicHandoff = CinematicOpaqueHandoffRegistry.Current;
+                _sourceOpaqueAcknowledged |=
+                    cinematicHandoffToken.IsValid &&
+                    cinematicHandoff.Token == cinematicHandoffToken &&
+                    (cinematicHandoff.Phase ==
+                         CinematicOpaqueHandoffPhase.CinematicOpaqueRendered ||
+                     cinematicHandoff.Phase ==
+                         CinematicOpaqueHandoffPhase.PersistentCoverRendered ||
+                     cinematicHandoff.Phase ==
+                         CinematicOpaqueHandoffPhase.Released);
                 persistentCover ??=
                     FindFirstObjectByType<SceneTransitionOverlayShellView>(
                         FindObjectsInactive.Include);
@@ -1376,7 +1717,12 @@ namespace Game.Feature.UI.Composition
                 $"destinationReady={_destinationReadyAcknowledged} " +
                 $"destinationClosedIris={_destinationClosedIrisAcknowledged} " +
                 $"openingCompleted={_openingCompleted} inputRelease={_inputReleased} " +
-                $"finalDestinationScene={finalScene} {extra}".TrimEnd());
+                $"finalDestinationScene={finalScene} " +
+                $"authoritySource={_authoritySourceStageId.Value} " +
+                $"authorityExpectedNext={_authorityExpectedNextStageId.Value} " +
+                $"authorityResultNext={_authorityResultNextStageId.Value} " +
+                $"authoritySaved={_authoritySavedStageId.Value} " +
+                $"authorityCompleted={_authorityCampaignCompleted} {extra}".TrimEnd());
             UnityEngine.Application.Quit(0);
         }
 
@@ -1423,6 +1769,36 @@ namespace Game.Feature.UI.Composition
                 Fail($"sequential production final victory failed: {forceClearMessage}");
                 yield break;
             }
+
+            var finalResolver = host.UiAccess?.CampaignStageSequenceResolver;
+            var finalStage = host.UiAccess?.QueryFacade.Stage.Read() ?? default;
+            var finalReadModel =
+                host.UiAccess?.PresentationFeed.CurrentMinimalStageCompletion;
+            var finalSavedSlot = new SaveSlotStore(
+                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                    EditorDirectPlayContextStore.TempActiveSlotProviderKey)
+                .LoadSlot(1);
+            if (finalResolver == null ||
+                !finalResolver.IsFinal(finalStage.StageId) ||
+                finalReadModel == null ||
+                finalReadModel.NextStageRequest.IsValid ||
+                !finalSavedSlot.CurrentStageId.Equals(finalStage.StageId) ||
+                !finalSavedSlot.CampaignCompleted)
+            {
+                Fail(
+                    $"sequential final campaign divergence stage={finalStage.StageId.Value} " +
+                    $"isFinal={finalResolver?.IsFinal(finalStage.StageId)} " +
+                    $"resultNext={finalReadModel?.NextStageRequest.StageId.Value ?? string.Empty} " +
+                    $"saved={finalSavedSlot.CurrentStageId.Value} " +
+                    $"completed={finalSavedSlot.CampaignCompleted}");
+                yield break;
+            }
+
+            _authoritySourceStageId = finalStage.StageId;
+            _authorityExpectedNextStageId = StageId.None;
+            _authoritySavedStageId = finalSavedSlot.CurrentStageId;
+            _authorityResultNextStageId = StageId.None;
+            _authorityCampaignCompleted = true;
 
             var irisView = installer.RootView.TerminalIrisOverlayView;
             var previousHandoffAlpha = 1f;
@@ -1746,6 +2122,25 @@ namespace Game.Feature.UI.Composition
             RecordingUiAudioPort audioRecorder,
             int levelFailedCueCountBeforeRestart)
         {
+            var sequenceResolver = host.UiAccess?.CampaignStageSequenceResolver;
+            var failedStage = host.UiAccess?.QueryFacade.Stage.Read() ?? default;
+            var levelGroupId = sequenceResolver?.GetLevelGroupId(
+                failedStage.StageId) ?? string.Empty;
+            var expectedRetryStageId = sequenceResolver != null
+                ? sequenceResolver.GetFirstStageInLevelGroupOrNone(levelGroupId)
+                : StageId.None;
+            if (sequenceResolver == null ||
+                !failedStage.StageId.IsValid ||
+                string.IsNullOrWhiteSpace(levelGroupId) ||
+                !expectedRetryStageId.IsValid)
+            {
+                Fail(
+                    $"LevelFailed Retry group authority invalid stage=" +
+                    $"{failedStage.StageId.Value} group={levelGroupId} " +
+                    $"first={expectedRetryStageId.Value}");
+                yield break;
+            }
+
             var levelFailed = installer.LevelFailedScreenView;
             var restartButton = FindNamedButton(levelFailed, "RestartLevelButton");
             if (levelFailed == null ||
@@ -1815,12 +2210,46 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
+            var destinationHost = FindObjectsByType<GameplaySceneHost>(
+                    FindObjectsInactive.Exclude,
+                    FindObjectsSortMode.None)
+                .FirstOrDefault(candidate =>
+                    candidate.GetInstanceID() != sourceHostId);
+            var destinationStage =
+                destinationHost?.UiAccess?.QueryFacade.Stage.Read() ?? default;
+            var savedSlot = new SaveSlotStore(
+                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                    EditorDirectPlayContextStore.TempActiveSlotProviderKey)
+                .LoadSlot(1);
+            if (destinationHost == null ||
+                !destinationStage.StageId.Equals(expectedRetryStageId) ||
+                !savedSlot.CurrentStageId.Equals(expectedRetryStageId) ||
+                !string.Equals(
+                    savedSlot.CurrentLevelGroupId,
+                    levelGroupId,
+                    StringComparison.Ordinal))
+            {
+                Fail(
+                    $"LevelFailed Retry group divergence failed={failedStage.StageId.Value} " +
+                    $"group={levelGroupId} expected={expectedRetryStageId.Value} " +
+                    $"destination={destinationStage.StageId.Value} " +
+                    $"saved={savedSlot.CurrentStageId.Value}");
+                yield break;
+            }
+
+            _authoritySourceStageId = failedStage.StageId;
+            _authorityExpectedNextStageId = expectedRetryStageId;
+            _authoritySavedStageId = savedSlot.CurrentStageId;
+            _authorityResultNextStageId = expectedRetryStageId;
+            _authorityCampaignCompleted = savedSlot.CampaignCompleted;
+
             LogRouteSuccess(
                 "RetryClose",
                 "LevelFailedRestart",
                 restartDispatchCount,
                 SceneManager.GetActiveScene().name,
-                "defeatCloseReplay=0 duplicateResultAudio=0");
+                $"defeatCloseReplay=0 duplicateResultAudio=0 " +
+                $"levelGroup={levelGroupId} groupFirst={expectedRetryStageId.Value}");
         }
 
         private static TickResult CreateLethalPlayerTickResult(int playerEntityId)
@@ -1863,6 +2292,59 @@ namespace Game.Feature.UI.Composition
 
             presentationDataField.SetValue(result, presentationData);
             return result;
+        }
+
+        private static bool PresentObjectiveClearTick(GameplaySceneHost host)
+        {
+            if (host?.Presenter == null || host.UiAccess?.QueryFacade == null)
+            {
+                return false;
+            }
+
+            var tickIndex = host.UiAccess.QueryFacade.Session.Read().NextTickIndex;
+            var objective = new StageObjectiveTickResult(
+                hasObjective: true,
+                goalReached: true,
+                allConditionsSatisfied: true,
+                clearedThisTick: true,
+                isCleared: true,
+                Array.Empty<StageConditionStatus>());
+            var result = new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>());
+            var objectiveResultField = typeof(TickResult).GetField(
+                "<ObjectiveResult>k__BackingField",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (objectiveResultField == null)
+            {
+                return false;
+            }
+
+            objectiveResultField.SetValue(result, objective);
+            host.Presenter.Present(result);
+            var presentationFeed = host.UiAccess.PresentationFeed;
+            var handleTickCompleted = presentationFeed?.GetType().GetMethod(
+                "HandleTickCompleted",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(TickResult) },
+                null);
+            if (handleTickCompleted == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                handleTickCompleted.Invoke(presentationFeed, new object[] { result });
+                return true;
+            }
+            catch (TargetInvocationException exception)
+            {
+                Debug.LogException(exception.InnerException ?? exception);
+                return false;
+            }
         }
 
         private static bool TryInstallUiAudioRecorder(
@@ -2738,6 +3220,89 @@ namespace Game.Feature.UI.Composition
             builder.Append("outsideBottomCount=").Append(bottom).Append(' ');
             builder.Append("outsideTopCount=").Append(top);
             return builder.ToString();
+        }
+
+        private static bool TryValidateDemoStageControl(
+            GameplayUiFlowInstaller installer,
+            GameplaySceneHost host,
+            ICampaignStageSequenceResolverProvider resolverProvider,
+            CampaignStageSequenceResolver sequenceResolver,
+            out string failureReason)
+        {
+            var contextProvider = resolverProvider as IDemoStageControlGameplayContextProvider;
+            var completionBridge = host.UiAccess?.DemoStageControlCompletionBridge;
+            var context = default(DemoStageControlGameplayContext);
+            if (contextProvider == null ||
+                !contextProvider.TryCreateDemoStageControlContext(out context) ||
+                !context.IsValid ||
+                completionBridge == null ||
+                !ReferenceEquals(sequenceResolver, context.SequenceResolver))
+            {
+                failureReason =
+                    $"contextProvider={(contextProvider != null)} contextValid={context.IsValid} " +
+                    $"completionBridge={(completionBridge != null)} sameSequence=" +
+                    $"{ReferenceEquals(sequenceResolver, context.SequenceResolver)}";
+                return false;
+            }
+
+            var launchRouter = new CurrentSceneStageLaunchRouter(installer.gameObject.scene.name);
+            var service = new DemoStageControlService(
+                DemoStageControlSettings.EnabledByDefault(),
+                context.StageCatalogProvider,
+                context.SequenceResolver,
+                context.CampaignBridge,
+                new DemoStageControlLaunchBridge(
+                    launchRouter,
+                    () => launchRouter.IsLaunchInProgress),
+                completionBridge);
+            var demoStages = service.GetStages();
+            var sequenceEntries = sequenceResolver.Entries;
+            if (demoStages.Count != sequenceEntries.Count)
+            {
+                failureReason =
+                    $"count mismatch demo={demoStages.Count} sequence={sequenceEntries.Count}";
+                return false;
+            }
+
+            var catalogResolver = new StageCatalogResolver(context.StageCatalogProvider);
+            for (var i = 0; i < sequenceEntries.Count; i++)
+            {
+                var sequenceEntry = sequenceEntries[i];
+                var demoStage = demoStages[i];
+                if (!catalogResolver.TryResolve(sequenceEntry.StageId, out var catalogEntry) ||
+                    catalogEntry == null)
+                {
+                    failureReason =
+                        $"sequence stage '{sequenceEntry.StageId.Value}' has no catalog entry";
+                    return false;
+                }
+
+                var presentationKey = catalogEntry.PresentationDefinition != null
+                    ? catalogEntry.PresentationDefinition.DisplayNameKey
+                    : string.Empty;
+                var expectedDisplayNameKey = string.IsNullOrWhiteSpace(presentationKey)
+                    ? StageDisplayNameKeys.ForStage(sequenceEntry.StageId)
+                    : StageDisplayNameKeys.Normalize(presentationKey);
+                if (!demoStage.StageId.Equals(sequenceEntry.StageId) ||
+                    !string.Equals(
+                        demoStage.DisplayNameKey,
+                        expectedDisplayNameKey,
+                        StringComparison.Ordinal) ||
+                    demoStage.IsUnlocked != catalogEntry.IsInitiallyAvailable ||
+                    catalogEntry.CampaignParticipation != CampaignParticipation.Campaign)
+                {
+                    failureReason =
+                        $"stage[{i}] expected={sequenceEntry.StageId.Value}/" +
+                        $"{expectedDisplayNameKey}/{catalogEntry.IsInitiallyAvailable} " +
+                        $"actual={demoStage.StageId.Value}/{demoStage.DisplayNameKey}/" +
+                        $"{demoStage.IsUnlocked} participation=" +
+                        $"{catalogEntry.CampaignParticipation}";
+                    return false;
+                }
+            }
+
+            failureReason = string.Empty;
+            return true;
         }
 
         private static void HandleBuiltInCameraRendered(Camera camera)

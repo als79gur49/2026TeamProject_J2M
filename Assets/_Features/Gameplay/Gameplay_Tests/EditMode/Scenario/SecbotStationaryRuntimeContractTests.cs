@@ -278,8 +278,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 activationRule,
                 Direction2D.None,
                 TileFeatureBoxSelector.None,
-                boundEntityId: tileFeature.Charges,
-                presentationKey: string.Empty);
+                boundEntityId: tileFeature.Charges);
         }
     }
 }

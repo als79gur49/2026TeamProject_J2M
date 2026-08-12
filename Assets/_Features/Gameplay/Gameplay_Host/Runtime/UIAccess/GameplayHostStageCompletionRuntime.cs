@@ -7,12 +7,16 @@ namespace Game.Feature.Gameplay.Host.UIAccess
     internal sealed class GameplayHostStageCompletionRuntime
     {
         private readonly StageContentEntry _entry;
+        private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly StageSessionTracker _sessionTracker = new();
         private bool _completionInProgress;
 
-        public GameplayHostStageCompletionRuntime(StageContentEntry entry)
+        public GameplayHostStageCompletionRuntime(
+            StageContentEntry entry,
+            CampaignStageSequenceResolver sequenceResolver = null)
         {
             _entry = entry;
+            _sequenceResolver = sequenceResolver;
             _sessionTracker.Start(ResolveStageId(entry));
         }
 
@@ -67,7 +71,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _completionInProgress = true;
             try
             {
-                CurrentMinimalStageCompletion = MinimalStageCompletionReadModelBuilder.Build(_entry, clearResult);
+                CurrentMinimalStageCompletion = MinimalStageCompletionReadModelBuilder.Build(
+                    _entry,
+                    clearResult,
+                    _sequenceResolver);
                 return CurrentMinimalStageCompletion;
             }
             finally

@@ -53,7 +53,7 @@ namespace Game.Feature.DemoStageControl
                 return false;
             }
 
-            var levelGroupId = ResolveLevelGroupId(entry);
+            var levelGroupId = _sequenceResolver.GetLevelGroupId(stageId);
             _saveSlotStore.UpdateSlot(
                 slotNumber,
                 slot =>
@@ -79,15 +79,6 @@ namespace Game.Feature.DemoStageControl
             return entry != null && entry.IsInitiallyAvailable;
         }
 
-        private string ResolveLevelGroupId(StageContentEntry entry)
-        {
-            if (_sequenceResolver.Contains(entry.StageId))
-            {
-                return _sequenceResolver.GetLevelGroupId(entry.StageId);
-            }
-
-            return entry.CatalogChapterId;
-        }
     }
 
     public sealed class DemoStageControlLaunchBridge : IDemoStageControlLaunchBridge

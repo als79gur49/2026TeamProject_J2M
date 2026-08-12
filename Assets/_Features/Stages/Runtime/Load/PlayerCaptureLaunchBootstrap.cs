@@ -6,6 +6,7 @@ namespace Game.Feature.Stages
     public static class PlayerCaptureLaunchBootstrap
     {
         public const string CampaignTempSlotArgument = "--capture-campaign-temp-slot";
+        public const string CampaignNormalSlotArgument = "--capture-campaign-normal-slot";
         public const string CampaignTempSlotChancesArgument =
             "--capture-campaign-temp-slot-chances";
 
@@ -35,13 +36,71 @@ namespace Game.Feature.Stages
                 return true;
             }
 
+            var normalCampaignCapture = Array.Exists(
+                args,
+                argument => string.Equals(
+                    argument,
+                    CampaignNormalSlotArgument,
+                    StringComparison.Ordinal));
+            var tempCampaignCapture = Array.Exists(
+                args,
+                argument => string.Equals(
+                    argument,
+                    CampaignTempSlotArgument,
+                    StringComparison.Ordinal));
+            if (normalCampaignCapture && tempCampaignCapture)
+            {
+                error = "Player capture cannot request normal and DirectPlay Campaign slots together.";
+                if (logErrors)
+                {
+                    Debug.LogError(error);
+                }
+
+                return false;
+            }
+
+            if (normalCampaignCapture)
+            {
+                EditorDirectPlayContextStore.Clear();
+                var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
+                var activeSlot = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(
+                    saveStore);
+                saveStore.ClearAll();
+                activeSlot.ClearActiveSlot();
+                saveStore.SaveSlot(new SaveSlotData
+                {
+                    SlotNumber = 1,
+                    CurrentStageId = options.StageId,
+                    CurrentLevelGroupId = "player-capture-bootstrap",
+                    RemainingChances = SaveSlotStore.DefaultRemainingChances,
+                    LastPlayedAt = DateTimeOffset.UtcNow.ToString("O"),
+                });
+                activeSlot.SetActiveSlot(1);
+                var request = new StageNavigationRequest(
+                    options.StageId,
+                    StageNavigationKind.Retry,
+                    "pause-retry");
+                if (!StageLaunchContextStore.TrySetCurrent(
+                        StageLaunchContext.CreatePendinglessReload(request)))
+                {
+                    error = "Player capture could not register the normal Campaign launch context.";
+                    if (logErrors)
+                    {
+                        Debug.LogError(error);
+                    }
+
+                    return false;
+                }
+
+                Debug.Log(
+                    $"Player capture normal Campaign slot launch context primed with StageId " +
+                    $"'{options.StageId.Value}'.");
+                return true;
+            }
+
             StageLaunchContextStore.SetCurrent(options.StageId);
-            if (Array.Exists(
-                    args,
-                    argument => string.Equals(
-                        argument,
-                        CampaignTempSlotArgument,
-                        StringComparison.Ordinal)))
+
+            if (tempCampaignCapture)
             {
                 var remainingChances = 2;
                 for (var i = 0; i < args.Length - 1; i++)

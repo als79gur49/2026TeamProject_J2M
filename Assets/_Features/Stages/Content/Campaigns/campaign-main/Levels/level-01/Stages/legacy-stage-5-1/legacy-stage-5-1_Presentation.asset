@@ -73,6 +73,78 @@ MonoBehaviour:
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePaintOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
-  tileFeaturePresentationBindings: []
+  tileFeaturePresentationBindings:
+  - TileId: 1
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 6
+    PresentationKey: slide.down
+    VisualPrefab: {fileID: 0}
+  - TileId: 7
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 8
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 9
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 10
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 11
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 12
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 13
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 14
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 15
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 16
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 17
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 18
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 19
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 20
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 21
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 22
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 23
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 24
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []

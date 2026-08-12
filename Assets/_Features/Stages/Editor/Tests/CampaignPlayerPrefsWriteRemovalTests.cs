@@ -82,18 +82,29 @@ namespace Game.Feature.Stages.Editor.Tests
             foreach (var path in productionFiles)
             {
                 var source = ReadAssetText(path);
-                Assert.That(source, Does.Not.Contain("new PlayerPrefsSaveSlotStorageBackend"), path);
-                Assert.That(source, Does.Not.Contain("new SaveSlotStore()"), path);
-                Assert.That(source, Does.Not.Contain("new SaveSlotStore("), path);
+                CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
+                    path,
+                    source,
+                    "new PlayerPrefsSaveSlotStorageBackend",
+                    "new SaveSlotStore()",
+                    "new SaveSlotStore(");
             }
 
-            var stageBackedProductionBranch = ExtractSourceRange(
+            var ensureCampaignStores = CampaignSaveSourceContractGuard.ExtractMethod(
                 ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();",
-                "private int ValidateActiveSlotMatchesLaunchStage");
-            Assert.That(stageBackedProductionBranch, Does.Not.Contain("new PlayerPrefsSaveSlotStorageBackend"));
-            Assert.That(stageBackedProductionBranch, Does.Not.Contain("new SaveSlotStore()"));
-            Assert.That(stageBackedProductionBranch, Does.Not.Contain("new SaveSlotStore("));
+                "private void EnsureCampaignStores");
+            Assert.That(ensureCampaignStores, Does.Contain("directPlayContext.HasCustomSaveNamespace"));
+            Assert.That(ensureCampaignStores, Does.Contain("new SaveSlotStore("));
+
+            var stageBackedProductionBranch = CampaignSaveSourceContractGuard.ExtractTailFromToken(
+                ensureCampaignStores,
+                "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();");
+            CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
+                "Stage-backed production save composition",
+                stageBackedProductionBranch,
+                "new PlayerPrefsSaveSlotStorageBackend",
+                "new SaveSlotStore()",
+                "new SaveSlotStore(");
         }
 
         [Test]
@@ -171,10 +182,9 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
             var factory = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveServiceFactory.cs");
-            var rollbackOptions = ExtractSourceRange(
+            var rollbackOptions = CampaignSaveSourceContractGuard.ExtractMethod(
                 provider,
-                "public static CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()",
-                "public static void ResetProductionProfileBackedForTests()");
+                "CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()");
 
             Assert.That(rollbackOptions, Does.Contain("BackendMode = CampaignSaveBackendMode.PlayerPrefsLegacy"));
             Assert.That(rollbackOptions, Does.Not.Contain("ProfileJsonExplicit"));
@@ -258,10 +268,9 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var policy = ReadRollbackRetentionPolicy();
             var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
-            var rollbackOptions = ExtractSourceRange(
+            var rollbackOptions = CampaignSaveSourceContractGuard.ExtractMethod(
                 provider,
-                "public static CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()",
-                "public static void ResetProductionProfileBackedForTests()");
+                "CampaignSaveCompositionOptions CreateProductionLegacyRollbackOptions()");
 
             Assert.That(policy, Does.Contain("Rollback provider may show stale legacy data"));
             Assert.That(policy, Does.Contain("It must not be presented as a user-facing save continuity path"));
@@ -836,8 +845,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private static CampaignStageSequenceResolver CreateResolver()
         {
-            return new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            return CampaignStageSequenceTestAsset.LoadProductionResolver();
         }
 
         private static CampaignProfileDocument ReadProfile(Harness harness)

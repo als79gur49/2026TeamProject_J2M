@@ -5715,8 +5715,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activationRule,
                 direction,
                 selector,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static EntityState CreateUnit(

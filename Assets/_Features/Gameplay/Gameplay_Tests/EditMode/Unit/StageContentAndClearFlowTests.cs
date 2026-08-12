@@ -158,39 +158,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageCatalogQuery_UsesEntryCatalogMetadata_WithoutProgressionDefinition()
-        {
-            var first = CreateEntry("stage-b");
-            first.AssignCatalogMetadata("world-b", "chapter-b", 20, initiallyAvailable: false);
-            SetPrivateField(
-                first.PresentationDefinition,
-                "displayNameKey",
-                StageDisplayNameKeys.ForStage(first.StageId));
-
-            var second = CreateEntry("stage-a");
-            second.AssignCatalogMetadata("world-a", "chapter-a", 10, initiallyAvailable: true);
-            SetPrivateField(
-                second.PresentationDefinition,
-                "displayNameKey",
-                StageDisplayNameKeys.ForStage(second.StageId));
-
-            var provider = CreateCatalogProvider(new[] { first, second }, aliasTable: null);
-            var query = new StageCatalogQueryService(provider);
-
-            var items = query.EnumerateLaunchCatalogItems();
-
-            Assert.That(items.Select(item => item.StageId.Value).ToArray(), Is.EqualTo(new[] { "stage-a", "stage-b" }));
-            Assert.That(items[0].WorldId, Is.EqualTo("world-a"));
-            Assert.That(items[0].ChapterId, Is.EqualTo("chapter-a"));
-            Assert.That(items[0].SortOrder, Is.EqualTo(10));
-            Assert.That(items[0].IsInitiallyAvailable, Is.True);
-            Assert.That(items[1].WorldId, Is.EqualTo("world-b"));
-            Assert.That(items[1].ChapterId, Is.EqualTo("chapter-b"));
-            Assert.That(items[1].SortOrder, Is.EqualTo(20));
-            Assert.That(items[1].IsInitiallyAvailable, Is.False);
-        }
-
-        [Test]
         public void StageCatalogValidator_TileFeatureVisualBinding_WithValidPrefab_Passes()
         {
             var prefab = CreateTileFeatureVisualPrefab("ButtonTileVisualPrefab");
@@ -251,13 +218,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageCatalogValidator_TileFeatureVisualBinding_RejectsNullPrefab()
+        public void StageCatalogValidator_TileFeaturePresentationSelection_AllowsNullOptionalDirectOverride()
         {
             var entry = CreateEntryWithTileFeatureVisualBinding(100, 100, visualPrefab: null);
 
             var report = ValidateSingleEntry(entry);
 
-            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.prefab-null"), Is.True);
+            Assert.That(report.Issues.Any(issue => issue.Code == "presentation.tile-feature.prefab-null"), Is.False);
         }
 
         [Test]
@@ -305,6 +272,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void CampaignStageObjectiveAudit_FlagsDisabledObjectiveInProductionStages()
         {
             var entry = CreateEntry("stage-2-2");
+            entry.AssignCampaignParticipation(CampaignParticipation.Campaign);
 
             var report = new StageCatalogValidator().ValidateEntries(
                 new[] { entry },
@@ -321,6 +289,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ObjectiveConditionEntry_MissingAuthoringLabel_WarnsOrErrors()
         {
             var entry = CreateEntry("stage-2-2");
+            entry.AssignCampaignParticipation(CampaignParticipation.Campaign);
             var condition = CreatePlayerAtExitCondition();
             AssignExitObjective(
                 entry.GameplayDefinition,
@@ -344,6 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ObjectiveConditionEntry_ValidAuthoringLabel_DoesNotReportMissingLabel()
         {
             var entry = CreateEntry("stage-2-2");
+            entry.AssignCampaignParticipation(CampaignParticipation.Campaign);
             var condition = CreatePlayerAtExitCondition();
             AssignExitObjective(
                 entry.GameplayDefinition,
@@ -394,26 +364,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageSessionTracker_TerminalResult_IsEmittedOnlyOnce_AndResetCreatesNewRun()
+        public void StageSessionTracker_FreshInstancesStartIndependentLifecyclesAndAllowTerminalCompletion()
         {
-            var tracker = new StageSessionTracker();
+            var firstTracker = new StageSessionTracker();
             var stageId = StageId.CreateOrThrow("session-stage");
-            var firstState = tracker.Start(stageId, startTickIndex: 0);
+            var firstState = firstTracker.Start(stageId);
             var tickResult = new TickResult(3, new[] { TickPhase.Plan, TickPhase.Resolve }, Array.Empty<string>());
 
-            tracker.Advance(tickResult, forcedTerminalReason: StageTerminalReason.Cleared);
+            Assert.That(firstState.StageId, Is.EqualTo(stageId));
+            Assert.That(firstState.CurrentTickIndex, Is.EqualTo(0));
+            Assert.That(firstState.IsTerminal, Is.False);
+            Assert.That(firstState.TerminalReason, Is.EqualTo(StageTerminalReason.None));
 
-            Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
-            Assert.That(clearResult.StageRunId, Is.EqualTo(firstState.RunId));
-            Assert.That(clearResult.WasCleared, Is.True);
-            Assert.That(tracker.TryCreateClearResult(out _), Is.False);
+            firstTracker.Advance(tickResult, forcedTerminalReason: StageTerminalReason.Cleared);
 
-            tracker.Reset();
-            var restarted = tracker.Start(stageId, startTickIndex: 5);
+            Assert.That(firstTracker.TryCreateClearResult(out var clearResult), Is.True);
+            Assert.That(clearResult.StageId, Is.EqualTo(stageId));
+            Assert.That(clearResult.FinalTickIndex, Is.EqualTo(3));
+            Assert.That(firstTracker.TryCreateClearResult(out _), Is.False);
 
-            Assert.That(restarted.RunId, Is.Not.EqualTo(firstState.RunId));
-            Assert.That(restarted.CurrentTickIndex, Is.EqualTo(5));
-            Assert.That(restarted.SessionMetrics, Is.Empty);
+            var secondTracker = new StageSessionTracker();
+            var secondState = secondTracker.Start(stageId);
+
+            Assert.That(secondState.StageId, Is.EqualTo(stageId));
+            Assert.That(secondState.CurrentTickIndex, Is.EqualTo(0));
+            Assert.That(secondState.IsTerminal, Is.False);
+            Assert.That(secondState.TerminalReason, Is.EqualTo(StageTerminalReason.None));
+
+            var secondTickResult = new TickResult(
+                8,
+                new[] { TickPhase.Plan, TickPhase.Resolve },
+                Array.Empty<string>());
+            secondTracker.Advance(secondTickResult, forcedTerminalReason: StageTerminalReason.Cleared);
+
+            Assert.That(secondTracker.TryCreateClearResult(out var secondClearResult), Is.True);
+            Assert.That(secondClearResult.StageId, Is.EqualTo(stageId));
+            Assert.That(secondClearResult.FinalTickIndex, Is.EqualTo(8));
+            Assert.That(secondTracker.TryCreateClearResult(out _), Is.False);
         }
 
         [Test]
@@ -421,7 +408,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var tracker = new StageSessionTracker();
             var stageId = StageId.CreateOrThrow("minimal-completion-stage");
-            tracker.Start(stageId, startTickIndex: 0);
+            tracker.Start(stageId);
             var tickResult = new TickResult(7, new[] { TickPhase.Plan, TickPhase.Resolve }, Array.Empty<string>());
 
             tracker.Advance(tickResult, forcedTerminalReason: StageTerminalReason.Cleared);
@@ -429,14 +416,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
             var readModel = MinimalStageCompletionReadModelBuilder.Build(entry: null, clearResult);
             Assert.That(readModel.StageId, Is.EqualTo(stageId));
-            Assert.That(readModel.DisplayNameKey, Is.EqualTo(StageDisplayNameKeys.ForStage(stageId)));
-            Assert.That(readModel.Result.WasCleared, Is.True);
-            Assert.That(readModel.Result.FinalTickIndex, Is.EqualTo(7));
-            Assert.That(readModel.Result.StageRunId.IsValid, Is.True);
-            Assert.That(readModel.Result.AttemptId.IsValid, Is.True);
+            Assert.That(readModel.FinalTickIndex, Is.EqualTo(7));
             Assert.That(readModel.ContinueRequest.IsValid, Is.True);
             Assert.That(readModel.RetryRequest.IsValid, Is.True);
             Assert.That(tracker.TryCreateClearResult(out _), Is.False);
+        }
+
+        [Test]
+        public void StageSessionTracker_ObjectiveIsCleared_DrivesClearEligibility()
+        {
+            var tracker = new StageSessionTracker();
+            var stageId = StageId.CreateOrThrow("objective-clear-stage");
+            tracker.Start(stageId);
+
+            tracker.Advance(CreateObjectiveTickResult(tickIndex: 4, isCleared: false));
+
+            Assert.That(tracker.CurrentState.IsTerminal, Is.False);
+            Assert.That(tracker.TryCreateClearResult(out _), Is.False);
+
+            tracker.Advance(CreateObjectiveTickResult(tickIndex: 5, isCleared: true));
+
+            Assert.That(tracker.CurrentState.IsTerminal, Is.True);
+            Assert.That(
+                tracker.CurrentState.TerminalReason,
+                Is.EqualTo(StageTerminalReason.Cleared));
+            Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
+            Assert.That(clearResult.StageId, Is.EqualTo(stageId));
+            Assert.That(clearResult.FinalTickIndex, Is.EqualTo(5));
         }
 
         [Test]
@@ -444,7 +450,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var entry = CreateEntry("strict-completion-stage");
             var tracker = new StageSessionTracker();
-            tracker.Start(entry.StageId, startTickIndex: 0);
+            tracker.Start(entry.StageId);
             var tickResult = new TickResult(1, new[] { TickPhase.Plan, TickPhase.Resolve }, Array.Empty<string>());
             tracker.Advance(tickResult, forcedTerminalReason: StageTerminalReason.Cleared);
             Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
@@ -454,19 +460,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageSessionState_DoesNotExposeWorldAuthorityFields()
+        public void StageSessionState_ExposesOnlyLifecycleAndTerminalState()
         {
             var propertyNames = typeof(StageSessionState)
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Select(property => property.Name)
                 .ToArray();
 
-            Assert.That(propertyNames, Has.No.Member("WorldState"));
-            Assert.That(propertyNames, Has.No.Member("InitialEntities"));
-            Assert.That(propertyNames, Has.No.Member("EntityStates"));
-            Assert.That(propertyNames, Has.No.Member("Occupancy"));
-            Assert.That(propertyNames, Has.No.Member("Hp"));
-            Assert.That(propertyNames, Has.No.Member("Position"));
+            Assert.That(
+                propertyNames,
+                Is.EquivalentTo(new[]
+                {
+                    "StageId",
+                    "CurrentTickIndex",
+                    "IsTerminal",
+                    "TerminalReason",
+                }));
+            Assert.That(
+                typeof(StageSessionState).Assembly.GetType(
+                    "Game.Feature.Stages.StageObjectiveProgress" + "Snapshot"),
+                Is.Null);
+            Assert.That(
+                typeof(StageSessionTracker).GetMethod(
+                    "Reset",
+                    BindingFlags.Instance | BindingFlags.Public),
+                Is.Null);
+        }
+
+        [Test]
+        public void PresentationBarrierKey_ExposesOnlyNoneAndButtonActivatedContract()
+        {
+            Assert.That(
+                typeof(PresentationBarrierKey).GetMethod(
+                    "StageClear",
+                    BindingFlags.Static | BindingFlags.Public),
+                Is.Null);
+            Assert.That(
+                typeof(PresentationBarrierKey).GetMethod(
+                    "EntityExit",
+                    BindingFlags.Static | BindingFlags.Public),
+                Is.Null);
+            Assert.That(
+                typeof(PresentationBarrierKey).GetMethod(
+                    "ObjectiveCondition",
+                    BindingFlags.Static | BindingFlags.Public),
+                Is.Null);
+            Assert.That(
+                typeof(PresentationBarrierKey).GetMethod(
+                    nameof(PresentationBarrierKey.None),
+                    Type.EmptyTypes),
+                Is.Not.Null);
+            Assert.That(
+                typeof(PresentationBarrierKey).GetMethod(
+                    nameof(PresentationBarrierKey.ButtonActivated),
+                    new[] { typeof(int) }),
+                Is.Not.Null);
+            Assert.That(
+                Enum.GetNames(typeof(PresentationBarrierKind)),
+                Is.EquivalentTo(new[]
+                {
+                    nameof(PresentationBarrierKind.None),
+                    nameof(PresentationBarrierKind.ButtonActivated),
+                }));
+            Assert.That((int)PresentationBarrierKind.None, Is.EqualTo(0));
+            Assert.That((int)PresentationBarrierKind.ButtonActivated, Is.EqualTo(1));
         }
 
         [Test]
@@ -505,6 +562,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             entry.AssignPresentationDefinition(presentationDefinition);
             entry.AssignAudioDefinition(audioDefinition);
             return entry;
+        }
+
+        private static TickResult CreateObjectiveTickResult(int tickIndex, bool isCleared)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                Array.Empty<EntityState>(),
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                TickPresentationData.Empty,
+                string.Empty,
+                Game.Feature.Gameplay.Debug.TickTrace.Empty,
+                new StageObjectiveTickResult(
+                    hasObjective: true,
+                    goalReached: isCleared,
+                    allConditionsSatisfied: isCleared,
+                    clearedThisTick: isCleared,
+                    isCleared,
+                    Array.Empty<StageConditionStatus>()));
         }
 
         private static StageDefinition CreateMinimalStageDefinition(string stageName)
@@ -650,8 +730,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new StageObjectiveAuthoring
                 {
                     CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                    ObjectiveTitle = "Reach the Exit",
-                    ObjectiveSummary = "Move to the exit zone.",
                     ConditionEntries = entries,
                 });
         }

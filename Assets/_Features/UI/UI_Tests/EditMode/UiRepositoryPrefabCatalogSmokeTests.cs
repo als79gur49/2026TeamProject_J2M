@@ -1114,14 +1114,20 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void StageResultPayload_ActualReadModel_MapsToNavigationRequest()
         {
-            var readModel = CreateActualReadModel("stage-1-1");
+            var stageId = StageId.CreateOrThrow("stage-1-1");
+            var sequenceResolver = LoadProductionCampaignSequenceResolver();
+            Assert.That(sequenceResolver.Contains(stageId), Is.True, stageId.Value);
+            Assert.That(sequenceResolver.IsFinal(stageId), Is.False, stageId.Value);
+            Assert.That(sequenceResolver.TryGetNext(stageId, out var expectedNextStageId), Is.True, stageId.Value);
+
+            var readModel = CreateActualReadModel(stageId, sequenceResolver);
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
             Assert.That(payload.ContinueStageRequest.IsValid, Is.True);
             Assert.That(payload.RetryStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
-            Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-1-2"));
+            Assert.That(payload.NextStageRequest.StageId, Is.EqualTo(expectedNextStageId));
         }
 
         [Test]
@@ -1147,25 +1153,32 @@ namespace Game.Feature.UI.Tests
             };
         }
 
-        private static MinimalStageCompletionReadModel CreateActualReadModel(string stageIdValue)
+        private static MinimalStageCompletionReadModel CreateActualReadModel(
+            StageId stageId,
+            CampaignStageSequenceResolver sequenceResolver)
         {
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
             Assert.That(catalog, Is.Not.Null, StageContentPaths.StageCatalogAssetPath);
-            var stageId = StageId.CreateOrThrow(stageIdValue);
             var entry = catalog.Entries.FirstOrDefault(candidate => candidate.StageId.Equals(stageId));
-            Assert.That(entry, Is.Not.Null, stageIdValue);
+            Assert.That(entry, Is.Not.Null, stageId.Value);
 
             return MinimalStageCompletionReadModelBuilder.Build(
                 entry,
                 new StageClearResult(
                     entry.StageId,
-                    new StageRunId("ui-actual-smoke-" + entry.StageId.Value),
-                    StageTerminalReason.Cleared,
-                    wasCleared: true,
-                    finalTickIndex: 5,
-                    default,
-                    Array.Empty<StageSessionMetricValue>(),
-                    Array.Empty<StageChallengeRuntimeState>()));
+                    finalTickIndex: 5),
+                sequenceResolver);
+        }
+
+        private static CampaignStageSequenceResolver LoadProductionCampaignSequenceResolver()
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                StageContentPaths.CampaignStageSequenceAssetPath);
+            Assert.That(
+                definition,
+                Is.Not.Null,
+                $"Missing campaign sequence at '{StageContentPaths.CampaignStageSequenceAssetPath}'.");
+            return new CampaignStageSequenceResolver(definition);
         }
 
         private static IReadOnlyList<T> LoadAllAssets<T>() where T : UnityEngine.Object

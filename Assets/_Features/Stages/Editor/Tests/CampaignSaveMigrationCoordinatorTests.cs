@@ -163,8 +163,8 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 Version = NormalCampaignCompletionReceipt.CurrentVersion,
                 CompletedStageId = "stage-5-1",
-                StageRunId = "legacy-stage-run",
-                ClearSource = (int)StageClearSource.Objective,
+                StageRunId = string.Empty,
+                ClearSource = NormalCampaignCompletionReceipt.LegacyClearSourceAbsent,
             };
             importedDocument.Slots[0].HasNormalCampaignCompletionReceipt = true;
             importedDocument.Slots[0].NormalCampaignCompletionReceipt = sourceReceipt;
