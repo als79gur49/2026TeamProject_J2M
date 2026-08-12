@@ -440,6 +440,7 @@ namespace Game.Feature.UI.Composition
             catch
             {
                 ClearFailedCampaignLaunch(launchContext, campaignLaunchToken);
+                TryRestoreDirectPlayContextAfterFailure(request);
                 const string failureReason =
                     "Scene transition failed before its scene load routine started.";
                 var holdingCover = HandleSceneEntryPreCoroutineFailure(
@@ -516,6 +517,12 @@ namespace Game.Feature.UI.Composition
             {
                 EndDiagnostics(transitionId, state.Diagnostics);
                 (routine as IDisposable)?.Dispose();
+
+                if (failure != null ||
+                    state.Phase != SceneTransitionLifecycleState.Completed)
+                {
+                    TryRestoreDirectPlayContextAfterFailure(request);
+                }
 
                 if (failure != null && profile.RequiresExplicitContentCompletion)
                 {
@@ -1507,6 +1514,20 @@ namespace Game.Feature.UI.Composition
                     handoffStore.TryClear(campaignLaunchToken.Value);
                 }
             }
+        }
+
+        internal static void TryRestoreDirectPlayContextAfterFailure(
+            StageNavigationRequest request)
+        {
+            var context = request.EditorDirectPlayContext;
+            if (context.Mode == EditorDirectPlayMode.None ||
+                EditorDirectPlayContextStore.GetCurrentOrNone().Mode !=
+                EditorDirectPlayMode.None)
+            {
+                return;
+            }
+
+            EditorDirectPlayContextStore.SetCurrent(context);
         }
 
         private void OnDestroy()

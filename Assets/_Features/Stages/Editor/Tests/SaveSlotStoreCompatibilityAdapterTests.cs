@@ -58,11 +58,46 @@ namespace Game.Feature.Stages.Editor.Tests
             var slot = CreateSlot(1, "stage-1-1", "level-1", 2);
             slot.IntroPlayed = true;
             slot.TotalDeaths = 4;
+            slot.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
+            {
+                Version = 1,
+                CompletedStageId = "stage-4-3",
+                StageRunId = "adapter-receipt-run",
+                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
+            };
 
             legacy.SaveSlot(slot);
             adapter.SaveSlot(slot);
 
             AssertSlotEquivalent(legacy.LoadSlot(1), adapter.LoadSlot(1));
+        }
+
+        [Test]
+        public void SaveSlot_NullReceiptClearsExistingReceiptAsFullReplacement()
+        {
+            var repository = new RecordingRepository();
+            var adapter = CreateAdapter(repository);
+            var completed = CreateSlot(1, "stage-4-3", "level-4", 3);
+            completed.CampaignCompleted = true;
+            completed.NormalCampaignCompletionReceipt = new NormalCampaignCompletionReceipt
+            {
+                Version = 1,
+                CompletedStageId = "stage-4-3",
+                StageRunId = "receipt-to-clear",
+                ClearSource = NormalCampaignCompletionReceipt.LegacyObjectiveClearSource,
+            };
+            adapter.SaveSlot(completed);
+
+            var replacement = CreateSlot(1, "stage-0-1", "level-0", 3);
+            adapter.SaveSlot(replacement);
+
+            Assert.That(adapter.LoadSlot(1).NormalCampaignCompletionReceipt, Is.Null);
+            Assert.That(
+                repository.SavedDocument.Slots[0].HasNormalCampaignCompletionReceipt,
+                Is.False);
+            Assert.That(
+                repository.SavedDocument.Slots[0].NormalCampaignCompletionReceipt,
+                Is.Null);
         }
 
         [Test]
@@ -102,6 +137,30 @@ namespace Game.Feature.Stages.Editor.Tests
             });
 
             AssertSlotEquivalent(legacy.LoadSlot(1), adapter.LoadSlot(1));
+        }
+
+        [Test]
+        public void UpdateSlot_PreservesInvalidReceiptPresenceAcrossCompatibilityRoundTrip()
+        {
+            var repository = new RecordingRepository();
+            var adapter = CreateAdapter(repository);
+            adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1", 3));
+            repository.CurrentDocument.Slots[0].HasNormalCampaignCompletionReceipt = true;
+            repository.CurrentDocument.Slots[0].NormalCampaignCompletionReceipt = null;
+
+            adapter.UpdateSlot(1, slot =>
+            {
+                Assert.That(slot.HasNormalCampaignCompletionReceipt, Is.True);
+                Assert.That(slot.NormalCampaignCompletionReceipt, Is.Null);
+                slot.RemainingChances = 2;
+            });
+
+            Assert.That(
+                repository.SavedDocument.Slots[0].HasNormalCampaignCompletionReceipt,
+                Is.True);
+            Assert.That(
+                repository.SavedDocument.Slots[0].NormalCampaignCompletionReceipt,
+                Is.Null);
         }
 
         [Test]
@@ -213,6 +272,21 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(actual.CurrentLevelGroupId, Is.EqualTo(expected.CurrentLevelGroupId));
             Assert.That(actual.RemainingChances, Is.EqualTo(expected.RemainingChances));
             Assert.That(actual.CampaignCompleted, Is.EqualTo(expected.CampaignCompleted));
+            Assert.That(
+                actual.HasNormalCampaignCompletionReceipt,
+                Is.EqualTo(expected.HasNormalCampaignCompletionReceipt));
+            Assert.That(
+                actual.NormalCampaignCompletionReceipt?.Version,
+                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.Version));
+            Assert.That(
+                actual.NormalCampaignCompletionReceipt?.CompletedStageId,
+                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.CompletedStageId));
+            Assert.That(
+                actual.NormalCampaignCompletionReceipt?.StageRunId,
+                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.StageRunId));
+            Assert.That(
+                actual.NormalCampaignCompletionReceipt?.ClearSource,
+                Is.EqualTo(expected.NormalCampaignCompletionReceipt?.ClearSource));
             Assert.That(actual.IntroPlayed, Is.EqualTo(expected.IntroPlayed));
             Assert.That(actual.OutroPlayed, Is.EqualTo(expected.OutroPlayed));
             Assert.That(actual.TotalDeaths, Is.EqualTo(expected.TotalDeaths));

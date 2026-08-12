@@ -7,11 +7,14 @@ supersedes Nanum-based current-state wording in earlier typography planning and
 PR1 visual documents, while retaining those documents and assets as historical
 evidence.
 
-The governed production surfaces are Settings, Pause, Main Menu, and
-ConfirmPopup typography. The policy is:
+The governed production surfaces are Settings, Pause, Main Menu, HUD, terminal
+results, and ConfirmPopup typography. The current policy is:
 
-- `ALL_ROLE_CLIMATE`: all 19 semantic roles resolve to the canonical Climate
-  font/material with `FontStyles.Normal` in `ko-KR`.
+- `THREE_TIER_CLIMATE`: the 3 Display roles use `ClimateCrisisKR-2000`; the 4
+  Heading and 5 Body roles use `ClimateCrisisKR-2019`; the remaining 7 UI and
+  Utility roles use `ClimateCrisisKR-2000` in `ko-KR`.
+- The resolved split is 9 roles on 2019 and 10 roles on 2000. No new role or
+  font category is introduced.
 - `PRESERVE_AUTHORED_SIZE`: locale rules do not own font size, Auto Size, its
   min/max range, line spacing, or character spacing.
 - `SettingsStatus` remains `Hybrid / PreserveAuthored`, `fontSize 14`, Auto
@@ -33,14 +36,15 @@ and Lee Joohee, the Climate Crisis KR filename, and the supported use scope:
 `Assets/_Shared/UI/Fonts/기후위기-한글_사용설명서.pdf` is a usage guide. It
 is not described or treated as standalone license text.
 
-| Identity | Canonical value |
-|---|---|
-| TTF GUID | `5360535d0de75234ca21822297323672` |
-| TTF SHA-256 | `aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1` |
-| SDF GUID | `40d61154fd6576b4d85c2d78460b16ad` |
-| SDF material local ID | `1352911973252649374` |
-| Committed SDF SHA-256 | `c22ee5c03ebbe4f55322cf75b80acb7891173a5580ea56ef7b2f72c50f8431d5` |
-| Atlas/fallback | committed static atlas; fallback table empty |
+| Identity | Climate 2000 | Climate 2019 |
+|---|---|---|
+| TTF GUID | `5360535d0de75234ca21822297323672` | `56e1f07e315e49a4a8e5043a11e04e29` |
+| TTF SHA-256 | `aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1` | `48e723743cd5c162ba5efb6f560f179e3dc7b56bacc5c72ffe6ac4be0c8660f3` |
+| SDF GUID | `40d61154fd6576b4d85c2d78460b16ad` | `7dfd9aae81fc1d242b007a3b7a042fb0` |
+| SDF material local ID | `1352911973252649374` | `7808543287137721147` |
+| SDF atlas local ID | `-2536001923755311345` | `-5757234995057936259` |
+| Candidate SDF SHA-256 | `66193afe72fe9e2c4de11596ed68c1eb038fffb7f0f71b8605669f68922c459f` | `6e2a0b412311d1942cc2d332c2af7892a1d3c48a094019e1e3e54f07ef91ace0` |
+| Atlas/fallback | static single atlas; fallback empty | static single atlas; fallback empty |
 
 Committed source identity and Unity-loaded state are separate contracts.
 `run_tests.sh` verifies the `HEAD` Git blob, GUIDs, local ID, source TTF, and
@@ -61,10 +65,11 @@ blocker.
 
 - Base roles: `19`; en-US resolved roles: `19`; ko-KR resolved roles: `19`.
 - Missing or duplicate resolved roles: `0`.
-- Every ko-KR role resolves to the canonical Climate font/material, Normal
-  style, and a sizing mask that does not own authored sizing.
+- Heading/Body roles resolve to 2019; Display/UI/Utility roles resolve to 2000.
+  Every ko-KR role keeps Normal style and a sizing mask that does not own
+  authored sizing.
 - Managed `*_ko-KR.asset` String Tables are scanned dynamically. The closeout
-  set contains 66 values, 65 distinct values, and 116 distinct non-ASCII
+  set contains 123 values, 113 distinct values, and 186 distinct non-ASCII
   codepoints; missing native Climate glyphs and fallback dependencies are `0`.
 - The Nanum TTF/meta, SDF/meta, and SyntheticBold material/meta remain tracked.
   Retention is independent from the fact that current ko-KR role mapping no
@@ -104,7 +109,8 @@ source-integrity assertions.
 
 ## Visual evidence
 
-The code-head canonical candidate is:
+The following canonical candidate predates the 2019 hierarchy change and is
+retained as historical evidence:
 
 ```text
 TestLogs/TypographyVisualQA/CommandLine-20260726-052954/
@@ -142,6 +148,6 @@ canonical folders are retained and never overwritten.
 - Display status intentionally permits two lines; forcing one line or height
   `48` is a contract regression.
 - This closeout does not expand typography to ungoverned future UI surfaces.
-- No Climate SDF regeneration, global font scaling, package/TMP Settings
-  fallback change, Nanum deletion, PR creation, or merge is authorized here.
+- No global font scaling, package/TMP Settings fallback change, Nanum deletion,
+  PR creation, or merge is authorized here.
 - Independent current-head audit remains required before opening the PR.

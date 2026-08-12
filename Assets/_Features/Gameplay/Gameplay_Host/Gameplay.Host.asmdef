@@ -20,6 +20,7 @@
     "Game.Feature.Gameplay.PresentationPlayback",
     "Game.Feature.Gameplay.PresentationRuntime",
     "Game.Feature.DemoStageControl.Runtime",
+    "Game.Product.Achievements.CampaignIntegration",
     "Game.Feature.Flow.Audio",
     "Game.Shared.Audio",
     "Game.Shared.Input",

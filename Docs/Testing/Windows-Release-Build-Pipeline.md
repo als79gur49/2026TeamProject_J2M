@@ -225,9 +225,13 @@ internal creation path remains available only for grandfathered release sources.
 
 The clean Windows build may generate the established Addressables residue set
 (`ProfileDataSourceSettings.asset`, `link.xml`, `Windows.meta`, and the Windows
-content-state pair). The wrapper removes only that exact untracked set after
-validating its complete inventory and records the action in private evidence.
-Any tracked change or new generated path still fails the source-drift gate.
+content-state pair). Before Unity starts, the wrapper snapshots tracked paths
+from the exact source revision. It removes an established candidate only when
+that immutable ownership snapshot says the file is untracked, handles mixed
+directories file-by-file, and prunes only an empty Windows residue directory.
+Tracked candidates are preserved without restore, with each ownership decision
+recorded in private evidence. Any tracked change or new generated path still
+fails the source-drift gate.
 Payload manifests hash destination bytes through Windows extended-length paths,
 so deeply nested Addressables bundles remain inside the deterministic SHA-256 gate.
 

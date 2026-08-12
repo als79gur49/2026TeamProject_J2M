@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -11,6 +12,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -153,6 +155,11 @@ namespace Game.Feature.UI.Composition
                 scenario,
                 "gameclear",
                 StringComparison.OrdinalIgnoreCase);
+            var normalGameClearScenario = string.Equals(
+                scenario,
+                "gameclear-normal",
+                StringComparison.OrdinalIgnoreCase);
+            gameClearScenario |= normalGameClearScenario;
             var sequentialGameClearScenario = string.Equals(
                 scenario,
                 "gameclear-sequential",
@@ -224,10 +231,21 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
-            if (!StageLaunchContextStore.TryPeek(out var bootstrapContext) ||
-                !StageLaunchContextStore.TryConsume(bootstrapContext, out var consumedContext) ||
-                consumedContext == null ||
-                !consumedContext.Equals(bootstrapContext))
+            if (normalGameClearScenario)
+            {
+                if (EditorDirectPlayContextStore.GetCurrentOrNone().Mode !=
+                    EditorDirectPlayMode.None)
+                {
+                    Fail("normal Campaign capture unexpectedly retained DirectPlay context");
+                    yield break;
+                }
+            }
+            else if (!StageLaunchContextStore.TryPeek(out var bootstrapContext) ||
+                     !StageLaunchContextStore.TryConsume(
+                         bootstrapContext,
+                         out var consumedContext) ||
+                     consumedContext == null ||
+                     !consumedContext.Equals(bootstrapContext))
             {
                 Fail("exact capture bootstrap launch context was not consumable");
                 yield break;
@@ -394,21 +412,60 @@ namespace Game.Feature.UI.Composition
 
             MoveViewToViewport(host.OutputCamera, playerView, new Vector2(0.2f, 0.5f));
             var projectedCenter = ProjectRendererBoundsCenter(host.OutputCamera, playerView);
-            if (!installer.TryForceClearCurrentStageForDiagnostics(out var forceClearMessage) ||
+            var achievementPath = Path.Combine(
+                UnityEngine.Application.persistentDataPath,
+                "Saves",
+                "achievements.json");
+            var achievementBefore = File.Exists(achievementPath)
+                ? File.ReadAllText(achievementPath)
+                : null;
+            var victoryStarted = normalGameClearScenario
+                ? PresentObjectiveClearTick(host)
+                : installer.TryForceClearCurrentStageForDiagnostics(out _);
+            if (!victoryStarted ||
                 !installer.TryGetTerminalTransitionPort(out var transitionPort) ||
                 transitionPort is not GameplayTerminalTransitionPort productionPort ||
                 productionPort.CurrentPlayback == null)
             {
-                Fail($"production victory failed: {forceClearMessage}");
+                Fail($"production victory failed scenario={_scenarioId}");
                 yield break;
             }
 
             var completionReadModel =
                 host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion;
-            var savedSlot = new SaveSlotStore(
-                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
-                    EditorDirectPlayContextStore.TempActiveSlotProviderKey)
-                .LoadSlot(1);
+            var savedSlot = normalGameClearScenario
+                ? CampaignSaveCompositionProvider.CreateProductionProfileBacked().LoadSlot(1)
+                : new SaveSlotStore(
+                        EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                        EditorDirectPlayContextStore.TempActiveSlotProviderKey)
+                    .LoadSlot(1);
+            var achievementAfter = File.Exists(achievementPath)
+                ? File.ReadAllText(achievementPath)
+                : null;
+            var achievementContractAligned = normalGameClearScenario
+                ? savedSlot.HasNormalCampaignCompletionReceipt &&
+                  savedSlot.NormalCampaignCompletionReceipt != null &&
+                  savedSlot.NormalCampaignCompletionReceipt.Version ==
+                      NormalCampaignCompletionReceipt.CurrentVersion &&
+                  string.Equals(
+                      savedSlot.NormalCampaignCompletionReceipt.CompletedStageId,
+                      sourceStage.StageId.Value,
+                      StringComparison.Ordinal) &&
+                  string.IsNullOrEmpty(savedSlot.NormalCampaignCompletionReceipt.StageRunId) &&
+                  !string.IsNullOrEmpty(achievementAfter) &&
+                  achievementAfter.Contains("campaign.complete", StringComparison.Ordinal)
+                : !savedSlot.HasNormalCampaignCompletionReceipt &&
+                  savedSlot.NormalCampaignCompletionReceipt == null &&
+                  string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal);
+            if (!achievementContractAligned)
+            {
+                Fail(
+                    $"Campaign Achievement contract diverged scenario={_scenarioId} " +
+                    $"receiptPresent={savedSlot.HasNormalCampaignCompletionReceipt} " +
+                    $"receiptVersion={savedSlot.NormalCampaignCompletionReceipt?.Version ?? 0} " +
+                    $"ledgerChanged={!string.Equals(achievementBefore, achievementAfter, StringComparison.Ordinal)}");
+                yield break;
+            }
             var progressionAligned = gameClearScenario
                 ? completionReadModel != null &&
                   completionReadModel.StageId.Equals(sourceStage.StageId) &&
@@ -2235,6 +2292,59 @@ namespace Game.Feature.UI.Composition
 
             presentationDataField.SetValue(result, presentationData);
             return result;
+        }
+
+        private static bool PresentObjectiveClearTick(GameplaySceneHost host)
+        {
+            if (host?.Presenter == null || host.UiAccess?.QueryFacade == null)
+            {
+                return false;
+            }
+
+            var tickIndex = host.UiAccess.QueryFacade.Session.Read().NextTickIndex;
+            var objective = new StageObjectiveTickResult(
+                hasObjective: true,
+                goalReached: true,
+                allConditionsSatisfied: true,
+                clearedThisTick: true,
+                isCleared: true,
+                Array.Empty<StageConditionStatus>());
+            var result = new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>());
+            var objectiveResultField = typeof(TickResult).GetField(
+                "<ObjectiveResult>k__BackingField",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (objectiveResultField == null)
+            {
+                return false;
+            }
+
+            objectiveResultField.SetValue(result, objective);
+            host.Presenter.Present(result);
+            var presentationFeed = host.UiAccess.PresentationFeed;
+            var handleTickCompleted = presentationFeed?.GetType().GetMethod(
+                "HandleTickCompleted",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(TickResult) },
+                null);
+            if (handleTickCompleted == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                handleTickCompleted.Invoke(presentationFeed, new object[] { result });
+                return true;
+            }
+            catch (TargetInvocationException exception)
+            {
+                Debug.LogException(exception.InnerException ?? exception);
+                return false;
+            }
         }
 
         private static bool TryInstallUiAudioRecorder(

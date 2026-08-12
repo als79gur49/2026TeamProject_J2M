@@ -165,6 +165,10 @@ namespace Game.Feature.Stages
 
         public bool CampaignCompleted { get; set; }
 
+        public bool HasNormalCampaignCompletionReceipt { get; set; }
+
+        public NormalCampaignCompletionReceipt NormalCampaignCompletionReceipt { get; set; }
+
         public bool IntroPlayed { get; set; }
 
         public bool OutroPlayed { get; set; }
@@ -177,6 +181,8 @@ namespace Game.Feature.Stages
 
         public bool IsEmpty => !CurrentStageId.IsValid &&
                                !CampaignCompleted &&
+                               !HasNormalCampaignCompletionReceipt &&
+                               NormalCampaignCompletionReceipt == null &&
                                !IntroPlayed &&
                                !OutroPlayed &&
                                TotalDeaths == 0 &&
@@ -192,6 +198,9 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = RemainingChances,
                 CampaignCompleted = CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt = NormalCampaignCompletionReceipt?.Clone(),
                 IntroPlayed = IntroPlayed,
                 OutroPlayed = OutroPlayed,
                 TotalDeaths = TotalDeaths,
@@ -209,6 +218,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = string.Empty,
                 RemainingChances = SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = false,
+                HasNormalCampaignCompletionReceipt = false,
+                NormalCampaignCompletionReceipt = null,
                 IntroPlayed = false,
                 OutroPlayed = false,
                 TotalDeaths = 0,
@@ -235,6 +246,8 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = sequenceResolver.GetLevelGroupId(firstStageId),
                 RemainingChances = SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = false,
+                HasNormalCampaignCompletionReceipt = false,
+                NormalCampaignCompletionReceipt = null,
                 IntroPlayed = false,
                 OutroPlayed = false,
                 TotalDeaths = 0,
@@ -1983,6 +1996,8 @@ namespace Game.Feature.Stages
         public string CurrentLevelGroupId;
         public int RemainingChances;
         public bool CampaignCompleted;
+        public bool HasNormalCampaignCompletionReceipt;
+        public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt;
         public bool IntroPlayed;
         public bool OutroPlayed;
         public int TotalDeaths;
@@ -2119,6 +2134,11 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt ||
+                    slot.NormalCampaignCompletionReceipt != null,
+                NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
+                    slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
@@ -2139,6 +2159,11 @@ namespace Game.Feature.Stages
                 CurrentLevelGroupId = dto.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = dto.RemainingChances > 0 ? dto.RemainingChances : SaveSlotStore.DefaultRemainingChances,
                 CampaignCompleted = dto.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    dto.HasNormalCampaignCompletionReceipt,
+                NormalCampaignCompletionReceipt = dto.HasNormalCampaignCompletionReceipt
+                    ? CampaignProfileDocumentMapper.ToReceipt(dto.NormalCampaignCompletionReceipt)
+                    : null,
                 IntroPlayed = dto.IntroPlayed,
                 OutroPlayed = dto.OutroPlayed,
                 TotalDeaths = Math.Max(0, dto.TotalDeaths),

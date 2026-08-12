@@ -22,11 +22,13 @@ namespace Game.Feature.UI.Tests
             TerminalSessionRegistry.ResetForTests();
             SceneEntryPresentationRegistry.ResetForTests();
             MainMenuEntryPresentationRegistry.ResetForTests();
+            EditorDirectPlayContextStore.Clear();
         }
 
         [TearDown]
         public void ClearTerminalAuthority()
         {
+            EditorDirectPlayContextStore.Clear();
             TerminalDestinationReadiness.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
             SceneEntryPresentationRegistry.ResetForTests();
@@ -1071,12 +1073,20 @@ namespace Game.Feature.UI.Tests
                 out _,
                 out var stageLaunchRouter);
             var stageId = StageId.CreateOrThrow("stage-1-1");
+            var directPlayContext = new EditorDirectPlayContext(
+                EditorDirectPlayMode.CampaignProductionSlot,
+                stageId,
+                string.Empty,
+                string.Empty,
+                SaveSlotStore.DefaultRemainingChances,
+                suppressCampaignFlow: false);
             var callSequence = new List<string>();
             stageLaunchRouter.AfterLaunch = _ => callSequence.Add("route-accepted");
             pauseService.BeforeResume = () => callSequence.Add("resume");
 
             coordinator.Initialize();
             presentationSource.PublishSnapshot(CreateSnapshotForStage(stageId));
+            EditorDirectPlayContextStore.SetCurrent(directPlayContext);
             TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
                 sceneHandle: 7401,
                 sceneName: "PauseRetrySource");
@@ -1099,6 +1109,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
             Assert.That(stageLaunchRouter.Requests[0].Source, Is.EqualTo("pause-retry"));
             Assert.That(stageLaunchRouter.Requests[0].TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageRetryManual));
+            Assert.That(stageLaunchRouter.Requests[0].EditorDirectPlayContext, Is.EqualTo(directPlayContext));
+            EditorDirectPlayContextStore.Clear();
         }
 
         [Test]

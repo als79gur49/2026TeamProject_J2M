@@ -1,0 +1,17 @@
+{
+  "name": "Game.Product.Achievements.Tests",
+  "rootNamespace": "Game.Product.Achievements.Tests",
+  "references": [
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Infrastructure",
+    "Game.Product.Achievements.Composition",
+    "Game.Product.Achievements.CampaignIntegration",
+    "Game.Feature.Stages"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

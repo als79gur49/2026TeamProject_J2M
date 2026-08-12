@@ -139,7 +139,7 @@ namespace Game.Feature.Stages
                 return CampaignProfileLoadStatus.SchemaInvalid;
             }
 
-            if (document.SchemaVersion <= 0)
+            if (document.SchemaVersion != CampaignProfileDocument.CurrentSchemaVersion)
             {
                 return CampaignProfileLoadStatus.SchemaInvalid;
             }
@@ -166,6 +166,11 @@ namespace Game.Feature.Stages
             if (slot == null)
             {
                 return;
+            }
+
+            if (!slot.HasNormalCampaignCompletionReceipt)
+            {
+                slot.NormalCampaignCompletionReceipt = null;
             }
 
             slot.StageClearProfileSnapshot ??= new CampaignStageClearProfileDocument();

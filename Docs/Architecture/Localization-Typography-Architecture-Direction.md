@@ -6,7 +6,7 @@ Localization is implemented to a substantial production baseline. The current pr
 
 Typography foundation and production wiring are implemented for Settings, Pause, Main Menu, and the StageResult/LevelFailed/GameClear terminal result family.
 
-The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and `ClimateCrisisKR-2000 SDF` glyph coverage generated from Korean String Tables.
+The implemented typography baseline includes `LocalizedTextDescriptor`, `LocalizedTextRole`, `LocalizedTextWeight`, `LocalizedTypographyStyle`, `LocalizedTmpTextBinding`, `ILocalizedTmpFontResolver`, `TypographyStyleTag`, `FontCategory`, `GameplayUiTypographyTheme`, `LocaleFontSet`, the resolved style cache, `TypographyBinding`, explicit `TypographyLocaleParticipation`, Settings typography migration, Pause / Main Menu typography migration, Editor validation / preview tooling, screenshot capture tooling, and managed Korean glyph coverage in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF`.
 
 Typography is not globally applied to every future UI surface. The current production wiring is scoped to established governed surfaces and the terminal result family. Save slot/inventory/audio/voice localization remains outside this migration.
 
@@ -17,8 +17,8 @@ is the current truth for the migrated ko-KR typography surfaces. Earlier
 Nanum-based mappings and synthetic-bold polish notes below are retained as
 historical baseline/decision sequence, not current runtime mapping.
 
-- All 19 semantic roles resolve to the canonical Climate font/material with
-  Normal style in ko-KR.
+- The Korean hierarchy uses Climate 2000 for Display/UI/Utility (10 roles) and
+  Climate 2019 for Heading/Body (9 roles), with Normal style in ko-KR.
 - Sizing policy is `PRESERVE_AUTHORED_SIZE`; locale rules do not own size,
   Auto Size, min/max, or spacing.
 - SettingsStatus remains `14 / Auto / 10-14`, height `28`, and may render two
@@ -111,10 +111,10 @@ Current baseline captured for this cleanup pass:
 | `TypographyBinding` | Done | Prefabs/views carry style tag, sizing-source override, and optional apply-mask override without owning text keys. |
 | Locale participation | Done | `LocaleThemed` is the serialized default. The 10 Settings binding-display TMP targets are explicitly `LocaleInvariant`, a successful no-op before theme resolution or required apply-mask merging in runtime and Editor preview. |
 | Settings typography migration | Done | Settings governed labels are wired through typography bindings while preserving authored sizing policy. |
-| Pause / Main Menu typography migration | Done | Pause uses its existing semantic rules. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR resolves through the all-role Climate policy, and generic en-US `Button` remains SciFiSoldier. |
+| Pause / Main Menu typography migration | Done | Pause Heading roles resolve to Climate 2019. Main Menu Start/Settings/Quit use `MainMenuCommand`; en-US preserves authored Orbitron, ko-KR Display remains Climate 2000, and generic en-US `Button` remains SciFiSoldier. |
 | Editor validation / preview tooling | Done | Theme, binding, preview, validation report, and validation menu tooling exist. Locale-invariant bindings still receive structural enum validation, null-theme preview classifies invariant skips before theme resolution, and nested Scene selections are normalized per preview call. |
 | Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, Nanum preservation, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
-| Climate glyph coverage | Done | Managed ko-KR tables resolve 127/127 distinct non-ASCII codepoints natively in `ClimateCrisisKR-2000 SDF` with fallback dependency 0. |
+| Climate glyph coverage | Done | Managed ko-KR tables resolve natively in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
 | Pause progression strip | Done | The pause popup uses authored marker templates for a campaign sequence strip; group starts are tall, later stages are short, the current stage is color-highlighted, and horizontal navigation does not change the selected command button. |
 

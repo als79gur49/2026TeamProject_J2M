@@ -247,7 +247,6 @@ namespace Game.Feature.UI.Tests
         {
             var catalog = UiTestPrefabAssetUtility.LoadScreenCatalog();
             var theme = catalog.SettingsTypographyTheme;
-            var climateCrisisKr = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
             var inventory = BuildInventory(view);
             var authoredInventory = BuildInventory(catalog.SettingsPrefab);
             var authoredByName = authoredInventory.ToDictionary(item => item.Name, StringComparer.Ordinal);
@@ -283,7 +282,12 @@ namespace Game.Feature.UI.Tests
                          item.Classification == TargetClassification.LocalizedStatic ||
                          item.Classification == TargetClassification.LocalizedDynamic))
             {
-                Assert.That(item.Target.font, Is.SameAs(climateCrisisKr), item.Name);
+                var binding = TypographyBinding.FindFor(item.Target);
+                Assert.That(binding, Is.Not.Null, item.Name);
+                Assert.That(
+                    item.Target.font,
+                    Is.SameAs(theme.ResolveOrThrow("ko-KR", binding.StyleTag).FontAsset),
+                    item.Name);
             }
 
             Assert.That(view.DisplayView.IsResolutionKeyboardListOpen, Is.True);

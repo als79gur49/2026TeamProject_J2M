@@ -78,7 +78,7 @@ namespace Game.Feature.UI.Tests
                 var rowLabel = GetField<TMP_Text>(row, "_label");
                 var headerSizing = TextSizingSnapshot.Capture(header);
                 var rowSizing = TextSizingSnapshot.Capture(rowLabel);
-                var climate = UiTestPrefabAssetUtility.LoadClimateCrisisKrFont();
+                var climate = UiTestPrefabAssetUtility.LoadClimateCrisisKr2019Font();
                 var resolver = new MutableLocaleResolver("en-US");
 
                 binding.Initialize(resolver);
@@ -123,7 +123,7 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase("en-US", "Place the MoonBlock on the button (99/99)")]
+        [TestCase("en-US", "Place the moon-marked box on the button (99/99)")]
         [TestCase("ko-KR", "밀 수 있는 상자를 버튼 위에 놓기 (99/99)")]
         public void ObjectiveRow_LongApprovedCopy_FitsAuthoredRow(string localeCode, string text)
         {

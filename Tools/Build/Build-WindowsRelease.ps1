@@ -1843,6 +1843,19 @@ function Invoke-GitPathList {
     return @(ConvertFrom-GitPathOutput -Output @($output))
 }
 
+function Get-TrackedPathsAtSourceRevision {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$SourceRevision,
+        [switch]$Detached
+    )
+    if ([string]::IsNullOrWhiteSpace($SourceRevision)) {
+        throw "Source revision is required for tracked-path ownership."
+    }
+    return @(Invoke-GitPathList -Root $Root -DisableAutoCrlf:$Detached `
+        -Arguments @("ls-tree", "-r", "--name-only", "-z", $SourceRevision))
+}
+
 function Get-GitChangeClassification {
     param(
         [string[]]$StatusLines,
@@ -1930,7 +1943,8 @@ function Test-EstablishedAddressablesResidueSet {
 function Remove-EstablishedAddressablesResidue {
     param(
         [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)]$Snapshot
+        [Parameter(Mandatory)]$Snapshot,
+        [Parameter(Mandatory)][string[]]$TrackedPathsAtSourceRevision
     )
     $windowsRoot = Join-Path $Root "Assets\AddressableAssetsData\Windows"
     $windowsFiles = if (Test-Path -LiteralPath $windowsRoot -PathType Container) {
@@ -1939,34 +1953,70 @@ function Remove-EstablishedAddressablesResidue {
                 $_.FullName.Substring($Root.Length).TrimStart('\').Replace('\', '/')
             })
     } else { @() }
-    $recognized = @($Snapshot.Tracked).Count -eq 0 -and
-        @($Snapshot.Staged).Count -eq 0 -and
-        (Test-EstablishedAddressablesResidueSet `
-            -UntrackedPaths @($Snapshot.Untracked) -WindowsFiles $windowsFiles)
+    $hasTrackedChanges = @($Snapshot.Tracked).Count -ne 0
+    $hasStagedChanges = @($Snapshot.Staged).Count -ne 0
+    $untrackedWindowsFiles = @($windowsFiles | Where-Object {
+        @($TrackedPathsAtSourceRevision) -cnotcontains $_
+    })
+    $establishedResidueSet = Test-EstablishedAddressablesResidueSet `
+        -UntrackedPaths @($Snapshot.Untracked) `
+        -WindowsFiles $untrackedWindowsFiles
+    $recognized = -not $hasTrackedChanges -and -not $hasStagedChanges -and
+        [bool]$establishedResidueSet
     $removed = @()
-    if ($recognized -and (@($Snapshot.Untracked).Count -ne 0 -or
-        @($windowsFiles).Count -ne 0)) {
-        $candidates = @(
-            "Assets\AddressableAssetsData\Windows",
-            "Assets\AddressableAssetsData\Windows.meta",
-            "Assets\AddressableAssetsData\ProfileDataSourceSettings.asset",
-            "Assets\AddressableAssetsData\ProfileDataSourceSettings.asset.meta",
-            "Assets\AddressableAssetsData\link.xml",
-            "Assets\AddressableAssetsData\link.xml.meta"
-        )
-        foreach ($relative in $candidates) {
-            $path = Join-Path $Root $relative
-            if (Test-Path -LiteralPath $path) {
-                Remove-Item -LiteralPath $path -Recurse -Force
-                $removed += $relative.Replace('\', '/')
+    $decisions = @()
+    $prunedDirectories = @()
+    $candidates = @(
+        "Assets/AddressableAssetsData/Windows.meta",
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset",
+        "Assets/AddressableAssetsData/ProfileDataSourceSettings.asset.meta",
+        "Assets/AddressableAssetsData/link.xml",
+        "Assets/AddressableAssetsData/link.xml.meta",
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin",
+        "Assets/AddressableAssetsData/Windows/addressables_content_state.bin.meta"
+    )
+    foreach ($relative in $candidates) {
+        $path = Join-Path $Root $relative.Replace('/', '\')
+        $trackedAtSourceRevision = @($TrackedPathsAtSourceRevision) -ccontains $relative
+        $wasPresent = Test-Path -LiteralPath $path -PathType Leaf
+        $action = "None"
+        $reason = "NotPresent"
+        if ($trackedAtSourceRevision) {
+            $action = if ($wasPresent) { "Preserved" } else { "NoAction" }
+            $reason = "TrackedSource"
+        } elseif (-not $recognized) {
+            $action = "NoAction"
+            $reason = "ResidueSetNotRecognized"
+        } elseif ($wasPresent) {
+            Remove-Item -LiteralPath $path -Force
+            $removed += $relative
+            $action = "Removed"
+            $reason = "UntrackedEstablishedGeneratedResidue"
+        }
+        if ($trackedAtSourceRevision -or $wasPresent) {
+            $decisions += [pscustomobject][ordered]@{
+                path = $relative
+                candidateKind = "KnownGeneratedResidueCandidate"
+                trackedAtSourceRevision = [bool]$trackedAtSourceRevision
+                action = $action
+                reason = $reason
             }
         }
+    }
+    if ($recognized -and (Test-Path -LiteralPath $windowsRoot -PathType Container) -and
+        $null -eq (Get-ChildItem -LiteralPath $windowsRoot -Force |
+            Select-Object -First 1)) {
+        Remove-Item -LiteralPath $windowsRoot -Force
+        $prunedDirectories += "Assets/AddressableAssetsData/Windows"
     }
     return [pscustomobject][ordered]@{
         recognized = [bool]$recognized
         detectedUntrackedPaths = @($Snapshot.Untracked)
         detectedWindowsFiles = @($windowsFiles)
+        detectedUntrackedWindowsFiles = @($untrackedWindowsFiles)
         removedPaths = @($removed)
+        prunedDirectories = @($prunedDirectories)
+        decisions = @($decisions)
     }
 }
 
@@ -2191,6 +2241,8 @@ function Invoke-WindowsReleasePipeline {
             $exitCode = $script:ReleaseExitCodes.DetachedSourceFailure
             throw "Detached source HEAD/tree identity does not match the invocation revision."
         }
+        $trackedPathsAtSourceRevision = @(Get-TrackedPathsAtSourceRevision `
+            -Root $detached -SourceRevision $sourceSha -Detached)
         $entrySourcePath = Join-Path $detached `
             "Assets\_Features\Stages\Editor\Build\WindowsReleaseBuildCli.cs"
         $policySourcePath = Join-Path $detached `
@@ -2298,7 +2350,8 @@ function Invoke-WindowsReleasePipeline {
         $preCleanupBuildSnapshot = Get-GitSnapshot -Root $detached `
             -CanaryPaths $canaries -Detached
         $addressablesCleanup = Remove-EstablishedAddressablesResidue `
-            -Root $detached -Snapshot $preCleanupBuildSnapshot
+            -Root $detached -Snapshot $preCleanupBuildSnapshot `
+            -TrackedPathsAtSourceRevision $trackedPathsAtSourceRevision
         Write-PrivateJson (Join-Path $privateRoot "addressables-residue-cleanup.json") `
             $addressablesCleanup
         $invocationPost = Get-GitSnapshot -Root $RepositoryRoot -CanaryPaths $canaries

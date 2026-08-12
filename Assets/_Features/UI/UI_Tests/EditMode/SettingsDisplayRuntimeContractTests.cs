@@ -50,7 +50,7 @@ namespace Game.Feature.UI.Tests
                 "\"Reset\"",
                 "\"Cancel\"",
                 "\"Confirm Display Preview\"",
-                "\"Fullscreen Window\"",
+                "\"Borderless Fullscreen\"",
                 "\"Windowed\"",
                 "\"Keep\"",
                 "\"Revert\"",
@@ -197,7 +197,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     resolver.Resolve(confirmPayload.BodyTextDescriptor),
                     Is.EqualTo(
-                        "Preview 1280 x 720 in Fullscreen Window. These changes are temporary and will revert in 21 seconds unless you confirm."));
+                        "Preview 1280 x 720 in Borderless Fullscreen. These changes are temporary and will revert in 21 seconds unless you confirm."));
             }
             finally
             {

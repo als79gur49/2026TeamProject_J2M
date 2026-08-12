@@ -80,6 +80,12 @@ namespace Game.Platform.Steam.SteamworksNet.Tests.EditMode
             Assert.That(source, Does.Contain(
                 "Callback<GameOverlayActivated_t>.Create(OnOverlayActivated)"));
             Assert.That(source, Does.Contain("callback?.Dispose();"));
+            Assert.That(source, Does.Contain("Callback<UserStatsStored_t>.Create"));
+            Assert.That(source, Does.Contain("Callback<UserAchievementStored_t>.Create"));
+            Assert.That(source, Does.Not.Contain("UserStatsReceived_t"));
+            Assert.That(source, Does.Not.Contain("RequestCurrentStats"));
+            Assert.That(source, Does.Not.Contain("ClearAchievement"));
+            Assert.That(source, Does.Not.Contain("ResetAllStats"));
             Assert.That(source, Does.Not.Contain("GetPersonaName"));
             Assert.That(source, Does.Not.Contain("GetFriendPersonaName"));
         }

@@ -116,7 +116,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873344
   - m_Id: 283195222745088
-    m_Localized: Key reassignment cancelled.
+    m_Localized: Key reassignment canceled.
     m_Metadata:
       m_Items: []
   - m_Id: 283195264688128
@@ -136,7 +136,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
-    m_Localized: Main
+    m_Localized: Master
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499328
@@ -164,7 +164,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499334
-    m_Localized: Fullscreen Window
+    m_Localized: Borderless Fullscreen
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499335
@@ -227,7 +227,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693643
-    m_Localized: Preview {0} x {1} in Fullscreen Window. These changes are temporary
+    m_Localized: Preview {0} x {1} in Borderless Fullscreen. These changes are temporary
       and will revert in {2} seconds unless you confirm.
     m_Metadata:
       m_Items:
@@ -252,12 +252,12 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873344
   - m_Id: 4971587610693648
-    m_Localized: Place a push box on the button ({0}/{1})
+    m_Localized: Place a pushable box on the button ({0}/{1})
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344
   - m_Id: 4971587610693649
-    m_Localized: Place the MoonBlock on the button ({0}/{1})
+    m_Localized: Place the moon-marked box on the button ({0}/{1})
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344

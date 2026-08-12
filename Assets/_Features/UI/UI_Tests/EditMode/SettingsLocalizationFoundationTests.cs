@@ -428,7 +428,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindCanceled()),
-                Is.EqualTo("Key reassignment cancelled."));
+                Is.EqualTo("Key reassignment canceled."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
                 Is.EqualTo("Input settings reset."));
@@ -1010,7 +1010,7 @@ namespace Game.Feature.UI.Tests
 
             keyboardPort.Complete();
 
-            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Key reassignment cancelled."));
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("Key reassignment canceled."));
             Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
 
             resolver.SetLocale("ko-KR");
@@ -1746,7 +1746,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language"] = "Language",
                         ["ui.settings.language.english"] = "English",
                         ["ui.settings.language.korean"] = "Korean",
-                        ["ui.settings.input.rebind_canceled"] = "Key reassignment cancelled.",
+                        ["ui.settings.input.rebind_canceled"] = "Key reassignment canceled.",
                         ["ui.settings.input.reset_complete"] = "Input settings reset.",
                         ["ui.settings.input.reserved_key"] = "This key cannot be used.",
                         ["ui.settings.input.movement_conflict"] = "Movement keys cannot overlap.",

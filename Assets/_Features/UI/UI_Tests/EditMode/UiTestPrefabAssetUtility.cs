@@ -26,6 +26,8 @@ namespace Game.Feature.UI.Tests
         internal const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         internal const string ClimateCrisisKrFontAssetPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        internal const string ClimateCrisisKr2019FontAssetPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         internal const string PausePopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         internal const string ConfirmPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab";
 
@@ -143,6 +145,13 @@ namespace Game.Feature.UI.Tests
         {
             var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateCrisisKrFontAssetPath);
             Assert.That(font, Is.Not.Null, ClimateCrisisKrFontAssetPath);
+            return font;
+        }
+
+        internal static TMP_FontAsset LoadClimateCrisisKr2019Font()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateCrisisKr2019FontAssetPath);
+            Assert.That(font, Is.Not.Null, ClimateCrisisKr2019FontAssetPath);
             return font;
         }
 

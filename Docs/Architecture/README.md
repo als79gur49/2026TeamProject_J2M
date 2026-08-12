@@ -24,6 +24,8 @@
 
 - [Platform-Runtime-Foundation.md](./Platform-Runtime-Foundation.md)
   - current store-neutral provider request, resolution, Local default, and application lifecycle contract
+- [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
+  - product-global achievement IDs, earned ledger, pending publication outbox, atomic persistence, and store-neutral publication boundary
 - [Docs/Testing/Platform-Provider-Selection-Validation.md](../Testing/Platform-Provider-Selection-Validation.md)
   - focused source-only selection matrix, production-boundary probes, and mutation evidence rules
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)
@@ -213,6 +215,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
   - current supporting truth for committed LocalState active ownership and active commit point, application-session pending handoff, scene-local running context, matching-token failure policy, restart reset, and DirectPlay exception
 - [Campaign-Stage-Sequence-Authority.md](./Campaign-Stage-Sequence-Authority.md)
   - active Phase 3 contract for physical sequence SSOT, catalog eligibility coverage, CI/prebuild validation, and save compatibility ownership
+- [Product-Achievement-Foundation.md](./Product-Achievement-Foundation.md)
+  - current supporting truth for product-global achievement identity/ledger ownership, durable normal Campaign completion receipt provenance, canonical Saves-root composition, and deferred Gameplay/Steam integration boundaries
 
 ## Historical Supporting Notes
 

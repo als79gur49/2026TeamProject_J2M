@@ -3,6 +3,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
+using Game.Product.Achievements.CampaignIntegration;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -124,6 +125,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly CampaignStageSequenceResolver _sequenceResolver;
         private readonly StageRetryChanceTracker _retryChanceTracker;
         private readonly ITerminalTransitionPort _terminalTransitionPort;
+        private readonly EditorDirectPlayContext _editorDirectPlayContext;
+        private readonly INormalCampaignCompletionAchievementIntegration
+            _normalCampaignCompletionAchievementIntegration;
         private readonly TerminalArbitrationOwner _terminalArbiter = new();
         private GameplayHostPresentationFeed _presentationFeed;
         private bool _handledClear;
@@ -136,7 +140,10 @@ namespace Game.Feature.Gameplay.Host
             CampaignStageSequenceResolver sequenceResolver,
             IStageLaunchRouter stageLaunchRouter,
             CampaignChanceDisplayOverride chanceDisplayOverride,
-            ITerminalTransitionPort terminalTransitionPort)
+            ITerminalTransitionPort terminalTransitionPort,
+            EditorDirectPlayContext? editorDirectPlayContext = null,
+            INormalCampaignCompletionAchievementIntegration
+                normalCampaignCompletionAchievementIntegration = null)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _saveSlotStore = saveSlotStore ?? throw new ArgumentNullException(nameof(saveSlotStore));
@@ -146,6 +153,11 @@ namespace Game.Feature.Gameplay.Host
             _chanceDisplayOverride = chanceDisplayOverride;
             _terminalTransitionPort = terminalTransitionPort ??
                 throw new ArgumentNullException(nameof(terminalTransitionPort));
+            _editorDirectPlayContext = editorDirectPlayContext ??
+                EditorDirectPlayContextStore.GetCurrentOrNone();
+            _normalCampaignCompletionAchievementIntegration =
+                normalCampaignCompletionAchievementIntegration ??
+                UnavailableNormalCampaignCompletionAchievementIntegration.Instance;
             _retryChanceTracker = new StageRetryChanceTracker(_sequenceResolver);
         }
 
@@ -288,7 +300,8 @@ namespace Game.Feature.Gameplay.Host
                     route.NextStageId,
                     deathCount,
                     "campaign-death-retry")),
-                SceneTransitionIntent.DeathRetry);
+                SceneTransitionIntent.DeathRetry,
+                _editorDirectPlayContext.ForStage(route.NextStageId));
             try
             {
                 if (!_terminalTransitionPort.TryBegin(
@@ -377,7 +390,8 @@ namespace Game.Feature.Gameplay.Host
                     StageNavigationKind.Retry,
                     "level-failed-restart-level",
                     StageTransitionHint.ForKind(StageTransitionKind.LevelFailedRestart),
-                    SceneTransitionIntent.ManualRetry),
+                    SceneTransitionIntent.ManualRetry,
+                    _editorDirectPlayContext.ForStage(route.NextStageId)),
                 token));
         }
 
@@ -398,6 +412,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var runningSlotNumber = _runningSlotContext.SlotNumber;
+            var normalCompletion = TryCreateNormalCampaignCompletionFact(
+                result,
+                readModel,
+                claim,
+                completedStageId,
+                out var completionFact)
+                ? completionFact
+                : (NormalCampaignCompletionFact?)null;
             if (_sequenceResolver.IsFinal(completedStageId))
             {
                 if (!TerminalSessionRegistry.Authority.TrySetDestinationKind(
@@ -415,8 +437,24 @@ namespace Game.Feature.Gameplay.Host
                         mutableSlot.CurrentStageId = completedStageId;
                         mutableSlot.CurrentLevelGroupId = _sequenceResolver.GetLevelGroupId(completedStageId);
                         mutableSlot.CampaignCompleted = true;
+                        if (normalCompletion.HasValue &&
+                            !mutableSlot.HasNormalCampaignCompletionReceipt &&
+                            mutableSlot.NormalCampaignCompletionReceipt == null)
+                        {
+                            mutableSlot.HasNormalCampaignCompletionReceipt = true;
+                            mutableSlot.NormalCampaignCompletionReceipt =
+                                NormalCampaignCompletionReceiptPolicy.CreateV2(
+                                    normalCompletion.Value.StageId);
+                        }
+
                         mutableSlot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
                     });
+                if (normalCompletion.HasValue)
+                {
+                    TryEarnNormalCampaignCompletionAchievement(
+                        runningSlotNumber,
+                        normalCompletion.Value);
+                }
             }
             else
             {
@@ -469,6 +507,53 @@ namespace Game.Feature.Gameplay.Host
             }
 
             BeginVictoryTerminal(claim);
+        }
+
+        private void TryEarnNormalCampaignCompletionAchievement(
+            int runningSlotNumber,
+            NormalCampaignCompletionFact completion)
+        {
+            try
+            {
+                var committedSlot = _saveSlotStore.LoadSlot(runningSlotNumber);
+                _normalCampaignCompletionAchievementIntegration
+                    .TryEarnAfterCommittedCompletion(
+                        completion,
+                        _sequenceResolver,
+                        committedSlot);
+            }
+            catch
+            {
+                // Product achievement earning is a non-critical side effect. The durable
+                // Campaign receipt remains the next startup's recovery source.
+            }
+        }
+
+        private bool TryCreateNormalCampaignCompletionFact(
+            TickResult result,
+            MinimalStageCompletionReadModel readModel,
+            TerminalClaimResult claim,
+            StageId completedStageId,
+            out NormalCampaignCompletionFact completion)
+        {
+            completion = default;
+            if (!claim.Accepted ||
+                claim.TerminalKind != TerminalTransitionKind.Victory ||
+                result == null ||
+                result.ObjectiveResult == null ||
+                !result.ObjectiveResult.ClearedThisTick ||
+                readModel == null ||
+                !readModel.StageId.Equals(completedStageId) ||
+                readModel.FinalTickIndex != result.TickIndex ||
+                _editorDirectPlayContext.Mode != EditorDirectPlayMode.None ||
+                !_sequenceResolver.Contains(completedStageId) ||
+                !_sequenceResolver.IsFinal(completedStageId))
+            {
+                return false;
+            }
+
+            completion = new NormalCampaignCompletionFact(completedStageId);
+            return true;
         }
 
         private void BeginVictoryTerminal(TerminalClaimResult claim)

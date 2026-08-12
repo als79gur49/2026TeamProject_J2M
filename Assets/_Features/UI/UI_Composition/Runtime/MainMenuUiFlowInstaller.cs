@@ -14,7 +14,8 @@ using UnityEngine.UI;
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class MainMenuUiFlowInstaller : MonoBehaviour
+    public sealed class MainMenuUiFlowInstaller : MonoBehaviour,
+        ICampaignStageSequenceResolverProvider
     {
         private const string GameplayUiRootShellResourcePath =
             "UI/GameplayUiCanvasRootShell";
@@ -98,6 +99,35 @@ namespace Game.Feature.UI.Composition
 
         internal CampaignStageSequenceResolver CampaignStageSequenceResolverForDiagnostics =>
             _campaignStageSequenceResolver;
+
+        public bool TryCreateCampaignStageSequenceResolver(
+            out CampaignStageSequenceResolver resolver)
+        {
+            if (_campaignStageSequenceResolver != null)
+            {
+                resolver = _campaignStageSequenceResolver;
+                return true;
+            }
+
+            if (_campaignStageSequenceDefinition == null)
+            {
+                resolver = null;
+                return false;
+            }
+
+            try
+            {
+                _campaignStageSequenceResolver =
+                    new CampaignStageSequenceResolver(_campaignStageSequenceDefinition);
+                resolver = _campaignStageSequenceResolver;
+                return true;
+            }
+            catch
+            {
+                resolver = null;
+                return false;
+            }
+        }
 
         internal long SourceSceneGenerationForTests => _sourceSceneGeneration;
 
@@ -277,13 +307,7 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException(MissingStageCatalogProviderMessage);
             }
 
-            if (_campaignStageSequenceDefinition == null)
-            {
-                throw new InvalidOperationException(MissingCampaignStageSequenceDefinitionMessage);
-            }
-
-            _campaignStageSequenceResolver ??=
-                new CampaignStageSequenceResolver(_campaignStageSequenceDefinition);
+            RequireCampaignStageSequenceResolver();
 
             if (_popupPrefabCatalog == null)
             {
@@ -428,6 +452,23 @@ namespace Game.Feature.UI.Composition
                     SettingsScreenPayload.Default,
                     PopupController));
             _settingsPort = new MainMenuSettingsPortAdapter(_settingsOverlayController);
+        }
+
+        private CampaignStageSequenceResolver RequireCampaignStageSequenceResolver()
+        {
+            if (_campaignStageSequenceResolver != null)
+            {
+                return _campaignStageSequenceResolver;
+            }
+
+            if (_campaignStageSequenceDefinition == null)
+            {
+                throw new InvalidOperationException(MissingCampaignStageSequenceDefinitionMessage);
+            }
+
+            _campaignStageSequenceResolver =
+                new CampaignStageSequenceResolver(_campaignStageSequenceDefinition);
+            return _campaignStageSequenceResolver;
         }
 
         private void BuildSaveSlotModule()

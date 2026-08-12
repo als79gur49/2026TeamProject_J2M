@@ -186,6 +186,8 @@ namespace Game.Feature.UI.Composition.Editor
         public const string NanumGothicFontAssetPath = "Assets/_Shared/UI/Fonts/NanumGothic SDF.asset";
         public const string ClimateCrisisKrFontAssetPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        public const string ClimateCrisisKr2019FontAssetPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
 
         public static readonly TypographyPreviewScreenshotTarget[] RequiredTargets =
         {
@@ -343,7 +345,11 @@ namespace Game.Feature.UI.Composition.Editor
 
             Directory.CreateDirectory(outputDirectory);
             var assetMutationGuard = CaptureAssetMutationGuard.Capture(
-                DirtyGuardAssetPaths.Concat(new[] { ClimateCrisisKrFontAssetPath }));
+                DirtyGuardAssetPaths.Concat(new[]
+                {
+                    ClimateCrisisKrFontAssetPath,
+                    ClimateCrisisKr2019FontAssetPath,
+                }));
             try
             {
                 foreach (var target in targetList)
@@ -484,7 +490,7 @@ namespace Game.Feature.UI.Composition.Editor
                 case "M2BMovementConflict":
                 case "M2BAlreadyRebinding":
                 case "M2BRebindingPrompt":
-                    return 23;
+                    return 21;
 
                 default:
                     return 0;
@@ -2819,6 +2825,8 @@ namespace Game.Feature.UI.Composition.Editor
             "-captureAssetBaselineRoot";
         public const string ClimateFontAssetPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        public const string Climate2019FontAssetPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
 
         private readonly Dictionary<string, byte[]> snapshots =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -3006,7 +3014,8 @@ namespace Game.Feature.UI.Composition.Editor
             out string changedProperties)
         {
             changedProperties = "binary-or-unclassified";
-            if (!string.Equals(path, ClimateFontAssetPath, StringComparison.Ordinal))
+            if (!string.Equals(path, ClimateFontAssetPath, StringComparison.Ordinal) &&
+                !string.Equals(path, Climate2019FontAssetPath, StringComparison.Ordinal))
             {
                 return false;
             }

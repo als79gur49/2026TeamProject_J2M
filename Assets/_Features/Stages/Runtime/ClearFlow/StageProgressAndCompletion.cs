@@ -52,10 +52,14 @@ namespace Game.Feature.Stages
             }
 
             var nextStageRequest = ResolveNextStageRequest(stageId, sequenceResolver);
+            var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
             if (nextStageRequest.IsValid)
             {
                 nextStageRequest =
-                    nextStageRequest.WithTransitionIntent(SceneTransitionIntent.StageAdvance);
+                    nextStageRequest
+                        .WithTransitionIntent(SceneTransitionIntent.StageAdvance)
+                        .WithEditorDirectPlayContext(
+                            directPlayContext.ForStage(nextStageRequest.StageId));
             }
 
             var continueRequest = nextStageRequest.IsValid
@@ -65,13 +69,15 @@ namespace Game.Feature.Stages
                     StageNavigationKind.Continue,
                     "stage-result-continue",
                     StageTransitionHint.ForKind(StageTransitionKind.StageClearNext),
-                    SceneTransitionIntent.StageAdvance);
+                    SceneTransitionIntent.StageAdvance,
+                    directPlayContext.ForStage(stageId));
             var retryRequest = new StageNavigationRequest(
                 stageId,
                 StageNavigationKind.Retry,
                 "stage-result-retry",
                 StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
-                SceneTransitionIntent.ManualRetry);
+                SceneTransitionIntent.ManualRetry,
+                directPlayContext.ForStage(stageId));
 
             return new MinimalStageCompletionReadModel(
                 stageId,

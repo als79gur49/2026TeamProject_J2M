@@ -456,7 +456,7 @@ namespace Game.Feature.UI.Tests
                 }));
 
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(1));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/4)"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a pushable box on the button (1/4)"));
             Assert.That(presenter.ViewModel.Rows[0].IsGrouped, Is.True);
             Assert.That(presenter.ViewModel.Rows[0].CompletedCount, Is.EqualTo(1));
             Assert.That(presenter.ViewModel.Rows[0].RequiredCount, Is.EqualTo(4));
@@ -478,9 +478,9 @@ namespace Game.Feature.UI.Tests
                 }));
 
             Assert.That(presenter.ViewModel.Rows.Count, Is.EqualTo(2));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a pushable box on the button (1/2)"));
             Assert.That(presenter.ViewModel.Rows[0].RowKind, Is.EqualTo(ObjectiveHudRowKind.ButtonGroupGeneric));
-            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Place the MoonBlock on the button (0/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Place the moon-marked box on the button (0/2)"));
             Assert.That(presenter.ViewModel.Rows[1].RowKind, Is.EqualTo(ObjectiveHudRowKind.ButtonGroupMoon));
             Assert.That(presenter.ViewModel.Rows[0].StableId, Is.Not.EqualTo(presenter.ViewModel.Rows[1].StableId));
         }
@@ -564,7 +564,7 @@ namespace Game.Feature.UI.Tests
                 }));
 
             Assert.That(presenter.ViewModel.Rows[0].StableId, Is.EqualTo(stableId));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (2/4)"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a pushable box on the button (2/4)"));
             Assert.That(presenter.ViewModel.Rows[0].JustSatisfied, Is.False);
         }
 
@@ -583,8 +583,8 @@ namespace Game.Feature.UI.Tests
 
             var englishStableIds = presenter.ViewModel.Rows.Select(row => row.StableId).ToArray();
             Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("Objectives"));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/2)"));
-            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Place the MoonBlock on the button (0/1)"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a pushable box on the button (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("Place the moon-marked box on the button (0/1)"));
 
             resolver.SetLocale("ko-KR");
 
@@ -600,7 +600,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("en-US");
 
             Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("Objectives"));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a push box on the button (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("Place a pushable box on the button (1/2)"));
             Assert.That(
                 presenter.ViewModel.Rows.Select(row => row.StableId),
                 Is.EqualTo(englishStableIds));
@@ -947,12 +947,12 @@ namespace Game.Feature.UI.Tests
                     case ObjectiveHudLocalization.Keys.ActivateButton:
                         return korean
                             ? "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"
-                            : "Place a push box on the button ({0}/{1})";
+                            : "Place a pushable box on the button ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ActivateMoonButton:
                         return korean
                             ? "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"
-                            : "Place the MoonBlock on the button ({0}/{1})";
+                            : "Place the moon-marked box on the button ({0}/{1})";
 
                     default:
                         return string.Empty;

@@ -28,12 +28,16 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
         private const string ClimateSdfPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string Climate2019SdfPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         private byte[] _climateSerializedBaseline;
+        private byte[] _climate2019SerializedBaseline;
 
         [OneTimeSetUp]
         public void SnapshotClimateSerializedBaseline()
         {
             _climateSerializedBaseline = File.ReadAllBytes(ClimateSdfPath);
+            _climate2019SerializedBaseline = File.ReadAllBytes(Climate2019SdfPath);
         }
 
         [OneTimeTearDown]
@@ -44,6 +48,11 @@ namespace Game.Feature.UI.Tests
                 EditorUtility.ClearDirty(asset);
             }
             File.WriteAllBytes(ClimateSdfPath, _climateSerializedBaseline);
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(Climate2019SdfPath))
+            {
+                EditorUtility.ClearDirty(asset);
+            }
+            File.WriteAllBytes(Climate2019SdfPath, _climate2019SerializedBaseline);
         }
 
         [Test]
@@ -270,22 +279,18 @@ namespace Game.Feature.UI.Tests
         public void TerminalPrefabs_ApplySemanticTypographyAndPreserveAuthoredSizing()
         {
             var theme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(ThemePath);
-            var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateSdfPath);
             Assert.That(theme, Is.Not.Null);
-            Assert.That(climate, Is.Not.Null);
 
             AssertTypography(
                 UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
                 "_titleLabel",
                 TypographyStyleTag.HeaderLarge,
-                theme,
-                climate);
+                theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.StageResultScreenPrefabPath,
                 "_continueButtonLabel",
                 TypographyStyleTag.Button,
-                theme,
-                climate);
+                theme);
             var stageResultPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
             var stageResultTitle = stageResultPrefab
@@ -297,38 +302,32 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
                 "_titleLabel",
                 TypographyStyleTag.HeaderLarge,
-                theme,
-                climate);
+                theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
                 "_detailLabel",
                 TypographyStyleTag.Body,
-                theme,
-                climate);
+                theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
                 "_restartLevelButtonLabel",
                 TypographyStyleTag.Button,
-                theme,
-                climate);
+                theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
                 "_mainButtonLabel",
                 TypographyStyleTag.Button,
-                theme,
-                climate);
+                theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.GameClearScreenPrefabPath,
                 "_titleLabel",
                 TypographyStyleTag.HeaderLarge,
-                theme,
-                climate);
+                theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.GameClearScreenPrefabPath,
                 "_mainButtonLabel",
                 TypographyStyleTag.Button,
-                theme,
-                climate);
+                theme);
         }
 
         [Test]
@@ -493,8 +492,7 @@ namespace Game.Feature.UI.Tests
             string prefabPath,
             string fieldName,
             TypographyStyleTag role,
-            GameplayUiTypographyTheme theme,
-            TMP_FontAsset climate)
+            GameplayUiTypographyTheme theme)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
@@ -519,7 +517,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(target.fontSharedMaterial, Is.SameAs(originalMaterial), $"{prefabPath}:{fieldName}");
 
                 ApplyTypography(view, "ko-KR", theme);
-                Assert.That(target.font, Is.SameAs(climate), $"{prefabPath}:{fieldName}:{role}");
+                var expected = theme.ResolveOrThrow("ko-KR", role);
+                Assert.That(target.font, Is.SameAs(expected.FontAsset), $"{prefabPath}:{fieldName}:{role}");
+                Assert.That(
+                    target.fontSharedMaterial,
+                    Is.SameAs(expected.MaterialPreset),
+                    $"{prefabPath}:{fieldName}:{role}");
                 Assert.That(target.fontStyle, Is.EqualTo(FontStyles.Normal), $"{prefabPath}:{fieldName}:{role}");
                 Assert.That(target.fontSize, Is.EqualTo(originalSize), $"{prefabPath}:{fieldName}:{role}");
                 Assert.That(target.enableAutoSizing, Is.EqualTo(originalAutoSize), $"{prefabPath}:{fieldName}:{role}");

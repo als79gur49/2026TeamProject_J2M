@@ -12,12 +12,210 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Import-WindowsDistributionStagerTypes {
-    param([Parameter(Mandatory)][string]$Root)
+function Get-WindowsDistributionDriveType {
+    param([Parameter(Mandatory)][string]$Path)
 
-    if ($null -ne ("WindowsDistributionStager" -as [type])) {
+    $pathRoot = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Path))
+    try {
+        return ([IO.DriveInfo]::new($pathRoot)).DriveType
+    } catch {
+        throw "STAGING_POLICY_VALIDATOR_DRIVE_TYPE_UNAVAILABLE: $Path"
+    }
+}
+
+function Assert-WindowsDistributionLocalValidatorPath {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or
+        -not [IO.Path]::IsPathRooted($Path)) {
+        throw "STAGING_POLICY_VALIDATOR_PATH_INVALID: $Name"
+    }
+
+    $normalized = $Path.Replace('\', '/')
+    if ($normalized.StartsWith('//', [StringComparison]::Ordinal)) {
+        throw "STAGING_POLICY_VALIDATOR_NETWORK_PATH_REJECTED: $Name"
+    }
+
+    $driveType = Get-WindowsDistributionDriveType -Path $Path
+    if ($driveType -notin @(
+            [IO.DriveType]::Fixed,
+            [IO.DriveType]::Removable,
+            [IO.DriveType]::Ram)) {
+        throw "STAGING_POLICY_VALIDATOR_NETWORK_PATH_REJECTED: $Name"
+    }
+
+    $ancestors = @()
+    $current = [IO.Path]::GetFullPath($Path)
+    while (-not [string]::IsNullOrWhiteSpace($current)) {
+        $ancestors += $current
+        $trimmed = $current.TrimEnd('\', '/')
+        $parent = [IO.Path]::GetDirectoryName($trimmed)
+        if ([string]::IsNullOrWhiteSpace($parent) -or
+            $parent -ceq $current) {
+            break
+        }
+        $current = $parent
+    }
+    [array]::Reverse($ancestors)
+    foreach ($ancestor in $ancestors) {
+        if (-not (Test-Path -LiteralPath $ancestor)) {
+            break
+        }
+        $item = Get-Item -LiteralPath $ancestor -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED: $ancestor"
+        }
+    }
+}
+
+function Assert-WindowsDistributionLocalValidatorTree {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    Assert-WindowsDistributionLocalValidatorPath -Path $Path -Name $Name
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
         return
     }
+
+    $pending = [Collections.Generic.Queue[string]]::new()
+    $pending.Enqueue([IO.Path]::GetFullPath($Path))
+    while ($pending.Count -gt 0) {
+        $current = $pending.Dequeue()
+        foreach ($item in Get-ChildItem -LiteralPath $current -Force) {
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "STAGING_POLICY_VALIDATOR_REPARSE_PATH_REJECTED: $($item.FullName)"
+            }
+            if ($item.PSIsContainer) {
+                $pending.Enqueue($item.FullName)
+            }
+        }
+    }
+}
+
+function Resolve-WindowsDistributionDotnetPath {
+    $command = Get-Command dotnet.exe -CommandType Application `
+        -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $command -or [string]::IsNullOrWhiteSpace($command.Source)) {
+        throw "STAGING_POLICY_DOTNET_MISSING"
+    }
+    return [string]$command.Source
+}
+
+function Get-ValidatedWindowsDistributionDotnetPath {
+    $path = Resolve-WindowsDistributionDotnetPath
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $path `
+        -Name "dotnet compiler executable"
+    return $path
+}
+
+function Assert-WindowsDistributionStagerIdentity {
+    param(
+        [Parameter(Mandatory)][type]$StagerType,
+        [Parameter(Mandatory)][string]$ExpectedIdentity
+    )
+
+    $identityType = $StagerType.Assembly.GetType(
+        "WindowsDistributionStagerCompiledIdentity",
+        $false,
+        $false)
+    $identityField = if ($null -eq $identityType) {
+        $null
+    } else {
+        $identityType.GetField(
+            "SourceIdentitySha256",
+            [Reflection.BindingFlags]::Public -bor [Reflection.BindingFlags]::Static)
+    }
+    $actualIdentity = if ($null -eq $identityField) {
+        ""
+    } else {
+        [string]$identityField.GetRawConstantValue()
+    }
+    if ($actualIdentity -cne $ExpectedIdentity) {
+        throw "STAGING_POLICY_LOADED_IDENTITY_MISMATCH: expected $ExpectedIdentity, got $actualIdentity"
+    }
+}
+
+function Copy-WindowsDistributionValidatorSource {
+    param(
+        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string]$DestinationPath
+    )
+
+    [IO.File]::Copy($SourcePath, $DestinationPath, $true)
+}
+
+function Get-WindowsDistributionSourceHashes {
+    param([Parameter(Mandatory)][string[]]$Paths)
+
+    return [string[]]@($Paths | ForEach-Object {
+        (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
+    })
+}
+
+function Assert-WindowsDistributionSourceHashes {
+    param(
+        [Parameter(Mandatory)][string[]]$Paths,
+        [Parameter(Mandatory)][string[]]$ExpectedHashes,
+        [Parameter(Mandatory)][string]$FailureCode
+    )
+
+    $actualHashes = Get-WindowsDistributionSourceHashes -Paths $Paths
+    if ($actualHashes.Count -ne $ExpectedHashes.Count) {
+        throw $FailureCode
+    }
+    for ($index = 0; $index -lt $ExpectedHashes.Count; $index++) {
+        if ($actualHashes[$index] -cne $ExpectedHashes[$index]) {
+            throw $FailureCode
+        }
+    }
+}
+
+function Remove-WindowsDistributionValidatorBuildOutput {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (Test-Path -LiteralPath $Path -PathType Container) {
+        [IO.Directory]::Delete("\\?\$Path", $true)
+    }
+}
+
+function Enter-WindowsDistributionValidatorBuildLock {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [int]$TimeoutSeconds = 600
+    )
+
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $Path `
+        -Name "validator build lock"
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        try {
+            return [IO.File]::Open(
+                $Path,
+                [IO.FileMode]::OpenOrCreate,
+                [IO.FileAccess]::ReadWrite,
+                [IO.FileShare]::None)
+        } catch [IO.IOException] {
+            if ([DateTime]::UtcNow -ge $deadline) {
+                throw "STAGING_POLICY_BUILD_LOCK_TIMEOUT: $Path"
+            }
+            Start-Sleep -Milliseconds 100
+        }
+    } while ($true)
+}
+
+function Import-WindowsDistributionStagerTypes {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [switch]$OfflineOnly,
+        [string]$CacheRoot = ""
+    )
 
     $sourcePaths = @(
         "Assets\_Features\Stages\Editor\Build\WindowsDistributionTargetPolicy.cs",
@@ -26,14 +224,16 @@ function Import-WindowsDistributionStagerTypes {
     ) | ForEach-Object { Join-Path $Root $_ }
 
     foreach ($sourcePath in $sourcePaths) {
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path $sourcePath `
+            -Name "validator source"
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
             throw "STAGING_POLICY_SOURCE_MISSING: $sourcePath"
         }
     }
 
-    $sourceIdentity = ($sourcePaths | ForEach-Object {
-        (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
-    }) -join "-"
+    $sourceHashes = Get-WindowsDistributionSourceHashes -Paths $sourcePaths
+    $sourceIdentity = "typed-validator-v4-" + ($sourceHashes -join "-")
     $identityBytes = [Text.Encoding]::UTF8.GetBytes($sourceIdentity)
     $identityHash = [Security.Cryptography.SHA256]::Create()
     try {
@@ -43,17 +243,71 @@ function Import-WindowsDistributionStagerTypes {
         $identityHash.Dispose()
     }
 
-    $compileRoot = Join-Path ([IO.Path]::GetTempPath()) `
-        (Join-Path "VectorQuakeDistributionStager" $cacheKey)
+    $compileCacheRoot = if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
+        Join-Path ([IO.Path]::GetTempPath()) "VectorQuakeDistributionStager"
+    } else {
+        [IO.Path]::GetFullPath($CacheRoot)
+    }
+    $compileRoot = Join-Path $compileCacheRoot $cacheKey
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $compileRoot `
+        -Name "compile cache"
+    Assert-WindowsDistributionLocalValidatorTree `
+        -Path $compileRoot `
+        -Name "compile cache"
+
+    $loadedStagerType = "WindowsDistributionStager" -as [type]
+    if ($null -ne $loadedStagerType) {
+        Assert-WindowsDistributionStagerIdentity `
+            -StagerType $loadedStagerType `
+            -ExpectedIdentity $cacheKey
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path ([string]$loadedStagerType.Assembly.Location) `
+            -Name "loaded validator assembly"
+        Assert-WindowsDistributionSourceHashes `
+            -Paths $sourcePaths `
+            -ExpectedHashes $sourceHashes `
+            -FailureCode "STAGING_POLICY_LIVE_SOURCE_MISMATCH"
+        return
+    }
+
     $assemblyPath = Join-Path $compileRoot "bin\VectorQuake.DistributionStager.dll"
+    Assert-WindowsDistributionLocalValidatorPath `
+        -Path $assemblyPath `
+        -Name "compiled validator assembly"
     if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
         New-Item -ItemType Directory -Path $compileRoot -Force | Out-Null
-        foreach ($sourcePath in $sourcePaths) {
-            [IO.File]::Copy(
-                $sourcePath,
-                (Join-Path $compileRoot ([IO.Path]::GetFileName($sourcePath))),
-                $true)
+        $buildLock = Enter-WindowsDistributionValidatorBuildLock `
+            -Path (Join-Path $compileRoot ".build.lock")
+        try {
+            if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+                Assert-WindowsDistributionLocalValidatorTree `
+                    -Path $compileRoot `
+                    -Name "compile cache"
+        $snapshotPaths = [string[]]@($sourcePaths | ForEach-Object {
+            Join-Path $compileRoot ([IO.Path]::GetFileName($_))
+        })
+        for ($index = 0; $index -lt $sourcePaths.Count; $index++) {
+            Copy-WindowsDistributionValidatorSource `
+                -SourcePath $sourcePaths[$index] `
+                -DestinationPath $snapshotPaths[$index]
         }
+        Assert-WindowsDistributionSourceHashes `
+            -Paths $snapshotPaths `
+            -ExpectedHashes $sourceHashes `
+            -FailureCode "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+        $compiledIdentityPath = Join-Path $compileRoot `
+            "WindowsDistributionStagerCompiledIdentity.cs"
+        $compiledIdentity = @"
+public static class WindowsDistributionStagerCompiledIdentity
+{
+    public const string SourceIdentitySha256 = "$cacheKey";
+}
+"@
+        [IO.File]::WriteAllText(
+            $compiledIdentityPath,
+            $compiledIdentity,
+            [Text.UTF8Encoding]::new($false))
         $projectPath = Join-Path $compileRoot "VectorQuake.DistributionStager.csproj"
         $project = @'
 <Project Sdk="Microsoft.NET.Sdk">
@@ -67,16 +321,241 @@ function Import-WindowsDistributionStagerTypes {
 '@
         [IO.File]::WriteAllText(
             $projectPath, $project, [Text.UTF8Encoding]::new($false))
-        $buildOutput = @(& dotnet.exe build $projectPath `
-            --configuration Release --output (Join-Path $compileRoot "bin") `
-            --nologo --verbosity quiet 2>&1)
-        if ($LASTEXITCODE -ne 0 -or
-            -not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
-            throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"
+        $buildOutputRoot = Join-Path $compileRoot `
+            (".preparing-bin-" + [Guid]::NewGuid().ToString("N"))
+        $preparedAssemblyPath = Join-Path $buildOutputRoot `
+            "VectorQuake.DistributionStager.dll"
+        Assert-WindowsDistributionLocalValidatorPath `
+            -Path $buildOutputRoot `
+            -Name "private validator build output"
+        Assert-WindowsDistributionLocalValidatorTree `
+            -Path $compileRoot `
+            -Name "compile cache"
+        $dotnetPath = Get-ValidatedWindowsDistributionDotnetPath
+        if ($OfflineOnly) {
+            $offlineSource = Join-Path `
+                ([Environment]::GetFolderPath("UserProfile")) `
+                ".nuget\packages"
+            $packagesRoot = Join-Path $compileRoot "global-packages"
+            $dotnetCliHome = Join-Path $compileRoot "dotnet-cli-home"
+            $intermediateRoot = Join-Path $compileRoot "obj"
+            $nugetScratch = Join-Path $compileRoot "nuget-scratch"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $offlineSource `
+                -Name "offline package seed"
+            if (-not (Test-Path -LiteralPath $offlineSource -PathType Container)) {
+                throw "STAGING_POLICY_OFFLINE_PACKAGE_SEED_MISSING: $offlineSource"
+            }
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $offlineSource `
+                -Name "offline package seed"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $packagesRoot `
+                -Name "offline global packages"
+            New-Item -ItemType Directory -Path $packagesRoot -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $packagesRoot `
+                -Name "offline global packages"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $dotnetCliHome `
+                -Name "offline dotnet CLI home"
+            New-Item -ItemType Directory -Path $dotnetCliHome -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $dotnetCliHome `
+                -Name "offline dotnet CLI home"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $intermediateRoot `
+                -Name "offline intermediate output"
+            New-Item -ItemType Directory -Path $intermediateRoot -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $intermediateRoot `
+                -Name "offline intermediate output"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $nugetScratch `
+                -Name "offline NuGet scratch"
+            New-Item -ItemType Directory -Path $nugetScratch -Force | Out-Null
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $nugetScratch `
+                -Name "offline NuGet scratch"
+            $nugetConfigPath = Join-Path $compileRoot "NuGet.Offline.Config"
+            $offlineSourceXml = [Security.SecurityElement]::Escape($offlineSource)
+            $nugetConfig = @"
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="offline" value="$offlineSourceXml" />
+  </packageSources>
+</configuration>
+"@
+            [IO.File]::WriteAllText(
+                $nugetConfigPath, $nugetConfig, [Text.UTF8Encoding]::new($false))
+            $previousTelemetry = $env:DOTNET_CLI_TELEMETRY_OPTOUT
+            $previousFirstTime = $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE
+            $previousWorkloadUpdate = `
+                $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE
+            $previousCertificateRevocation = $env:NUGET_CERT_REVOCATION_MODE
+            $previousDotnetCliHome = $env:DOTNET_CLI_HOME
+            $previousMsBuildSdksPath = $env:MSBuildSDKsPath
+            $previousCustomBeforeCommonProps = `
+                $env:CustomBeforeMicrosoftCommonProps
+            $previousCustomAfterCommonProps = `
+                $env:CustomAfterMicrosoftCommonProps
+            $previousCustomBeforeCommonTargets = `
+                $env:CustomBeforeMicrosoftCommonTargets
+            $previousCustomAfterCommonTargets = `
+                $env:CustomAfterMicrosoftCommonTargets
+            $previousRestoreSources = $env:RestoreSources
+            $previousRestoreAdditionalSources = `
+                $env:RestoreAdditionalProjectSources
+            $previousRestoreFallbackFolders = $env:RestoreFallbackFolders
+            $previousRestoreAdditionalFallbackFolders = `
+                $env:RestoreAdditionalProjectFallbackFolders
+            $previousMsBuildExtensionsPath = $env:MSBuildExtensionsPath
+            $previousMsBuildUserExtensionsPath = `
+                $env:MSBuildUserExtensionsPath
+            $previousMsBuildProjectExtensionsPath = `
+                $env:MSBuildProjectExtensionsPath
+            $previousBaseIntermediateOutputPath = `
+                $env:BaseIntermediateOutputPath
+            $previousIntermediateOutputPath = $env:IntermediateOutputPath
+            $previousNugetScratch = $env:NUGET_SCRATCH
+            try {
+                $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+                $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
+                $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = "1"
+                $env:NUGET_CERT_REVOCATION_MODE = "offline"
+                $env:DOTNET_CLI_HOME = $dotnetCliHome
+                $env:MSBuildSDKsPath = $null
+                $env:CustomBeforeMicrosoftCommonProps = $null
+                $env:CustomAfterMicrosoftCommonProps = $null
+                $env:CustomBeforeMicrosoftCommonTargets = $null
+                $env:CustomAfterMicrosoftCommonTargets = $null
+                $env:RestoreSources = $null
+                $env:RestoreAdditionalProjectSources = $null
+                $env:RestoreFallbackFolders = $null
+                $env:RestoreAdditionalProjectFallbackFolders = $null
+                $env:MSBuildExtensionsPath = $null
+                $env:MSBuildUserExtensionsPath = $null
+                $env:MSBuildProjectExtensionsPath = $null
+                $env:BaseIntermediateOutputPath = $null
+                $env:IntermediateOutputPath = $null
+                $env:NUGET_SCRATCH = $nugetScratch
+                $restoreOutput = @(& $dotnetPath restore $projectPath `
+                    --configfile $nugetConfigPath --no-cache `
+                    --packages $packagesRoot `
+                    "-p:RestoreSources=$offlineSource" `
+                    -p:RestoreAdditionalProjectSources= `
+                    -p:RestoreFallbackFolders= `
+                    -p:RestoreAdditionalProjectFallbackFolders= `
+                    "-p:BaseIntermediateOutputPath=$intermediateRoot\" `
+                    "-p:MSBuildProjectExtensionsPath=$intermediateRoot\" `
+                    -p:NuGetAudit=false `
+                    -p:ImportDirectoryBuildProps=false `
+                    -p:ImportDirectoryBuildTargets=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonProps=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonProps=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonTargets=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonTargets=false `
+                    --nologo --verbosity quiet 2>&1)
+                if ($LASTEXITCODE -ne 0) {
+                    throw "STAGING_POLICY_OFFLINE_RESTORE_FAILED: $($restoreOutput -join [Environment]::NewLine)"
+                }
+                $buildOutput = @(& $dotnetPath build $projectPath `
+                    --configuration Release `
+                    --output $buildOutputRoot `
+                    "-p:BaseIntermediateOutputPath=$intermediateRoot\" `
+                    "-p:MSBuildProjectExtensionsPath=$intermediateRoot\" `
+                    -p:ImportDirectoryBuildProps=false `
+                    -p:ImportDirectoryBuildTargets=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonProps=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonProps=false `
+                    -p:ImportByWildcardBeforeMicrosoftCommonTargets=false `
+                    -p:ImportByWildcardAfterMicrosoftCommonTargets=false `
+                    --no-restore --nologo --verbosity quiet 2>&1)
+                $buildExitCode = $LASTEXITCODE
+            } finally {
+                $env:DOTNET_CLI_TELEMETRY_OPTOUT = $previousTelemetry
+                $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = $previousFirstTime
+                $env:DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE = `
+                    $previousWorkloadUpdate
+                $env:NUGET_CERT_REVOCATION_MODE = `
+                    $previousCertificateRevocation
+                $env:DOTNET_CLI_HOME = $previousDotnetCliHome
+                $env:MSBuildSDKsPath = $previousMsBuildSdksPath
+                $env:CustomBeforeMicrosoftCommonProps = `
+                    $previousCustomBeforeCommonProps
+                $env:CustomAfterMicrosoftCommonProps = `
+                    $previousCustomAfterCommonProps
+                $env:CustomBeforeMicrosoftCommonTargets = `
+                    $previousCustomBeforeCommonTargets
+                $env:CustomAfterMicrosoftCommonTargets = `
+                    $previousCustomAfterCommonTargets
+                $env:RestoreSources = $previousRestoreSources
+                $env:RestoreAdditionalProjectSources = `
+                    $previousRestoreAdditionalSources
+                $env:RestoreFallbackFolders = $previousRestoreFallbackFolders
+                $env:RestoreAdditionalProjectFallbackFolders = `
+                    $previousRestoreAdditionalFallbackFolders
+                $env:MSBuildExtensionsPath = $previousMsBuildExtensionsPath
+                $env:MSBuildUserExtensionsPath = `
+                    $previousMsBuildUserExtensionsPath
+                $env:MSBuildProjectExtensionsPath = `
+                    $previousMsBuildProjectExtensionsPath
+                $env:BaseIntermediateOutputPath = `
+                    $previousBaseIntermediateOutputPath
+                $env:IntermediateOutputPath = $previousIntermediateOutputPath
+                $env:NUGET_SCRATCH = $previousNugetScratch
+            }
+        } else {
+            $buildOutput = @(& $dotnetPath build $projectPath `
+                --configuration Release --output $buildOutputRoot `
+                --nologo --verbosity quiet 2>&1)
+            $buildExitCode = $LASTEXITCODE
+        }
+        try {
+            Assert-WindowsDistributionLocalValidatorTree `
+                -Path $compileRoot `
+                -Name "compile cache"
+            Assert-WindowsDistributionLocalValidatorPath `
+                -Path $preparedAssemblyPath `
+                -Name "private compiled validator assembly"
+            if ($buildExitCode -ne 0 -or
+                -not (Test-Path -LiteralPath $preparedAssemblyPath -PathType Leaf)) {
+                throw "STAGING_POLICY_COMPILE_FAILED: $($buildOutput -join [Environment]::NewLine)"
+            }
+            Assert-WindowsDistributionSourceHashes `
+                -Paths $snapshotPaths `
+                -ExpectedHashes $sourceHashes `
+                -FailureCode "STAGING_POLICY_SOURCE_SNAPSHOT_MISMATCH"
+            Assert-WindowsDistributionSourceHashes `
+                -Paths $sourcePaths `
+                -ExpectedHashes $sourceHashes `
+                -FailureCode "STAGING_POLICY_SOURCE_CHANGED_DURING_COMPILE"
+            [IO.Directory]::Move($buildOutputRoot, (Join-Path $compileRoot "bin"))
+                } catch {
+                    Remove-WindowsDistributionValidatorBuildOutput `
+                        -Path $buildOutputRoot
+                    throw
+                }
+            }
+        } finally {
+            $buildLock.Dispose()
         }
     }
 
     [void][Reflection.Assembly]::LoadFrom($assemblyPath)
+    $loadedStagerType = "WindowsDistributionStager" -as [type]
+    if ($null -eq $loadedStagerType) {
+        throw "STAGING_POLICY_COMPILE_FAILED: validator type was not loaded."
+    }
+    Assert-WindowsDistributionStagerIdentity `
+        -StagerType $loadedStagerType `
+        -ExpectedIdentity $cacheKey
+    Assert-WindowsDistributionSourceHashes `
+        -Paths $sourcePaths `
+        -ExpectedHashes $sourceHashes `
+        -FailureCode "STAGING_POLICY_LIVE_SOURCE_MISMATCH"
 }
 
 function Get-StagingSourceIdentity {

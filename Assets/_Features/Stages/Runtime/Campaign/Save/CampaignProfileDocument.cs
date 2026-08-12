@@ -5,6 +5,8 @@ namespace Game.Feature.Stages
     [Serializable]
     public sealed class CampaignProfileDocument
     {
+        public const int CurrentSchemaVersion = 1;
+
         public int SchemaVersion;
         public string ProductVersion;
         public string SavedAtUtc;

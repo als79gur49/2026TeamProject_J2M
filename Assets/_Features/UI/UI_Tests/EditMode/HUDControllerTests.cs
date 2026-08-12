@@ -1083,7 +1083,7 @@ namespace Game.Feature.UI.Tests
                 objectiveView.Bind(viewModel);
 
                 var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
-                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a push box on the button (2/4)"));
+                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a pushable box on the button (2/4)"));
                 Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(0));
                 Assert.That(GetProgressHighlightAlpha(row), Is.Zero);
                 Assert.That(row.GetComponent<Animator>().GetBool("Active"), Is.False);
@@ -1127,7 +1127,7 @@ namespace Game.Feature.UI.Tests
                     });
 
                 Assert.That(FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons"), Is.SameAs(row));
-                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a push box on the button (2/4)"));
+                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a pushable box on the button (2/4)"));
                 Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(1));
                 Assert.That(GetProgressHighlightAlpha(row), Is.GreaterThan(0.0f));
                 Assert.That(GetProgressPulseScaleTarget(row).localScale.x, Is.GreaterThan(1.0f));
@@ -1218,7 +1218,7 @@ namespace Game.Feature.UI.Tests
                 CompleteObjectiveEnter(objectiveView, aRow);
                 var pendingRow = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
 
-                Assert.That(FindObjectiveLabel(pendingRow.transform).text, Is.EqualTo("Place a push box on the button (1/4)"));
+                Assert.That(FindObjectiveLabel(pendingRow.transform).text, Is.EqualTo("Place a pushable box on the button (1/4)"));
                 Assert.That(GetProgressPulsePlayCount(pendingRow), Is.EqualTo(0));
             }
             finally
@@ -1511,7 +1511,7 @@ namespace Game.Feature.UI.Tests
                     });
 
                 var row = FindObjectiveRuntimeRow(objectiveListRoot, itemTemplate, "buttons");
-                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a push box on the button (2/4)"));
+                Assert.That(FindObjectiveLabel(row.transform).text, Is.EqualTo("Place a pushable box on the button (2/4)"));
                 Assert.That(GetProgressPulsePlayCount(row), Is.EqualTo(0));
             }
             finally
@@ -1990,7 +1990,7 @@ namespace Game.Feature.UI.Tests
         {
             return new ObjectiveConditionHudViewModel(
                 stableId,
-                $"Place a push box on the button ({completedCount}/{requiredCount})",
+                $"Place a pushable box on the button ({completedCount}/{requiredCount})",
                 isSatisfied,
                 justSatisfied,
                 isGrouped: true,

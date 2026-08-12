@@ -14,7 +14,8 @@ namespace Game.Feature.Stages
             int slotNumber,
             StageId stageId,
             StageNavigationKind navigationKind,
-            string source)
+            string source,
+            EditorDirectPlayContext editorDirectPlayContext = default)
         {
             if (token == Guid.Empty)
             {
@@ -49,6 +50,7 @@ namespace Game.Feature.Stages
             StageId = stageId;
             NavigationKind = navigationKind;
             Source = source;
+            EditorDirectPlayContext = editorDirectPlayContext.ForStage(stageId);
         }
 
         public Guid Token { get; }
@@ -65,7 +67,15 @@ namespace Game.Feature.Stages
 
         public string Source { get; }
 
+        public EditorDirectPlayContext EditorDirectPlayContext { get; }
+
         public bool HasCampaignSlot => SaveSlotStore.IsValidSlotNumber(SlotNumber);
+
+        public bool IsEditorDirectPlayBootstrap =>
+            SlotNumber == 0 &&
+            NavigationKind == StageNavigationKind.Continue &&
+            string.Equals(Source, "editor-direct-play", StringComparison.Ordinal) &&
+            EditorDirectPlayContext.Mode == EditorDirectPlayMode.None;
 
         public static StageLaunchContext FromHandoff(CampaignLaunchHandoff handoff)
         {
@@ -94,7 +104,8 @@ namespace Game.Feature.Stages
                 0,
                 request.StageId,
                 request.NavigationKind,
-                request.Source);
+                request.Source,
+                request.EditorDirectPlayContext);
         }
 
         internal static StageLaunchContext CreateDirectPlay(StageId stageId)
@@ -122,7 +133,8 @@ namespace Game.Feature.Stages
             return request.IsValid &&
                    StageId.Equals(request.StageId) &&
                    NavigationKind == request.NavigationKind &&
-                   string.Equals(Source, request.Source, StringComparison.Ordinal);
+                   string.Equals(Source, request.Source, StringComparison.Ordinal) &&
+                   EditorDirectPlayContext.Equals(request.EditorDirectPlayContext);
         }
 
         public bool Equals(StageLaunchContext other)
@@ -132,7 +144,8 @@ namespace Game.Feature.Stages
                    SlotNumber == other.SlotNumber &&
                    StageId.Equals(other.StageId) &&
                    NavigationKind == other.NavigationKind &&
-                   string.Equals(Source, other.Source, StringComparison.Ordinal);
+                   string.Equals(Source, other.Source, StringComparison.Ordinal) &&
+                   EditorDirectPlayContext.Equals(other.EditorDirectPlayContext);
         }
 
         public override bool Equals(object obj)
@@ -149,6 +162,7 @@ namespace Game.Feature.Stages
                 hash = (hash * 397) ^ StageId.GetHashCode();
                 hash = (hash * 397) ^ (int)NavigationKind;
                 hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(Source);
+                hash = (hash * 397) ^ EditorDirectPlayContext.GetHashCode();
                 return hash;
             }
         }
@@ -156,7 +170,7 @@ namespace Game.Feature.Stages
         public override string ToString()
         {
             return
-                $"StageLaunchContext(slot={SlotNumber}, stage={StageId.Value}, navigation={NavigationKind}, source={Source}, token={Token:N})";
+                $"StageLaunchContext(slot={SlotNumber}, stage={StageId.Value}, navigation={NavigationKind}, source={Source}, directPlay={EditorDirectPlayContext.Mode}, token={Token:N})";
         }
     }
 
@@ -171,6 +185,7 @@ namespace Game.Feature.Stages
         private static TryGetPendingStageLaunchContext tryConsumePendingEditorDirectPlay;
         private static Func<StageLaunchContext, bool> tryClearPendingEditorDirectPlay;
         private static Action clearPendingEditorDirectPlay;
+        private static Action<StageLaunchContext> currentContextRegistered;
         private static StageLaunchContext fallbackPendingEditorDirectPlay;
 
         public static StageId CurrentStageId =>
@@ -194,6 +209,7 @@ namespace Game.Feature.Stages
             }
 
             ClearPendingEditorDirectPlayInternal();
+            currentContextRegistered?.Invoke(context);
             return true;
         }
 
@@ -340,13 +356,15 @@ namespace Game.Feature.Stages
             TryGetPendingStageLaunchContext tryPeekPending,
             TryGetPendingStageLaunchContext tryConsumePending,
             Func<StageLaunchContext, bool> tryClearPending,
-            Action clearPending)
+            Action clearPending,
+            Action<StageLaunchContext> onCurrentContextRegistered = null)
         {
             primePendingEditorDirectPlay = primePending;
             tryPeekPendingEditorDirectPlay = tryPeekPending;
             tryConsumePendingEditorDirectPlay = tryConsumePending;
             tryClearPendingEditorDirectPlay = tryClearPending;
             clearPendingEditorDirectPlay = clearPending;
+            currentContextRegistered = onCurrentContextRegistered;
         }
 
         public static StageLaunchContext PrimePendingEditorDirectPlay(StageId stageId)

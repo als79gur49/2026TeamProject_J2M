@@ -23,12 +23,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             _activeSlotKey = $"{nameof(DemoStageControlTests)}.Active.{Guid.NewGuid():N}";
             ClearDefaultSaveSlotPlayerPrefs();
             StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
         }
 
         [TearDown]
         public void TearDown()
         {
             StageLaunchContextStore.Clear();
+            EditorDirectPlayContextStore.Clear();
             ClearDefaultSaveSlotPlayerPrefs();
             if (!string.IsNullOrWhiteSpace(_saveSlotKey))
             {
@@ -75,6 +77,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var first = CreateEntry("stage-0-1");
             var selected = CreateEntry("stage-1-1");
             var service = CreateService(new[] { first, selected }, out var saveStore, out var router);
+            var directPlayContext = EditorDirectPlayContext.CreateCampaignTempSlot(
+                first.StageId,
+                SaveSlotStore.DefaultRemainingChances);
+            EditorDirectPlayContextStore.SetCurrent(directPlayContext);
 
             var result = service.StartStage(selected.StageId);
 
@@ -90,6 +96,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 router.Requests[0].TransitionIntent,
                 Is.EqualTo(SceneTransitionIntent.DemoStageRelaunch));
+            Assert.That(
+                router.Requests[0].EditorDirectPlayContext,
+                Is.EqualTo(directPlayContext.ForStage(selected.StageId)));
         }
 
         [Test]

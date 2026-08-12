@@ -156,6 +156,41 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void ImportCandidateClone_PreservesNormalCampaignCompletionReceipt()
+        {
+            var importedDocument = CreateDocument("legacy-profile-with-receipt");
+            var sourceReceipt = new NormalCampaignCompletionReceiptDocument
+            {
+                Version = NormalCampaignCompletionReceipt.CurrentVersion,
+                CompletedStageId = "stage-5-1",
+                StageRunId = string.Empty,
+                ClearSource = NormalCampaignCompletionReceipt.LegacyClearSourceAbsent,
+            };
+            importedDocument.Slots[0].HasNormalCampaignCompletionReceipt = true;
+            importedDocument.Slots[0].NormalCampaignCompletionReceipt = sourceReceipt;
+            var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.Missing));
+            var importer = new RecordingImporter(
+                LegacyResult(CampaignLegacyImportStatus.Importable, importedDocument, "source-hash"));
+
+            var result = CreateCoordinator(
+                    repository,
+                    importer,
+                    options: new CampaignSaveMigrationOptions { EnableProfileWrite = true })
+                .Run();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignSaveMigrationStatus.ImportSucceeded));
+            Assert.That(repository.SaveCount, Is.EqualTo(1));
+            var savedSlot = repository.SavedDocument.Slots[0];
+            Assert.That(savedSlot.HasNormalCampaignCompletionReceipt, Is.True);
+            Assert.That(savedSlot.NormalCampaignCompletionReceipt, Is.Not.Null);
+            Assert.That(savedSlot.NormalCampaignCompletionReceipt, Is.Not.SameAs(sourceReceipt));
+            Assert.That(savedSlot.NormalCampaignCompletionReceipt.Version, Is.EqualTo(sourceReceipt.Version));
+            Assert.That(savedSlot.NormalCampaignCompletionReceipt.CompletedStageId, Is.EqualTo(sourceReceipt.CompletedStageId));
+            Assert.That(savedSlot.NormalCampaignCompletionReceipt.StageRunId, Is.EqualTo(sourceReceipt.StageRunId));
+            Assert.That(savedSlot.NormalCampaignCompletionReceipt.ClearSource, Is.EqualTo(sourceReceipt.ClearSource));
+        }
+
+        [Test]
         public void ImportSuccess_RecordsLocalImportedSourceHashMarker()
         {
             var marker = new RecordingMarkerStore();

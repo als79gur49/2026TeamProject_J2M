@@ -26,7 +26,7 @@ namespace Game.Feature.Stages
 
             return new CampaignProfileDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = productVersion ?? string.Empty,
                 SavedAtUtc = savedAtUtc ?? string.Empty,
                 ProfileId = profileId ?? string.Empty,
@@ -50,11 +50,50 @@ namespace Game.Feature.Stages
                 LevelGroupId = slot.CurrentLevelGroupId ?? string.Empty,
                 RemainingChances = slot.RemainingChances,
                 CampaignCompleted = slot.CampaignCompleted,
+                HasNormalCampaignCompletionReceipt =
+                    slot.HasNormalCampaignCompletionReceipt ||
+                    slot.NormalCampaignCompletionReceipt != null,
+                NormalCampaignCompletionReceipt = ToReceiptDocument(
+                    slot.NormalCampaignCompletionReceipt),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = ToStageClearProfileDocument(slot.StageClearProfileSnapshot),
+            };
+        }
+
+        public static NormalCampaignCompletionReceiptDocument ToReceiptDocument(
+            NormalCampaignCompletionReceipt receipt)
+        {
+            if (receipt == null)
+            {
+                return null;
+            }
+
+            return new NormalCampaignCompletionReceiptDocument
+            {
+                Version = receipt.Version,
+                CompletedStageId = receipt.CompletedStageId ?? string.Empty,
+                StageRunId = receipt.StageRunId ?? string.Empty,
+                ClearSource = receipt.ClearSource,
+            };
+        }
+
+        public static NormalCampaignCompletionReceipt ToReceipt(
+            NormalCampaignCompletionReceiptDocument document)
+        {
+            if (document == null)
+            {
+                return null;
+            }
+
+            return new NormalCampaignCompletionReceipt
+            {
+                Version = document.Version,
+                CompletedStageId = document.CompletedStageId ?? string.Empty,
+                StageRunId = document.StageRunId ?? string.Empty,
+                ClearSource = document.ClearSource,
             };
         }
 

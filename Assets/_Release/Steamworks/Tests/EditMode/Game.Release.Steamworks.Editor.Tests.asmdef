@@ -1,0 +1,16 @@
+{
+  "name": "Game.Release.Steamworks.Editor.Tests",
+  "rootNamespace": "Game.Release.Steamworks.Editor.Tests",
+  "references": [
+    "Game.Feature.Stages.Editor",
+    "Game.Platform.Steam",
+    "Game.Product.Achievements.Domain",
+    "Game.Release.Steamworks.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

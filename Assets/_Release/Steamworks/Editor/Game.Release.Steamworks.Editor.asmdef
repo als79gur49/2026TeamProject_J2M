@@ -1,0 +1,12 @@
+{
+  "name": "Game.Release.Steamworks.Editor",
+  "rootNamespace": "Game.Release.Steamworks.Editor",
+  "references": [
+    "Game.Feature.Stages.Editor",
+    "Game.Platform.Steam",
+    "Game.Product.Achievements.Domain"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

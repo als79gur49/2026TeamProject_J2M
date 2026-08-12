@@ -2,6 +2,8 @@
   "name": "Game.Platform.Steam",
   "rootNamespace": "Game.Platform.Steam",
   "references": [
-    "Game.Platform.Runtime"
+    "Game.Platform.Runtime",
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Composition"
   ]
 }

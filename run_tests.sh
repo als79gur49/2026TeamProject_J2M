@@ -145,14 +145,14 @@ OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT="${OBJECTIVE_HUD_VISUAL_OUTPUT_ROOT:-$CAPTURE_O
 OBJECTIVE_HUD_VISUAL_WIDTH=1920
 OBJECTIVE_HUD_VISUAL_HEIGHT=1080
 OBJECTIVE_HUD_VISUAL_EXECUTE_METHOD="Game.Feature.UI.Tests.ObjectiveHudVisualEvidenceUtility.CaptureFromCommandLine"
-OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
+OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset"
 M1A_HUD_GUIDE_VISUAL_OUTPUT_ROOT="$PROJECT_PATH_WSL/TestLogs/M1aHudGuideVisualQA"
 M1A_HUD_GUIDE_VISUAL_WIDTH=1920
 M1A_HUD_GUIDE_VISUAL_HEIGHT=1080
 CLIMATE_GLYPH_UPDATE_EXECUTE_METHOD="Game.Feature.UI.Composition.Editor.ClimateCrisisKrGlyphUpdateUtility.GenerateFromCommandLine"
 CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
 CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
-CLIMATE_SDF_ASSET="$OBJECTIVE_HUD_VISUAL_CLIMATE_ASSET"
+CLIMATE_SDF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
 CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
 CLIMATE_COMMITTED_SDF_SHA256="66193afe72fe9e2c4de11596ed68c1eb038fffb7f0f71b8605669f68922c459f"
 CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
@@ -160,6 +160,16 @@ CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
 CLIMATE_MATERIAL_LOCAL_ID="1352911973252649374"
 CLIMATE_ATLAS_LOCAL_ID="-2536001923755311345"
+CLIMATE_2019_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf"
+CLIMATE_2019_SOURCE_TTF_META="$CLIMATE_2019_SOURCE_TTF_ASSET.meta"
+CLIMATE_2019_SDF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset"
+CLIMATE_2019_SDF_META="$CLIMATE_2019_SDF_ASSET.meta"
+CLIMATE_2019_COMMITTED_SDF_SHA256="6e2a0b412311d1942cc2d332c2af7892a1d3c48a094019e1e3e54f07ef91ace0"
+CLIMATE_2019_SOURCE_TTF_SHA256="48e723743cd5c162ba5efb6f560f179e3dc7b56bacc5c72ffe6ac4be0c8660f3"
+CLIMATE_2019_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
+CLIMATE_2019_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
+CLIMATE_2019_MATERIAL_LOCAL_ID="7808543287137721147"
+CLIMATE_2019_ATLAS_LOCAL_ID="-5757234995057936259"
 GLYPH_STRING_TABLE_INPUT="Assets/Localization/StringTables/UI/UI Shared Data.asset"
 GLYPH_STRING_TABLE_INPUT_META="$GLYPH_STRING_TABLE_INPUT.meta"
 GLYPH_STRING_TABLE_INPUT_GUID="1139bb803b655c2488dd6dca46c97cf5"
@@ -327,6 +337,14 @@ verify_climate_committed_source_integrity() {
     local head_climate_ttf_guid
     local head_climate_sdf_guid
     local head_climate_material_local_id
+    local committed_2019_sdf_hash
+    local committed_2019_ttf_hash
+    local head_climate_2019_sdf_sha256
+    local head_climate_2019_ttf_sha256
+    local head_climate_2019_ttf_guid
+    local head_climate_2019_sdf_guid
+    local head_climate_2019_material_local_id
+    local head_climate_2019_atlas_local_id
     local head_nanum_ttf_guid
     local head_nanum_sdf_guid
     local head_nanum_material_guid
@@ -383,6 +401,55 @@ verify_climate_committed_source_integrity() {
         "--- !u!21 &$head_climate_material_local_id" \
         "material localID"
 
+    if git cat-file -e "HEAD:$CLIMATE_2019_SDF_ASSET" 2>/dev/null; then
+        head_climate_2019_sdf_sha256="$(
+            git_head_runner_constant CLIMATE_2019_COMMITTED_SDF_SHA256
+        )"
+        head_climate_2019_ttf_sha256="$(
+            git_head_runner_constant CLIMATE_2019_SOURCE_TTF_SHA256
+        )"
+        head_climate_2019_ttf_guid="$(
+            git_head_runner_constant CLIMATE_2019_SOURCE_TTF_GUID
+        )"
+        head_climate_2019_sdf_guid="$(
+            git_head_runner_constant CLIMATE_2019_SDF_GUID
+        )"
+        head_climate_2019_material_local_id="$(
+            git_head_runner_constant CLIMATE_2019_MATERIAL_LOCAL_ID
+        )"
+        head_climate_2019_atlas_local_id="$(
+            git_head_runner_constant CLIMATE_2019_ATLAS_LOCAL_ID
+        )"
+        committed_2019_sdf_hash="$(git_head_blob_sha256 "$CLIMATE_2019_SDF_ASSET")"
+        committed_2019_ttf_hash="$(git_head_blob_sha256 "$CLIMATE_2019_SOURCE_TTF_ASSET")"
+        if [ "$committed_2019_sdf_hash" != "$head_climate_2019_sdf_sha256" ]; then
+            echo "ERROR: Climate 2019 committed SDF Git blob mismatch."
+            return 1
+        fi
+        if [ "$committed_2019_ttf_hash" != "$head_climate_2019_ttf_sha256" ]; then
+            echo "ERROR: Climate 2019 committed source TTF Git blob mismatch."
+            return 1
+        fi
+        require_git_head_blob_text \
+            "$CLIMATE_2019_SOURCE_TTF_META" \
+            "guid: $head_climate_2019_ttf_guid" \
+            "Climate 2019 source TTF GUID"
+        require_git_head_blob_text \
+            "$CLIMATE_2019_SDF_META" \
+            "guid: $head_climate_2019_sdf_guid" \
+            "Climate 2019 SDF GUID"
+        require_git_head_blob_text \
+            "$CLIMATE_2019_SDF_ASSET" \
+            "--- !u!21 &$head_climate_2019_material_local_id" \
+            "Climate 2019 material localID"
+        require_git_head_blob_text \
+            "$CLIMATE_2019_SDF_ASSET" \
+            "--- !u!28 &$head_climate_2019_atlas_local_id" \
+            "Climate 2019 atlas localID"
+    else
+        echo "  Climate 2019 historical HEAD audit: skipped (candidate asset is not committed yet)"
+    fi
+
     for retained_path in "${retained_nanum_paths[@]}"; do
         if ! git cat-file -e "HEAD:$retained_path"; then
             echo "ERROR: Required retained Nanum asset is absent from Git HEAD: $retained_path"
@@ -435,6 +502,8 @@ require_worktree_file_text() {
 verify_climate_worktree_source_integrity() {
     local candidate_sdf_hash
     local candidate_ttf_hash
+    local candidate_2019_sdf_hash
+    local candidate_2019_ttf_hash
     local candidate_nanum_ttf_hash
     local retained_path
     local -a retained_nanum_paths=(
@@ -452,6 +521,12 @@ verify_climate_worktree_source_integrity() {
     candidate_ttf_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
+    candidate_2019_sdf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
+    )"
+    candidate_2019_ttf_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SOURCE_TTF_ASSET" | awk '{print $1}'
+    )"
     candidate_nanum_ttf_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$NANUM_SOURCE_TTF_ASSET" | awk '{print $1}'
     )"
@@ -465,6 +540,18 @@ verify_climate_worktree_source_integrity() {
         echo "ERROR: Candidate worktree Climate source TTF mismatch."
         echo "  expected: $CLIMATE_SOURCE_TTF_SHA256"
         echo "  actual:   $candidate_ttf_hash"
+        return 1
+    fi
+    if [ "$candidate_2019_sdf_hash" != "$CLIMATE_2019_COMMITTED_SDF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate 2019 SDF mismatch."
+        echo "  expected: $CLIMATE_2019_COMMITTED_SDF_SHA256"
+        echo "  actual:   $candidate_2019_sdf_hash"
+        return 1
+    fi
+    if [ "$candidate_2019_ttf_hash" != "$CLIMATE_2019_SOURCE_TTF_SHA256" ]; then
+        echo "ERROR: Candidate worktree Climate 2019 source TTF mismatch."
+        echo "  expected: $CLIMATE_2019_SOURCE_TTF_SHA256"
+        echo "  actual:   $candidate_2019_ttf_hash"
         return 1
     fi
     if [ "$candidate_nanum_ttf_hash" != "$NANUM_SOURCE_TTF_SHA256" ]; then
@@ -490,6 +577,26 @@ verify_climate_worktree_source_integrity() {
         "$CLIMATE_SDF_ASSET" \
         "--- !u!28 &$CLIMATE_ATLAS_LOCAL_ID" \
         "atlas texture localID"
+    require_worktree_file_text \
+        "$CLIMATE_2019_SOURCE_TTF_META" \
+        "guid: $CLIMATE_2019_SOURCE_TTF_GUID" \
+        "Climate 2019 source TTF GUID"
+    require_worktree_file_text \
+        "$CLIMATE_2019_SDF_META" \
+        "guid: $CLIMATE_2019_SDF_GUID" \
+        "Climate 2019 SDF GUID"
+    require_worktree_file_text \
+        "$CLIMATE_2019_SDF_ASSET" \
+        "m_SourceFontFileGUID: $CLIMATE_2019_SOURCE_TTF_GUID" \
+        "Climate 2019 source TTF reference"
+    require_worktree_file_text \
+        "$CLIMATE_2019_SDF_ASSET" \
+        "--- !u!21 &$CLIMATE_2019_MATERIAL_LOCAL_ID" \
+        "Climate 2019 material localID"
+    require_worktree_file_text \
+        "$CLIMATE_2019_SDF_ASSET" \
+        "--- !u!28 &$CLIMATE_2019_ATLAS_LOCAL_ID" \
+        "Climate 2019 atlas texture localID"
 
     for retained_path in "${retained_nanum_paths[@]}"; do
         if [ ! -f "$PROJECT_PATH_WSL/$retained_path" ]; then
@@ -530,8 +637,9 @@ verify_climate_worktree_source_integrity() {
         "guid: $GLYPH_STRING_TABLE_INPUT_GUID" \
         "glyph String Table input GUID"
 
-    echo "Climate/Nanum candidate worktree integrity: PASS"
-    echo "  Climate candidate SHA-256: $candidate_sdf_hash"
+    echo "Climate 2000/2019 and Nanum candidate worktree integrity: PASS"
+    echo "  Climate 2000 candidate SHA-256: $candidate_sdf_hash"
+    echo "  Climate 2019 candidate SHA-256: $candidate_2019_sdf_hash"
     echo "  Nanum body/meta:     6/6 present"
 }
 
@@ -628,21 +736,62 @@ verify_climate_working_transition() {
     local after_path="$2"
     local before_hash
     local after_hash
-    local failed=0
 
     before_hash="$(sha256sum "$before_snapshot" | awk '{print $1}')"
     after_hash="$(sha256sum "$after_path" | awk '{print $1}')"
-    diagnose_climate_file_state "pre-import" "$before_snapshot" || failed=1
-    diagnose_climate_file_state "post-import" "$after_path" || failed=1
-    if [ "$failed" -ne 0 ]; then
+    if [ "$before_hash" = "$after_hash" ]; then
+        echo "  Import transition: NO_DRIFT"
+        return 0
+    fi
+    if ! python3 - "$before_snapshot" "$after_path" <<'PY'
+import sys
+from pathlib import Path
+
+before = Path(sys.argv[1]).read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
+after = Path(sys.argv[2]).read_text(encoding="utf-8").replace("\r\n", "\n").split("\n")
+if len(before) != len(after):
+    raise SystemExit("ERROR: Climate mutation changed serialized line count.")
+
+allowed = {
+    ("- _ScaleRatioA: 1", "- _ScaleRatioA: 0.9"): "_ScaleRatioA:1->0.9",
+    ("- _ScaleRatioC: 1", "- _ScaleRatioC: 0.73125"): "_ScaleRatioC:1->0.73125",
+}
+whitespace_properties = {
+    "m_MipmapLimitGroupName:",
+    "m_PlatformBlob:",
+    "path:",
+    "referencedFontAssetGUID:",
+    "referencedTextAssetGUID:",
+    "m_SourceFontFilePath:",
+    "Name:",
+    "m_LockedProperties:",
+}
+changes = []
+for old, new in zip(before, after):
+    if old == new:
+        continue
+    if old.strip() == new.strip() and old.strip() in whitespace_properties:
+        changes.append(f"serialization-whitespace:{old.strip()}")
+        continue
+    key = (old.strip(), new.strip())
+    if key not in allowed:
+        raise SystemExit(
+            "ERROR: Climate mutation is outside the exact importer-derived property allowlist: "
+            f"{key[0]} -> {key[1]}"
+        )
+    changes.append(allowed[key])
+ratio_a_changed = "_ScaleRatioA:1->0.9" in changes
+ratio_c_changed = "_ScaleRatioC:1->0.73125" in changes
+if ratio_a_changed != ratio_c_changed:
+    raise SystemExit("ERROR: Climate scale-ratio drift must update A and C together.")
+print("  Classification: EXPECTED_IMPORT_DERIVED_DRIFT")
+print(f"  Derived properties: {','.join(changes)}")
+PY
+    then
         echo "  Import transition: UNEXPECTED_ASSET_MUTATION"
         return 1
     fi
-    if [ "$before_hash" = "$after_hash" ]; then
-        echo "  Import transition: NO_DRIFT"
-    else
-        echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
-    fi
+    echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
 }
 
 restore_climate_integrity_snapshot() {
@@ -652,15 +801,19 @@ restore_climate_integrity_snapshot() {
     cp --preserve=mode,timestamps -- "$snapshot_path" "$asset_path"
 }
 
-run_with_climate_integrity_guard() {
+run_with_single_climate_integrity_guard() {
     local stage_key="$1"
     local log_path="$2"
-    shift 2
+    local guarded_asset="$3"
+    local expected_hash="$4"
+    local evidence_suffix="$5"
+    shift 5
 
-    local asset_full_path="$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
-    local evidence_path="${log_path%.log}-sdf-integrity.log"
+    local asset_full_path="$PROJECT_PATH_WSL/$guarded_asset"
+    local evidence_path="${log_path%.log}${evidence_suffix}-sdf-integrity.log"
     local snapshot_path
     local before_hash
+    local index_hash
     local before_mode
     local imported_hash
     local imported_mode
@@ -677,9 +830,9 @@ run_with_climate_integrity_guard() {
     : > "$evidence_path"
 
     if ! git -C "$PROJECT_PATH_WSL" ls-files --error-unmatch \
-        "$CLIMATE_SDF_ASSET" >/dev/null 2>&1; then
+        "$guarded_asset" >/dev/null 2>&1; then
         {
-            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
             echo "Before=UNTRACKED_OR_MISSING"
             echo "Imported=NOT_RUN"
@@ -691,22 +844,24 @@ run_with_climate_integrity_guard() {
             echo "FinalMutationDetected=PRE_EXISTING"
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
-        echo "ERROR: Climate integrity guard requires the tracked canonical asset."
+        echo "ERROR: Climate integrity guard requires the tracked canonical asset: $guarded_asset"
         return 1
     fi
 
     before_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
+    index_hash="$(git -C "$PROJECT_PATH_WSL" show ":$guarded_asset" | sha256sum | awk '{print $1}')"
     before_mode="$(stat -c '%a' "$asset_full_path")"
-    if [ "$before_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ] ||
-       ! git -C "$PROJECT_PATH_WSL" diff --quiet HEAD -- "$CLIMATE_SDF_ASSET" ||
-       ! git -C "$PROJECT_PATH_WSL" diff --cached --quiet HEAD -- "$CLIMATE_SDF_ASSET"; then
+    if [ "$before_hash" != "$expected_hash" ] ||
+       [ "$index_hash" != "$expected_hash" ] ||
+       ! git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset"; then
         {
-            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
             echo "Before=$before_hash"
             echo "Imported=NOT_RUN"
             echo "Classification=PRE_EXISTING_SOURCE_MODIFICATION"
-            echo "ChangedFields=preflight-hash-or-git-state"
+            echo "Index=$index_hash"
+            echo "ChangedFields=preflight-worktree-or-index-state"
             echo "RestoreAttempted=NO"
             echo "RestoreSucceeded=NO"
             echo "Restored=$before_hash"
@@ -714,7 +869,8 @@ run_with_climate_integrity_guard() {
             echo "GitDiffEmpty=NO"
         } | tee -a "$evidence_path"
         echo "ERROR: Climate integrity guard refused to overwrite a pre-existing SDF modification."
-        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  expected: $expected_hash"
+        echo "  index:    $index_hash"
         echo "  actual:   $before_hash"
         return 1
     fi
@@ -730,7 +886,7 @@ run_with_climate_integrity_guard() {
 
     if [ ! -f "$asset_full_path" ]; then
         {
-            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
             echo "Before=$before_hash"
             echo "Imported=MISSING"
@@ -752,11 +908,9 @@ run_with_climate_integrity_guard() {
     imported_mode="$(stat -c '%a' "$asset_full_path")"
     if [ "$imported_hash" = "$before_hash" ] &&
        [ "$imported_mode" = "$before_mode" ] &&
-       git -C "$PROJECT_PATH_WSL" diff --quiet -- "$CLIMATE_SDF_ASSET" &&
-       git -C "$PROJECT_PATH_WSL" diff --quiet HEAD -- "$CLIMATE_SDF_ASSET" &&
-       git -C "$PROJECT_PATH_WSL" diff --cached --quiet HEAD -- "$CLIMATE_SDF_ASSET"; then
+       git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset"; then
         {
-            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
             echo "Before=$before_hash"
             echo "Imported=$imported_hash"
@@ -773,7 +927,9 @@ run_with_climate_integrity_guard() {
         return "$command_status"
     fi
 
-    if classifier_output="$(diagnose_climate_file_state "post-unity/$stage_key" "$asset_full_path" 2>&1)"; then
+    if classifier_output="$(
+        verify_climate_working_transition "$snapshot_path" "$asset_full_path" 2>&1
+    )"; then
         classifier_status=0
     else
         classifier_status=$?
@@ -784,7 +940,7 @@ run_with_climate_integrity_guard() {
        ! grep -F "Classification: EXPECTED_IMPORT_DERIVED_DRIFT" \
             <<< "$classifier_output" >/dev/null; then
         {
-            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Asset=$guarded_asset"
             echo "Stage=$stage_key"
             echo "Before=$before_hash"
             echo "Imported=$imported_hash"
@@ -812,14 +968,13 @@ run_with_climate_integrity_guard() {
     fi
     final_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
     final_mode="$(stat -c '%a' "$asset_full_path")"
-    if git -C "$PROJECT_PATH_WSL" diff --quiet -- "$CLIMATE_SDF_ASSET" &&
-       git -C "$PROJECT_PATH_WSL" diff --quiet HEAD -- "$CLIMATE_SDF_ASSET" &&
-       git -C "$PROJECT_PATH_WSL" diff --cached --quiet HEAD -- "$CLIMATE_SDF_ASSET"; then
+    if git -C "$PROJECT_PATH_WSL" diff --quiet -- "$guarded_asset" &&
+       [ "$(git -C "$PROJECT_PATH_WSL" show ":$guarded_asset" | sha256sum | awk '{print $1}')" = "$expected_hash" ]; then
         git_diff_empty=1
     fi
 
     {
-        echo "Asset=$CLIMATE_SDF_ASSET"
+        echo "Asset=$guarded_asset"
         echo "Stage=$stage_key"
         echo "Before=$before_hash"
         echo "Imported=$imported_hash"
@@ -830,7 +985,7 @@ run_with_climate_integrity_guard() {
         echo "RestoreSucceeded=$(
             if [ "$restore_status" -eq 0 ] &&
                [ "$final_hash" = "$before_hash" ] &&
-               [ "$final_hash" = "$CLIMATE_COMMITTED_SDF_SHA256" ] &&
+               [ "$final_hash" = "$expected_hash" ] &&
                [ "$final_mode" = "$before_mode" ] &&
                [ "$git_diff_empty" -eq 1 ]; then
                 echo YES
@@ -843,7 +998,7 @@ run_with_climate_integrity_guard() {
         echo "FinalMutationDetected=$(
             if [ "$restore_status" -eq 0 ] &&
                [ "$final_hash" = "$before_hash" ] &&
-               [ "$final_hash" = "$CLIMATE_COMMITTED_SDF_SHA256" ] &&
+               [ "$final_hash" = "$expected_hash" ] &&
                [ "$final_mode" = "$before_mode" ] &&
                [ "$git_diff_empty" -eq 1 ]; then
                 echo 0
@@ -859,7 +1014,7 @@ run_with_climate_integrity_guard() {
 
     if [ "$restore_status" -ne 0 ] ||
        [ "$final_hash" != "$before_hash" ] ||
-       [ "$final_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ] ||
+       [ "$final_hash" != "$expected_hash" ] ||
        [ "$final_mode" != "$before_mode" ] ||
        [ "$git_diff_empty" -ne 1 ]; then
         echo "ERROR: Climate SDF snapshot restore verification failed."
@@ -867,6 +1022,26 @@ run_with_climate_integrity_guard() {
     fi
 
     return "$command_status"
+}
+
+run_with_climate_integrity_guard() {
+    local stage_key="$1"
+    local log_path="$2"
+    shift 2
+
+    run_with_single_climate_integrity_guard \
+        "$stage_key" \
+        "$log_path" \
+        "$CLIMATE_SDF_ASSET" \
+        "$CLIMATE_COMMITTED_SDF_SHA256" \
+        "" \
+        run_with_single_climate_integrity_guard \
+            "$stage_key" \
+            "$log_path" \
+            "$CLIMATE_2019_SDF_ASSET" \
+            "$CLIMATE_2019_COMMITTED_SDF_SHA256" \
+            "-climate-2019" \
+            "$@"
 }
 
 ensure_result_dirs() {
@@ -1025,12 +1200,14 @@ capture_guarded_paths() {
     if [ "${CAPTURE_GUARD_PROFILE:-visual}" = "glyph-update" ]; then
         printf '%s\n' \
             "$CLIMATE_SDF_ASSET" \
+            "$CLIMATE_2019_SDF_ASSET" \
             "$NANUM_SDF_ASSET"
         return 0
     fi
 
     printf '%s\n' \
         "$CLIMATE_SDF_ASSET" \
+        "$CLIMATE_2019_SDF_ASSET" \
         "$NANUM_SDF_ASSET" \
         "Assets/TextMesh Pro/Resources/TMP Settings.asset" \
         "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset" \
@@ -1101,7 +1278,8 @@ observe_capture_assets_before_restore() {
         fi
 
         mutation_detected[$index]=1
-        if [ "$asset_path" = "$CLIMATE_SDF_ASSET" ]; then
+        if [ "$asset_path" = "$CLIMATE_SDF_ASSET" ] ||
+            [ "$asset_path" = "$CLIMATE_2019_SDF_ASSET" ]; then
             transition_exit=0
             transition_output="$(
                 verify_climate_working_transition \
@@ -2037,6 +2215,11 @@ typography_visual_nanum_diff_sha256() {
 verify_typography_visual_manifest() {
     local expected_head="$1"
     local expected_output_directory="${TYPOGRAPHY_VISUAL_OUTPUT_DIR#"$PROJECT_PATH_WSL/"}"
+    local expected_output_directory_win
+
+    expected_output_directory_win="$(
+        wslpath -w "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" | tr '\\' '/'
+    )"
 
     python3 - \
         "$TYPOGRAPHY_VISUAL_OUTPUT_DIR" \
@@ -2045,7 +2228,8 @@ verify_typography_visual_manifest() {
         "$TYPOGRAPHY_VISUAL_RECONSTRUCT_METHOD" \
         "$TYPOGRAPHY_VISUAL_WIDTH" \
         "$TYPOGRAPHY_VISUAL_HEIGHT" \
-        "$expected_output_directory" <<'PY'
+        "$expected_output_directory" \
+        "$expected_output_directory_win" <<'PY'
 import hashlib
 import re
 import sys
@@ -2058,6 +2242,7 @@ expected_command = sys.argv[4]
 expected_width = sys.argv[5]
 expected_height = sys.argv[6]
 expected_output_directory = sys.argv[7]
+expected_output_directory_win = sys.argv[8]
 
 
 def fail(message):
@@ -2092,7 +2277,6 @@ required_root = {
     "git_head": expected_head,
     "capture_command": expected_command,
     "capture_mode": "RECONSTRUCTED_FROM_SPLIT_LOGS",
-    "output_directory": expected_output_directory,
     "width": expected_width,
     "height": expected_height,
     "resolution": f"{expected_width}x{expected_height}",
@@ -2108,11 +2292,22 @@ for key, expected in required_root.items():
     if actual != expected:
         fail(f"root {key} expected '{expected}', got '{actual}'")
 
+actual_output_directory = root.get("output_directory")
+if actual_output_directory not in {
+    expected_output_directory,
+    expected_output_directory_win,
+}:
+    fail(
+        "root output_directory expected either "
+        f"'{expected_output_directory}' or '{expected_output_directory_win}', "
+        f"got '{actual_output_directory}'"
+    )
+
 expected_entries = {
-    "Settings/en-US": ("Settings_en-US.png", "22", "38"),
-    "Settings/ko-KR": ("Settings_ko-KR.png", "22", "38"),
-    "Pause/en-US": ("Pause_en-US.png", "6", None),
-    "Pause/ko-KR": ("Pause_ko-KR.png", "6", None),
+    "Settings/en-US": ("Settings_en-US.png", "20", "35"),
+    "Settings/ko-KR": ("Settings_ko-KR.png", "20", "35"),
+    "Pause/en-US": ("Pause_en-US.png", "5", None),
+    "Pause/ko-KR": ("Pause_ko-KR.png", "5", None),
     "MainMenu/en-US": ("MainMenu_en-US.png", "3", None),
     "MainMenu/ko-KR": ("MainMenu_ko-KR.png", "3", None),
 }
@@ -2175,8 +2370,8 @@ if actual_png_paths != expected_png_paths:
 print("Typography visual manifest verification: PASS")
 print(f"  manifest: {manifest_path}")
 print("  entries: 6")
-print("  Settings en-US: typography_bindings=38 localized=22/22 capture_result=PASS")
-print("  Settings ko-KR: typography_bindings=38 localized=22/22 capture_result=PASS")
+print("  Settings en-US: typography_bindings=35 localized=20/20 capture_result=PASS")
+print("  Settings ko-KR: typography_bindings=35 localized=20/20 capture_result=PASS")
 print("  PNG size/SHA-256: verified for all six captures")
 PY
 }
@@ -2256,8 +2451,8 @@ for locale in locales:
         status_proof = proofs[0]
         expected_frame_proofs = (
             ("/Title", None, None),
-            (None, "/PushKeyDisplay/", "E"),
-            (None, "/FlipKeyDisplay/", "Q"),
+            (None, "/PushKeyDisplay/", "J"),
+            (None, "/FlipKeyDisplay/", "K"),
         )
         for renderer_suffix, required_parent, expected_text in expected_frame_proofs:
             candidates = [
@@ -2277,7 +2472,7 @@ for locale in locales:
                     f"ERROR: unexpected keycap text for {renderer_suffix}: "
                     f"{candidates[0][1]!r}"
                 )
-        if "PixelProof=4/4" not in text or "| True |" not in text:
+        if "| True |" not in text or "| 35 | 21 | PixelProof=4/4 |" not in text:
             raise SystemExit(f"ERROR: capture summary is incomplete for {target}/{locale}")
         frame_anchor = re.search(
             rf"M2B_FRAME_ANCHOR target={re.escape(target)} "
@@ -2303,9 +2498,9 @@ for locale in locales:
                 "full_frame_pixel_proofs=4/4",
                 f"frame_anchor_pixels={','.join(frame_anchor.groups())}",
                 "frame_anchor_proof=PASS",
-                "localized_texts=23/23",
-                "typography_bindings=38",
-                "keycaps=E,Q",
+                "localized_texts=21/21",
+                "typography_bindings=35",
+                "keycaps=J,K",
                 "raw_identifier_absence=PASS",
                 "capture_result=PASS",
             )
@@ -3608,7 +3803,7 @@ run_dotnet_integration_fuzz() {
 normalize_glyph_serialized_output() {
     local asset_path
 
-    for asset_path in "$CLIMATE_SDF_ASSET" "$NANUM_SDF_ASSET"; do
+    for asset_path in "$CLIMATE_SDF_ASSET" "$CLIMATE_2019_SDF_ASSET" "$NANUM_SDF_ASSET"; do
         if ! perl -pi -e 's/[ \t]+(?=\r?$)//' -- \
             "$PROJECT_PATH_WSL/$asset_path"; then
             echo "ERROR: Failed to normalize serialized whitespace: $asset_path"
@@ -3622,6 +3817,8 @@ run_climate_glyph_update() {
     local baseline_root
     local climate_before_hash
     local climate_after_hash
+    local climate_2019_before_hash
+    local climate_2019_after_hash
     local nanum_before_hash
     local nanum_after_hash
     local command_status=0
@@ -3641,9 +3838,10 @@ run_climate_glyph_update() {
     )
 
     if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would atomically update the canonical Climate and retained Nanum managed glyph corpus:"
+        echo "Would atomically update the canonical Climate 2000/2019 and retained Nanum managed glyph corpus:"
         echo "  preflight: immutable source/GUID/localID/String Table/projectPath identity"
         echo "  snapshot:  $CLIMATE_SDF_ASSET"
+        echo "  snapshot:  $CLIMATE_2019_SDF_ASSET"
         echo "  snapshot:  $NANUM_SDF_ASSET"
         echo "  restore:   command failure, timeout, INT, TERM, process cleanup failure, validation failure"
         print_shell_command "${unity_command[@]}"
@@ -3658,6 +3856,9 @@ run_climate_glyph_update() {
     climate_before_hash="$(
         sha256sum "$baseline_root/$CLIMATE_SDF_ASSET" | awk '{print $1}'
     )"
+    climate_2019_before_hash="$(
+        sha256sum "$baseline_root/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
+    )"
     nanum_before_hash="$(
         sha256sum "$baseline_root/$NANUM_SDF_ASSET" | awk '{print $1}'
     )"
@@ -3670,7 +3871,7 @@ run_climate_glyph_update() {
         "$CLIMATE_GLYPH_UPDATE_LIFECYCLE" \
         "ClimateGlyphUpdate"
 
-    echo "Running atomic Climate/Nanum managed glyph update..."
+    echo "Running atomic Climate 2000/2019 and Nanum managed glyph update..."
     if visual_guard_run_command "${unity_command[@]}"; then
         command_status=0
     else
@@ -3682,13 +3883,13 @@ run_climate_glyph_update() {
         process_cleanup_status=$?
     fi
     if [ "$command_status" -ne 0 ]; then
-        echo "ERROR: Unity glyph update failed with exit code $command_status; restoring both font assets."
+        echo "ERROR: Unity glyph update failed with exit code $command_status; restoring all three font assets."
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish "$command_status"
         return 0
     fi
     if [ "$process_cleanup_status" -ne 0 ]; then
-        echo "ERROR: Unity glyph update process cleanup failed; restoring both font assets."
+        echo "ERROR: Unity glyph update process cleanup failed; restoring all three font assets."
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish 1
         return 0
@@ -3698,6 +3899,9 @@ run_climate_glyph_update() {
     fi
 
     climate_after_hash="$(climate_working_sha256)"
+    climate_2019_after_hash="$(
+        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_2019_SDF_ASSET" | awk '{print $1}'
+    )"
     nanum_after_hash="$(
         sha256sum "$PROJECT_PATH_WSL/$NANUM_SDF_ASSET" | awk '{print $1}'
     )"
@@ -3709,6 +3913,14 @@ run_climate_glyph_update() {
         "$CLIMATE_SDF_ASSET" \
         "--- !u!28 &$CLIMATE_ATLAS_LOCAL_ID" \
         "atlas localID after glyph update" || validation_status=1
+    require_worktree_file_text \
+        "$CLIMATE_2019_SDF_ASSET" \
+        "--- !u!21 &$CLIMATE_2019_MATERIAL_LOCAL_ID" \
+        "Climate 2019 material localID after glyph update" || validation_status=1
+    require_worktree_file_text \
+        "$CLIMATE_2019_SDF_ASSET" \
+        "--- !u!28 &$CLIMATE_2019_ATLAS_LOCAL_ID" \
+        "Climate 2019 atlas localID after glyph update" || validation_status=1
     require_worktree_file_text \
         "$NANUM_SDF_ASSET" \
         "--- !u!21 &$NANUM_MATERIAL_LOCAL_ID" \
@@ -3725,9 +3937,12 @@ run_climate_glyph_update() {
     fi
     {
         echo "snapshot_target_climate=$CLIMATE_SDF_ASSET"
+        echo "snapshot_target_climate_2019=$CLIMATE_2019_SDF_ASSET"
         echo "snapshot_target_nanum=$NANUM_SDF_ASSET"
         echo "climate_before_sha256=$climate_before_hash"
         echo "climate_after_sha256=$climate_after_hash"
+        echo "climate_2019_before_sha256=$climate_2019_before_hash"
+        echo "climate_2019_after_sha256=$climate_2019_after_hash"
         echo "nanum_before_sha256=$nanum_before_hash"
         echo "nanum_after_sha256=$nanum_after_hash"
         echo "missing=0"
@@ -3736,7 +3951,7 @@ run_climate_glyph_update() {
     } > "$CLIMATE_GLYPH_UPDATE_EVIDENCE"
 
     if [ "$validation_status" -ne 0 ]; then
-        echo "ERROR: Glyph output validation failed; restoring both font assets."
+        echo "ERROR: Glyph output validation failed; restoring all three font assets."
         visual_guard_mark_observation_complete "FAIL"
         visual_guard_finish 1
         return 0
@@ -3744,9 +3959,11 @@ run_climate_glyph_update() {
 
     VISUAL_GUARD_RESTORE_ON_SUCCESS=0
     visual_guard_mark_observation_complete "PASS"
-    echo "Climate/Nanum managed glyph update: PASS"
-    echo "  Climate before: $climate_before_hash"
-    echo "  Climate after:  $climate_after_hash"
+    echo "Climate 2000/2019 and Nanum managed glyph update: PASS"
+    echo "  Climate 2000 before: $climate_before_hash"
+    echo "  Climate 2000 after:  $climate_after_hash"
+    echo "  Climate 2019 before: $climate_2019_before_hash"
+    echo "  Climate 2019 after:  $climate_2019_after_hash"
     echo "  Nanum before:   $nanum_before_hash"
     echo "  Nanum after:    $nanum_after_hash"
     echo "  missing: 0"
@@ -4975,6 +5192,7 @@ run_terminal_player_build_smoke() {
                 "mainmenu-continue|stage-1-1|mainmenu-gameplay|pointer||1|Continue|${campaign_continue_stage}|${campaign_continue_stage}"
                 "pause-retry|stage-1-1|pause-retry|pointer||2|||"
                 "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2|||"
+                "gameclear-normal|stage-4-3|gameclear-normal|pointer||1|||"
             )
             ;;
         ultrawide)
@@ -5087,10 +5305,17 @@ run_terminal_player_build_smoke() {
                     "$seed_stage" > "$campaign_seed_path"
             fi
             if [ -n "$stage_id" ]; then
-                launch_context_args=(
-                    --capture-stage "$stage_id"
-                    --capture-campaign-temp-slot
-                )
+                if [ "$scenario_arg" = "gameclear-normal" ]; then
+                    launch_context_args=(
+                        --capture-stage "$stage_id"
+                        --capture-campaign-normal-slot
+                    )
+                else
+                    launch_context_args=(
+                        --capture-stage "$stage_id"
+                        --capture-campaign-temp-slot
+                    )
+                fi
             fi
 
             echo "Running built Player scenario=$scenario_label input=$input_mode attempt=$attempt..."

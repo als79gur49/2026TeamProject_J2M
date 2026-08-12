@@ -1,0 +1,10 @@
+{
+  "name": "Game.Product.Achievements.Composition",
+  "rootNamespace": "Game.Product.Achievements.Composition",
+  "references": [
+    "Game.Product.Achievements.Domain",
+    "Game.Product.Achievements.Infrastructure",
+    "Game.Product.Achievements.CampaignIntegration",
+    "Game.Feature.Stages"
+  ]
+}

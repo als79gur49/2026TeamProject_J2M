@@ -24,6 +24,8 @@ MainMenuUiFlowInstaller
      -> MainMenuController
      -> SaveSlotValidationService
      -> standalone seed import
+     -> ICampaignStageSequenceResolverProvider
+        -> Product Achievement startup reconciliation
 
 StageBackedGameplaySceneInstallerBase
   -> CampaignStageSequenceResolver (one immutable snapshot)
@@ -42,7 +44,7 @@ StageBackedGameplaySceneInstallerBase
 
 Resolver construction copies only canonical `StageId` and `LevelGroupId` values into readonly value snapshots and lookup maps. It retains neither the source ScriptableObject nor source entry/collection references.
 
-Missing serialized sequence references are bootstrap configuration failures in both Main Menu and stage-backed gameplay composition. Player Production has no asset-null-to-code-default fallback or static sequence resolver.
+Missing serialized sequence references are bootstrap configuration failures in both Main Menu and stage-backed gameplay composition. Achievement startup discovers exactly one provider from active-scene roots and fails closed with a warning when it is missing, ambiguous, or cannot produce a resolver. Player Production has no asset-null-to-code-default fallback or static sequence resolver.
 
 Stage clear save advancement, retry/group routing, completion read-model Next, and `UIFlowCoordinator` final/Game Clear routing therefore use the same gameplay-composition resolver instance. The unused result-navigation static store was removed.
 
