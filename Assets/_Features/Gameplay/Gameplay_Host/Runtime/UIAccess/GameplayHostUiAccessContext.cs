@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.DemoStageControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -12,7 +13,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             IGameplayPresentationFeed presentationFeed,
             IGameplayPauseService pauseService,
             IDemoGameplayOverrideCommandPort demoGameplayOverrideCommandPort = null,
-            IDemoStageControlCompletionBridge demoStageControlCompletionBridge = null)
+            IDemoStageControlCompletionBridge demoStageControlCompletionBridge = null,
+            CampaignStageSequenceResolver campaignStageSequenceResolver = null)
         {
             CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
@@ -20,6 +22,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             PauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
             DemoGameplayOverrideCommandPort = demoGameplayOverrideCommandPort;
             DemoStageControlCompletionBridge = demoStageControlCompletionBridge;
+            CampaignStageSequenceResolver = campaignStageSequenceResolver;
         }
 
         public IGameplayCommandGateway CommandGateway { get; }
@@ -33,6 +36,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         public IDemoGameplayOverrideCommandPort DemoGameplayOverrideCommandPort { get; }
 
         public IDemoStageControlCompletionBridge DemoStageControlCompletionBridge { get; }
+
+        public CampaignStageSequenceResolver CampaignStageSequenceResolver { get; }
 
         public void Dispose()
         {

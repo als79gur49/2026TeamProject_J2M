@@ -49,7 +49,6 @@ namespace Game.Feature.Stages
         public Direction2D Direction;
         public TileFeatureBoxSelector BoxSelector;
         public int BoundEntityId;
-        public string PresentationKey;
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Definition", fileName = "StageDefinition")]
@@ -137,8 +136,6 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = authoring.CompletionPolicy,
-                ObjectiveTitle = authoring.ObjectiveTitle ?? string.Empty,
-                ObjectiveSummary = authoring.ObjectiveSummary ?? string.Empty,
                 ConditionEntries = authoring.GetConditionEntriesOrEmpty(),
             };
         }

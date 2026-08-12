@@ -107,7 +107,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             var canStartAnyActionThisTick = nextTickIndex > 0 &&
                                             canAcceptActionableCommands &&
                                             isSettledAtAnchor &&
-                                            snapshot.CanStartAction(playerEntityId, nextTickIndex);
+                                            snapshot.CanStartAction(playerEntityId, nextTickIndex) &&
+                                            PlayerControlQueries.CanStartExplicitAction(
+                                                playerControlState,
+                                                nextTickIndex);
             var hasExplicitPushCandidateInCurrentDirection = canStartAnyActionThisTick &&
                                                              PlayerActionPreviewQueries.HasExplicitPushCandidate(
                                                                  snapshot,

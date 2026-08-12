@@ -3,13 +3,13 @@ using System.Globalization;
 
 namespace Game.Feature.Stages
 {
-    public enum CampaignSaveBackendMode
+    internal enum CampaignSaveBackendMode
     {
         PlayerPrefsLegacy = 0,
         ProfileJsonExplicit = 1,
     }
 
-    public sealed class CampaignSaveCompositionOptions
+    internal sealed class CampaignSaveCompositionOptions
     {
         public CampaignSaveBackendMode BackendMode { get; set; } = CampaignSaveBackendMode.PlayerPrefsLegacy;
 
@@ -34,7 +34,7 @@ namespace Game.Feature.Stages
         public CampaignLegacyImportMarkerStore LegacyImportMarkerStore { get; set; }
     }
 
-    public sealed class CampaignSaveFacadeFactoryResult
+    internal sealed class CampaignSaveFacadeFactoryResult
     {
         internal CampaignSaveFacadeFactoryResult(
             CampaignSaveBackendMode backendMode,
@@ -52,14 +52,14 @@ namespace Game.Feature.Stages
 
         public ICampaignSaveSlotStore CampaignSaveSlots { get; }
 
-        public CampaignSaveServiceFactoryResult ProfileServices { get; }
+        internal CampaignSaveServiceFactoryResult ProfileServices { get; }
 
         public CampaignSaveMigrationResult MigrationResult { get; }
     }
 
-    public static class CampaignSaveFacadeFactory
+    internal static class CampaignSaveFacadeFactory
     {
-        public static CampaignSaveFacadeFactoryResult Create(CampaignSaveCompositionOptions options = null)
+        internal static CampaignSaveFacadeFactoryResult Create(CampaignSaveCompositionOptions options = null)
         {
             options ??= new CampaignSaveCompositionOptions();
             switch (options.BackendMode)
@@ -72,7 +72,7 @@ namespace Game.Feature.Stages
                         null);
 
                 case CampaignSaveBackendMode.ProfileJsonExplicit:
-                    var profileServices = CampaignSaveServiceFactory.CreateForTests(
+                    var profileServices = CampaignSaveServiceFactory.Create(
                         new CampaignSaveServiceFactoryOptions
                         {
                             PathProvider = options.PathProvider,
@@ -102,7 +102,7 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class CampaignSaveServiceFactoryOptions
+    internal sealed class CampaignSaveServiceFactoryOptions
     {
         public ISavePathProvider PathProvider { get; set; }
 
@@ -125,7 +125,7 @@ namespace Game.Feature.Stages
         public bool CreateCompatibilityAdapter { get; set; }
     }
 
-    public sealed class CampaignSaveServiceFactoryResult
+    internal sealed class CampaignSaveServiceFactoryResult
     {
         internal CampaignSaveServiceFactoryResult(
             ISavePathProvider pathProvider,
@@ -164,9 +164,9 @@ namespace Game.Feature.Stages
         public CampaignSaveMigrationOptions MigrationOptions { get; }
     }
 
-    public static class CampaignSaveServiceFactory
+    internal static class CampaignSaveServiceFactory
     {
-        public static CampaignSaveServiceFactoryResult CreateForTests(
+        internal static CampaignSaveServiceFactoryResult Create(
             CampaignSaveServiceFactoryOptions options)
         {
             if (options == null)
@@ -176,7 +176,7 @@ namespace Game.Feature.Stages
 
             var pathProvider = options.PathProvider ??
                                throw new ArgumentException(
-                                   "A test save path provider is required.",
+                                   "A save path provider is required.",
                                    nameof(options));
             var utcNow = options.UtcNow ?? (() => DateTime.UtcNow);
             string UtcNowString()
@@ -247,26 +247,4 @@ namespace Game.Feature.Stages
         }
     }
 
-    public static class CampaignSaveProductionReadinessPolicy
-    {
-        public static CampaignSaveProductionReadinessResult EvaluateDeleteSlotProductionReadiness()
-        {
-            return new CampaignSaveProductionReadinessResult(
-                true,
-                "DeleteSlot records deleted-slot guards on the profile-backed production provider while retaining PlayerPrefs as a legacy import and rollback source.");
-        }
-    }
-
-    public readonly struct CampaignSaveProductionReadinessResult
-    {
-        public CampaignSaveProductionReadinessResult(bool isReady, string reason)
-        {
-            IsReady = isReady;
-            Reason = reason ?? string.Empty;
-        }
-
-        public bool IsReady { get; }
-
-        public string Reason { get; }
-    }
 }

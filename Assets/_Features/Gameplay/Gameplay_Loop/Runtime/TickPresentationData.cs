@@ -212,9 +212,6 @@ namespace Game.Feature.Gameplay.Loop
     {
         None = 0,
         ButtonActivated = 1,
-        EntityExit = 2,
-        ObjectiveCondition = 3,
-        StageClear = 4,
     }
 
     public readonly struct PresentationBarrierKey : IEquatable<PresentationBarrierKey>
@@ -240,27 +237,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             return tileId > 0
                 ? new PresentationBarrierKey(PresentationBarrierKind.ButtonActivated, tileId)
-                : default;
-        }
-
-        public static PresentationBarrierKey EntityExit(int entityId)
-        {
-            return entityId > 0
-                ? new PresentationBarrierKey(PresentationBarrierKind.EntityExit, entityId)
-                : default;
-        }
-
-        public static PresentationBarrierKey ObjectiveCondition(int conditionId)
-        {
-            return conditionId > 0
-                ? new PresentationBarrierKey(PresentationBarrierKind.ObjectiveCondition, conditionId)
-                : default;
-        }
-
-        public static PresentationBarrierKey StageClear(int stageRunId)
-        {
-            return stageRunId > 0
-                ? new PresentationBarrierKey(PresentationBarrierKind.StageClear, stageRunId)
                 : default;
         }
 

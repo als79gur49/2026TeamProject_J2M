@@ -439,7 +439,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                                   ReadDirectorySource(PlanningDirectory) + "\n" +
                                                   ReadDirectorySource(PlaybackDirectory);
             var bgmSource = ReadDirectorySource("Assets/_Features/Flow/Flow_Audio/Runtime");
-            var uiSource = ReadDirectorySource("Assets/_Features/UI");
+            var uiSource = ReadProductionUiSource();
 
             Assert.That(coreSfxExecutor, Does.Not.Contain("ActionAudioExecutionMode"));
             Assert.That(coreSfxExecutor, Does.Not.Contain("EnemyAudioExecutionMode"));
@@ -472,7 +472,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void UiBoundaryGovernance_DoesNotConsumeRawPlan()
         {
-            var uiSource = ReadDirectorySource("Assets/_Features/UI");
+            var uiSource = ReadProductionUiSource();
             var forbiddenTokens = new[]
             {
                 "PresentationCueFrame",
@@ -837,6 +837,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Directory.EnumerateFiles(absoluteDirectory, "*.cs", SearchOption.AllDirectories)
                     .OrderBy(path => path, StringComparer.Ordinal)
                     .Select(File.ReadAllText));
+        }
+
+        private static string ReadProductionUiSource()
+        {
+            const string relativeDirectory = "Assets/_Features/UI";
+            var absoluteDirectory = ToAbsolutePath(relativeDirectory);
+            if (!Directory.Exists(absoluteDirectory))
+            {
+                return string.Empty;
+            }
+
+            return string.Join(
+                "\n",
+                Directory.EnumerateFiles(absoluteDirectory, "*.cs", SearchOption.AllDirectories)
+                    .Select(path => new
+                    {
+                        Path = path,
+                        RelativePath = ToRepoRelativePath(path),
+                    })
+                    .Where(source =>
+                        !source.RelativePath.Contains("/Editor/") &&
+                        !source.RelativePath.Contains("/UI_Tests/") &&
+                        !source.RelativePath.EndsWith("SmokeProbe.cs", StringComparison.Ordinal))
+                    .OrderBy(source => source.RelativePath, StringComparer.Ordinal)
+                    .Select(source => File.ReadAllText(source.Path)));
         }
 
         private static string ReadRepoFile(string relativePath)

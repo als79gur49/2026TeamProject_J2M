@@ -3552,7 +3552,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 2
     Cell:
       face: 2
@@ -3563,7 +3562,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 3
     Cell:
       face: 3
@@ -3574,7 +3572,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 4
     Cell:
       face: 2
@@ -3585,7 +3582,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: exit.default
   - TileId: 5
     Cell:
       face: 0
@@ -3596,7 +3592,22 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
+  tileFeaturePresentationSelections:
+  - TileId: 1
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
     PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
   zones:
   - ZoneId: 1
     FaceId: 2
@@ -3605,8 +3616,6 @@ MonoBehaviour:
       MaxInclusive: {x: 7, y: 3}
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 65ef359c1009e38034d32c314bdff82e, type: 2}
       Required: 1

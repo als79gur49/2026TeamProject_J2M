@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -320,6 +321,144 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainTileFeaturePresentationSelections_HaveExactCoverageAndResolveWithoutUnexpectedSkip()
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                StageContentPaths.StageCatalogProviderAssetPath);
+            Assert.That(provider, Is.Not.Null);
+            var entries = provider.LoadEntries()
+                .Where(entry => entry != null && entry.GameplayDefinition != null && entry.PresentationDefinition != null)
+                .ToArray();
+            var observedKeys = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            var kindMismatches = new System.Collections.Generic.List<string>();
+            var totalTileFeatures = 0;
+            var hasEmptyKeyExitFallback = false;
+            var hasBottomDestroy = false;
+            var hasFrontDestroy = false;
+
+            foreach (var entry in entries)
+            {
+                var gameplay = entry.GameplayDefinition;
+                var presentation = entry.PresentationDefinition;
+                var gameplayByTileId = gameplay.TileFeatures.ToDictionary(feature => feature.TileId);
+                var selections = presentation.TileFeaturePresentationBindings;
+                Assert.That(selections, Has.All.Not.Null, entry.StageId.Value);
+                Assert.That(selections.Select(selection => selection.TileId), Is.All.GreaterThan(0), entry.StageId.Value);
+                Assert.That(
+                    selections.Select(selection => selection.TileId).Distinct().Count(),
+                    Is.EqualTo(selections.Length),
+                    entry.StageId.Value);
+                Assert.That(
+                    selections.Select(selection => selection.TileId),
+                    Is.EquivalentTo(gameplayByTileId.Keys),
+                    entry.StageId.Value);
+
+                var catalog = presentation.TileFeaturePresentationCatalog;
+                Assert.That(catalog, Is.Not.Null, entry.StageId.Value);
+                foreach (var selection in selections)
+                {
+                    var key = TileFeaturePresentationCatalog.NormalizePresentationKey(selection.PresentationKey);
+                    observedKeys.Add(key);
+                    var gameplayFeature = gameplayByTileId[selection.TileId];
+                    if (string.IsNullOrEmpty(key))
+                    {
+                        hasEmptyKeyExitFallback |=
+                            gameplayFeature.Kind == TileFeatureKind.Exit &&
+                            selection.VisualPrefab == null &&
+                            catalog.TryGetDefaultEntry(TileFeatureKind.Exit, out _);
+                    }
+                    else
+                    {
+                        Assert.That(catalog.TryGetEntry(key, out var catalogEntry), Is.True, $"{entry.StageId.Value}/{selection.TileId}: {key}");
+                        if (catalogEntry.Kind != gameplayFeature.Kind)
+                        {
+                            kindMismatches.Add($"{entry.StageId.Value}/{selection.TileId}");
+                        }
+                    }
+
+                    hasBottomDestroy |=
+                        gameplayFeature.Kind == TileFeatureKind.Destroy &&
+                        gameplayFeature.ActivationRule == TileFeatureActivationRule.BottomFaceOnly &&
+                        key == "destroy.bottom";
+                    hasFrontDestroy |=
+                        gameplayFeature.Kind == TileFeatureKind.Destroy &&
+                        gameplayFeature.ActivationRule == TileFeatureActivationRule.FrontFaceOnly &&
+                        key == "destroy.front";
+                }
+
+                var resolved = StagePresentationAssembler.Resolve(gameplay, presentation);
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(gameplay.TileFeatures.Length), entry.StageId.Value);
+                Assert.That(resolved.TileFeatureBindings.All(binding => binding.VisualPrefab != null), Is.True, entry.StageId.Value);
+                totalTileFeatures += gameplay.TileFeatures.Length;
+            }
+
+            Assert.That(totalTileFeatures, Is.GreaterThan(0));
+            Assert.That(
+                observedKeys,
+                Is.SupersetOf(new[]
+                {
+                    "slide.up",
+                    "slide.right",
+                    "slide.down",
+                    "slide.left",
+                    "destroy.bottom",
+                    "destroy.front",
+                    "button.default",
+                    "button.moon-only",
+                    "barricade.default",
+                    "moon-generator.default",
+                    "entrance.default",
+                    "exit.default",
+                }));
+            Assert.That(hasEmptyKeyExitFallback, Is.True);
+            Assert.That(hasBottomDestroy, Is.True);
+            Assert.That(hasFrontDestroy, Is.True);
+            Assert.That(kindMismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LegacyStage51Tile12_ResolvesBarricadePresentationWithoutGeneratorRuntime()
+        {
+            const string authoringPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Authoring.asset";
+            var authoring = AssetDatabase.LoadAssetAtPath<StageAuthoringDefinition>(authoringPath);
+            Assert.That(authoring, Is.Not.Null, authoringPath);
+
+            var gameplay = authoring.GeneratedGameplayDefinition;
+            var presentation = authoring.GeneratedPresentationDefinition;
+            Assert.That(gameplay, Is.Not.Null, authoringPath);
+            Assert.That(presentation, Is.Not.Null, authoringPath);
+
+            var feature = gameplay.TileFeatures.Single(candidate => candidate.TileId == 12);
+            var authoringSelection = authoring.TileFeaturePresentationSelections
+                .Single(candidate => candidate != null && candidate.TileId == 12);
+            var generatedSelection = presentation.TileFeaturePresentationBindings
+                .Single(candidate => candidate != null && candidate.TileId == 12);
+            var resolved = StagePresentationAssembler.Resolve(gameplay, presentation)
+                .TileFeatureBindings
+                .Single(candidate => candidate.TileId == 12);
+            var runtime = StageRuntimeBuilder.Build(gameplay);
+
+            Assert.That(feature.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 8, 0)));
+            Assert.That(feature.Kind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(feature.ActivationRule, Is.EqualTo(TileFeatureActivationRule.FrontFaceOnly));
+            Assert.That(feature.Direction, Is.EqualTo(Direction2D.None));
+            Assert.That(feature.BoxSelector, Is.EqualTo(TileFeatureBoxSelector.None));
+            Assert.That(feature.BoundEntityId, Is.Zero);
+            Assert.That(authoringSelection.PresentationKey, Is.EqualTo("barricade.default"));
+            Assert.That(authoringSelection.VisualPrefab, Is.Null);
+            Assert.That(generatedSelection.PresentationKey, Is.EqualTo("barricade.default"));
+            Assert.That(generatedSelection.VisualPrefab, Is.Null);
+            Assert.That(resolved.PresentationKey, Is.EqualTo("barricade.default"));
+            Assert.That(resolved.Kind, Is.EqualTo(TileFeatureKind.Barricade));
+            Assert.That(resolved.VfxStyleKey, Is.EqualTo(VfxStyleKey.Default));
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(resolved.VisualPrefab)),
+                Is.EqualTo("f3a8614e31fc604428a03a4e26853030"));
+            Assert.That(runtime.MoonBlockRespawnDefinitions, Is.Empty);
+        }
+
+        [Test]
         public void CampaignMainBoardTilePresentationCatalog_UsesSingleGenericDefaultPrefab()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<BoardTilePresentationCatalog>(
@@ -375,11 +514,12 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var entries = provider.LoadEntries();
             var retiredTileFeaturePresentationReferences = entries
-                .Where(entry => entry != null && entry.GameplayDefinition != null)
-                .SelectMany(entry => entry.GameplayDefinition.TileFeatures)
-                .Where(tileFeature =>
-                    string.Equals(tileFeature.PresentationKey, "exit.1x1", StringComparison.Ordinal))
-                .Select(tileFeature => $"TileId {tileFeature.TileId}: {tileFeature.PresentationKey}")
+                .Where(entry => entry != null && entry.PresentationDefinition != null)
+                .SelectMany(entry => entry.PresentationDefinition.TileFeaturePresentationBindings)
+                .Where(binding =>
+                    binding != null &&
+                    string.Equals(binding.PresentationKey, "exit.1x1", StringComparison.Ordinal))
+                .Select(binding => $"TileId {binding.TileId}: {binding.PresentationKey}")
                 .ToArray();
             var retiredStyleReferences = entries
                 .Where(entry => entry != null && entry.PresentationDefinition != null)
@@ -804,7 +944,6 @@ namespace Game.Feature.Stages.Editor.Tests
                     element.FindPropertyRelative("Direction").intValue = (int)tileFeatures[i].Direction;
                     element.FindPropertyRelative("BoxSelector").intValue = (int)tileFeatures[i].BoxSelector;
                     element.FindPropertyRelative("BoundEntityId").intValue = tileFeatures[i].BoundEntityId;
-                    element.FindPropertyRelative("PresentationKey").stringValue = tileFeatures[i].PresentationKey ?? string.Empty;
                 }
 
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();

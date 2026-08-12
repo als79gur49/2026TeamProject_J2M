@@ -98,6 +98,9 @@ namespace Game.Feature.Stages.Editor
             SetStaticBindingArray(
                 serializedObject.FindProperty("staticEntityPresentationBindings"),
                 payload.StaticEntityPresentationBindings);
+            SetTileFeaturePresentationBindingArray(
+                serializedObject.FindProperty("tileFeaturePresentationBindings"),
+                payload.TileFeaturePresentationBindings);
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
 
             if (markDirty)
@@ -174,7 +177,6 @@ namespace Game.Feature.Stages.Editor
                 element.FindPropertyRelative("Direction").intValue = (int)tileFeature.Direction;
                 element.FindPropertyRelative("BoxSelector").intValue = (int)tileFeature.BoxSelector;
                 element.FindPropertyRelative("BoundEntityId").intValue = tileFeature.BoundEntityId;
-                element.FindPropertyRelative("PresentationKey").stringValue = Normalize(tileFeature.PresentationKey);
             }
         }
 
@@ -204,8 +206,6 @@ namespace Game.Feature.Stages.Editor
         private static void SetObjective(SerializedProperty property, StageObjectiveAuthoring objective)
         {
             property.FindPropertyRelative("CompletionPolicy").intValue = (int)objective.CompletionPolicy;
-            property.FindPropertyRelative("ObjectiveTitle").stringValue = Normalize(objective.ObjectiveTitle);
-            property.FindPropertyRelative("ObjectiveSummary").stringValue = Normalize(objective.ObjectiveSummary);
             var entries = objective.GetConditionEntriesOrEmpty();
             var entriesProperty = property.FindPropertyRelative("ConditionEntries");
             entriesProperty.arraySize = entries.Length;
@@ -244,6 +244,20 @@ namespace Game.Feature.Stages.Editor
                 var element = property.GetArrayElementAtIndex(i);
                 element.FindPropertyRelative("EntityId").intValue = bindings[i].EntityId;
                 element.FindPropertyRelative("PresentationId").stringValue = Normalize(bindings[i].PresentationId);
+            }
+        }
+
+        private static void SetTileFeaturePresentationBindingArray(
+            SerializedProperty property,
+            IReadOnlyList<TileFeaturePresentationBinding> bindings)
+        {
+            property.arraySize = bindings.Count;
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var element = property.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("TileId").intValue = bindings[i].TileId;
+                element.FindPropertyRelative("PresentationKey").stringValue = Normalize(bindings[i].PresentationKey);
+                element.FindPropertyRelative("VisualPrefab").objectReferenceValue = bindings[i].VisualPrefab;
             }
         }
 

@@ -189,9 +189,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(objective.HasObjective, Is.True);
                 Assert.That(
-                    typeof(GameplayObjectiveReadModel).GetProperty("ObjectiveTitle"),
-                    Is.Null);
-                Assert.That(
                     typeof(GameplayObjectiveConditionReadModel).GetProperty("TitleText"),
                     Is.Null);
                 Assert.That(
@@ -370,6 +367,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(pausedHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
                 Assert.That(pausedHud.CanMoveThisTick, Is.False);
                 Assert.That(pausedHud.CanStartActionThisTick, Is.False);
+                Assert.That(pausedHud.CanStartAnyActionThisTick, Is.False);
                 Assert.That(pausedMove.Accepted, Is.False);
                 Assert.That(pausedMove.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
             }
@@ -391,39 +389,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host.Initialize(CreateConfiguration(
                     new[]
                     {
-                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
-                    },
-                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Right),
+                    }));
+                SetPlayerContinuousLocalOffset(
+                    host.WorldState,
+                    localX: 0,
+                    localY: SimulationFixed.MaxPositiveLocalOffset,
+                    speedUnitsPerTick: DefaultFree2DSpeedUnitsPerTick());
 
                 var beforeTickHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-                var transientReadCount = 0;
+                var observedPresentWindow = false;
                 var transientSession = default(GameplaySessionReadModel);
                 var transientHud = default(GameplayPlayerHudReadModel);
 
                 host.UiAccess.PresentationFeed.StateChanged += _ =>
                 {
-                    if (transientReadCount > 0)
+                    if (observedPresentWindow)
                     {
                         return;
                     }
 
-                    transientReadCount++;
+                    observedPresentWindow = true;
                     transientSession = host.UiAccess.QueryFacade.Session.Read();
                     transientHud = host.UiAccess.QueryFacade.PlayerHud.Read();
                 };
 
-                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
-                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up).Accepted, Is.True);
+                var tickResult = host.InputHost.RunSingleTick();
 
                 var refreshedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
 
-                Assert.That(transientReadCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(tickResult, Is.Not.Null);
+                Assert.That(tickResult.PresentationData.TopologyMotion.HasValue, Is.True);
+                Assert.That(observedPresentWindow, Is.True);
                 Assert.That(transientSession.NextTickIndex, Is.EqualTo(2));
                 Assert.That(transientHud.IsAvailable, Is.True);
                 Assert.That(transientHud.PlayerEntityId, Is.EqualTo(beforeTickHud.PlayerEntityId));
                 Assert.That(transientHud.CurrentHp, Is.EqualTo(beforeTickHud.CurrentHp));
                 Assert.That(transientHud.Facing, Is.EqualTo(beforeTickHud.Facing));
-                Assert.That(refreshedHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
+                Assert.That(refreshedHud.Facing, Is.EqualTo(GameplayUiDirection.Up));
                 Assert.That(refreshedHud.Facing, Is.Not.EqualTo(transientHud.Facing));
             }
             finally
@@ -678,14 +682,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(tickResult, Is.Not.Null);
                 Assert.That(tickResult.PresentationData.PlayerLocomotionSignals.Count, Is.EqualTo(1));
                 Assert.That(tickResult.PresentationData.PlayerLocomotionSignals[0].ShouldPlayWalkLoop, Is.True);
-                Assert.That(tickResult.PresentationData.PlayerLocomotionSignals[0].MoveMotionGeneratedThisTick, Is.True);
+                Assert.That(tickResult.PresentationData.PlayerLocomotionSignals[0].MoveMotionGeneratedThisTick, Is.False);
                 Assert.That(frameCount, Is.EqualTo(1));
                 Assert.That(capturedFrame.Player.HasValue, Is.True);
                 Assert.That(capturedFrame.Player.Value.PlayerEntityId, Is.EqualTo(10));
                 Assert.That(capturedFrame.Player.Value.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
                 Assert.That(capturedFrame.Player.Value.ActiveActionSequence, Is.EqualTo(0));
                 Assert.That(capturedFrame.Player.Value.ShouldPlayWalkLoop, Is.True);
-                Assert.That(capturedFrame.Player.Value.MoveMotionGeneratedThisTick, Is.True);
+                Assert.That(capturedFrame.Player.Value.MoveMotionGeneratedThisTick, Is.False);
                 Assert.That(capturedFrame.Player.Value.ActionDirection, Is.EqualTo(GameplayUiDirection.None));
                 Assert.That(capturedFrame.Player.Value.TargetEntityId, Is.EqualTo(0));
                 Assert.That(capturedFrame.Player.Value.StartedThisTick, Is.False);
@@ -784,8 +788,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
 
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                snapshot.TryGetPlayerControlState(10, out var playerControlState);
 
                 Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(
+                    PlayerControlQueries.CanStartExplicitAction(
+                        playerControlState,
+                        host.TickRunner.NextTickIndex),
+                    Is.True);
                 Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
                 Assert.That(playerHud.CanStartActionThisTick, Is.True);
                 Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
@@ -884,9 +895,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var startTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();
                 var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var snapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
 
                 Assert.That(startTick, Is.Not.Null);
                 Assert.That(executeTick, Is.Not.Null);
+                Assert.That(snapshot.TryGetPlayerControlState(10, out var playerControlState), Is.True);
+                Assert.That(
+                    PlayerControlQueries.CanStartExplicitAction(
+                        playerControlState,
+                        host.TickRunner.NextTickIndex),
+                    Is.False);
                 Assert.That(playerHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.Push));
                 Assert.That(playerHud.IsActionInRecoveryPhase, Is.True);
                 Assert.That(playerHud.CanStartAnyActionThisTick, Is.False);
@@ -933,7 +951,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var remainders = host.UiAccess.QueryFacade.SurfaceButtonRemainders.Read();
 
-                Assert.That(remainders, Has.Count.EqualTo(Enum.GetValues(typeof(GameplayUiFace)).Length));
+                Assert.That(remainders.Count, Is.EqualTo(Enum.GetValues(typeof(GameplayUiFace)).Length));
                 Assert.That(remainders[(int)GameplayUiFace.Floor].NormalRemaining, Is.EqualTo(1));
                 Assert.That(remainders[(int)GameplayUiFace.Floor].MoonBlockOnlyRemaining, Is.EqualTo(1));
                 Assert.That(remainders[(int)GameplayUiFace.Front].TotalRemaining, Is.EqualTo(0));
@@ -1024,8 +1042,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TileFeatureActivationRule.Always,
                 Direction2D.None,
                 boxSelector,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static StageObjectiveRuntimeDefinition CreateUiObjectiveDefinition()

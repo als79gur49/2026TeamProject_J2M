@@ -121,7 +121,11 @@ namespace Game.Feature.Stages.Editor.Tests
             return roots
                 .Where(Directory.Exists)
                 .SelectMany(root => Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
-                .Where(path => !path.Contains("/Tests/") && !path.Contains("\\Tests\\"))
+                .Where(path =>
+                    !path.Contains("/Editor/") &&
+                    !path.Contains("\\Editor\\") &&
+                    !path.Contains("/Tests/") &&
+                    !path.Contains("\\Tests\\"))
                 .OrderBy(path => path);
         }
 

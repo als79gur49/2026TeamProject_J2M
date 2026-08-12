@@ -162,8 +162,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SlotMapper_ResolvesEmptyInProgressAndCompletedCardsInEnglishAndKorean()
         {
-            var sequence = new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var sequence = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var slots = new[]
             {
                 SaveSlotData.CreateEmpty(1),
@@ -220,8 +219,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SlotMapper_ResolvesRepresentativeOfficialStageNamesWithoutChangingSlotFacts()
         {
-            var sequence = new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            var sequence = CampaignStageSequenceTestAsset.LoadProductionResolver();
             var slots = new[]
             {
                 CreateInProgressSlot(1, "stage-0-1", 3, 1),
@@ -255,13 +253,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SlotMapper_StageTextResolvesThroughStageDescriptorInsteadOfSequenceDisplayName()
+        public void SlotMapper_StageTextResolvesThroughStageDescriptorWithoutSequenceDisplayField()
         {
             var definition = UnityEngine.ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
             try
             {
                 var entry = new CampaignStageSequenceEntry();
-                entry.Set(StageId.CreateOrThrow("stage-0-1"), "RAW-SEQUENCE-NAME", "level-0");
+                entry.Set(StageId.CreateOrThrow("stage-0-1"), "level-0");
                 definition.SetEntries(new[] { entry });
                 var card = MainMenuSlotViewModelMapper.MapSlot(
                     new SaveSlotData
@@ -275,7 +273,6 @@ namespace Game.Feature.UI.Tests
                     PackageFreeLocalizedTextResolver.CreateSettingsDefault());
 
                 Assert.That(card.StageText, Is.EqualTo("Stage Lab-01"));
-                Assert.That(card.StageText, Does.Not.Contain("RAW-SEQUENCE-NAME"));
             }
             finally
             {
@@ -387,7 +384,7 @@ namespace Game.Feature.UI.Tests
             var controller = new MainMenuController(
                 store,
                 new NoOpHandoffStore(),
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                CampaignStageSequenceTestAsset.LoadProductionResolver(),
                 new NoOpLaunchRouter(),
                 new RecordingConfirmPort(),
                 localizedTextResolver: resolver);
@@ -437,7 +434,7 @@ namespace Game.Feature.UI.Tests
             var controller = new MainMenuController(
                 store,
                 new NoOpHandoffStore(),
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                CampaignStageSequenceTestAsset.LoadProductionResolver(),
                 new NoOpLaunchRouter(),
                 new RecordingConfirmPort(),
                 localizedTextResolver: resolver);

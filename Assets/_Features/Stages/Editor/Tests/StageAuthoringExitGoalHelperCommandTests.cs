@@ -718,6 +718,14 @@ namespace Game.Feature.Stages.Editor.Tests
                                 VisualPrefab = prefab,
                             },
                         });
+                    authoring.SetTileFeaturePresentationSelections(new[]
+                    {
+                        new TileFeaturePresentationBinding
+                        {
+                            TileId = 1,
+                            VisualPrefab = prefab,
+                        },
+                    });
 
                     Assert.That(StageAuthoringExitGoalHelperCommands.TryEnsureExitPrimaryGoalZone(authoring, 1, out var syncError), Is.True, syncError);
 
@@ -808,7 +816,6 @@ namespace Game.Feature.Stages.Editor.Tests
                     ? TileFeatureBoxSelector.AnyPushableBox
                     : TileFeatureBoxSelector.None,
                 BoundEntityId = 0,
-                PresentationKey = string.Empty,
             };
         }
 
@@ -836,8 +843,6 @@ namespace Game.Feature.Stages.Editor.Tests
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = policy,
-                ObjectiveTitle = string.Empty,
-                ObjectiveSummary = string.Empty,
                 ConditionEntries = entries,
             };
         }

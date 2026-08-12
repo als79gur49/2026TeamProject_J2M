@@ -827,6 +827,21 @@ MonoBehaviour:
       y: 6
     styleKey: board.paint.level1
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
-  tileFeaturePresentationBindings: []
+  tileFeaturePresentationBindings:
+  - TileId: 1
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []

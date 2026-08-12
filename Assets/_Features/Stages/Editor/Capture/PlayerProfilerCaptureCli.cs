@@ -15,6 +15,7 @@ public static class PlayerProfilerCaptureCli
     private const string CaptureScenesArg = "-captureScenes";
     private const string CaptureSupplementalScenesArg = "-captureSupplementalScenes";
     private const string CaptureBackendArg = "-captureBackend";
+    private const string CaptureProductNameArg = "-captureProductName";
     private const string CaptureGameplayShellSceneArg = "-captureGameplayShellScene";
     private const string RouteConfigPath =
         "Assets/_Features/UI/UI_Composition/Authoring/GameplayStageLaunchRouteConfig.asset";
@@ -24,16 +25,28 @@ public static class PlayerProfilerCaptureCli
         var args = Environment.GetCommandLineArgs();
         var buildPath = RequireArgument(args, CaptureBuildPathArg);
         var backend = ReadArgument(args, CaptureBackendArg, "Mono");
+        var productName = ReadArgument(args, CaptureProductNameArg, string.Empty);
         var scenes = ResolveBuildScenes(args);
         var requestedBackend = ParseBackend(backend);
 
         var originalBackend = PlayerSettings.GetScriptingBackend(BuildTargetGroup.Standalone);
+        var originalProductName = PlayerSettings.productName;
         var backendWasChanged = originalBackend != requestedBackend;
+        var productNameWasChanged = !string.IsNullOrWhiteSpace(productName) &&
+                                    !string.Equals(
+                                        originalProductName,
+                                        productName,
+                                        StringComparison.Ordinal);
         try
         {
             if (backendWasChanged)
             {
                 PlayerSettings.SetScriptingBackend(BuildTargetGroup.Standalone, requestedBackend);
+            }
+
+            if (productNameWasChanged)
+            {
+                PlayerSettings.productName = productName;
             }
 
             var options = new BuildPlayerOptions
@@ -71,6 +84,11 @@ public static class PlayerProfilerCaptureCli
             if (backendWasChanged)
             {
                 PlayerSettings.SetScriptingBackend(BuildTargetGroup.Standalone, originalBackend);
+            }
+
+            if (productNameWasChanged)
+            {
+                PlayerSettings.productName = originalProductName;
             }
         }
     }

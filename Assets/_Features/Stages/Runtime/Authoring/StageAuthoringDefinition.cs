@@ -18,6 +18,7 @@ namespace Game.Feature.Stages
         };
         [SerializeField] private List<StagePlacedEntityAuthoring> placements = new();
         [SerializeField] private List<StageTileFeatureDefinition> tileFeatures = new();
+        [SerializeField] private List<TileFeaturePresentationBinding> tileFeaturePresentationSelections = new();
         [SerializeField] private List<StageZoneDefinition> zones = new();
         [SerializeField] private StageObjectiveAuthoring objective = StageObjectiveAuthoring.CreateDefault();
         [SerializeField] private List<StageAuthoringIdMapping> entityIdMappings = new();
@@ -36,6 +37,11 @@ namespace Game.Feature.Stages
 
         public IReadOnlyList<StageTileFeatureDefinition> TileFeatures =>
             tileFeatures != null ? tileFeatures : Array.Empty<StageTileFeatureDefinition>();
+
+        public IReadOnlyList<TileFeaturePresentationBinding> TileFeaturePresentationSelections =>
+            tileFeaturePresentationSelections != null
+                ? tileFeaturePresentationSelections
+                : Array.Empty<TileFeaturePresentationBinding>();
 
         public IReadOnlyList<StageZoneDefinition> Zones =>
             zones != null ? zones : Array.Empty<StageZoneDefinition>();
@@ -69,9 +75,47 @@ namespace Game.Feature.Stages
 
         public void SetTileFeatures(IEnumerable<StageTileFeatureDefinition> value)
         {
+            var existingSelectionsByTileId = new Dictionary<int, TileFeaturePresentationBinding>();
+            var existingSelections = TileFeaturePresentationSelections;
+            for (var i = 0; i < existingSelections.Count; i++)
+            {
+                var selection = existingSelections[i];
+                if (selection != null &&
+                    selection.TileId > 0 &&
+                    !existingSelectionsByTileId.ContainsKey(selection.TileId))
+                {
+                    existingSelectionsByTileId.Add(selection.TileId, selection);
+                }
+            }
+
             tileFeatures = value != null
                 ? new List<StageTileFeatureDefinition>(value)
                 : new List<StageTileFeatureDefinition>();
+            tileFeaturePresentationSelections = new List<TileFeaturePresentationBinding>(tileFeatures.Count);
+            for (var i = 0; i < tileFeatures.Count; i++)
+            {
+                var tileId = tileFeatures[i].TileId;
+                if (existingSelectionsByTileId.TryGetValue(tileId, out var existing))
+                {
+                    tileFeaturePresentationSelections.Add(existing);
+                }
+                else
+                {
+                    tileFeaturePresentationSelections.Add(new TileFeaturePresentationBinding
+                    {
+                        TileId = tileId,
+                        PresentationKey = string.Empty,
+                        VisualPrefab = null,
+                    });
+                }
+            }
+        }
+
+        public void SetTileFeaturePresentationSelections(IEnumerable<TileFeaturePresentationBinding> value)
+        {
+            tileFeaturePresentationSelections = value != null
+                ? new List<TileFeaturePresentationBinding>(value)
+                : new List<TileFeaturePresentationBinding>();
         }
 
         public void SetZones(IEnumerable<StageZoneDefinition> value)
@@ -103,8 +147,6 @@ namespace Game.Feature.Stages
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = value.CompletionPolicy,
-                ObjectiveTitle = value.ObjectiveTitle ?? string.Empty,
-                ObjectiveSummary = value.ObjectiveSummary ?? string.Empty,
                 ConditionEntries = NormalizeObjectiveConditionEntries(value.GetConditionEntriesOrEmpty()),
             };
         }

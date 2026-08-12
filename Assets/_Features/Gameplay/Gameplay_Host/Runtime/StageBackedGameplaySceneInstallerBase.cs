@@ -12,6 +12,9 @@ namespace Game.Feature.Gameplay.Host
         ICampaignStageSequenceResolverProvider
     {
         private const string StageBackgroundRootObjectName = "StageBackgroundRoot";
+        private const string MissingCampaignStageSequenceDefinitionMessage =
+            "StageBackedGameplaySceneInstallerBase requires the authoritative serialized " +
+            "CampaignStageSequenceDefinition for the gameplay scene composition.";
 
         private static readonly StageRuntimeContentResolver RuntimeContentResolver = new();
 
@@ -31,6 +34,7 @@ namespace Game.Feature.Gameplay.Host
         private ActiveSlotProvider _activeSlotProvider;
         private CampaignChanceDisplayOverride _campaignChanceDisplayOverride;
         private CampaignGameplayFlowController _campaignFlowController;
+        private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private bool _campaignRuntimeActive;
         private CampaignRunningSlotContext _runningSlotContext;
         private StagePresentationDefinition _resolvedPresentationDefinition;
@@ -57,10 +61,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var sequenceDefinition = campaignStageSequenceDefinition != null
-                ? campaignStageSequenceDefinition
-                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
-            var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
+            var sequenceResolver = RequireCampaignStageSequenceResolver();
             context = new DemoStageControlGameplayContext(
                 stageCatalogProvider,
                 new DemoStageControlCampaignBridge(
@@ -79,10 +80,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var sequenceDefinition = campaignStageSequenceDefinition != null
-                ? campaignStageSequenceDefinition
-                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
-            resolver = new CampaignStageSequenceResolver(sequenceDefinition);
+            resolver = RequireCampaignStageSequenceResolver();
             return true;
         }
 
@@ -92,6 +90,7 @@ namespace Game.Feature.Gameplay.Host
             StageLaunchContextStore.TryPeek(out var capturedContext);
             try
             {
+                RequireCampaignStageSequenceResolver();
                 var resolved = RuntimeContentResolver.Resolve(CreateStageLoadRequest());
                 var buildResult = StageRuntimeBuilder.Build(resolved.Entry.GameplayDefinition);
                 var resolvedPresentation = StagePresentationAssembler.Resolve(
@@ -139,6 +138,7 @@ namespace Game.Feature.Gameplay.Host
             GameplaySceneHostConfiguration configuration,
             in InitialGameplayState initialState)
         {
+            configuration.CampaignStageSequenceResolver = RequireCampaignStageSequenceResolver();
             CampaignLaunchHandoff capturedHandoff = null;
             StageLaunchContext capturedContext = null;
             try
@@ -324,19 +324,33 @@ namespace Game.Feature.Gameplay.Host
                 throw new System.InvalidOperationException("Campaign runtime requires a running slot context.");
             }
 
-            var sequenceDefinition = campaignStageSequenceDefinition != null
-                ? campaignStageSequenceDefinition
-                : CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance();
-            var sequenceResolver = new CampaignStageSequenceResolver(sequenceDefinition);
             _campaignFlowController = new CampaignGameplayFlowController(
                 host,
                 _saveSlotStore,
                 _runningSlotContext,
-                sequenceResolver,
+                RequireCampaignStageSequenceResolver(),
                 CreateStageLaunchRouter(gameObject, gameObject.scene.name),
                 _campaignChanceDisplayOverride,
                 terminalTransitionPort);
             _campaignFlowController.Bind();
+        }
+
+        private CampaignStageSequenceResolver RequireCampaignStageSequenceResolver()
+        {
+            if (_campaignStageSequenceResolver != null)
+            {
+                return _campaignStageSequenceResolver;
+            }
+
+            if (campaignStageSequenceDefinition == null)
+            {
+                throw new System.InvalidOperationException(
+                    $"{MissingCampaignStageSequenceDefinitionMessage} Scene='{gameObject.scene.name}', Component='{GetType().Name}'.");
+            }
+
+            _campaignStageSequenceResolver =
+                new CampaignStageSequenceResolver(campaignStageSequenceDefinition);
+            return _campaignStageSequenceResolver;
         }
 
         private static IStageLaunchRouter CreateStageLaunchRouter(

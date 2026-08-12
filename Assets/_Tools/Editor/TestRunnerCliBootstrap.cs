@@ -20,11 +20,13 @@ public static class TestRunnerCliBootstrap
     private const string CoreSelection = "core";
     private const string CoreFeatureGateSelection = "core-feature-gate";
     private const string FullSelection = "full";
+    private const string TerminalIrisCaptureSelection = "terminal-iris-capture";
     private const string UiSelection = "ui";
     private const string IntegrationSimulationSelection = "integration-simulation";
     private const string IntegrationReplaySelection = "integration-replay";
     private const string IntegrationFuzzSelection = "integration-fuzz";
     private const string CoreCategory = "Core";
+    private const string TerminalIrisCaptureCategory = "TerminalIrisCapture";
     private const string CoreEditModeAssemblyName = "Game.Core.Tests";
     private const string CoreFeatureGateEditModeAssemblyName = "Game.Feature.Gameplay.Tests";
     private const string PlayModeAssemblyName = "Game.Feature.Gameplay.PlayModeTests";
@@ -493,6 +495,20 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
 
         if (_selection == FullSelection)
         {
+            selectedCategories = new[] { $"!{TerminalIrisCaptureCategory}" };
+            return;
+        }
+
+        if (_selection == TerminalIrisCaptureSelection)
+        {
+            if (_testMode != TestMode.PlayMode)
+            {
+                throw new InvalidOperationException(
+                    $"Selection '{_selection}' only supports PlayMode execution.");
+            }
+
+            selectedAssemblyNames = new[] { PlayModeAssemblyName };
+            selectedCategories = new[] { TerminalIrisCaptureCategory };
             return;
         }
 
@@ -565,6 +581,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         if (_selection != CoreSelection &&
             _selection != CoreFeatureGateSelection &&
             _selection != FullSelection &&
+            _selection != TerminalIrisCaptureSelection &&
             _selection != UiSelection &&
             _selection != IntegrationSimulationSelection &&
             _selection != IntegrationReplaySelection &&
@@ -596,6 +613,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         if (_selection != CoreSelection &&
             _selection != CoreFeatureGateSelection &&
             _selection != FullSelection &&
+            _selection != TerminalIrisCaptureSelection &&
             _selection != UiSelection &&
             _selection != IntegrationSimulationSelection &&
             _selection != IntegrationReplaySelection &&

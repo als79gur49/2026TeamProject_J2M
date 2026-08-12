@@ -108,9 +108,10 @@ namespace Game.Feature.Stages.Editor
         public static TileFeaturePresentationCatalogStatus ResolveStatus(
             StagePresentationDefinition presentation,
             StageTileFeatureDefinition feature,
+            string selectedPresentationKey,
             bool directOverrideActive)
         {
-            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+            var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(selectedPresentationKey);
             if (directOverrideActive)
             {
                 if (TryResolveCatalogKeyEntry(presentation, presentationKey, out var directEntry))

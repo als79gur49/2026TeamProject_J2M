@@ -125,7 +125,7 @@ namespace Game.Feature.UI.Tests
             return new MainMenuController(
                 saveStore,
                 handoffStore,
-                new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()),
+                CampaignStageSequenceTestAsset.LoadProductionResolver(),
                 router,
                 new ImmediateConfirmPopupPort());
         }

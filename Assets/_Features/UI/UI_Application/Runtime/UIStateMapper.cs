@@ -526,8 +526,6 @@ namespace Game.Feature.UI.Application
             return new UIObjectiveSlice(
                 objective.HasObjective,
                 BuildObjectiveStableId(objective, stageId),
-                string.Empty,
-                string.Empty,
                 objective.GoalReached,
                 objective.AllConditionsSatisfied,
                 objective.IsCleared,

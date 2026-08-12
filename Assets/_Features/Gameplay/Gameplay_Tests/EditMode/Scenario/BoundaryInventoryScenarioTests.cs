@@ -2579,8 +2579,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 activationRule,
                 Direction2D.None,
                 TileFeatureBoxSelector.None,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding

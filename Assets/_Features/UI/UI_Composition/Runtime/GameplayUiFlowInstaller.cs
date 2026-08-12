@@ -59,6 +59,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private bool _installOnStart = true;
 
         private CinematicFlowCoordinator _cinematicFlowCoordinator;
+        private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
@@ -487,6 +488,8 @@ namespace Game.Feature.UI.Composition
             {
                 EnsureTerminalTransitionPort(sceneHost);
                 _installedSceneHost = sceneHost;
+                _campaignStageSequenceResolver =
+                    sceneHost.UiAccess.CampaignStageSequenceResolver;
                 _gameplayWorldGuidePresenter = sceneHost.GetComponent<GameplayWorldGuidePresenter>();
                 RegisterSceneEntryDestinationIfApplicable();
                 _demoGameplayOverrideCommandPort = sceneHost.UiAccess.DemoGameplayOverrideCommandPort;
@@ -500,7 +503,10 @@ namespace Game.Feature.UI.Composition
                     sceneHost.UiAccess.QueryFacade,
                     presentationSource,
                     sceneHost.UiAccess.PauseService,
-                    CreatePauseProgressionReadSource(gameObject, presentationSource)));
+                    CreatePauseProgressionReadSource(
+                        gameObject,
+                        presentationSource,
+                        _campaignStageSequenceResolver)));
 
                 SignalTerminalDestinationReadyIfApplicable(sceneHost);
                 _sceneHost = null;
@@ -716,7 +722,8 @@ namespace Game.Feature.UI.Composition
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name),
                 CreateMainMenuReturnRouter(),
-                Ports.PauseProgressionReadSource);
+                Ports.PauseProgressionReadSource,
+                _campaignStageSequenceResolver);
             _stageResultAutoNextDriver = new StageResultAutoNextDriver(
                 ScreenController,
                 PopupController,
@@ -1887,6 +1894,13 @@ namespace Game.Feature.UI.Composition
                 return null;
             }
 
+            if (_campaignStageSequenceResolver != null &&
+                !ReferenceEquals(_campaignStageSequenceResolver, context.SequenceResolver))
+            {
+                throw new InvalidOperationException(
+                    "GameplayUiFlowInstaller requires Demo Stage Control to share the gameplay composition campaign sequence resolver instance.");
+            }
+
             var launchRouter = new CurrentSceneStageLaunchRouter(gameObject.scene.name);
             return new DemoStageControlService(
                 _demoStageControlSettings ?? DemoStageControlSettings.EnabledByDefault(),
@@ -1899,7 +1913,8 @@ namespace Game.Feature.UI.Composition
 
         private static IPauseProgressionReadSource CreatePauseProgressionReadSource(
             GameObject root,
-            IGameplayUiPresentationSource presentationSource)
+            IGameplayUiPresentationSource presentationSource,
+            CampaignStageSequenceResolver compositionResolver)
         {
             if (root == null || presentationSource == null)
             {
@@ -1913,6 +1928,13 @@ namespace Game.Feature.UI.Composition
                     provider.TryCreateCampaignStageSequenceResolver(out var resolver) &&
                     resolver != null)
                 {
+                    if (compositionResolver != null &&
+                        !ReferenceEquals(compositionResolver, resolver))
+                    {
+                        throw new InvalidOperationException(
+                            "GameplayUiFlowInstaller requires pause progression to share the gameplay composition campaign sequence resolver instance.");
+                    }
+
                     return new CampaignPauseProgressionReadSource(resolver, presentationSource);
                 }
             }

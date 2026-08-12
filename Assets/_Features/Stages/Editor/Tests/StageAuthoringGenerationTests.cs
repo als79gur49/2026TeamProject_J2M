@@ -190,7 +190,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GeneratedStageDefinitionPreservesTileFeatureAuthoring()
+        public void GenerationSplitsTileFeatureGameplayAndPresentationSelections()
         {
             var fixture = CreateFixture(
                 Placement("player", StageAuthoringEntityKind.Player, 0, 0),
@@ -204,12 +204,19 @@ namespace Game.Feature.Stages.Editor.Tests
                 Direction = Direction2D.Left,
                 BoxSelector = TileFeatureBoxSelector.BoundEntity,
                 BoundEntityId = 2,
-                PresentationKey = "button-a",
             };
 
             try
             {
                 fixture.Authoring.SetTileFeatures(new[] { tileFeature });
+                fixture.Authoring.SetTileFeaturePresentationSelections(new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = tileFeature.TileId,
+                        PresentationKey = "button-a",
+                    },
+                });
 
                 var report = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
                 Assert.That(report.HasErrors, Is.False, FormatIssues(report));
@@ -221,7 +228,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(fixture.Gameplay.TileFeatures[0].Direction, Is.EqualTo(tileFeature.Direction));
                 Assert.That(fixture.Gameplay.TileFeatures[0].BoxSelector, Is.EqualTo(tileFeature.BoxSelector));
                 Assert.That(fixture.Gameplay.TileFeatures[0].BoundEntityId, Is.EqualTo(tileFeature.BoundEntityId));
-                Assert.That(fixture.Gameplay.TileFeatures[0].PresentationKey, Is.EqualTo(tileFeature.PresentationKey));
+                Assert.That(typeof(StageTileFeatureDefinition).GetField("PresentationKey"), Is.Null);
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings, Has.Length.EqualTo(1));
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings[0].TileId, Is.EqualTo(tileFeature.TileId));
+                Assert.That(fixture.Presentation.TileFeaturePresentationBindings[0].PresentationKey, Is.EqualTo("button-a"));
             }
             finally
             {
@@ -255,8 +265,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixture.Authoring.SetObjective(new StageObjectiveAuthoring
                 {
                     CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                    ObjectiveTitle = "Reach the Exit",
-                    ObjectiveSummary = "Clear every required condition.",
                     ConditionEntries = new[]
                     {
                         new StageObjectiveConditionEntry
@@ -275,8 +283,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(report.HasErrors, Is.False, FormatIssues(report));
                 var secondReport = StageAuthoringGenerator.Generate(fixture.Authoring, StageAuthoringGenerateOptions.WriteAll);
                 Assert.That(secondReport.HasErrors, Is.False, FormatIssues(secondReport));
-                Assert.That(fixture.Gameplay.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-                Assert.That(fixture.Gameplay.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = fixture.Gameplay.Objective.ConditionEntries.Single();
                 Assert.That(entry.StableConditionId, Is.EqualTo("button-100"));
                 Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
@@ -298,8 +304,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 authoring.SetObjective(new StageObjectiveAuthoring
                 {
                     CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                    ObjectiveTitle = "Reach the Exit",
-                    ObjectiveSummary = "Move to the exit zone.",
                     ConditionEntries = new[]
                     {
                         new StageObjectiveConditionEntry
@@ -315,8 +319,6 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 var objective = authoring.Objective;
 
-                Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-                Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
                 Assert.That(objective.ConditionEntries.Single().AuthoringLabel, Is.Empty);
             }
             finally
@@ -326,7 +328,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void GeneratedAssetWriterPreservesObjectiveTitleSummaryAuthoringLabelAndSortOrder()
+        public void GeneratedAssetWriterPreservesObjectiveAuthoringLabelAndSortOrder()
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
             var condition = ScriptableObject.CreateInstance<ButtonActivatedConditionAsset>();
@@ -341,8 +343,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageObjectiveAuthoring
                 {
                     CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                    ObjectiveTitle = "Reach the Exit",
-                    ObjectiveSummary = "Clear every required condition.",
                     ConditionEntries = new[]
                     {
                         new StageObjectiveConditionEntry
@@ -362,8 +362,6 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 StageAuthoringGeneratedAssetWriter.ApplyGameplayOutput(stage, payload, recordUndo: false, markDirty: false);
 
-                Assert.That(stage.Objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-                Assert.That(stage.Objective.ObjectiveSummary, Is.EqualTo("Clear every required condition."));
                 var entry = stage.Objective.ConditionEntries.Single();
                 Assert.That(entry.AuthoringLabel, Is.EqualTo("Place a push box on the button"));
                 Assert.That(entry.SortOrder, Is.EqualTo(10));
@@ -567,6 +565,26 @@ namespace Game.Feature.Stages.Editor.Tests
 
             try
             {
+                fixture.Authoring.SetTileFeatures(new[]
+                {
+                    new StageTileFeatureDefinition
+                    {
+                        TileId = 100,
+                        Cell = new SurfaceCell(FaceId.Floor, 1, 1),
+                        Kind = TileFeatureKind.Button,
+                        ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                        Direction = Direction2D.None,
+                        BoxSelector = TileFeatureBoxSelector.AnyPushableBox,
+                    },
+                });
+                fixture.Authoring.SetTileFeaturePresentationSelections(new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        VisualPrefab = prefab,
+                    },
+                });
                 SetTileFeaturePresentationBindings(
                     fixture.Presentation,
                     new[]

@@ -10,15 +10,13 @@ namespace Game.Feature.Gameplay.BoardState
             TileFeatureActivationRule activationRule,
             Direction2D direction,
             TileFeatureBoxSelector boxSelector,
-            int boundEntityId,
-            string presentationKey)
+            int boundEntityId)
         {
             TileId = tileId;
             ActivationRule = activationRule;
             Direction = direction;
             BoxSelector = boxSelector;
             BoundEntityId = boundEntityId;
-            PresentationKey = presentationKey ?? string.Empty;
         }
 
         public int TileId { get; }
@@ -31,16 +29,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         public int BoundEntityId { get; }
 
-        public string PresentationKey { get; }
-
         public bool Equals(TileFeatureRuntimeDefinition other)
         {
             return TileId == other.TileId &&
                    ActivationRule == other.ActivationRule &&
                    Direction == other.Direction &&
                    BoxSelector == other.BoxSelector &&
-                   BoundEntityId == other.BoundEntityId &&
-                   string.Equals(PresentationKey, other.PresentationKey, StringComparison.Ordinal);
+                   BoundEntityId == other.BoundEntityId;
         }
 
         public override bool Equals(object obj)
@@ -57,7 +52,6 @@ namespace Game.Feature.Gameplay.BoardState
                 hash = (hash * 397) ^ (int)Direction;
                 hash = (hash * 397) ^ (int)BoxSelector;
                 hash = (hash * 397) ^ BoundEntityId;
-                hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(PresentationKey ?? string.Empty);
                 return hash;
             }
         }

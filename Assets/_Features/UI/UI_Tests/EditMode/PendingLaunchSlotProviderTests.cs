@@ -533,8 +533,7 @@ namespace Game.Feature.UI.Tests
 
         private static CampaignStageSequenceResolver CreateResolver()
         {
-            return new CampaignStageSequenceResolver(
-                CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+            return CampaignStageSequenceTestAsset.LoadProductionResolver();
         }
 
         private static SaveSlotData CreateExistingSlot(int slotNumber, string stageId)

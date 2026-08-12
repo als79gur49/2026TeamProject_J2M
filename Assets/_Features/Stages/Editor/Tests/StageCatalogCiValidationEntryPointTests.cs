@@ -5,6 +5,7 @@ using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
@@ -28,6 +29,72 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Contain("## Known Warning Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Usage Issues"));
+            Assert.That(reportText, Does.Contain("## Campaign Sequence — Authoritative Asset Contract"));
+            Assert.That(reportText, Does.Contain(CampaignStageSequenceAssetLoader.CanonicalAssetPath));
+            Assert.That(reportText, Does.Contain(CampaignStageSequenceAssetLoader.CanonicalAssetGuid));
+            Assert.That(reportText, Does.Contain("TypedLoad: Passed"));
+            Assert.That(reportText, Does.Contain("AuthoritativeValidation: Passed"));
+            Assert.That(reportText, Does.Contain("CampaignEligibilityCoverage: Passed"));
+            Assert.That(reportText, Does.Contain("## Final Validation Counts"));
+        }
+
+        [Test]
+        public void Run_PropagatesCampaignSequenceValidatorErrorToReportAndFailureResult()
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                CampaignStageSequenceAssetLoader.CanonicalAssetPath);
+            var authoritativeReport = new StageValidationReport();
+            authoritativeReport.Add(
+                StageValidationSeverity.Error,
+                "campaign-sequence.authoritative.synthetic-ci-error",
+                "Synthetic validator error used to prove CI failure propagation.");
+            var injected = new CampaignStageSequenceProductionValidation(
+                definition,
+                new StageValidationReport(),
+                authoritativeReport,
+                CampaignStageSequenceAssetLoader.CanonicalAssetPath,
+                CampaignStageSequenceAssetLoader.CanonicalAssetGuid);
+
+            var previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                var result = StageCatalogCiValidationEntryPoint.Run(injected);
+                var report = File.ReadAllText(StageCatalogCiValidationEntryPoint.ReportPath);
+
+                Assert.That(result, Is.EqualTo(1));
+                Assert.That(report, Does.Contain("campaign-sequence.authoritative.synthetic-ci-error"));
+                Assert.That(report, Does.Contain("AuthoritativeValidation: Failed"));
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
+            }
+        }
+
+        [Test]
+        public void Run_CampaignSequenceWarningOnly_DoesNotFailExistingCiPolicy()
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<CampaignStageSequenceDefinition>(
+                CampaignStageSequenceAssetLoader.CanonicalAssetPath);
+            var authoritativeReport = new StageValidationReport();
+            authoritativeReport.Add(
+                StageValidationSeverity.Warning,
+                "campaign-sequence.authoritative.synthetic-ci-warning",
+                "Synthetic warning used to prove warning-only CI policy.");
+            var injected = new CampaignStageSequenceProductionValidation(
+                definition,
+                new StageValidationReport(),
+                authoritativeReport,
+                CampaignStageSequenceAssetLoader.CanonicalAssetPath,
+                CampaignStageSequenceAssetLoader.CanonicalAssetGuid);
+
+            var result = StageCatalogCiValidationEntryPoint.Run(injected);
+            var report = File.ReadAllText(StageCatalogCiValidationEntryPoint.ReportPath);
+
+            Assert.That(result, Is.EqualTo(0));
+            Assert.That(report, Does.Contain("campaign-sequence.authoritative.synthetic-ci-warning"));
+            Assert.That(report, Does.Contain("AuthoritativeWarningCount: 1"));
         }
 
         [Test]

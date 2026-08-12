@@ -116,8 +116,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 authoring.SetObjective(new StageObjectiveAuthoring
                 {
                     CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                    ObjectiveTitle = "Other conditions",
-                    ObjectiveSummary = "Resolver coverage",
                     ConditionEntries = new[]
                     {
                         Entry(other, "other-a", "Other A", StageObjectiveConditionRole.Challenge, 10),
@@ -1528,8 +1526,6 @@ namespace Game.Feature.Stages.Editor.Tests
             fixture.Authoring.SetObjective(new StageObjectiveAuthoring
             {
                 CompletionPolicy = fixture.Authoring.Objective.CompletionPolicy,
-                ObjectiveTitle = fixture.Authoring.Objective.ObjectiveTitle,
-                ObjectiveSummary = fixture.Authoring.Objective.ObjectiveSummary,
                 ConditionEntries = entries.ToArray(),
             });
 
@@ -2424,8 +2420,6 @@ namespace Game.Feature.Stages.Editor.Tests
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                ObjectiveTitle = "Objective",
-                ObjectiveSummary = "Objective summary",
                 ConditionEntries = entries,
             };
         }

@@ -18,7 +18,6 @@ MonoBehaviour:
   gameplayDefinition: {fileID: 11400000, guid: 92f6d3824c3aa74d31352896a55b3ef2, type: 2}
   presentationDefinition: {fileID: 11400000, guid: f2d3dbff482a412c64ab925113d2ee04, type: 2}
   audioDefinition: {fileID: 11400000, guid: c0222222222222222222222222222222, type: 2}
-  catalogWorldId: showcase
-  catalogChapterId: tutorial
-  catalogSortOrder: 0
   isInitiallyAvailable: 1
+  campaignParticipation: 1
+  catalogOnlyReason: 0

@@ -254,9 +254,7 @@ namespace Game.Feature.Stages.Editor
 
             for (var i = 0; i < source.Count; i++)
             {
-                var tileFeature = source[i];
-                tileFeature.PresentationKey = Normalize(tileFeature.PresentationKey);
-                target.Add(tileFeature);
+                target.Add(source[i]);
             }
 
             target.Sort((left, right) => left.TileId.CompareTo(right.TileId));

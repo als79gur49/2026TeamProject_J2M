@@ -601,6 +601,39 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(source, Does.Contain("production-local until an explicit active slot split phase"));
         }
 
+        [Test]
+        public void ArchitectureReadme_SeparatesProcessedIdSchemaSemanticUseAndCompatibilityPolicy()
+        {
+            var readme = File.ReadAllText("Docs/Architecture/README.md");
+            const string sectionHeading = "## Stage clear save/profile boundary";
+            const string nextHeading = "## Campaign save architecture V2 policy closeout";
+            var sectionStart = readme.IndexOf(sectionHeading, StringComparison.Ordinal);
+            var sectionEnd = readme.IndexOf(nextHeading, StringComparison.Ordinal);
+
+            Assert.That(sectionStart, Is.GreaterThanOrEqualTo(0), "Stage clear save/profile section is required.");
+            Assert.That(sectionEnd, Is.GreaterThan(sectionStart), "Stage clear save/profile section must stay bounded.");
+
+            var section = readme.Substring(sectionStart, sectionEnd - sectionStart);
+            Assert.That(section, Does.Contain("Saves/profile.json"));
+            Assert.That(section, Does.Contain("SchemaVersion = 1"));
+            Assert.That(section, Does.Contain("Records[]"));
+            Assert.That(section, Does.Contain("Game.Feature.Stages.StageClearSaveSlots"));
+            Assert.That(section, Does.Contain("SchemaVersion = 2"));
+            Assert.That(section, Does.Contain("ClearRecordsByStageId[]"));
+            Assert.That(section, Does.Contain("Profile `ProcessedStageRunIds`"));
+            Assert.That(section, Does.Contain("`ProcessedClearAttemptIds`"));
+            Assert.That(section, Does.Contain("Record `ProcessedStageRunIds`"));
+            Assert.That(section, Does.Contain("Current Production semantic use"));
+            Assert.That(section, Does.Contain("| 없음 |"));
+            Assert.That(section, Does.Contain("active idempotency mechanism"));
+            Assert.That(section, Does.Contain("compatibility freeze"));
+            Assert.That(section, Does.Contain("release exposure"));
+            Assert.That(section, Does.Contain("rollback compatibility"));
+            Assert.That(section, Does.Contain("legacy import / retention"));
+            Assert.That(section, Does.Contain("ApplyStageClear"));
+            Assert.That(section, Does.Contain("current Production caller"));
+        }
+
         private static CampaignProfileDocument CreateDocument(string profileId)
         {
             return new CampaignProfileDocument

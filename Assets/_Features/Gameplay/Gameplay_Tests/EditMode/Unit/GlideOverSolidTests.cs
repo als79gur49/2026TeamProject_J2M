@@ -2772,8 +2772,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activationRule,
                 direction,
                 TileFeatureBoxSelector.AnyPushableBox,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private sealed class P1SolidTileMatrixCase

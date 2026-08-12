@@ -43,8 +43,7 @@ namespace Game.Feature.DemoStageControl
             for (var i = 0; i < sequenceEntries.Count; i++)
             {
                 var sequenceEntry = sequenceEntries[i];
-                if (sequenceEntry == null ||
-                    !sequenceEntry.StageId.IsValid ||
+                if (!sequenceEntry.StageId.IsValid ||
                     !_catalogResolver.TryResolve(sequenceEntry.StageId, out var entry))
                 {
                     continue;
@@ -145,7 +144,7 @@ namespace Game.Feature.DemoStageControl
 
         private static string ResolveDisplayNameKey(
             StageContentEntry entry,
-            CampaignStageSequenceEntry sequenceEntry)
+            CampaignStageSequenceSnapshotEntry sequenceEntry)
         {
             var presentationDisplayNameKey = entry != null && entry.PresentationDefinition != null
                 ? entry.PresentationDefinition.DisplayNameKey
@@ -155,7 +154,7 @@ namespace Game.Feature.DemoStageControl
                 return presentationDisplayNameKey;
             }
 
-            return sequenceEntry != null && sequenceEntry.StageId.IsValid
+            return sequenceEntry.StageId.IsValid
                 ? StageDisplayNameKeys.ForStage(sequenceEntry.StageId)
                 : string.Empty;
         }

@@ -622,8 +622,6 @@ namespace Game.Feature.UI.Application
         public static readonly UIObjectiveSlice Empty = new(
             false,
             string.Empty,
-            string.Empty,
-            string.Empty,
             false,
             false,
             false,
@@ -634,8 +632,6 @@ namespace Game.Feature.UI.Application
         public UIObjectiveSlice(
             bool hasObjective,
             string objectiveStableId,
-            string title,
-            string summary,
             bool goalReached,
             bool allConditionsSatisfied,
             bool isCleared,
@@ -646,8 +642,6 @@ namespace Game.Feature.UI.Application
         {
             HasObjective = hasObjective;
             ObjectiveStableId = objectiveStableId ?? string.Empty;
-            Title = title ?? string.Empty;
-            Summary = summary ?? string.Empty;
             GoalReached = goalReached;
             AllConditionsSatisfied = allConditionsSatisfied;
             IsCleared = isCleared;
@@ -661,10 +655,6 @@ namespace Game.Feature.UI.Application
         public bool HasObjective { get; }
 
         public string ObjectiveStableId { get; }
-
-        public string Title { get; }
-
-        public string Summary { get; }
 
         public bool GoalReached { get; }
 
@@ -686,8 +676,6 @@ namespace Game.Feature.UI.Application
         {
             if (HasObjective != other.HasObjective ||
                 !string.Equals(ObjectiveStableId, other.ObjectiveStableId, StringComparison.Ordinal) ||
-                !string.Equals(Title, other.Title, StringComparison.Ordinal) ||
-                !string.Equals(Summary, other.Summary, StringComparison.Ordinal) ||
                 GoalReached != other.GoalReached ||
                 AllConditionsSatisfied != other.AllConditionsSatisfied ||
                 IsCleared != other.IsCleared ||
@@ -723,7 +711,7 @@ namespace Game.Feature.UI.Application
 
         public override int GetHashCode()
         {
-            var hash = HashCode.Combine(HasObjective, ObjectiveStableId, Title, Summary);
+            var hash = HashCode.Combine(HasObjective, ObjectiveStableId);
             hash = HashCode.Combine(hash, GoalReached, AllConditionsSatisfied, IsCleared);
             hash = HashCode.Combine(
                 hash,

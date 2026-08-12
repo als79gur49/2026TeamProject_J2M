@@ -343,8 +343,23 @@ namespace Game.Feature.Stages.Editor.Tests
             var beforeEntries = fixture.Authoring.Objective.ConditionEntries.ToArray();
             var beforeIds = beforeEntries.Select(entry => entry.StableConditionId).ToArray();
             var row = fixture.Window.GetObjectiveConditionRowsForTests().Single(candidate =>
-                candidate.StableConditionId == "button-8");
+                candidate.StableConditionId == "button-48");
             Assert.That(row.SortOrder, Is.EqualTo(20));
+
+            Assert.That(
+                beforeIds,
+                Is.EqualTo(new[]
+                {
+                    "button-47",
+                    "button-48",
+                    "button-49",
+                    "button-50",
+                    "button-51",
+                    "button-52",
+                    "primary-goal",
+                }));
+            var expectedSortOrders = beforeEntries.Select(entry => entry.SortOrder).ToArray();
+            expectedSortOrders[row.EntryIndex] = 25;
 
             Assert.That(fixture.Window.SelectObjectiveConditionForTests(row.StableConditionId, row.Condition), Is.True);
             Assert.That(
@@ -361,7 +376,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(beforeIds));
             Assert.That(
                 fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.SortOrder),
-                Is.EqualTo(new[] { 0, 10, 25, 50, 70, 90, 110, 120, 130 }));
+                Is.EqualTo(expectedSortOrders));
 
             fixture.Window.GenerateForTests();
             Assert.That(fixture.Window.LastReportForTests.HasErrors, Is.False, FormatIssues(fixture.Window.LastReportForTests));
@@ -373,7 +388,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.EqualTo(beforeIds));
             Assert.That(
                 runtimeEntries.Select(entry => entry.SortOrder),
-                Is.EqualTo(new[] { 0, 10, 25, 50, 70, 90, 110, 120, 130 }));
+                Is.EqualTo(expectedSortOrders));
             Assert.That(
                 runtimeEntries.Select(entry => entry.AuthoringOrder),
                 Is.EqualTo(Enumerable.Range(0, beforeEntries.Length)));
@@ -386,7 +401,22 @@ namespace Game.Feature.Stages.Editor.Tests
             var beforeEntries = fixture.Authoring.Objective.ConditionEntries.ToArray();
             var beforeIds = beforeEntries.Select(entry => entry.StableConditionId).ToArray();
             var primaryIndex = Array.FindIndex(beforeEntries, entry => entry.Role == StageObjectiveConditionRole.PrimaryGoal);
-            Assert.That(primaryIndex, Is.EqualTo(beforeEntries.Length - 1));
+            Assert.That(
+                beforeIds,
+                Is.EqualTo(new[]
+                {
+                    "primary-goal",
+                    "button-11",
+                    "button-24",
+                    "button-25",
+                    "button-26",
+                    "button-61",
+                    "button-62",
+                    "button-36",
+                }));
+            Assert.That(primaryIndex, Is.Zero);
+            Assert.That(beforeEntries[primaryIndex].StableConditionId, Is.EqualTo("primary-goal"));
+            Assert.That(beforeEntries.Count(entry => entry.Role == StageObjectiveConditionRole.PrimaryGoal), Is.EqualTo(1));
             Assert.That(beforeEntries[primaryIndex].SortOrder, Is.Zero);
             var row = fixture.Window.GetObjectiveConditionRowsForTests().First(candidate =>
                 candidate.Role == StageObjectiveConditionRole.SecondaryGoal);
@@ -404,10 +434,17 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 fixture.Gameplay.Objective.ConditionEntries.Select(entry => entry.StableConditionId),
                 Is.EqualTo(beforeIds));
+            Assert.That(
+                fixture.Gameplay.Objective.ConditionEntries.Select(entry => entry.SortOrder),
+                Is.EqualTo(fixture.Authoring.Objective.ConditionEntries.Select(entry => entry.SortOrder)));
 
             var runtimeEntries = StageRuntimeBuilder.Build(fixture.Gameplay)
                 .ObjectiveRuntimeDefinition
                 .ConditionEntries;
+            Assert.That(runtimeEntries.Select(entry => entry.StableConditionId), Is.EqualTo(beforeIds));
+            Assert.That(
+                runtimeEntries.Select(entry => entry.AuthoringOrder),
+                Is.EqualTo(Enumerable.Range(0, beforeEntries.Length)));
             var runtimePrimary = runtimeEntries.Single(entry =>
                 entry.Role == StageObjectiveConditionRole.PrimaryGoal);
             Assert.That(runtimePrimary.SortOrder, Is.Zero);
@@ -499,8 +536,6 @@ namespace Game.Feature.Stages.Editor.Tests
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                ObjectiveTitle = "Objective",
-                ObjectiveSummary = "Sort order coverage",
                 ConditionEntries = entries,
             };
         }

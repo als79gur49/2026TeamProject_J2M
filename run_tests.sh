@@ -202,6 +202,7 @@ TERMINAL_PLAYER_BUILD_ROOT="${PLAYER_BUILD_ROOT:-$DEFAULT_PLAYER_BUILD_ROOT}"
 TERMINAL_PLAYER_SMOKE_WIDTH="${TERMINAL_PLAYER_SMOKE_WIDTH:-1920}"
 TERMINAL_PLAYER_SMOKE_HEIGHT="${TERMINAL_PLAYER_SMOKE_HEIGHT:-1080}"
 TERMINAL_PLAYER_SMOKE_PROFILE="${TERMINAL_PLAYER_SMOKE_PROFILE:-standard}"
+TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX:-VectorQuake-P0Phase4Smoke}"
 
 UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-simulation-editmode.log"
 UNITY_INTEGRATION_SIMULATION_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-simulation-editmode.xml"
@@ -642,6 +643,230 @@ verify_climate_working_transition() {
     else
         echo "  Import transition: EXACT_PROPERTY_CLASSIFIED_DRIFT"
     fi
+}
+
+restore_climate_integrity_snapshot() {
+    local snapshot_path="$1"
+    local asset_path="$2"
+
+    cp --preserve=mode,timestamps -- "$snapshot_path" "$asset_path"
+}
+
+run_with_climate_integrity_guard() {
+    local stage_key="$1"
+    local log_path="$2"
+    shift 2
+
+    local asset_full_path="$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
+    local evidence_path="${log_path%.log}-sdf-integrity.log"
+    local snapshot_path
+    local before_hash
+    local before_mode
+    local imported_hash
+    local imported_mode
+    local final_hash
+    local final_mode
+    local classifier_output=""
+    local changed_fields="none"
+    local command_status=0
+    local classifier_status=0
+    local restore_status=0
+    local git_diff_empty=0
+
+    mkdir -p "$(dirname "$evidence_path")"
+    : > "$evidence_path"
+
+    if ! git -C "$PROJECT_PATH_WSL" ls-files --error-unmatch \
+        "$CLIMATE_SDF_ASSET" >/dev/null 2>&1; then
+        {
+            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Stage=$stage_key"
+            echo "Before=UNTRACKED_OR_MISSING"
+            echo "Imported=NOT_RUN"
+            echo "Classification=PRE_EXISTING_SOURCE_MODIFICATION"
+            echo "ChangedFields=tracking-state"
+            echo "RestoreAttempted=NO"
+            echo "RestoreSucceeded=NO"
+            echo "Restored=NOT_RUN"
+            echo "FinalMutationDetected=PRE_EXISTING"
+            echo "GitDiffEmpty=NO"
+        } | tee -a "$evidence_path"
+        echo "ERROR: Climate integrity guard requires the tracked canonical asset."
+        return 1
+    fi
+
+    before_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
+    before_mode="$(stat -c '%a' "$asset_full_path")"
+    if [ "$before_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ] ||
+       ! git -C "$PROJECT_PATH_WSL" diff --quiet HEAD -- "$CLIMATE_SDF_ASSET" ||
+       ! git -C "$PROJECT_PATH_WSL" diff --cached --quiet HEAD -- "$CLIMATE_SDF_ASSET"; then
+        {
+            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Stage=$stage_key"
+            echo "Before=$before_hash"
+            echo "Imported=NOT_RUN"
+            echo "Classification=PRE_EXISTING_SOURCE_MODIFICATION"
+            echo "ChangedFields=preflight-hash-or-git-state"
+            echo "RestoreAttempted=NO"
+            echo "RestoreSucceeded=NO"
+            echo "Restored=$before_hash"
+            echo "FinalMutationDetected=PRE_EXISTING"
+            echo "GitDiffEmpty=NO"
+        } | tee -a "$evidence_path"
+        echo "ERROR: Climate integrity guard refused to overwrite a pre-existing SDF modification."
+        echo "  expected: $CLIMATE_COMMITTED_SDF_SHA256"
+        echo "  actual:   $before_hash"
+        return 1
+    fi
+
+    snapshot_path="$(mktemp)"
+    cp --preserve=mode,timestamps -- "$asset_full_path" "$snapshot_path"
+
+    if "$@"; then
+        command_status=0
+    else
+        command_status=$?
+    fi
+
+    if [ ! -f "$asset_full_path" ]; then
+        {
+            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Stage=$stage_key"
+            echo "Before=$before_hash"
+            echo "Imported=MISSING"
+            echo "Classification=UNEXPECTED_SOURCE_MUTATION"
+            echo "ChangedFields=asset-deleted"
+            echo "CommandStatus=$command_status"
+            echo "RestoreAttempted=NO"
+            echo "RestoreSucceeded=NO"
+            echo "Restored=NOT_ATTEMPTED"
+            echo "FinalMutationDetected=1"
+            echo "GitDiffEmpty=NO"
+        } | tee -a "$evidence_path"
+        rm -f -- "$snapshot_path"
+        echo "ERROR: Unity removed the guarded Climate SDF asset; the runner did not restore an unexpected mutation."
+        return 1
+    fi
+
+    imported_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
+    imported_mode="$(stat -c '%a' "$asset_full_path")"
+    if [ "$imported_hash" = "$before_hash" ] &&
+       [ "$imported_mode" = "$before_mode" ] &&
+       git -C "$PROJECT_PATH_WSL" diff --quiet -- "$CLIMATE_SDF_ASSET" &&
+       git -C "$PROJECT_PATH_WSL" diff --quiet HEAD -- "$CLIMATE_SDF_ASSET" &&
+       git -C "$PROJECT_PATH_WSL" diff --cached --quiet HEAD -- "$CLIMATE_SDF_ASSET"; then
+        {
+            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Stage=$stage_key"
+            echo "Before=$before_hash"
+            echo "Imported=$imported_hash"
+            echo "Classification=NO_MUTATION"
+            echo "ChangedFields=none"
+            echo "CommandStatus=$command_status"
+            echo "RestoreAttempted=NO"
+            echo "RestoreSucceeded=NOT_NEEDED"
+            echo "Restored=$imported_hash"
+            echo "FinalMutationDetected=0"
+            echo "GitDiffEmpty=YES"
+        } | tee -a "$evidence_path"
+        rm -f -- "$snapshot_path"
+        return "$command_status"
+    fi
+
+    if classifier_output="$(diagnose_climate_file_state "post-unity/$stage_key" "$asset_full_path" 2>&1)"; then
+        classifier_status=0
+    else
+        classifier_status=$?
+    fi
+    printf '%s\n' "$classifier_output" | tee -a "$evidence_path"
+
+    if [ "$classifier_status" -ne 0 ] ||
+       ! grep -F "Classification: EXPECTED_IMPORT_DERIVED_DRIFT" \
+            <<< "$classifier_output" >/dev/null; then
+        {
+            echo "Asset=$CLIMATE_SDF_ASSET"
+            echo "Stage=$stage_key"
+            echo "Before=$before_hash"
+            echo "Imported=$imported_hash"
+            echo "Classification=UNEXPECTED_SOURCE_MUTATION"
+            echo "ChangedFields=classifier-mismatch"
+            echo "CommandStatus=$command_status"
+            echo "RestoreAttempted=NO"
+            echo "RestoreSucceeded=NO"
+            echo "Restored=NOT_ATTEMPTED"
+            echo "FinalMutationDetected=1"
+            echo "GitDiffEmpty=NO"
+        } | tee -a "$evidence_path"
+        rm -f -- "$snapshot_path"
+        echo "ERROR: Unity produced an unexpected Climate SDF source mutation; the runner left it intact for inspection."
+        return 1
+    fi
+
+    changed_fields="$(
+        sed -n 's/^  Derived properties: //p' <<< "$classifier_output"
+    )"
+    if restore_climate_integrity_snapshot "$snapshot_path" "$asset_full_path"; then
+        restore_status=0
+    else
+        restore_status=$?
+    fi
+    final_hash="$(sha256sum "$asset_full_path" | awk '{print $1}')"
+    final_mode="$(stat -c '%a' "$asset_full_path")"
+    if git -C "$PROJECT_PATH_WSL" diff --quiet -- "$CLIMATE_SDF_ASSET" &&
+       git -C "$PROJECT_PATH_WSL" diff --quiet HEAD -- "$CLIMATE_SDF_ASSET" &&
+       git -C "$PROJECT_PATH_WSL" diff --cached --quiet HEAD -- "$CLIMATE_SDF_ASSET"; then
+        git_diff_empty=1
+    fi
+
+    {
+        echo "Asset=$CLIMATE_SDF_ASSET"
+        echo "Stage=$stage_key"
+        echo "Before=$before_hash"
+        echo "Imported=$imported_hash"
+        echo "Classification=EXPECTED_IMPORT_DERIVED_DRIFT"
+        echo "ChangedFields=${changed_fields:-unknown}"
+        echo "CommandStatus=$command_status"
+        echo "RestoreAttempted=YES"
+        echo "RestoreSucceeded=$(
+            if [ "$restore_status" -eq 0 ] &&
+               [ "$final_hash" = "$before_hash" ] &&
+               [ "$final_hash" = "$CLIMATE_COMMITTED_SDF_SHA256" ] &&
+               [ "$final_mode" = "$before_mode" ] &&
+               [ "$git_diff_empty" -eq 1 ]; then
+                echo YES
+            else
+                echo NO
+            fi
+        )"
+        echo "Restored=$final_hash"
+        echo "RestoredMode=$final_mode"
+        echo "FinalMutationDetected=$(
+            if [ "$restore_status" -eq 0 ] &&
+               [ "$final_hash" = "$before_hash" ] &&
+               [ "$final_hash" = "$CLIMATE_COMMITTED_SDF_SHA256" ] &&
+               [ "$final_mode" = "$before_mode" ] &&
+               [ "$git_diff_empty" -eq 1 ]; then
+                echo 0
+            else
+                echo 1
+            fi
+        )"
+        echo "GitDiffEmpty=$(
+            if [ "$git_diff_empty" -eq 1 ]; then echo YES; else echo NO; fi
+        )"
+    } | tee -a "$evidence_path"
+    rm -f -- "$snapshot_path"
+
+    if [ "$restore_status" -ne 0 ] ||
+       [ "$final_hash" != "$before_hash" ] ||
+       [ "$final_hash" != "$CLIMATE_COMMITTED_SDF_SHA256" ] ||
+       [ "$final_mode" != "$before_mode" ] ||
+       [ "$git_diff_empty" -ne 1 ]; then
+        echo "ERROR: Climate SDF snapshot restore verification failed."
+        return 1
+    fi
+
+    return "$command_status"
 }
 
 ensure_result_dirs() {
@@ -3193,7 +3418,7 @@ update_stage_metrics(metrics_path, current, record_success=(stage_exit_code == 0
 PY
 }
 
-run_unity_stage() {
+run_unity_stage_unguarded() {
     local selection="$1"
     local stage_key="$2"
     local stage_label="$3"
@@ -3310,6 +3535,22 @@ run_unity_stage() {
         return 1
     fi
     return "$exit_code"
+}
+
+run_unity_stage() {
+    local stage_key="$2"
+    local log_path="$5"
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        run_unity_stage_unguarded "$@"
+        return
+    fi
+
+    run_with_climate_integrity_guard \
+        "$stage_key" \
+        "$log_path" \
+        run_unity_stage_unguarded \
+        "$@"
 }
 
 run_dotnet_core() {
@@ -3523,14 +3764,6 @@ run_unity_core_feature_gate() {
 }
 
 run_unity_ui() {
-    local climate_before_snapshot
-    local climate_before_hash
-    local climate_restored_hash
-    local unity_status=0
-
-    climate_before_snapshot="$(mktemp)"
-    cp "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" "$climate_before_snapshot"
-    climate_before_hash="$(sha256sum "$climate_before_snapshot" | awk '{print $1}')"
     run_unity_stage \
         "ui" \
         "ui-editmode" \
@@ -3540,22 +3773,7 @@ run_unity_ui() {
         "$UNITY_UI_EDITMODE_XML" \
         "TestRunnerCliBootstrap.RunEditMode" \
         "Game.Feature.UI.Tests" \
-        "" || unity_status=$?
-    if [ "$unity_status" -eq 0 ]; then
-        verify_climate_working_transition \
-            "$climate_before_snapshot" \
-            "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" || unity_status=$?
-    fi
-    cp "$climate_before_snapshot" "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET"
-    climate_restored_hash="$(
-        sha256sum "$PROJECT_PATH_WSL/$CLIMATE_SDF_ASSET" | awk '{print $1}'
-    )"
-    if [ "$climate_restored_hash" != "$climate_before_hash" ]; then
-        echo "ERROR: Climate working asset was not restored after UI validation."
-        unity_status=1
-    fi
-    rm -f -- "$climate_before_snapshot"
-    return "$unity_status"
+        ""
 }
 
 run_terminal_production_playmode() {
@@ -3643,8 +3861,15 @@ run_terminal_iris_quality_lane() {
 }
 
 run_terminal_iris_quality_unity_stage() {
+    local selection="full"
+    local selected_category="Full"
+    if [ "$TERMINAL_IRIS_QUALITY_STAGE_KEY" = "terminal-iris-temporal-stability" ]; then
+        selection="terminal-iris-capture"
+        selected_category="TerminalIrisCapture"
+    fi
+
     UNITY_GRAPHICS=1 run_unity_stage \
-        "full" \
+        "$selection" \
         "$TERMINAL_IRIS_QUALITY_STAGE_KEY" \
         "$TERMINAL_IRIS_QUALITY_STAGE_LABEL" \
         "PlayMode" \
@@ -3652,7 +3877,7 @@ run_terminal_iris_quality_unity_stage() {
         "$UNITY_CORE_PLAYMODE_XML" \
         "TestRunnerCliBootstrap.RunPlayMode" \
         "Game.Feature.Gameplay.PlayModeTests" \
-        "Full"
+        "$selected_category"
 }
 
 run_terminal_iris_player_visual_quality() {
@@ -4704,6 +4929,13 @@ run_terminal_player_build_smoke() {
     local input_mode
     local initial_chances
     local scenario_attempts
+    local expected_intent
+    local expected_stage
+    local seed_stage
+    local campaign_seed_path
+    local campaign_first_stage
+    local campaign_continue_stage
+    local capture_product_name
     local runtime_log
     local runtime_log_win
     local expected_marker
@@ -4714,38 +4946,51 @@ run_terminal_player_build_smoke() {
     local -a scenario_args=()
     local -a launch_context_args=()
     local -a input_matrix=()
+    local -a campaign_stage_ids=()
+
+    mapfile -t campaign_stage_ids < <(
+        sed -n 's/^      value: //p' \
+            "$PROJECT_PATH_WSL/Assets/_Features/Stages/Content/Campaigns/campaign-main/Catalog/CampaignMain_StageSequence.asset"
+    )
+    if [ "${#campaign_stage_ids[@]}" -lt 2 ]; then
+        echo "ERROR: Authoritative campaign sequence must provide at least two stages for Player smoke."
+        return 1
+    fi
+    campaign_first_stage="${campaign_stage_ids[0]}"
+    campaign_continue_stage="${campaign_stage_ids[1]}"
 
     case "$TERMINAL_PLAYER_SMOKE_PROFILE" in
         standard)
             input_matrix=(
-                "stageresult|stage-4-1||pointer||3"
-                "gameclear-standalone|stage-4-3|gameclear|pointer||3"
-                "gameclear-sequential|stage-4-2|gameclear-sequential|pointer||3"
-                "stageresult|stage-4-1||keyboard||3"
-                "gameclear-standalone|stage-4-3|gameclear|keyboard||3"
-                "gameclear-sequential|stage-4-2|gameclear-sequential|keyboard||3"
-                "defeat-3-to-2|stage-2-2|defeat|pointer|3|1"
-                "defeat-2-to-1|stage-2-2|defeat|pointer|2|1"
-                "defeat-1-to-0|stage-2-2|defeat|pointer|1|1"
-                "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||2"
-                "pause-retry|stage-1-1|pause-retry|pointer||2"
-                "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2"
+                "stageresult|stage-4-1||pointer||3|||"
+                "gameclear-standalone|stage-4-3|gameclear|pointer||3|||"
+                "gameclear-sequential|stage-4-2|gameclear-sequential|pointer||3|||"
+                "stageresult|stage-4-1||keyboard||3|||"
+                "gameclear-standalone|stage-4-3|gameclear|keyboard||3|||"
+                "gameclear-sequential|stage-4-2|gameclear-sequential|keyboard||3|||"
+                "defeat-3-to-2|stage-2-2|defeat|pointer|3|1|||"
+                "defeat-2-to-1|stage-2-2|defeat|pointer|2|1|||"
+                "defeat-1-to-0|stage-2-2|defeat|pointer|1|1|||"
+                "mainmenu-new-game|stage-1-1|mainmenu-gameplay|pointer||1|NewGame|${campaign_first_stage}|"
+                "mainmenu-continue|stage-1-1|mainmenu-gameplay|pointer||1|Continue|${campaign_continue_stage}|${campaign_continue_stage}"
+                "pause-retry|stage-1-1|pause-retry|pointer||2|||"
+                "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2|||"
             )
             ;;
         ultrawide)
             input_matrix=(
-                "stageresult|stage-4-1||pointer||1"
-                "gameclear-main-menu|stage-4-3|gameclear|pointer||1"
-                "defeat-2-to-1|stage-2-2|defeat|pointer|2|1"
-                "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||1"
+                "stageresult|stage-4-1||pointer||1|||"
+                "gameclear-main-menu|stage-4-3|gameclear|pointer||1|||"
+                "defeat-2-to-1|stage-2-2|defeat|pointer|2|1|||"
+                "mainmenu-new-game|stage-1-1|mainmenu-gameplay|pointer||1|NewGame|${campaign_first_stage}|"
             )
             ;;
         missing-routes)
             input_matrix=(
-                "gameclear-main-menu|stage-4-3|gameclear|pointer||1"
-                "mainmenu-gameplay|stage-1-1|mainmenu-gameplay|pointer||2"
-                "pause-retry|stage-1-1|pause-retry|pointer||2"
-                "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2"
+                "gameclear-main-menu|stage-4-3|gameclear|pointer||1|||"
+                "mainmenu-new-game|stage-1-1|mainmenu-gameplay|pointer||1|NewGame|${campaign_first_stage}|"
+                "pause-retry|stage-1-1|pause-retry|pointer||2|||"
+                "level-failed-restart|stage-2-2|level-failed-restart|pointer|1|2|||"
             )
             ;;
         *)
@@ -4755,6 +5000,7 @@ run_terminal_player_build_smoke() {
     esac
 
     timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    capture_product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-${timestamp}"
     revision_sha="$(git rev-parse HEAD)"
     output_dir="$TERMINAL_PLAYER_BUILD_ROOT/$timestamp"
     player_path="$output_dir/VectorQuake-TerminalIrisSmoke.exe"
@@ -4781,6 +5027,7 @@ run_terminal_player_build_smoke() {
         -executeMethod PlayerProfilerCaptureCli.BuildWindowsDevelopmentPlayer
         -captureBuildPath "$player_path_win"
         -captureBackend Mono
+        -captureProductName "$capture_product_name"
         --capture-stage stage-1-1
         -captureSupplementalScenes Assets/Scenes/MainMenuScene.unity
         --capture-campaign-temp-slot
@@ -4812,7 +5059,7 @@ run_terminal_player_build_smoke() {
     fi
     for attempt in 1 2 3; do
         for scenario_spec in "${input_matrix[@]}"; do
-            IFS='|' read -r scenario_label stage_id scenario_arg input_mode initial_chances scenario_attempts <<< "$scenario_spec"
+            IFS='|' read -r scenario_label stage_id scenario_arg input_mode initial_chances scenario_attempts expected_intent expected_stage seed_stage <<< "$scenario_spec"
             if [ "$attempt" -gt "$scenario_attempts" ]; then
                 continue
             fi
@@ -4827,6 +5074,17 @@ run_terminal_player_build_smoke() {
             fi
             if [ -n "$initial_chances" ]; then
                 scenario_args+=(--capture-campaign-temp-slot-chances "$initial_chances")
+            fi
+            if [ -n "$expected_intent" ]; then
+                scenario_args+=(
+                    --terminal-player-campaign-expected-intent "$expected_intent"
+                    --terminal-player-campaign-expected-stage "$expected_stage"
+                )
+            fi
+            if [ -n "$seed_stage" ]; then
+                campaign_seed_path="$output_dir/campaign-save-seed.json"
+                printf '{\n  "Version": 1,\n  "SlotNumber": 1,\n  "StageId": "%s",\n  "RemainingChances": 2\n}\n' \
+                    "$seed_stage" > "$campaign_seed_path"
             fi
             if [ -n "$stage_id" ]; then
                 launch_context_args=(
@@ -4934,6 +5192,10 @@ run_terminal_player_build_smoke() {
         echo "SceneRoute=canonical gameplay shell"
         echo "Backend=Mono"
         echo "Configuration=Development"
+        echo "ProductName=$capture_product_name"
+        echo "PersistentDataIsolation=unique-product-name"
+        echo "CampaignFirstStageFromAsset=$campaign_first_stage"
+        echo "CampaignContinueStageFromAsset=$campaign_continue_stage"
         echo "Shader=UI/TerminalIris"
         echo "RuntimeInputSmokeCount=${#runtime_input_logs[@]}"
         echo "SmokeProfile=$TERMINAL_PLAYER_SMOKE_PROFILE"
@@ -6244,8 +6506,8 @@ PY
 }
 
 run_unity_full() {
-    run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "" ""
-    run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
+    run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "" "!TerminalIrisCapture"
+    run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" "!TerminalIrisCapture"
 }
 
 run_dotnet_terminal_transition_architecture() {
@@ -6371,6 +6633,20 @@ require_filtered_tests_if_needed() {
     fi
 }
 
+reject_direct_terminal_iris_temporal_capture_filter() {
+    if [ "$RUN_MODE" != "full" ]; then
+        return 0
+    fi
+
+    case "$TEST_FILTER" in
+        *TerminalIrisTemporalStability_RuntimePlaybackProducesEvidence*)
+            echo "ERROR: Terminal Iris temporal evidence is a specialized capture producer." >&2
+            echo "Run ./run_tests.sh terminal-iris-temporal-stability." >&2
+            return 1
+            ;;
+    esac
+}
+
 generated_dotnet_inputs_present() {
     local mode="$1"
 
@@ -6446,6 +6722,8 @@ main() {
     parse_arguments "$@"
     mode="$RUN_MODE"
 
+    reject_direct_terminal_iris_temporal_capture_filter || return 1
+
     require_command wslpath
     initialize_project_paths
     validate_project_paths
@@ -6463,6 +6741,8 @@ main() {
     if [ "$DRY_RUN" -eq 0 ]; then
         require_command timeout
         require_command python3
+        require_command git
+        require_command sha256sum
         require_file "$UNITY_PATH" "Unity executable"
         if [ "$mode" = "ui" ] ||
            [ "$mode" = "climate-glyph-update" ] ||
@@ -6470,8 +6750,6 @@ main() {
            [ "$mode" = "typography-hud-visual" ] ||
            [ "$mode" = "typography-hud-guide-visual" ] ||
            [ "$mode" = "typography-result-visual" ]; then
-            require_command git
-            require_command sha256sum
             verify_climate_committed_source_integrity
             verify_climate_worktree_source_integrity
         fi

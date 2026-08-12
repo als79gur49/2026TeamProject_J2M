@@ -3117,7 +3117,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: exit.default
   - TileId: 2
     Cell:
       face: 0
@@ -3128,7 +3127,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: entrance.default
   - TileId: 3
     Cell:
       face: 3
@@ -3139,7 +3137,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 4
     Cell:
       face: 3
@@ -3150,7 +3147,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 5
     Cell:
       face: 3
@@ -3161,11 +3157,8 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: ac8ca2e07c03c44874f7730d0782b6c3, type: 2}
       Required: 1

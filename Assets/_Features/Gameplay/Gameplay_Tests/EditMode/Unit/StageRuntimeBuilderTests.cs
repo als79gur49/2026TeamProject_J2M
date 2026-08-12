@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -313,8 +314,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TileFeatureActivationRule.ActiveFaceOnly,
                 Direction2D.Right,
                 TileFeatureBoxSelector.BoundEntity,
-                boundEntityId: 30,
-                presentationKey: "slide-east");
+                boundEntityId: 30);
             var stage = CreateStage(
                 "TileFeatureAuthoring",
                 CreateBoard(new Vector2Int(0, 0), new Vector2Int(3, 3)),
@@ -338,10 +338,98 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(buildResult.TileFeatureDefinitions[0].Direction, Is.EqualTo(tileFeature.Direction));
                 Assert.That(buildResult.TileFeatureDefinitions[0].BoxSelector, Is.EqualTo(tileFeature.BoxSelector));
                 Assert.That(buildResult.TileFeatureDefinitions[0].BoundEntityId, Is.EqualTo(tileFeature.BoundEntityId));
-                Assert.That(buildResult.TileFeatureDefinitions[0].PresentationKey, Is.EqualTo(tileFeature.PresentationKey));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TileFeatureRuntimeDefinition_EqualityAndHash_ArePresentationVariantIndependent()
+        {
+            var first = new TileFeatureRuntimeDefinition(
+                100,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                Direction2D.Right,
+                TileFeatureBoxSelector.BoundEntity,
+                30);
+            var second = new TileFeatureRuntimeDefinition(
+                100,
+                TileFeatureActivationRule.ActiveFaceOnly,
+                Direction2D.Right,
+                TileFeatureBoxSelector.BoundEntity,
+                30);
+
+            Assert.That(typeof(TileFeatureRuntimeDefinition).GetProperty("PresentationKey"), Is.Null);
+            Assert.That(first, Is.EqualTo(second));
+            Assert.That(first.GetHashCode(), Is.EqualTo(second.GetHashCode()));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageRuntimeBuilder_AndDeterminismHash_AreIndependentOfPresentationCompanionVariant()
+        {
+            var stage = CreateStageWithTileFeatures(
+                "PresentationIndependentGameplay",
+                new[]
+                {
+                    CreateTileFeature(
+                        100,
+                        new SurfaceCell(FaceId.Floor, 1, 2),
+                        TileFeatureKind.Button,
+                        TileFeatureActivationRule.ActiveFaceOnly,
+                        Direction2D.None,
+                        TileFeatureBoxSelector.AnyPushableBox),
+                });
+            var firstPrefab = new GameObject("PresentationVariantA");
+            var secondPrefab = new GameObject("PresentationVariantB");
+            var firstPresentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            var secondPresentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(
+                firstPresentation,
+                "tileFeaturePresentationBindings",
+                new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        PresentationKey = "variant-a",
+                        VisualPrefab = firstPrefab,
+                    },
+                });
+            SetPrivateField(
+                secondPresentation,
+                "tileFeaturePresentationBindings",
+                new[]
+                {
+                    new TileFeaturePresentationBinding
+                    {
+                        TileId = 100,
+                        PresentationKey = "variant-b",
+                        VisualPrefab = secondPrefab,
+                    },
+                });
+
+            try
+            {
+                var firstBuild = StageRuntimeBuilder.Build(stage);
+                var secondBuild = StageRuntimeBuilder.Build(stage);
+                var firstVisual = StagePresentationAssembler.Resolve(stage, firstPresentation);
+                var secondVisual = StagePresentationAssembler.Resolve(stage, secondPresentation);
+
+                CollectionAssert.AreEqual(firstBuild.TileFeatureDefinitions, secondBuild.TileFeatureDefinitions);
+                Assert.That(BuildInitialDeterminismHash(firstBuild), Is.EqualTo(BuildInitialDeterminismHash(secondBuild)));
+                Assert.That(firstVisual.TileFeatureBindings.Single().VisualPrefab, Is.SameAs(firstPrefab));
+                Assert.That(secondVisual.TileFeatureBindings.Single().VisualPrefab, Is.SameAs(secondPrefab));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(secondPresentation);
+                UnityEngine.Object.DestroyImmediate(firstPresentation);
+                UnityEngine.Object.DestroyImmediate(secondPrefab);
+                UnityEngine.Object.DestroyImmediate(firstPrefab);
                 UnityEngine.Object.DestroyImmediate(stage);
             }
         }
@@ -2332,6 +2420,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return stage;
         }
 
+        private static string BuildInitialDeterminismHash(StageRuntimeBuildResult buildResult)
+        {
+            var worldState = new WorldState(
+                buildResult.InitialEntities,
+                buildResult.BoardBounds,
+                buildResult.InitialTopology,
+                buildResult.InitialTileFeatures);
+            var snapshot = worldState.CreateSnapshot();
+            var finalEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(finalEntities);
+            return new DeterminismHashBuilder().Build(
+                0,
+                snapshot,
+                new TickResultData(
+                    finalEntities,
+                    Array.Empty<DelayedAttackEffectRecord>(),
+                    Array.Empty<string>()));
+        }
+
         private static StageDefinition CreateStageWithTileFeatures(
             string stageName,
             StageTileFeatureDefinition[] tileFeatures)
@@ -2397,8 +2504,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(stage, "objective", new StageObjectiveAuthoring
             {
                 CompletionPolicy = StageCompletionPolicy.RequireAllConditions,
-                ObjectiveTitle = string.Empty,
-                ObjectiveSummary = string.Empty,
                 ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionEntry>(),
             });
             return stage;
@@ -2574,8 +2679,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TileFeatureActivationRule activationRule = TileFeatureActivationRule.Always,
             Direction2D direction = Direction2D.None,
             TileFeatureBoxSelector boxSelector = TileFeatureBoxSelector.None,
-            int boundEntityId = 0,
-            string presentationKey = null)
+            int boundEntityId = 0)
         {
             return new StageTileFeatureDefinition
             {
@@ -2586,7 +2690,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction = direction,
                 BoxSelector = boxSelector,
                 BoundEntityId = boundEntityId,
-                PresentationKey = presentationKey,
             };
         }
 

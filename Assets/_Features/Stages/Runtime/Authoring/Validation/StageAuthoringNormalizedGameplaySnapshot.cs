@@ -41,8 +41,7 @@ namespace Game.Feature.Stages
             TileFeatureActivationRule activationRule,
             Direction2D direction,
             TileFeatureBoxSelector boxSelector,
-            int boundEntityId,
-            string presentationKey)
+            int boundEntityId)
         {
             TileId = tileId;
             Cell = cell;
@@ -51,7 +50,6 @@ namespace Game.Feature.Stages
             Direction = direction;
             BoxSelector = boxSelector;
             BoundEntityId = boundEntityId;
-            PresentationKey = presentationKey ?? string.Empty;
         }
 
         public int TileId { get; }
@@ -68,7 +66,6 @@ namespace Game.Feature.Stages
 
         public int BoundEntityId { get; }
 
-        public string PresentationKey { get; }
     }
 
     public readonly struct StageAuthoringNormalizedZone
@@ -111,21 +108,13 @@ namespace Game.Feature.Stages
 
         public StageAuthoringNormalizedObjective(
             StageCompletionPolicy completionPolicy,
-            StageAuthoringNormalizedObjectiveCondition[] conditions,
-            string objectiveTitle = "",
-            string objectiveSummary = "")
+            StageAuthoringNormalizedObjectiveCondition[] conditions)
         {
             CompletionPolicy = completionPolicy;
-            ObjectiveTitle = objectiveTitle ?? string.Empty;
-            ObjectiveSummary = objectiveSummary ?? string.Empty;
             Conditions = conditions ?? Array.Empty<StageAuthoringNormalizedObjectiveCondition>();
         }
 
         public StageCompletionPolicy CompletionPolicy { get; }
-
-        public string ObjectiveTitle { get; }
-
-        public string ObjectiveSummary { get; }
 
         public StageAuthoringNormalizedObjectiveCondition[] Conditions { get; }
     }

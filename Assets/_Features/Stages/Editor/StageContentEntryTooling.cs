@@ -278,6 +278,12 @@ namespace Game.Feature.Stages.Editor
 
         public void OnPreprocessBuild(BuildReport report)
         {
+            ValidateForBuild(campaignSequenceOverride: null);
+        }
+
+        internal static void ValidateForBuild(
+            CampaignStageSequenceProductionValidation campaignSequenceOverride)
+        {
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
             if (catalog == null)
             {
@@ -298,12 +304,20 @@ namespace Game.Feature.Stages.Editor
             validationReport.AddRange(new StageCampaignContentGovernanceValidator()
                 .Validate(StageValidationTiming.PreBuild)
                 .Issues);
+            var campaignSequenceValidation = campaignSequenceOverride ??
+                CampaignStageSequenceProductionValidation.Validate(catalog, options.Timing);
+            validationReport.AddRange(campaignSequenceValidation.SourceReport.Issues);
+            validationReport.AddRange(campaignSequenceValidation.AuthoritativeReport.Issues);
             if (validationReport.HasErrors)
             {
-                throw new BuildFailedException(BuildFailureMessage(StageContentPaths.StageCatalogAssetPath, validationReport));
+                throw new BuildFailedException(BuildFailureMessage(
+                    $"{StageContentPaths.StageCatalogAssetPath} and {CampaignStageSequenceAssetLoader.CanonicalAssetPath}",
+                    validationReport));
             }
 
-            var sceneReport = new StageSceneBootstrapValidator().ValidateEnabledBuildScenes(options);
+            var sceneReport = new StageSceneBootstrapValidator().ValidateEnabledBuildScenes(
+                options,
+                campaignSequenceValidation.Definition);
             if (sceneReport.HasErrors)
             {
                 throw new BuildFailedException(BuildFailureMessage("enabled build scenes", sceneReport));

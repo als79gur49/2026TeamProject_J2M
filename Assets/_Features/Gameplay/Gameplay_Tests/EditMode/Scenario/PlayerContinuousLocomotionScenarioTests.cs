@@ -3771,8 +3771,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 activationRule,
                 Direction2D.None,
                 TileFeatureBoxSelector.None,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static EntityState CreateUnit(int entityId, SurfaceCell position, int teamId)

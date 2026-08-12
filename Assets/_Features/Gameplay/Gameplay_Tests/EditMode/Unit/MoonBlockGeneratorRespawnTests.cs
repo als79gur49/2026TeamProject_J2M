@@ -529,8 +529,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TileFeatureActivationRule.BottomFaceOnly,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
-                    boundEntityId: 20,
-                    presentationKey: string.Empty),
+                    boundEntityId: 20),
             };
         }
 

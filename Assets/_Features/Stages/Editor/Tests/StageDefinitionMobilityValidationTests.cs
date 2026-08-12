@@ -258,7 +258,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 element.FindPropertyRelative("Direction").intValue = (int)tileFeatures[i].Direction;
                 element.FindPropertyRelative("BoxSelector").intValue = (int)tileFeatures[i].BoxSelector;
                 element.FindPropertyRelative("BoundEntityId").intValue = tileFeatures[i].BoundEntityId;
-                element.FindPropertyRelative("PresentationKey").stringValue = tileFeatures[i].PresentationKey ?? string.Empty;
             }
         }
     }

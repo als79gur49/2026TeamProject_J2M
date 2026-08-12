@@ -611,7 +611,7 @@ namespace Game.Feature.UI.Tests
                 SetPrivateField(
                     installer,
                     "_campaignStageSequenceDefinition",
-                    CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
+                    CampaignStageSequenceTestAsset.LoadProductionDefinition());
 
                 installer.Install();
                 var destinationGeneration = installer.SourceSceneGenerationForTests;

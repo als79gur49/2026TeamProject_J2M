@@ -59,7 +59,6 @@ namespace Game.Feature.Stages.Editor
             AssetDatabase.Refresh();
 
             MoveAndRenameCatalogAssets(report);
-            CreateMetadataAssets(report);
             MoveStageContentFolders(report);
             MoveCampaignStageConditionAssets(report);
             MoveSupportAssets(report);
@@ -190,29 +189,6 @@ namespace Game.Feature.Stages.Editor
             {
                 provider.AssignCatalog(catalog);
                 EditorUtility.SetDirty(provider);
-            }
-        }
-
-        private static void CreateMetadataAssets(StageCampaignMigrationReport report)
-        {
-            if (AssetDatabase.LoadAssetAtPath<CampaignContentMetadata>(StageContentPaths.CampaignMainAssetPath) == null)
-            {
-                DeleteAssetIfWrongType<CampaignContentMetadata>(StageContentPaths.CampaignMainAssetPath);
-                var campaign = ScriptableObject.CreateInstance<CampaignContentMetadata>();
-                campaign.name = "CampaignMain";
-                campaign.Set("campaign-main", "Campaign Main");
-                AssetDatabase.CreateAsset(campaign, StageContentPaths.CampaignMainAssetPath);
-                report.CreatedMetadataAssets.Add(StageContentPaths.CampaignMainAssetPath);
-            }
-
-            if (AssetDatabase.LoadAssetAtPath<CampaignLevelMetadata>(StageContentPaths.Level01AssetPath) == null)
-            {
-                DeleteAssetIfWrongType<CampaignLevelMetadata>(StageContentPaths.Level01AssetPath);
-                var level = ScriptableObject.CreateInstance<CampaignLevelMetadata>();
-                level.name = "Level01";
-                level.Set("level-01", "Level 01");
-                AssetDatabase.CreateAsset(level, StageContentPaths.Level01AssetPath);
-                report.CreatedMetadataAssets.Add(StageContentPaths.Level01AssetPath);
             }
         }
 
@@ -766,16 +742,6 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static void DeleteAssetIfWrongType<T>(string assetPath)
-            where T : UnityEngine.Object
-        {
-            var existing = AssetDatabase.LoadMainAssetAtPath(assetPath);
-            if (existing != null && existing is not T)
-            {
-                AssetDatabase.DeleteAsset(assetPath);
-            }
-        }
-
         private static bool IsAddressablesInstalled()
         {
             var manifestPath = "Packages/manifest.json";
@@ -829,7 +795,6 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"Addressables: {report.AddressablesResult}");
             writer.WriteLine();
             WriteLines(writer, "Deleted Legacy Folders", report.DeletedLegacyFolders);
-            WriteLines(writer, "Created Metadata Assets", report.CreatedMetadataAssets);
             WriteLines(writer, "Renamed Assets", report.RenamedAssets);
             WriteLines(writer, "Moved Assets", report.MovedAssets);
             WriteLines(writer, "Reference Repairs", report.ReferenceRepairs);
@@ -907,7 +872,6 @@ namespace Game.Feature.Stages.Editor
         public List<string> MovedAssets { get; } = new();
         public List<string> RenamedAssets { get; } = new();
         public List<string> DeletedLegacyFolders { get; } = new();
-        public List<string> CreatedMetadataAssets { get; } = new();
         public List<string> ReferenceRepairs { get; } = new();
         public List<string> BrokenReferences { get; } = new();
         public string AddressablesResult { get; set; } = string.Empty;

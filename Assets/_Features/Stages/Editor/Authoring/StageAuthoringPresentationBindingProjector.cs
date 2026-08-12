@@ -32,6 +32,31 @@ namespace Game.Feature.Stages.Editor
 
             buildData.EnemyPresentationBindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
             buildData.StaticEntityPresentationBindings.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+            ProjectTileFeaturePresentationSelections(source, buildData);
+        }
+
+        private static void ProjectTileFeaturePresentationSelections(
+            StageAuthoringDefinition source,
+            StageAuthoringBuildData buildData)
+        {
+            var selections = source.TileFeaturePresentationSelections;
+            for (var i = 0; i < selections.Count; i++)
+            {
+                var selection = selections[i];
+                if (selection == null)
+                {
+                    continue;
+                }
+
+                buildData.TileFeaturePresentationBindings.Add(new TileFeaturePresentationBinding
+                {
+                    TileId = selection.TileId,
+                    PresentationKey = Normalize(selection.PresentationKey),
+                    VisualPrefab = selection.VisualPrefab,
+                });
+            }
+
+            buildData.TileFeaturePresentationBindings.Sort((left, right) => left.TileId.CompareTo(right.TileId));
         }
 
         private static void TryAddEnemyPresentationBinding(

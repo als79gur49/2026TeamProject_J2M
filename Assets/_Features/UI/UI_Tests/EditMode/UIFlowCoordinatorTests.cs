@@ -877,7 +877,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_ResultOnly()
+        public void UIFlowCoordinator_InjectedDivergentFinalStageOpensTerminalGameClear_ResultOnly()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -902,7 +902,7 @@ namespace Game.Feature.UI.Tests
                 TerminalDestinationKind.SameSceneGameClear);
             presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(
                 tickIndex: 9,
-                stageIdValue: "stage-4-3"));
+                stageIdValue: "fixture-b"));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9, terminalToken));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
@@ -1541,7 +1541,8 @@ namespace Game.Feature.UI.Tests
                 presentationSource,
                 uiAudioPort,
                 stageLaunchRouter,
-                mainMenuReturnRouter);
+                mainMenuReturnRouter,
+                campaignStageSequenceResolver: CreateUiSequenceResolver());
         }
 
         private static UIFlowCoordinator CreateCoordinator(
@@ -1772,23 +1773,38 @@ namespace Game.Feature.UI.Tests
                 "stage-result-retry",
                 StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual),
                 SceneTransitionIntent.ManualRetry);
-            var result = new MinimalStageCompletionResult(
-                stageId,
-                new StageRunId("run-01"),
-                new StageCompletionAttemptId("attempt-01"),
-                StageTerminalReason.Cleared,
-                wasCleared: true,
-                tickIndex,
-                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                StageClearSource.Objective);
-
             return new MinimalStageCompletionReadModel(
                 stageId,
-                StageDisplayNameKeys.ForStage(stageId),
-                result,
+                tickIndex,
                 continueRequest,
                 retryRequest,
                 nextStageRequest);
+        }
+
+        private static CampaignStageSequenceResolver CreateUiSequenceResolver()
+        {
+            var definition = ScriptableObject.CreateInstance<CampaignStageSequenceDefinition>();
+            definition.SetEntries(new[]
+            {
+                CreateUiSequenceEntry("payload-stage", "group-a"),
+                CreateUiSequenceEntry("fixture-a", "group-a"),
+                CreateUiSequenceEntry("fixture-c", "group-b"),
+                CreateUiSequenceEntry("fixture-b", "group-b"),
+            });
+            var resolver = new CampaignStageSequenceResolver(definition);
+            UnityEngine.Object.DestroyImmediate(definition);
+            return resolver;
+        }
+
+        private static CampaignStageSequenceEntry CreateUiSequenceEntry(
+            string stageId,
+            string levelGroupId)
+        {
+            var entry = new CampaignStageSequenceEntry();
+            entry.Set(
+                StageId.CreateOrThrow(stageId),
+                levelGroupId);
+            return entry;
         }
 
         private static string ReadPauseReturnModeName(UIFlowCoordinator coordinator)

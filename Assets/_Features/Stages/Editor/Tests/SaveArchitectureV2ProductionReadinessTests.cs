@@ -173,6 +173,28 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PlayerPrefsInventory_SourceScannerTracksInvocationOwnedKeysAndRejectsUnrelatedLiterals()
+        {
+            const string source = @"
+                private const string IllegalKey = ""Game.Feature.Stages.IllegalProductionKey"";
+                private const string UnrelatedNamespace = ""Game.Feature.Stages."";
+                private void Save()
+                {
+                    PlayerPrefs.SetString(IllegalKey, string.Empty);
+                    var typeName = UnrelatedNamespace + ""CampaignSaveService"";
+                }";
+
+            var discovered = DiscoverPlayerPrefsKeyTokensFromSource(source).ToArray();
+
+            Assert.That(discovered, Does.Contain("Game.Feature.Stages.IllegalProductionKey"));
+            Assert.That(discovered, Does.Not.Contain("Game.Feature.Stages."));
+            Assert.That(
+                discovered.Where(token => FindInventoryEntryForKey(token) == null),
+                Is.Not.Empty,
+                "An invocation-owned illegal PlayerPrefs key must remain visible to the inventory guard.");
+        }
+
+        [Test]
         public void PlayerPrefsInventory_TargetClassificationGuardMatchesPolicyBoundaries()
         {
             Assert.That(FindInventoryEntryForKey(SaveSlotPrefsKeys.SaveSlotsKey).Target, Is.EqualTo(JsonTargetClassification.CampaignProfileJson));
@@ -347,10 +369,6 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private static IEnumerable<string> DiscoverPlayerPrefsKeyTokensFromSource()
         {
-            var regex = new Regex("\"(?:\\\\.|[^\"])*\"", RegexOptions.Compiled);
-            var playerPrefsCallRegex = new Regex(
-                @"PlayerPrefs\.(GetString|SetString|GetInt|SetInt|GetFloat|SetFloat|HasKey|DeleteKey|Save)\b",
-                RegexOptions.Compiled);
             foreach (var path in Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories))
             {
                 var normalizedPath = path.Replace('\\', '/');
@@ -368,19 +386,93 @@ namespace Game.Feature.Stages.Editor.Tests
                 }
 
                 var source = File.ReadAllText(path);
-                if (!playerPrefsCallRegex.IsMatch(source))
+                foreach (var token in DiscoverPlayerPrefsKeyTokensFromSource(source))
                 {
+                    yield return token;
+                }
+            }
+        }
+
+        private static IEnumerable<string> DiscoverPlayerPrefsKeyTokensFromSource(string source)
+        {
+            var stringLiteralRegex = new Regex(@"""(?:\\.|[^""])*""", RegexOptions.Compiled);
+            var invocationRegex = new Regex(
+                @"PlayerPrefs\.(?:GetString|SetString|GetInt|SetInt|GetFloat|SetFloat|HasKey|DeleteKey)\s*\(\s*(?<argument>""(?:\\.|[^""])*""|[A-Za-z_][A-Za-z0-9_\.]*)",
+                RegexOptions.Compiled);
+            var stringDeclarationRegex = new Regex(
+                @"(?:const|static\s+readonly|readonly)\s+string\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?<expression>[^;]+);",
+                RegexOptions.Compiled);
+            var declarations = stringDeclarationRegex.Matches(source)
+                .Cast<Match>()
+                .GroupBy(match => match.Groups["name"].Value, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Last().Groups["expression"].Value,
+                    StringComparer.Ordinal);
+            var discovered = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (Match invocation in invocationRegex.Matches(source))
+            {
+                var argument = invocation.Groups["argument"].Value;
+                if (argument.StartsWith("\"", StringComparison.Ordinal))
+                {
+                    AddCandidate(discovered, DecodeStringLiteral(argument));
                     continue;
                 }
 
-                foreach (Match match in regex.Matches(source))
+                var identifier = argument.Split('.').Last();
+                AddDeclarationCandidates(
+                    identifier,
+                    declarations,
+                    stringLiteralRegex,
+                    discovered,
+                    new HashSet<string>(StringComparer.Ordinal));
+
+                if (identifier == "BuildVolumeKey" || identifier == "BuildMutedKey")
                 {
-                    var token = DecodeStringLiteral(match.Value);
-                    if (IsPlayerPrefsInventoryCandidate(token))
+                    foreach (Match literal in stringLiteralRegex.Matches(source))
                     {
-                        yield return token;
+                        AddCandidate(discovered, DecodeStringLiteral(literal.Value));
                     }
                 }
+            }
+
+            return discovered;
+        }
+
+        private static void AddDeclarationCandidates(
+            string identifier,
+            IReadOnlyDictionary<string, string> declarations,
+            Regex stringLiteralRegex,
+            ISet<string> discovered,
+            ISet<string> visited)
+        {
+            if (!visited.Add(identifier) || !declarations.TryGetValue(identifier, out var expression))
+            {
+                return;
+            }
+
+            foreach (Match literal in stringLiteralRegex.Matches(expression))
+            {
+                AddCandidate(discovered, DecodeStringLiteral(literal.Value));
+            }
+
+            foreach (Match referencedIdentifier in Regex.Matches(expression, @"\b[A-Za-z_][A-Za-z0-9_]*\b"))
+            {
+                AddDeclarationCandidates(
+                    referencedIdentifier.Value,
+                    declarations,
+                    stringLiteralRegex,
+                    discovered,
+                    visited);
+            }
+        }
+
+        private static void AddCandidate(ISet<string> discovered, string token)
+        {
+            if (IsPlayerPrefsInventoryCandidate(token))
+            {
+                discovered.Add(token);
             }
         }
 

@@ -177,7 +177,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 CreatePipeline(worldState, profile).RunTick(new TickInput(1));
 
-                Assert.That(GetEntity(worldState, EnemyId).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                var enemyPosition = GetEntity(worldState, EnemyId).position;
+                Assert.That(enemyPosition, Is.EqualTo(floorDestination));
+                Assert.That(enemyPosition.face, Is.EqualTo(FaceId.Floor));
                 Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
                 Assert.That(GetEntity(worldState, 60).position, Is.EqualTo(new SurfaceCell(FaceId.Front, 2, 0)));
                 Assert.That(GetEntity(worldState, 70).position, Is.EqualTo(new SurfaceCell(FaceId.Front, 3, 0)));
@@ -556,8 +558,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     activationRule,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
-                    boundEntityId: tileFeature.Charges,
-                    presentationKey: string.Empty))
+                    boundEntityId: tileFeature.Charges))
                 .ToArray();
         }
 

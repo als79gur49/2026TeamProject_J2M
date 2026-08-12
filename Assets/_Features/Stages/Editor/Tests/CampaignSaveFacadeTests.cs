@@ -338,29 +338,55 @@ namespace Game.Feature.Stages.Editor.Tests
             var cinematicLaunch = ReadAssetText("_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs");
             var cinematicReturn = ReadAssetText("_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs");
             var directPlayLauncher = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
+            var gameplayProductionBranch = CampaignSaveSourceContractGuard.ExtractTailFromToken(
+                CampaignSaveSourceContractGuard.ExtractMethod(
+                    gameplayInstaller,
+                    "private void EnsureCampaignStores"),
+                "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();");
+            var directPlayProduction = CampaignSaveSourceContractGuard.ExtractMethod(
+                directPlayLauncher,
+                "private static void PrimeCampaignProductionSlot");
+            var serviceFactoryCreateToken = "CampaignSaveServiceFactory" + ".Create(";
 
             Assert.That(mainMenuInstaller, Does.Contain("var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(mainMenuInstaller, Does.Contain("ImportStandaloneCampaignSaveSeed(saveSlotStore"));
-            Assert.That(mainMenuInstaller, Does.Contain("new MainMenuController("));
-            Assert.That(mainMenuInstaller, Does.Contain("saveSlotStore,"));
-            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.LoadAllWithReport()"));
-            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.InitializeNewGame("));
-            Assert.That(mainMenuController, Does.Contain("_saveSlotStore.DeleteSlot(slotNumber)"));
-            Assert.That(mainMenuController, Does.Contain("_saveSlotValidationService.ValidateAndSync(_saveSlotStore, slotNumber)"));
-
-            Assert.That(gameplayInstaller, Does.Contain("_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
-            Assert.That(gameplayInstaller, Does.Contain("new SaveSlotCampaignChancesReadSource("));
+            Assert.That(mainMenuController, Does.Contain("ICampaignSaveSlotStore"));
+            Assert.That(gameplayProductionBranch, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(gameplayFlow, Does.Contain("ICampaignSaveSlotStore"));
             Assert.That(chancesReadSource, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
 
             Assert.That(gameplayUiInstaller, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
             Assert.That(cinematicLaunch, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
-            Assert.That(cinematicLaunch, Does.Contain("new SlotCinematicProgressStore(saveSlotStore)"));
             Assert.That(cinematicReturn, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
-            Assert.That(cinematicReturn, Does.Contain("new SlotCinematicProgressStore(saveSlotStore)"));
-            Assert.That(
-                ExtractSourceRange(directPlayLauncher, "private static void PrimeCampaignProductionSlot", "private static void ValidateCampaignStage"),
-                Does.Contain("var saveStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
+            Assert.That(directPlayProduction, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
+
+            var productionConsumers = new[]
+            {
+                ("MainMenu composition", mainMenuInstaller),
+                ("MainMenu controller", mainMenuController),
+                ("Gameplay scene production composition", gameplayProductionBranch),
+                ("Gameplay campaign flow", gameplayFlow),
+                ("Gameplay chances source", chancesReadSource),
+                ("Gameplay UI composition", gameplayUiInstaller),
+                ("Cinematic launch", cinematicLaunch),
+                ("Cinematic return", cinematicReturn),
+                ("Editor production-slot overwrite", directPlayProduction),
+            };
+            foreach (var (consumerName, source) in productionConsumers)
+            {
+                CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
+                    consumerName,
+                    source,
+                    serviceFactoryCreateToken,
+                    "CampaignSaveFacadeFactory.Create(",
+                    "new PlayerPrefsSaveSlotStorageBackend",
+                    "new SaveSlotStore()",
+                    "new SaveSlotStore(");
+            }
+
+            var provider = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveCompositionProvider.cs");
+            var facadeFactory = ReadAssetText("_Features/Stages/Runtime/Campaign/Save/CampaignSaveServiceFactory.cs");
+            Assert.That(provider, Does.Contain("CampaignSaveFacadeFactory.Create("));
+            Assert.That(facadeFactory, Does.Contain(serviceFactoryCreateToken));
         }
 
         [Test]
@@ -378,12 +404,16 @@ namespace Game.Feature.Stages.Editor.Tests
                     ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
                     "private void ImportStandaloneCampaignSaveSeed(",
                     "private void BuildHubModule()"));
+            var ensureCampaignStores = CampaignSaveSourceContractGuard.ExtractMethod(
+                ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
+                "private void EnsureCampaignStores");
+            Assert.That(ensureCampaignStores, Does.Contain("directPlayContext.HasCustomSaveNamespace"));
+            Assert.That(ensureCampaignStores, Does.Contain("new SaveSlotStore("));
             AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
                 "Gameplay production store branch",
-                ExtractSourceRange(
-                    ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
-                    "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();",
-                    "private int ValidateActiveSlotMatchesLaunchStage"));
+                CampaignSaveSourceContractGuard.ExtractTailFromToken(
+                    ensureCampaignStores,
+                    "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
             AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
                 "Gameplay cinematic return router",
                 ExtractSourceRange(
@@ -392,10 +422,9 @@ namespace Game.Feature.Stages.Editor.Tests
                     "private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()"));
             AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
                 "DirectPlay production overwrite branch",
-                ExtractSourceRange(
+                CampaignSaveSourceContractGuard.ExtractMethod(
                     File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs"),
-                    "private static void PrimeCampaignProductionSlot",
-                    "private static void ValidateCampaignStage"));
+                    "private static void PrimeCampaignProductionSlot"));
         }
 
         [Test]
@@ -558,13 +587,16 @@ namespace Game.Feature.Stages.Editor.Tests
             string branchName,
             string source)
         {
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.SetString"), branchName);
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.Save"), branchName);
-            Assert.That(source, Does.Not.Contain("PlayerPrefs.DeleteKey"), branchName);
-            Assert.That(source, Does.Not.Contain("PlayerPrefsSaveSlotStorageBackend"), branchName);
-            Assert.That(source, Does.Not.Contain("new SaveSlotStore()"), branchName);
-            Assert.That(source, Does.Not.Contain("SaveSlotPrefsKeys.SaveSlotsKey"), branchName);
-            Assert.That(source, Does.Not.Contain("Game.Feature.Stages.StageClearSaveSlots"), branchName);
+            CampaignSaveSourceContractGuard.AssertForbiddenTokensAbsent(
+                branchName,
+                source,
+                "PlayerPrefs.SetString",
+                "PlayerPrefs.Save",
+                "PlayerPrefs.DeleteKey",
+                "PlayerPrefsSaveSlotStorageBackend",
+                "new SaveSlotStore()",
+                "SaveSlotPrefsKeys.SaveSlotsKey",
+                "Game.Feature.Stages.StageClearSaveSlots");
         }
 
         private sealed class Harness : IDisposable
@@ -661,6 +693,68 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             public void MarkResetImportDisabled(string resetTombstoneUtc)
             {
+            }
+        }
+    }
+
+    internal static class CampaignSaveSourceContractGuard
+    {
+        public static string ExtractMethod(string source, string declarationToken)
+        {
+            Assert.That(source, Is.Not.Null.And.Not.Empty, declarationToken);
+            Assert.That(declarationToken, Is.Not.Null.And.Not.Empty);
+
+            var declarationStart = source.IndexOf(declarationToken, StringComparison.Ordinal);
+            Assert.That(declarationStart, Is.GreaterThanOrEqualTo(0), declarationToken);
+            var openingBrace = source.IndexOf('{', declarationStart);
+            Assert.That(openingBrace, Is.GreaterThan(declarationStart), declarationToken);
+
+            var depth = 0;
+            for (var index = openingBrace; index < source.Length; index++)
+            {
+                switch (source[index])
+                {
+                    case '{':
+                        depth++;
+                        break;
+                    case '}':
+                        depth--;
+                        if (depth == 0)
+                        {
+                            var method = source.Substring(declarationStart, index - declarationStart + 1);
+                            Assert.That(method, Is.Not.Empty, declarationToken);
+                            return method;
+                        }
+
+                        break;
+                }
+            }
+
+            Assert.Fail($"Could not find the balanced method body for '{declarationToken}'.");
+            return string.Empty;
+        }
+
+        public static string ExtractTailFromToken(string source, string startToken)
+        {
+            Assert.That(source, Is.Not.Null.And.Not.Empty, startToken);
+            var start = source.IndexOf(startToken, StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), startToken);
+            var tail = source.Substring(start);
+            Assert.That(tail, Is.Not.Empty, startToken);
+            return tail;
+        }
+
+        public static void AssertForbiddenTokensAbsent(
+            string scope,
+            string source,
+            params string[] forbiddenTokens)
+        {
+            Assert.That(source, Is.Not.Null.And.Not.Empty, scope);
+            Assert.That(forbiddenTokens, Is.Not.Null.And.Not.Empty, scope);
+            foreach (var forbiddenToken in forbiddenTokens)
+            {
+                Assert.That(forbiddenToken, Is.Not.Null.And.Not.Empty, scope);
+                Assert.That(source, Does.Not.Contain(forbiddenToken), scope);
             }
         }
     }

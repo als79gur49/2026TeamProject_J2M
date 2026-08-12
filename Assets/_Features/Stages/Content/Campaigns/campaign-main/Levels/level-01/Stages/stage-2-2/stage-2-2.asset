@@ -2112,7 +2112,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: exit.default
   - TileId: 2
     Cell:
       face: 0
@@ -2123,7 +2122,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 3
     Cell:
       face: 0
@@ -2134,7 +2132,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 4
     Cell:
       face: 0
@@ -2145,7 +2142,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 5
     Cell:
       face: 0
@@ -2156,7 +2152,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 6
     Cell:
       face: 1
@@ -2167,7 +2162,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 7
     Cell:
       face: 1
@@ -2178,7 +2172,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 8
     Cell:
       face: 1
@@ -2189,7 +2182,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 9
     Cell:
       face: 1
@@ -2200,7 +2192,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 10
     Cell:
       face: 1
@@ -2211,7 +2202,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 11
     Cell:
       face: 1
@@ -2222,7 +2212,6 @@ MonoBehaviour:
     Direction: 3
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.down
   - TileId: 12
     Cell:
       face: 1
@@ -2233,7 +2222,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 13
     Cell:
       face: 1
@@ -2244,7 +2232,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 14
     Cell:
       face: 1
@@ -2255,7 +2242,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 15
     Cell:
       face: 1
@@ -2266,7 +2252,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 16
     Cell:
       face: 1
@@ -2277,7 +2262,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 17
     Cell:
       face: 1
@@ -2288,7 +2272,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 18
     Cell:
       face: 1
@@ -2299,7 +2282,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 19
     Cell:
       face: 1
@@ -2310,7 +2292,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 20
     Cell:
       face: 2
@@ -2321,7 +2302,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 21
     Cell:
       face: 2
@@ -2332,7 +2312,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 22
     Cell:
       face: 2
@@ -2343,7 +2322,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 23
     Cell:
       face: 2
@@ -2354,7 +2332,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 24
     Cell:
       face: 2
@@ -2365,7 +2342,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 25
     Cell:
       face: 2
@@ -2376,7 +2352,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 26
     Cell:
       face: 2
@@ -2387,7 +2362,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 27
     Cell:
       face: 2
@@ -2398,7 +2372,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 28
     Cell:
       face: 2
@@ -2409,7 +2382,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 29
     Cell:
       face: 2
@@ -2420,7 +2392,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 30
     Cell:
       face: 3
@@ -2431,7 +2402,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 31
     Cell:
       face: 3
@@ -2442,7 +2412,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 32
     Cell:
       face: 3
@@ -2453,7 +2422,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: barricade.default
   - TileId: 33
     Cell:
       face: 3
@@ -2464,7 +2432,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 34
     Cell:
       face: 3
@@ -2475,7 +2442,6 @@ MonoBehaviour:
     Direction: 3
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.down
   - TileId: 35
     Cell:
       face: 3
@@ -2486,7 +2452,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 36
     Cell:
       face: 3
@@ -2497,7 +2462,6 @@ MonoBehaviour:
     Direction: 2
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.right
   - TileId: 37
     Cell:
       face: 3
@@ -2508,7 +2472,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 38
     Cell:
       face: 3
@@ -2519,7 +2482,6 @@ MonoBehaviour:
     Direction: 4
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.left
   - TileId: 39
     Cell:
       face: 3
@@ -2530,7 +2492,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 40
     Cell:
       face: 3
@@ -2541,7 +2502,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 41
     Cell:
       face: 3
@@ -2552,7 +2512,6 @@ MonoBehaviour:
     Direction: 1
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: slide.up
   - TileId: 42
     Cell:
       face: 3
@@ -2563,7 +2522,6 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 3
     BoundEntityId: 0
-    PresentationKey: button.default
   - TileId: 43
     Cell:
       face: 0
@@ -2574,11 +2532,8 @@ MonoBehaviour:
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: entrance.default
   objective:
     CompletionPolicy: 2
-    ObjectiveTitle: Reach the Exit
-    ObjectiveSummary: Move to the exit zone.
     ConditionEntries:
     - Condition: {fileID: 11400000, guid: 56c04cd3dd5348dd9aada10218b40f45, type: 2}
       Required: 1

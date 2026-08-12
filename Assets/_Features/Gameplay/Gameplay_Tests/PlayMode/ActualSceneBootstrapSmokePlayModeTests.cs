@@ -3220,6 +3220,48 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneLegacyStage51_NonCampaignTile12BarricadeSmoke()
+        {
+            var stageId = StageId.CreateOrThrow("legacy-stage-5-1");
+            yield return AssertSceneBootstrapFirstFiveTicks(UIAudioScenePath, stageId);
+
+            var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
+            Assert.That(directPlayContext.Mode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
+            Assert.That(directPlayContext.StageId, Is.EqualTo(stageId));
+            Assert.That(directPlayContext.SuppressCampaignFlow, Is.True);
+
+            var host = Object.FindObjectsByType<GameplaySceneHost>(
+                    FindObjectsInactive.Exclude,
+                    FindObjectsSortMode.None)
+                .Single();
+            var expectedCell = new SurfaceCell(FaceId.Floor, 8, 0);
+
+            var registry = host.GetComponent<TileFeatureVisualRegistry>();
+            Assert.That(registry, Is.Not.Null);
+            Assert.That(registry.TryGetTileVisual(12, out var visualTarget), Is.True);
+            var targetView = visualTarget as TileFeatureVisualTargetView;
+            Assert.That(targetView, Is.Not.Null);
+            Assert.That(targetView.TileId, Is.EqualTo(12));
+            Assert.That(targetView.Cell, Is.EqualTo(expectedCell));
+
+            Assert.That(
+                targetView.gameObject.name,
+                Does.StartWith("TileFeature_Barricade_Default"),
+                "TileId 12 must instantiate the Barricade presentation prefab.");
+
+            var provider = targetView.GetComponent<TileFeatureVisualProfileProvider>();
+            Assert.That(provider, Is.Not.Null);
+            Assert.That(provider.TryGetProfile(TileFeatureKind.Barricade, out var profile), Is.True);
+            Assert.That(profile, Is.Not.Null);
+
+            var animator = targetView.DebugAnimator;
+            Assert.That(animator, Is.Not.Null);
+            var expectedActive = expectedCell.face == host.Presenter.CurrentTopology.FrontFace;
+            Assert.That(animator.GetBool("BarricadeActive"), Is.EqualTo(expectedActive));
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator ActualSceneBootstrap_UIAudioScene_DamageDeathVfxProductionPort_ReachesConcreteRuntimeWithoutMissingPort()
         {
             var stageId = StageId.CreateOrThrow("stage-0-1");

@@ -10,6 +10,7 @@ namespace Game.Feature.Stages
     public sealed class TileFeaturePresentationBinding
     {
         public int TileId;
+        public string PresentationKey;
         public GameObject VisualPrefab;
     }
 

@@ -662,6 +662,75 @@ MonoBehaviour:
       y: 3
     styleKey: board.paint.level1
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
-  tileFeaturePresentationBindings: []
+  tileFeaturePresentationBindings:
+  - TileId: 1
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 6
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 7
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 8
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 9
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 10
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 11
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 12
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 13
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 14
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 15
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 16
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 17
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 18
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 19
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 20
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 21
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 22
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 23
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []

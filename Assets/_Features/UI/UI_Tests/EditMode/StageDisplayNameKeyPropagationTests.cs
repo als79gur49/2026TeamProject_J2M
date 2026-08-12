@@ -46,18 +46,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void CatalogAndUiReadModels_PropagateStageDisplayNameKeyToDescriptor()
+        public void CatalogResolverAndUiReadModels_PropagateStageDisplayNameKeyToDescriptor()
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
                 StageContentPaths.StageCatalogProviderAssetPath);
             Assert.That(provider, Is.Not.Null, StageContentPaths.StageCatalogProviderAssetPath);
-            var query = new StageCatalogQueryService(provider);
+            var resolver = new StageCatalogResolver(provider);
             var stageId = StageId.CreateOrThrow("stage-0-1");
 
-            Assert.That(query.TryGetLaunchSummary(stageId, out var summary), Is.True);
+            Assert.That(resolver.TryResolve(stageId, out var entry), Is.True);
+            Assert.That(entry.PresentationDefinition, Is.Not.Null);
+            var displayNameKey = StageDisplayNameKeys.RequireForStage(
+                entry.StageId,
+                entry.PresentationDefinition.DisplayNameKey);
             var gameplayReadModel = new GameplayStageReadModel(
-                summary.StageId,
-                summary.DisplayNameKey);
+                entry.StageId,
+                displayNameKey);
             var mapper = new UIStateMapper();
             var result = mapper.ReduceRefresh(
                 UIPresentationSnapshot.Empty,
@@ -83,9 +87,7 @@ namespace Game.Feature.UI.Tests
                     stageId: gameplayReadModel.StageId,
                     stageDisplayNameKey: gameplayReadModel.DisplayNameKey));
 
-            Assert.That(summary.DisplayNameKey, Is.EqualTo("stage.stage-0-1.display_name"));
-            Assert.That(typeof(StageLaunchCatalogItem).GetProperty("DisplayName"), Is.Null);
-            Assert.That(typeof(StageLaunchCatalogItem).GetProperty("LegacyDisplayNameFallback"), Is.Null);
+            Assert.That(displayNameKey, Is.EqualTo("stage.stage-0-1.display_name"));
             Assert.That(typeof(GameplayStageReadModel).GetProperty("DisplayName"), Is.Null);
             Assert.That(typeof(GameplayStageReadModel).GetProperty("LegacyDisplayNameFallback"), Is.Null);
             Assert.That(result.Snapshot.Stage.DisplayNameKey, Is.EqualTo("stage.stage-0-1.display_name"));
@@ -115,7 +117,7 @@ namespace Game.Feature.UI.Tests
         public void StageDisplayNameLocalization_BoundariesStayPackageFreeOutsideComposition()
         {
             AssertNoAssemblyReference(typeof(StagePresentationDefinition).Assembly, "Unity.Localization");
-            AssertNoAssemblyReference(typeof(StageCatalogQueryService).Assembly, "Unity.Localization");
+            AssertNoAssemblyReference(typeof(StageCatalogResolver).Assembly, "Unity.Localization");
             AssertNoAssemblyReference(typeof(StageInfoPresenter).Assembly, "Unity.Localization");
             AssertNoAssemblyReference(typeof(LocalizedTextDescriptor).Assembly, "Unity.Localization");
         }

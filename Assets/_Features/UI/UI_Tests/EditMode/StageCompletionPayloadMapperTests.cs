@@ -16,16 +16,7 @@ namespace Game.Feature.UI.Tests
         {
             var readModel = new MinimalStageCompletionReadModel(
                 StageId.CreateOrThrow("payload-stage"),
-                "stage.payload-stage.display_name",
-                new MinimalStageCompletionResult(
-                    StageId.CreateOrThrow("payload-stage"),
-                    new StageRunId("run-a"),
-                    new StageCompletionAttemptId("attempt-a"),
-                    StageTerminalReason.Cleared,
-                    wasCleared: true,
-                    finalTickIndex: 24,
-                    new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                StageClearSource.Objective),
+                finalTickIndex: 24,
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Continue),
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Retry),
                 StageNavigationRequest.None);
@@ -134,15 +125,6 @@ namespace Game.Feature.UI.Tests
         private static MinimalStageCompletionReadModel CreateMinimalReadModel(string stageIdValue)
         {
             var stageId = StageId.CreateOrThrow(stageIdValue);
-            var result = new MinimalStageCompletionResult(
-                    stageId,
-                    new StageRunId("run-" + stageIdValue),
-                    new StageCompletionAttemptId("attempt-" + stageIdValue),
-                    StageTerminalReason.Cleared,
-                    wasCleared: true,
-                    finalTickIndex: 1,
-                    new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                    StageClearSource.Objective);
             var nextStageRequest = string.Equals(stageIdValue, "stage-1-1", StringComparison.Ordinal)
                 ? CreateNavigationRequest("stage-1-2", StageNavigationKind.NextStage)
                     .WithTransitionHint(StageTransitionHint.ForKind(StageTransitionKind.StageClearNext))
@@ -156,8 +138,7 @@ namespace Game.Feature.UI.Tests
 
             return new MinimalStageCompletionReadModel(
                 stageId,
-                StageDisplayNameKeys.ForStage(stageId),
-                result,
+                finalTickIndex: 1,
                 continueRequest,
                 retryRequest,
                 nextStageRequest);

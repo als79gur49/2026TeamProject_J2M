@@ -381,6 +381,15 @@ HUD classification notes:
 - This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
 - The current HUD-side mapping is display semantics only.
 
+Objective HUD localization contract:
+
+- `Non-Negotiable` Stage gameplay and objective definitions do not own raw player-facing objective copy. The legacy raw objective title and summary fields are physically retired from authoring and generated gameplay assets.
+- `Non-Negotiable` Gameplay objective runtime and `GameplayObjectiveReadModel` expose semantic condition identity, stable identity, required/role/order, state, and counts. They do not expose localization keys or stage-authored display prose.
+- `Non-Negotiable` `UIStateMapper` preserves `PresentationKind` and `StableGroupKey`, and `ObjectiveHudLocalization` maps the semantic presentation kind to the localized condition descriptor and count arguments.
+- `Non-Negotiable` The current Objective HUD contract is the localized fixed header plus localized semantic condition rows. It has no stage-specific title or summary slot.
+- `Non-Negotiable` `AuthoringLabel` is editor-only condition metadata. It remains available to authoring validation and drift checks but must not enter gameplay runtime read models, `UIObjectiveSlice`, or player display.
+- `Default Guidance` If stage-specific objective prose becomes a product requirement, add a localized presentation entry under `StagePresentationDefinition` in a separate feature. Do not restore raw display copy to gameplay definitions or replace semantic presentation identity with localization keys.
+
 Scene transition content notes:
 
 - Scene transition semantic ids remain distinct, but semantic ids and physical content prefab files are not one-to-one.
@@ -395,6 +404,8 @@ Deletion protection notes:
 
 - Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
+- The transient producer path is `StageClearResult(StageId, FinalTickIndex) -> MinimalStageCompletionReadModel`; the read model then supplies the `StageResult` navigation endpoint.
+- `MinimalStageCompletionReadModel` carries only `StageId`, `FinalTickIndex`, and the continue/retry/next navigation requests. The builder still validates presentation display identity, but the read model does not store a display key or nested completion-result wrapper.
 - `StageResult` is a minimal stage-completion navigation endpoint. Its payload does not carry title/summary/detail result schema; the localized stage-clear title is presentation-owned, while continue, retry, and next-stage paths remain `StageNavigationRequest` intent boundaries.
 - UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision. It is not a hidden or dev-only retained runtime path.
 - Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.

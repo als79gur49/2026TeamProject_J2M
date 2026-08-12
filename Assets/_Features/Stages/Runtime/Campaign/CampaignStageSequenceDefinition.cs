@@ -8,19 +8,15 @@ namespace Game.Feature.Stages
     public sealed class CampaignStageSequenceEntry
     {
         [SerializeField] private StageId stageId;
-        [SerializeField] private string displayName;
         [SerializeField] private string levelGroupId;
 
         public StageId StageId => stageId;
 
-        public string DisplayName => displayName ?? string.Empty;
-
         public string LevelGroupId => levelGroupId ?? string.Empty;
 
-        public void Set(StageId stageIdValue, string displayNameValue, string levelGroupIdValue)
+        public void Set(StageId stageIdValue, string levelGroupIdValue)
         {
             stageId = stageIdValue;
-            displayName = displayNameValue ?? string.Empty;
             levelGroupId = levelGroupIdValue ?? string.Empty;
         }
     }
@@ -28,116 +24,13 @@ namespace Game.Feature.Stages
     [CreateAssetMenu(menuName = "Gameplay/Stages/Campaign Stage Sequence", fileName = "CampaignStageSequence")]
     public sealed class CampaignStageSequenceDefinition : ScriptableObject
     {
-        public const string Level0GroupId = "level-0";
-        public const string Level1GroupId = "level-1";
-        public const string Level2GroupId = "level-2";
-        public const string Level3GroupId = "level-3";
-        public const string Level4GroupId = "level-4";
-
-        public static readonly string[] CanonicalStageIdValues =
-        {
-            "stage-0-1",
-            "stage-0-2",
-            "stage-0-3",
-            "stage-1-1",
-            "stage-1-2",
-            "stage-2-1",
-            "stage-2-2",
-            "stage-3-1",
-            "stage-3-2",
-            "stage-3-3",
-            "stage-4-1",
-            "stage-4-2",
-            "stage-4-3",
-        };
-
-        public static readonly string[] CanonicalDisplayNames =
-        {
-            "0-1",
-            "0-2",
-            "0-3",
-            "1-1",
-            "1-2",
-            "2-1",
-            "2-2",
-            "3-1",
-            "3-2",
-            "3-3",
-            "4-1",
-            "4-2",
-            "4-3",
-        };
-
-        public static readonly string[] CanonicalLevelGroupIds =
-        {
-            Level0GroupId,
-            Level0GroupId,
-            Level0GroupId,
-            Level1GroupId,
-            Level1GroupId,
-            Level2GroupId,
-            Level2GroupId,
-            Level3GroupId,
-            Level3GroupId,
-            Level3GroupId,
-            Level4GroupId,
-            Level4GroupId,
-            Level4GroupId,
-        };
-
-        public static readonly string[] RetiredCompletedStageIdValues =
-        {
-            "stage-5-1",
-        };
-
-        [SerializeField] private CampaignStageSequenceEntry[] entries = CreateCanonicalEntries();
+        [SerializeField] private CampaignStageSequenceEntry[] entries = Array.Empty<CampaignStageSequenceEntry>();
 
         public IReadOnlyList<CampaignStageSequenceEntry> Entries => entries ?? Array.Empty<CampaignStageSequenceEntry>();
-
-        public static CampaignStageSequenceDefinition CreateCanonicalRuntimeInstance()
-        {
-            var definition = CreateInstance<CampaignStageSequenceDefinition>();
-            definition.entries = CreateCanonicalEntries();
-            return definition;
-        }
 
         public void SetEntries(CampaignStageSequenceEntry[] value)
         {
             entries = value ?? Array.Empty<CampaignStageSequenceEntry>();
-        }
-
-        public static bool IsRetiredCompletedStageId(StageId stageId)
-        {
-            if (!stageId.IsValid)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < RetiredCompletedStageIdValues.Length; i++)
-            {
-                if (string.Equals(RetiredCompletedStageIdValues[i], stageId.Value, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static CampaignStageSequenceEntry[] CreateCanonicalEntries()
-        {
-            var result = new CampaignStageSequenceEntry[CanonicalStageIdValues.Length];
-            for (var i = 0; i < result.Length; i++)
-            {
-                var entry = new CampaignStageSequenceEntry();
-                entry.Set(
-                    StageId.CreateOrThrow(CanonicalStageIdValues[i]),
-                    CanonicalDisplayNames[i],
-                    CanonicalLevelGroupIds[i]);
-                result[i] = entry;
-            }
-
-            return result;
         }
     }
 }

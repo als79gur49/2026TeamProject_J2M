@@ -624,6 +624,168 @@ MonoBehaviour:
       y: 4
     styleKey: board.paint.level3
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
-  tileFeaturePresentationBindings: []
+  tileFeaturePresentationBindings:
+  - TileId: 1
+    PresentationKey: entrance.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 2
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 3
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 4
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 5
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 6
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 7
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 8
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 9
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 10
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 11
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 12
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 13
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 14
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 15
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 16
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 17
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 18
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 19
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 20
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 21
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 22
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 23
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 24
+    PresentationKey: destroy.bottom
+    VisualPrefab: {fileID: 0}
+  - TileId: 25
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 26
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 27
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 28
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 29
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 30
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 31
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 32
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 33
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 34
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 35
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 36
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 37
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 38
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 39
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 40
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 41
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 42
+    PresentationKey: destroy.front
+    VisualPrefab: {fileID: 0}
+  - TileId: 43
+    PresentationKey: barricade.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 44
+    PresentationKey: slide.left
+    VisualPrefab: {fileID: 0}
+  - TileId: 45
+    PresentationKey: slide.up
+    VisualPrefab: {fileID: 0}
+  - TileId: 46
+    PresentationKey: slide.right
+    VisualPrefab: {fileID: 0}
+  - TileId: 47
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 48
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 49
+    PresentationKey: button.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 50
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 51
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 52
+    PresentationKey: button.moon-only
+    VisualPrefab: {fileID: 0}
+  - TileId: 53
+    PresentationKey: moon-generator.default
+    VisualPrefab: {fileID: 0}
+  - TileId: 54
+    PresentationKey: exit.default
+    VisualPrefab: {fileID: 0}
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []

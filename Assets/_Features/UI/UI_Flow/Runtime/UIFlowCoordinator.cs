@@ -23,9 +23,6 @@ namespace Game.Feature.UI.Flow
 
     public sealed class UIFlowCoordinator : IDisposable, IUiFlowAudioIntentBoundary
     {
-        private static readonly Lazy<CampaignStageSequenceResolver> CanonicalCampaignResolver =
-            new(() => new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance()));
-
         private enum PauseReturnMode
         {
             None = 0,
@@ -33,6 +30,7 @@ namespace Game.Feature.UI.Flow
         }
 
         private readonly IGameplayUiPresentationSource _presentationSource;
+        private readonly CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private readonly IMainMenuReturnRouter _mainMenuReturnRouter;
         private readonly IPauseProgressionReadSource _pauseProgressionReadSource;
         private readonly IUiFlowPauseService _pauseService;
@@ -57,7 +55,8 @@ namespace Game.Feature.UI.Flow
             IUiAudioPort uiAudioPort,
             IStageLaunchRouter stageLaunchRouter,
             IMainMenuReturnRouter mainMenuReturnRouter = null,
-            IPauseProgressionReadSource pauseProgressionReadSource = null)
+            IPauseProgressionReadSource pauseProgressionReadSource = null,
+            CampaignStageSequenceResolver campaignStageSequenceResolver = null)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
@@ -68,6 +67,7 @@ namespace Game.Feature.UI.Flow
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
             _mainMenuReturnRouter = mainMenuReturnRouter ?? NoOpMainMenuReturnRouter.Instance;
             _pauseProgressionReadSource = pauseProgressionReadSource ?? EmptyPauseProgressionReadSource.Instance;
+            _campaignStageSequenceResolver = campaignStageSequenceResolver;
 
             _screenController.StateChanged += HandleFlowStateChanged;
             _screenController.ActionRequested += HandleScreenActionRequested;
@@ -838,7 +838,7 @@ namespace Game.Feature.UI.Flow
                     "Stage clear tick events require a minimal completion read model before UI flow transition.");
             }
 
-            if (IsCanonicalCampaignFinalStage(readModel.StageId))
+            if (IsCampaignFinalStage(readModel.StageId))
             {
                 _screenController.SetRoot(new ScreenRequest(
                     ScreenId.GameClear,
@@ -853,9 +853,15 @@ namespace Game.Feature.UI.Flow
                 ScreenId.StageResult.ToString()));
         }
 
-        private static bool IsCanonicalCampaignFinalStage(StageId stageId)
+        private bool IsCampaignFinalStage(StageId stageId)
         {
-            return stageId.IsValid && CanonicalCampaignResolver.Value.IsFinal(stageId);
+            if (_campaignStageSequenceResolver == null)
+            {
+                throw new InvalidOperationException(
+                    "UIFlowCoordinator requires the gameplay composition campaign sequence resolver before handling StageCleared.");
+            }
+
+            return stageId.IsValid && _campaignStageSequenceResolver.IsFinal(stageId);
         }
 
         private static bool IsCanonicalGameplayEntrySessionRoute(

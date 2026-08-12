@@ -213,10 +213,11 @@ namespace Game.Feature.Stages.Editor
             }
 
             var directOverrideCount = presentation != null
-                ? presentation.TileFeaturePresentationBindings.Count(binding => binding != null)
+                ? presentation.TileFeaturePresentationBindings.Count(binding =>
+                    binding != null && binding.VisualPrefab != null)
                 : 0;
-            var missingKeyCount = authoring.TileFeatures.Count(feature =>
-                string.IsNullOrWhiteSpace(feature.PresentationKey));
+            var missingKeyCount = authoring.TileFeaturePresentationSelections.Count(selection =>
+                selection == null || string.IsNullOrWhiteSpace(selection.PresentationKey));
             var unresolvedKeyCount = CountUnresolvedTileFeaturePresentationKeys(authoring, catalog);
             var invalidCatalogEntryCount = CountInvalidTileFeatureCatalogEntries(catalog);
             EditorGUILayout.LabelField(
@@ -304,13 +305,15 @@ namespace Game.Feature.Stages.Editor
         {
             if (catalog == null)
             {
-                return authoring.TileFeatures.Count(feature =>
-                    !string.IsNullOrWhiteSpace(feature.PresentationKey));
+                return authoring.TileFeaturePresentationSelections.Count(selection =>
+                    selection != null && !string.IsNullOrWhiteSpace(selection.PresentationKey));
             }
 
-            return authoring.TileFeatures.Count(feature =>
+            return authoring.TileFeaturePresentationSelections.Count(selection =>
             {
-                var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
+                var presentationKey = selection != null
+                    ? TileFeaturePresentationCatalog.NormalizePresentationKey(selection.PresentationKey)
+                    : string.Empty;
                 return !string.IsNullOrEmpty(presentationKey) &&
                        !catalog.TryGetEntry(presentationKey, out _);
             });

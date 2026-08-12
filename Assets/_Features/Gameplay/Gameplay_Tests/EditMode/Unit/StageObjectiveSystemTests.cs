@@ -1981,10 +1981,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ObjectiveClear_ButtonLatch_ProducesButtonActivatedRequestThroughPresenter()
+        public void ObjectiveClear_ButtonLatch_EmitsSingleButtonActivatedPresentationRequestAndDispatchesCue()
         {
             var conditionAsset = CreateButtonActivatedCondition(100);
-            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_ProducesButtonActivatedRequestThroughPresenter));
+            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_EmitsSingleButtonActivatedPresentationRequestAndDispatchesCue));
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var box = CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push);
 
@@ -2008,20 +2008,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.ObjectiveRuntimeDefinition,
                     buildResult.TileFeatureDefinitions);
                 var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
-                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+                var cueSink = AttachTileVisualCueSink(rootObject, presenter, 100, cell);
 
                 var result = pipeline.RunTick(new TickInput(7));
                 var hashBeforePresent = result.DeterminismHash;
                 presenter.Present(result);
 
                 Assert.That(result.DeterminismHash, Is.EqualTo(hashBeforePresent));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(result.PresentationData.TileEvents, Has.Count.EqualTo(1));
+                Assert.That(
+                    result.PresentationData.TileEvents[0].EventKind,
+                    Is.EqualTo(TilePresentationEventKind.ButtonActivated));
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
                 var request = presenter.CurrentTilePresentationRequests[0];
                 Assert.That(request.RequestKind, Is.EqualTo(TilePresentationRequestKind.ButtonActivated));
                 Assert.That(request.TileId, Is.EqualTo(100));
                 Assert.That(request.Cell, Is.EqualTo(cell));
                 Assert.That(request.TileFeatureKind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(cueSink.ButtonActivatedCueCount, Is.EqualTo(1));
+                Assert.That(cueSink.LastCueId, Is.EqualTo(TileFeatureVisualCueId.ButtonActivated));
+                Assert.That(cueSink.LastTileId, Is.EqualTo(100));
             }
             finally
             {
@@ -2032,10 +2038,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ObjectiveClear_ButtonLatch_AlreadyActivatedNextTickProducesNoRequestThroughPresenter()
+        public void ObjectiveClear_ButtonLatch_AlreadyActivatedNextTick_DoesNotEmitDuplicatePresentationRequest()
         {
             var conditionAsset = CreateButtonActivatedCondition(100);
-            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_AlreadyActivatedNextTickProducesNoRequestThroughPresenter));
+            var rootObject = new GameObject(nameof(ObjectiveClear_ButtonLatch_AlreadyActivatedNextTick_DoesNotEmitDuplicatePresentationRequest));
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var box = CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push);
 
@@ -2059,16 +2065,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.ObjectiveRuntimeDefinition,
                     buildResult.TileFeatureDefinitions);
                 var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
-                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+                var cueSink = AttachTileVisualCueSink(rootObject, presenter, 100, cell);
 
-                presenter.Present(pipeline.RunTick(new TickInput(7)));
+                var firstResult = pipeline.RunTick(new TickInput(7));
+                presenter.Present(firstResult);
+
+                Assert.That(firstResult.PresentationData.TileEvents, Has.Count.EqualTo(1));
+                Assert.That(
+                    firstResult.PresentationData.TileEvents[0].EventKind,
+                    Is.EqualTo(TilePresentationEventKind.ButtonActivated));
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests[0].RequestKind,
+                    Is.EqualTo(TilePresentationRequestKind.ButtonActivated));
+                Assert.That(cueSink.ButtonActivatedCueCount, Is.EqualTo(1));
 
-                presenter.Present(pipeline.RunTick(new TickInput(8)));
+                var secondResult = pipeline.RunTick(new TickInput(8));
+                presenter.Present(secondResult);
 
+                Assert.That(secondResult.PresentationData.TileEvents, Is.Empty);
                 Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(cueSink.ButtonActivatedCueCount, Is.EqualTo(1));
             }
             finally
             {
@@ -2106,12 +2123,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.ObjectiveRuntimeDefinition,
                     buildResult.TileFeatureDefinitions);
                 var presenter = CreateInitializedTileRequestPresenter(rootObject, buildResult, new[] { box });
-                var target = AttachTileVisualTarget(rootObject, presenter, 100, cell);
+                var cueSink = AttachTileVisualCueSink(rootObject, presenter, 100, cell);
 
-                presenter.Present(pipeline.RunTick(new TickInput(7)));
+                var result = pipeline.RunTick(new TickInput(7));
+                presenter.Present(result);
 
+                Assert.That(result.PresentationData.TileEvents, Is.Empty);
                 Assert.That(presenter.CurrentTilePresentationRequests, Is.Empty);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+                Assert.That(cueSink.ButtonActivatedCueCount, Is.Zero);
             }
             finally
             {
@@ -2352,20 +2371,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        public void StageObjectiveAuthoring_StoresObjectiveTitleSummary()
-        {
-            var objective = CreateObjective(
-                StageCompletionPolicy.RequireAllConditions,
-                Array.Empty<StageObjectiveConditionEntry>(),
-                "Reach the Exit",
-                "Move to the exit zone.");
-
-            Assert.That(objective.ObjectiveTitle, Is.EqualTo("Reach the Exit"));
-            Assert.That(objective.ObjectiveSummary, Is.EqualTo("Move to the exit zone."));
-        }
-
         [Category("Extended")]
         [TestCase(
             ObjectiveConditionSemanticKind.ReachExit,
@@ -2498,9 +2503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             "primary-goal",
                             "출구에 도달",
                             sortOrder: 3),
-                    },
-                    "목표",
-                    "출구까지 이동하세요."),
+                    }),
                 CreatePlayerSpawn(10, new SurfaceCell(FaceId.Floor, 0, 0)));
             SetPrivateField(stage, "tileFeatures", new[]
             {
@@ -3021,15 +3024,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static StageObjectiveAuthoring CreateObjective(
             StageCompletionPolicy completionPolicy,
-            StageObjectiveConditionEntry[] conditionEntries = null,
-            string objectiveTitle = "",
-            string objectiveSummary = "")
+            StageObjectiveConditionEntry[] conditionEntries = null)
         {
             return new StageObjectiveAuthoring
             {
                 CompletionPolicy = completionPolicy,
-                ObjectiveTitle = objectiveTitle,
-                ObjectiveSummary = objectiveSummary,
                 ConditionEntries = conditionEntries ?? Array.Empty<StageObjectiveConditionEntry>(),
             };
         }
@@ -3190,7 +3189,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return presenter;
         }
 
-        private static RecordingButtonTileFeatureVisualTarget AttachTileVisualTarget(
+        private static RecordingButtonTileFeatureVisualCueSink AttachTileVisualCueSink(
             GameObject rootObject,
             GameplayTickViewPresenter presenter,
             int tileId,
@@ -3198,22 +3197,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.GetComponent<TileFeatureVisualRegistry>() ??
                 rootObject.AddComponent<TileFeatureVisualRegistry>();
-            var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
+            var targetObject = new GameObject($"TileFeatureVisualCueSink_{tileId}");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-            var target = targetObject.AddComponent<RecordingButtonTileFeatureVisualTarget>();
-            target.Configure(tileId, cell);
+            var cueSink = targetObject.AddComponent<RecordingButtonTileFeatureVisualCueSink>();
+            cueSink.Configure(tileId, cell);
             registry.ConfigureSearchRoot(rootObject.transform);
             presenter.AttachTileFeatureVisualRegistry(registry);
-            return target;
+            return cueSink;
         }
 
-        private sealed class RecordingButtonTileFeatureVisualTarget : MonoBehaviour, ITileFeatureVisualTarget
+        private sealed class RecordingButtonTileFeatureVisualCueSink :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            ITileFeatureVisualCueSink
         {
             public int TileId { get; private set; }
 
             public SurfaceCell Cell { get; private set; }
 
-            public int DebugPlayButtonActivatedCount { get; private set; }
+            public int ButtonActivatedCueCount { get; private set; }
+
+            public TileFeatureVisualCueId LastCueId { get; private set; }
+
+            public int LastTileId { get; private set; }
 
             public void Configure(int tileId, SurfaceCell cell)
             {
@@ -3221,9 +3227,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell;
             }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                DebugPlayButtonActivatedCount++;
+                if (request.CueId != TileFeatureVisualCueId.ButtonActivated)
+                {
+                    return false;
+                }
+
+                ButtonActivatedCueCount++;
+                LastCueId = request.CueId;
+                LastTileId = request.TileId;
+                return true;
             }
         }
 
@@ -3379,8 +3393,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         activationRule,
                         Direction2D.None,
                         TileFeatureBoxSelector.None,
-                        boundEntityId: 0,
-                        presentationKey: string.Empty),
+                        boundEntityId: 0),
                     goalZone,
                     requireAlive: true),
                 required: true,
@@ -3445,8 +3458,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     activationRule,
                     Direction2D.None,
                     TileFeatureBoxSelector.None,
-                    boundEntityId: 0,
-                    presentationKey: string.Empty),
+                    boundEntityId: 0),
             };
         }
 
@@ -3478,7 +3490,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Direction = Direction2D.None,
                 BoxSelector = boxSelector,
                 BoundEntityId = 0,
-                PresentationKey = string.Empty,
             };
         }
 

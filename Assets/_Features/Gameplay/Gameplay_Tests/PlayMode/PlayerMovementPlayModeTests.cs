@@ -2038,8 +2038,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 activationRule,
                 Direction2D.None,
                 TileFeatureBoxSelector.None,
-                boundEntityId: 0,
-                presentationKey: string.Empty);
+                boundEntityId: 0);
         }
 
         private static GameplaySceneHost CreateFlipSuppressedBarricadeHost(int enemyHp)

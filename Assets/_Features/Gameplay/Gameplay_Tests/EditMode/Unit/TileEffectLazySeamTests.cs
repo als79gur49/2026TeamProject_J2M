@@ -285,8 +285,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TileFeatureActivationRule.Always,
                 Direction2D.None,
                 TileFeatureBoxSelector.None,
-                boundEntityId: 0,
-                presentationKey: "button");
+                boundEntityId: 0);
         }
 
         private sealed class CapturingTileEffectResolver : ITileEffectResolver
