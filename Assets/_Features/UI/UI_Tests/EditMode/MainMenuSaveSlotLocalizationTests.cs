@@ -210,7 +210,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 A병동-02"));
             Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 기회: 2"));
             Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 횟수: 3"));
-            Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("최근 플레이 2026. 7. 29."));
+            Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("마지막 플레이: 2026. 7. 29."));
             Assert.That(korean.SlotCards[1].DeleteActionText, Is.EqualTo("삭제"));
             Assert.That(korean.SlotCards[2].StatusText, Is.EqualTo("완료"));
             Assert.That(korean.SlotCards[2].PrimaryActionText, Is.EqualTo("다시 시작"));

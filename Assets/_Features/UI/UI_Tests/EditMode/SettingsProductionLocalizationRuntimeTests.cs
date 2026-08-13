@@ -377,7 +377,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_KoreanDisplayStatusRetainsAuthoredTwoLineLayout()
+        public void GameplayScreenRuntimeFactory_KoreanDisplayStatusFitsAuthoredSingleLineLayout()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -414,19 +414,19 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(
                     status.textInfo.lineCount,
-                    Is.EqualTo(2),
-                    "Authored Display status intentionally permits two lines.");
+                    Is.EqualTo(1),
+                    "The concise Korean Display status must fit the authored single-line layout.");
             }
             else
             {
                 Assert.That(
                     singleLinePreferred.x,
-                    Is.GreaterThan(status.rectTransform.rect.width),
-                    "The Korean Display status must retain its authored two-line flow.");
+                    Is.LessThanOrEqualTo(status.rectTransform.rect.width + 0.01f),
+                    "The concise Korean Display status must fit the authored single-line width.");
                 Assert.That(
                     constrainedPreferred.y,
-                    Is.GreaterThan(singleLinePreferred.y + 0.01f),
-                    "The Korean Display status must retain its authored two-line flow.");
+                    Is.LessThanOrEqualTo(singleLinePreferred.y + 0.01f),
+                    "The concise Korean Display status must not wrap at the authored width.");
             }
             Assert.That(
                 minimumSizeConstrainedPreferred.y,
