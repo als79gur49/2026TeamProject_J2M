@@ -173,6 +173,111 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PlayerActionAnimation_Readiness_FailedAttemptStartsHostLocalHoldAndPreservesAttemptMetadata()
+        {
+            var result = CreateTickResult(
+                tickIndex: 42,
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        PlayerEntityId,
+                        PlayerActionKind.Push,
+                        Direction.Left,
+                        PlayerActionAttemptFeedbackKind.NoTarget),
+                });
+            var cue = PlanAnimationCues(result).Single();
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerActionAnimation_Readiness_FailedAttemptStartsHostLocalHoldAndPreservesAttemptMetadata));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var sync = new GameplayAnimationSyncCoordinator();
+                sync.CacheDrivers(PlayerEntityId, view);
+                var executor = CreateOrchestrationExecutor(new GameplayAnimationSyncPlaybackPort(
+                    sync,
+                    CreateStateStore(view)));
+
+                executor.Play(CreatePlan(new[] { cue }));
+
+                Assert.That(cue.Source.SemanticSource, Is.EqualTo(PresentationSemanticSource.PlayerActionAttempt));
+                Assert.That(cue.AnimationPayload.SourceFeedbackKind, Is.EqualTo((int)PlayerActionAttemptFeedbackKind.NoTarget));
+                Assert.That(driver.LastPresentationState.HasActionAttempt, Is.True);
+                Assert.That(driver.LastPresentationState.ActionAttemptKind, Is.EqualTo(PlayerActionKind.Push));
+                Assert.That(driver.LastPresentationState.ActionAttemptDirection, Is.EqualTo(Direction.Left));
+                Assert.That(driver.LastPresentationState.ActionAttemptFeedbackKind, Is.EqualTo(PlayerActionAttemptFeedbackKind.NoTarget));
+                Assert.That(driver.LastPresentationState.CanceledThisTick, Is.False);
+                Assert.That(sync.IsPlayerActionAttemptHoldActive(PlayerEntityId), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_Readiness_FailedActualActionRemainsCancellation()
+        {
+            var cue = CreateAnimationCue(
+                PresentationAnimationCueKey.PlayerPushFailed,
+                PresentationAnimationActionKind.Push,
+                PresentationAnimationPhaseKind.Failed,
+                PresentationAnimationOutcomeKind.Failed,
+                tickIndex: 43,
+                sequenceId: 403,
+                source: PresentationSemanticSource.PlayerAction);
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerActionAnimation_Readiness_FailedActualActionRemainsCancellation));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var sync = new GameplayAnimationSyncCoordinator();
+                sync.CacheDrivers(PlayerEntityId, view);
+                var executor = CreateOrchestrationExecutor(new GameplayAnimationSyncPlaybackPort(
+                    sync,
+                    CreateStateStore(view)));
+
+                executor.Play(CreatePlan(new[] { cue }));
+
+                Assert.That(driver.LastPresentationState.CanceledThisTick, Is.True);
+                Assert.That(driver.LastPresentationState.HasActionAttempt, Is.False);
+                Assert.That(sync.IsPlayerActionAttemptHoldActive(PlayerEntityId), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_Readiness_InvalidAttemptFeedbackDefaultsToNoneAtHostBoundary()
+        {
+            var cue = CreateAnimationCue(
+                PresentationAnimationCueKey.PlayerFlipFailed,
+                PresentationAnimationActionKind.Flip,
+                PresentationAnimationPhaseKind.Failed,
+                PresentationAnimationOutcomeKind.Failed,
+                tickIndex: 44,
+                sequenceId: 404,
+                source: PresentationSemanticSource.PlayerActionAttempt,
+                actionPlanId: 0,
+                sourceFeedbackKind: 999);
+
+            var playback = DriveOrchestration(cue);
+
+            Assert.That(playback.DriverState.HasActionAttempt, Is.True);
+            Assert.That(playback.DriverState.ActionAttemptFeedbackKind, Is.EqualTo(PlayerActionAttemptFeedbackKind.None));
+            Assert.That(playback.DriverState.CanceledThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerActionAnimation_Readiness_ConcreteDriverCommandParity()
         {
             var expected = new Dictionary<PresentationAnimationCueKey, PlayerPresentationPhase>
@@ -612,7 +717,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int tickIndex,
             int sequenceId,
             PresentationSemanticSource source = PresentationSemanticSource.PlayerAction,
-            int? actionPlanId = null)
+            int? actionPlanId = null,
+            int sourceFeedbackKind = 0)
         {
             var key = PresentationCueKey.ForAnimation(cueKey);
             var payload = new PresentationAnimationPayload(
@@ -625,7 +731,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sequenceId,
                 actionPlanId ?? sequenceId + 1000,
                 TargetEntityId,
-                Direction.Right);
+                Direction.Right,
+                sourceFeedbackKind);
 
             return new PresentationCue(
                 PresentationDomain.Animation,
@@ -786,6 +893,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.AnimationPayload.SourceSequenceId, Is.EqualTo(cue.AnimationPayload.SourceSequenceId));
             Assert.That(request.AnimationPayload.SourceActionPlanId, Is.EqualTo(cue.AnimationPayload.SourceActionPlanId));
             Assert.That(request.AnimationPayload.TargetEntityId, Is.EqualTo(cue.AnimationPayload.TargetEntityId));
+            Assert.That(request.AnimationPayload.SourceFeedbackKind, Is.EqualTo(cue.AnimationPayload.SourceFeedbackKind));
             Assert.That(request.OwnershipKey.SemanticSource, Is.EqualTo(cue.Source.SemanticSource));
         }
 
