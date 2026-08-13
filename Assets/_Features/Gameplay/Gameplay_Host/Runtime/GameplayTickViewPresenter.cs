@@ -319,6 +319,11 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.AttachPresentationExtension(extension);
         }
 
+        public void ConfigurePlayerAnchorContext(int playerEntityId, Transform boardPresentationRoot)
+        {
+            PresentationCoordinator.ConfigurePlayerAnchorContext(playerEntityId, boardPresentationRoot);
+        }
+
         internal void ConfigureDamageDeathVfxPlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
             PresentationCoordinator.ConfigureDamageDeathVfxPlaybackPort(playbackPort);

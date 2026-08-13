@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -39,6 +42,9 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(startResult.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
             Assert.That(startResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+            Assert.That(
+                executeResult.PresentationData.PlayerActionSignals.Single().ResolutionKind,
+                Is.EqualTo(TickPlayerActionResolutionKind.Success));
             Assert.That(executeResult.MovementPhaseResult.RejectedReasons, Has.None.Contains("Source=10"));
             Assert.That(executeResult.PresentationData.BoxSlideStartSignals, Has.Count.EqualTo(1));
             Assert.That(executeResult.PresentationData.BoxSlideStartSignals[0].SourceActionPlanId, Is.GreaterThan(0));
@@ -69,6 +75,9 @@ namespace Game.Feature.Gameplay.Tests.Core
             var finalSnapshot = worldState.CreateSnapshot();
 
             Assert.That(startResult.PresentationData.PlayerActionSignals, Has.Count.EqualTo(1));
+            Assert.That(
+                executeResult.PresentationData.PlayerActionSignals.Single().ResolutionKind,
+                Is.EqualTo(TickPlayerActionResolutionKind.Impact));
             Assert.That(executeResult.MovementPhaseResult.CommitEvents, Has.Some.Contains("ImpactReservationCreated").And.Contains("Source=20").And.Contains("Target=30"));
             Assert.That(executeResult.AttackPhaseResult.DrainedImpactReservations, Has.Count.EqualTo(1));
             Assert.That(executeResult.MovementPhaseResult.CommitEvents, Has.None.Contains("MoveCommitted").And.Contains("E=20"));
@@ -170,7 +179,47 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(executeResult.MovementPhaseResult.CommitEvents, Has.Some.Contains("DestroyMarked").And.Contains("Target=20"));
             Assert.That(executeResult.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
             Assert.That(executeResult.PresentationData.BoxSlideStartSignals, Is.Empty);
+            Assert.That(
+                executeResult.PresentationData.PlayerActionSignals.Single().ResolutionKind,
+                Is.EqualTo(TickPlayerActionResolutionKind.Success));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerImpactResolution_RequiresMatchingSourceActionPlanId()
+        {
+            var reservation = new ImpactReservation(
+                sourceId: 20,
+                targetId: 30,
+                impactCell: StopperCell,
+                damage: 1,
+                tickGenerated: 2,
+                sourceActionPlanId: 702,
+                localActionIndex: 0);
+            var attackPhaseResult = new AttackPhaseResult(
+                Array.Empty<RawAttackIntent>(),
+                new[] { reservation },
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<DamageResolutionRecord>(),
+                Array.Empty<ResolutionRecord>(),
+                Array.Empty<FinalizationOperation>(),
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                Array.Empty<string>());
+
+            Assert.That(
+                TickPresentationDataBuilder.DidResolvePlayerImpactThisTick(attackPhaseResult, actionPlanId: 702),
+                Is.True);
+            Assert.That(
+                TickPresentationDataBuilder.DidResolvePlayerImpactThisTick(attackPhaseResult, actionPlanId: 701),
+                Is.False,
+                "An impact from an unrelated action plan must not be attributed to the player action.");
+            Assert.That(
+                TickPresentationDataBuilder.DidResolvePlayerImpactThisTick(attackPhaseResult, actionPlanId: 0),
+                Is.False,
+                "Missing plan correlation must fail closed.");
         }
 
         private static WorldState CreateStandardWorld(

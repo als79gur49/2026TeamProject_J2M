@@ -414,6 +414,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(20));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(
+                executeTick.PresentationData.PlayerActionSignals.Single().ResolutionKind,
+                Is.EqualTo(TickPlayerActionResolutionKind.Success));
             Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().BoxEntityId, Is.EqualTo(20));
             Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().ActorEntityId, Is.EqualTo(10));
             Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().SourceActionPlanId, Is.GreaterThan(0));
@@ -465,6 +468,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(20));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
+            Assert.That(
+                executeTick.PresentationData.PlayerActionSignals.Single().ResolutionKind,
+                Is.EqualTo(TickPlayerActionResolutionKind.Success));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
@@ -510,6 +516,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.CanceledThisTick, Is.False);
+            Assert.That(signal.ResolutionKind, Is.EqualTo(TickPlayerActionResolutionKind.Impact));
             Assert.That(signal.IsRecoveryPhase, Is.True);
             Assert.That(signal.ActionPlanId, Is.GreaterThan(0));
             Assert.That(signal.FlipOutcome, Is.EqualTo(TickPlayerFlipOutcomeKind.DestroySelf));

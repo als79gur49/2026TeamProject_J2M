@@ -203,6 +203,9 @@ namespace Game.Feature.Gameplay.Host
                 configuration.EnemyInactiveVisualSettings);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
+            presenter.ConfigurePlayerAnchorContext(
+                configuration.PlayerEntityId,
+                boardRoot.transform);
             AttachPresentationExtensions(presenter, presentationDependencies.PresentationExtensions);
             AttachAudioRuntimesIfConfigured(hostObject, presenter, configuration);
 

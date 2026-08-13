@@ -243,6 +243,8 @@ namespace Game.Feature.Gameplay.Host
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
         private Camera _outputCamera;
+        private int _playerEntityId;
+        private Transform _boardPresentationRoot;
         private IReadOnlyList<TilePresentationRequest> _currentTilePresentationRequests = EmptyTilePresentationRequests;
         private IReadOnlyList<GravityFieldPresentationRequest> _currentGravityFieldPresentationRequests =
             EmptyGravityFieldPresentationRequests;
@@ -765,6 +767,13 @@ namespace Game.Feature.Gameplay.Host
             ConfigureOutputCameraPresentationExtensions();
         }
 
+        public void ConfigurePlayerAnchorContext(int playerEntityId, Transform boardPresentationRoot)
+        {
+            _playerEntityId = playerEntityId;
+            _boardPresentationRoot = boardPresentationRoot;
+            ConfigurePlayerAnchorPresentationExtensions();
+        }
+
         public void AttachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             if (extension == null ||
@@ -775,6 +784,15 @@ namespace Game.Feature.Gameplay.Host
 
             _presentationExtensions.Add(extension);
             extension.ResetSession();
+            if (_playerEntityId > 0 &&
+                _boardPresentationRoot != null &&
+                extension is IGameplayPlayerAnchoredPresentationExtension playerAnchoredExtension)
+            {
+                playerAnchoredExtension.ConfigurePlayerAnchorContext(
+                    _playerEntityId,
+                    _boardPresentationRoot);
+            }
+
             if (extension is IGameplayOutputCameraPresentationExtension outputCameraExtension)
             {
                 outputCameraExtension.ConfigureOutputCamera(
@@ -1636,6 +1654,19 @@ namespace Game.Feature.Gameplay.Host
                     outputCameraExtension.ConfigureOutputCamera(
                         _outputCamera,
                         _viewBinder != null ? _viewBinder.SearchRoot : null);
+                }
+            }
+        }
+
+        private void ConfigurePlayerAnchorPresentationExtensions()
+        {
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayPlayerAnchoredPresentationExtension playerAnchoredExtension)
+                {
+                    playerAnchoredExtension.ConfigurePlayerAnchorContext(
+                        _playerEntityId,
+                        _boardPresentationRoot);
                 }
             }
         }
