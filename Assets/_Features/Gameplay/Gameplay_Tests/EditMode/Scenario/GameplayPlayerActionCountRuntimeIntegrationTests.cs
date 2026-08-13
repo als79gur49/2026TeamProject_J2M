@@ -191,6 +191,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(harness.Runtime.Mount, Is.Null);
         }
 
+        [Test]
+        public void PlayerAnchoredExtension_AttachedBeforeContext_WaitsForValidConfiguration()
+        {
+            var root = new GameObject(nameof(PlayerAnchoredExtension_AttachedBeforeContext_WaitsForValidConfiguration));
+            try
+            {
+                var runtime = root.AddComponent<GameplayPlayerActionCountPresentationRuntime>();
+                var presenter = root.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+
+                Assert.DoesNotThrow(() => presenter.AttachPresentationExtension(runtime));
+                Assert.That(runtime.PlayerEntityId, Is.Zero);
+
+                var boardObject = new GameObject("GameplayBoardRoot");
+                boardObject.transform.SetParent(root.transform, false);
+                var boardRoot = boardObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+
+                Assert.DoesNotThrow(() =>
+                    presenter.ConfigurePlayerAnchorContext(PlayerEntityId, boardRoot.transform));
+                Assert.That(runtime.PlayerEntityId, Is.EqualTo(PlayerEntityId));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         private static Harness CreateHarness(ActualActionCase actionCase = ActualActionCase.PushSlide)
         {
             var root = new GameObject(nameof(GameplayPlayerActionCountRuntimeIntegrationTests));

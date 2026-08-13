@@ -734,7 +734,9 @@ namespace Game.Feature.Gameplay.Host
 
             _presentationExtensions.Add(extension);
             extension.ResetSession();
-            if (extension is IGameplayPlayerAnchoredPresentationExtension playerAnchoredExtension)
+            if (_playerEntityId > 0 &&
+                _boardPresentationRoot != null &&
+                extension is IGameplayPlayerAnchoredPresentationExtension playerAnchoredExtension)
             {
                 playerAnchoredExtension.ConfigurePlayerAnchorContext(
                     _playerEntityId,
