@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Host
             Camera outputCamera,
             CinemachineBrain outputCameraBrain,
             TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile,
+            GameplayCameraShakeProfile gameplayCameraShakeProfile,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile,
             bool usesDirectCameraPath,
             bool usesHierarchyCinemachinePath)
@@ -25,6 +26,7 @@ namespace Game.Feature.Gameplay.Host
             OutputCameraBrain = outputCameraBrain;
             TopologyTransitionCameraShakeProfile =
                 topologyTransitionCameraShakeProfile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
+            GameplayCameraShakeProfile = gameplayCameraShakeProfile;
             TopologyTransitionPostFxProfile =
                 topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault();
             UsesDirectCameraPath = usesDirectCameraPath;
@@ -44,6 +46,8 @@ namespace Game.Feature.Gameplay.Host
         internal CinemachineBrain OutputCameraBrain { get; }
 
         internal TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile { get; }
+
+        internal GameplayCameraShakeProfile GameplayCameraShakeProfile { get; }
 
         internal TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile { get; }
 

@@ -180,6 +180,7 @@ namespace Game.Feature.Gameplay.Host
         public GameplayCameraBaselineAuthoringPolicy CameraBaselineAuthoringPolicy =
             GameplayCameraBaselineAuthoringPolicy.CreateRuntimeDefault();
         public TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
+        public GameplayCameraShakeProfile GameplayCameraShakeProfile;
         public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
         public Texture2D BoardSurfaceTexture;
         public bool SnapViewCameraToTarget;

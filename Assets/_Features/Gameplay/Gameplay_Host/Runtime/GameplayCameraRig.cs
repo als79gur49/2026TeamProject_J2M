@@ -4,8 +4,17 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public interface IGameplayCameraAdditivePosePort
+    {
+        void ApplyAdditivePose(Vector3 localPosition, Quaternion localRotation);
+
+        void ResetAdditivePose();
+    }
+
     [DisallowMultipleComponent]
-    public sealed class GameplayCameraRig : MonoBehaviour
+    public sealed class GameplayCameraRig : MonoBehaviour,
+        IGameplayCameraAdditivePosePort,
+        IGameplayCameraVisibilityPort
     {
         private readonly struct UnshakenCameraPose
         {
@@ -52,12 +61,9 @@ namespace Game.Feature.Gameplay.Host
         private Transform _orbitPivot;
         private Quaternion _presentedTopologyOrbit = Quaternion.identity;
         private float _presentedTopologyOrbitXDegrees;
-        private readonly TopologyTransitionCameraShakeController _topologyTransitionCameraShakeController = new();
-        private TopologyTransitionCameraShakeProfile _topologyTransitionCameraShakeProfile =
-            TopologyTransitionCameraShakeProfile.CreateDefault();
         private Transform _target;
-        private Vector3 _topologyTransitionShakeLocalPosition;
-        private Quaternion _topologyTransitionShakeLocalRotation = Quaternion.identity;
+        private Vector3 _additiveLocalPosition;
+        private Quaternion _additiveLocalRotation = Quaternion.identity;
         private Bounds _visibleCubeBounds;
         private Camera _viewCamera;
         private bool _hasAuthoredSceneCameraPose;
@@ -94,9 +100,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal float PresentedTopologyOrbitXDegrees => _presentedTopologyOrbitXDegrees;
 
-        internal Vector3 TopologyTransitionShakeLocalPosition => _topologyTransitionShakeLocalPosition;
+        internal Vector3 AdditiveLocalPosition => _additiveLocalPosition;
 
-        internal Quaternion TopologyTransitionShakeLocalRotation => _topologyTransitionShakeLocalRotation;
+        internal Quaternion AdditiveLocalRotation => _additiveLocalRotation;
 
         public void CaptureAuthoredSceneCameraPose(
             Transform cameraTransform,
@@ -159,16 +165,53 @@ namespace Game.Feature.Gameplay.Host
             SnapToTarget();
         }
 
-        internal void ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile profile)
+        public void ApplyAdditivePose(Vector3 localPosition, Quaternion localRotation)
         {
-            _topologyTransitionCameraShakeProfile = profile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
-            _topologyTransitionShakeLocalPosition = Vector3.zero;
-            _topologyTransitionShakeLocalRotation = Quaternion.identity;
+            _additiveLocalPosition = localPosition;
+            _additiveLocalRotation = localRotation;
 
             if (_isInitialized)
             {
-                SnapToTarget();
+                ApplyCameraPose();
             }
+        }
+
+        public void ResetAdditivePose()
+        {
+            _additiveLocalPosition = Vector3.zero;
+            _additiveLocalRotation = Quaternion.identity;
+
+            if (_isInitialized)
+            {
+                ApplyCameraPose();
+            }
+        }
+
+        public bool TryProjectUnshakenWorldPoint(
+            Vector3 worldPosition,
+            out Vector3 viewportPoint)
+        {
+            viewportPoint = default;
+            if (!_isInitialized || _target == null || !IsFinite(worldPosition))
+            {
+                return false;
+            }
+
+            var unshakenPose = ResolveUnshakenPresentedPose();
+            var cameraLocalPoint = Quaternion.Inverse(unshakenPose.WorldRotation) *
+                                   (worldPosition - unshakenPose.WorldPosition);
+            var depth = cameraLocalPoint.z;
+            var verticalTangent = Mathf.Tan(
+                Mathf.Deg2Rad * Mathf.Clamp(perspectiveFieldOfView, 1f, 179f) * 0.5f);
+            var aspect = ResolveCameraAspect();
+            var projectionDepth = Mathf.Abs(depth) > 0.000001f
+                ? depth
+                : depth >= 0f ? 0.000001f : -0.000001f;
+            viewportPoint = new Vector3(
+                0.5f + (cameraLocalPoint.x / (2f * projectionDepth * verticalTangent * aspect)),
+                0.5f + (cameraLocalPoint.y / (2f * projectionDepth * verticalTangent)),
+                depth);
+            return IsFinite(viewportPoint);
         }
 
         public void RefreshVisibleCubeBounds(Bounds visibleCubeBounds)
@@ -285,14 +328,6 @@ namespace Game.Feature.Gameplay.Host
             ApplyCameraPose();
         }
 
-        internal void ApplyTopologyTransitionVisualState(in TopologyTransitionVisualState visualState)
-        {
-            var shakeResult = _topologyTransitionCameraShakeController.Evaluate(
-                visualState,
-                _topologyTransitionCameraShakeProfile);
-            CacheTopologyTransitionShakeResult(shakeResult);
-        }
-
         private void LateUpdate()
         {
             if (_isInitialized)
@@ -311,7 +346,7 @@ namespace Game.Feature.Gameplay.Host
             ResolvePoseHierarchy();
             var unshakenPose = ResolveUnshakenPresentedPose();
             ApplyPresentedPoseToHierarchy(unshakenPose);
-            ApplyCachedShakeToHierarchy();
+            ApplyCachedAdditivePoseToHierarchy();
             ApplyDirectCameraPose(unshakenPose);
         }
 
@@ -352,12 +387,6 @@ namespace Game.Feature.Gameplay.Host
             resolvedSettings.PerspectiveFieldOfView = _authoredSceneCameraFieldOfView;
             resolvedSettings.NearClipPlane = _authoredSceneCameraNearClipPlane;
             resolvedSettings.FarClipPlane = _authoredSceneCameraFarClipPlane;
-        }
-
-        private void CacheTopologyTransitionShakeResult(TopologyTransitionCameraShakeResult shakeResult)
-        {
-            _topologyTransitionShakeLocalPosition = shakeResult.LocalPosition;
-            _topologyTransitionShakeLocalRotation = shakeResult.LocalRotation;
         }
 
         private void ResolvePoseHierarchy()
@@ -413,7 +442,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void ApplyCachedShakeToHierarchy()
+        private void ApplyCachedAdditivePoseToHierarchy()
         {
             if (_cameraEffectsRoot == null)
             {
@@ -421,8 +450,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _cameraEffectsRoot.SetLocalPositionAndRotation(
-                _topologyTransitionShakeLocalPosition,
-                _topologyTransitionShakeLocalRotation);
+                _additiveLocalPosition,
+                _additiveLocalRotation);
             _cameraEffectsRoot.localScale = Vector3.one;
         }
 
@@ -434,8 +463,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var resolvedWorldPosition = unshakenPose.WorldPosition +
-                                        (unshakenPose.WorldRotation * _topologyTransitionShakeLocalPosition);
-            var resolvedWorldRotation = unshakenPose.WorldRotation * _topologyTransitionShakeLocalRotation;
+                                        (unshakenPose.WorldRotation * _additiveLocalPosition);
+            var resolvedWorldRotation = unshakenPose.WorldRotation * _additiveLocalRotation;
             ApplyResolvedCameraPose(
                 _viewCamera,
                 resolvedWorldPosition,
@@ -447,6 +476,16 @@ namespace Game.Feature.Gameplay.Host
                 backgroundColor);
         }
 
+        private void OnDisable()
+        {
+            ResetAdditivePose();
+        }
+
+        private void OnDestroy()
+        {
+            ResetAdditivePose();
+        }
+
         private float ResolveCameraAspect()
         {
             if (_viewCamera != null)
@@ -455,6 +494,16 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return Mathf.Max((float)Screen.width / Mathf.Max(Screen.height, 1), 0.01f);
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
         }
 
         private static float ResolveNearestEquivalentAngleXDegrees(float currentAngleXDegrees, Quaternion rotation)

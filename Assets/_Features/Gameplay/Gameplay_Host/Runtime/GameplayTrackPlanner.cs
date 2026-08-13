@@ -210,7 +210,8 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 projector,
-                timingProfile);
+                timingProfile,
+                payload.SourceActionPlanId);
             resultKind = started
                 ? GameplayMotionPlaybackResultKind.Started
                 : GameplayMotionPlaybackResultKind.BindingMissing;
@@ -1007,7 +1008,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            int sequenceOrActionPlanId = 0)
         {
             var endLocalPose = ResolveMotionEndPose(motion, presentationData.TopologyMotion, projector);
             var startLocalPose = ResolveMotionStartPose(
@@ -1063,7 +1065,8 @@ namespace Game.Feature.Gameplay.Host
                         startLocalPose,
                         endLocalPose,
                         projector,
-                        timingProfile)));
+                        timingProfile),
+                    sequenceOrActionPlanId));
 
             if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
             {
@@ -2144,6 +2147,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                track.CorrelateSourceActionPlan(signal.ActionPlanId);
                 track.UpdateFlipOutcome(signal.FlipOutcome, flipImpactTimingSettings);
 
                 if (signal.ExecutedThisTick)

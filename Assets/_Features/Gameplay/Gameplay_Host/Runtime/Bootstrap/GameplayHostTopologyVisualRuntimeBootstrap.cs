@@ -39,6 +39,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             presenter.AttachOutputCamera(startupPlan.OutputCamera);
+            presenter.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);
+            presenter.ConfigureGameplayCameraShakeProfile(startupPlan.GameplayCameraShakeProfile);
 
             var viewCameraRig = AttachViewCameraRig(
                 hostObject,
@@ -76,7 +78,6 @@ namespace Game.Feature.Gameplay.Host
 
             var cameraRig = hostObject.GetComponent<GameplayCameraRig>() ?? hostObject.AddComponent<GameplayCameraRig>();
             cameraRig.enabled = true;
-            cameraRig.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);
             cameraRig.ApplySettings(startupPlan.ResolvedCameraSettings);
             cameraRig.Initialize(
                 startupPlan.UsesDirectCameraPath ? startupPlan.ViewCamera : null,

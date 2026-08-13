@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Host
                 outputCamera,
                 outputCameraBrain,
                 configuration.TopologyTransitionCameraShakeProfile,
+                configuration.GameplayCameraShakeProfile,
                 configuration.TopologyTransitionPostFxProfile,
                 usesDirectCameraPath,
                 usesHierarchyCinemachinePath);

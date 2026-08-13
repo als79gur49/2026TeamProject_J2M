@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Host
             configuration.TopologyTransitionCameraShakeProfile =
                 sharedTuning.TopologyTransitionCameraShakeProfile?.Clone() ??
                 TopologyTransitionCameraShakeProfile.CreateDefault();
+            configuration.GameplayCameraShakeProfile = sharedTuning.GameplayCameraShakeProfile;
             configuration.TopologyTransitionPostFxProfile =
                 sharedTuning.TopologyTransitionPostFxProfile?.Clone() ??
                 TopologyTransitionPostFxProfile.CreateDefault();

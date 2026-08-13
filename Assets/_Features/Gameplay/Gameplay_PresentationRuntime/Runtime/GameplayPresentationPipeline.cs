@@ -533,7 +533,10 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     startSignal.BoxEntityId > 0 ? ResolveDirection(startSignal.SourceCell, startSignal.DestinationCell) : ResolveDirection(motion.SourceCell, motion.DestinationCell),
                     motion.SourceFacing ?? Direction.None,
                     motion.DestinationFacing ?? Direction.None,
-                    sourceSequenceId: motionIndex + 1,
+                    sourceSequenceId: startSignal.SourceActionPlanId > 0
+                        ? startSignal.SourceActionPlanId
+                        : motionIndex + 1,
+                    sourceActionPlanId: startSignal.SourceActionPlanId,
                     topology: startSignal.BoxEntityId > 0 ? startSignal.Topology : ResolveMotionTopology(motion, result),
                     hasTopology: true);
                 return true;
@@ -542,17 +545,26 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             if (motion.MotionKind == TickEntityMotionKind.Flip &&
                 IsBoxEntity(result, motion.EntityId))
             {
+                TryResolveSettledFlipFloorImpactSignal(
+                    presentationData.FlipFloorImpactSignals,
+                    motion,
+                    out var landingSignal);
                 payload = new PresentationMotionPayload(
                     PresentationMotionFactKind.BoxFlip,
                     motion.EntityId,
                     motion.SourceCell,
                     motion.DestinationCell,
-                    actorEntityId: ResolveFlipActorEntityId(presentationData, motion.EntityId),
+                    actorEntityId: landingSignal.BoxEntityId > 0
+                        ? landingSignal.ActorEntityId
+                        : ResolveFlipActorEntityId(presentationData, motion.EntityId),
                     PresentationMotionActionKind.Flip,
                     ResolveDirection(motion.SourceCell, motion.DestinationCell),
                     motion.SourceFacing ?? Direction.None,
                     motion.DestinationFacing ?? Direction.None,
-                    sourceSequenceId: motionIndex + 1,
+                    sourceSequenceId: landingSignal.SourceActionPlanId > 0
+                        ? landingSignal.SourceActionPlanId
+                        : motionIndex + 1,
+                    sourceActionPlanId: landingSignal.SourceActionPlanId,
                     topology: ResolveMotionTopology(motion, result),
                     hasTopology: true);
                 return true;
@@ -771,6 +783,32 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     if (candidate.BoxEntityId == motion.EntityId &&
                         candidate.SourceCell.Equals(motion.SourceCell) &&
                         candidate.DestinationCell.Equals(motion.DestinationCell))
+                    {
+                        signal = candidate;
+                        return true;
+                    }
+                }
+            }
+
+            signal = default;
+            return false;
+        }
+
+        private static bool TryResolveSettledFlipFloorImpactSignal(
+            IReadOnlyList<FlipFloorImpactPresentationSignal> signals,
+            in TickEntityMotion motion,
+            out FlipFloorImpactPresentationSignal signal)
+        {
+            if (signals != null)
+            {
+                for (var index = 0; index < signals.Count; index++)
+                {
+                    var candidate = signals[index];
+                    if ((candidate.Kind == FlipFloorImpactPresentationKind.Landing ||
+                         candidate.Kind == FlipFloorImpactPresentationKind.FollowThrough) &&
+                        candidate.BoxEntityId == motion.EntityId &&
+                        candidate.SourceCell.Equals(motion.SourceCell) &&
+                        candidate.ContactCell.Equals(motion.DestinationCell))
                     {
                         signal = candidate;
                         return true;

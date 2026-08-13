@@ -287,6 +287,7 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.CompletedMotionTrackIds.Clear();
             _trackState.CompletedMotionVisualScaleEntityIds.Clear();
+            _trackState.MotionTrackProgressSamples.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
             _trackState.VisibleEntityIds.Clear();
             _stateStore.EnemyVisualFactsByEntityId.Clear();
@@ -335,6 +336,10 @@ namespace Game.Feature.Gameplay.Host
                     var sample = originalViewMotionTrack.Sample();
                     localPose = sample.LocalPose;
                     motionVisualScaleMultiplier = sample.VisualScaleMultiplier;
+                    if (originalViewMotionTrack.TryCaptureProgress(out var originalViewMotionProgress))
+                    {
+                        _trackState.MotionTrackProgressSamples.Add(originalViewMotionProgress);
+                    }
                     originalViewMotionTrack.Advance(deltaTime);
                     if (originalViewMotionTrack.IsComplete)
                     {
@@ -356,7 +361,13 @@ namespace Game.Feature.Gameplay.Host
                     localPose = motionTrack.SampleAndAdvance(
                         deltaTime,
                         localPose,
-                        out motionVisualScaleMultiplier);
+                        out motionVisualScaleMultiplier,
+                        out var motionProgressSample);
+                    if (motionProgressSample.IsValid)
+                    {
+                        _trackState.MotionTrackProgressSamples.Add(
+                            motionProgressSample.WithEntityId(entityId));
+                    }
                     if (!motionTrack.HasClips)
                     {
                         _trackState.CompletedMotionTrackIds.Add(entityId);
@@ -1066,6 +1077,10 @@ namespace Game.Feature.Gameplay.Host
                     boxDriver.ResetInteraction();
                 }
 
+                if (track.TryCaptureProgress(out var flipInteractionProgress))
+                {
+                    _trackState.MotionTrackProgressSamples.Add(flipInteractionProgress);
+                }
                 track.Advance(deltaTime);
                 if (track.IsComplete)
                 {

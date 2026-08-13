@@ -1112,7 +1112,8 @@ namespace Game.Feature.Gameplay.Loop
                         operation.Metadata.SourceActorEntityId,
                         sourceEntity.position,
                         operation.Destination,
-                        context.PreMovementSnapshot.Topology));
+                        context.PreMovementSnapshot.Topology,
+                        operation.Metadata.ActionPlanId));
             }
         }
 

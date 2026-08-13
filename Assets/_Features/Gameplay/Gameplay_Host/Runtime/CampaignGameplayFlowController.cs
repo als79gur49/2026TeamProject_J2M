@@ -302,11 +302,12 @@ namespace Game.Feature.Gameplay.Host
                     "campaign-death-retry")),
                 SceneTransitionIntent.DeathRetry,
                 _editorDirectPlayContext.ForStage(route.NextStageId));
+            TerminalTransitionPlayback playback;
             try
             {
                 if (!_terminalTransitionPort.TryBegin(
                         CreateTerminalRequest(claim, TerminalTransitionDestinationMode.SceneHandoff),
-                        out _))
+                        out playback))
                 {
                     throw new InvalidOperationException(
                         $"Accepted terminal token {claim.Token} could not start the required Defeat Iris.");
@@ -314,6 +315,7 @@ namespace Game.Feature.Gameplay.Host
             }
             catch
             {
+                _host.Presenter?.CompleteStageTerminalCameraHandoff();
                 if (TryRecoverIrisSetupFailure(claim.Token))
                 {
                     _stageLaunchRouter.Launch(request);
@@ -321,6 +323,11 @@ namespace Game.Feature.Gameplay.Host
 
                 throw;
             }
+
+            BindDefeatCameraHandoff(
+                playback,
+                claim.Token,
+                () => _host.Presenter?.CompleteStageTerminalCameraHandoff());
 
             request = request.WithTransitionHint(
                 request.TransitionHint.WithTerminalClaim(claim.Token));
@@ -352,6 +359,7 @@ namespace Game.Feature.Gameplay.Host
             }
             catch
             {
+                _host.Presenter?.CompleteStageTerminalCameraHandoff();
                 if (TryRecoverIrisSetupFailure(claim.Token))
                 {
                     PublishLevelFailed(route, claim.Token);
@@ -359,6 +367,11 @@ namespace Game.Feature.Gameplay.Host
 
                 throw;
             }
+
+            BindDefeatCameraHandoff(
+                playback,
+                claim.Token,
+                () => _host.Presenter?.CompleteStageTerminalCameraHandoff());
 
             void HandleBlackReached(TerminalTransitionPlayback completedPlayback)
             {
@@ -372,6 +385,41 @@ namespace Game.Feature.Gameplay.Host
             }
 
             playback.BlackReached += HandleBlackReached;
+        }
+
+        internal static void BindDefeatCameraHandoff(
+            TerminalTransitionPlayback playback,
+            TerminalSessionToken token,
+            Action completeHandoff)
+        {
+            if (completeHandoff == null)
+            {
+                throw new ArgumentNullException(nameof(completeHandoff));
+            }
+
+            if (playback == null)
+            {
+                completeHandoff();
+                return;
+            }
+
+            void HandleStateChanged(TerminalTransitionPlayback changedPlayback)
+            {
+                if (changedPlayback.Request.Token != token ||
+                    (changedPlayback.State != TerminalTransitionState.Closing &&
+                     changedPlayback.State != TerminalTransitionState.Black &&
+                     changedPlayback.State != TerminalTransitionState.Cancelled &&
+                     changedPlayback.State != TerminalTransitionState.Completed))
+                {
+                    return;
+                }
+
+                changedPlayback.StateChanged -= HandleStateChanged;
+                completeHandoff();
+            }
+
+            playback.StateChanged += HandleStateChanged;
+            HandleStateChanged(playback);
         }
 
         private void PublishLevelFailed(

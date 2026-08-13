@@ -23,7 +23,14 @@ namespace Game.Feature.Gameplay.Host
         private bool _lastIsPresentationActive;
         private bool _lastIsTopologyTransitionActive;
         private CubeTopologyState _lastObservedTopology;
+        private readonly GameplayCameraShakeMixer _cameraShakeMixer = new();
+        private GameplayCameraShakeProductionPlanner _cameraShakeProductionPlanner;
+        private readonly TopologyTransitionCameraShakeController _topologyTransitionCameraShakeController = new();
+        private TopologyTransitionCameraShakeProfile _topologyTransitionCameraShakeProfile =
+            TopologyTransitionCameraShakeProfile.CreateDefault();
         private TopologyTransitionPostFxController _topologyTransitionPostFxController;
+        private IGameplayCameraAdditivePosePort _cameraAdditivePosePort;
+        private IGameplayCameraVisibilityPort _cameraVisibilityPort;
         private CinemachineBrain _viewCameraBrain;
         private GameplayCameraRig _viewCameraRig;
 
@@ -136,6 +143,22 @@ namespace Game.Feature.Gameplay.Host
         public void Present(TickResult result)
         {
             PresentationCoordinator.Present(result);
+            SyncViewCameraRuntime(0f);
+            var submittedCameraImpulse = CameraShakeProductionPlanner.Present(
+                    result,
+                    PresentationCoordinator.HasActiveLocalMotionTrack,
+                    PresentationCoordinator.HasLocalMotionTrack,
+                    ResolveEnemyJumpLandingCameraFeedback);
+            submittedCameraImpulse |= CameraShakeProductionPlanner.ObserveHeavyEnemyJumpLandingMilestones(
+                PresentationCoordinator.HasActiveJumpLandingCompletionTrack,
+                ResolveEnemyPresentationAnchor,
+                _cameraVisibilityPort,
+                PresentationCoordinator.IsTopologyTransitionActive);
+            if (submittedCameraImpulse)
+            {
+                ApplyCurrentCameraShakeMixResult();
+                ManualUpdateViewCameraBrain();
+            }
             NotifyPresentationStateChangedIfNeeded();
         }
 
@@ -144,15 +167,89 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState topology,
             InitialPresentationData presentationData = null)
         {
+            CameraShakeProductionPlanner.ResetSession();
+            _cameraShakeMixer.HardReset();
             PresentationCoordinator.PresentInitial(entities, topology, presentationData);
+            ResetCameraAdditivePose();
             CapturePresentationState();
         }
 
         public void AttachCameraRig(GameplayCameraRig viewCameraRig)
         {
-            PresentationCoordinator.AttachCameraRig(viewCameraRig);
-            _viewCameraRig = viewCameraRig;
+            ReplaceCameraRig(viewCameraRig);
             _viewCameraBrain = null;
+        }
+
+        internal void ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile profile)
+        {
+            _topologyTransitionCameraShakeProfile =
+                profile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
+            ResetCameraAdditivePose();
+        }
+
+        internal ICameraShakeImpulseSink CameraShakeImpulseSink => _cameraShakeMixer;
+
+        internal CameraShakeMixResult CurrentCameraShakeMixResult => _cameraShakeMixer.CurrentResult;
+
+        internal int ActiveGameplayCameraImpulseCount => _cameraShakeMixer.ActiveImpulseCount;
+
+        internal int AcceptedGameplayCameraImpulseCount => _cameraShakeMixer.AcceptedIdentityCount;
+
+        internal int PendingFlipLandingCameraShakeCount => CameraShakeProductionPlanner.PendingFlipLandingCount;
+
+        internal int PendingFlipHostileImpactCameraShakeCount =>
+            CameraShakeProductionPlanner.PendingFlipHostileImpactCount;
+
+        internal int ObservedPlayerDamageImpactCameraShakeCount =>
+            CameraShakeProductionPlanner.ObservedPlayerDamageImpactCount;
+
+        internal int ObservedPlayerLethalImpactCameraShakeCount =>
+            CameraShakeProductionPlanner.ObservedPlayerLethalImpactCount;
+
+        internal int AcceptedPlayerDamageImpactCameraShakeCount =>
+            CameraShakeProductionPlanner.AcceptedPlayerDamageImpactCount;
+
+        internal int AcceptedPlayerLethalImpactCameraShakeCount =>
+            CameraShakeProductionPlanner.AcceptedPlayerLethalImpactCount;
+
+        internal int PendingHeavyEnemyJumpLandingCameraShakeCount =>
+            CameraShakeProductionPlanner.PendingHeavyEnemyJumpLandingCount;
+
+        internal int ObservedHeavyEnemyJumpLandingCameraShakeCount =>
+            CameraShakeProductionPlanner.ObservedHeavyEnemyJumpLandingCount;
+
+        internal int AcceptedHeavyEnemyJumpLandingCameraShakeCount =>
+            CameraShakeProductionPlanner.AcceptedHeavyEnemyJumpLandingCount;
+
+        internal int OffscreenHeavyEnemyJumpLandingCameraShakeCount =>
+            CameraShakeProductionPlanner.OffscreenHeavyEnemyJumpLandingCount;
+
+        internal int MissingAnchorHeavyEnemyJumpLandingCameraShakeCount =>
+            CameraShakeProductionPlanner.MissingAnchorHeavyEnemyJumpLandingCount;
+
+        internal int TopologySuppressedHeavyEnemyJumpLandingCameraShakeCount =>
+            CameraShakeProductionPlanner.TopologySuppressedHeavyEnemyJumpLandingCount;
+
+        internal IReadOnlyList<MotionTrackProgressSample> CurrentMotionTrackProgressSamples =>
+            PresentationCoordinator.MotionTrackProgressSamples;
+
+        internal void ConfigureGameplayCameraShakeProfile(GameplayCameraShakeProfile profile)
+        {
+            CameraShakeProductionPlanner.ResetSession();
+            _cameraShakeMixer.ConfigureProfile(profile);
+            ResetCameraAdditivePose();
+        }
+
+        internal void SetCameraMotionLevel(CameraMotionLevel motionLevel)
+        {
+            _cameraShakeMixer.SetMotionLevel(motionLevel);
+            ApplyCurrentCameraShakeMixResult();
+        }
+
+        internal void CancelAllGameplayCameraImpulses()
+        {
+            _cameraShakeMixer.CancelAllGameplayImpulses();
+            ApplyCurrentCameraShakeMixResult();
         }
 
         public void AttachOutputCamera(Camera outputCamera)
@@ -264,7 +361,15 @@ namespace Game.Feature.Gameplay.Host
             GameplayStageTerminalPresentationReason reason,
             TickResult terminalTickResult)
         {
+            CameraShakeProductionPlanner.HardCleanup();
             PresentationCoordinator.ApplyStageTerminalPresentation(reason, terminalTickResult);
+        }
+
+        internal void CompleteStageTerminalCameraHandoff()
+        {
+            CameraShakeProductionPlanner.HardCleanup();
+            _cameraShakeMixer.HardReset();
+            ResetCameraAdditivePose();
         }
 
         internal void DebugRefreshGameplayAudioPlan(TickResult result)
@@ -340,6 +445,9 @@ namespace Game.Feature.Gameplay.Host
         internal void DebugHardCleanupPresentationExtensions()
         {
             PresentationCoordinator.HardCleanupPresentationExtensions();
+            CameraShakeProductionPlanner.HardCleanup();
+            _cameraShakeMixer.HardReset();
+            ResetCameraAdditivePose();
         }
 
         internal PlayerActionAnimationExecutionMode PlayerActionAnimationExecutionMode =>
@@ -401,8 +509,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
-            PresentationCoordinator.AttachCameraRig(viewCameraRig);
-            _viewCameraRig = viewCameraRig;
+            ReplaceCameraRig(viewCameraRig);
             _viewCameraBrain = viewCameraBrain;
 
             if (_viewCameraBrain != null)
@@ -426,11 +533,28 @@ namespace Game.Feature.Gameplay.Host
 
             if (PresentationCoordinator.IsPresentationPaused)
             {
+                _cameraShakeMixer.SetPaused(true);
+                ResetCameraAdditivePose();
                 return;
             }
 
             PresentationCoordinator.UpdatePresentation(deltaTime);
-            SyncViewCameraRuntime();
+            SyncViewCameraRuntime(deltaTime);
+            if (CameraShakeProductionPlanner.ObserveMotionProgress(
+                    PresentationCoordinator.MotionTrackProgressSamples))
+            {
+                ApplyCurrentCameraShakeMixResult();
+                ManualUpdateViewCameraBrain();
+            }
+            if (CameraShakeProductionPlanner.ObserveHeavyEnemyJumpLandingMilestones(
+                    PresentationCoordinator.HasActiveJumpLandingCompletionTrack,
+                    ResolveEnemyPresentationAnchor,
+                    _cameraVisibilityPort,
+                    PresentationCoordinator.IsTopologyTransitionActive))
+            {
+                ApplyCurrentCameraShakeMixResult();
+                ManualUpdateViewCameraBrain();
+            }
             RefreshTopologyTransitionPostFx();
             NotifyPresentationStateChangedIfNeeded();
             PresentationAdvanced?.Invoke(deltaTime);
@@ -439,6 +563,12 @@ namespace Game.Feature.Gameplay.Host
         public void SetPresentationPaused(bool paused)
         {
             PresentationCoordinator.SetPresentationPaused(paused);
+            _cameraShakeMixer.SetPaused(paused);
+            if (paused)
+            {
+                ResetCameraAdditivePose();
+            }
+
             NotifyPresentationStateChangedIfNeeded();
         }
 
@@ -447,19 +577,20 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionPostFxController?.Apply(PresentationCoordinator.CurrentTopologyTransitionVisualState);
         }
 
-        private void SyncViewCameraRuntime()
+        private void SyncViewCameraRuntime(float deltaTime)
         {
-            if (_viewCameraRig != null)
-            {
-                _viewCameraRig.ApplyTopologyTransitionVisualState(PresentationCoordinator.CurrentTopologyTransitionVisualState);
-                _viewCameraRig.SnapToTarget();
-            }
+            var topologyVisualState = PresentationCoordinator.CurrentTopologyTransitionVisualState;
+            var topologyPose = _topologyTransitionCameraShakeController.Evaluate(
+                topologyVisualState,
+                _topologyTransitionCameraShakeProfile);
+            var topologyContribution = TopologyCameraShakeContributionAdapter.Create(
+                topologyPose,
+                topologyVisualState.IsActive);
+            _cameraShakeMixer.SetTopologyContribution(topologyContribution);
+            _cameraShakeMixer.Advance(deltaTime);
+            ApplyCurrentCameraShakeMixResult();
 
-            if (_viewCameraBrain != null &&
-                _viewCameraBrain.isActiveAndEnabled)
-            {
-                _viewCameraBrain.ManualUpdate();
-            }
+            ManualUpdateViewCameraBrain();
         }
 
         private void LateUpdate()
@@ -471,8 +602,18 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void OnDisable()
+        {
+            CameraShakeProductionPlanner.HardCleanup();
+            _cameraShakeMixer.HardReset();
+            ResetCameraAdditivePose();
+        }
+
         private void OnDestroy()
         {
+            CameraShakeProductionPlanner.HardCleanup();
+            _cameraShakeMixer.HardReset();
+            ResetCameraAdditivePose();
             if (_presentationCoordinator == null ||
                 _hasTornDownCoordinator)
             {
@@ -481,6 +622,79 @@ namespace Game.Feature.Gameplay.Host
 
             _hasTornDownCoordinator = true;
             PresentationCoordinator.TeardownPresentationRuntime();
+        }
+
+        private void ReplaceCameraRig(GameplayCameraRig viewCameraRig)
+        {
+            if (_cameraAdditivePosePort != null &&
+                !ReferenceEquals(_cameraAdditivePosePort, viewCameraRig))
+            {
+                _cameraAdditivePosePort.ResetAdditivePose();
+            }
+
+            _viewCameraRig = viewCameraRig;
+            _cameraAdditivePosePort = viewCameraRig;
+            _cameraVisibilityPort = viewCameraRig;
+            _cameraAdditivePosePort?.ResetAdditivePose();
+            PresentationCoordinator.AttachCameraRig(viewCameraRig);
+        }
+
+        private EnemyJumpLandingCameraFeedbackKind ResolveEnemyJumpLandingCameraFeedback(int entityId)
+        {
+            if (!PresentationCoordinator.TryGetLiveEntityPresentationView(entityId, out var view))
+            {
+                return EnemyJumpLandingCameraFeedbackKind.None;
+            }
+
+            var authoring = EnemyJumpMotionPresentationAuthoring.GetOptionalValidatedAuthoring(view);
+            return authoring != null
+                ? authoring.JumpLandingCameraFeedback
+                : EnemyJumpLandingCameraFeedbackKind.None;
+        }
+
+        private Vector3? ResolveEnemyPresentationAnchor(int entityId)
+        {
+            if (!PresentationCoordinator.TryGetLiveEntityPresentationView(entityId, out var view))
+            {
+                return null;
+            }
+
+            return view.transform.position;
+        }
+
+        private void ResetCameraAdditivePose()
+        {
+            _cameraAdditivePosePort?.ResetAdditivePose();
+            if (_viewCameraBrain != null &&
+                _viewCameraBrain.isActiveAndEnabled)
+            {
+                _viewCameraBrain.ManualUpdate();
+            }
+        }
+
+        private void ApplyCurrentCameraShakeMixResult()
+        {
+            if (_cameraAdditivePosePort == null)
+            {
+                return;
+            }
+
+            var mixResult = _cameraShakeMixer.CurrentResult;
+            _cameraAdditivePosePort.ApplyAdditivePose(
+                mixResult.LocalPosition,
+                mixResult.LocalRotation);
+        }
+
+        private GameplayCameraShakeProductionPlanner CameraShakeProductionPlanner =>
+            _cameraShakeProductionPlanner ??= new GameplayCameraShakeProductionPlanner(_cameraShakeMixer);
+
+        private void ManualUpdateViewCameraBrain()
+        {
+            if (_viewCameraBrain != null &&
+                _viewCameraBrain.isActiveAndEnabled)
+            {
+                _viewCameraBrain.ManualUpdate();
+            }
         }
 
         private void CapturePresentationState()

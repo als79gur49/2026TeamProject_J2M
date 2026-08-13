@@ -98,6 +98,12 @@ namespace Game.Feature.Gameplay.Host
                    TopologyTransitionCameraShakeProfile.CreateDefault();
         }
 
+        public GameplayCameraShakeProfile GetGameplayCameraShakeProfile()
+        {
+            Validate();
+            return ResolveSharedTuning().GameplayCameraShakeProfile;
+        }
+
         public TopologyTransitionPostFxProfile GetTopologyTransitionPostFxProfile()
         {
             Validate();
