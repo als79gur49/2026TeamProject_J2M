@@ -47,6 +47,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Is.EqualTo(TickPlayerActionResolutionKind.Success));
             Assert.That(executeResult.MovementPhaseResult.RejectedReasons, Has.None.Contains("Source=10"));
             Assert.That(executeResult.PresentationData.BoxSlideStartSignals, Has.Count.EqualTo(1));
+            Assert.That(executeResult.PresentationData.BoxSlideStartSignals[0].SourceActionPlanId, Is.GreaterThan(0));
             Assert.That(finalSnapshot.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(StopperCell));
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
@@ -177,6 +178,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(executeResult.MovementPhaseResult.CommitEvents, Has.Some.Contains("DestroyMarked").And.Contains("Target=20"));
             Assert.That(executeResult.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(executeResult.PresentationData.BoxSlideStartSignals, Is.Empty);
             Assert.That(
                 executeResult.PresentationData.PlayerActionSignals.Single().ResolutionKind,
                 Is.EqualTo(TickPlayerActionResolutionKind.Success));

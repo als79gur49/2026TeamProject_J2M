@@ -162,6 +162,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyJumpMotionPresentationAuthoring
   horizontalHoldBias: 0.08
   apexHoldPower: 3.5
+  jumpLandingCameraFeedback: 1
 --- !u!1 &1001000000000003002
 GameObject:
   m_ObjectHideFlags: 0

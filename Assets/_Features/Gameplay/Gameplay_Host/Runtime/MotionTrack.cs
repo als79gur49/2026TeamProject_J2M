@@ -5,11 +5,66 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal enum MotionTrackProgressSourceKind
+    {
+        LocalMotion = 0,
+        OriginalViewMotion = 1,
+        FlipInteraction = 2,
+    }
+
+    internal readonly struct MotionTrackProgressSample
+    {
+        public MotionTrackProgressSample(
+            int entityId,
+            TickEntityMotionKind motionKind,
+            float previousNormalizedTime,
+            float currentNormalizedTime,
+            int sequenceOrActionPlanId = 0,
+            MotionTrackProgressSourceKind sourceKind = MotionTrackProgressSourceKind.LocalMotion)
+        {
+            EntityId = entityId;
+            MotionKind = motionKind;
+            PreviousNormalizedTime = Mathf.Clamp01(previousNormalizedTime);
+            CurrentNormalizedTime = Mathf.Clamp01(currentNormalizedTime);
+            SequenceOrActionPlanId = Math.Max(0, sequenceOrActionPlanId);
+            SourceKind = sourceKind;
+        }
+
+        public int EntityId { get; }
+
+        public TickEntityMotionKind MotionKind { get; }
+
+        public float PreviousNormalizedTime { get; }
+
+        public float CurrentNormalizedTime { get; }
+
+        public int SequenceOrActionPlanId { get; }
+
+        public MotionTrackProgressSourceKind SourceKind { get; }
+
+        public bool IsValid => MotionKind != TickEntityMotionKind.None;
+
+        internal MotionTrackProgressSample WithEntityId(int entityId)
+        {
+            return new MotionTrackProgressSample(
+                entityId,
+                MotionKind,
+                PreviousNormalizedTime,
+                CurrentNormalizedTime,
+                SequenceOrActionPlanId,
+                SourceKind);
+        }
+    }
+
     public sealed class MotionTrack
     {
         private readonly List<MotionClip> _clips = new();
 
         public bool HasClips => _clips.Count > 0;
+
+        public TickEntityMotionKind HeadMotionKind => _clips[0].MotionKind;
+
+        public int HeadSequenceOrActionPlanId => _clips[0].SequenceOrActionPlanId;
 
         public TickEntityMotionKind TailMotionKind => _clips[_clips.Count - 1].MotionKind;
 
@@ -48,6 +103,21 @@ namespace Game.Feature.Gameplay.Host
             _clips.Clear();
         }
 
+        internal bool Contains(TickEntityMotionKind motionKind, int sequenceOrActionPlanId)
+        {
+            for (var index = 0; index < _clips.Count; index++)
+            {
+                var clip = _clips[index];
+                if (clip.MotionKind == motionKind &&
+                    clip.SequenceOrActionPlanId == sequenceOrActionPlanId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public void AlignToCommittedTargetPose(GameplayEntityPose committedTargetPose)
         {
             if (_clips.Count == 0)
@@ -77,7 +147,21 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose fallbackPose,
             out Vector3 visualScaleMultiplier)
         {
+            return SampleAndAdvance(
+                deltaTime,
+                fallbackPose,
+                out visualScaleMultiplier,
+                out _);
+        }
+
+        internal GameplayEntityPose SampleAndAdvance(
+            float deltaTime,
+            GameplayEntityPose fallbackPose,
+            out Vector3 visualScaleMultiplier,
+            out MotionTrackProgressSample progressSample)
+        {
             visualScaleMultiplier = Vector3.one;
+            progressSample = default;
             if (_clips.Count == 0)
             {
                 return fallbackPose;
@@ -87,7 +171,20 @@ namespace Game.Feature.Gameplay.Host
             while (_clips.Count > 0)
             {
                 var clip = _clips[0];
+                var previousNormalizedTime = clip.NormalizedTime;
                 remainingDeltaTime = clip.Advance(remainingDeltaTime);
+                var currentNormalizedTime = clip.NormalizedTime;
+                if (!progressSample.IsValid ||
+                    (progressSample.MotionKind != TickEntityMotionKind.Flip &&
+                     clip.MotionKind == TickEntityMotionKind.Flip))
+                {
+                    progressSample = new MotionTrackProgressSample(
+                        0,
+                        clip.MotionKind,
+                        previousNormalizedTime,
+                        currentNormalizedTime,
+                        clip.SequenceOrActionPlanId);
+                }
                 var pose = clip.IsComplete
                     ? clip.EndPose
                     : clip.Sample();
@@ -127,7 +224,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float durationSeconds,
             bool interpolateRotation,
-            float flipPeakHeightWorld)
+            float flipPeakHeightWorld,
+            int sequenceOrActionPlanId)
         {
             _motionKind = motionKind;
             _interpolateRotation = interpolateRotation;
@@ -135,6 +233,7 @@ namespace Game.Feature.Gameplay.Host
             StartPose = startPose;
             EndPose = endPose;
             DurationSeconds = durationSeconds;
+            SequenceOrActionPlanId = Math.Max(0, sequenceOrActionPlanId);
             ElapsedSeconds = 0f;
         }
 
@@ -142,9 +241,15 @@ namespace Game.Feature.Gameplay.Host
 
         public float ElapsedSeconds { get; private set; }
 
+        public int SequenceOrActionPlanId { get; }
+
         public GameplayEntityPose EndPose { get; private set; }
 
         public bool IsComplete => RemainingSeconds <= 0.0001f;
+
+        internal float NormalizedTime => DurationSeconds <= 0f
+            ? 1f
+            : Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
 
         public TickEntityMotionKind MotionKind => _motionKind;
 
@@ -158,7 +263,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityPose endPose,
             float durationSeconds,
             bool interpolateRotation,
-            float flipPeakHeightWorld)
+            float flipPeakHeightWorld,
+            int sequenceOrActionPlanId = 0)
         {
             return new MotionClip(
                 motionKind,
@@ -166,7 +272,8 @@ namespace Game.Feature.Gameplay.Host
                 endPose,
                 Mathf.Max(durationSeconds, 0.0001f),
                 interpolateRotation,
-                flipPeakHeightWorld);
+                flipPeakHeightWorld,
+                sequenceOrActionPlanId);
         }
 
         public float Advance(float deltaTime)

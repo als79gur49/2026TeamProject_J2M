@@ -83,7 +83,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostBootstrapSource, Does.Not.Contain("Camera.main"));
             Assert.That(hostBootstrapSource, Does.Not.Contain("GetComponent<CinemachineBrain>()"));
             Assert.That(hostBootstrapSource, Does.Contain("presenter.AttachOutputCamera(startupPlan.OutputCamera);"));
-            Assert.That(hostBootstrapSource, Does.Contain("cameraRig.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);"));
+            Assert.That(hostBootstrapSource, Does.Contain("presenter.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);"));
+            Assert.That(hostBootstrapSource, Does.Not.Contain("cameraRig.ConfigureTopologyTransitionCameraShake("));
             Assert.That(hostBootstrapSource, Does.Contain("cameraRig.ApplySettings(startupPlan.ResolvedCameraSettings);"));
             Assert.That(hostBootstrapSource, Does.Contain("startupPlan.UsesDirectCameraPath ? startupPlan.ViewCamera : null"));
         }

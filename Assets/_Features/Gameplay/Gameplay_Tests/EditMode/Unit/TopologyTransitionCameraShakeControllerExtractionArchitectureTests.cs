@@ -37,6 +37,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Camera/Controllers/TopologyTransitionCameraShakeResult.cs";
         private const string GameplayCameraRigRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraRig.cs";
+        private const string GameplayTickViewPresenterRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs";
         private const string ExpectedControllerGuid = "168be352a4c7470291e0f330546b74c9";
 
         // Extraction-parity float stability tolerance; this is not a gameplay tuning threshold.
@@ -50,6 +52,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "GameplayTickViewPresenter",
             "GameplayHostRuntimeFactory",
             "GameplayShowcaseSceneScaffold",
+            "Random",
+            "Time",
         };
 
         private static readonly string[] RigEnvelopeFieldNames =
@@ -66,29 +70,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
             nameof(TopologyTransitionCameraShakeProfile.LandingLocalRotationAmplitudeDegrees),
         };
 
-        private static readonly Vector3 ForwardImpactFrozenLocalPosition = new(
-            -0.008915345f,
-            -0.005943563f,
-            0.013373017f);
+        public readonly struct FrozenWaveformSample
+        {
+            internal FrozenWaveformSample(
+                float progress01,
+                Vector3 forwardPosition,
+                Vector3 forwardRotationEulerDegrees,
+                Vector3 backwardPosition,
+                Vector3 backwardRotationEulerDegrees,
+                string expectedPulse)
+            {
+                Progress01 = progress01;
+                ForwardPosition = forwardPosition;
+                ForwardRotationEulerDegrees = forwardRotationEulerDegrees;
+                BackwardPosition = backwardPosition;
+                BackwardRotationEulerDegrees = backwardRotationEulerDegrees;
+                ExpectedPulse = expectedPulse;
+            }
 
-        private static readonly Quaternion ForwardImpactFrozenLocalRotation =
-            Quaternion.Euler(-0.33432542f, -0.20802471f, 0.08915345f);
+            internal float Progress01 { get; }
+            internal Vector3 ForwardPosition { get; }
+            internal Vector3 ForwardRotationEulerDegrees { get; }
+            internal Vector3 BackwardPosition { get; }
+            internal Vector3 BackwardRotationEulerDegrees { get; }
+            internal string ExpectedPulse { get; }
 
-        private static readonly Vector3 ForwardLandingFrozenLocalPosition = new(
-            0.002459249f,
-            -0.001639499f,
-            0.004098748f);
+            public override string ToString()
+            {
+                return $"Progress={Progress01:0.000}_{ExpectedPulse}";
+            }
+        }
 
-        private static readonly Quaternion ForwardLandingFrozenLocalRotation =
-            Quaternion.Euler(0.09836994f, 0.05738247f, 0.03278998f);
-
-        private static readonly Vector3 BackwardImpactFrozenLocalPosition = new(
-            0.008915345f,
-            -0.005943563f,
-            0.013373017f);
-
-        private static readonly Quaternion BackwardImpactFrozenLocalRotation =
-            Quaternion.Euler(0.33432542f, 0.20802471f, 0.08915345f);
+        private static readonly FrozenWaveformSample[] FrozenWaveformSamples =
+        {
+            new(0.000f, Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, "None"),
+            new(0.020f, Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, "ImpactBoundary"),
+            new(0.050f,
+                new Vector3(0.001500000f, 0.001000000f, -0.002250000f),
+                new Vector3(0.056250000f, 0.035000000f, -0.015000000f),
+                new Vector3(-0.001500000f, 0.001000000f, -0.002250000f),
+                new Vector3(-0.056250000f, -0.035000000f, -0.015000000f),
+                "Impact"),
+            new(0.110f,
+                new Vector3(-0.012000000f, -0.008000000f, 0.018000000f),
+                new Vector3(-0.450000000f, -0.280000000f, 0.120000000f),
+                new Vector3(0.012000000f, -0.008000000f, 0.018000000f),
+                new Vector3(0.450000000f, 0.280000000f, 0.120000000f),
+                "Impact"),
+            new(0.180f,
+                new Vector3(-0.000243756f, -0.000162504f, 0.000365634f),
+                new Vector3(-0.009140840f, -0.005687634f, 0.002437557f),
+                new Vector3(0.000243756f, -0.000162504f, 0.000365634f),
+                new Vector3(0.009140840f, 0.005687634f, 0.002437557f),
+                "Impact"),
+            new(0.500f, Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, "None"),
+            new(0.760f, Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, "LandingBoundary"),
+            new(0.820f,
+                new Vector3(-0.001164686f, 0.000776457f, -0.001941143f),
+                new Vector3(-0.046587428f, -0.027176000f, -0.015529143f),
+                new Vector3(0.001164686f, 0.000776457f, -0.001941143f),
+                new Vector3(0.046587428f, 0.027176000f, -0.015529143f),
+                "Landing"),
+            new(0.900f,
+                new Vector3(0.001421928f, -0.000947952f, 0.002369880f),
+                new Vector3(0.056877112f, 0.033178315f, 0.018959037f),
+                new Vector3(-0.001421928f, -0.000947952f, 0.002369880f),
+                new Vector3(-0.056877112f, -0.033178315f, 0.018959037f),
+                "Landing"),
+            new(0.940f, Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, "LandingBoundary"),
+            new(1.000f, Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, "None"),
+        };
 
         [Test]
         [Category("Extended")]
@@ -229,16 +280,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayCameraRig_UsesControllerEvaluate_AndNotLegacyStatefulControllerApi()
+        public void GameplayTickViewPresenter_UsesControllerEvaluate_AndRigRemainsSemanticFree()
         {
             var rigSource = ReadRepoFile(GameplayCameraRigRelativePath);
+            var presenterSource = ReadRepoFile(GameplayTickViewPresenterRelativePath);
 
-            Assert.That(rigSource, Does.Contain("_topologyTransitionCameraShakeController.Evaluate("));
-            Assert.That(rigSource, Does.Not.Contain("_topologyTransitionCameraShakeController.Initialize("));
-            Assert.That(rigSource, Does.Not.Contain("_topologyTransitionCameraShakeController.Apply("));
-            Assert.That(rigSource, Does.Not.Contain("_topologyTransitionCameraShakeController.Reset("));
-            Assert.That(rigSource, Does.Not.Contain("_topologyTransitionCameraShakeController.LocalPosition"));
-            Assert.That(rigSource, Does.Not.Contain("_topologyTransitionCameraShakeController.LocalRotation"));
+            Assert.That(presenterSource, Does.Contain("_topologyTransitionCameraShakeController.Evaluate("));
+            Assert.That(presenterSource, Does.Contain("_cameraAdditivePosePort.ApplyAdditivePose("));
+            Assert.That(rigSource, Does.Not.Contain("TopologyTransitionCameraShakeController"));
+            Assert.That(rigSource, Does.Not.Contain("TopologyTransitionCameraShakeProfile"));
+            Assert.That(rigSource, Does.Not.Contain("TopologyTransitionVisualState"));
+            Assert.That(rigSource, Does.Contain("IGameplayCameraAdditivePosePort"));
+            Assert.That(rigSource, Does.Contain("ApplyAdditivePose("));
+            Assert.That(rigSource, Does.Contain("ResetAdditivePose("));
         }
 
         [Test]
@@ -262,9 +316,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayCameraRig_ShakeCache_MirrorsControllerEvaluateResult()
+        public void GameplayCameraRig_SemanticFreeAdditivePose_MirrorsControllerEvaluateResult()
         {
-            var rigObject = new GameObject(nameof(GameplayCameraRig_ShakeCache_MirrorsControllerEvaluateResult));
+            var rigObject = new GameObject(nameof(GameplayCameraRig_SemanticFreeAdditivePose_MirrorsControllerEvaluateResult));
 
             try
             {
@@ -273,14 +327,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var visualState = CreateActiveVisualState(progress01: 0.12f, CubeRotationKind.Forward);
                 var expectedResult = new TopologyTransitionCameraShakeController().Evaluate(visualState, profile);
 
-                GameplayCameraRigReflectionAdapter.ConfigureTopologyTransitionCameraShake(rig, profile);
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(rig, visualState);
+                rig.ApplyAdditivePose(expectedResult.LocalPosition, expectedResult.LocalRotation);
 
                 AssertFrozenLocalPosition(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(rig),
+                    rig.AdditiveLocalPosition,
                     expectedResult.LocalPosition);
                 AssertFrozenLocalRotationPose(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(rig),
+                    rig.AdditiveLocalRotation,
                     expectedResult.LocalRotation);
             }
             finally
@@ -301,44 +354,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertFrozenLocalRotationPose(result.LocalRotation, Quaternion.identity);
         }
 
-        [Test]
         [Category("Extended")]
-        public void CameraShakeController_ExtractionParityFreeze_ForwardImpactSample_PreservesPoseAtProgress012()
+        [TestCaseSource(nameof(FrozenWaveformSamples))]
+        public void CameraShakeController_M0WaveformFreeze_ForwardAndBackwardSamplesMatchGoldenValues(
+            FrozenWaveformSample sample)
         {
-            var result = EvaluateDefaultProfile(progress01: 0.12f, CubeRotationKind.Forward);
+            var forwardState = CreateActiveVisualState(sample.Progress01, CubeRotationKind.Forward);
+            var backwardState = CreateActiveVisualState(sample.Progress01, CubeRotationKind.Backward);
+            var forward = new TopologyTransitionCameraShakeController().Evaluate(
+                forwardState,
+                TopologyTransitionCameraShakeProfile.CreateDefault());
+            var backward = new TopologyTransitionCameraShakeController().Evaluate(
+                backwardState,
+                TopologyTransitionCameraShakeProfile.CreateDefault());
 
-            AssertFrozenLocalPosition(result.LocalPosition, ForwardImpactFrozenLocalPosition);
-            AssertFrozenLocalRotationPose(result.LocalRotation, ForwardImpactFrozenLocalRotation);
+            Assert.That(forwardState.IsActive, Is.True, sample.ExpectedPulse);
+            Assert.That(backwardState.IsActive, Is.True, sample.ExpectedPulse);
+            AssertFrozenLocalPosition(forward.LocalPosition, sample.ForwardPosition);
+            AssertFrozenLocalRotationPose(
+                forward.LocalRotation,
+                Quaternion.Euler(sample.ForwardRotationEulerDegrees));
+            AssertFrozenLocalPosition(backward.LocalPosition, sample.BackwardPosition);
+            AssertFrozenLocalRotationPose(
+                backward.LocalRotation,
+                Quaternion.Euler(sample.BackwardRotationEulerDegrees));
+            AssertFinite(forward);
+            AssertFinite(backward);
         }
 
         [Test]
         [Category("Extended")]
-        public void CameraShakeController_ExtractionParityFreeze_ForwardLandingSample_PreservesPoseAtProgress084()
+        public void CameraShakeController_M0WaveformFreeze_PulseBoundariesAreContinuousAndZero()
         {
-            var result = EvaluateDefaultProfile(progress01: 0.84f, CubeRotationKind.Forward);
+            var boundaries = new[] { 0.02f, 0.20f, 0.76f, 0.94f };
+            const float boundaryProbe = 0.00001f;
 
-            AssertFrozenLocalPosition(result.LocalPosition, ForwardLandingFrozenLocalPosition);
-            AssertFrozenLocalRotationPose(result.LocalRotation, ForwardLandingFrozenLocalRotation);
+            foreach (var boundary in boundaries)
+            {
+                foreach (var direction in new[] { CubeRotationKind.Forward, CubeRotationKind.Backward })
+                {
+                    var before = EvaluateDefaultProfile(boundary - boundaryProbe, direction);
+                    var at = EvaluateDefaultProfile(boundary, direction);
+                    var after = EvaluateDefaultProfile(boundary + boundaryProbe, direction);
+
+                    Assert.That(at.LocalPosition.sqrMagnitude, Is.LessThan(0.0000000001f), $"{boundary}/{direction}");
+                    AssertFrozenLocalRotationPose(at.LocalRotation, Quaternion.identity);
+                    Assert.That(before.LocalPosition.magnitude, Is.LessThan(0.00001f), $"before {boundary}/{direction}");
+                    Assert.That(after.LocalPosition.magnitude, Is.LessThan(0.00001f), $"after {boundary}/{direction}");
+                    AssertFinite(before);
+                    AssertFinite(at);
+                    AssertFinite(after);
+                }
+            }
         }
 
         [Test]
         [Category("Extended")]
-        public void CameraShakeController_ExtractionParityFreeze_OutsideEnvelopeSample_ReturnsZeroPoseDeltaAtProgress050()
+        public void CameraShakeController_M0WaveformFreeze_VisualStateNormalizationClampsOutsideProgressToCompletedIdentity()
         {
-            var result = EvaluateDefaultProfile(progress01: 0.50f, CubeRotationKind.Forward);
+            var belowRangeState = CreateActiveVisualState(-10f, CubeRotationKind.Forward);
+            var aboveRangeState = CreateActiveVisualState(10f, CubeRotationKind.Forward);
+            var belowRange = new TopologyTransitionCameraShakeController().Evaluate(
+                belowRangeState,
+                TopologyTransitionCameraShakeProfile.CreateDefault());
+            var aboveRange = new TopologyTransitionCameraShakeController().Evaluate(
+                aboveRangeState,
+                TopologyTransitionCameraShakeProfile.CreateDefault());
 
-            Assert.That(result.LocalPosition, Is.EqualTo(Vector3.zero));
-            AssertFrozenLocalRotationPose(result.LocalRotation, Quaternion.identity);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CameraShakeController_ExtractionParityFreeze_BackwardImpactSample_PreservesDirectionSignPoseAtProgress012()
-        {
-            var result = EvaluateDefaultProfile(progress01: 0.12f, CubeRotationKind.Backward);
-
-            AssertFrozenLocalPosition(result.LocalPosition, BackwardImpactFrozenLocalPosition);
-            AssertFrozenLocalRotationPose(result.LocalRotation, BackwardImpactFrozenLocalRotation);
+            Assert.That(belowRangeState.Progress01, Is.EqualTo(0f));
+            Assert.That(aboveRangeState.Progress01, Is.EqualTo(1f));
+            Assert.That(belowRange.LocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(aboveRange.LocalPosition, Is.EqualTo(Vector3.zero));
+            AssertFrozenLocalRotationPose(belowRange.LocalRotation, Quaternion.identity);
+            AssertFrozenLocalRotationPose(aboveRange.LocalRotation, Quaternion.identity);
+            AssertFinite(belowRange);
+            AssertFinite(aboveRange);
         }
 
         private static TopologyTransitionCameraShakeResult EvaluateDefaultProfile(float progress01, CubeRotationKind rotationKind)
@@ -376,6 +466,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.LessThan(RotationPoseToleranceDegrees),
                 $"Expected pose delta within {RotationPoseToleranceDegrees} degrees, but delta was {angleDelta} degrees. " +
                 $"Expected Euler={expected.eulerAngles}, Actual Euler={actual.eulerAngles}.");
+        }
+
+        private static void AssertFinite(TopologyTransitionCameraShakeResult result)
+        {
+            Assert.That(float.IsNaN(result.LocalPosition.x) || float.IsInfinity(result.LocalPosition.x), Is.False);
+            Assert.That(float.IsNaN(result.LocalPosition.y) || float.IsInfinity(result.LocalPosition.y), Is.False);
+            Assert.That(float.IsNaN(result.LocalPosition.z) || float.IsInfinity(result.LocalPosition.z), Is.False);
+            Assert.That(float.IsNaN(result.LocalRotation.x) || float.IsInfinity(result.LocalRotation.x), Is.False);
+            Assert.That(float.IsNaN(result.LocalRotation.y) || float.IsInfinity(result.LocalRotation.y), Is.False);
+            Assert.That(float.IsNaN(result.LocalRotation.z) || float.IsInfinity(result.LocalRotation.z), Is.False);
+            Assert.That(float.IsNaN(result.LocalRotation.w) || float.IsInfinity(result.LocalRotation.w), Is.False);
         }
 
         private static int CountMatches(string source, string pattern)
@@ -557,75 +658,5 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return builder.ToString();
         }
 
-        private static class GameplayCameraRigReflectionAdapter
-        {
-            private static readonly BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-            private static readonly MethodInfo ConfigureTopologyTransitionCameraShakeMethod =
-                GetRequiredMethod("ConfigureTopologyTransitionCameraShake", parameterCount: 1);
-            private static readonly MethodInfo ApplyTopologyTransitionVisualStateMethod =
-                GetRequiredMethod("ApplyTopologyTransitionVisualState", parameterCount: 1);
-            private static readonly PropertyInfo TopologyTransitionShakeLocalPositionProperty =
-                GetRequiredProperty("TopologyTransitionShakeLocalPosition");
-            private static readonly PropertyInfo TopologyTransitionShakeLocalRotationProperty =
-                GetRequiredProperty("TopologyTransitionShakeLocalRotation");
-
-            public static void ConfigureTopologyTransitionCameraShake(
-                GameplayCameraRig rig,
-                TopologyTransitionCameraShakeProfile profile)
-            {
-                InvokeRequired(ConfigureTopologyTransitionCameraShakeMethod, rig, profile);
-            }
-
-            public static void ApplyTopologyTransitionVisualState(
-                GameplayCameraRig rig,
-                TopologyTransitionVisualState visualState)
-            {
-                InvokeRequired(ApplyTopologyTransitionVisualStateMethod, rig, visualState);
-            }
-
-            public static Vector3 GetTopologyTransitionShakeLocalPosition(GameplayCameraRig rig)
-            {
-                return (Vector3)GetRequiredValue(TopologyTransitionShakeLocalPositionProperty, rig);
-            }
-
-            public static Quaternion GetTopologyTransitionShakeLocalRotation(GameplayCameraRig rig)
-            {
-                return (Quaternion)GetRequiredValue(TopologyTransitionShakeLocalRotationProperty, rig);
-            }
-
-            private static MethodInfo GetRequiredMethod(string name, int parameterCount)
-            {
-                return typeof(GameplayCameraRig)
-                    .GetMethods(InstanceFlags)
-                    .Single(method => method.Name == name && method.GetParameters().Length == parameterCount);
-            }
-
-            private static PropertyInfo GetRequiredProperty(string name)
-            {
-                return typeof(GameplayCameraRig).GetProperty(name, InstanceFlags) ??
-                       throw new InvalidOperationException($"Missing internal GameplayCameraRig property '{name}'.");
-            }
-
-            private static object GetRequiredValue(PropertyInfo property, GameplayCameraRig rig)
-            {
-                if (rig == null)
-                {
-                    throw new ArgumentNullException(nameof(rig));
-                }
-
-                return property.GetValue(rig) ??
-                       throw new InvalidOperationException($"Property '{property.Name}' returned null unexpectedly.");
-            }
-
-            private static void InvokeRequired(MethodInfo method, GameplayCameraRig rig, object argument)
-            {
-                if (rig == null)
-                {
-                    throw new ArgumentNullException(nameof(rig));
-                }
-
-                method.Invoke(rig, new[] { argument });
-            }
-        }
     }
 }

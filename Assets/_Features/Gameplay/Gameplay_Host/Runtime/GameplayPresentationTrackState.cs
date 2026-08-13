@@ -1670,6 +1670,7 @@ namespace Game.Feature.Gameplay.Host
             _playerContinuousLocomotionPresentationPoseOverrides = new();
         private readonly Dictionary<int, Vector3> _glidePresentationOffsetsByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
+        private readonly List<MotionTrackProgressSample> _motionTrackProgressSamples = new();
         private readonly HashSet<int> _motionVisualScaleEntityIds = new();
         private readonly Dictionary<int, GameplayEntityPose> _playerDeathHoldPoses = new();
         private readonly HashSet<int> _playerDeathHoldSignalEntityIds = new();
@@ -1738,6 +1739,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, MotionTrack> LocalMotionTracks => _localMotionTracks;
 
+        public List<MotionTrackProgressSample> MotionTrackProgressSamples => _motionTrackProgressSamples;
+
         public HashSet<int> MotionVisualScaleEntityIds => _motionVisualScaleEntityIds;
 
         public Dictionary<int, GameplayEntityPose> PlayerDeathHoldPoses => _playerDeathHoldPoses;
@@ -1800,6 +1803,7 @@ namespace Game.Feature.Gameplay.Host
             _playerContinuousLocomotionPresentationPoseOverrides.Clear();
             _glidePresentationOffsetsByEntityId.Clear();
             _localMotionTracks.Clear();
+            _motionTrackProgressSamples.Clear();
             _motionVisualScaleEntityIds.Clear();
             _playerDeathHoldPoses.Clear();
             _playerDeathHoldSignalEntityIds.Clear();

@@ -342,6 +342,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly PresentationMotionCommand _command;
         private float _elapsedSeconds;
+        private float _previousPresentedNormalizedTime;
 
         private PresentationMotionTrack(in PresentationMotionCommand command)
         {
@@ -412,6 +413,28 @@ namespace Game.Feature.Gameplay.Host
                 IsComplete,
                 _command.CompletionPose,
                 _command.InteractionPolicy == PresentationMotionInteractionPolicy.SuppressBoxInteractionOverlay);
+        }
+
+        internal bool TryCaptureProgress(out MotionTrackProgressSample progressSample)
+        {
+            if (_command.Kind != PresentationMotionKind.FlipImpactStay ||
+                _command.InstanceKey.UsesTickFallback ||
+                _command.InstanceKey.CorrelationId <= 0)
+            {
+                progressSample = default;
+                return false;
+            }
+
+            var currentNormalizedTime = NormalizedTime;
+            progressSample = new MotionTrackProgressSample(
+                EntityId,
+                TickEntityMotionKind.Flip,
+                _previousPresentedNormalizedTime,
+                currentNormalizedTime,
+                _command.InstanceKey.CorrelationId,
+                MotionTrackProgressSourceKind.OriginalViewMotion);
+            _previousPresentedNormalizedTime = currentNormalizedTime;
+            return true;
         }
 
         private Vector3 SampleVisualScaleMultiplier(float normalizedTime)

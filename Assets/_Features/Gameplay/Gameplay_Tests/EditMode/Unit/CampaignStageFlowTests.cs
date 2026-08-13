@@ -3755,6 +3755,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Core")]
+        public void DefeatCameraHandoff_PreservesLethalDuringOpenHoldAndResetsExactlyOnceAtIrisClosing()
+        {
+            var preset = TerminalIrisTestPresetFactory.CreateDefeat();
+            var playback = new TerminalTransitionPlayback(preset);
+            var request = new TerminalTransitionRequest(
+                TerminalTransitionKind.Defeat,
+                focusEntityId: 10,
+                claimId: 72,
+                destinationMode: TerminalTransitionDestinationMode.SceneHandoff);
+            Assert.That(
+                playback.TryBegin(
+                    request,
+                    new TerminalFocusTarget(Vector2.one * 0.5f, 0.12f, false)),
+                Is.True);
+            var resetCount = 0;
+
+            CampaignGameplayFlowController.BindDefeatCameraHandoff(
+                playback,
+                request.Token,
+                () => resetCount++);
+
+            Assert.That(playback.State, Is.EqualTo(TerminalTransitionState.Focusing));
+            Assert.That(resetCount, Is.Zero);
+            playback.Advance(preset.FocusDuration);
+            Assert.That(playback.State, Is.EqualTo(TerminalTransitionState.Holding));
+            Assert.That(resetCount, Is.Zero);
+            playback.Advance(preset.HoldDuration);
+            Assert.That(playback.State, Is.EqualTo(TerminalTransitionState.Closing));
+            Assert.That(resetCount, Is.EqualTo(1));
+            playback.Advance(preset.CloseDuration);
+            Assert.That(playback.State, Is.EqualTo(TerminalTransitionState.Black));
+            Assert.That(resetCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DefeatCameraHandoff_MissingPlaybackResetsImmediately()
+        {
+            var resetCount = 0;
+            CampaignGameplayFlowController.BindDefeatCameraHandoff(
+                playback: null,
+                token: default,
+                completeHandoff: () => resetCount++);
+
+            Assert.That(resetCount, Is.EqualTo(1));
+        }
+
         private sealed class FakeTerminalTransitionPort : ITerminalTransitionPort
         {
             private readonly Exception _setupException;

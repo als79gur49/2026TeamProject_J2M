@@ -370,6 +370,27 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PendingGameplayAudioRequestCount => _coreGameplaySfxLane.PendingRequestCount;
 
+        internal bool HasActiveJumpLandingCompletionTrack(int entityId)
+        {
+            return _trackState.JumpLandingCompletionHoldEntityIds.Contains(entityId) &&
+                   _trackState.JumpTracks.TryGetValue(entityId, out var jumpTrack) &&
+                   jumpTrack != null &&
+                   jumpTrack.HasClip;
+        }
+
+        internal bool TryGetLiveEntityPresentationView(int entityId, out GameplayEntityView view)
+        {
+            if (_stateStore.ViewsByEntityId.TryGetValue(entityId, out view) &&
+                view != null &&
+                view.gameObject.activeInHierarchy)
+            {
+                return true;
+            }
+
+            view = null;
+            return false;
+        }
+
         internal int DeferredGameplayAudioRequestCount =>
             _coreGameplaySfxLane.DeferredRequestCount +
             _enemyOneShotAudioLane.DeferredRequestCount;
@@ -459,6 +480,35 @@ namespace Game.Feature.Gameplay.Host
 
         internal BoxMotionProductionTelemetrySnapshot BoxMotionProductionTelemetrySnapshot =>
             _boxMotionLane.ProductionTelemetrySnapshot;
+
+        internal IReadOnlyList<MotionTrackProgressSample> MotionTrackProgressSamples =>
+            _trackState.MotionTrackProgressSamples;
+
+        internal bool HasActiveLocalMotionTrack(
+            int entityId,
+            TickEntityMotionKind motionKind,
+            int sequenceOrActionPlanId)
+        {
+            return entityId > 0 &&
+                   sequenceOrActionPlanId > 0 &&
+                   _trackState.LocalMotionTracks.TryGetValue(entityId, out var track) &&
+                   track != null &&
+                   track.HasClips &&
+                   track.HeadMotionKind == motionKind &&
+                   track.HeadSequenceOrActionPlanId == sequenceOrActionPlanId;
+        }
+
+        internal bool HasLocalMotionTrack(
+            int entityId,
+            TickEntityMotionKind motionKind,
+            int sequenceOrActionPlanId)
+        {
+            return entityId > 0 &&
+                   sequenceOrActionPlanId > 0 &&
+                   _trackState.LocalMotionTracks.TryGetValue(entityId, out var track) &&
+                   track != null &&
+                   track.Contains(motionKind, sequenceOrActionPlanId);
+        }
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             _playerActionAnimationLane.ExecutorDiagnostics;
@@ -1402,6 +1452,11 @@ namespace Game.Feature.Gameplay.Host
 
         internal void HardCleanupPresentationExtensions()
         {
+            if (_isInitialized && _stateStore.HasAnyCommittedFrame)
+            {
+                _topologyTransitionController.HardCleanup(_stateStore.CommittedTopology);
+            }
+
             _moonBlockDestructionPresentationController.Dispose();
             _moonBlockEmergencePresentationController.Dispose();
             HardCleanupTypedPresentationLanes();

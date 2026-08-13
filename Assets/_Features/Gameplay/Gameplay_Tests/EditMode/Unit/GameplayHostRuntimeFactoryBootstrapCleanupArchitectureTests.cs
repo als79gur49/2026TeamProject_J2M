@@ -133,7 +133,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var helperSource = ReadRepoFile(HelperRelativePath);
 
             Assert.That(helperSource, Does.Contain("presenter.AttachOutputCamera(startupPlan.OutputCamera);"));
-            Assert.That(helperSource, Does.Contain("cameraRig.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);"));
+            Assert.That(helperSource, Does.Contain("presenter.ConfigureTopologyTransitionCameraShake(startupPlan.TopologyTransitionCameraShakeProfile);"));
+            Assert.That(helperSource, Does.Not.Contain("cameraRig.ConfigureTopologyTransitionCameraShake("));
             Assert.That(helperSource, Does.Not.Contain("cameraRig.ResolveConfiguredSettings("));
             Assert.That(helperSource, Does.Not.Contain("configuration.CameraBaselineAuthoringPolicy"));
             Assert.That(helperSource, Does.Contain("cameraRig.ApplySettings(startupPlan.ResolvedCameraSettings);"));

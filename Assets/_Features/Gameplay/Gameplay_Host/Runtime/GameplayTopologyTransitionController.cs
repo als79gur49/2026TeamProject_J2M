@@ -110,6 +110,24 @@ namespace Game.Feature.Gameplay.Host
             UpdateInactiveVisualState();
         }
 
+        public void HardCleanup(CubeTopologyState committedTopology)
+        {
+            _activeTopologyMotion = null;
+            _activeTopologyMotionDurationSeconds = 0f;
+            _lastCommittedTopology = committedTopology;
+            KillBoardRotationTween();
+            _isBoardSurfaceTransitionActive = false;
+
+            var restReferenceRotationXDegrees =
+                ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, committedTopology);
+            var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
+            _boardSurfaceTransitionStartRotation = restReferenceRotation;
+            _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
+            ApplyPresentedRotation(restReferenceRotationXDegrees, forceApply: true);
+            _boardSurfaceRenderer?.CompleteTopologyTransition(committedTopology);
+            UpdateInactiveVisualState();
+        }
+
         public void CompleteInitialTopology(CubeTopologyState topology)
         {
             _lastCommittedTopology = topology;

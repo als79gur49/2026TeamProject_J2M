@@ -38,6 +38,7 @@ MonoBehaviour:
       LandingOscillationCycles: 1
       LandingLocalPositionAmplitude: {x: 0.006, y: 0.004, z: 0.01}
       LandingLocalRotationAmplitudeDegrees: {x: 0.24, y: 0.14, z: 0.08}
+    gameplayCameraShakeProfile: {fileID: 11400000, guid: 31fd6c7e4f99468b975714901c1512ba, type: 2}
     topologyTransitionPostFxProfile:
       authoritativeVolumeProfile: {fileID: 11400000, guid: 5dca061c58a801f4cb718f3ec1548fee, type: 2}
       motionBlurMode: 0

@@ -31,6 +31,7 @@
     "Game.Shared.Audio",
     "Game.Shared.Input",
     "Game.Feature.Stages",
+    "Game.TestSupport.Unity",
     "Unity.InputSystem",
     "Unity.TextMeshPro",
     "Unity.Cinemachine",

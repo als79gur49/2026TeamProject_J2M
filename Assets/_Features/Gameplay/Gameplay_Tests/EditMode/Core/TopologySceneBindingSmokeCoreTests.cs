@@ -150,7 +150,10 @@ namespace Game.Feature.Gameplay.Tests.Core
             }
 
             var cameraRigSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraRig.cs");
-            Assert.That(cameraRigSource, Does.Contain("ApplyTopologyTransitionVisualState"));
+            Assert.That(cameraRigSource, Does.Contain("IGameplayCameraAdditivePosePort"));
+            Assert.That(cameraRigSource, Does.Contain("ApplyAdditivePose"));
+            Assert.That(cameraRigSource, Does.Contain("ResetAdditivePose"));
+            Assert.That(cameraRigSource, Does.Not.Contain("TopologyTransitionVisualState"));
             Assert.That(cameraRigSource, Does.Not.Contain("WorldState"));
             Assert.That(cameraRigSource, Does.Not.Contain("TickPipeline"));
         }

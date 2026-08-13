@@ -56,6 +56,8 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class FlipInteractionTrack
     {
+        private float _previousPresentedNormalizedTime;
+
         private const float DefaultBoxWindupLift = 0.11f;
         private const float DefaultBoxFollowLift = 0.055f;
         private const float DefaultWindupTiltDegrees = 18f;
@@ -118,6 +120,7 @@ namespace Game.Feature.Gameplay.Host
             FlipOutcome = flipOutcome;
             Phase = phase;
             ElapsedSeconds = 0f;
+            _previousPresentedNormalizedTime = 0f;
         }
 
         public int PlayerEntityId { get; }
@@ -142,6 +145,8 @@ namespace Game.Feature.Gameplay.Host
 
         public TickPlayerFlipOutcomeKind FlipOutcome { get; private set; }
 
+        public int SourceActionPlanId { get; private set; }
+
         public bool IsComplete => Phase == FlipInteractionPhase.Complete;
 
         public void SetPhase(FlipInteractionPhase phase)
@@ -153,6 +158,7 @@ namespace Game.Feature.Gameplay.Host
 
             Phase = phase;
             ElapsedSeconds = 0f;
+            _previousPresentedNormalizedTime = 0f;
         }
 
         public void UpdateFlipOutcome(
@@ -160,6 +166,34 @@ namespace Game.Feature.Gameplay.Host
             FlipImpactTimingSettings flipImpactTimingSettings)
         {
             FlipOutcome = flipOutcome;
+        }
+
+        public void CorrelateSourceActionPlan(int sourceActionPlanId)
+        {
+            if (sourceActionPlanId > 0)
+            {
+                SourceActionPlanId = sourceActionPlanId;
+            }
+        }
+
+        internal bool TryCaptureProgress(out MotionTrackProgressSample progressSample)
+        {
+            if (Phase != FlipInteractionPhase.AirborneFollow || SourceActionPlanId <= 0)
+            {
+                progressSample = default;
+                return false;
+            }
+
+            var currentNormalizedTime = GetNormalizedPhaseTime();
+            progressSample = new MotionTrackProgressSample(
+                BoxEntityId,
+                TickEntityMotionKind.Flip,
+                _previousPresentedNormalizedTime,
+                currentNormalizedTime,
+                SourceActionPlanId,
+                MotionTrackProgressSourceKind.FlipInteraction);
+            _previousPresentedNormalizedTime = currentNormalizedTime;
+            return true;
         }
 
         public void Advance(float deltaTime)

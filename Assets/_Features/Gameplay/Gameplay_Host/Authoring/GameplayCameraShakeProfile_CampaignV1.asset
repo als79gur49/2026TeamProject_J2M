@@ -1,0 +1,279 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ee493d362cd4445a148097507cd2d18, type: 3}
+  m_Name: GameplayCameraShakeProfile_CampaignV1
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraShakeProfile
+  entries:
+  - Semantic: 0
+    Variant: 0
+    Priority: 100
+    DurationSeconds: 0.1
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.004, y: 0.003, z: 0.006}
+    LocalRotationAmplitudeDegrees: {x: 0.12, y: 0.08, z: 0.04}
+    AttackSeconds: 0.015
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.05
+  - Semantic: 1
+    Variant: 0
+    Priority: 200
+    DurationSeconds: 0.15
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.007, y: 0.005, z: 0.01}
+    LocalRotationAmplitudeDegrees: {x: 0.24, y: 0.15, z: 0.08}
+    AttackSeconds: 0.02
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.08
+  - Semantic: 2
+    Variant: 1
+    Priority: 200
+    DurationSeconds: 0.14
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.0075, y: 0.0055, z: 0.0105}
+    LocalRotationAmplitudeDegrees: {x: 0.25, y: 0.16, z: 0.08}
+    AttackSeconds: 0.018
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.08
+  - Semantic: 2
+    Variant: 2
+    Priority: 200
+    DurationSeconds: 0.16
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.009, y: 0.006, z: 0.012}
+    LocalRotationAmplitudeDegrees: {x: 0.3, y: 0.19, z: 0.1}
+    AttackSeconds: 0.018
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.08
+  - Semantic: 2
+    Variant: 3
+    Priority: 300
+    DurationSeconds: 0.2
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.011, y: 0.007, z: 0.015}
+    LocalRotationAmplitudeDegrees: {x: 0.36, y: 0.23, z: 0.11}
+    AttackSeconds: 0.02
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.08
+  - Semantic: 3
+    Variant: 0
+    Priority: 100
+    DurationSeconds: 0.11
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.0045, y: 0.003, z: 0.0065}
+    LocalRotationAmplitudeDegrees: {x: 0.13, y: 0.08, z: 0.04}
+    AttackSeconds: 0.012
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.12
+  - Semantic: 4
+    Variant: 0
+    Priority: 300
+    DurationSeconds: 0.2
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.01, y: 0.007, z: 0.014}
+    LocalRotationAmplitudeDegrees: {x: 0.34, y: 0.22, z: 0.12}
+    AttackSeconds: 0.015
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.1
+  - Semantic: 5
+    Variant: 0
+    Priority: 200
+    DurationSeconds: 0.16
+    OscillationCycles: 2
+    LocalPositionAmplitude: {x: 0.008, y: 0.006, z: 0.011}
+    LocalRotationAmplitudeDegrees: {x: 0.26, y: 0.17, z: 0.09}
+    AttackSeconds: 0.02
+    Decay:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: -1
+        outSlope: -1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    CooldownSeconds: 0.08

@@ -419,6 +419,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.EqualTo(TickPlayerActionResolutionKind.Success));
             Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().BoxEntityId, Is.EqualTo(20));
             Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().ActorEntityId, Is.EqualTo(10));
+            Assert.That(executeTick.PresentationData.BoxSlideStartSignals.Single().SourceActionPlanId, Is.GreaterThan(0));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);

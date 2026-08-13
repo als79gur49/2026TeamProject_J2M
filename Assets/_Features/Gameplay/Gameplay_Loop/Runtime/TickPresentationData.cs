@@ -2724,13 +2724,15 @@ namespace Game.Feature.Gameplay.Loop
             int actorEntityId,
             SurfaceCell sourceCell,
             SurfaceCell destinationCell,
-            CubeTopologyState topology)
+            CubeTopologyState topology,
+            int sourceActionPlanId = 0)
         {
             BoxEntityId = boxEntityId;
             ActorEntityId = actorEntityId;
             SourceCell = sourceCell;
             DestinationCell = destinationCell;
             Topology = topology;
+            SourceActionPlanId = sourceActionPlanId;
         }
 
         public int BoxEntityId { get; }
@@ -2742,6 +2744,8 @@ namespace Game.Feature.Gameplay.Loop
         public SurfaceCell DestinationCell { get; }
 
         public CubeTopologyState Topology { get; }
+
+        public int SourceActionPlanId { get; }
     }
 
     public readonly struct TickPlayerFlipResultTurnSignal

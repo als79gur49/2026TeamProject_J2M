@@ -17,6 +17,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile =
             TopologyTransitionCameraShakeProfile.CreateDefault();
 
+        [SerializeField] private GameplayCameraShakeProfile gameplayCameraShakeProfile;
+
         [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile =
             TopologyTransitionPostFxProfile.CreateDefault();
 
@@ -29,6 +31,8 @@ namespace Game.Feature.Gameplay.Host
         public TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile =>
             topologyTransitionCameraShakeProfile;
 
+        public GameplayCameraShakeProfile GameplayCameraShakeProfile => gameplayCameraShakeProfile;
+
         public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile => topologyTransitionPostFxProfile;
 
         public void Validate()
@@ -36,6 +40,7 @@ namespace Game.Feature.Gameplay.Host
             cameraSettings ??= GameplayCameraSettings.CreateShowcaseDefault();
             topologyTransitionCameraShakeProfile ??= TopologyTransitionCameraShakeProfile.CreateDefault();
             topologyTransitionPostFxProfile ??= TopologyTransitionPostFxProfile.CreateDefault();
+            gameplayCameraShakeProfile?.ValidateOrThrow();
         }
 
         public GameplayCameraTopologySharedTuning Clone()
@@ -50,6 +55,7 @@ namespace Game.Feature.Gameplay.Host
                 topologyTransitionCameraShakeProfile =
                     topologyTransitionCameraShakeProfile?.Clone() ??
                     TopologyTransitionCameraShakeProfile.CreateDefault(),
+                gameplayCameraShakeProfile = gameplayCameraShakeProfile,
                 topologyTransitionPostFxProfile =
                     topologyTransitionPostFxProfile?.Clone() ??
                     TopologyTransitionPostFxProfile.CreateDefault(),
@@ -64,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
                 topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault(),
                 cameraSettings = GameplayCameraSettings.CreateRuntimeDefault(),
                 topologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault(),
+                gameplayCameraShakeProfile = null,
                 topologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
             };
         }
@@ -76,6 +83,7 @@ namespace Game.Feature.Gameplay.Host
                 topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault(),
                 cameraSettings = GameplayCameraSettings.CreateShowcaseDefault(),
                 topologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault(),
+                gameplayCameraShakeProfile = null,
                 topologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
             };
         }

@@ -2064,17 +2064,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
 
                 rig.ApplySettings(resolvedSettings);
-                rig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
                 rig.Initialize(viewCamera, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
 
                 var presentedOrbit = Quaternion.Euler(90f, 0f, 0f);
                 rig.SetPresentedTopologyOrbit(presentedOrbit);
-                rig.ApplyTopologyTransitionVisualState(
+                var additivePose = new TopologyTransitionCameraShakeController().Evaluate(
                     CreateTopologyTransitionVisualState(
                         progress01: 0.12f,
                         CubeRotationKind.Forward,
-                        presentedOrbit));
-                rig.SnapToTarget();
+                        presentedOrbit),
+                    TopologyTransitionCameraShakeProfile.CreateDefault());
+                rig.ApplyAdditivePose(additivePose.LocalPosition, additivePose.LocalRotation);
 
                 var authoredBaselineLocalPosition = authoredWorldPosition - targetWorldPosition;
                 var authoredBaselineLocalRotation = authoredWorldRotation;
@@ -2082,9 +2082,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var expectedUnshakenWorldPosition =
                     targetWorldPosition + (presentedOrbit * authoredBaselineLocalPosition);
                 var expectedShakenWorldPosition = expectedUnshakenWorldPosition +
-                                                  (expectedUnshakenWorldRotation * rig.TopologyTransitionShakeLocalPosition);
+                                                  (expectedUnshakenWorldRotation * rig.AdditiveLocalPosition);
                 var expectedShakenWorldRotation =
-                    expectedUnshakenWorldRotation * rig.TopologyTransitionShakeLocalRotation;
+                    expectedUnshakenWorldRotation * rig.AdditiveLocalRotation;
 
                 Assert.That(
                     Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, presentedOrbit),
@@ -2096,10 +2096,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Quaternion.Angle(boardRoot.CameraPoseRoot.localRotation, authoredBaselineLocalRotation),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    Vector3.Distance(boardRoot.CameraEffectsRoot.localPosition, rig.TopologyTransitionShakeLocalPosition),
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.localPosition, rig.AdditiveLocalPosition),
                     Is.LessThan(0.0001f));
                 Assert.That(
-                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, rig.TopologyTransitionShakeLocalRotation),
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, rig.AdditiveLocalRotation),
                     Is.LessThan(0.001f));
                 AssertTransformPoseApproximately(
                     viewCamera.transform,
@@ -2107,9 +2107,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     expectedShakenWorldRotation);
                 AssertTransformPoseApproximately(viewCamera.transform, boardRoot.CameraEffectsRoot);
 
-                rig.ApplyTopologyTransitionVisualState(
-                    TopologyTransitionVisualState.Inactive(new CubeTopologyState(FaceId.Floor), presentedOrbit));
-                rig.SnapToTarget();
+                rig.ResetAdditivePose();
 
                 Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
@@ -2199,8 +2197,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 directRig.ApplySettings(directResolvedSettings);
                 hierarchyRig.ApplySettings(hierarchyResolvedSettings);
-                directRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
-                hierarchyRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
                 directRig.Initialize(directCamera, directBoardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
                 hierarchyRig.Initialize(null, hierarchyBoardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
 
@@ -2217,10 +2213,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 directRig.SetPresentedTopologyOrbit(presentedOrbit);
                 hierarchyRig.SetPresentedTopologyOrbit(presentedOrbit);
-                directRig.ApplyTopologyTransitionVisualState(activeVisualState);
-                hierarchyRig.ApplyTopologyTransitionVisualState(activeVisualState);
-                directRig.SnapToTarget();
-                hierarchyRig.SnapToTarget();
+                var additivePose = new TopologyTransitionCameraShakeController().Evaluate(
+                    activeVisualState,
+                    TopologyTransitionCameraShakeProfile.CreateDefault());
+                directRig.ApplyAdditivePose(additivePose.LocalPosition, additivePose.LocalRotation);
+                hierarchyRig.ApplyAdditivePose(additivePose.LocalPosition, additivePose.LocalRotation);
 
                 Assert.That(
                     Vector3.Distance(
@@ -2244,12 +2241,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.LessThan(0.001f));
                 AssertTransformPoseApproximately(directCamera.transform, hierarchyCameraProxy.transform);
 
-                var inactiveVisualState =
-                    TopologyTransitionVisualState.Inactive(new CubeTopologyState(FaceId.Floor), presentedOrbit);
-                directRig.ApplyTopologyTransitionVisualState(inactiveVisualState);
-                hierarchyRig.ApplyTopologyTransitionVisualState(inactiveVisualState);
-                directRig.SnapToTarget();
-                hierarchyRig.SnapToTarget();
+                directRig.ResetAdditivePose();
+                hierarchyRig.ResetAdditivePose();
 
                 Assert.That(directBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(hierarchyBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
@@ -4870,7 +4863,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(boardRoot.EntityRoot));
                 var rig = rootObject.AddComponent<GameplayCameraRig>();
                 rig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
-                rig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
                 rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
 
                 var timingProfile = new GameplayTimingProfile(
@@ -4930,10 +4922,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, rig.PresentedTopologyOrbit),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    Vector3.Distance(boardRoot.CameraEffectsRoot.localPosition, rig.TopologyTransitionShakeLocalPosition),
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.localPosition, rig.AdditiveLocalPosition),
                     Is.LessThan(0.0001f));
                 Assert.That(
-                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, rig.TopologyTransitionShakeLocalRotation),
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, rig.AdditiveLocalRotation),
                     Is.LessThan(0.001f));
                 Assert.That(
                     boardRoot.CameraEffectsRoot.localPosition.sqrMagnitude > 0.000001f ||
