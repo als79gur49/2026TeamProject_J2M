@@ -248,6 +248,75 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 context.Dispose();
             }
         }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplaySceneHost_StationaryPushFlipSerializedPlayerPrefab_FailureAudioReachesSharedAudioService()
+        {
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(PlayerPrefabPath);
+            Assert.That(playerPrefab, Is.Not.Null, $"Missing prefab at '{PlayerPrefabPath}'.");
+
+            var actions = new[] { PlayerActionKind.Push, PlayerActionKind.Flip };
+            for (var i = 0; i < actions.Length; i++)
+            {
+                var action = actions[i];
+                var playerEntity = CreatePlayerEntityState();
+                var context = CreateSerializedPlayerPrefabActionAudioHostContext(
+                    $"{nameof(GameplaySceneHost_StationaryPushFlipSerializedPlayerPrefab_FailureAudioReachesSharedAudioService)}_{action}",
+                    playerPrefab,
+                    playerEntity);
+                try
+                {
+                    if (action == PlayerActionKind.Push)
+                    {
+                        context.Host.InputHost.BufferPush();
+                    }
+                    else
+                    {
+                        context.Host.InputHost.BufferFlip();
+                    }
+
+                    var result = context.Host.InputHost.RunSingleTick();
+                    Assert.That(result, Is.Not.Null);
+                    var attempt = result.PresentationData.PlayerActionAttemptSignals.Single();
+                    Assert.That(attempt.ActionKind, Is.EqualTo(action));
+                    Assert.That(attempt.Direction, Is.EqualTo(Direction.Up));
+                    Assert.That(attempt.FeedbackKind, Is.EqualTo(PlayerActionAttemptFeedbackKind.NoTarget));
+                    Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+                    Assert.That(context.Host.Presenter.IsPlayerActionAttemptPlaybackActive(playerEntity.entityId), Is.True);
+                    Assert.That(context.Host.ViewRegistry.TryGetView(playerEntity.entityId, out var playerView), Is.True);
+                    var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                    Assert.That(driver, Is.Not.Null);
+                    Assert.That(
+                        driver.CurrentState,
+                        Is.EqualTo(action == PlayerActionKind.Push
+                            ? PlayerViewAnimationState.Push
+                            : PlayerViewAnimationState.Flip));
+                    Assert.That(driver.LastPresentationState.HasActionAttempt, Is.True);
+                    Assert.That(driver.LastPresentationState.CanceledThisTick, Is.False);
+
+                    var telemetry = context.Host.Presenter.ActionAudioProductionTelemetrySnapshot;
+                    Assert.That(
+                        telemetry.LastCueKey,
+                        Is.EqualTo(action == PlayerActionKind.Push
+                            ? PresentationActionAudioCueKey.PlayerPushNoTarget
+                            : PresentationActionAudioCueKey.PlayerFlipNoTarget));
+                    Assert.That(telemetry.LastAction, Is.EqualTo(
+                        action == PlayerActionKind.Push ? GameplayActionKind.Push : GameplayActionKind.Flip));
+                    Assert.That(telemetry.LastMoment, Is.EqualTo(GameplayActionAudioMoment.NoTarget));
+                    Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(1));
+                    Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
+                    Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+                    Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+                }
+                finally
+                {
+                    context.Dispose();
+                }
+            }
+
+            yield return null;
+        }
 #endif
 
         [UnityTest]
@@ -1253,6 +1322,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
                 InitialEntities = new[] { playerEntity },
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
+                PlayerEntityId = playerEntity.entityId,
                 GameplayPresentationAudioConfig = mapBundle.Config,
                 TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
                 ViewFactory = new DefaultGameplayEntityViewFactory(
