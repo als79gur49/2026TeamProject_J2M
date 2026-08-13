@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static readonly StageHudScenario[] WardScenarios =
         {
             new("en-US", "Ward[A]-01"),
-            new("ko-KR", "병동[A]-01"),
+            new("ko-KR", "A병동-01"),
         };
 
         [Category("Full")]

@@ -152,13 +152,13 @@ namespace Game.Feature.UI.Tests
                 "Every managed ko-KR table must participate in native Climate glyph validation.");
             Assert.That(values, Has.Length.EqualTo(123));
             Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(113));
-            Assert.That(values, Does.Contain("밀기에 사용할 키를 누르세요..."));
-            Assert.That(values, Does.Contain("뒤집기에 사용할 키를 누르세요..."));
-            Assert.That(values, Does.Contain("기회 {0}"));
+            Assert.That(values, Does.Contain("밀기 키를 누르세요…"));
+            Assert.That(values, Does.Contain("뒤집기 키를 누르세요…"));
+            Assert.That(values, Does.Contain("남은 기회: {0}"));
             Assert.That(values, Does.Contain("이동"));
             Assert.That(values, Does.Contain("연구실-01"));
             Assert.That(values, Does.Contain("로비-01"));
-            Assert.That(values, Does.Contain("병동[A]-01"));
+            Assert.That(values, Does.Contain("A병동-01"));
             Assert.That(values, Does.Contain("영안실-01"));
             Assert.That(codepoints, Has.Length.EqualTo(186));
             foreach (var fontAsset in fontAssets)

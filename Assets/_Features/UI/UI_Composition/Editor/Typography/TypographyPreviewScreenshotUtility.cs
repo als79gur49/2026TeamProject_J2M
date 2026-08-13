@@ -1237,7 +1237,7 @@ namespace Game.Feature.UI.Composition.Editor
                     ? new[] { "스테이지 로비-01" }
                     : new[] { "Stage Lobby-01" }
                 : string.Equals(capture.LocaleCode, "ko-KR", StringComparison.Ordinal)
-                    ? new[] { "스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01" }
+                    ? new[] { "스테이지 연구실-01", "스테이지 A병동-01", "스테이지 영안실-01" }
                     : new[] { "Stage Lab-01", "Stage Ward[A]-01", "Stage Morgue-01" };
 
             foreach (var expectedStageName in expectedStageNames)

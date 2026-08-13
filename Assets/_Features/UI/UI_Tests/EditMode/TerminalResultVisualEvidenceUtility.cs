@@ -524,7 +524,7 @@ namespace Game.Feature.UI.Tests
                         return new[]
                         {
                             new TextExpectation(typeof(LevelFailedScreenView), "_titleLabel", "스테이지 실패", TypographyStyleTag.HeaderLarge),
-                            new TextExpectation(typeof(LevelFailedScreenView), "_detailLabel", "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.", TypographyStyleTag.Body, isLevelFailedDetail: true),
+                            new TextExpectation(typeof(LevelFailedScreenView), "_detailLabel", "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.", TypographyStyleTag.Body, isLevelFailedDetail: true),
                             new TextExpectation(typeof(LevelFailedScreenView), "_restartLevelButtonLabel", "스테이지 다시 시작", TypographyStyleTag.Button),
                             new TextExpectation(typeof(LevelFailedScreenView), "_mainButtonLabel", "메인 메뉴", TypographyStyleTag.Button),
                         };

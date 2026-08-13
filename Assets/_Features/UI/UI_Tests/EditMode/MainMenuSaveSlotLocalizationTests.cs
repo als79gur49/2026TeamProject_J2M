@@ -134,10 +134,10 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        [TestCase(SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.", "지원하지 않는 저장 데이터", "지원하지 않는 버전에서 생성된 저장 데이터입니다.")]
-        [TestCase(SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.", "저장 데이터 손상", "저장 데이터를 읽을 수 없습니다.")]
+        [TestCase(SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.", "호환되지 않는 저장 데이터", "지원되지 않는 버전에서 생성된 저장 데이터입니다.")]
+        [TestCase(SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.", "손상된 저장 데이터", "저장 데이터를 읽을 수 없습니다.")]
         [TestCase(SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.", "저장 데이터 접근 실패", "저장 데이터 접근 권한을 확인하세요.")]
-        [TestCase(SaveSlotFailurePresentationKind.LoadFailed, "Save Load Failed", "The save data could not be loaded.", "저장 불러오기 실패", "저장 데이터를 불러올 수 없습니다.")]
+        [TestCase(SaveSlotFailurePresentationKind.LoadFailed, "Save Load Failed", "The save data could not be loaded.", "저장 데이터 불러오기 실패", "저장 데이터를 불러올 수 없습니다.")]
         [TestCase(SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.", "저장 데이터 사용 불가", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.")]
         public void FailureDescriptors_ResolveEnglishAndKoreanWithoutBlankText(
             SaveSlotFailurePresentationKind kind,
@@ -207,9 +207,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(korean.SlotCards[0].StatusText, Is.EqualTo("비어 있음"));
             Assert.That(korean.SlotCards[0].PrimaryActionText, Is.EqualTo("새 게임"));
             Assert.That(korean.SlotCards[1].StatusText, Is.EqualTo("계속"));
-            Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 병동[A]-02"));
-            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("기회 2"));
-            Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 3"));
+            Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 A병동-02"));
+            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 기회: 2"));
+            Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 횟수: 3"));
             Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("최근 플레이 2026. 7. 29."));
             Assert.That(korean.SlotCards[1].DeleteActionText, Is.EqualTo("삭제"));
             Assert.That(korean.SlotCards[2].StatusText, Is.EqualTo("완료"));
@@ -237,16 +237,16 @@ namespace Game.Feature.UI.Tests
             var korean = MainMenuSlotViewModelMapper.Map(slots, sequence, null, resolver);
             Assert.That(
                 korean.SlotCards.Select(card => card.StageText).ToArray(),
-                Is.EqualTo(new[] { "스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01" }));
+                Is.EqualTo(new[] { "스테이지 연구실-01", "스테이지 A병동-01", "스테이지 영안실-01" }));
             Assert.That(
                 korean.SlotCards.Select(card => card.SlotNumber).ToArray(),
                 Is.EqualTo(new[] { 1, 2, 3 }));
             Assert.That(
                 korean.SlotCards.Select(card => card.ChancesText).ToArray(),
-                Is.EqualTo(new[] { "기회 3", "기회 2", "기회 1" }));
+                Is.EqualTo(new[] { "남은 기회: 3", "남은 기회: 2", "남은 기회: 1" }));
             Assert.That(
                 korean.SlotCards.Select(card => card.DeathsText).ToArray(),
-                Is.EqualTo(new[] { "사망 1", "사망 3", "사망 5" }));
+                Is.EqualTo(new[] { "사망 횟수: 1", "사망 횟수: 3", "사망 횟수: 5" }));
             Assert.That(
                 korean.SlotCards.All(card => card.State == SaveSlotCardState.Existing),
                 Is.True);
@@ -337,7 +337,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [TestCase(MainMenuConfirmationKind.DeleteSlot, "슬롯 삭제", "2번 슬롯을 삭제할까요?", "이 작업은 되돌릴 수 없습니다.", "삭제")]
-        [TestCase(MainMenuConfirmationKind.RestartSlot, "슬롯 다시 시작", "2번 슬롯을 처음부터 다시 시작할까요?", "기존 진행 상황이 초기화됩니다.", "다시 시작")]
+        [TestCase(MainMenuConfirmationKind.RestartSlot, "슬롯 처음부터 시작", "2번 슬롯을 처음부터 다시 시작할까요?", "기존 진행 상황이 초기화됩니다.", "다시 시작")]
         [TestCase(MainMenuConfirmationKind.OverwriteSlot, "슬롯 덮어쓰기", "2번 슬롯에서 새 게임을 시작할까요?", "기존 진행 상황을 덮어씁니다.", "새 게임")]
         [TestCase(MainMenuConfirmationKind.QuitGame, "게임 종료", "게임을 종료하고 바탕 화면으로 나갈까요?", "저장되지 않은 진행 상황은 사라질 수 있습니다.", "종료")]
         public void ConfirmationPresenter_ResolvesKoreanCopy(
@@ -458,7 +458,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
             Assert.That(refreshCount, Is.EqualTo(1));
             Assert.That(refreshed.SlotCards[0].TitleText, Is.EqualTo("슬롯 1"));
-            Assert.That(refreshed.SlotCards[0].StatusText, Is.EqualTo("저장 불러오기 실패"));
+            Assert.That(refreshed.SlotCards[0].StatusText, Is.EqualTo("저장 데이터 불러오기 실패"));
             Assert.That(refreshed.SlotCards[0].StageText, Is.EqualTo("저장 데이터를 불러올 수 없습니다."));
             Assert.That(refreshed.SlotCards[0].PrimaryIntentKind, Is.EqualTo(SaveSlotIntentKind.None));
             Assert.That(refreshed.SlotCards[0].ShowDelete, Is.False);
@@ -486,7 +486,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.SubscriberCount, Is.EqualTo(1));
 
             resolver.SetLocale("ko-KR");
-            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("슬롯 다시 시작"));
+            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("슬롯 처음부터 시작"));
             Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("3번 슬롯을 처음부터 다시 시작할까요?"));
             Assert.That(presenter.ViewModel.WarningText, Is.EqualTo("기존 진행 상황이 초기화됩니다."));
 
