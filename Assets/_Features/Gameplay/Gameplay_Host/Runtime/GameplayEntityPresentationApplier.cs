@@ -336,11 +336,11 @@ namespace Game.Feature.Gameplay.Host
                     var sample = originalViewMotionTrack.Sample();
                     localPose = sample.LocalPose;
                     motionVisualScaleMultiplier = sample.VisualScaleMultiplier;
+                    originalViewMotionTrack.Advance(deltaTime);
                     if (originalViewMotionTrack.TryCaptureProgress(out var originalViewMotionProgress))
                     {
                         _trackState.MotionTrackProgressSamples.Add(originalViewMotionProgress);
                     }
-                    originalViewMotionTrack.Advance(deltaTime);
                     if (originalViewMotionTrack.IsComplete)
                     {
                         localPose = sample.CompletionPose;
@@ -1077,11 +1077,11 @@ namespace Game.Feature.Gameplay.Host
                     boxDriver.ResetInteraction();
                 }
 
+                track.Advance(deltaTime);
                 if (track.TryCaptureProgress(out var flipInteractionProgress))
                 {
                     _trackState.MotionTrackProgressSamples.Add(flipInteractionProgress);
                 }
-                track.Advance(deltaTime);
                 if (track.IsComplete)
                 {
                     RecordFlipInteractionReset(ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId));

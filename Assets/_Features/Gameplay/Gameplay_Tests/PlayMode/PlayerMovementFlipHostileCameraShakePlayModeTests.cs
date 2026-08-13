@@ -99,6 +99,34 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_FlipHostileStay_LargeDeltaCompletionPreservesContactCrossing()
+        {
+            var host = CreateHostileFlipCameraShakeHost(FlipFloorImpactPresentationKind.Stay);
+
+            AssertHostileLargeDeltaCompletionCrossing(
+                host,
+                FlipFloorImpactPresentationKind.Stay,
+                MotionTrackProgressSourceKind.OriginalViewMotion);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_FlipHostileDestroySelf_LargeDeltaCompletionPreservesContactCrossing()
+        {
+            var host = CreateHostileFlipCameraShakeHost(FlipFloorImpactPresentationKind.DestroySelf);
+
+            AssertHostileLargeDeltaCompletionCrossing(
+                host,
+                FlipFloorImpactPresentationKind.DestroySelf,
+                MotionTrackProgressSourceKind.FlipInteraction);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayCameraShakeProduction_FlipHostileFollowThrough_InitialContactSilentFinalLandingExactlyOnce()
         {
             var profile = LoadCampaignCameraShakeProfile();
@@ -383,6 +411,70 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 milestoneNormalizedTime,
                 peakOutputWorldPosition,
                 peakOutputWorldRotation);
+        }
+
+        private static void AssertHostileLargeDeltaCompletionCrossing(
+            GameplaySceneHost host,
+            FlipFloorImpactPresentationKind disposition,
+            MotionTrackProgressSourceKind expectedProgressSource)
+        {
+            host.Presenter.ConfigureGameplayCameraShakeProfile(LoadCampaignCameraShakeProfile());
+            host.Presenter.SetCameraMotionLevel(CameraMotionLevel.Full);
+
+            TickResult executeTick;
+            if (disposition == FlipFloorImpactPresentationKind.Stay)
+            {
+                executeTick = host.InputHost.RunSingleTick();
+            }
+            else
+            {
+                host.InputHost.SetRawMoveInput(Vector2.left);
+                host.InputHost.BufferFlip();
+                host.InputHost.RunSingleTick();
+                host.InputHost.SetRawMoveInput(Vector2.zero);
+                executeTick = host.InputHost.RunSingleTick();
+            }
+
+            Assert.That(executeTick, Is.Not.Null);
+            var floorSignal = executeTick.PresentationData.FlipFloorImpactSignals.Single();
+            Assert.That(floorSignal.Kind, Is.EqualTo(disposition));
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.Zero);
+
+            const float preContactNormalizedTime = 0.55f;
+            var motionDuration = host.TimingProfile.FlipMotionDurationSeconds;
+            host.Presenter.UpdatePresentation(motionDuration * preContactNormalizedTime);
+
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.Zero);
+
+            host.Presenter.UpdatePresentation(motionDuration);
+            var completionProgress = host.Presenter.CurrentMotionTrackProgressSamples.LastOrDefault(sample =>
+                sample.EntityId == floorSignal.BoxEntityId &&
+                sample.MotionKind == TickEntityMotionKind.Flip &&
+                sample.SequenceOrActionPlanId == floorSignal.SourceActionPlanId &&
+                sample.SourceKind == expectedProgressSource);
+
+            Assert.That(completionProgress.IsValid, Is.True);
+            Assert.That(
+                completionProgress.PreviousNormalizedTime,
+                Is.EqualTo(preContactNormalizedTime).Within(0.0001f));
+            Assert.That(
+                completionProgress.PreviousNormalizedTime,
+                Is.LessThan(GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime));
+            Assert.That(
+                completionProgress.CurrentNormalizedTime,
+                Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(
+                completionProgress.CurrentNormalizedTime,
+                Is.GreaterThanOrEqualTo(
+                    GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime));
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.Zero);
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(1));
+
+            host.Presenter.UpdatePresentation(motionDuration);
+            Assert.That(host.Presenter.PendingFlipHostileImpactCameraShakeCount, Is.Zero);
+            Assert.That(host.Presenter.AcceptedGameplayCameraImpulseCount, Is.EqualTo(1));
         }
 
         private static void AssertHostileSettingsAndSimulationIsolation(
