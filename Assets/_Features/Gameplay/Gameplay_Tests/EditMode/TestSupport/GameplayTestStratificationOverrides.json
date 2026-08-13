@@ -3816,6 +3816,26 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeMixerFoundationTests.Mixer_SubmissionOrderReversal_ProducesSameCanonicalResult",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_determinism",
+        "camera_shake_canonical_ordering"
+      ],
+      "reason": "Locked pure-mixer coverage that reversing request submission order preserves the canonical deterministic output.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeMixerFoundationTests.Mixer_Cooldown_RejectsBeforeBoundaryAcceptsAtAndAfterBoundaryAndDoesNotAffectOtherSource",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_cooldown",
+        "camera_shake_source_identity"
+      ],
+      "reason": "Locked pure-mixer coverage that cooldown is inclusive at its boundary and remains scoped by semantic plus source identity.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.StayAndDestroySelf_CanonicalContactCrossing_SubmitTypedMediumExactlyOnce",
       "category": "Core",
       "contracts": [

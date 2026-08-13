@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void Mixer_SubmissionOrderReversal_ProducesSameCanonicalResult()
         {
             var firstMixer = CreateMixer();
@@ -463,7 +463,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
+        [Category("Core")]
         public void Mixer_Cooldown_RejectsBeforeBoundaryAcceptsAtAndAfterBoundaryAndDoesNotAffectOtherSource()
         {
             var mixer = CreateMixer();
