@@ -35,6 +35,13 @@ TERMINAL_IRIS_EVIDENCE_BUNDLE_ID="${TERMINAL_IRIS_EVIDENCE_BUNDLE_ID:-}"
 TERMINAL_IRIS_EVIDENCE_RUN_ID="${TERMINAL_IRIS_EVIDENCE_RUN_ID:-}"
 CAMERA_SHAKE_VISUAL_OUTPUT_DIR="${CAMERA_SHAKE_VISUAL_OUTPUT_DIR:-}"
 CAMERA_SHAKE_VISUAL_TIMESTAMP="${CAMERA_SHAKE_VISUAL_TIMESTAMP:-}"
+CAMERA_SHAKE_VISUAL_REPOSITORY=""
+CAMERA_SHAKE_VISUAL_WORKTREE=""
+CAMERA_SHAKE_VISUAL_BRANCH=""
+CAMERA_SHAKE_VISUAL_HEAD=""
+CAMERA_SHAKE_VISUAL_TREE=""
+CAMERA_SHAKE_VISUAL_TRACKED_FINGERPRINT=""
+CAMERA_SHAKE_VISUAL_UNTRACKED_FINGERPRINT=""
 CAMERA_SHAKE_VISUAL_OUTPUT_ROOT="${CAMERA_SHAKE_VISUAL_OUTPUT_ROOT:-/mnt/d/J2M/evidence}"
 CAMERA_SHAKE_VISUAL_WIDTH=1280
 CAMERA_SHAKE_VISUAL_HEIGHT=720
@@ -3623,6 +3630,36 @@ update_stage_metrics(metrics_path, current, record_success=(stage_exit_code == 0
 PY
 }
 
+resolve_camera_shake_visual_branch() {
+    local branch
+
+    branch="$(git branch --show-current)"
+    if [ -z "$branch" ]; then
+        printf '%s\n' "DETACHED_HEAD"
+        return
+    fi
+
+    printf '%s\n' "$branch"
+}
+
+prepare_camera_shake_visual_revision_metadata() {
+    CAMERA_SHAKE_VISUAL_REPOSITORY="J2M"
+    CAMERA_SHAKE_VISUAL_WORKTREE="$PROJECT_PATH_WSL"
+    CAMERA_SHAKE_VISUAL_BRANCH="$(resolve_camera_shake_visual_branch)"
+    CAMERA_SHAKE_VISUAL_HEAD="$(git rev-parse HEAD)"
+    CAMERA_SHAKE_VISUAL_TREE="$(git rev-parse 'HEAD^{tree}')"
+    CAMERA_SHAKE_VISUAL_TRACKED_FINGERPRINT="$(
+        git diff HEAD --binary | sha256sum | awk '{print $1}'
+    )"
+    CAMERA_SHAKE_VISUAL_UNTRACKED_FINGERPRINT="$(
+        git ls-files --others --exclude-standard -z |
+            sort -z |
+            xargs -0 -r sha256sum |
+            sha256sum |
+            awk '{print $1}'
+    )"
+}
+
 run_unity_stage_unguarded() {
     local selection="$1"
     local stage_key="$2"
@@ -3639,8 +3676,6 @@ run_unity_stage_unguarded() {
     local allow_empty=0
     local total_tests
     local process_before
-    local camera_shake_visual_tracked_fingerprint
-    local camera_shake_visual_untracked_fingerprint
     local -a unity_command
 
     log_path_win="$(wslpath -w "$log_path")"
@@ -3685,26 +3720,16 @@ run_unity_stage_unguarded() {
         )
     fi
     if [ -n "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR" ]; then
-        camera_shake_visual_tracked_fingerprint="$(
-            git diff HEAD --binary | sha256sum | awk '{print $1}'
-        )"
-        camera_shake_visual_untracked_fingerprint="$(
-            git ls-files --others --exclude-standard -z |
-                sort -z |
-                xargs -0 -r sha256sum |
-                sha256sum |
-                awk '{print $1}'
-        )"
         unity_command+=(
             -cameraShakeVisualOutput "$(wslpath -w "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR")"
             -cameraShakeVisualTimestamp "${CAMERA_SHAKE_VISUAL_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
-            -cameraShakeVisualRepository "J2M"
-            -cameraShakeVisualWorktree "$PROJECT_PATH_WSL"
-            -cameraShakeVisualBranch "$(git branch --show-current)"
-            -cameraShakeVisualHead "$(git rev-parse HEAD)"
-            -cameraShakeVisualTree "$(git rev-parse 'HEAD^{tree}')"
-            -cameraShakeVisualTrackedFingerprint "$camera_shake_visual_tracked_fingerprint"
-            -cameraShakeVisualUntrackedFingerprint "$camera_shake_visual_untracked_fingerprint"
+            -cameraShakeVisualRepository "$CAMERA_SHAKE_VISUAL_REPOSITORY"
+            -cameraShakeVisualWorktree "$CAMERA_SHAKE_VISUAL_WORKTREE"
+            -cameraShakeVisualBranch "$CAMERA_SHAKE_VISUAL_BRANCH"
+            -cameraShakeVisualHead "$CAMERA_SHAKE_VISUAL_HEAD"
+            -cameraShakeVisualTree "$CAMERA_SHAKE_VISUAL_TREE"
+            -cameraShakeVisualTrackedFingerprint "$CAMERA_SHAKE_VISUAL_TRACKED_FINGERPRINT"
+            -cameraShakeVisualUntrackedFingerprint "$CAMERA_SHAKE_VISUAL_UNTRACKED_FINGERPRINT"
         )
     fi
 
@@ -3789,7 +3814,14 @@ validate_camera_shake_visual_evidence() {
     python3 - \
         "$output_directory" \
         "$CAMERA_SHAKE_VISUAL_WIDTH" \
-        "$CAMERA_SHAKE_VISUAL_HEIGHT" <<'PY'
+        "$CAMERA_SHAKE_VISUAL_HEIGHT" \
+        "$CAMERA_SHAKE_VISUAL_REPOSITORY" \
+        "$CAMERA_SHAKE_VISUAL_WORKTREE" \
+        "$CAMERA_SHAKE_VISUAL_BRANCH" \
+        "$CAMERA_SHAKE_VISUAL_HEAD" \
+        "$CAMERA_SHAKE_VISUAL_TREE" \
+        "$CAMERA_SHAKE_VISUAL_TRACKED_FINGERPRINT" \
+        "$CAMERA_SHAKE_VISUAL_UNTRACKED_FINGERPRINT" <<'PY'
 import hashlib
 import json
 import math
@@ -3800,6 +3832,11 @@ import sys
 root = pathlib.Path(sys.argv[1]).resolve()
 expected_width = int(sys.argv[2])
 expected_height = int(sys.argv[3])
+expected_revision = dict(zip(
+    ("repository", "worktree", "branch", "head", "tree",
+     "trackedFingerprint", "untrackedFingerprint"),
+    sys.argv[4:11],
+))
 manifest_path = root / "manifest.json"
 if not manifest_path.is_file():
     raise SystemExit(f"ERROR: Camera Shake visual manifest is missing: {manifest_path}")
@@ -3814,6 +3851,13 @@ required_text = (
 missing_metadata = [name for name in required_text if not str(document.get(name, "")).strip()]
 if missing_metadata:
     raise SystemExit(f"ERROR: Camera Shake visual manifest metadata missing: {missing_metadata}")
+revision_mismatch = {
+    name: (document.get(name), expected)
+    for name, expected in expected_revision.items()
+    if document.get(name) != expected
+}
+if revision_mismatch:
+    raise SystemExit(f"ERROR: Camera Shake visual manifest revision mismatch: {revision_mismatch}")
 if document["graphicsApi"] == "Null" or document["graphicsDevice"] == "Null Device":
     raise SystemExit("ERROR: Camera Shake visual lane used a null graphics device.")
 resolution = document.get("resolution") or {}
@@ -3957,6 +4001,7 @@ run_camera_shake_visual() {
     timestamp_slug="$(date -u +%Y%m%dT%H%M%SZ)"
     CAMERA_SHAKE_VISUAL_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     CAMERA_SHAKE_VISUAL_OUTPUT_DIR="$CAMERA_SHAKE_VISUAL_OUTPUT_ROOT/camera-shake-m3b-visual-$timestamp_slug"
+    prepare_camera_shake_visual_revision_metadata
     unity_log="$CAMERA_SHAKE_VISUAL_OUTPUT_DIR/tests/camera-shake-visual-playmode.log"
     unity_xml="$CAMERA_SHAKE_VISUAL_OUTPUT_DIR/tests/camera-shake-visual-playmode.xml"
     TEST_FILTER="$CAMERA_SHAKE_VISUAL_FILTER"
@@ -4008,6 +4053,7 @@ run_camera_shake_hud_visual() {
     test_results="$output_dir/tests/camera-shake-hud-visual-playmode.xml"
     CAMERA_SHAKE_VISUAL_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     CAMERA_SHAKE_VISUAL_OUTPUT_DIR="$output_dir"
+    prepare_camera_shake_visual_revision_metadata
     TEST_FILTER="$CAMERA_SHAKE_HUD_VISUAL_FILTER"
     UNITY_GRAPHICS=1
 
@@ -4042,18 +4088,52 @@ run_camera_shake_hud_visual() {
         return 0
     fi
 
-    python3 - "$output_dir/hud" <<'PY'
+    python3 - \
+        "$output_dir/hud" \
+        "$CAMERA_SHAKE_VISUAL_REPOSITORY" \
+        "$CAMERA_SHAKE_VISUAL_WORKTREE" \
+        "$CAMERA_SHAKE_VISUAL_BRANCH" \
+        "$CAMERA_SHAKE_VISUAL_HEAD" \
+        "$CAMERA_SHAKE_VISUAL_TREE" \
+        "$CAMERA_SHAKE_VISUAL_TRACKED_FINGERPRINT" \
+        "$CAMERA_SHAKE_VISUAL_UNTRACKED_FINGERPRINT" <<'PY'
 import hashlib
 import json
 import pathlib
+import re
 import struct
 import sys
 
 root = pathlib.Path(sys.argv[1]).resolve()
+expected_revision = dict(zip(
+    ("repository", "worktree", "branch", "head", "tree",
+     "trackedFingerprint", "untrackedFingerprint"),
+    sys.argv[2:9],
+))
 manifest_path = root / "manifest.json"
 if not manifest_path.is_file():
     raise SystemExit(f"ERROR: Camera Shake HUD manifest missing: {manifest_path}")
 document = json.loads(manifest_path.read_text(encoding="utf-8"))
+missing_revision = [
+    name for name in expected_revision
+    if not str(document.get(name, "")).strip()
+]
+if missing_revision:
+    raise SystemExit(f"ERROR: Camera Shake HUD revision metadata missing: {missing_revision}")
+if not re.fullmatch(r"[0-9a-f]{40}", document["head"]):
+    raise SystemExit("ERROR: Camera Shake HUD head metadata is not a full Git SHA.")
+if not re.fullmatch(r"[0-9a-f]{40}", document["tree"]):
+    raise SystemExit("ERROR: Camera Shake HUD tree metadata is not a full Git SHA.")
+for name in ("trackedFingerprint", "untrackedFingerprint"):
+    if not re.fullmatch(r"[0-9a-f]{64}", document[name]):
+        raise SystemExit(f"ERROR: Camera Shake HUD {name} is not a SHA-256 hash.")
+revision_mismatch = {
+    name: (document.get(name), expected)
+    for name, expected in expected_revision.items()
+    if document.get(name) != expected
+}
+if revision_mismatch:
+    raise SystemExit(f"ERROR: Camera Shake HUD revision mismatch: {revision_mismatch}")
 frames = document.get("frames") or []
 if len(frames) != 3:
     raise SystemExit(f"ERROR: Expected 3 HUD frames, found {len(frames)}.")

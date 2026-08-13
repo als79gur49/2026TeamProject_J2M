@@ -15,6 +15,19 @@ namespace Game.Feature.Gameplay.Tests.Support.Unity
     }
 
     [Serializable]
+    public sealed class VisualEvidenceRevisionMetadata
+    {
+        public string timestamp;
+        public string repository;
+        public string worktree;
+        public string branch;
+        public string head;
+        public string tree;
+        public string trackedFingerprint;
+        public string untrackedFingerprint;
+    }
+
+    [Serializable]
     public sealed class VisualEvidenceManifestDocument
     {
         public int schemaVersion = 1;

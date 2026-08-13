@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Tests.Support.Unity;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
 using UnityEditor;
@@ -523,8 +524,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             string hudOutput,
             IEnumerable<CameraShakeHudFrameRecord> records)
         {
+            var revisionJson = JsonUtility.ToJson(
+                ReadCameraShakeVisualRevisionMetadata(),
+                prettyPrint: true).TrimEnd();
             var builder = new StringBuilder();
-            builder.AppendLine("{");
+            builder.Append(revisionJson, 0, revisionJson.Length - 1);
+            builder.AppendLine(",");
             builder.AppendLine("  \"captureMethod\": \"Camera.Render RenderTexture with production HUD evidence composition\",");
             builder.AppendLine("  \"runtimeCanvasContract\": \"ScreenSpaceOverlay before and after every capture\",");
             builder.AppendLine($"  \"hudPrefab\": \"{CameraShakeHudPrefabPath}\",");

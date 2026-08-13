@@ -521,18 +521,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
                 typeof(CinemachineCamera).Assembly);
+            var revision = ReadCameraShakeVisualRevisionMetadata();
             return new VisualEvidenceManifestDocument
             {
-                timestamp = ReadCameraShakeVisualArgument("-cameraShakeVisualTimestamp"),
-                repository = ReadCameraShakeVisualArgument("-cameraShakeVisualRepository"),
-                worktree = ReadCameraShakeVisualArgument("-cameraShakeVisualWorktree"),
-                branch = ReadCameraShakeVisualArgument("-cameraShakeVisualBranch"),
-                head = ReadCameraShakeVisualArgument("-cameraShakeVisualHead"),
-                tree = ReadCameraShakeVisualArgument("-cameraShakeVisualTree"),
-                trackedFingerprint = ReadCameraShakeVisualArgument(
-                    "-cameraShakeVisualTrackedFingerprint"),
-                untrackedFingerprint = ReadCameraShakeVisualArgument(
-                    "-cameraShakeVisualUntrackedFingerprint"),
+                timestamp = revision.timestamp,
+                repository = revision.repository,
+                worktree = revision.worktree,
+                branch = revision.branch,
+                head = revision.head,
+                tree = revision.tree,
+                trackedFingerprint = revision.trackedFingerprint,
+                untrackedFingerprint = revision.untrackedFingerprint,
                 unityVersion = Application.unityVersion,
                 cinemachineVersion = package?.version ?? "unknown",
                 graphicsApi = SystemInfo.graphicsDeviceType.ToString(),
@@ -554,6 +553,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 cameraHdr = false,
                 antiAliasing = 0,
                 hudCaptureCapability = "SECONDARY_LANE_REQUIRED",
+            };
+        }
+
+        private static VisualEvidenceRevisionMetadata ReadCameraShakeVisualRevisionMetadata()
+        {
+            return new VisualEvidenceRevisionMetadata
+            {
+                timestamp = ReadCameraShakeVisualArgument("-cameraShakeVisualTimestamp"),
+                repository = ReadCameraShakeVisualArgument("-cameraShakeVisualRepository"),
+                worktree = ReadCameraShakeVisualArgument("-cameraShakeVisualWorktree"),
+                branch = ReadCameraShakeVisualArgument("-cameraShakeVisualBranch"),
+                head = ReadCameraShakeVisualArgument("-cameraShakeVisualHead"),
+                tree = ReadCameraShakeVisualArgument("-cameraShakeVisualTree"),
+                trackedFingerprint = ReadCameraShakeVisualArgument(
+                    "-cameraShakeVisualTrackedFingerprint"),
+                untrackedFingerprint = ReadCameraShakeVisualArgument(
+                    "-cameraShakeVisualUntrackedFingerprint"),
             };
         }
 
