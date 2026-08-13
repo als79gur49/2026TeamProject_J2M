@@ -322,6 +322,100 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertMixEqual(oneStep.CurrentResult, twoSteps.CurrentResult);
         }
 
+        [TestCase(0.4f)]
+        [TestCase(0.8f)]
+        [Category("Extended")]
+        public void Mixer_FirstAdvanceCrossingLifetime_EmitsOneVisibleInteriorSampleThenExpires(float deltaSeconds)
+        {
+            var mixer = CreateMixer();
+            var request = CreateRequest(
+                CameraShakeSemantic.PushSlideLaunch,
+                CameraShakePriority.Light,
+                sourceEntityId: 3,
+                sequenceId: 8,
+                tickIndex: 13);
+
+            Assert.That(mixer.Submit(request), Is.True);
+            Assert.That(mixer.CurrentResult.LocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(mixer.CurrentResult.LocalRotation, Is.EqualTo(Quaternion.identity));
+
+            mixer.Advance(deltaSeconds);
+
+            Assert.That(mixer.CurrentResult.IsActive, Is.True);
+            Assert.That(mixer.CurrentResult.LocalPosition.sqrMagnitude, Is.GreaterThan(0.00000001f));
+            Assert.That(mixer.CurrentResult.LocalRotationDegrees.sqrMagnitude, Is.GreaterThan(0.00000001f));
+            Assert.That(mixer.ActiveImpulseCount, Is.EqualTo(1));
+
+            mixer.Advance(0f);
+
+            Assert.That(mixer.ActiveImpulseCount, Is.Zero);
+            Assert.That(mixer.CurrentResult.LocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(mixer.CurrentResult.LocalRotation, Is.EqualTo(Quaternion.identity));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Mixer_FirstSmallAdvance_PreservesEvaluatorWaveform()
+        {
+            const float deltaSeconds = 0.025f;
+            var profile = CreateProfile();
+            var mixer = CreateMixer(profile);
+            var request = CreateRequest(
+                CameraShakeSemantic.PushSlideLaunch,
+                CameraShakePriority.Light,
+                sourceEntityId: 4,
+                sequenceId: 9,
+                tickIndex: 14);
+            var entry = profile.CreateValidatedEntryMap()[request.ProfileKey];
+            var expected = new CameraShakeImpulseEvaluator().Evaluate(request, entry, deltaSeconds);
+
+            Assert.That(mixer.Submit(request), Is.True);
+            mixer.Advance(deltaSeconds);
+
+            AssertVectorApproximately(expected.LocalPosition, mixer.CurrentResult.LocalPosition);
+            AssertVectorApproximately(expected.LocalRotationDegrees, mixer.CurrentResult.LocalRotationDegrees);
+            Assert.That(mixer.ActiveImpulseCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Mixer_FirstAdvanceCrossingLifetime_ReducedUsesExistingScalingAndOffRemainsZero()
+        {
+            var profile = CreateProfile();
+            var fullMixer = CreateMixer(profile);
+            var reducedMixer = CreateMixer(profile);
+            var offMixer = CreateMixer(profile);
+            var request = CreateRequest(
+                CameraShakeSemantic.FlipFloorLanding,
+                CameraShakePriority.Medium,
+                sourceEntityId: 5,
+                sequenceId: 10,
+                tickIndex: 15);
+            reducedMixer.SetMotionLevel(CameraMotionLevel.Reduced);
+            offMixer.SetMotionLevel(CameraMotionLevel.Off);
+
+            Assert.That(fullMixer.Submit(request), Is.True);
+            Assert.That(reducedMixer.Submit(request), Is.True);
+            Assert.That(offMixer.Submit(request), Is.True);
+            fullMixer.Advance(0.4f);
+            reducedMixer.Advance(0.4f);
+            offMixer.Advance(0.4f);
+
+            AssertVectorApproximately(
+                fullMixer.CurrentResult.LocalPosition * GameplayCameraShakeMixer.ReducedPositionMultiplier,
+                reducedMixer.CurrentResult.LocalPosition);
+            AssertVectorApproximately(
+                fullMixer.CurrentResult.LocalRotationDegrees * GameplayCameraShakeMixer.ReducedRotationMultiplier,
+                reducedMixer.CurrentResult.LocalRotationDegrees);
+            Assert.That(offMixer.CurrentResult.LocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(offMixer.CurrentResult.LocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(offMixer.ActiveImpulseCount, Is.Zero);
+
+            offMixer.Advance(0f);
+            Assert.That(offMixer.ActiveImpulseCount, Is.Zero);
+            Assert.That(offMixer.CurrentResult.LocalPosition, Is.EqualTo(Vector3.zero));
+        }
+
         [Test]
         [Category("Extended")]
         public void Mixer_LightPlusLight_UsesCanonicalHalfResidualAndCaps()
@@ -708,10 +802,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Mixer_ExpiredImpulse_IsRemovedAndReturnsIdentity()
+        public void Mixer_ExpiredImpulse_AfterVisibleSampleIsRemovedAndReturnsIdentity()
         {
             var mixer = CreateMixer();
             mixer.Submit(CreateRequest(CameraShakeSemantic.PushSlideLaunch, CameraShakePriority.Light, 1, 1, 1));
+            mixer.Advance(0.1f);
             mixer.Advance(0.4f);
 
             Assert.That(mixer.ActiveImpulseCount, Is.Zero);

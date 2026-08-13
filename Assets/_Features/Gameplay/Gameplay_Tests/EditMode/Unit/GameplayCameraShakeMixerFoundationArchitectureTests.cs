@@ -339,6 +339,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ProductionProfile_AllRequiredImpulses_FirstLifetimeCrossingProducesVisibleSampleThenExpires()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<GameplayCameraShakeProfile>(ProductionProfilePath);
+            Assert.That(profile, Is.Not.Null);
+            var entries = profile.CreateValidatedEntryMap()
+                .OrderBy(pair => pair.Key.Semantic)
+                .ThenBy(pair => pair.Key.Variant)
+                .ToArray();
+
+            Assert.That(entries, Has.Length.EqualTo(8));
+            for (var index = 0; index < entries.Length; index++)
+            {
+                var key = entries[index].Key;
+                var entry = entries[index].Value;
+                var mixer = new GameplayCameraShakeMixer();
+                mixer.ConfigureProfile(profile);
+                var request = new CameraShakeImpulseRequest(
+                    tickIndex: 100 + index,
+                    semantic: key.Semantic,
+                    sourceEntityId: 200 + index,
+                    sequenceOrActionPlanId: 300 + index,
+                    priority: entry.Priority,
+                    variant: key.Variant);
+
+                Assert.That(entry.DurationSeconds, Is.GreaterThan(0f), key.ToString());
+                Assert.That(entry.AttackSeconds, Is.GreaterThan(0f), key.ToString());
+                Assert.That(mixer.Submit(request), Is.True, key.ToString());
+                Assert.That(mixer.CurrentResult.LocalPosition, Is.EqualTo(Vector3.zero), key.ToString());
+
+                mixer.Advance(entry.DurationSeconds);
+
+                Assert.That(mixer.CurrentResult.IsActive, Is.True, key.ToString());
+                Assert.That(
+                    mixer.CurrentResult.LocalPosition.sqrMagnitude +
+                    mixer.CurrentResult.LocalRotationDegrees.sqrMagnitude,
+                    Is.GreaterThan(0.00000001f),
+                    key.ToString());
+                Assert.That(mixer.ActiveImpulseCount, Is.EqualTo(1), key.ToString());
+
+                mixer.Advance(0f);
+
+                Assert.That(mixer.ActiveImpulseCount, Is.Zero, key.ToString());
+                Assert.That(mixer.CurrentResult.LocalPosition, Is.EqualTo(Vector3.zero), key.ToString());
+                Assert.That(mixer.CurrentResult.LocalRotation, Is.EqualTo(Quaternion.identity), key.ToString());
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void HeavyEnemyLandingEligibility_IsExplicitOnAstretonAndMissingAuthoringDefaultsToNone()
         {
             var astreton = AssetDatabase.LoadAssetAtPath<GameObject>(AstretonPrefabPath);

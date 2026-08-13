@@ -21,6 +21,8 @@ namespace Game.Feature.Gameplay.Host
             public CameraShakeImpulseRequest Request;
             public CameraShakeProfileEntry ProfileEntry;
             public double ElapsedSeconds;
+            public bool HasProducedVisibleSample;
+            public bool ExpireAfterCurrentSample;
         }
 
         private readonly List<ActiveImpulse> _activeImpulses = new();
@@ -124,11 +126,27 @@ namespace Game.Feature.Gameplay.Host
             for (var index = _activeImpulses.Count - 1; index >= 0; index--)
             {
                 var active = _activeImpulses[index];
-                active.ElapsedSeconds += deltaSeconds;
-                if (active.ElapsedSeconds >= active.ProfileEntry.DurationSeconds)
+                if (active.ExpireAfterCurrentSample)
                 {
                     _activeImpulses.RemoveAt(index);
+                    continue;
                 }
+
+                var elapsedCandidate = active.ElapsedSeconds + deltaSeconds;
+                if (elapsedCandidate < active.ProfileEntry.DurationSeconds)
+                {
+                    active.ElapsedSeconds = elapsedCandidate;
+                    continue;
+                }
+
+                if (active.HasProducedVisibleSample || _motionLevel == CameraMotionLevel.Off)
+                {
+                    _activeImpulses.RemoveAt(index);
+                    continue;
+                }
+
+                active.ElapsedSeconds = ResolveRepresentativeSampleTime(active.ProfileEntry);
+                active.ExpireAfterCurrentSample = true;
             }
 
             RecomputeCurrentResult();
@@ -258,6 +276,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                if (HasVisibleMagnitude(contribution))
+                {
+                    active.HasProducedVisibleSample = true;
+                }
+
                 var weight = 1f;
                 if (hasActiveContribution)
                 {
@@ -278,6 +301,23 @@ namespace Game.Feature.Gameplay.Host
                 position,
                 rotationDegrees,
                 hasActiveContribution);
+        }
+
+        private static double ResolveRepresentativeSampleTime(CameraShakeProfileEntry profileEntry)
+        {
+            if (profileEntry.AttackSeconds > 0f &&
+                profileEntry.AttackSeconds < profileEntry.DurationSeconds)
+            {
+                return profileEntry.AttackSeconds;
+            }
+
+            return profileEntry.DurationSeconds * 0.5;
+        }
+
+        private static bool HasVisibleMagnitude(in CameraShakeContribution contribution)
+        {
+            return contribution.LocalPosition.sqrMagnitude > ZeroEpsilon ||
+                   contribution.LocalRotationDegrees.sqrMagnitude > ZeroEpsilon;
         }
 
         private CameraShakeMixResult CreateCappedResult(
