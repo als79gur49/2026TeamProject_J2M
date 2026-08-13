@@ -33,6 +33,14 @@ TERMINAL_IRIS_QUALITY_OUTPUT_DIR=""
 TERMINAL_IRIS_QUALITY_PHASE="after"
 TERMINAL_IRIS_EVIDENCE_BUNDLE_ID="${TERMINAL_IRIS_EVIDENCE_BUNDLE_ID:-}"
 TERMINAL_IRIS_EVIDENCE_RUN_ID="${TERMINAL_IRIS_EVIDENCE_RUN_ID:-}"
+CAMERA_SHAKE_VISUAL_OUTPUT_DIR="${CAMERA_SHAKE_VISUAL_OUTPUT_DIR:-}"
+CAMERA_SHAKE_VISUAL_TIMESTAMP="${CAMERA_SHAKE_VISUAL_TIMESTAMP:-}"
+CAMERA_SHAKE_VISUAL_OUTPUT_ROOT="${CAMERA_SHAKE_VISUAL_OUTPUT_ROOT:-/mnt/d/J2M/evidence}"
+CAMERA_SHAKE_VISUAL_WIDTH=1280
+CAMERA_SHAKE_VISUAL_HEIGHT=720
+CAMERA_SHAKE_VISUAL_FILTER="CameraShakeM3BVisualEvidence_HeavyLandingFullReducedOffWriteValidatedManifest"
+CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT="${CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT:-/mnt/d/J2M/evidence}"
+CAMERA_SHAKE_HUD_VISUAL_FILTER="CameraShakeM3AHudVisualEvidence_LethalFullKeepsOverlayStableThroughTerminalReset"
 VISUAL_GUARD_BASELINE_ROOT=""
 VISUAL_GUARD_MUTATION_EVIDENCE=""
 VISUAL_GUARD_LIFECYCLE_EVIDENCE=""
@@ -1180,7 +1188,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|camera-shake-visual|camera-shake-hud-visual|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -3631,6 +3639,8 @@ run_unity_stage_unguarded() {
     local allow_empty=0
     local total_tests
     local process_before
+    local camera_shake_visual_tracked_fingerprint
+    local camera_shake_visual_untracked_fingerprint
     local -a unity_command
 
     log_path_win="$(wslpath -w "$log_path")"
@@ -3672,6 +3682,29 @@ run_unity_stage_unguarded() {
     if [ -n "$TERMINAL_IRIS_EVIDENCE_RUN_ID" ]; then
         unity_command+=(
             -terminalIrisEvidenceRunId "$TERMINAL_IRIS_EVIDENCE_RUN_ID"
+        )
+    fi
+    if [ -n "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR" ]; then
+        camera_shake_visual_tracked_fingerprint="$(
+            git diff --binary | sha256sum | awk '{print $1}'
+        )"
+        camera_shake_visual_untracked_fingerprint="$(
+            git ls-files --others --exclude-standard -z |
+                sort -z |
+                xargs -0 -r sha256sum |
+                sha256sum |
+                awk '{print $1}'
+        )"
+        unity_command+=(
+            -cameraShakeVisualOutput "$(wslpath -w "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR")"
+            -cameraShakeVisualTimestamp "${CAMERA_SHAKE_VISUAL_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+            -cameraShakeVisualRepository "J2M"
+            -cameraShakeVisualWorktree "$PROJECT_PATH_WSL"
+            -cameraShakeVisualBranch "$(git branch --show-current)"
+            -cameraShakeVisualHead "$(git rev-parse HEAD)"
+            -cameraShakeVisualTree "$(git rev-parse 'HEAD^{tree}')"
+            -cameraShakeVisualTrackedFingerprint "$camera_shake_visual_tracked_fingerprint"
+            -cameraShakeVisualUntrackedFingerprint "$camera_shake_visual_untracked_fingerprint"
         )
     fi
 
@@ -3748,6 +3781,354 @@ run_unity_stage() {
         "$log_path" \
         run_unity_stage_unguarded \
         "$@"
+}
+
+validate_camera_shake_visual_evidence() {
+    local output_directory="$1"
+
+    python3 - \
+        "$output_directory" \
+        "$CAMERA_SHAKE_VISUAL_WIDTH" \
+        "$CAMERA_SHAKE_VISUAL_HEIGHT" <<'PY'
+import hashlib
+import json
+import math
+import pathlib
+import struct
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+expected_width = int(sys.argv[2])
+expected_height = int(sys.argv[3])
+manifest_path = root / "manifest.json"
+if not manifest_path.is_file():
+    raise SystemExit(f"ERROR: Camera Shake visual manifest is missing: {manifest_path}")
+
+document = json.loads(manifest_path.read_text(encoding="utf-8"))
+required_text = (
+    "timestamp", "repository", "worktree", "branch", "head", "tree",
+    "trackedFingerprint", "untrackedFingerprint", "unityVersion",
+    "cinemachineVersion", "graphicsApi", "graphicsDevice", "renderPipeline",
+    "captureBackend", "profilePath", "profileGuid", "colorFormat", "colorSpace",
+)
+missing_metadata = [name for name in required_text if not str(document.get(name, "")).strip()]
+if missing_metadata:
+    raise SystemExit(f"ERROR: Camera Shake visual manifest metadata missing: {missing_metadata}")
+if document["graphicsApi"] == "Null" or document["graphicsDevice"] == "Null Device":
+    raise SystemExit("ERROR: Camera Shake visual lane used a null graphics device.")
+resolution = document.get("resolution") or {}
+if (resolution.get("width"), resolution.get("height")) != (expected_width, expected_height):
+    raise SystemExit(f"ERROR: Unexpected manifest resolution: {resolution}")
+if document.get("hudCaptureCapability") != "SECONDARY_LANE_REQUIRED":
+    raise SystemExit("ERROR: HUD capture capability must remain explicitly separated.")
+
+scenario_markers = {
+    "heavyenemyjumplanding-full": ("PreLanding", "Landing", "Peak", "Decay", "Rest"),
+    "heavyenemyjumplanding-reduced": ("PreLanding", "Landing", "Peak", "Decay", "Rest"),
+    "heavyenemyjumplanding-off": ("PreLanding", "Landing", "Peak", "Decay", "Rest"),
+}
+frames = document.get("frames") or []
+if len(frames) != 15:
+    raise SystemExit(f"ERROR: Expected 15 manifest frames, found {len(frames)}.")
+
+referenced_paths = set()
+by_scenario = {name: [] for name in scenario_markers}
+for frame in frames:
+    scenario_key = f"{frame.get('scenario', '').lower()}-{frame.get('cameraMotionLevel', '').lower()}"
+    if scenario_key not in by_scenario:
+        raise SystemExit(f"ERROR: Unexpected scenario/motion level: {scenario_key}")
+    by_scenario[scenario_key].append(frame)
+    relative_text = str(frame.get("pngPath", ""))
+    if not relative_text or relative_text in referenced_paths:
+        raise SystemExit(f"ERROR: Empty or duplicate PNG path: {relative_text!r}")
+    referenced_paths.add(relative_text)
+    candidate = (root / relative_text).resolve()
+    if root != candidate and root not in candidate.parents:
+        raise SystemExit(f"ERROR: PNG path escapes evidence root: {relative_text}")
+    payload = candidate.read_bytes()
+    if len(payload) < 64 or payload[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"ERROR: Invalid or empty PNG: {relative_text}")
+    width, height = struct.unpack(">II", payload[16:24])
+    if (width, height) != (expected_width, expected_height):
+        raise SystemExit(f"ERROR: PNG dimensions mismatch: {relative_text} {width}x{height}")
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != frame.get("sha256") or len(payload) != frame.get("pngBytes"):
+        raise SystemExit(f"ERROR: PNG provenance mismatch: {relative_text}")
+    if frame.get("width") != width or frame.get("height") != height:
+        raise SystemExit(f"ERROR: Frame dimension metadata mismatch: {relative_text}")
+    finite_fields = (
+        "presentationTime", "normalizedProgress", "contactNormalized",
+        "pixelVariance", "additivePositionMagnitude", "additiveRotationDegrees",
+    )
+    if any(not math.isfinite(float(frame.get(name, float("nan")))) for name in finite_fields):
+        raise SystemExit(f"ERROR: Non-finite frame metadata: {relative_text}")
+    if float(frame["pixelVariance"]) <= 0:
+        raise SystemExit(f"ERROR: Empty/constant rendered frame: {relative_text}")
+
+for scenario_key, expected_markers in scenario_markers.items():
+    selected = sorted(by_scenario[scenario_key], key=lambda value: value["frameIndex"])
+    actual_markers = tuple(value["frameName"] for value in selected)
+    if actual_markers != expected_markers:
+        raise SystemExit(
+            f"ERROR: Canonical frame inventory mismatch for {scenario_key}: {actual_markers}"
+        )
+    if [value["frameIndex"] for value in selected] != list(range(len(expected_markers))):
+        raise SystemExit(f"ERROR: Frame indices are not canonical for {scenario_key}.")
+
+scenario = "heavyenemyjumplanding"
+reference = sorted(by_scenario[f"{scenario}-off"], key=lambda value: value["frameIndex"])
+for level in ("full", "reduced"):
+    candidate = sorted(
+        by_scenario[f"{scenario}-{level}"],
+        key=lambda value: value["frameIndex"],
+    )
+    for expected, actual in zip(reference, candidate):
+        exact_fields = ("frameName", "tickIndex", "boxEntityId", "sourceActionPlanId")
+        if any(actual[name] != expected[name] for name in exact_fields):
+            raise SystemExit(
+                f"ERROR: Timeline identity differs for {scenario}-{level} "
+                f"frame {actual['frameName']}."
+            )
+        numeric_fields = ("presentationTime", "normalizedProgress", "contactNormalized")
+        if any(abs(float(actual[name]) - float(expected[name])) > 1e-7 for name in numeric_fields):
+            raise SystemExit(
+                f"ERROR: Timeline state differs for {scenario}-{level} "
+                f"frame {actual['frameName']}."
+            )
+
+png_paths = {
+    path.relative_to(root).as_posix()
+    for path in root.rglob("*.png")
+}
+orphans = png_paths - referenced_paths
+missing = referenced_paths - png_paths
+if orphans or missing:
+    raise SystemExit(f"ERROR: PNG inventory mismatch: orphans={sorted(orphans)} missing={sorted(missing)}")
+
+scenario = "HeavyEnemyJumpLanding"
+peaks = {
+    frame["cameraMotionLevel"]: frame
+    for frame in frames
+    if frame["scenario"] == scenario and frame["frameName"] == "Peak"
+}
+if set(peaks) != {"Full", "Reduced", "Off"}:
+    raise SystemExit(f"ERROR: Peak inventory incomplete for {scenario}.")
+full = float(peaks["Full"]["additivePositionMagnitude"])
+reduced = float(peaks["Reduced"]["additivePositionMagnitude"])
+off = float(peaks["Off"]["additivePositionMagnitude"])
+if not full > reduced > 0 or abs(off) > 1e-7:
+    raise SystemExit(
+        f"ERROR: Motion level numeric sanity failed for {scenario}: "
+        f"Full={full} Reduced={reduced} Off={off}"
+    )
+if peaks["Full"]["sha256"] == peaks["Off"]["sha256"]:
+    raise SystemExit(f"ERROR: Full and Off peak pixels are identical for {scenario}.")
+full_pre = next(
+    frame for frame in frames
+    if frame["scenario"] == scenario
+    and frame["cameraMotionLevel"] == "Full"
+    and frame["frameName"] == "PreLanding"
+)
+if peaks["Full"]["sha256"] == full_pre["sha256"]:
+    raise SystemExit(f"ERROR: Full pre-landing and peak pixels are identical for {scenario}.")
+for level in ("Full", "Reduced", "Off"):
+    rest = next(
+        frame for frame in frames
+        if frame["scenario"] == scenario
+        and frame["cameraMotionLevel"] == level
+        and frame["frameName"] == "Rest"
+    )
+    if abs(float(rest["additivePositionMagnitude"])) > 1e-7:
+        raise SystemExit(f"ERROR: {level} heavy landing retains camera contribution at rest.")
+
+print("Camera Shake visual artifact validation: PASS")
+print(f"  manifest:  {manifest_path}")
+print(f"  scenarios: {len(scenario_markers)}")
+print(f"  PNG files: {len(png_paths)}")
+print(f"  resolution: {expected_width}x{expected_height}")
+PY
+}
+
+run_camera_shake_visual() {
+    local timestamp_slug
+    local unity_log
+    local unity_xml
+
+    timestamp_slug="$(date -u +%Y%m%dT%H%M%SZ)"
+    CAMERA_SHAKE_VISUAL_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    CAMERA_SHAKE_VISUAL_OUTPUT_DIR="$CAMERA_SHAKE_VISUAL_OUTPUT_ROOT/camera-shake-m3b-visual-$timestamp_slug"
+    unity_log="$CAMERA_SHAKE_VISUAL_OUTPUT_DIR/tests/camera-shake-visual-playmode.log"
+    unity_xml="$CAMERA_SHAKE_VISUAL_OUTPUT_DIR/tests/camera-shake-visual-playmode.xml"
+    TEST_FILTER="$CAMERA_SHAKE_VISUAL_FILTER"
+    UNITY_GRAPHICS=1
+
+    echo "Camera Shake visual evidence plan:"
+    echo "  output:     $CAMERA_SHAKE_VISUAL_OUTPUT_DIR"
+    echo "  resolution: ${CAMERA_SHAKE_VISUAL_WIDTH}x${CAMERA_SHAKE_VISUAL_HEIGHT}"
+    echo "  scenarios:  HeavyEnemyJumpLanding x Full/Reduced/Off"
+    echo "  HUD:        secondary full-frame lane required"
+
+    if [ "$DRY_RUN" -eq 0 ]; then
+        mkdir -p "$CAMERA_SHAKE_VISUAL_OUTPUT_ROOT"
+        if ! mkdir "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR"; then
+            echo "ERROR: Camera Shake visual output directory already exists; refusing to overwrite:"
+            echo "  $CAMERA_SHAKE_VISUAL_OUTPUT_DIR"
+            return 1
+        fi
+        mkdir "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR/tests"
+    fi
+
+    run_unity_stage \
+        "full" \
+        "camera-shake-visual-playmode" \
+        "Camera Shake visual evidence (graphics PlayMode)" \
+        "PlayMode" \
+        "$unity_log" \
+        "$unity_xml" \
+        "TestRunnerCliBootstrap.RunPlayMode" \
+        "Game.Feature.Gameplay.PlayModeTests" \
+        "Full"
+
+    if [ "$DRY_RUN" -eq 0 ]; then
+        validate_camera_shake_visual_evidence "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR"
+        echo "Camera Shake visual evidence lane: PASS"
+        echo "  evidence root: $CAMERA_SHAKE_VISUAL_OUTPUT_DIR"
+    fi
+}
+
+run_camera_shake_hud_visual() {
+    local timestamp_slug
+    local output_dir
+    local output_dir_win
+    local unity_log
+    local unity_log_win
+    local test_results
+    local test_results_win
+    local process_before
+    local unity_exit=0
+    local -a unity_command
+
+    timestamp_slug="$(date -u +%Y%m%dT%H%M%SZ)"
+    output_dir="$CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT/camera-shake-m3a-hud-visual-$timestamp_slug"
+    unity_log="$output_dir/tests/camera-shake-hud-visual-playmode.log"
+    test_results="$output_dir/tests/camera-shake-hud-visual-playmode.xml"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    unity_log_win="$(wslpath -w "$unity_log")"
+    test_results_win="$(wslpath -w "$test_results")"
+    unity_command=(
+        timeout --kill-after=10 600
+        "$UNITY_PATH"
+        -batchmode
+        -projectPath "$PROJECT_PATH_WIN"
+        -logFile "$unity_log_win"
+        -runTests
+        -testPlatform PlayMode
+        -testFilter "$CAMERA_SHAKE_HUD_VISUAL_FILTER"
+        -testResults "$test_results_win"
+        -cameraShakeVisualOutput "$output_dir_win"
+    )
+
+    echo "Camera Shake HUD secondary visual evidence plan:"
+    echo "  output:     $output_dir"
+    echo "  scenarios:  PlayerLethal Full"
+    echo "  markers:    pre / peak / rest"
+    echo "  capture:    Camera.Render evidence composition; ScreenSpaceOverlay contract asserted"
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        print_shell_command "${unity_command[@]}"
+        return 0
+    fi
+
+    mkdir -p "$CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT"
+    mkdir "$output_dir"
+    mkdir "$output_dir/tests"
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    process_before="$(find_current_project_unity_processes)"
+    if "${unity_command[@]}"; then
+        unity_exit=0
+    else
+        unity_exit=$?
+    fi
+
+    if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
+        capture_unity_timeout_artifacts \
+            "camera-shake-hud-visual" \
+            "$unity_log" \
+            "$output_dir/hud/manifest.json" \
+            "$unity_exit" \
+            "$process_before" || true
+    fi
+    if [ "$unity_exit" -ne 0 ]; then
+        echo "ERROR: Camera Shake HUD visual capture failed with exit code $unity_exit."
+        echo "Diagnostics were preserved in: $output_dir"
+        return "$unity_exit"
+    fi
+    if ! assert_no_generated_test_scenes; then
+        cleanup_generated_test_scenes
+        if ! assert_no_generated_test_scenes; then
+            return 1
+        fi
+        echo "Camera Shake HUD lane cleaned Unity Test Framework InitTestScene artifacts."
+    fi
+
+    python3 - "$output_dir/hud" <<'PY'
+import hashlib
+import json
+import pathlib
+import struct
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+manifest_path = root / "manifest.json"
+if not manifest_path.is_file():
+    raise SystemExit(f"ERROR: Camera Shake HUD manifest missing: {manifest_path}")
+document = json.loads(manifest_path.read_text(encoding="utf-8"))
+frames = document.get("frames") or []
+if len(frames) != 3:
+    raise SystemExit(f"ERROR: Expected 3 HUD frames, found {len(frames)}.")
+expected = {
+    ("PlayerLethal", "PreHit"),
+    ("PlayerLethal", "Peak"),
+    ("PlayerLethal", "Rest"),
+}
+actual = {(frame.get("scenario"), frame.get("marker")) for frame in frames}
+if actual != expected:
+    raise SystemExit(f"ERROR: HUD marker inventory mismatch: {sorted(actual)}")
+
+for frame in frames:
+    path = root / frame["pngPath"]
+    payload = path.read_bytes()
+    if payload[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"ERROR: Invalid HUD PNG: {path}")
+    width, height = struct.unpack(">II", payload[16:24])
+    if width != frame["width"] or height != frame["height"]:
+        raise SystemExit(f"ERROR: HUD PNG dimensions mismatch: {path}")
+    if hashlib.sha256(payload).hexdigest() != frame["sha256"]:
+        raise SystemExit(f"ERROR: HUD PNG SHA-256 mismatch: {path}")
+
+for scenario in ("PlayerLethal",):
+    selected = [frame for frame in frames if frame["scenario"] == scenario]
+    pre = next(frame for frame in selected if frame["marker"].startswith("Pre"))
+    peak = next(frame for frame in selected if frame["marker"] == "Peak")
+    rest = next(frame for frame in selected if frame["marker"] == "Rest")
+    for key in ("hudRoot", "notification", "pauseControl"):
+        dx = abs(float(peak[key]["x"]) - float(pre[key]["x"]))
+        dy = abs(float(peak[key]["y"]) - float(pre[key]["y"]))
+        if dx >= 0.05 or dy >= 0.05:
+            raise SystemExit(f"ERROR: {scenario} {key} moved in screen space: dx={dx} dy={dy}")
+    if float(peak["additivePositionMagnitude"]) <= 0:
+        raise SystemExit(f"ERROR: {scenario} peak has no world camera contribution.")
+    if abs(float(rest["additivePositionMagnitude"])) > 1e-7:
+        raise SystemExit(f"ERROR: {scenario} rest retains camera contribution.")
+
+print("Camera Shake HUD secondary visual artifact validation: PASS")
+print(f"  manifest: {manifest_path}")
+print(f"  frames:   {len(frames)}")
+PY
+
+    echo "Camera Shake HUD secondary visual evidence lane: PASS"
+    echo "  evidence root: $output_dir"
 }
 
 run_dotnet_core() {
@@ -6969,6 +7350,8 @@ parse_arguments() {
     done
 
     if { [ "$RUN_MODE" = "climate-glyph-update" ] ||
+         [ "$RUN_MODE" = "camera-shake-visual" ] ||
+         [ "$RUN_MODE" = "camera-shake-hud-visual" ] ||
          [ "$RUN_MODE" = "typography-visual" ] ||
          [ "$RUN_MODE" = "typography-hud-visual" ] ||
          [ "$RUN_MODE" = "typography-hud-guide-visual" ] ||
@@ -7109,7 +7492,12 @@ main() {
             verify_climate_committed_source_integrity
             verify_climate_worktree_source_integrity
         fi
-        if [ "$mode" = "climate-glyph-update" ] ||
+        if [ "$mode" = "camera-shake-visual" ] ||
+           [ "$mode" = "camera-shake-hud-visual" ]; then
+            require_command git
+            require_command sha256sum
+            ensure_result_dirs
+        elif [ "$mode" = "climate-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
            [ "$mode" = "typography-hud-guide-visual" ] ||
@@ -7128,7 +7516,9 @@ main() {
             run_action_plan_correlation_check
         fi
     else
-        if [ "$mode" = "climate-glyph-update" ] ||
+        if [ "$mode" = "camera-shake-visual" ] ||
+           [ "$mode" = "camera-shake-hud-visual" ] ||
+           [ "$mode" = "climate-glyph-update" ] ||
            [ "$mode" = "typography-visual" ] ||
            [ "$mode" = "typography-hud-visual" ] ||
            [ "$mode" = "typography-hud-guide-visual" ] ||
@@ -7184,6 +7574,12 @@ main() {
             ;;
         core-feature-gate)
             run_dotnet_and_unity_lane "$mode" run_dotnet_core run_unity_core_feature_gate
+            ;;
+        camera-shake-visual)
+            run_camera_shake_visual
+            ;;
+        camera-shake-hud-visual)
+            run_camera_shake_hud_visual
             ;;
         ui)
             run_dotnet_and_unity_lane "$mode" run_dotnet_ui run_unity_ui
@@ -7330,6 +7726,8 @@ main() {
 
     if [ "$DRY_RUN" -eq 0 ] &&
        [ "$mode" != "climate-glyph-update" ] &&
+       [ "$mode" != "camera-shake-visual" ] &&
+       [ "$mode" != "camera-shake-hud-visual" ] &&
        [ "$mode" != "typography-visual" ] &&
        [ "$mode" != "typography-hud-visual" ] &&
        [ "$mode" != "typography-hud-guide-visual" ] &&

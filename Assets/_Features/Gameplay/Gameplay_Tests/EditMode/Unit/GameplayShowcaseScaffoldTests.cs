@@ -335,19 +335,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TopologyTransitionCameraShakeProfile = shakeProfile,
                     });
 
-                rig.ApplyTopologyTransitionVisualState(
-                    new TopologyTransitionVisualState(
-                        isActive: true,
-                        progress01: 0.12f,
-                        sourceTopology: new CubeTopologyState(FaceId.Floor),
-                        destinationTopology: new CubeTopologyState(FaceId.Front),
-                        rotationKind: CubeRotationKind.Forward,
-                        durationSeconds: 0.2f,
-                        presentedVisualRotation: Quaternion.Euler(12f, 0f, 0f),
-                        angularVelocityNormalized: 1f));
-
-                Assert.That(rig.TopologyTransitionShakeLocalPosition, Is.EqualTo(Vector3.zero));
-                Assert.That(rig.TopologyTransitionShakeLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(rig, Is.InstanceOf<IGameplayCameraAdditivePosePort>());
+                Assert.That(rig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(rig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
             }
             finally
             {

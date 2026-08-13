@@ -3814,6 +3814,66 @@
       ],
       "reason": "Locked Core representative coverage that Air player DestroyTile contacts do not kill, detach, mark, or trigger DestroyTile events.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.StayAndDestroySelf_CanonicalContactCrossing_SubmitTypedMediumExactlyOnce",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_flip_hostile_timing",
+        "camera_shake_action_plan_identity"
+      ],
+      "reason": "Locked pure-planner coverage that typed Stay and DestroySelf outcomes submit once at the canonical visible contact crossing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.Stay_LargeDeltaCanonicalContactCrossing_DoesNotMissImpact",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_flip_hostile_timing",
+        "camera_shake_crossing_semantics"
+      ],
+      "reason": "Locked pure-planner coverage that a large presentation delta cannot skip the Stay contact impulse.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.FollowThrough_InitialHostileContactDoesNotShake_FinalLandingSubmitsHeavyExactlyOnce",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_flip_hostile_timing",
+        "camera_shake_followthrough_single_impact"
+      ],
+      "reason": "Locked pure-planner coverage that FollowThrough stays silent at hostile contact and submits one Heavy impulse only at final landing.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.FollowThrough_LargeDeltaLandingCrossing_DoesNotMissOrDoubleFire",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_followthrough_single_impact",
+        "camera_shake_crossing_semantics"
+      ],
+      "reason": "Locked pure-planner coverage that a large final-landing delta submits exactly one hostile impact without ordinary landing feedback.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.SameFlipAction_MutuallyExclusiveHostileOutcomes_FailFast",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_action_plan_identity",
+        "camera_shake_flip_outcome_exclusivity"
+      ],
+      "reason": "Locked pure-planner coverage that malformed mutually exclusive Flip outcomes fail fast instead of playing multiple impacts.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayCameraShakeProductionPlannerTests.ResetBeforeHostileMilestone_CancelsPendingWithoutStaleReplay",
+      "category": "Core",
+      "contracts": [
+        "camera_shake_lifecycle_cleanup",
+        "camera_shake_flip_hostile_timing"
+      ],
+      "reason": "Locked pure-planner coverage that hard cleanup removes pending hostile milestones and prevents stale replay.",
+      "locked": true
     }
   ]
 }

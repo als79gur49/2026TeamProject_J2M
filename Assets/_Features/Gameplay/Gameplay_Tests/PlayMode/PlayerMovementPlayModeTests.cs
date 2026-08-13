@@ -15,6 +15,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Shared.Input;
 using NUnit.Framework;
 using UnityEditor;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -28,11 +29,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     // Final presentation guardrail:
     // Keep the input/tick scenarios in this file and validate them through the
     // cube projector plus board-root world transform instead of strip-space literals.
-    public sealed class PlayerMovementPlayModeTests : InputTestFixture
+    public sealed partial class PlayerMovementPlayModeTests : InputTestFixture
     {
         private const string PlayerS1PrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
         private const string TutorialPassiveContactProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
+        private const string JumpChaserProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";
+        private const string CampaignCameraShakeProfilePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Authoring/GameplayCameraShakeProfile_CampaignV1.asset";
         private const float ProjectedViewPositionTolerance = 1f / SimulationFixed.UnitsPerCell;
         private Keyboard _keyboard;
 
@@ -109,16 +114,31 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.up);
             Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
-            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.25f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.06f);
             var pausedProgress = host.Presenter.CurrentTopologyTransitionVisualState.Progress01;
+            var cameraRig = host.GetComponent<GameplayCameraRig>();
+            Assert.That(cameraRig, Is.Not.Null);
+            Assert.That(
+                cameraRig.AdditiveLocalPosition.sqrMagnitude > 0.000001f ||
+                Quaternion.Angle(cameraRig.AdditiveLocalRotation, Quaternion.identity) > 0.001f,
+                Is.True,
+                "The pause regression must begin from a non-zero topology camera contribution.");
 
             InvokePauseService(host, "Pause");
+            Assert.That(cameraRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(cameraRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
             host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
 
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.Progress01, Is.EqualTo(pausedProgress).Within(0.0001f));
+            Assert.That(cameraRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(cameraRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
 
             InvokePauseService(host, "Resume");
+            Assert.That(cameraRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(cameraRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
             host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
 
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
@@ -193,6 +213,411 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
             yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator TopologyTransitionCameraShake_PresenterDisableAndDestroy_ClearResidualAdditivePose()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+            SetPlayerForwardTopologyOvershootPose(host, 10);
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.06f);
+
+            var presenter = host.Presenter;
+            var cameraRig = host.GetComponent<GameplayCameraRig>();
+            var effectsRoot = host.BoardRoot.CameraEffectsRoot;
+            Assert.That(cameraRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+
+            presenter.enabled = false;
+            Assert.That(cameraRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(cameraRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(effectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(effectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+
+            presenter.enabled = true;
+            presenter.UpdatePresentation(0f);
+            Assert.That(cameraRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+
+            UnityEngine.Object.Destroy(presenter);
+            yield return null;
+            Assert.That(effectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(effectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator TopologyTransitionCameraOutput_EnabledAndNoOp_PreserveAuthoritativeResultAndDeterminismHash()
+        {
+            TickResult cameraEnabledResult;
+            var cameraEnabledHost = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+            SetPlayerForwardTopologyOvershootPose(cameraEnabledHost, 10);
+            cameraEnabledHost.InputHost.SetRawMoveInput(Vector2.up);
+            cameraEnabledResult = cameraEnabledHost.InputHost.RunSingleTick();
+            Assert.That(cameraEnabledResult, Is.Not.Null);
+            cameraEnabledHost.Presenter.UpdatePresentation(
+                cameraEnabledHost.TimingProfile.TopologyMotionDurationSeconds * 0.06f);
+            Assert.That(
+                cameraEnabledHost.GetComponent<GameplayCameraRig>().AdditiveLocalPosition.sqrMagnitude,
+                Is.GreaterThan(0.000001f));
+            yield return DestroyHost(cameraEnabledHost);
+
+            var cameraOffHost = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+            SetPlayerForwardTopologyOvershootPose(cameraOffHost, 10);
+            cameraOffHost.Presenter.SetCameraMotionLevel(CameraMotionLevel.Off);
+            cameraOffHost.InputHost.SetRawMoveInput(Vector2.up);
+            var cameraOffResult = cameraOffHost.InputHost.RunSingleTick();
+            Assert.That(cameraOffResult, Is.Not.Null);
+            cameraOffHost.Presenter.UpdatePresentation(
+                cameraOffHost.TimingProfile.TopologyMotionDurationSeconds * 0.06f);
+            Assert.That(cameraOffHost.GetComponent<GameplayCameraRig>().AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(cameraOffHost.GetComponent<GameplayCameraRig>().AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(cameraOffResult.DeterminismHash, Is.EqualTo(cameraEnabledResult.DeterminismHash));
+            Assert.That(cameraOffResult.FinalTopology, Is.EqualTo(cameraEnabledResult.FinalTopology));
+            Assert.That(cameraOffResult.FinalEntities, Is.EqualTo(cameraEnabledResult.FinalEntities));
+            Assert.That(cameraOffResult.EventLog, Is.EqualTo(cameraEnabledResult.EventLog));
+            Assert.That(cameraOffHost.TickRunner.NextTickIndex, Is.EqualTo(2));
+            yield return DestroyHost(cameraOffHost);
+
+            var noOpHost = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+            });
+            SetPlayerForwardTopologyOvershootPose(noOpHost, 10);
+            noOpHost.Presenter.AttachCameraRig(null);
+            noOpHost.InputHost.SetRawMoveInput(Vector2.up);
+            var noOpResult = noOpHost.InputHost.RunSingleTick();
+            Assert.That(noOpResult, Is.Not.Null);
+            noOpHost.Presenter.UpdatePresentation(noOpHost.TimingProfile.TopologyMotionDurationSeconds * 0.06f);
+
+            Assert.That(noOpResult.DeterminismHash, Is.EqualTo(cameraEnabledResult.DeterminismHash));
+            Assert.That(noOpResult.FinalTopology, Is.EqualTo(cameraEnabledResult.FinalTopology));
+            Assert.That(noOpResult.FinalEntities, Is.EqualTo(cameraEnabledResult.FinalEntities));
+            Assert.That(noOpResult.EventLog, Is.EqualTo(cameraEnabledResult.EventLog));
+            Assert.That(noOpHost.TickRunner.NextTickIndex, Is.EqualTo(2));
+            Assert.That(noOpHost.InputHost.RunSingleTick(), Is.Null);
+
+            yield return DestroyHost(noOpHost);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraRuntime_RigReplacement_ResetsOldBeforeAttachAndStartsNewAtIdentity()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var oldRig = host.GetComponent<GameplayCameraRig>();
+            var replacementRootObject = new GameObject("PlayModeGameplayCameraRigReplacement");
+            var replacementBoardRoot = replacementRootObject.AddComponent<GameplayBoardRoot>();
+            replacementBoardRoot.EnsureHierarchy();
+            var replacementRig = replacementRootObject.AddComponent<GameplayCameraRig>();
+            replacementRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+            replacementRig.Initialize(
+                null,
+                replacementBoardRoot.CameraTargetRoot,
+                new Bounds(Vector3.zero, Vector3.one));
+
+            var nonZeroPosition = new Vector3(0.01f, -0.02f, 0.03f);
+            var nonZeroRotation = Quaternion.Euler(1f, 2f, 3f);
+            oldRig.ApplyAdditivePose(nonZeroPosition, nonZeroRotation);
+            replacementRig.ApplyAdditivePose(nonZeroPosition, nonZeroRotation);
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(nonZeroPosition));
+            Assert.That(replacementBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(nonZeroPosition));
+
+            host.Presenter.AttachCameraRig(replacementRig);
+
+            Assert.That(oldRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(oldRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(replacementRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(replacementRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(replacementBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(replacementBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+
+            yield return DestroyHost(host);
+            UnityEngine.Object.Destroy(replacementRootObject);
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraShakeMixer_PresenterSyntheticImpulse_SettingsPauseCleanupAndActiveRigReplacement()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var profile = CreateCameraShakeTestProfile();
+            var oldRig = host.GetComponent<GameplayCameraRig>();
+            var oldEffectsRoot = host.BoardRoot.CameraEffectsRoot;
+            var replacementRootObject = new GameObject("M1PresenterSyntheticRigReplacement");
+            var replacementBoardRoot = replacementRootObject.AddComponent<GameplayBoardRoot>();
+            replacementBoardRoot.EnsureHierarchy();
+            var replacementRig = replacementRootObject.AddComponent<GameplayCameraRig>();
+            replacementRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+            replacementRig.Initialize(
+                null,
+                replacementBoardRoot.CameraTargetRoot,
+                new Bounds(Vector3.zero, Vector3.one));
+
+            try
+            {
+                host.Presenter.ConfigureGameplayCameraShakeProfile(profile);
+                Assert.That(
+                    host.Presenter.CameraShakeImpulseSink.Submit(new CameraShakeImpulseRequest(
+                        tickIndex: 1,
+                        semantic: CameraShakeSemantic.FlipFloorLanding,
+                        sourceEntityId: 10,
+                        sequenceOrActionPlanId: 100,
+                        priority: CameraShakePriority.Medium)),
+                    Is.True);
+                host.Presenter.UpdatePresentation(0.1f);
+                var fullPositionMagnitude = oldRig.AdditiveLocalPosition.magnitude;
+                var fullRotationAngle = Quaternion.Angle(oldRig.AdditiveLocalRotation, Quaternion.identity);
+                Assert.That(fullPositionMagnitude, Is.GreaterThan(0.000001f));
+                Assert.That(fullRotationAngle, Is.GreaterThan(0.001f));
+
+                host.Presenter.SetCameraMotionLevel(CameraMotionLevel.Reduced);
+                Assert.That(oldRig.AdditiveLocalPosition.magnitude, Is.LessThan(fullPositionMagnitude));
+                Assert.That(
+                    Quaternion.Angle(oldRig.AdditiveLocalRotation, Quaternion.identity),
+                    Is.LessThan(fullRotationAngle));
+                host.Presenter.SetCameraMotionLevel(CameraMotionLevel.Off);
+                Assert.That(oldRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(oldRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+                host.Presenter.SetCameraMotionLevel(CameraMotionLevel.Full);
+                Assert.That(oldRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+
+                host.Presenter.AttachCameraRig(replacementRig);
+                Assert.That(oldEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(oldEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(replacementBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(replacementBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(replacementRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+
+                host.Presenter.SetPresentationPaused(true);
+                Assert.That(replacementRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(replacementRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+                host.Presenter.SetPresentationPaused(false);
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(replacementRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(replacementRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+
+                Assert.That(
+                    host.Presenter.CameraShakeImpulseSink.Submit(new CameraShakeImpulseRequest(
+                        tickIndex: 2,
+                        semantic: CameraShakeSemantic.PlayerLethalImpact,
+                        sourceEntityId: 20,
+                        sequenceOrActionPlanId: 101,
+                        priority: CameraShakePriority.Heavy)),
+                    Is.True);
+                host.Presenter.UpdatePresentation(0.1f);
+                Assert.That(replacementRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+                host.Presenter.DebugHardCleanupPresentationExtensions();
+                Assert.That(replacementRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(replacementRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(replacementBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(replacementBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(profile);
+                UnityEngine.Object.Destroy(replacementRootObject);
+            }
+
+            yield return DestroyHost(host);
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_PushLaunch_FullReducedOffAndContinuationUseOneVisibleStart()
+        {
+            var profile = LoadCampaignCameraShakeProfile();
+            var fullHost = CreatePushCameraShakeHost();
+            var reducedHost = CreatePushCameraShakeHost();
+            var offHost = CreatePushCameraShakeHost();
+
+            var full = RunPushCameraShakeLaunch(fullHost, profile, CameraMotionLevel.Full);
+            var reduced = RunPushCameraShakeLaunch(reducedHost, profile, CameraMotionLevel.Reduced);
+            var off = RunPushCameraShakeLaunch(offHost, profile, CameraMotionLevel.Off);
+
+            Assert.That(full.StartTick.PresentationData.BoxSlideStartSignals, Is.Empty);
+            Assert.That(full.ExecuteTick.PresentationData.BoxSlideStartSignals, Has.Count.EqualTo(1));
+            Assert.That(full.ExecuteTick.PresentationData.BoxSlideStartSignals[0].BoxEntityId, Is.EqualTo(30));
+            Assert.That(full.ExecuteTick.PresentationData.BoxSlideStartSignals[0].SourceActionPlanId, Is.GreaterThan(0));
+            Assert.That(full.PeakPositionMagnitude, Is.GreaterThan(0.000001f));
+            Assert.That(full.PeakRotationMagnitude, Is.GreaterThan(0.001f));
+            Assert.That(reduced.PeakPositionMagnitude, Is.GreaterThan(0f));
+            Assert.That(reduced.PeakPositionMagnitude, Is.LessThan(full.PeakPositionMagnitude));
+            Assert.That(reduced.PeakRotationMagnitude, Is.GreaterThan(0f));
+            Assert.That(reduced.PeakRotationMagnitude, Is.LessThan(full.PeakRotationMagnitude));
+            Assert.That(off.PeakPositionMagnitude, Is.Zero.Within(0.0000001f));
+            Assert.That(off.PeakRotationMagnitude, Is.Zero.Within(0.0001f));
+
+            Assert.That(reduced.ExecuteTick.DeterminismHash, Is.EqualTo(full.ExecuteTick.DeterminismHash));
+            Assert.That(off.ExecuteTick.DeterminismHash, Is.EqualTo(full.ExecuteTick.DeterminismHash));
+            Assert.That(reduced.ExecuteTick.FinalEntities, Is.EqualTo(full.ExecuteTick.FinalEntities));
+            Assert.That(off.ExecuteTick.FinalEntities, Is.EqualTo(full.ExecuteTick.FinalEntities));
+            Assert.That(reduced.ExecuteTick.EventLog, Is.EqualTo(full.ExecuteTick.EventLog));
+            Assert.That(off.ExecuteTick.EventLog, Is.EqualTo(full.ExecuteTick.EventLog));
+            Assert.That(CaptureAuthoritativeSnapshot(reducedHost).Topology, Is.EqualTo(CaptureAuthoritativeSnapshot(fullHost).Topology));
+            Assert.That(CaptureAuthoritativeSnapshot(offHost).Topology, Is.EqualTo(CaptureAuthoritativeSnapshot(fullHost).Topology));
+            Assert.That(reducedHost.TickRunner.NextTickIndex, Is.EqualTo(fullHost.TickRunner.NextTickIndex));
+            Assert.That(offHost.TickRunner.NextTickIndex, Is.EqualTo(fullHost.TickRunner.NextTickIndex));
+
+            AssertCameraShakeReturnsToIdentity(fullHost);
+            AssertCameraShakeReturnsToIdentity(reducedHost);
+            AssertCameraShakeReturnsToIdentity(offHost);
+
+            var continuedSlideTick = fullHost.InputHost.RunSingleTick();
+            Assert.That(continuedSlideTick, Is.Not.Null);
+            Assert.That(continuedSlideTick.PresentationData.BoxSlideStartSignals, Is.Empty);
+            fullHost.Presenter.UpdatePresentation(0.025f);
+            Assert.That(fullHost.Presenter.ActiveGameplayCameraImpulseCount, Is.Zero);
+            AssertCameraShakePoseIdentity(fullHost.GetComponent<GameplayCameraRig>());
+
+            TestContext.WriteLine(
+                $"M2A Push tick={full.ExecuteTick.TickIndex} submit=visible-start " +
+                $"peakPos={full.PeakPositionMagnitude:F6} peakRot={full.PeakRotationMagnitude:F6} " +
+                $"duration=0.100000 return=0.125000");
+
+            yield return DestroyHost(fullHost);
+            yield return DestroyHost(reducedHost);
+            yield return DestroyHost(offHost);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_OrdinaryFlipLanding_CrossesCanonicalContactOnceWithSettingsAndPause()
+        {
+            var profile = LoadCampaignCameraShakeProfile();
+            var fullHost = CreateFlipCameraShakeHost();
+            var reducedHost = CreateFlipCameraShakeHost();
+            var offHost = CreateFlipCameraShakeHost();
+
+            var full = RunFlipLandingCameraShake(fullHost, profile, CameraMotionLevel.Full, pauseBeforeContact: true);
+            var reduced = RunFlipLandingCameraShake(reducedHost, profile, CameraMotionLevel.Reduced, pauseBeforeContact: false);
+            var off = RunFlipLandingCameraShake(offHost, profile, CameraMotionLevel.Off, pauseBeforeContact: false);
+
+            Assert.That(full.StartTick.PresentationData.FlipFloorImpactSignals, Is.Empty);
+            Assert.That(full.ExecuteTick.PresentationData.FlipFloorImpactSignals, Has.Count.EqualTo(1));
+            Assert.That(full.ExecuteTick.PresentationData.FlipFloorImpactSignals[0].Kind, Is.EqualTo(FlipFloorImpactPresentationKind.Landing));
+            Assert.That(
+                full.ExecuteTick.PresentationData.FlipFloorImpactSignals[0].VisualContactNormalizedTime,
+                Is.EqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime).Within(0.000001f));
+            Assert.That(full.BeforeContactWasIdentity, Is.True);
+            Assert.That(full.PeakPositionMagnitude, Is.GreaterThan(0.000001f));
+            Assert.That(full.PeakRotationMagnitude, Is.GreaterThan(0.001f));
+            Assert.That(reduced.PeakPositionMagnitude, Is.GreaterThan(0f));
+            Assert.That(reduced.PeakPositionMagnitude, Is.LessThan(full.PeakPositionMagnitude));
+            Assert.That(reduced.PeakRotationMagnitude, Is.GreaterThan(0f));
+            Assert.That(reduced.PeakRotationMagnitude, Is.LessThan(full.PeakRotationMagnitude));
+            Assert.That(off.PeakPositionMagnitude, Is.Zero.Within(0.0000001f));
+            Assert.That(off.PeakRotationMagnitude, Is.Zero.Within(0.0001f));
+
+            Assert.That(reduced.ExecuteTick.DeterminismHash, Is.EqualTo(full.ExecuteTick.DeterminismHash));
+            Assert.That(off.ExecuteTick.DeterminismHash, Is.EqualTo(full.ExecuteTick.DeterminismHash));
+            Assert.That(reduced.ExecuteTick.FinalEntities, Is.EqualTo(full.ExecuteTick.FinalEntities));
+            Assert.That(off.ExecuteTick.FinalEntities, Is.EqualTo(full.ExecuteTick.FinalEntities));
+            Assert.That(reduced.ExecuteTick.EventLog, Is.EqualTo(full.ExecuteTick.EventLog));
+            Assert.That(off.ExecuteTick.EventLog, Is.EqualTo(full.ExecuteTick.EventLog));
+            Assert.That(CaptureAuthoritativeSnapshot(reducedHost).Topology, Is.EqualTo(CaptureAuthoritativeSnapshot(fullHost).Topology));
+            Assert.That(CaptureAuthoritativeSnapshot(offHost).Topology, Is.EqualTo(CaptureAuthoritativeSnapshot(fullHost).Topology));
+            Assert.That(reducedHost.TickRunner.NextTickIndex, Is.EqualTo(fullHost.TickRunner.NextTickIndex));
+            Assert.That(offHost.TickRunner.NextTickIndex, Is.EqualTo(fullHost.TickRunner.NextTickIndex));
+            Assert.That(fullHost.Presenter.PendingFlipLandingCameraShakeCount, Is.Zero);
+            AssertCameraShakeReturnsToIdentity(fullHost);
+            AssertCameraShakeReturnsToIdentity(reducedHost);
+            AssertCameraShakeReturnsToIdentity(offHost);
+
+            TestContext.WriteLine(
+                $"M2A Flip tick={full.ExecuteTick.TickIndex} contactN={GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime:F3} " +
+                $"submitN={full.ContactCrossingNormalizedTime:F3} peakPos={full.PeakPositionMagnitude:F6} " +
+                $"peakRot={full.PeakRotationMagnitude:F6} duration=0.150000 return=0.175000");
+
+            yield return DestroyHost(fullHost);
+            yield return DestroyHost(reducedHost);
+            yield return DestroyHost(offHost);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplayCameraShakeProduction_PushAndFlip_DirectAndActualCinemachineShareFiniteLocalContributionAndReset()
+        {
+            var directPushCameraObject = new GameObject("M2A_DirectPushCamera");
+            var cinemachinePushOutputObject = new GameObject("M2A_CinemachinePushOutput");
+            var directFlipCameraObject = new GameObject("M2A_DirectFlipCamera");
+            var cinemachineFlipOutputObject = new GameObject("M2A_CinemachineFlipOutput");
+            var directPushCamera = directPushCameraObject.AddComponent<Camera>();
+            var cinemachinePushOutput = cinemachinePushOutputObject.AddComponent<Camera>();
+            var pushBrain = cinemachinePushOutputObject.AddComponent<CinemachineBrain>();
+            pushBrain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
+            var directFlipCamera = directFlipCameraObject.AddComponent<Camera>();
+            var cinemachineFlipOutput = cinemachineFlipOutputObject.AddComponent<Camera>();
+            var flipBrain = cinemachineFlipOutputObject.AddComponent<CinemachineBrain>();
+            flipBrain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
+
+            var directPushHost = CreatePushCameraShakeHost(directPushCamera);
+            var cinemachinePushHost = CreatePushCameraShakeHost(cinemachinePushOutput);
+            var directFlipHost = CreateFlipCameraShakeHost(directFlipCamera);
+            var cinemachineFlipHost = CreateFlipCameraShakeHost(cinemachineFlipOutput);
+            var pushVirtualCamera = CreateProductionCinemachineCamera(cinemachinePushHost, "M2A_PushCinemachineCamera");
+            var flipVirtualCamera = CreateProductionCinemachineCamera(cinemachineFlipHost, "M2A_FlipCinemachineCamera");
+
+            yield return null;
+            pushBrain.ManualUpdate();
+            flipBrain.ManualUpdate();
+            Assert.That(pushBrain.isActiveAndEnabled, Is.True);
+            Assert.That(flipBrain.isActiveAndEnabled, Is.True);
+            Assert.That(pushVirtualCamera.isActiveAndEnabled, Is.True);
+            Assert.That(flipVirtualCamera.isActiveAndEnabled, Is.True);
+
+            var profile = LoadCampaignCameraShakeProfile();
+            var directPush = RunPushCameraShakeLaunch(directPushHost, profile, CameraMotionLevel.Full);
+            var cinemachinePush = RunPushCameraShakeLaunch(cinemachinePushHost, profile, CameraMotionLevel.Full);
+            var directFlip = RunFlipLandingCameraShake(directFlipHost, profile, CameraMotionLevel.Full, pauseBeforeContact: false);
+            var cinemachineFlip = RunFlipLandingCameraShake(cinemachineFlipHost, profile, CameraMotionLevel.Full, pauseBeforeContact: false);
+
+            Assert.That(cinemachinePush.PeakPositionMagnitude, Is.EqualTo(directPush.PeakPositionMagnitude).Within(0.000001f));
+            Assert.That(cinemachinePush.PeakRotationMagnitude, Is.EqualTo(directPush.PeakRotationMagnitude).Within(0.0001f));
+            Assert.That(cinemachineFlip.PeakPositionMagnitude, Is.EqualTo(directFlip.PeakPositionMagnitude).Within(0.000001f));
+            Assert.That(cinemachineFlip.PeakRotationMagnitude, Is.EqualTo(directFlip.PeakRotationMagnitude).Within(0.0001f));
+            AssertFiniteCameraPose(directPush.PeakOutputWorldPosition, directPush.PeakOutputWorldRotation);
+            AssertFiniteCameraPose(cinemachinePush.PeakOutputWorldPosition, cinemachinePush.PeakOutputWorldRotation);
+            AssertFiniteCameraPose(directFlip.PeakOutputWorldPosition, directFlip.PeakOutputWorldRotation);
+            AssertFiniteCameraPose(cinemachineFlip.PeakOutputWorldPosition, cinemachineFlip.PeakOutputWorldRotation);
+            AssertCameraShakeReturnsToIdentity(directPushHost);
+            AssertCameraShakeReturnsToIdentity(cinemachinePushHost);
+            AssertCameraShakeReturnsToIdentity(directFlipHost);
+            AssertCameraShakeReturnsToIdentity(cinemachineFlipHost);
+
+            yield return DestroyHost(directPushHost);
+            yield return DestroyHost(cinemachinePushHost);
+            yield return DestroyHost(directFlipHost);
+            yield return DestroyHost(cinemachineFlipHost);
+            UnityEngine.Object.Destroy(directPushCameraObject);
+            UnityEngine.Object.Destroy(cinemachinePushOutputObject);
+            UnityEngine.Object.Destroy(directFlipCameraObject);
+            UnityEngine.Object.Destroy(cinemachineFlipOutputObject);
+            yield return null;
         }
 
         [UnityTest]
@@ -336,11 +761,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator TopologyTransitionCameraShake_PlayMode_DirectAndCinemachinePaths_SharePulseTimingAndReset()
+        public IEnumerator TopologyTransitionCameraShake_PlayMode_DirectAndRealCinemachineBrain_ShareAdditivePoseAndReset()
         {
             var directRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectRoot");
             var cinemachineRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_CinemachineRoot");
             var directCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectCamera");
+            var outputCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_OutputCamera");
+            var cinemachineCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_CinemachineCamera");
 
             try
             {
@@ -351,9 +778,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var directRig = directRootObject.AddComponent<GameplayCameraRig>();
                 directRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
-                GameplayCameraRigReflectionAdapter.ConfigureTopologyTransitionCameraShake(
-                    directRig,
-                    TopologyTransitionCameraShakeProfile.CreateDefault());
                 directRig.Initialize(
                     directCameraObject.AddComponent<Camera>(),
                     directBoardRoot.CameraTargetRoot,
@@ -361,18 +785,41 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var cinemachineRig = cinemachineRootObject.AddComponent<GameplayCameraRig>();
                 cinemachineRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
-                GameplayCameraRigReflectionAdapter.ConfigureTopologyTransitionCameraShake(
-                    cinemachineRig,
-                    TopologyTransitionCameraShakeProfile.CreateDefault());
                 cinemachineRig.Initialize(
                     null,
                     cinemachineBoardRoot.CameraTargetRoot,
                     new Bounds(Vector3.zero, Vector3.one));
 
+                var outputCamera = outputCameraObject.AddComponent<Camera>();
+                var brain = outputCameraObject.AddComponent<CinemachineBrain>();
+                brain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                cinemachineCameraObject.transform.SetParent(
+                    cinemachineBoardRoot.CameraEffectsRoot,
+                    worldPositionStays: false);
+                cinemachineCameraObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                cinemachineCamera.Target = new CameraTarget
+                {
+                    TrackingTarget = cinemachineBoardRoot.CameraTargetRoot,
+                    LookAtTarget = cinemachineBoardRoot.CameraTargetRoot,
+                    CustomLookAtTarget = true,
+                };
+
+                yield return null;
+                brain.ManualUpdate();
+                Assert.That(brain.isActiveAndEnabled, Is.True);
+                Assert.That(cinemachineCamera.isActiveAndEnabled, Is.True);
+
                 var orbit = Quaternion.Euler(90f, 0f, 0f);
                 directRig.SetPresentedTopologyOrbit(orbit);
                 cinemachineRig.SetPresentedTopologyOrbit(orbit);
+                var directBasePosition = directBoardRoot.CameraPoseRoot.localPosition;
+                var directBaseRotation = directBoardRoot.CameraPoseRoot.localRotation;
+                var cinemachineBasePosition = cinemachineBoardRoot.CameraPoseRoot.localPosition;
+                var cinemachineBaseRotation = cinemachineBoardRoot.CameraPoseRoot.localRotation;
 
+                var evaluator = new TopologyTransitionCameraShakeController();
+                var profile = TopologyTransitionCameraShakeProfile.CreateDefault();
                 var impactState = new TopologyTransitionVisualState(
                     isActive: true,
                     progress01: 0.12f,
@@ -382,37 +829,44 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     durationSeconds: 0.2f,
                     presentedVisualRotation: Quaternion.Euler(12f, 0f, 0f),
                     angularVelocityNormalized: 1f);
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(directRig, impactState);
-                directRig.SnapToTarget();
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, impactState);
-                cinemachineRig.SnapToTarget();
+                var impactPose = evaluator.Evaluate(impactState, profile);
+                directRig.ApplyAdditivePose(impactPose.LocalPosition, impactPose.LocalRotation);
+                cinemachineRig.ApplyAdditivePose(impactPose.LocalPosition, impactPose.LocalRotation);
+                brain.ManualUpdate();
 
                 Assert.That(
                     Vector3.Distance(
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig)),
+                        directRig.AdditiveLocalPosition,
+                        cinemachineRig.AdditiveLocalPosition),
                     Is.LessThan(0.0001f));
                 Assert.That(
                     Quaternion.Angle(
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
+                        directRig.AdditiveLocalRotation,
+                        cinemachineRig.AdditiveLocalRotation),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig).sqrMagnitude > 0.000001f ||
-                    Quaternion.Angle(
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
-                        Quaternion.identity) > 0.001f,
+                    directRig.AdditiveLocalPosition.sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(directRig.AdditiveLocalRotation, Quaternion.identity) > 0.001f,
                     Is.True);
                 Assert.That(
                     Vector3.Distance(
                         cinemachineBoardRoot.CameraEffectsRoot.localPosition,
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig)),
+                        cinemachineRig.AdditiveLocalPosition),
                     Is.LessThan(0.0001f));
                 Assert.That(
                     Quaternion.Angle(
                         cinemachineBoardRoot.CameraEffectsRoot.localRotation,
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
+                        cinemachineRig.AdditiveLocalRotation),
                     Is.LessThan(0.001f));
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(cinemachineBoardRoot.CameraEffectsRoot));
+                Assert.That(directBoardRoot.CameraPoseRoot.localPosition, Is.EqualTo(directBasePosition));
+                Assert.That(Quaternion.Angle(directBoardRoot.CameraPoseRoot.localRotation, directBaseRotation), Is.LessThan(0.001f));
+                Assert.That(cinemachineBoardRoot.CameraPoseRoot.localPosition, Is.EqualTo(cinemachineBasePosition));
+                Assert.That(Quaternion.Angle(cinemachineBoardRoot.CameraPoseRoot.localRotation, cinemachineBaseRotation), Is.LessThan(0.001f));
+                Assert.That(float.IsNaN(outputCamera.transform.position.x), Is.False);
+                Assert.That(float.IsInfinity(outputCamera.transform.position.x), Is.False);
+                Assert.That(float.IsNaN(outputCamera.transform.rotation.x), Is.False);
+                Assert.That(float.IsInfinity(outputCamera.transform.rotation.x), Is.False);
 
                 var landingState = new TopologyTransitionVisualState(
                     isActive: true,
@@ -423,48 +877,86 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     durationSeconds: 0.2f,
                     presentedVisualRotation: Quaternion.Euler(78f, 0f, 0f),
                     angularVelocityNormalized: 0.45f);
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(directRig, landingState);
-                directRig.SnapToTarget();
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, landingState);
-                cinemachineRig.SnapToTarget();
+                var landingPose = evaluator.Evaluate(landingState, profile);
+                directRig.ApplyAdditivePose(landingPose.LocalPosition, landingPose.LocalRotation);
+                cinemachineRig.ApplyAdditivePose(landingPose.LocalPosition, landingPose.LocalRotation);
+                brain.ManualUpdate();
 
                 Assert.That(
                     Vector3.Distance(
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig)),
+                        directRig.AdditiveLocalPosition,
+                        cinemachineRig.AdditiveLocalPosition),
                     Is.LessThan(0.0001f));
                 Assert.That(
                     Quaternion.Angle(
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
+                        directRig.AdditiveLocalRotation,
+                        cinemachineRig.AdditiveLocalRotation),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig).sqrMagnitude > 0.000001f ||
-                    Quaternion.Angle(
-                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
-                        Quaternion.identity) > 0.001f,
+                    directRig.AdditiveLocalPosition.sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(directRig.AdditiveLocalRotation, Quaternion.identity) > 0.001f,
                     Is.True);
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(cinemachineBoardRoot.CameraEffectsRoot));
 
-                var inactiveState = TopologyTransitionVisualState.Inactive(
-                    new CubeTopologyState(FaceId.Front),
-                    Quaternion.Euler(90f, 0f, 0f));
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(directRig, inactiveState);
-                directRig.SnapToTarget();
-                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, inactiveState);
-                cinemachineRig.SnapToTarget();
+                directRig.ResetAdditivePose();
+                cinemachineRig.ResetAdditivePose();
+                brain.ManualUpdate();
 
-                Assert.That(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
-                    Is.EqualTo(Vector3.zero));
-                Assert.That(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
-                    Is.EqualTo(Quaternion.identity));
-                Assert.That(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig),
-                    Is.EqualTo(Vector3.zero));
-                Assert.That(
-                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig),
-                    Is.EqualTo(Quaternion.identity));
+                Assert.That(directRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(directRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(cinemachineRig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(cinemachineRig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(directBoardRoot.CameraPoseRoot.localPosition, Is.EqualTo(directBasePosition));
+                Assert.That(Quaternion.Angle(directBoardRoot.CameraPoseRoot.localRotation, directBaseRotation), Is.LessThan(0.001f));
+                Assert.That(cinemachineBoardRoot.CameraPoseRoot.localPosition, Is.EqualTo(cinemachineBasePosition));
+                Assert.That(Quaternion.Angle(cinemachineBoardRoot.CameraPoseRoot.localRotation, cinemachineBaseRotation), Is.LessThan(0.001f));
+
+                var repeatedDirections = new[]
+                {
+                    CubeRotationKind.Forward,
+                    CubeRotationKind.Backward,
+                    CubeRotationKind.Forward,
+                    CubeRotationKind.Backward,
+                };
+                for (var transitionIndex = 0; transitionIndex < repeatedDirections.Length; transitionIndex++)
+                {
+                    var direction = repeatedDirections[transitionIndex];
+                    var repeatedOrbit = Quaternion.Euler(direction == CubeRotationKind.Forward ? 90f : 0f, 0f, 0f);
+                    directRig.SetPresentedTopologyOrbit(repeatedOrbit);
+                    var unshakenPosition = directCameraObject.transform.position;
+                    var unshakenRotation = directCameraObject.transform.rotation;
+                    var repeatedState = new TopologyTransitionVisualState(
+                        isActive: true,
+                        progress01: transitionIndex % 2 == 0 ? 0.11f : 0.82f,
+                        sourceTopology: new CubeTopologyState(FaceId.Floor),
+                        destinationTopology: new CubeTopologyState(FaceId.Front),
+                        rotationKind: direction,
+                        durationSeconds: 0.2f,
+                        presentedVisualRotation: repeatedOrbit,
+                        angularVelocityNormalized: 1f);
+                    var repeatedPose = evaluator.Evaluate(repeatedState, profile);
+                    directRig.ApplyAdditivePose(repeatedPose.LocalPosition, repeatedPose.LocalRotation);
+                    directRig.ResetAdditivePose();
+
+                    Assert.That(directBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                    Assert.That(directBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                    Assert.That(directBoardRoot.CameraPoseRoot.localPosition, Is.EqualTo(directBasePosition));
+                    Assert.That(Quaternion.Angle(directBoardRoot.CameraPoseRoot.localRotation, directBaseRotation), Is.LessThan(0.001f));
+                    Assert.That(Vector3.Distance(directCameraObject.transform.position, unshakenPosition), Is.LessThan(0.0001f));
+                    Assert.That(Quaternion.Angle(directCameraObject.transform.rotation, unshakenRotation), Is.LessThan(0.001f));
+                }
+
+                cinemachineRig.ApplyAdditivePose(impactPose.LocalPosition, impactPose.LocalRotation);
+                cinemachineRig.enabled = false;
+                Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+
+                cinemachineRig.enabled = true;
+                cinemachineRig.ApplyAdditivePose(impactPose.LocalPosition, impactPose.LocalRotation);
+                UnityEngine.Object.Destroy(cinemachineRig);
+                yield return null;
                 Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
             }
@@ -473,6 +965,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 UnityEngine.Object.Destroy(directRootObject);
                 UnityEngine.Object.Destroy(cinemachineRootObject);
                 UnityEngine.Object.Destroy(directCameraObject);
+                UnityEngine.Object.Destroy(outputCameraObject);
+                UnityEngine.Object.Destroy(cinemachineCameraObject);
             }
 
             yield return null;
@@ -1742,6 +2236,312 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return CreateHost(initialEntities, actions: null, staticEntityLogics: null);
         }
 
+        private readonly struct ProductionCameraShakeSample
+        {
+            public ProductionCameraShakeSample(
+                TickResult startTick,
+                TickResult executeTick,
+                float peakPositionMagnitude,
+                float peakRotationMagnitude,
+                bool beforeContactWasIdentity = true,
+                float contactCrossingNormalizedTime = 0f,
+                Vector3 peakOutputWorldPosition = default,
+                Quaternion peakOutputWorldRotation = default)
+            {
+                StartTick = startTick;
+                ExecuteTick = executeTick;
+                PeakPositionMagnitude = peakPositionMagnitude;
+                PeakRotationMagnitude = peakRotationMagnitude;
+                BeforeContactWasIdentity = beforeContactWasIdentity;
+                ContactCrossingNormalizedTime = contactCrossingNormalizedTime;
+                PeakOutputWorldPosition = peakOutputWorldPosition;
+                PeakOutputWorldRotation = peakOutputWorldRotation;
+            }
+
+            public TickResult StartTick { get; }
+
+            public TickResult ExecuteTick { get; }
+
+            public float PeakPositionMagnitude { get; }
+
+            public float PeakRotationMagnitude { get; }
+
+            public bool BeforeContactWasIdentity { get; }
+
+            public float ContactCrossingNormalizedTime { get; }
+
+            public Vector3 PeakOutputWorldPosition { get; }
+
+            public Quaternion PeakOutputWorldRotation { get; }
+        }
+
+        private static GameplayCameraShakeProfile LoadCampaignCameraShakeProfile()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<GameplayCameraShakeProfile>(CampaignCameraShakeProfilePath);
+            Assert.That(profile, Is.Not.Null, $"Missing production camera shake profile at {CampaignCameraShakeProfilePath}.");
+            profile.ValidateOrThrow();
+            return profile;
+        }
+
+        private static GameplaySceneHost CreatePushCameraShakeHost(Camera viewCamera = null)
+        {
+            return CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                },
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1),
+                viewCamera: viewCamera);
+        }
+
+        private static GameplaySceneHost CreateFlipCameraShakeHost(Camera viewCamera = null)
+        {
+            return CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+                },
+                playerControlTiming: CreateFlipTimingSettings(
+                    flipExecuteDelayTicks: 1,
+                    flipInputLockDurationTicks: 1),
+                viewCamera: viewCamera);
+        }
+
+        private static ProductionCameraShakeSample RunPushCameraShakeLaunch(
+            GameplaySceneHost host,
+            GameplayCameraShakeProfile profile,
+            CameraMotionLevel motionLevel)
+        {
+            host.Presenter.ConfigureGameplayCameraShakeProfile(profile);
+            host.Presenter.SetCameraMotionLevel(motionLevel);
+            var rig = host.GetComponent<GameplayCameraRig>();
+            AssertCameraShakePoseIdentity(rig);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferPush();
+            var startTick = host.InputHost.RunSingleTick();
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.Zero);
+            AssertCameraShakePoseIdentity(rig);
+
+            var executeTick = host.InputHost.RunSingleTick();
+            Assert.That(executeTick, Is.Not.Null);
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.CurrentCameraShakeMixResult.IsActive, Is.EqualTo(motionLevel != CameraMotionLevel.Off));
+
+            host.Presenter.UpdatePresentation(0.02f);
+            var peakPositionMagnitude = rig.AdditiveLocalPosition.magnitude;
+            var peakRotationMagnitude = MeasureSmallQuaternionAngleDegrees(rig.AdditiveLocalRotation);
+            var peakOutputWorldPosition = host.ViewCamera != null ? host.ViewCamera.transform.position : Vector3.zero;
+            var peakOutputWorldRotation = host.ViewCamera != null ? host.ViewCamera.transform.rotation : Quaternion.identity;
+            host.Presenter.UpdatePresentation(0.105f);
+
+            return new ProductionCameraShakeSample(
+                startTick,
+                executeTick,
+                peakPositionMagnitude,
+                peakRotationMagnitude,
+                peakOutputWorldPosition: peakOutputWorldPosition,
+                peakOutputWorldRotation: peakOutputWorldRotation);
+        }
+
+        private static ProductionCameraShakeSample RunFlipLandingCameraShake(
+            GameplaySceneHost host,
+            GameplayCameraShakeProfile profile,
+            CameraMotionLevel motionLevel,
+            bool pauseBeforeContact)
+        {
+            host.Presenter.ConfigureGameplayCameraShakeProfile(profile);
+            host.Presenter.SetCameraMotionLevel(motionLevel);
+            var rig = host.GetComponent<GameplayCameraRig>();
+            AssertCameraShakePoseIdentity(rig);
+
+            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.BufferFlip();
+            var startTick = host.InputHost.RunSingleTick();
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.Zero);
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.Zero);
+
+            host.InputHost.SetRawMoveInput(Vector2.zero);
+            var executeTick = host.InputHost.RunSingleTick();
+            Assert.That(executeTick, Is.Not.Null);
+            var floorSignal = executeTick.PresentationData.FlipFloorImpactSignals.Single();
+            Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.Zero);
+            AssertCameraShakePoseIdentity(rig);
+
+            var beforeContactWasIdentity = true;
+            var pauseVerified = !pauseBeforeContact;
+            var contactCrossingNormalizedTime = 0f;
+            for (var updateIndex = 0; updateIndex < 100; updateIndex++)
+            {
+                host.Presenter.UpdatePresentation(0.005f);
+                var progress = host.Presenter.CurrentMotionTrackProgressSamples.LastOrDefault(sample =>
+                    sample.EntityId == 30 &&
+                    sample.MotionKind == TickEntityMotionKind.Flip &&
+                    sample.SourceKind == MotionTrackProgressSourceKind.LocalMotion &&
+                    sample.SequenceOrActionPlanId == floorSignal.SourceActionPlanId);
+                Assert.That(progress.IsValid, Is.True, "The ordinary Flip must expose its actual presentation clip progress.");
+
+                if (!pauseVerified &&
+                    progress.CurrentNormalizedTime >= 0.7f &&
+                    progress.CurrentNormalizedTime < GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime)
+                {
+                    host.Presenter.SetPresentationPaused(true);
+                    host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+                    Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.EqualTo(1));
+                    Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.Zero);
+                    AssertCameraShakePoseIdentity(rig);
+                    host.Presenter.SetPresentationPaused(false);
+                    pauseVerified = true;
+                }
+
+                if (progress.CurrentNormalizedTime < GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime)
+                {
+                    beforeContactWasIdentity &=
+                        rig.AdditiveLocalPosition.sqrMagnitude <= 0.000000000001f &&
+                        rig.AdditiveLocalRotation == Quaternion.identity &&
+                        host.Presenter.ActiveGameplayCameraImpulseCount == 0;
+                    Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.EqualTo(1));
+                    continue;
+                }
+
+                Assert.That(
+                    progress.PreviousNormalizedTime,
+                    Is.LessThan(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+                contactCrossingNormalizedTime = progress.CurrentNormalizedTime;
+                break;
+            }
+
+            Assert.That(pauseVerified, Is.True);
+            Assert.That(contactCrossingNormalizedTime, Is.GreaterThanOrEqualTo(GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime));
+            Assert.That(host.Presenter.PendingFlipLandingCameraShakeCount, Is.Zero);
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.EqualTo(1));
+            Assert.That(host.Presenter.CurrentCameraShakeMixResult.IsActive, Is.EqualTo(motionLevel != CameraMotionLevel.Off));
+
+            host.Presenter.UpdatePresentation(0.02f);
+            var peakPositionMagnitude = rig.AdditiveLocalPosition.magnitude;
+            var peakRotationMagnitude = MeasureSmallQuaternionAngleDegrees(rig.AdditiveLocalRotation);
+            var peakOutputWorldPosition = host.ViewCamera != null ? host.ViewCamera.transform.position : Vector3.zero;
+            var peakOutputWorldRotation = host.ViewCamera != null ? host.ViewCamera.transform.rotation : Quaternion.identity;
+            host.Presenter.UpdatePresentation(0.155f);
+
+            return new ProductionCameraShakeSample(
+                startTick,
+                executeTick,
+                peakPositionMagnitude,
+                peakRotationMagnitude,
+                beforeContactWasIdentity,
+                contactCrossingNormalizedTime,
+                peakOutputWorldPosition,
+                peakOutputWorldRotation);
+        }
+
+        private static void AssertCameraShakeReturnsToIdentity(GameplaySceneHost host)
+        {
+            Assert.That(host.Presenter.ActiveGameplayCameraImpulseCount, Is.Zero);
+            Assert.That(host.Presenter.CurrentCameraShakeMixResult.IsActive, Is.False);
+            AssertCameraShakePoseIdentity(host.GetComponent<GameplayCameraRig>());
+        }
+
+        private static void AssertCameraShakePoseIdentity(GameplayCameraRig rig)
+        {
+            Assert.That(rig, Is.Not.Null);
+            Assert.That(rig.AdditiveLocalPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(rig.AdditiveLocalRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(rig.AdditiveLocalPosition.x, Is.Not.NaN);
+            Assert.That(rig.AdditiveLocalRotation.x, Is.Not.NaN);
+        }
+
+        private static float MeasureSmallQuaternionAngleDegrees(Quaternion rotation)
+        {
+            var vectorMagnitude = Mathf.Sqrt(
+                rotation.x * rotation.x +
+                rotation.y * rotation.y +
+                rotation.z * rotation.z);
+            return 2f * Mathf.Atan2(vectorMagnitude, Mathf.Abs(rotation.w)) * Mathf.Rad2Deg;
+        }
+
+        private static CinemachineCamera CreateProductionCinemachineCamera(
+            GameplaySceneHost host,
+            string objectName)
+        {
+            var cameraObject = new GameObject(objectName);
+            cameraObject.transform.SetParent(host.BoardRoot.CameraEffectsRoot, worldPositionStays: false);
+            cameraObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            var cinemachineCamera = cameraObject.AddComponent<CinemachineCamera>();
+            cinemachineCamera.Target = new CameraTarget
+            {
+                TrackingTarget = host.BoardRoot.CameraTargetRoot,
+                LookAtTarget = host.BoardRoot.CameraTargetRoot,
+                CustomLookAtTarget = true,
+            };
+            return cinemachineCamera;
+        }
+
+        private static void AssertFiniteCameraPose(Vector3 position, Quaternion rotation)
+        {
+            Assert.That(float.IsNaN(position.x) || float.IsInfinity(position.x), Is.False);
+            Assert.That(float.IsNaN(position.y) || float.IsInfinity(position.y), Is.False);
+            Assert.That(float.IsNaN(position.z) || float.IsInfinity(position.z), Is.False);
+            Assert.That(float.IsNaN(rotation.x) || float.IsInfinity(rotation.x), Is.False);
+            Assert.That(float.IsNaN(rotation.y) || float.IsInfinity(rotation.y), Is.False);
+            Assert.That(float.IsNaN(rotation.z) || float.IsInfinity(rotation.z), Is.False);
+            Assert.That(float.IsNaN(rotation.w) || float.IsInfinity(rotation.w), Is.False);
+        }
+
+        private static GameplayCameraShakeProfile CreateCameraShakeTestProfile()
+        {
+            var profile = ScriptableObject.CreateInstance<GameplayCameraShakeProfile>();
+            profile.SetEntriesForTests(new[]
+            {
+                CreateCameraShakeEntry(CameraShakeSemantic.PushSlideLaunch, CameraShakePriority.Light),
+                CreateCameraShakeEntry(CameraShakeSemantic.FlipFloorLanding, CameraShakePriority.Medium),
+                CreateCameraShakeEntry(
+                    CameraShakeSemantic.FlipHostileImpact,
+                    CameraShakePriority.Medium,
+                    CameraShakeVariant.FlipHostileStay),
+                CreateCameraShakeEntry(
+                    CameraShakeSemantic.FlipHostileImpact,
+                    CameraShakePriority.Medium,
+                    CameraShakeVariant.FlipHostileDestroySelf),
+                CreateCameraShakeEntry(
+                    CameraShakeSemantic.FlipHostileImpact,
+                    CameraShakePriority.Heavy,
+                    CameraShakeVariant.FlipHostileFollowThrough),
+                CreateCameraShakeEntry(CameraShakeSemantic.PlayerDamageImpact, CameraShakePriority.Light),
+                CreateCameraShakeEntry(CameraShakeSemantic.PlayerLethalImpact, CameraShakePriority.Heavy),
+                CreateCameraShakeEntry(CameraShakeSemantic.HeavyEnemyJumpLanding, CameraShakePriority.Medium),
+            });
+            return profile;
+        }
+
+        private static CameraShakeProfileEntry CreateCameraShakeEntry(
+            CameraShakeSemantic semantic,
+            CameraShakePriority priority,
+            CameraShakeVariant variant = CameraShakeVariant.Default)
+        {
+            return new CameraShakeProfileEntry
+            {
+                Semantic = semantic,
+                Variant = variant,
+                Priority = priority,
+                DurationSeconds = 0.4f,
+                OscillationCycles = 2,
+                LocalPositionAmplitude = new Vector3(0.02f, 0.015f, 0.025f),
+                LocalRotationAmplitudeDegrees = new Vector3(1f, 0.75f, 0.5f),
+                AttackSeconds = 0.05f,
+                Decay = AnimationCurve.Linear(0f, 1f, 1f, 0f),
+                CooldownSeconds = 0.2f,
+            };
+        }
+
         private static GameplaySceneHost CreateHost(
             EntityState[] initialEntities,
             InputActionAsset actions = null,
@@ -1764,7 +2564,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null,
             CubeTopologyState? initialTopology = null,
             EnemyAiProfile defaultEnemyAiProfile = null,
-            IKeyboardBindingStore keyboardBindingStore = null)
+            IKeyboardBindingStore keyboardBindingStore = null,
+            GameplayEntityView enemyViewPrefabOverride = null,
+            GameplayCameraShakeProfile gameplayCameraShakeProfile = null)
         {
             return CreateHostCore(
                 initialEntities,
@@ -1788,7 +2590,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 tileFeatureDefinitions,
                 initialTopology,
                 defaultEnemyAiProfile,
-                keyboardBindingStore);
+                keyboardBindingStore,
+                enemyViewPrefabOverride,
+                gameplayCameraShakeProfile);
         }
 
         private static GameplaySceneHost CreateHostCore(
@@ -1813,7 +2617,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
             CubeTopologyState? initialTopology,
             EnemyAiProfile defaultEnemyAiProfile,
-            IKeyboardBindingStore keyboardBindingStore)
+            IKeyboardBindingStore keyboardBindingStore,
+            GameplayEntityView enemyViewPrefabOverride,
+            GameplayCameraShakeProfile gameplayCameraShakeProfile)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1874,6 +2680,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
                 ViewCamera = viewCamera,
                 DefaultEnemyAiProfile = defaultEnemyAiProfile,
+                ViewFactory = enemyViewPrefabOverride != null
+                    ? new PlayModeEnemyPresentationViewFactory(hostObject.transform, enemyViewPrefabOverride)
+                    : null,
+                GameplayCameraShakeProfile = gameplayCameraShakeProfile,
             };
             if (playerRespawnDelaySeconds >= 0f)
             {
@@ -1891,6 +2701,39 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.Initialize(configuration);
 
             return host;
+        }
+
+        private sealed class PlayModeEnemyPresentationViewFactory : IGameplayEntityViewFactory
+        {
+            private readonly Transform _parent;
+            private readonly GameplayEntityView _enemyPrefab;
+
+            public PlayModeEnemyPresentationViewFactory(
+                Transform parent,
+                GameplayEntityView enemyPrefab)
+            {
+                _parent = parent;
+                _enemyPrefab = enemyPrefab;
+            }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                GameplayEntityView view;
+                if (entity.unitRole == UnitRole.Enemy)
+                {
+                    view = UnityEngine.Object.Instantiate(_enemyPrefab, _parent);
+                    view.gameObject.SetActive(true);
+                }
+                else
+                {
+                    var viewObject = new GameObject($"M3B_TestView_{entity.entityId}");
+                    viewObject.transform.SetParent(_parent, worldPositionStays: false);
+                    view = viewObject.AddComponent<GameplayEntityView>();
+                }
+
+                view.Initialize(entity.entityId);
+                return view;
+            }
         }
 
         private static void SetKeyboardState(Keyboard keyboard, params Key[] pressedKeys)
@@ -2078,6 +2921,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(TutorialPassiveContactProfilePath);
             Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{TutorialPassiveContactProfilePath}'.");
+            return profile;
+        }
+
+        private static EnemyAiProfile LoadJumpChaserProfile()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(JumpChaserProfilePath);
+            Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{JumpChaserProfilePath}'.");
             return profile;
         }
 
@@ -2442,85 +3292,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     mode = ContinuousLocomotionMode.Idle,
                     sequenceId = 1,
                 }.NormalizedForStorage());
-        }
-
-        private static class GameplayCameraRigReflectionAdapter
-        {
-            private static readonly BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-            private const string ConfigureTopologyTransitionCameraShakeMethodName = "ConfigureTopologyTransitionCameraShake";
-            private const string ApplyTopologyTransitionVisualStateMethodName = "ApplyTopologyTransitionVisualState";
-            private const string TopologyTransitionShakeLocalPositionPropertyName = "TopologyTransitionShakeLocalPosition";
-            private const string TopologyTransitionShakeLocalRotationPropertyName = "TopologyTransitionShakeLocalRotation";
-
-            private static readonly MethodInfo ConfigureTopologyTransitionCameraShakeMethod =
-                GetRequiredMethod(ConfigureTopologyTransitionCameraShakeMethodName, parameterCount: 1);
-
-            private static readonly MethodInfo ApplyTopologyTransitionVisualStateMethod =
-                GetRequiredMethod(ApplyTopologyTransitionVisualStateMethodName, parameterCount: 1);
-
-            private static readonly PropertyInfo TopologyTransitionShakeLocalPositionProperty =
-                GetRequiredProperty(TopologyTransitionShakeLocalPositionPropertyName);
-
-            private static readonly PropertyInfo TopologyTransitionShakeLocalRotationProperty =
-                GetRequiredProperty(TopologyTransitionShakeLocalRotationPropertyName);
-
-            public static void ConfigureTopologyTransitionCameraShake(
-                GameplayCameraRig rig,
-                TopologyTransitionCameraShakeProfile profile)
-            {
-                InvokeRequired(ConfigureTopologyTransitionCameraShakeMethod, rig, profile);
-            }
-
-            public static void ApplyTopologyTransitionVisualState(
-                GameplayCameraRig rig,
-                TopologyTransitionVisualState visualState)
-            {
-                InvokeRequired(ApplyTopologyTransitionVisualStateMethod, rig, visualState);
-            }
-
-            public static Vector3 GetTopologyTransitionShakeLocalPosition(GameplayCameraRig rig)
-            {
-                return (Vector3)GetRequiredValue(TopologyTransitionShakeLocalPositionProperty, rig);
-            }
-
-            public static Quaternion GetTopologyTransitionShakeLocalRotation(GameplayCameraRig rig)
-            {
-                return (Quaternion)GetRequiredValue(TopologyTransitionShakeLocalRotationProperty, rig);
-            }
-
-            private static MethodInfo GetRequiredMethod(string name, int parameterCount)
-            {
-                return typeof(GameplayCameraRig)
-                    .GetMethods(InstanceFlags)
-                    .Single(method => method.Name == name && method.GetParameters().Length == parameterCount);
-            }
-
-            private static PropertyInfo GetRequiredProperty(string name)
-            {
-                return typeof(GameplayCameraRig).GetProperty(name, InstanceFlags) ??
-                       throw new InvalidOperationException($"Missing internal GameplayCameraRig property '{name}'.");
-            }
-
-            private static object GetRequiredValue(PropertyInfo property, GameplayCameraRig rig)
-            {
-                if (rig == null)
-                {
-                    throw new ArgumentNullException(nameof(rig));
-                }
-
-                return property.GetValue(rig) ??
-                       throw new InvalidOperationException($"Property '{property.Name}' returned null unexpectedly.");
-            }
-
-            private static void InvokeRequired(MethodInfo method, GameplayCameraRig rig, object argument)
-            {
-                if (rig == null)
-                {
-                    throw new ArgumentNullException(nameof(rig));
-                }
-
-                method.Invoke(rig, new[] { argument });
-            }
         }
 
         private static InputActionAsset CreateKeyboardMoveActions(bool includeArrowKeys = false)

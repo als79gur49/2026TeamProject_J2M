@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -89,7 +92,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(source, Does.Contain("private void ApplyCameraPose()"));
             Assert.That(source, Does.Contain("private void ApplyPresentedPoseToHierarchy("));
-            Assert.That(source, Does.Contain("private void ApplyCachedShakeToHierarchy()"));
+            Assert.That(source, Does.Contain("private void ApplyCachedAdditivePoseToHierarchy()"));
             Assert.That(source, Does.Contain("private void ApplyDirectCameraPose("));
             Assert.That(source, Does.Contain("_viewCamera"));
             Assert.That(source, Does.Contain("_cameraPoseRoot"));
@@ -106,7 +109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var refreshIndex = body.IndexOf("ResolvePoseHierarchy();", StringComparison.Ordinal);
             var resolveIndex = body.IndexOf("ResolveUnshakenPresentedPose()", StringComparison.Ordinal);
             var hierarchyApplyIndex = body.IndexOf("ApplyPresentedPoseToHierarchy(", StringComparison.Ordinal);
-            var shakeApplyIndex = body.IndexOf("ApplyCachedShakeToHierarchy()", StringComparison.Ordinal);
+            var shakeApplyIndex = body.IndexOf("ApplyCachedAdditivePoseToHierarchy()", StringComparison.Ordinal);
             var directApplyIndex = body.IndexOf("ApplyDirectCameraPose(", StringComparison.Ordinal);
 
             Assert.That(refreshIndex, Is.GreaterThanOrEqualTo(0));
@@ -135,17 +138,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayCameraRig_Source_UsesShakeController_AsCacheInputOnly()
+        public void GameplayCameraRig_AdditivePosePort_IsSemanticFreeAndNarrow()
         {
             var source = ReadRepoFile(GameplayCameraRigRelativePath);
-            var applyVisualStateBody = ExtractMethodBody(
-                source,
-                "internal void ApplyTopologyTransitionVisualState(in TopologyTransitionVisualState visualState)");
+            var portType = typeof(IGameplayCameraAdditivePosePort);
+            var methodNames = portType
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Select(method => method.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
 
-            Assert.That(source, Does.Contain("_topologyTransitionCameraShakeController.Evaluate("));
-            Assert.That(applyVisualStateBody, Does.Contain("CacheTopologyTransitionShakeResult("));
-            Assert.That(applyVisualStateBody, Does.Not.Contain("ApplyCachedShakeToHierarchy("));
-            Assert.That(applyVisualStateBody, Does.Not.Contain("ApplyDirectCameraPose("));
+            Assert.That(methodNames, Is.EqualTo(new[] { "ApplyAdditivePose", "ResetAdditivePose" }));
+            Assert.That(typeof(GameplayCameraRig).GetInterfaces(), Has.Member(portType));
+            Assert.That(source, Does.Not.Contain("TopologyTransitionCameraShakeController"));
+            Assert.That(source, Does.Not.Contain("TopologyTransitionCameraShakeProfile"));
+            Assert.That(source, Does.Not.Contain("TopologyTransitionVisualState"));
+            Assert.That(source, Does.Not.Contain("PlayPushShake"));
+            Assert.That(source, Does.Not.Contain("PlayFlipShake"));
+            Assert.That(source, Does.Not.Contain("PlayDamageShake"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayCameraRig_Source_IsSingleCameraEffectsRootPoseWriter()
+        {
+            var runtimeRoot = GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Host/Runtime");
+            var runtimeSources = Directory
+                .GetFiles(runtimeRoot, "*.cs", SearchOption.AllDirectories)
+                .Select(path => new
+                {
+                    Path = path,
+                    Source = File.ReadAllText(path).Replace("\r\n", "\n"),
+                })
+                .ToArray();
+
+            var effectsRootPoseWriters = runtimeSources
+                .Where(item =>
+                    item.Source.Contains("_cameraEffectsRoot.SetLocalPositionAndRotation(", StringComparison.Ordinal) ||
+                    item.Source.Contains("CameraEffectsRoot.localPosition =", StringComparison.Ordinal) ||
+                    item.Source.Contains("CameraEffectsRoot.localRotation =", StringComparison.Ordinal))
+                .Select(item => Path.GetFullPath(item.Path))
+                .ToArray();
+
+            Assert.That(effectsRootPoseWriters, Has.Length.EqualTo(1));
+            Assert.That(
+                effectsRootPoseWriters[0],
+                Is.EqualTo(GetAbsolutePath(GameplayCameraRigRelativePath)));
         }
 
         private static string ExtractMethodBody(string source, string signature)

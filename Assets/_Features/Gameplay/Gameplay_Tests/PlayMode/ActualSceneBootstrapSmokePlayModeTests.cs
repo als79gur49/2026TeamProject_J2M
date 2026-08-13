@@ -3343,6 +3343,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(boardSurface.SteadyTileCount, Is.GreaterThan(0), "UIAudioScene must render steady board-surface content.");
             Assert.That(cameraRig, Is.Not.Null, "UIAudioScene must expose the camera orbit rig.");
             Assert.That(postFx, Is.Not.Null, "UIAudioScene must expose topology post-fx.");
+            var overlayCanvas = Object
+                .FindObjectsByType<Canvas>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .FirstOrDefault(canvas => canvas.renderMode == RenderMode.ScreenSpaceOverlay);
+            Assert.That(overlayCanvas, Is.Not.Null, "UIAudioScene must retain its ScreenSpaceOverlay HUD contract.");
+            var overlayRect = overlayCanvas.GetComponent<RectTransform>();
+            var hudPixelBeforeShake = RectTransformUtility.WorldToScreenPoint(
+                null,
+                overlayRect.TransformPoint(overlayRect.rect.center));
 
             var sourceTopology = host.Presenter.CurrentTopology;
             var destinationTopology = new CubeTopologyState(FaceId.Front);
@@ -3383,7 +3391,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.EqualTo(1),
                 "Repeated topology presentation for the same tick/source must be duplicate-suppressed.");
 
-            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.06f);
             yield return null;
 
             var midState = host.Presenter.CurrentTopologyTransitionVisualState;
@@ -3391,7 +3399,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(midState.Progress01, Is.GreaterThan(0f));
             Assert.That(midState.Progress01, Is.LessThan(1f));
             Assert.That(Quaternion.Angle(cameraRig.PresentedTopologyOrbit, Quaternion.identity), Is.GreaterThan(0.01f));
-            Assert.That(float.IsNaN(cameraRig.TopologyTransitionShakeLocalPosition.x), Is.False);
+            Assert.That(float.IsNaN(cameraRig.AdditiveLocalPosition.x), Is.False);
+            Assert.That(float.IsInfinity(cameraRig.AdditiveLocalPosition.x), Is.False);
+            Assert.That(cameraRig.AdditiveLocalPosition.sqrMagnitude, Is.GreaterThan(0.000001f));
+            var hudPixelDuringShake = RectTransformUtility.WorldToScreenPoint(
+                null,
+                overlayRect.TransformPoint(overlayRect.rect.center));
+            Assert.That(Vector2.Distance(hudPixelDuringShake, hudPixelBeforeShake), Is.LessThan(0.01f));
             if (postFx.MotionBlurOverride != null)
             {
                 Assert.That(postFx.MotionBlurOverride.intensity.value, Is.GreaterThanOrEqualTo(0f));
@@ -3404,6 +3418,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
             Assert.That(boardSurface.IsTopologyTransitionActive, Is.False);
             Assert.That(host.Presenter.TopologyProductionTelemetrySnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
             if (postFx.MotionBlurOverride != null)
             {
                 Assert.That(postFx.MotionBlurOverride.intensity.value, Is.EqualTo(0f).Within(0.0001f));
@@ -3428,6 +3444,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
             Assert.That(boardSurface.IsTopologyTransitionActive, Is.False);
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
 
             host.Presenter.Present(repeatResult);
             yield return null;
@@ -3435,6 +3453,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.Presenter.DebugHardCleanupPresentationExtensions();
             yield return null;
             Assert.That(host.Presenter.TopologyProductionTelemetrySnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(host.BoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
 
             Assert.That(result.DeterminismHash, Is.EqualTo("TOPOLOGY-RUNTIME-GATE"));
             Assert.That(result.EventLog, Is.EqualTo(eventLog));

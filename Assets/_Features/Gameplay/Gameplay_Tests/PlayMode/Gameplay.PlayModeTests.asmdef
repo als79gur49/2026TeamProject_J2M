@@ -29,6 +29,7 @@
     "Game.Shared.Audio",
     "Game.Shared.Display",
     "Game.Shared.Input",
+    "Game.TestSupport.Unity",
     "Unity.TextMeshPro",
     "Unity.Cinemachine",
     "Unity.InputSystem",
