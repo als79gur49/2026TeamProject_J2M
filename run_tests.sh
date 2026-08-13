@@ -213,6 +213,8 @@ TERMINAL_PLAYER_SMOKE_WIDTH="${TERMINAL_PLAYER_SMOKE_WIDTH:-1920}"
 TERMINAL_PLAYER_SMOKE_HEIGHT="${TERMINAL_PLAYER_SMOKE_HEIGHT:-1080}"
 TERMINAL_PLAYER_SMOKE_PROFILE="${TERMINAL_PLAYER_SMOKE_PROFILE:-standard}"
 TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX:-VectorQuake-P0Phase4Smoke}"
+PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_ROOT:-/mnt/d/J2M/evidence/P24/player-capture-save-safety}"
+PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT="${PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT:-/mnt/d/J2M/builds/P24/player-capture-save-safety}"
 
 UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-simulation-editmode.log"
 UNITY_INTEGRATION_SIMULATION_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-simulation-editmode.xml"
@@ -1178,7 +1180,7 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|climate-glyph-update|typography-visual|typography-hud-visual|typography-hud-guide-visual|typography-result-visual|terminal-transition-architecture|terminal-iris-legacy-analyzer-regression|terminal-iris-known-center-analyzer|terminal-iris-final-close-frames|terminal-iris-static-edge-quality|terminal-iris-small-radius|terminal-iris-temporal-stability|terminal-iris-player-visual-quality|terminal-production-scene-handoff|terminal-production-input-ownership|terminal-production-render-coverage|terminal-production-offcenter-focus|terminal-production-same-scene-reveal|terminal-production-stage-result-input|terminal-victory-blue-handoff|terminal-stage-entry-opening|terminal-result-interaction|terminal-blue-pixel-continuity|terminal-result-dim-snapshot|terminal-result-handoff-cover|terminal-result-continuous-brightness|terminal-result-exit-cover-fade|terminal-result-timescale-zero|terminal-gameclear-player-e2e|terminal-player-build-smoke|player-capture-save-safety|full|--integration-simulation|--integration-replay|--integration-fuzz] [--capture-before] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
@@ -5437,6 +5439,134 @@ run_terminal_player_build_smoke() {
     echo "  manifest:         $output_dir/manifest.txt"
 }
 
+run_player_capture_save_safety() {
+    local timestamp
+    local product_name
+    local output_dir
+    local output_dir_win
+    local build_output_dir
+    local player_path
+    local player_path_win
+    local build_log
+    local build_log_win
+    local runtime_log
+    local runtime_log_win
+    local windows_user_profile
+    local persistent_root_wsl
+    local saves_dir
+    local profile_path
+    local backup_path
+    local active_path
+    local before_hashes
+    local after_hashes
+    local -a build_command
+
+    timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    product_name="${TERMINAL_PLAYER_SMOKE_PRODUCT_PREFIX}-SaveSafety-${timestamp}"
+    output_dir="$PLAYER_CAPTURE_SAVE_SAFETY_EVIDENCE_ROOT/$timestamp"
+    build_output_dir="$PLAYER_CAPTURE_SAVE_SAFETY_BUILD_ROOT/$timestamp"
+    player_path="$build_output_dir/VectorQuake-CaptureSaveSafetyProbe.exe"
+    build_log="$output_dir/player-build.log"
+    runtime_log="$output_dir/player-runtime.log"
+    output_dir_win="$(wslpath -w "$output_dir")"
+    player_path_win="$(wslpath -w "$player_path")"
+    build_log_win="$(wslpath -w "$build_log")"
+    runtime_log_win="$(wslpath -w "$runtime_log")"
+    build_command=(
+        timeout --kill-after=20 900
+        "$UNITY_PATH"
+        -batchmode
+        -nographics
+        -quit
+        -projectPath "$PROJECT_PATH_WIN"
+        -buildTarget StandaloneWindows64
+        -logFile "$build_log_win"
+        -executeMethod PlayerProfilerCaptureCli.BuildWindowsDevelopmentPlayerForSaveSafetyProbe
+        -captureBuildPath "$player_path_win"
+        -captureBackend Mono
+        -captureProductName "$product_name"
+        --capture-stage stage-4-3
+    )
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would build an isolated Development Player without capture capability:"
+        print_shell_command "${build_command[@]}"
+        echo "Would seed sentinel profile.json, profile.json.bak, and local-launch-state.json under the unique product namespace."
+        echo "Would run --capture-stage stage-4-3 --capture-campaign-normal-slot and require hash invariance."
+        return 0
+    fi
+
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    mkdir -p "$output_dir"
+    mkdir -p "$build_output_dir"
+    echo "Building isolated Development Player without capture capability..."
+    "${build_command[@]}"
+    require_file "$player_path" "capture save-safety probe Player"
+
+    windows_user_profile="$(cmd.exe /c echo %USERPROFILE% 2>/dev/null | tr -d '\r')"
+    persistent_root_wsl="$(wslpath -u "$windows_user_profile")/AppData/LocalLow/J2M/$product_name"
+    saves_dir="$persistent_root_wsl/Saves"
+    profile_path="$saves_dir/profile.json"
+    backup_path="$saves_dir/profile.json.bak"
+    active_path="$saves_dir/local-launch-state.json"
+    mkdir -p "$saves_dir"
+    printf '%s\n' 'profile sentinel slots=1,2,3' > "$profile_path"
+    printf '%s\n' 'backup sentinel slots=1,2,3' > "$backup_path"
+    printf '%s\n' 'active sentinel slot=2' > "$active_path"
+    before_hashes="$(sha256sum "$profile_path" "$backup_path" "$active_path")"
+
+    echo "Running unauthorized normal-slot capture request in isolated save namespace..."
+    timeout --kill-after=10 20 \
+        "$player_path" \
+        -batchmode \
+        -nographics \
+        -logFile "$runtime_log_win" \
+        --capture-stage stage-4-3 \
+        --capture-campaign-normal-slot || true
+    require_file "$runtime_log" "capture save-safety probe runtime log"
+
+    if ! rg -qF \
+            "Player capture normal-slot request rejected: capture build capability is absent" \
+            "$runtime_log"; then
+        echo "ERROR: Isolated non-capture Development Player did not report the expected rejection."
+        tail -n 160 "$runtime_log" || true
+        return 1
+    fi
+
+    after_hashes="$(sha256sum "$profile_path" "$backup_path" "$active_path")"
+    if [ "$before_hashes" != "$after_hashes" ]; then
+        echo "ERROR: Unauthorized capture request changed persistent sentinel files."
+        echo "Before:"
+        echo "$before_hashes"
+        echo "After:"
+        echo "$after_hashes"
+        return 1
+    fi
+
+    {
+        echo "UTC=$timestamp"
+        echo "HEAD=$(git rev-parse HEAD)"
+        echo "ProductName=$product_name"
+        echo "Configuration=Development"
+        echo "CaptureBuildCapability=absent"
+        echo "PersistentDataIsolation=unique-product-name"
+        echo "Request=--capture-stage stage-4-3 --capture-campaign-normal-slot"
+        echo "ExpectedResult=rejected-before-persistence"
+        echo "ProfileBackupActiveHashesInvariant=PASS"
+        echo "BuildOutput=$build_output_dir"
+        echo "BeforeHashes:"
+        echo "$before_hashes"
+        echo "AfterHashes:"
+        echo "$after_hashes"
+    } > "$output_dir/manifest.txt"
+
+    echo "Player capture save-safety probe: PASS"
+    echo "  output directory: $output_dir"
+    echo "  build directory:  $build_output_dir"
+    echo "  persistent root:  $persistent_root_wsl"
+}
+
 run_typography_visual() {
     local output_dir_win
     local baseline_root
@@ -6843,7 +6973,8 @@ parse_arguments() {
          [ "$RUN_MODE" = "typography-hud-visual" ] ||
          [ "$RUN_MODE" = "typography-hud-guide-visual" ] ||
          [ "$RUN_MODE" = "typography-result-visual" ] ||
-         [ "$RUN_MODE" = "terminal-player-build-smoke" ]; } &&
+         [ "$RUN_MODE" = "terminal-player-build-smoke" ] ||
+         [ "$RUN_MODE" = "player-capture-save-safety" ]; } &&
        [ -n "$TEST_FILTER" ]; then
         echo "ERROR: asset generation and visual evidence lanes do not accept test filters."
         print_usage
@@ -7171,6 +7302,9 @@ main() {
             run_dotnet_ui
             run_terminal_player_build_smoke
             ;;
+        player-capture-save-safety)
+            run_player_capture_save_safety
+            ;;
         terminal-transition-architecture)
             run_terminal_transition_architecture
             ;;
@@ -7200,7 +7334,8 @@ main() {
        [ "$mode" != "typography-hud-visual" ] &&
        [ "$mode" != "typography-hud-guide-visual" ] &&
        [ "$mode" != "typography-result-visual" ] &&
-       [ "$mode" != "terminal-player-build-smoke" ]; then
+       [ "$mode" != "terminal-player-build-smoke" ] &&
+       [ "$mode" != "player-capture-save-safety" ]; then
         echo "ALL TESTS PASSED"
     fi
 }

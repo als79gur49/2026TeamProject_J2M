@@ -19,8 +19,22 @@ public static class PlayerProfilerCaptureCli
     private const string CaptureGameplayShellSceneArg = "-captureGameplayShellScene";
     private const string RouteConfigPath =
         "Assets/_Features/UI/UI_Composition/Authoring/GameplayStageLaunchRouteConfig.asset";
+    private static readonly string[] CaptureBuildScriptingDefines =
+    {
+        PlayerCapturePersistenceAuthorization.BuildCapabilityDefine,
+    };
 
     public static void BuildWindowsDevelopmentPlayer()
+    {
+        BuildWindowsDevelopmentPlayer(includeCaptureCapability: true);
+    }
+
+    public static void BuildWindowsDevelopmentPlayerForSaveSafetyProbe()
+    {
+        BuildWindowsDevelopmentPlayer(includeCaptureCapability: false);
+    }
+
+    private static void BuildWindowsDevelopmentPlayer(bool includeCaptureCapability)
     {
         var args = Environment.GetCommandLineArgs();
         var buildPath = RequireArgument(args, CaptureBuildPathArg);
@@ -37,6 +51,20 @@ public static class PlayerProfilerCaptureCli
                                         originalProductName,
                                         productName,
                                         StringComparison.Ordinal);
+        if (!string.IsNullOrWhiteSpace(productName) &&
+            !IsAllowedCaptureProductName(originalProductName, productName))
+        {
+            throw new ArgumentException(
+                $"{CaptureProductNameArg} must identify a unique isolated capture product " +
+                $"using prefix '{PlayerCapturePersistenceAuthorization.IsolatedProductNamePrefix}'.");
+        }
+
+        if (!includeCaptureCapability && string.IsNullOrWhiteSpace(productName))
+        {
+            throw new ArgumentException(
+                $"{CaptureProductNameArg} is required for the isolated save-safety probe build.");
+        }
+
         try
         {
             if (backendWasChanged)
@@ -57,6 +85,9 @@ public static class PlayerProfilerCaptureCli
                 options = BuildOptions.Development |
                           BuildOptions.ConnectWithProfiler |
                           BuildOptions.AllowDebugging,
+                extraScriptingDefines = includeCaptureCapability
+                    ? CaptureBuildScriptingDefines
+                    : Array.Empty<string>(),
             };
 
             var buildDirectory = Path.GetDirectoryName(buildPath);
@@ -72,7 +103,9 @@ public static class PlayerProfilerCaptureCli
                     $"PlayerProfilerCaptureCli build failed: {report.summary.result}");
             }
 
-            Debug.Log($"PlayerProfilerCaptureCli build succeeded: {buildPath}");
+            Debug.Log(
+                $"PlayerProfilerCaptureCli build succeeded: {buildPath}; " +
+                $"captureCapability={includeCaptureCapability}");
             if (TryReadCaptureStage(args, out var stageId))
             {
                 Debug.Log(
@@ -96,6 +129,18 @@ public static class PlayerProfilerCaptureCli
     public static string[] ResolveBuildScenesForTests(string[] args)
     {
         return ResolveBuildScenes(args);
+    }
+
+    internal static string[] CaptureBuildScriptingDefinesForTests()
+    {
+        return CaptureBuildScriptingDefines.ToArray();
+    }
+
+    internal static bool IsAllowedCaptureProductNameForTests(
+        string productionProductName,
+        string captureProductName)
+    {
+        return IsAllowedCaptureProductName(productionProductName, captureProductName);
     }
 
     private static string[] ResolveBuildScenes(IReadOnlyList<string> args)
@@ -198,6 +243,22 @@ public static class PlayerProfilerCaptureCli
         return string.Equals(backend, "IL2CPP", StringComparison.OrdinalIgnoreCase)
             ? ScriptingImplementation.IL2CPP
             : ScriptingImplementation.Mono2x;
+    }
+
+    private static bool IsAllowedCaptureProductName(
+        string productionProductName,
+        string captureProductName)
+    {
+        return !string.IsNullOrWhiteSpace(captureProductName) &&
+               !string.Equals(
+                   productionProductName,
+                   captureProductName,
+                   StringComparison.Ordinal) &&
+               captureProductName.Length >
+               PlayerCapturePersistenceAuthorization.IsolatedProductNamePrefix.Length &&
+               captureProductName.StartsWith(
+                   PlayerCapturePersistenceAuthorization.IsolatedProductNamePrefix,
+                   StringComparison.Ordinal);
     }
 
     private static string RequireArgument(IReadOnlyList<string> args, string name)
