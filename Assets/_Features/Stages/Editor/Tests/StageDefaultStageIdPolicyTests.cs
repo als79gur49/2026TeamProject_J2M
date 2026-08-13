@@ -26,6 +26,7 @@ namespace Game.Feature.Stages.Editor.Tests
             provider.AssignCatalog(catalog);
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
         }
 
         [TearDown]
@@ -33,6 +34,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             UnityEngine.Object.DestroyImmediate(entry);
             UnityEngine.Object.DestroyImmediate(provider);
             UnityEngine.Object.DestroyImmediate(catalog);
