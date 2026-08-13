@@ -493,6 +493,11 @@ namespace Game.Feature.Gameplay.Host
         void ConfigureOutputCamera(Camera outputCamera, Transform localSpaceRoot);
     }
 
+    public interface IGameplayPlayerAnchoredPresentationExtension
+    {
+        void ConfigurePlayerAnchorContext(int playerEntityId, Transform boardPresentationRoot);
+    }
+
     public readonly struct GameplayPresentationMotionVfxContext
     {
         public GameplayPresentationMotionVfxContext(

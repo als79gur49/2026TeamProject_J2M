@@ -3865,7 +3865,8 @@ namespace Game.Feature.Gameplay.Loop
                     context,
                     entityId,
                     activeActionKind,
-                    executedThisTick);
+                    executedThisTick,
+                    actionPlanId);
                 var flipOutcome = ResolvePlayerFlipOutcome(
                     context,
                     entityId,
@@ -4183,7 +4184,8 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             int entityId,
             PlayerActionKind actionKind,
-            bool executedThisTick)
+            bool executedThisTick,
+            int actionPlanId)
         {
             if (!executedThisTick ||
                 actionKind == PlayerActionKind.None)
@@ -4191,12 +4193,16 @@ namespace Game.Feature.Gameplay.Loop
                 return TickPlayerActionResolutionKind.None;
             }
 
-            if (DidResolvePlayerImpactThisTick(context.AttackPhaseResult, entityId))
+            if (DidResolvePlayerImpactThisTick(context.AttackPhaseResult, actionPlanId))
             {
                 return TickPlayerActionResolutionKind.Impact;
             }
 
-            if (DidResolvePlayerActionMovementThisTick(context.MovementPhaseResult, entityId, actionKind))
+            if (DidResolvePlayerActionMovementThisTick(
+                    context.MovementPhaseResult,
+                    entityId,
+                    actionKind,
+                    actionPlanId))
             {
                 return TickPlayerActionResolutionKind.Success;
             }
@@ -4313,14 +4319,19 @@ namespace Game.Feature.Gameplay.Loop
             return upper ^ (uint)boxEntityId;
         }
 
-        private static bool DidResolvePlayerImpactThisTick(
+        internal static bool DidResolvePlayerImpactThisTick(
             AttackPhaseResult attackPhaseResult,
-            int entityId)
+            int actionPlanId)
         {
+            if (actionPlanId <= 0)
+            {
+                return false;
+            }
+
             var reservations = attackPhaseResult.DrainedImpactReservations;
             for (var i = 0; i < reservations.Count; i++)
             {
-                if (reservations[i].SourceId == entityId)
+                if (reservations[i].SourceActionPlanId == actionPlanId)
                 {
                     return true;
                 }
@@ -4329,25 +4340,37 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool DidResolvePlayerActionMovementThisTick(
+        internal static bool DidResolvePlayerActionMovementThisTick(
             MovementPhaseResult movementPhaseResult,
             int entityId,
-            PlayerActionKind actionKind)
+            PlayerActionKind actionKind,
+            int actionPlanId)
         {
+            if (actionPlanId <= 0)
+            {
+                return false;
+            }
+
             var operations = movementPhaseResult.ResolvedOperations;
             for (var i = 0; i < operations.Count; i++)
             {
                 var operation = operations[i];
-                if (operation.Kind != FinalizationOperationKind.MoveEntity ||
-                    operation.Metadata.SourceActorEntityId != entityId)
+                if (operation.Metadata.SourceActorEntityId != entityId ||
+                    operation.Metadata.ActionPlanId != actionPlanId)
                 {
                     continue;
                 }
 
                 switch (actionKind)
                 {
-                    case PlayerActionKind.Push when operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Push:
-                    case PlayerActionKind.Flip when operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Flip:
+                    case PlayerActionKind.Push when
+                        (operation.Kind == FinalizationOperationKind.MoveEntity ||
+                         operation.Kind == FinalizationOperationKind.MarkDestroy) &&
+                        (operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Push ||
+                         operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Slide):
+                    case PlayerActionKind.Flip when
+                        operation.Kind == FinalizationOperationKind.MoveEntity &&
+                        operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Flip:
                         return true;
                 }
             }
