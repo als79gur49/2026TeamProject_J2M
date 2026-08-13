@@ -3686,7 +3686,7 @@ run_unity_stage_unguarded() {
     fi
     if [ -n "$CAMERA_SHAKE_VISUAL_OUTPUT_DIR" ]; then
         camera_shake_visual_tracked_fingerprint="$(
-            git diff --binary | sha256sum | awk '{print $1}'
+            git diff HEAD --binary | sha256sum | awk '{print $1}'
         )"
         camera_shake_visual_untracked_fingerprint="$(
             git ls-files --others --exclude-standard -z |
@@ -3999,34 +3999,17 @@ run_camera_shake_visual() {
 run_camera_shake_hud_visual() {
     local timestamp_slug
     local output_dir
-    local output_dir_win
     local unity_log
-    local unity_log_win
     local test_results
-    local test_results_win
-    local process_before
-    local unity_exit=0
-    local -a unity_command
 
     timestamp_slug="$(date -u +%Y%m%dT%H%M%SZ)"
     output_dir="$CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT/camera-shake-m3a-hud-visual-$timestamp_slug"
     unity_log="$output_dir/tests/camera-shake-hud-visual-playmode.log"
     test_results="$output_dir/tests/camera-shake-hud-visual-playmode.xml"
-    output_dir_win="$(wslpath -w "$output_dir")"
-    unity_log_win="$(wslpath -w "$unity_log")"
-    test_results_win="$(wslpath -w "$test_results")"
-    unity_command=(
-        timeout --kill-after=10 600
-        "$UNITY_PATH"
-        -batchmode
-        -projectPath "$PROJECT_PATH_WIN"
-        -logFile "$unity_log_win"
-        -runTests
-        -testPlatform PlayMode
-        -testFilter "$CAMERA_SHAKE_HUD_VISUAL_FILTER"
-        -testResults "$test_results_win"
-        -cameraShakeVisualOutput "$output_dir_win"
-    )
+    CAMERA_SHAKE_VISUAL_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    CAMERA_SHAKE_VISUAL_OUTPUT_DIR="$output_dir"
+    TEST_FILTER="$CAMERA_SHAKE_HUD_VISUAL_FILTER"
+    UNITY_GRAPHICS=1
 
     echo "Camera Shake HUD secondary visual evidence plan:"
     echo "  output:     $output_dir"
@@ -4034,42 +4017,29 @@ run_camera_shake_hud_visual() {
     echo "  markers:    pre / peak / rest"
     echo "  capture:    Camera.Render evidence composition; ScreenSpaceOverlay contract asserted"
 
-    if [ "$DRY_RUN" -eq 1 ]; then
-        print_shell_command "${unity_command[@]}"
-        return 0
-    fi
-
-    mkdir -p "$CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT"
-    mkdir "$output_dir"
-    mkdir "$output_dir/tests"
-    ensure_no_current_project_unity_process
-    ensure_no_current_project_unity_lock
-    process_before="$(find_current_project_unity_processes)"
-    if "${unity_command[@]}"; then
-        unity_exit=0
-    else
-        unity_exit=$?
-    fi
-
-    if [ "$unity_exit" -eq 124 ] || [ "$unity_exit" -eq 137 ]; then
-        capture_unity_timeout_artifacts \
-            "camera-shake-hud-visual" \
-            "$unity_log" \
-            "$output_dir/hud/manifest.json" \
-            "$unity_exit" \
-            "$process_before" || true
-    fi
-    if [ "$unity_exit" -ne 0 ]; then
-        echo "ERROR: Camera Shake HUD visual capture failed with exit code $unity_exit."
-        echo "Diagnostics were preserved in: $output_dir"
-        return "$unity_exit"
-    fi
-    if ! assert_no_generated_test_scenes; then
-        cleanup_generated_test_scenes
-        if ! assert_no_generated_test_scenes; then
+    if [ "$DRY_RUN" -eq 0 ]; then
+        mkdir -p "$CAMERA_SHAKE_HUD_VISUAL_OUTPUT_ROOT"
+        if ! mkdir "$output_dir"; then
+            echo "ERROR: Camera Shake HUD visual output directory already exists; refusing to overwrite:"
+            echo "  $output_dir"
             return 1
         fi
-        echo "Camera Shake HUD lane cleaned Unity Test Framework InitTestScene artifacts."
+        mkdir "$output_dir/tests"
+    fi
+
+    run_unity_stage \
+        "full" \
+        "camera-shake-hud-visual-playmode" \
+        "Camera Shake HUD visual evidence (graphics PlayMode)" \
+        "PlayMode" \
+        "$unity_log" \
+        "$test_results" \
+        "TestRunnerCliBootstrap.RunPlayMode" \
+        "Game.Feature.Gameplay.PlayModeTests" \
+        "Full"
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        return 0
     fi
 
     python3 - "$output_dir/hud" <<'PY'
