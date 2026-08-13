@@ -12,13 +12,6 @@ namespace Game.Feature.Gameplay.Loop
             bool isMoveBuffered = false,
             Direction heldMoveDirection = Direction.None)
         {
-            if (moveDirection == Direction.None &&
-                flipPressed &&
-                !pushPressed)
-            {
-                throw new ArgumentException("Flip commands require a non-none move direction.", nameof(moveDirection));
-            }
-
             if (moveDirection == Direction.None && isMoveBuffered)
             {
                 throw new ArgumentException("Buffered move commands require a non-none move direction.", nameof(moveDirection));

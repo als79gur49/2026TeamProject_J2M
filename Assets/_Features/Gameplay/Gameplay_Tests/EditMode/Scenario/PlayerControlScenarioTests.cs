@@ -237,11 +237,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_ExplicitPushWithoutDirection_RemainsNoOp()
+        public void PlayerControl_DirectionlessPush_EmitsFacingAttemptWithoutStartingActualPush()
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Right),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
             });
@@ -259,8 +259,58 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            var attemptSignal = result.PresentationData.PlayerActionAttemptSignals.Single();
+            Assert.That(attemptSignal.ActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(attemptSignal.Direction, Is.EqualTo(Direction.Right));
+            Assert.That(attemptSignal.FeedbackKind, Is.EqualTo(PlayerActionAttemptFeedbackKind.Invalid));
+            Assert.That(attemptSignal.HasTarget, Is.True);
+            Assert.That(attemptSignal.TargetEntityId, Is.EqualTo(20));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerControl_DirectionlessFlip_EmitsFacingAttemptWithoutStartingActualFlip()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var pipeline = CreatePlayerControlPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.None)));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var attemptSignal = result.PresentationData.PlayerActionAttemptSignals.Single();
+
+            Assert.That(result.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(attemptSignal.ActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(attemptSignal.Direction, Is.EqualTo(Direction.Right));
+            Assert.That(attemptSignal.HasTarget, Is.True);
+            Assert.That(attemptSignal.TargetEntityId, Is.EqualTo(20));
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.IsActive, Is.False);
+            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
         }
 
         [Test]

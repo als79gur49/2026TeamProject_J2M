@@ -749,11 +749,6 @@ namespace Game.Feature.Gameplay.Host
 
             if (flipPressed)
             {
-                if (resolvedDirection == Direction.None)
-                {
-                    return PlayerTickCommand.None;
-                }
-
                 return PlayerTickCommand.Create(
                     resolvedDirection,
                     flipPressed: true,
