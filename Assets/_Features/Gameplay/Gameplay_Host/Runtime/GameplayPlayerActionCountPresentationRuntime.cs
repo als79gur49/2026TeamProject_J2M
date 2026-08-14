@@ -145,7 +145,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (changed)
             {
-                RefreshVisibleView();
+                RefreshVisibleView(playIncrementEffect: true);
             }
             else if (_counterState.IsVisible)
             {
@@ -160,6 +160,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            _counterView?.AdvanceEffect(deltaTime);
             _counterState.Advance(deltaTime, opaqueDurationSeconds, fadeDurationSeconds);
             if (!_counterState.IsVisible)
             {
@@ -217,14 +218,21 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private void RefreshVisibleView()
+        private void RefreshVisibleView(bool playIncrementEffect = false)
         {
             if (!EnsurePlayerViewBinding())
             {
                 return;
             }
 
-            _counterView.ShowCount(_counterState.Count);
+            if (playIncrementEffect)
+            {
+                _counterView.ShowCountWithIncrementEffect(_counterState.Count);
+            }
+            else
+            {
+                _counterView.ShowCount(_counterState.Count);
+            }
             _counterView.SetAlpha(_counterState.Alpha);
         }
 
