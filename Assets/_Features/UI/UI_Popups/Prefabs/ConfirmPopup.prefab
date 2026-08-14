@@ -1012,6 +1012,10 @@ MonoBehaviour:
   _target: {fileID: 1733228690868934689}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 6
   _useUnscaledTime: 1
@@ -1494,6 +1498,10 @@ MonoBehaviour:
   _target: {fileID: 7335515371828707569}
   _hoverScale: 1.1
   _pressedScale: 1.04
+  _clickPunchStrength: 0.08
+  _clickPunchDurationSeconds: 0.18
+  _clickPunchVibrato: 6
+  _clickPunchElasticity: 0.65
   _durationSeconds: 0.12
   _ease: 6
   _useUnscaledTime: 1

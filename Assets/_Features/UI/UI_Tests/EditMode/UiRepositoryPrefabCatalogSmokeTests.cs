@@ -16,6 +16,7 @@ using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -37,6 +38,8 @@ namespace Game.Feature.UI.Tests
             "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayContentCatalog.asset";
         private const string TerminalIrisMotionProfilePath =
             "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/TerminalIrisMotionProfile.asset";
+        private const string UiHoverScaleEffectPath =
+            "Assets/_Features/UI/UI_Screens/Runtime/UiHoverScaleEffect.cs";
 
         [Test]
         public void ScreenPrefabCatalog_RepositoryAsset_AllScreenIdsHaveValidPrefab()
@@ -115,6 +118,90 @@ namespace Game.Feature.UI.Tests
             }
 
             Assert.That(failures, Is.Empty, "Popup prefab catalog repository smoke failures:\n" + string.Join("\n", failures));
+        }
+
+        [Test]
+        public void ConfirmPopupPrefab_ActionButtonsHaveExplicitClickPunchPreset()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
+            Assert.That(prefab, Is.Not.Null, UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
+
+            foreach (var buttonName in new[] { "ConfirmButton", "CancelButton" })
+            {
+                var button = FindChildByName(prefab.transform, buttonName);
+                Assert.That(button, Is.Not.Null, buttonName);
+
+                var effect = button.GetComponent<UiHoverScaleEffect>();
+                Assert.That(effect, Is.Not.Null, buttonName);
+                Assert.That(effect.Target, Is.EqualTo(button as RectTransform), buttonName);
+
+                var serialized = new SerializedObject(effect);
+                Assert.That(
+                    serialized.FindProperty("_clickPunchStrength").floatValue,
+                    Is.EqualTo(0.08f).Within(0.001f),
+                    buttonName);
+                Assert.That(
+                    serialized.FindProperty("_clickPunchDurationSeconds").floatValue,
+                    Is.EqualTo(0.18f).Within(0.001f),
+                    buttonName);
+                Assert.That(serialized.FindProperty("_clickPunchVibrato").intValue, Is.EqualTo(6), buttonName);
+                Assert.That(
+                    serialized.FindProperty("_clickPunchElasticity").floatValue,
+                    Is.EqualTo(0.65f).Within(0.001f),
+                    buttonName);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_RepositoryPrefabs_HaveSelectableAndCompletePunchSerialization()
+        {
+            var effectGuid = AssetDatabase.AssetPathToGUID(UiHoverScaleEffectPath);
+            Assert.That(effectGuid, Is.Not.Empty, UiHoverScaleEffectPath);
+
+            var scriptReference = $"m_Script: {{fileID: 11500000, guid: {effectGuid}, type: 3}}";
+            var punchFields = new[]
+            {
+                "  _clickPunchStrength:",
+                "  _clickPunchDurationSeconds:",
+                "  _clickPunchVibrato:",
+                "  _clickPunchElasticity:",
+            };
+            var totalEffectCount = 0;
+            var prefabGuids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/_Features/UI" });
+
+            foreach (var prefabGuid in prefabGuids)
+            {
+                var prefabPath = AssetDatabase.GUIDToAssetPath(prefabGuid);
+                var source = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), prefabPath));
+                var authoredEffectCount = CountOccurrences(source, scriptReference);
+                if (authoredEffectCount == 0)
+                {
+                    continue;
+                }
+
+                totalEffectCount += authoredEffectCount;
+                foreach (var punchField in punchFields)
+                {
+                    Assert.That(
+                        CountOccurrences(source, punchField),
+                        Is.EqualTo(authoredEffectCount),
+                        $"{prefabPath} must explicitly serialize {punchField.Trim()} for every UiHoverScaleEffect.");
+                }
+
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                Assert.That(prefab, Is.Not.Null, prefabPath);
+                var effects = prefab.GetComponentsInChildren<UiHoverScaleEffect>(true);
+                Assert.That(effects.Length, Is.GreaterThanOrEqualTo(authoredEffectCount), prefabPath);
+                foreach (var effect in effects)
+                {
+                    Assert.That(
+                        effect.GetComponent<Selectable>(),
+                        Is.Not.Null,
+                        $"{prefabPath}:{effect.transform.name} must pair UiHoverScaleEffect with a Selectable.");
+                }
+            }
+
+            Assert.That(totalEffectCount, Is.GreaterThan(0), "Repository scan found no UiHoverScaleEffect components.");
         }
 
         [Test]
@@ -1549,6 +1636,11 @@ namespace Game.Feature.UI.Tests
         {
             return root.GetComponentsInChildren<Transform>(true)
                 .Sum(child => GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(child.gameObject));
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            return source.Split(new[] { value }, StringSplitOptions.None).Length - 1;
         }
 
         private static void DestroySceneObject(string objectName)
