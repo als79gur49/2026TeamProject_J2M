@@ -75,15 +75,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(harness.Runtime.Mount.parent, Is.SameAs(harness.BoardRoot.transform));
             Assert.That(harness.Runtime.Mount, Is.Not.SameAs(harness.BoardRoot.EntityRoot));
             AssertEntityRootDirectChildrenAreViews(harness.BoardRoot.EntityRoot);
+            var effectDriver = harness.Runtime.CounterView.GetComponent<GameplayPlayerActionCountEffectDriver>();
+            Assert.That(effectDriver, Is.Not.Null);
+            Assert.That(effectDriver.DebugPlayCount, Is.EqualTo(1));
+            Assert.That(effectDriver.IsPlaying, Is.True);
 
             harness.Presenter.Present(executeResult);
             Assert.That(harness.Runtime.Count, Is.EqualTo(1), "Repeated result presentation must dedupe.");
+            Assert.That(effectDriver.DebugPlayCount, Is.EqualTo(1), "Repeated presentation must not replay the effect.");
 
+            var elapsedBeforePause = effectDriver.DebugElapsedSeconds;
             harness.Presenter.SetPresentationPaused(true);
             harness.Presenter.UpdatePresentation(2f);
             Assert.That(harness.Runtime.IsVisible, Is.True, "Host presentation pause freezes fade timing.");
+            Assert.That(effectDriver.DebugElapsedSeconds, Is.EqualTo(elapsedBeforePause));
             harness.Presenter.SetPresentationPaused(false);
-            harness.Presenter.UpdatePresentation(1.5f);
+            harness.Presenter.UpdatePresentation(0.12f);
+            Assert.That(effectDriver.DebugElapsedSeconds, Is.GreaterThan(elapsedBeforePause));
+            harness.Presenter.UpdatePresentation(1.38f);
             Assert.That(harness.Runtime.IsVisible, Is.False);
         }
 
