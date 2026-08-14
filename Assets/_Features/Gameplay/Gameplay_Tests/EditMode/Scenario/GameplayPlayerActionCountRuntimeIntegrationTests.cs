@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [TestCase(ActualActionCase.PushDestroyFallback, TickPlayerActionResolutionKind.Success)]
         [TestCase(ActualActionCase.FlipSuccess, TickPlayerActionResolutionKind.Success)]
         [TestCase(ActualActionCase.FlipImpact, TickPlayerActionResolutionKind.Impact)]
-        public void ActualPushFlipResolution_PresenterCoordinatorExtension_CountsOnce(
+        public void ActualPushFlipResolution_PresenterCoordinatorExtension_CountsOnceAndRevealsAfterDelay(
             ActualActionCase actionCase,
             TickPlayerActionResolutionKind expectedResolution)
         {
@@ -47,14 +47,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 ? PlayerTickCommand.Flip(Direction.Right)
                 : PlayerTickCommand.Push(Direction.Right);
 
-            pipeline.RunTick(new TickInput(1, command));
+            var startResult = pipeline.RunTick(new TickInput(1, command));
             var executeResult = pipeline.RunTick(new TickInput(2));
             Assert.That(
                 executeResult.PresentationData.PlayerActionSignals.Single().ResolutionKind,
                 Is.EqualTo(expectedResolution));
 
+            harness.Presenter.Present(startResult);
             harness.Presenter.Present(executeResult);
             Assert.That(harness.Runtime.Count, Is.EqualTo(1));
+            Assert.That(harness.Runtime.IsVisible, Is.False);
+
+            for (var i = 0; i < 100 && !harness.Runtime.IsVisible; i++)
+            {
+                harness.Presenter.UpdatePresentation(0.02f);
+            }
+
+            Assert.That(harness.Runtime.IsVisible, Is.True);
+            Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -71,20 +81,116 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             harness.Presenter.Present(executeResult);
             Assert.That(harness.Runtime.Count, Is.EqualTo(1));
+            Assert.That(harness.Runtime.VisibleCount, Is.Zero);
+            Assert.That(harness.Runtime.IsVisible, Is.False);
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.CounterView, Is.Null);
+            Assert.That(harness.Runtime.Mount, Is.Null);
+
+            harness.Presenter.Present(executeResult);
+            Assert.That(harness.Runtime.Count, Is.EqualTo(1), "Repeated result presentation must dedupe.");
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
+
+            harness.Presenter.SetPresentationPaused(true);
+            harness.Presenter.UpdatePresentation(2f);
+            Assert.That(harness.Runtime.IsVisible, Is.False, "Host presentation pause freezes reveal timing.");
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
+            harness.Presenter.SetPresentationPaused(false);
+
+            harness.Presenter.UpdatePresentation(harness.Runtime.PushRevealDelaySeconds - 0.01f);
+            Assert.That(harness.Runtime.IsVisible, Is.False);
+            harness.Presenter.UpdatePresentation(0.02f);
+
+            Assert.That(harness.Runtime.IsVisible, Is.True);
+            Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
             Assert.That(harness.Runtime.CounterView, Is.Not.Null);
             Assert.That(harness.Runtime.Mount.parent, Is.SameAs(harness.BoardRoot.transform));
             Assert.That(harness.Runtime.Mount, Is.Not.SameAs(harness.BoardRoot.EntityRoot));
             AssertEntityRootDirectChildrenAreViews(harness.BoardRoot.EntityRoot);
+            var effectDriver = harness.Runtime.CounterView.GetComponent<GameplayPlayerActionCountEffectDriver>();
+            Assert.That(effectDriver, Is.Not.Null);
+            Assert.That(effectDriver.DebugPlayCount, Is.EqualTo(1));
+            Assert.That(effectDriver.IsPlaying, Is.True);
 
-            harness.Presenter.Present(executeResult);
-            Assert.That(harness.Runtime.Count, Is.EqualTo(1), "Repeated result presentation must dedupe.");
-
+            var elapsedBeforePause = effectDriver.DebugElapsedSeconds;
             harness.Presenter.SetPresentationPaused(true);
             harness.Presenter.UpdatePresentation(2f);
             Assert.That(harness.Runtime.IsVisible, Is.True, "Host presentation pause freezes fade timing.");
+            Assert.That(effectDriver.DebugElapsedSeconds, Is.EqualTo(elapsedBeforePause));
             harness.Presenter.SetPresentationPaused(false);
-            harness.Presenter.UpdatePresentation(1.5f);
+            harness.Presenter.UpdatePresentation(0.12f);
+            Assert.That(effectDriver.DebugElapsedSeconds, Is.GreaterThan(elapsedBeforePause));
+            harness.Presenter.UpdatePresentation(1.38f);
             Assert.That(harness.Runtime.IsVisible, Is.False);
+        }
+
+        [TestCase(
+            TickPlayerFlipOutcomeKind.FollowThrough,
+            GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime)]
+        [TestCase(
+            TickPlayerFlipOutcomeKind.Stay,
+            GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime)]
+        [TestCase(
+            TickPlayerFlipOutcomeKind.DestroySelf,
+            GameplayPresentationTimingConstants.FlipImpactInteractionOnsetNormalizedTime)]
+        public void FlipReveal_WaitsForMatchingMotionContactThreshold(
+            TickPlayerFlipOutcomeKind outcome,
+            float contactNormalizedTime)
+        {
+            using var harness = CreateHarness(ActualActionCase.FlipSuccess);
+            const int sequence = 7;
+            harness.Presenter.Present(CreateResult(
+                tickIndex: 1,
+                GetEntities(harness.WorldState),
+                CreatePresentationData(playerActionSignals: new[]
+                {
+                    CreateActionSignal(
+                        PlayerEntityId,
+                        sequence,
+                        PlayerActionKind.Flip,
+                        outcome == TickPlayerFlipOutcomeKind.FollowThrough
+                            ? TickPlayerActionResolutionKind.Success
+                            : TickPlayerActionResolutionKind.Impact,
+                        outcome),
+                })));
+
+            var revealTime = contactNormalizedTime - harness.Runtime.FlipPreContactLeadNormalized;
+            var progressSource = outcome switch
+            {
+                TickPlayerFlipOutcomeKind.Stay => MotionTrackProgressSourceKind.OriginalViewMotion,
+                TickPlayerFlipOutcomeKind.DestroySelf => MotionTrackProgressSourceKind.FlipInteraction,
+                _ => MotionTrackProgressSourceKind.LocalMotion,
+            };
+            Assert.That(harness.Runtime.Count, Is.EqualTo(1));
+            Assert.That(harness.Runtime.IsVisible, Is.False);
+
+            harness.Runtime.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(
+                    entityId: 20,
+                    motionKind: TickEntityMotionKind.Flip,
+                    previousNormalizedTime: 0f,
+                    currentNormalizedTime: revealTime - 0.001f,
+                    sequenceOrActionPlanId: sequence,
+                    sourceKind: progressSource),
+            });
+            Assert.That(harness.Runtime.IsVisible, Is.False);
+
+            harness.Runtime.ObserveMotionProgress(new[]
+            {
+                new MotionTrackProgressSample(
+                    entityId: 20,
+                    motionKind: TickEntityMotionKind.Flip,
+                    previousNormalizedTime: revealTime - 0.001f,
+                    currentNormalizedTime: revealTime + 0.001f,
+                    sequenceOrActionPlanId: sequence,
+                    sourceKind: progressSource),
+            });
+
+            Assert.That(harness.Runtime.IsVisible, Is.True);
+            Assert.That(harness.Runtime.VisibleCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
         }
 
         [Test]
@@ -133,6 +239,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         CreateActionSignal(PlayerEntityId, 1),
                     })));
             Assert.That(harness.Runtime.Count, Is.EqualTo(1));
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
 
             harness.Presenter.Present(CreateResult(
                 tickIndex: 2,
@@ -160,6 +267,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(harness.Registry.TryGetView(PlayerEntityId, out var replacementPlayerView), Is.True);
             Assert.That(replacementPlayerView, Is.Not.SameAs(oldPlayerView));
             Assert.That(harness.Runtime.Count, Is.EqualTo(1));
+            Assert.That(harness.Runtime.CounterView, Is.Null);
+            harness.Presenter.UpdatePresentation(harness.Runtime.PushRevealDelaySeconds);
             Assert.That(harness.Runtime.CounterView, Is.Not.Null);
             AssertEntityRootDirectChildrenAreViews(harness.BoardRoot.EntityRoot);
         }
@@ -172,22 +281,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 GetEntities(harness.WorldState),
                 CreatePresentationData(playerActionSignals: new[] { CreateActionSignal(PlayerEntityId, 1) })));
-            Assert.That(harness.Runtime.Mount, Is.Not.Null);
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.Mount, Is.Null);
 
             harness.Presenter.PresentInitial(
                 GetEntities(harness.WorldState),
                 new CubeTopologyState(FaceId.Floor));
             Assert.That(harness.Runtime.Count, Is.Zero);
+            Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
             Assert.That(harness.Runtime.Mount, Is.Null);
 
             harness.Presenter.Present(CreateResult(
                 tickIndex: 2,
                 GetEntities(harness.WorldState),
                 CreatePresentationData(playerActionSignals: new[] { CreateActionSignal(PlayerEntityId, 1) })));
-            Assert.That(harness.Runtime.Mount, Is.Not.Null);
+            Assert.That(harness.Runtime.PendingRevealCount, Is.EqualTo(1));
+            Assert.That(harness.Runtime.Mount, Is.Null);
 
             harness.Runtime.HardCleanup();
             Assert.That(harness.Runtime.Count, Is.Zero);
+            Assert.That(harness.Runtime.PendingRevealCount, Is.Zero);
             Assert.That(harness.Runtime.Mount, Is.Null);
         }
 
@@ -321,21 +434,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
-        private static TickPlayerActionPresentationSignal CreateActionSignal(int entityId, int sequence)
+        private static TickPlayerActionPresentationSignal CreateActionSignal(
+            int entityId,
+            int sequence,
+            PlayerActionKind actionKind = PlayerActionKind.Push,
+            TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.Success,
+            TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None)
         {
             return new TickPlayerActionPresentationSignal(
                 entityId,
-                PlayerActionKind.Push,
+                actionKind,
                 sequence,
                 startedThisTick: false,
                 completedThisTick: true,
                 canceledThisTick: false,
                 executedThisTick: true,
                 isRecoveryPhase: false,
-                resolutionKind: TickPlayerActionResolutionKind.Success,
+                resolutionKind: resolutionKind,
                 targetEntityId: 20,
                 direction: Direction.Right,
-                actionPlanId: sequence);
+                actionPlanId: sequence,
+                flipOutcome: flipOutcome,
+                hasFlipImpactContactTiming: flipOutcome == TickPlayerFlipOutcomeKind.Stay ||
+                                            flipOutcome == TickPlayerFlipOutcomeKind.DestroySelf,
+                flipTargetBoxEntityId: actionKind == PlayerActionKind.Flip ? 20 : 0);
         }
 
         private static TickPlayerDeathPresentationSignal CreateDeathSignal(int entityId)

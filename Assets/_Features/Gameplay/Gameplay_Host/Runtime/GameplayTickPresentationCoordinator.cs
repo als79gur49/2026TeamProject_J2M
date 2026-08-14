@@ -1176,6 +1176,7 @@ namespace Game.Feature.Gameplay.Host
                 _resolvedPresentationVisibility,
                 _viewBinder,
                 _timingProfile);
+            ObserveMotionProgressExtensions();
             _exitPresentationController.CompleteDeferredEntityExits();
             RefreshPresentationMotionVfx(_lastPresentedTickIndex);
             _moonBlockDestructionPresentationController.UpdateSequences(
@@ -1631,6 +1632,22 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.UpdatePresentation(deltaTime);
+            }
+        }
+
+        private void ObserveMotionProgressExtensions()
+        {
+            if (_trackState.MotionTrackProgressSamples.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _presentationExtensions.Count; i++)
+            {
+                if (_presentationExtensions[i] is IGameplayMotionProgressPresentationExtension motionProgressExtension)
+                {
+                    motionProgressExtension.ObserveMotionProgress(_trackState.MotionTrackProgressSamples);
+                }
             }
         }
 

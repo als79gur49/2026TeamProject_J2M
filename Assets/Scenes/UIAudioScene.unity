@@ -1036,7 +1036,10 @@ MonoBehaviour:
   counterViewPrefab: {fileID: 114000, guid: ce484a30e46138ddb9aa607718d630b7, type: 3}
   opaqueDurationSeconds: 1
   fadeDurationSeconds: 0.5
-  surfaceInsetDistance: 1
+  pushRevealDelaySeconds: 0.15
+  flipPreContactLeadNormalized: 0.03
+  surfaceInsetDistance: 1.5
+  cameraRightOffsetDistance: 0.25
 --- !u!1 &1844535637
 GameObject:
   m_ObjectHideFlags: 0

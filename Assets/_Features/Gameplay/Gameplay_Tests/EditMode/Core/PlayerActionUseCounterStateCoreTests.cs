@@ -24,6 +24,10 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             Assert.That(state.TryConsume(CreateActionSignal(PlayerEntityId, actionKind, 1, resolutionKind)), Is.True);
             Assert.That(state.Count, Is.EqualTo(1));
+            Assert.That(state.VisibleCount, Is.Zero);
+            Assert.That(state.IsVisible, Is.False);
+            Assert.That(state.RevealCount(1), Is.True);
+            Assert.That(state.VisibleCount, Is.EqualTo(1));
             Assert.That(state.IsVisible, Is.True);
             Assert.That(state.Alpha, Is.EqualTo(1f));
         }
@@ -49,6 +53,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             }
 
             Assert.That(state.Count, Is.Zero);
+            Assert.That(state.VisibleCount, Is.Zero);
             Assert.That(state.IsVisible, Is.False);
         }
 
@@ -72,6 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     TickPlayerActionResolutionKind.Impact)),
                 Is.True);
             Assert.That(state.Count, Is.EqualTo(2));
+            Assert.That(state.VisibleCount, Is.Zero);
         }
 
         [Test]
@@ -86,6 +92,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                     TickPlayerActionResolutionKind.Success)),
                 Is.True);
 
+            Assert.That(state.RevealCount(1), Is.True);
+
             state.Advance(1f, opaqueDurationSeconds: 1f, fadeDurationSeconds: 0.5f);
             Assert.That(state.Alpha, Is.EqualTo(1f));
             state.Advance(0.25f, opaqueDurationSeconds: 1f, fadeDurationSeconds: 0.5f);
@@ -98,6 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     2,
                     TickPlayerActionResolutionKind.Impact)),
                 Is.True);
+            Assert.That(state.RevealCount(2), Is.True);
             Assert.That(state.Alpha, Is.EqualTo(1f));
 
             state.Advance(1.5f, opaqueDurationSeconds: 1f, fadeDurationSeconds: 0.5f);
@@ -185,6 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static void AssertReset(PlayerActionUseCounterState state)
         {
             Assert.That(state.Count, Is.Zero);
+            Assert.That(state.VisibleCount, Is.Zero);
             Assert.That(state.IsVisible, Is.False);
             Assert.That(state.Alpha, Is.Zero);
         }
