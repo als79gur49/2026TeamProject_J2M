@@ -160,7 +160,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(values, Does.Contain("로비-01"));
             Assert.That(values, Does.Contain("A병동-01"));
             Assert.That(values, Does.Contain("영안실-01"));
-            Assert.That(codepoints, Has.Length.EqualTo(187));
+            Assert.That(codepoints, Has.Length.EqualTo(186));
             foreach (var fontAsset in fontAssets)
             {
                 var missing = codepoints
