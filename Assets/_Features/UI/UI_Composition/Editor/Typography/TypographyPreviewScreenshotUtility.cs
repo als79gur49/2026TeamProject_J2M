@@ -621,6 +621,11 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
+                // Bind and activate runtime-driven sections only after the prefab has its final
+                // Canvas geometry. Activating Settings controls while the prefab is still an
+                // unparented zero-sized instance can leave their Graphics unregistered for the
+                // first locale capture even though TMP mesh-only validation still succeeds.
+                SetupPreviewScene(prefabRoot, options, out cameraObject, out canvasObject, out var camera);
                 localeInvariantTypographyScope = LocaleInvariantTypographyScope.Capture(prefabRoot);
                 var captureTheme = AssetDatabase.LoadAssetAtPath<GameplayUiTypographyTheme>(
                     TypographyThemeValidator.ThemeAssetPath);
@@ -645,7 +650,6 @@ namespace Game.Feature.UI.Composition.Editor
                     return capture;
                 }
 
-                SetupPreviewScene(prefabRoot, options, out cameraObject, out canvasObject, out var camera);
                 ForceCanvasGroupsVisible(prefabRoot);
                 ForceLayoutUpdates(prefabRoot);
                 ForceGraphicUpdates(prefabRoot);
@@ -681,6 +685,13 @@ namespace Game.Feature.UI.Composition.Editor
                             capture.AddError($"{filePath}: Captured PNG is blank or single-color.");
                         }
 
+                        ValidateSettingsRenderedControls(
+                            prefabRoot,
+                            capture,
+                            camera,
+                            renderTexture,
+                            options,
+                            pixels);
                         ValidateM1bRenderedTargets(
                             prefabRoot,
                             capture,
@@ -1683,6 +1694,184 @@ namespace Game.Feature.UI.Composition.Editor
             }
         }
 
+        private static void ValidateSettingsRenderedControls(
+            GameObject prefabRoot,
+            TypographyPreviewScreenshotCaptureResult capture,
+            Camera camera,
+            RenderTexture renderTexture,
+            TypographyPreviewScreenshotOptions options,
+            IReadOnlyList<Color32> enabledPixels)
+        {
+            if (!string.Equals(capture.Target.FileStem, "Settings", StringComparison.Ordinal) &&
+                !TryGetM2bVisualState(capture.Target.FileStem, out _))
+            {
+                return;
+            }
+
+            var inputView = prefabRoot.GetComponentInChildren<SettingsInputView>(true);
+            if (inputView == null)
+            {
+                capture.AddError(
+                    $"{capture.Target.Name} {capture.LocaleCode}: SettingsInputView was not found for rendered control proof.");
+                return;
+            }
+
+            var proofs = new[]
+            {
+                ResolveSettingsGraphicProof(inputView.transform, "WKey"),
+                ResolveSettingsGraphicProof(inputView.transform, "JKey"),
+                ResolveSettingsGraphicProof(inputView.transform, "KKey"),
+                ResolveSettingsGraphicProof(inputView.transform, "ResetInput_New"),
+            };
+            foreach (var proof in proofs)
+            {
+                var graphic = proof.Graphic;
+                if (graphic == null)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: required Settings control graphic " +
+                        $"'{proof.Name}' was not found.");
+                    continue;
+                }
+
+                if (!graphic.isActiveAndEnabled ||
+                    graphic.canvasRenderer.cull ||
+                    graphic.color.a <= 0f)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: required Settings control graphic " +
+                        $"'{BuildHierarchyPath(graphic.transform)}' is not renderable.");
+                    continue;
+                }
+
+                var corners = new Vector3[4];
+                graphic.rectTransform.GetWorldCorners(corners);
+                var screenCorners = corners
+                    .Select(corner => RectTransformUtility.WorldToScreenPoint(camera, corner))
+                    .ToArray();
+                var minX = screenCorners.Min(point => point.x);
+                var maxX = screenCorners.Max(point => point.x);
+                var minY = screenCorners.Min(point => point.y);
+                var maxY = screenCorners.Max(point => point.y);
+                if (maxX <= minX || maxY <= minY)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: required Settings control graphic " +
+                        $"'{BuildHierarchyPath(graphic.transform)}' has invalid capture geometry.");
+                    continue;
+                }
+
+                graphic.enabled = false;
+                Color32[] disabledPixels;
+                try
+                {
+                    ForceGraphicUpdates(prefabRoot);
+                    camera.Render();
+                    var diagnostic = ReadRenderTexture(renderTexture, options);
+                    try
+                    {
+                        disabledPixels = diagnostic.GetPixels32();
+                    }
+                    finally
+                    {
+                        UnityEngine.Object.DestroyImmediate(diagnostic);
+                    }
+                }
+                finally
+                {
+                    graphic.enabled = true;
+                    ForceGraphicUpdates(prefabRoot);
+                    ForceTextMeshUpdates(prefabRoot);
+                    camera.Render();
+                }
+
+                var pixelDelta = CountPixelDelta(
+                    enabledPixels,
+                    disabledPixels,
+                    options.Width,
+                    options.Height,
+                    minX,
+                    minY,
+                    maxX,
+                    maxY);
+                var passed = pixelDelta > 16;
+                Debug.Log(
+                    "SETTINGS_GRAPHIC_PIXEL_PROOF " +
+                    $"target={capture.Target.FileStem} " +
+                    $"locale={capture.LocaleCode} " +
+                    $"graphic={BuildHierarchyPath(graphic.transform)} " +
+                    $"pixel_delta={pixelDelta} " +
+                    $"result={(passed ? "PASS" : "FAIL")}");
+                if (!passed)
+                {
+                    capture.AddError(
+                        $"{capture.Target.Name} {capture.LocaleCode}: required Settings control graphic " +
+                        $"'{BuildHierarchyPath(graphic.transform)}' has no saved-frame pixel proof " +
+                        $"(delta={pixelDelta}).");
+                }
+            }
+        }
+
+        private static (string Name, Graphic Graphic) ResolveSettingsGraphicProof(
+            Transform inputRoot,
+            string objectName)
+        {
+            var target = inputRoot
+                .GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.name, objectName, StringComparison.Ordinal));
+            if (target == null)
+            {
+                return (objectName, null);
+            }
+
+            var button = target.GetComponent<Button>();
+            var directGraphic = button != null && button.targetGraphic != null
+                ? button.targetGraphic
+                : target.GetComponent<Graphic>();
+            var graphic = directGraphic != null && directGraphic.color.a > 0f
+                ? directGraphic
+                : target
+                    .GetComponentsInChildren<Graphic>(true)
+                    .FirstOrDefault(candidate =>
+                        candidate.gameObject.activeInHierarchy &&
+                        candidate.color.a > 0f);
+            return (objectName, graphic);
+        }
+
+        private static int CountPixelDelta(
+            IReadOnlyList<Color32> enabledPixels,
+            IReadOnlyList<Color32> disabledPixels,
+            int width,
+            int height,
+            float minX,
+            float minY,
+            float maxX,
+            float maxY)
+        {
+            var startX = Mathf.Clamp(Mathf.FloorToInt(minX), 0, width - 1);
+            var endX = Mathf.Clamp(Mathf.CeilToInt(maxX), 0, width);
+            var startY = Mathf.Clamp(Mathf.FloorToInt(minY), 0, height - 1);
+            var endY = Mathf.Clamp(Mathf.CeilToInt(maxY), 0, height);
+            var count = 0;
+            for (var y = startY; y < endY; y++)
+            {
+                for (var x = startX; x < endX; x++)
+                {
+                    var index = y * width + x;
+                    if (index >= 0 &&
+                        index < enabledPixels.Count &&
+                        index < disabledPixels.Count &&
+                        !enabledPixels[index].Equals(disabledPixels[index]))
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+
         private static int CountBrightPixels(
             IReadOnlyList<Color32> pixels,
             int width,
@@ -2163,13 +2352,48 @@ namespace Game.Feature.UI.Composition.Editor
 
         private static void ForceLayoutUpdates(GameObject root)
         {
-            Canvas.ForceUpdateCanvases();
-            if (root != null && root.transform is RectTransform rootRect)
+            if (root == null)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+                return;
             }
 
-            Canvas.ForceUpdateCanvases();
+            var nestedLayoutRoots = root
+                .GetComponentsInChildren<RectTransform>(true)
+                .Where(rectTransform =>
+                    rectTransform.gameObject.activeInHierarchy &&
+                    (rectTransform.GetComponent<LayoutGroup>() != null ||
+                     rectTransform.GetComponent<ContentSizeFitter>() != null))
+                .OrderByDescending(GetHierarchyDepth)
+                .ToArray();
+
+            // Nested layout groups can dirty their parents while rebuilding. Two bottom-up passes
+            // settle both the child geometry and the final root geometry deterministically.
+            for (var pass = 0; pass < 2; pass++)
+            {
+                Canvas.ForceUpdateCanvases();
+                foreach (var layoutRoot in nestedLayoutRoots)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(layoutRoot);
+                }
+
+                if (root.transform is RectTransform rootRect)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(rootRect);
+                }
+
+                Canvas.ForceUpdateCanvases();
+            }
+        }
+
+        private static int GetHierarchyDepth(Transform transform)
+        {
+            var depth = 0;
+            for (var current = transform; current != null; current = current.parent)
+            {
+                depth++;
+            }
+
+            return depth;
         }
 
         private static void ForceTextMeshUpdates(GameObject root)
