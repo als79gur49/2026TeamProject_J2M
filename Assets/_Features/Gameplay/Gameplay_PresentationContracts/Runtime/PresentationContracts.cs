@@ -647,7 +647,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             int sourceSequenceId = 0,
             int sourceActionPlanId = 0,
             int targetEntityId = 0,
-            Direction direction = Direction.None)
+            Direction direction = Direction.None,
+            int sourceFeedbackKind = 0)
         {
             Kind = kind;
             EntityId = Math.Max(0, entityId);
@@ -659,6 +660,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             SourceActionPlanId = Math.Max(0, sourceActionPlanId);
             TargetEntityId = Math.Max(0, targetEntityId);
             Direction = direction;
+            SourceFeedbackKind = Math.Max(0, sourceFeedbackKind);
         }
 
         public PresentationAnimationFactKind Kind { get; }
@@ -681,6 +683,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public Direction Direction { get; }
 
+        public int SourceFeedbackKind { get; }
+
         public bool IsValid =>
             Kind != PresentationAnimationFactKind.None &&
             EntityId > 0 &&
@@ -698,7 +702,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    SourceSequenceId == other.SourceSequenceId &&
                    SourceActionPlanId == other.SourceActionPlanId &&
                    TargetEntityId == other.TargetEntityId &&
-                   Direction == other.Direction;
+                   Direction == other.Direction &&
+                   SourceFeedbackKind == other.SourceFeedbackKind;
         }
 
         public override bool Equals(object obj)
@@ -720,6 +725,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ SourceActionPlanId;
                 hash = (hash * 397) ^ TargetEntityId;
                 hash = (hash * 397) ^ (int)Direction;
+                hash = (hash * 397) ^ SourceFeedbackKind;
                 return hash;
             }
         }

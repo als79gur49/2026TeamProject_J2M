@@ -1944,7 +1944,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_NoSampledDirection_DropsBufferedPushAndFlip()
+        public IEnumerator GameplayInputHost_NoSampledDirection_PreservesBufferedFlipAsFakeAttempt()
         {
             var host = CreateHost(new[]
             {
@@ -1955,9 +1955,32 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(new Vector2(1f, 1f));
             host.InputHost.BufferFlip();
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+            var result = host.InputHost.RunSingleTick();
 
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].ActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(result.PresentationData.PlayerActionAttemptSignals[0].Direction, Is.EqualTo(Direction.Right));
+            Assert.That(host.Presenter.IsPlayerActionAttemptPlaybackActive(10), Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(10, out var playerView), Is.True);
+            var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+            Assert.That(driver.LastPresentationState.HasActionAttempt, Is.True);
+            Assert.That(driver.LastPresentationState.CanceledThisTick, Is.False);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferPush();
+            var gatedTick = host.InputHost.RunSingleTick();
+            Assert.That(gatedTick, Is.Not.Null);
+            Assert.That(gatedTick.PresentationData.PlayerActionSignals, Is.Empty);
+            Assert.That(gatedTick.PresentationData.PlayerActionAttemptSignals, Is.Empty);
+            Assert.That(gatedTick.PresentationData.EntityMotions, Is.Empty);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
             AssertViewMatchesProjectedState(host, entityId: 10);
             AssertViewMatchesProjectedState(host, entityId: 30);
             AssertViewMatchesProjectedState(host, entityId: 31);

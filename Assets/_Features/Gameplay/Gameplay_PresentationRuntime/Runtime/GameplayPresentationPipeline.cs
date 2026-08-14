@@ -718,7 +718,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     sequenceId,
                     sourceActionPlanId: 0,
                     targetEntityId: signal.TargetEntityId,
-                    direction: signal.Direction);
+                    direction: signal.Direction,
+                    sourceFeedbackKind: (int)signal.FeedbackKind);
                 facts.Add(new PresentationFact(
                     PresentationFactKind.Action,
                     new PresentationSource(

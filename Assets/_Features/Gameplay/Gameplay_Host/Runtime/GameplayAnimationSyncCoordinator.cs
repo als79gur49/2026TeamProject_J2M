@@ -545,6 +545,35 @@ namespace Game.Feature.Gameplay.Host
             PlayerPresentationPhase phase,
             bool restart)
         {
+            if (request.OwnershipKey.SemanticSource == PresentationSemanticSource.PlayerActionAttempt &&
+                request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Failed)
+            {
+                var feedbackKind = Enum.IsDefined(
+                    typeof(PlayerActionAttemptFeedbackKind),
+                    request.AnimationPayload.SourceFeedbackKind)
+                    ? (PlayerActionAttemptFeedbackKind)request.AnimationPayload.SourceFeedbackKind
+                    : PlayerActionAttemptFeedbackKind.None;
+                return new PlayerViewPresentationState(
+                    request.PlayerEntityId,
+                    request.TickIndex,
+                    PlayerActionKind.None,
+                    activeActionSequence: 0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    shouldPlayWalkLoop: false,
+                    isRecoveryPhase: false,
+                    didDie: false,
+                    didDieThisTick: false,
+                    tookDamageThisTick: false,
+                    actionPlanId: 0,
+                    hasActionAttempt: true,
+                    actionAttemptKind: ToPlayerActionKind(request.AnimationPayload.ActionKind),
+                    actionAttemptDirection: request.AnimationPayload.Direction,
+                    actionAttemptFeedbackKind: feedbackKind);
+            }
+
             return new PlayerViewPresentationState(
                 request.PlayerEntityId,
                 request.TickIndex,

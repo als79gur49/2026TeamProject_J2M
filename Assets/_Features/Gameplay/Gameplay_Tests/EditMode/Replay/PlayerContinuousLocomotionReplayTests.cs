@@ -495,6 +495,39 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Reason=NoActionCandidate")), Is.True);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void Replay_DirectionlessFlipFakeAttempt_DoesNotMutateAuthoritativeState()
+        {
+            var inputs = new[]
+            {
+                new TickInput(1, PlayerTickCommand.Flip(Direction.None)),
+                new TickInput(2, PlayerTickCommand.None),
+            };
+            var harness = new TickReplayHarness();
+
+            var firstReplay = harness.Run(
+                CreateWorldState(
+                    CreatePlayer(10),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+            var secondReplay = harness.Run(
+                CreateWorldState(
+                    CreatePlayer(10),
+                    CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip)),
+                CreatePlayerLogics(),
+                inputs,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+
+            AssertReplayEqual(firstReplay, secondReplay);
+            Assert.That(firstReplay.All(frame => !frame.PlayerControlDump.Contains("Action=Flip")), Is.True);
+            Assert.That(firstReplay.All(frame => !frame.PlayerControlDump.Contains("QueuedFree2DAction=Flip")), Is.True);
+            Assert.That(firstReplay[firstReplay.Count - 1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
+            Assert.That(firstReplay[firstReplay.Count - 1].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=1"));
+        }
+
         private static void AssertReplayEqual(
             IReadOnlyList<TickReplayFrame> firstReplay,
             IReadOnlyList<TickReplayFrame> secondReplay)
