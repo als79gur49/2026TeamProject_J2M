@@ -149,7 +149,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(sceneSource, Does.Contain("guid: ce484a30e46138ddb9aa607718d630b7"));
             Assert.That(sceneSource, Does.Contain("opaqueDurationSeconds: 1"));
             Assert.That(sceneSource, Does.Contain("fadeDurationSeconds: 0.5"));
-            Assert.That(sceneSource, Does.Contain("surfaceInsetDistance: 1"));
+            Assert.That(sceneSource, Does.Contain("pushRevealDelaySeconds:"));
+            Assert.That(sceneSource, Does.Contain("flipPreContactLeadNormalized:"));
+            Assert.That(sceneSource, Does.Contain("surfaceInsetDistance: 1.5"));
+            Assert.That(sceneSource, Does.Contain("cameraRightOffsetDistance: 0.25"));
         }
     }
 }
