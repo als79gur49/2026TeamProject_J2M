@@ -2,6 +2,7 @@ using DG.Tweening;
 using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
@@ -29,8 +30,11 @@ namespace Game.Feature.UI.Screens
 
         private Tween _scaleTween;
         private Tween _clickPunchTween;
+        private Selectable _selectable;
         private Vector3 _baseScale = Vector3.one;
         private bool _hasBaseScale;
+        private bool _hasInteractionAllowedState;
+        private bool _wasInteractionAllowed;
         private bool _isHovered;
         private bool _isPressed;
         private bool _isSelected;
@@ -52,18 +56,33 @@ namespace Game.Feature.UI.Screens
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (!IsPrimaryPointer(eventData) || !IsInteractionAllowed())
+            {
+                return;
+            }
+
             _isPressed = true;
             RefreshScale(animate: true);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (!IsPrimaryPointer(eventData))
+            {
+                return;
+            }
+
             _isPressed = false;
             RefreshScale(animate: true);
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (!IsPrimaryPointer(eventData) || !IsInteractionAllowed())
+            {
+                return;
+            }
+
             PlayClickPunch();
         }
 
@@ -103,13 +122,34 @@ namespace Game.Feature.UI.Screens
 
         private void Awake()
         {
+            ResolveSelectable();
             CaptureBaseScale();
         }
 
         private void OnEnable()
         {
             CaptureBaseScale();
+            _wasInteractionAllowed = IsInteractionAllowed();
+            _hasInteractionAllowedState = true;
             RefreshScale(animate: false);
+        }
+
+        private void Update()
+        {
+            var interactionAllowed = IsInteractionAllowed();
+            if (_hasInteractionAllowedState && interactionAllowed == _wasInteractionAllowed)
+            {
+                return;
+            }
+
+            _wasInteractionAllowed = interactionAllowed;
+            _hasInteractionAllowedState = true;
+            if (!interactionAllowed)
+            {
+                _isPressed = false;
+            }
+
+            RefreshScale(animate: CanAnimateScale());
         }
 
         private void OnDisable()
@@ -119,6 +159,7 @@ namespace Game.Feature.UI.Screens
             _isHovered = false;
             _isPressed = false;
             _isSelected = false;
+            _hasInteractionAllowedState = false;
 
             if (_restoreOnDisable && _hasBaseScale)
             {
@@ -190,6 +231,7 @@ namespace Game.Feature.UI.Screens
             var target = ResolveTarget();
             if (target == null ||
                 !_hasBaseScale ||
+                !IsInteractionAllowed() ||
                 _clickPunchStrength <= 0f ||
                 _clickPunchDurationSeconds <= 0f)
             {
@@ -221,6 +263,11 @@ namespace Game.Feature.UI.Screens
 
         private float ResolveScaleMultiplier()
         {
+            if (!IsInteractionAllowed())
+            {
+                return 1f;
+            }
+
             if (_isPressed)
             {
                 return Mathf.Max(0f, _pressedScale);
@@ -232,6 +279,27 @@ namespace Game.Feature.UI.Screens
         private RectTransform ResolveTarget()
         {
             return _target != null ? _target : transform as RectTransform;
+        }
+
+        private Selectable ResolveSelectable()
+        {
+            if (_selectable == null)
+            {
+                _selectable = GetComponent<Selectable>();
+            }
+
+            return _selectable;
+        }
+
+        private bool IsInteractionAllowed()
+        {
+            var selectable = ResolveSelectable();
+            return selectable != null && selectable.IsActive() && selectable.IsInteractable();
+        }
+
+        private static bool IsPrimaryPointer(PointerEventData eventData)
+        {
+            return eventData != null && eventData.button == PointerEventData.InputButton.Left;
         }
 
         private bool CanAnimateScale()

@@ -43,6 +43,181 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiHoverScaleEffect_PointerStates_OnlyPrimaryPointerChangesPressState()
+        {
+            var root = CreateHoverScaleButton(out var target, out _, out var effect);
+            try
+            {
+                effect.OnPointerEnter(null);
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerDown(CreatePointerEvent(PointerEventData.InputButton.Right));
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerDown(CreatePointerEvent(PointerEventData.InputButton.Left));
+                AssertLocalScale(target, 1.04f);
+
+                effect.OnPointerUp(CreatePointerEvent(PointerEventData.InputButton.Middle));
+                effect.OnPointerUp(null);
+                AssertLocalScale(target, 1.04f);
+
+                effect.OnPointerUp(CreatePointerEvent(PointerEventData.InputButton.Left));
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerExit(null);
+                AssertLocalScale(target, 1f);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_HoverAndSelection_KeepRemainingFeedbackState()
+        {
+            var root = CreateHoverScaleButton(out var target, out _, out var effect);
+            try
+            {
+                effect.OnSelect(null);
+                effect.OnPointerEnter(null);
+                effect.OnPointerExit(null);
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerEnter(null);
+                effect.OnDeselect(null);
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerDown(CreatePointerEvent(PointerEventData.InputButton.Left));
+                AssertLocalScale(target, 1.04f);
+
+                effect.OnDeselect(null);
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerExit(null);
+                AssertLocalScale(target, 1f);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_InteractabilityChanges_RestoreAndReapplyHoverState()
+        {
+            var root = CreateHoverScaleButton(out var target, out var button, out var effect);
+            try
+            {
+                effect.OnPointerEnter(null);
+                AssertLocalScale(target, 1.10f);
+
+                button.interactable = false;
+                InvokePrivate(effect, "Update");
+                AssertLocalScale(target, 1f);
+
+                effect.OnPointerDown(CreatePointerEvent(PointerEventData.InputButton.Left));
+                AssertLocalScale(target, 1f);
+
+                button.interactable = true;
+                InvokePrivate(effect, "Update");
+                AssertLocalScale(target, 1.10f);
+
+                effect.OnPointerDown(CreatePointerEvent(PointerEventData.InputButton.Left));
+                AssertLocalScale(target, 1.04f);
+
+                button.enabled = false;
+                InvokePrivate(effect, "Update");
+                AssertLocalScale(target, 1f);
+
+                button.enabled = true;
+                InvokePrivate(effect, "Update");
+                AssertLocalScale(target, 1.10f);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_ClickAndSubmitFeedback_RequirePrimaryInteractableInput()
+        {
+            var root = CreateHoverScaleButton(out _, out var button, out var effect);
+            try
+            {
+                effect.OnPointerClick(CreatePointerEvent(PointerEventData.InputButton.Right));
+                effect.OnPointerClick(CreatePointerEvent(PointerEventData.InputButton.Middle));
+                effect.OnPointerClick(null);
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Null);
+
+                button.interactable = false;
+                effect.OnPointerClick(CreatePointerEvent(PointerEventData.InputButton.Left));
+                effect.PlaySubmitFeedback();
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Null);
+
+                button.interactable = true;
+                effect.OnPointerClick(CreatePointerEvent(PointerEventData.InputButton.Left));
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Not.Null);
+
+                effect.PlaySubmitFeedback();
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_OnDisable_KillsFeedbackAndRestoresBaseScale()
+        {
+            var root = CreateHoverScaleButton(out var target, out _, out var effect);
+            try
+            {
+                effect.OnPointerEnter(null);
+                effect.OnPointerClick(CreatePointerEvent(PointerEventData.InputButton.Left));
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Not.Null);
+
+                InvokePrivate(effect, "OnDisable");
+
+                AssertLocalScale(target, 1f);
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Null);
+                Assert.That(GetPrivateField<bool>(effect, "_isHovered"), Is.False);
+                Assert.That(GetPrivateField<bool>(effect, "_isPressed"), Is.False);
+                Assert.That(GetPrivateField<bool>(effect, "_isSelected"), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void UiHoverScaleEffect_MissingSelectable_FailsClosed()
+        {
+            var root = new GameObject(nameof(UiHoverScaleEffect_MissingSelectable_FailsClosed), typeof(RectTransform));
+            try
+            {
+                var target = root.GetComponent<RectTransform>();
+                var effect = root.AddComponent<UiHoverScaleEffect>();
+                SetPrivateField(effect, "_durationSeconds", 0f);
+
+                effect.OnPointerEnter(null);
+                effect.OnPointerDown(CreatePointerEvent(PointerEventData.InputButton.Left));
+                effect.OnPointerClick(CreatePointerEvent(PointerEventData.InputButton.Left));
+                effect.PlaySubmitFeedback();
+
+                AssertLocalScale(target, 1f);
+                Assert.That(GetPrivateField<object>(effect, "_clickPunchTween"), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void MainMenuScreenPrefab_HasTopBarContentHostBottomBar()
         {
             var prefab = LoadMainMenuPrefab();
@@ -943,6 +1118,35 @@ namespace Game.Feature.UI.Tests
             Assert.That(serialized.FindProperty("_durationSeconds").floatValue, Is.EqualTo(0.12f).Within(0.001f), button.name);
             Assert.That(serialized.FindProperty("_useUnscaledTime").boolValue, Is.True, button.name);
             Assert.That(serialized.FindProperty("_restoreOnDisable").boolValue, Is.True, button.name);
+        }
+
+        private static GameObject CreateHoverScaleButton(
+            out RectTransform target,
+            out Button button,
+            out UiHoverScaleEffect effect)
+        {
+            var root = new GameObject(
+                "UiHoverScaleEffectTestButton",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(Button));
+            target = root.GetComponent<RectTransform>();
+            button = root.GetComponent<Button>();
+            effect = root.AddComponent<UiHoverScaleEffect>();
+            SetPrivateField(effect, "_durationSeconds", 0f);
+            return root;
+        }
+
+        private static PointerEventData CreatePointerEvent(PointerEventData.InputButton button)
+        {
+            return new PointerEventData(null) { button = button };
+        }
+
+        private static void AssertLocalScale(RectTransform target, float expected)
+        {
+            Assert.That(target.localScale.x, Is.EqualTo(expected).Within(0.001f));
+            Assert.That(target.localScale.y, Is.EqualTo(expected).Within(0.001f));
+            Assert.That(target.localScale.z, Is.EqualTo(expected).Within(0.001f));
         }
 
         private static string ReadRepoFile(string relativePath)
