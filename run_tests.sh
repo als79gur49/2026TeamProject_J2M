@@ -2567,7 +2567,7 @@ scenarios = (
     (
         "M1BSaveSlots",
         "ko-KR",
-        ("스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01"),
+        ("스테이지 연구실-01", "스테이지 A병동-01", "스테이지 영안실-01"),
         24,
         "capture-ko-KR-MainMenu.log",
     ),
@@ -2658,7 +2658,7 @@ lines.extend(
         "",
         "[contract]",
         "families=Lab,Lobby,Ward,Morgue",
-        "bracket_suffix=Stage Ward[A]-01,스테이지 병동[A]-01",
+        "bracket_suffix=Stage Ward[A]-01,스테이지 A병동-01",
         "hyphen_suffix=PASS",
         "overall_result=PASS",
     )
@@ -7203,7 +7203,7 @@ for field in ("semantic_fixture_hash", "non_text_graphic_hash"):
 
 ward_expected = {
     "stage-2-1/en-US": "Ward[A]-01",
-    "stage-2-1/ko-KR": "병동[A]-01",
+    "stage-2-1/ko-KR": "A병동-01",
 }
 for section, expected_stage_name in ward_expected.items():
     entry = sections[section]
