@@ -8,15 +8,21 @@ namespace Game.Feature.Gameplay.Host
     {
         [SerializeField] private Transform target;
         [SerializeField] private Camera targetCamera;
-        [SerializeField, Min(0f)] private float surfaceInsetDistance = 1f;
+        [SerializeField, Min(0f)] private float surfaceInsetDistance = 1.5f;
+        [SerializeField, Min(0f)] private float cameraRightOffsetDistance = 0.25f;
 
-        public void Initialize(Transform targetTransform, float insetDistance, Camera outputCamera = null)
+        public void Initialize(
+            Transform targetTransform,
+            float insetDistance,
+            float rightOffsetDistance,
+            Camera outputCamera = null)
         {
             target = targetTransform != null
                 ? targetTransform
                 : throw new ArgumentNullException(nameof(targetTransform));
             targetCamera = outputCamera;
             surfaceInsetDistance = Mathf.Max(0f, insetDistance);
+            cameraRightOffsetDistance = Mathf.Max(0f, rightOffsetDistance);
             RefreshPose();
         }
 
@@ -27,9 +33,12 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            transform.position = target.position - (target.forward * surfaceInsetDistance);
-
             var viewCamera = ResolveCamera();
+            transform.position = target.position -
+                                 (target.forward * surfaceInsetDistance) +
+                                 (viewCamera != null
+                                     ? viewCamera.transform.right * cameraRightOffsetDistance
+                                     : Vector3.zero);
             if (viewCamera == null)
             {
                 return;

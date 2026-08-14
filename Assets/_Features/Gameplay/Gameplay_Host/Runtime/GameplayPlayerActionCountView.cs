@@ -22,10 +22,14 @@ namespace Game.Feature.Gameplay.Host
             effectDriver != null &&
             effectDriver.IsReady;
 
-        public void Bind(Transform target, float surfaceInsetDistance, Camera outputCamera)
+        public void Bind(
+            Transform target,
+            float surfaceInsetDistance,
+            float cameraRightOffsetDistance,
+            Camera outputCamera)
         {
             EnsureReady();
-            anchor.Initialize(target, surfaceInsetDistance, outputCamera);
+            anchor.Initialize(target, surfaceInsetDistance, cameraRightOffsetDistance, outputCamera);
         }
 
         public void ShowCount(int count)

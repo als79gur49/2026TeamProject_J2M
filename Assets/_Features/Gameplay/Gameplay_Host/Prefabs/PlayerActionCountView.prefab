@@ -106,7 +106,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayPlayerActionCountAnchor
   target: {fileID: 0}
   targetCamera: {fileID: 0}
-  surfaceInsetDistance: 1
+  surfaceInsetDistance: 1.5
+  cameraRightOffsetDistance: 0.25
 --- !u!114 &114003
 MonoBehaviour:
   m_ObjectHideFlags: 0

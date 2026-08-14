@@ -17,7 +17,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayPlayerActionCountView counterViewPrefab;
         [SerializeField, Min(0f)] private float opaqueDurationSeconds = 1f;
         [SerializeField, Min(0.01f)] private float fadeDurationSeconds = 0.5f;
-        [SerializeField, Min(0f)] private float surfaceInsetDistance = 1f;
+        [SerializeField, Min(0f)] private float surfaceInsetDistance = 1.5f;
+        [SerializeField, Min(0f)] private float cameraRightOffsetDistance = 0.25f;
 
         private readonly PlayerActionUseCounterState _counterState = new();
 
@@ -37,12 +38,15 @@ namespace Game.Feature.Gameplay.Host
 
         public float SurfaceInsetDistance => surfaceInsetDistance;
 
+        public float CameraRightOffsetDistance => cameraRightOffsetDistance;
+
         public bool IsReady =>
             counterViewPrefab != null &&
             counterViewPrefab.IsReady &&
             opaqueDurationSeconds >= 0f &&
             fadeDurationSeconds > 0f &&
-            surfaceInsetDistance >= 0f;
+            surfaceInsetDistance >= 0f &&
+            cameraRightOffsetDistance >= 0f;
 
         internal int Count => _counterState.Count;
 
@@ -68,7 +72,10 @@ namespace Game.Feature.Gameplay.Host
                 return $"{nameof(GameplayPlayerActionCountPresentationRuntime)} counter view prefab is missing required references.";
             }
 
-            if (opaqueDurationSeconds < 0f || fadeDurationSeconds <= 0f || surfaceInsetDistance < 0f)
+            if (opaqueDurationSeconds < 0f ||
+                fadeDurationSeconds <= 0f ||
+                surfaceInsetDistance < 0f ||
+                cameraRightOffsetDistance < 0f)
             {
                 return $"{nameof(GameplayPlayerActionCountPresentationRuntime)} has invalid presentation timing or surface inset values.";
             }
@@ -252,7 +259,11 @@ namespace Game.Feature.Gameplay.Host
             if (_boundPlayerView != playerView)
             {
                 _boundPlayerView = playerView;
-                _counterView.Bind(playerView.transform, surfaceInsetDistance, _outputCamera);
+                _counterView.Bind(
+                    playerView.transform,
+                    surfaceInsetDistance,
+                    cameraRightOffsetDistance,
+                    _outputCamera);
                 if (_counterState.IsVisible)
                 {
                     _counterView.ShowCount(_counterState.Count);

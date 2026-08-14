@@ -108,6 +108,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerActionCountAnchor_UsesSurfaceUpAndCameraRightOffsets()
+        {
+            var targetObject = new GameObject("PlayerTarget");
+            var anchorObject = new GameObject("PlayerActionCountAnchor");
+            var cameraObject = new GameObject("OutputCamera");
+            try
+            {
+                var target = targetObject.transform;
+                target.position = new Vector3(2f, 3f, 4f);
+                target.rotation = Quaternion.LookRotation(Vector3.down, Vector3.forward);
+
+                var outputCamera = cameraObject.AddComponent<Camera>();
+                outputCamera.transform.position = new Vector3(4f, 6f, -10f);
+                outputCamera.transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+
+                var anchor = anchorObject.AddComponent<GameplayPlayerActionCountAnchor>();
+                anchor.Initialize(target, 1.5f, 0.25f, outputCamera);
+
+                var expectedPosition = target.position +
+                                       (Vector3.up * 1.5f) +
+                                       (outputCamera.transform.right * 0.25f);
+                Assert.That(
+                    Vector3.Distance(anchor.transform.position, expectedPosition),
+                    Is.LessThan(0.0001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(cameraObject);
+                Object.DestroyImmediate(anchorObject);
+                Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
         public void CanonicalGameplayShell_InstallsRuntimeWithPrefabReference()
         {
             var sceneSource = File.ReadAllText(ScenePath);
