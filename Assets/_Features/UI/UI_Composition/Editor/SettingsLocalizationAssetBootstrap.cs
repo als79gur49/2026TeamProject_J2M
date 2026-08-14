@@ -68,7 +68,7 @@ namespace Game.Feature.UI.Composition.Editor
             (SettingsLocalizationContract.Keys.DisplayPreviewConfirmTitle, "Confirm Display Preview", "화면 설정을 유지할까요?", false),
             (SettingsLocalizationContract.Keys.DisplayPreviewConfirmFullscreenBody, "Preview {0} x {1} in Borderless Fullscreen. These changes are temporary and will revert in {2} seconds unless you confirm.", "{0} × {1} 테두리 없는 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.", true),
             (SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody, "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.", "{0} × {1} 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.", true),
-            (SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep, "Keep", "변경 사항 유지", false),
+            (SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep, "Keep", "유지", false),
             ("ui.common.settings", "Settings", "설정", false),
             ("ui.main_menu.start", "Start", "시작", false),
             ("ui.main_menu.quit", "Quit", "종료", false),

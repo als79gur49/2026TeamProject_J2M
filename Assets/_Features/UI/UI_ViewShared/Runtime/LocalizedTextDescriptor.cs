@@ -1006,7 +1006,7 @@ namespace Game.Feature.UI.ViewShared
                         "{0} × {1} 테두리 없는 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.",
                     [SettingsLocalizationContract.Keys.DisplayPreviewConfirmWindowedBody] =
                         "{0} × {1} 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.",
-                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "변경 사항 유지",
+                    [SettingsLocalizationContract.Keys.DisplayPreviewConfirmKeep] = "유지",
                     [SettingsLocalizationContract.Keys.Back] = "뒤로",
                     ["ui.common.settings"] = "설정",
                     ["ui.main_menu.start"] = "시작",

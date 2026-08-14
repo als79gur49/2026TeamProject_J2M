@@ -109,7 +109,7 @@ namespace Game.Feature.UI.Tests
                 harness.ConfirmPopupView,
                 "화면 설정을 유지할까요?",
                 "1280 × 720 테두리 없는 창 모드를 적용했습니다. 15초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.",
-                "변경 사항 유지",
+                "유지",
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
@@ -129,7 +129,7 @@ namespace Game.Feature.UI.Tests
                 harness.ConfirmPopupView,
                 "화면 설정을 유지할까요?",
                 "1280 × 720 테두리 없는 창 모드를 적용했습니다. 15초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.",
-                "변경 사항 유지",
+                "유지",
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
         }
