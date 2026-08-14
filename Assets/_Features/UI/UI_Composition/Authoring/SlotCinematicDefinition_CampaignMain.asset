@@ -16,7 +16,7 @@ MonoBehaviour:
   _outroClip: {fileID: 32900000, guid: d4c53ef983a8c794da36537950ff6196, type: 3}
   _skipEnabled: 1
   _aspectSource: 0
-  _scaleMode: 0
+  _scaleMode: 2
   _fixedAspectRatio: 1.7777778
   _renderTextureWidth: 1920
   _renderTextureHeight: 1080

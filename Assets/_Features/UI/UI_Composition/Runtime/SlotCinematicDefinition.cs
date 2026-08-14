@@ -33,7 +33,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private VideoClip _outroClip;
         [SerializeField] private bool _skipEnabled = true;
         [SerializeField] private CinematicAspectSource _aspectSource = CinematicAspectSource.AutoResolvedViewport;
-        [SerializeField] private CinematicScaleMode _scaleMode = CinematicScaleMode.CropToFillViewport;
+        [SerializeField] private CinematicScaleMode _scaleMode = CinematicScaleMode.FitInsideViewport;
         [SerializeField] [Min(0.01f)] private float _fixedAspectRatio = 16f / 9f;
         [SerializeField] [Min(16)] private int _renderTextureWidth = 1920;
         [SerializeField] [Min(16)] private int _renderTextureHeight = 1080;

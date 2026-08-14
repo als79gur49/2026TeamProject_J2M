@@ -20,6 +20,7 @@ namespace Game.Feature.UI.Composition
 
         [SerializeField] private InputActionAsset _inputActions;
         [SerializeField] private CanvasGroup _canvasGroup;
+        [SerializeField] private Image _videoBackdropImage;
         [SerializeField] private RectTransform _videoViewport;
         [SerializeField] private RawImage _videoImage;
         [SerializeField] private Image _blackFadeImage;
@@ -64,7 +65,7 @@ namespace Game.Feature.UI.Composition
                 EnsureHierarchy(new SlotCinematicPlaybackOptions(
                     true,
                     CinematicAspectSource.AutoResolvedViewport,
-                    CinematicScaleMode.CropToFillViewport,
+                    CinematicScaleMode.FitInsideViewport,
                     16f / 9f,
                     1920,
                     1080));
@@ -178,6 +179,7 @@ namespace Game.Feature.UI.Composition
             var backgroundImage = background.GetComponent<Image>();
             if (backgroundImage != null)
             {
+                _videoBackdropImage = backgroundImage;
                 backgroundImage.color = Color.clear;
                 backgroundImage.raycastTarget = true;
             }
@@ -257,6 +259,7 @@ namespace Game.Feature.UI.Composition
             _pendingCompletion = new CinematicPlaybackCompletion(CinematicPlaybackCompletionKind.Completed);
             ApplyAudioFadeGain(1f);
             ApplyFadeAlpha(0f);
+            SetVideoBackdropVisible(false);
             SetVideoImageVisible(false);
             EnsureRenderTexture(ResolveRenderTextureSize(clip, options));
             ApplyVideoLayout(clip, options);
@@ -316,6 +319,7 @@ namespace Game.Feature.UI.Composition
             }
 
             SetVideoImageVisible(false);
+            SetVideoBackdropVisible(false);
             ReleaseRenderTexture();
             ApplyAudioFadeGain(1f);
             ApplyFadeAlpha(0f);
@@ -386,6 +390,7 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
+            SetVideoBackdropVisible(true);
             SetVideoImageVisible(true);
             BeginRevealFadeFromBlack();
         }
@@ -633,6 +638,14 @@ namespace Game.Feature.UI.Composition
             if (_videoImage != null)
             {
                 _videoImage.enabled = visible;
+            }
+        }
+
+        private void SetVideoBackdropVisible(bool visible)
+        {
+            if (_videoBackdropImage != null)
+            {
+                _videoBackdropImage.color = visible ? Color.black : Color.clear;
             }
         }
 
@@ -1118,6 +1131,7 @@ namespace Game.Feature.UI.Composition
             }
 
             SetVideoImageVisible(false);
+            SetVideoBackdropVisible(false);
             ReleaseRenderTexture();
 
             if (!_opaqueHandoffToken.IsValid && _canvasGroup != null)

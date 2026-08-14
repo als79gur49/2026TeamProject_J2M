@@ -2345,31 +2345,64 @@ namespace Game.Feature.UI.Tests
         public void CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox()
         {
             var clip = LoadTestClip();
-            var canvas = CreateCanvasRoot(1920f, 1080f, out var root, nameof(CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox));
-            try
+            var aspectCases = new[]
             {
-                var rootRect = (RectTransform)root.transform;
-                var view = root.AddComponent<CinematicVideoOverlayView>();
-                view.Initialize(null, new ManualViewportProvider(new Vector2(1920f, 1080f)));
+                (Viewport: new Vector2(1920f, 1080f), ExpectedContent: new Vector2(1872f, 1080f)),
+                (Viewport: new Vector2(2560f, 1080f), ExpectedContent: new Vector2(1872f, 1080f)),
+                (Viewport: new Vector2(1280f, 1024f), ExpectedContent: new Vector2(1280f, 738.4615f)),
+            };
 
-                view.Play(
-                    clip,
-                    CreatePlaybackOptions(CinematicAspectSource.AutoResolvedViewport, CinematicScaleMode.FitInsideViewport),
-                    _ => { });
-                RebuildCinematicLayout(rootRect);
-                InvokeOverlayUpdate(view);
-                RebuildCinematicLayout(rootRect);
-
-                var image = GetVideoImage(root);
-                Assert.That(view.ConfiguredScaleMode, Is.EqualTo(CinematicScaleMode.FitInsideViewport));
-                AssertVector2Within(image.rectTransform.rect.size, new Vector2(1872f, 1080f), 0.05f);
-                Assert.That(image.rectTransform.rect.width, Is.LessThan(1920f));
-                Assert.That(image.rectTransform.rect.height, Is.EqualTo(1080f).Within(0.01f));
-            }
-            finally
+            foreach (var aspectCase in aspectCases)
             {
-                UnityEngine.Object.DestroyImmediate(canvas);
+                var canvas = CreateCanvasRoot(
+                    aspectCase.Viewport.x,
+                    aspectCase.Viewport.y,
+                    out var root,
+                    nameof(CinematicVideoOverlayView_FitInsideViewport_ExplicitMode_AllowsPillarbox));
+                try
+                {
+                    var rootRect = (RectTransform)root.transform;
+                    var view = root.AddComponent<CinematicVideoOverlayView>();
+                    view.Initialize(null, new ManualViewportProvider(aspectCase.Viewport));
+
+                    view.Play(
+                        clip,
+                        CreatePlaybackOptions(
+                            CinematicAspectSource.AutoResolvedViewport,
+                            CinematicScaleMode.FitInsideViewport),
+                        _ => { });
+                    RebuildCinematicLayout(rootRect);
+                    InvokeOverlayUpdate(view);
+                    RebuildCinematicLayout(rootRect);
+
+                    var image = GetVideoImage(root);
+                    var backdrop = root.transform.Find("Background").GetComponent<Image>();
+                    Assert.That(view.ConfiguredScaleMode, Is.EqualTo(CinematicScaleMode.FitInsideViewport));
+                    AssertVector2Within(
+                        image.rectTransform.rect.size,
+                        aspectCase.ExpectedContent,
+                        0.05f);
+                    Assert.That(image.uvRect, Is.EqualTo(new Rect(0f, 0f, 1f, 1f)));
+                    Assert.That(backdrop.color, Is.EqualTo(Color.clear));
+
+                    view.AdvanceFadeForTesting(1f);
+                    view.NotifyPreparedFirstFrame();
+
+                    Assert.That(backdrop.color, Is.EqualTo(Color.black));
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(canvas);
+                }
             }
+
+            var definition = AssetDatabase.LoadAssetAtPath<SlotCinematicDefinition>(
+                "Assets/_Features/UI/UI_Composition/Authoring/SlotCinematicDefinition_CampaignMain.asset");
+
+            Assert.That(definition, Is.Not.Null);
+            Assert.That(definition.IntroClip, Is.Not.Null);
+            Assert.That(definition.OutroClip, Is.Not.Null);
+            Assert.That(definition.ScaleMode, Is.EqualTo(CinematicScaleMode.FitInsideViewport));
         }
 
         [Test]
