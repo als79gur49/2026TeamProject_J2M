@@ -198,6 +198,14 @@ namespace Game.Feature.UI.Tests
                         effect.GetComponent<Selectable>(),
                         Is.Not.Null,
                         $"{prefabPath}:{effect.transform.name} must pair UiHoverScaleEffect with a Selectable.");
+                    Assert.That(
+                        effect.Target,
+                        Is.Not.Null,
+                        $"{prefabPath}:{effect.transform.name} must resolve its hover scale target.");
+                    Assert.That(
+                        effect.Target.pivot,
+                        Is.EqualTo(new Vector2(0.5f, 0.5f)),
+                        $"{prefabPath}:{effect.transform.name} must scale from its visual center.");
                 }
             }
 
@@ -1127,7 +1135,17 @@ namespace Game.Feature.UI.Tests
                 Assert.That(instance.ChancePanelView, Is.Not.Null);
                 Assert.That(instance.SurfaceBeltIndicatorView, Is.Not.Null);
 
-                Assert.That(FindChildByName(instance.transform, "PauseButton"), Is.Not.Null);
+                var pauseButton = FindChildByName(instance.transform, "PauseButton") as RectTransform;
+                Assert.That(pauseButton, Is.Not.Null);
+                Assert.That(pauseButton.anchorMin, Is.EqualTo(new Vector2(1f, 0.5f)));
+                Assert.That(pauseButton.anchorMax, Is.EqualTo(new Vector2(1f, 0.5f)));
+                Assert.That(pauseButton.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+                Assert.That(pauseButton.sizeDelta, Is.EqualTo(new Vector2(50f, 60f)));
+                Assert.That(pauseButton.anchoredPosition.x, Is.EqualTo(-45f).Within(0.001f));
+                Assert.That(pauseButton.anchoredPosition.y, Is.EqualTo(13.1f).Within(0.001f));
+                var pauseButtonRightOffset =
+                    pauseButton.anchoredPosition.x + ((1f - pauseButton.pivot.x) * pauseButton.sizeDelta.x);
+                Assert.That(pauseButtonRightOffset, Is.EqualTo(-20f).Within(0.001f));
                 Assert.That(FindChildByName(instance.transform, "Label_StageName"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "CenterArrow"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "LegacyTopologyDebugText"), Is.Null);
@@ -1191,6 +1209,31 @@ namespace Game.Feature.UI.Tests
                 Assert.That(FindChildByName(instance.transform, "ResetInput_New"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "DisplayApplyButton_New"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "DisplayRevertButton_New"), Is.Not.Null);
+
+                var tabRow = FindChildByName(instance.transform, "SettingsTabRow") as RectTransform;
+                Assert.That(tabRow, Is.Not.Null);
+                var tabLayout = tabRow.GetComponent<HorizontalLayoutGroup>();
+                Assert.That(tabLayout, Is.Not.Null);
+                Assert.That(tabLayout.childScaleWidth, Is.False);
+                Assert.That(tabLayout.childScaleHeight, Is.False);
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(tabRow);
+                var tabPositions = Enumerable.Range(0, tabRow.childCount)
+                    .Select(index => ((RectTransform)tabRow.GetChild(index)).anchoredPosition)
+                    .ToArray();
+                var audioTab = FindChildByName(tabRow, "AudioTab") as RectTransform;
+                Assert.That(audioTab, Is.Not.Null);
+                audioTab.localScale = Vector3.one * 1.1f;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(tabRow);
+
+                for (var index = 0; index < tabRow.childCount; index++)
+                {
+                    var child = (RectTransform)tabRow.GetChild(index);
+                    Assert.That(
+                        child.anchoredPosition,
+                        Is.EqualTo(tabPositions[index]),
+                        $"{child.name} position must not reflow when a settings tab is hover-scaled.");
+                }
             }
             finally
             {
