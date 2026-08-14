@@ -15,6 +15,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int Count { get; private set; }
 
+        public int VisibleCount { get; private set; }
+
         public bool IsVisible { get; private set; }
 
         public float Alpha { get; private set; }
@@ -49,6 +51,17 @@ namespace Game.Feature.Gameplay.Host
             }
 
             Count++;
+            return true;
+        }
+
+        public bool RevealCount(int count)
+        {
+            if (count <= VisibleCount || count > Count)
+            {
+                return false;
+            }
+
+            VisibleCount = count;
             _elapsedSeconds = 0f;
             Alpha = 1f;
             IsVisible = true;
@@ -123,6 +136,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _consumedActions.Clear();
             Count = 0;
+            VisibleCount = 0;
             _elapsedSeconds = 0f;
             Alpha = 0f;
             IsVisible = false;

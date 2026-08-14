@@ -78,6 +78,11 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    internal interface IGameplayMotionProgressPresentationExtension
+    {
+        void ObserveMotionProgress(IReadOnlyList<MotionTrackProgressSample> progressSamples);
+    }
+
     public interface IGameplayPresentationPausable
     {
         void SetPresentationPaused(bool paused);
