@@ -137,7 +137,7 @@ namespace Game.Feature.UI.ViewShared
                 Entry(MainMenuLocalizationEntryId.SlotStage, Keys.SlotStage, "Stage {0}", "스테이지 {0}", LocalizedTextRole.Label, LocalizedTextWeight.Regular, true),
                 Entry(MainMenuLocalizationEntryId.SlotChances, Keys.SlotChances, "Chances {0}", "남은 기회: {0}", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),
                 Entry(MainMenuLocalizationEntryId.SlotDeaths, Keys.SlotDeaths, "Deaths {0}", "사망 횟수: {0}", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),
-                Entry(MainMenuLocalizationEntryId.SlotPlayed, Keys.SlotPlayed, "Played {0}", "마지막 플레이: {0}", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),
+                Entry(MainMenuLocalizationEntryId.SlotPlayed, Keys.SlotPlayed, "Last Played: {0}", "마지막 플레이: {0}", LocalizedTextRole.Body, LocalizedTextWeight.Regular, true),
                 Entry(MainMenuLocalizationEntryId.SlotRestart, Keys.SlotRestart, "Restart", "다시 시작", LocalizedTextRole.Button),
                 Entry(MainMenuLocalizationEntryId.SlotContinue, Keys.SlotContinue, "Continue", "계속", LocalizedTextRole.Button),
                 Entry(MainMenuLocalizationEntryId.SlotDelete, Keys.SlotDelete, "Delete", "삭제", LocalizedTextRole.Button),

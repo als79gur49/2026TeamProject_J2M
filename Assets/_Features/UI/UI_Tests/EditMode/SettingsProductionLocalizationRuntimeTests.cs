@@ -63,8 +63,8 @@ namespace Game.Feature.UI.Tests
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
-                "입력 설정 초기화",
-                "입력 설정을 기본값으로 초기화할까요?",
+                "키 설정 초기화",
+                "키 설정을 기본값으로 초기화할까요?",
                 "초기화",
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -85,8 +85,8 @@ namespace Game.Feature.UI.Tests
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
-                "입력 설정 초기화",
-                "입력 설정을 기본값으로 초기화할까요?",
+                "키 설정 초기화",
+                "키 설정을 기본값으로 초기화할까요?",
                 "초기화",
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);

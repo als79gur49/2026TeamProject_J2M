@@ -54,8 +54,8 @@ namespace Game.Feature.UI.Tests
 
         public static readonly string[] ConfirmPopupKoreanLabels =
         {
-            "입력 설정 초기화",
-            "입력 설정을 기본값으로 초기화할까요?",
+            "키 설정 초기화",
+            "키 설정을 기본값으로 초기화할까요?",
             "초기화",
             "취소",
             "화면 설정을 유지할까요?",

@@ -187,8 +187,8 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("입력 설정 초기화"));
-            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("입력 설정을 기본값으로 초기화할까요?"));
+            Assert.That(presenter.ViewModel.TitleText, Is.EqualTo("키 설정 초기화"));
+            Assert.That(presenter.ViewModel.BodyText, Is.EqualTo("키 설정을 기본값으로 초기화할까요?"));
             Assert.That(presenter.ViewModel.ConfirmLabel, Is.EqualTo("초기화"));
             Assert.That(presenter.ViewModel.CancelLabel, Is.EqualTo("취소"));
 
@@ -197,7 +197,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 presenter.ViewModel.TitleText,
-                Is.EqualTo("입력 설정 초기화"),
+                Is.EqualTo("키 설정 초기화"),
                 "Disposed confirmation presenters must stop receiving locale refreshes.");
         }
 
@@ -462,7 +462,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("키 재지정을 취소했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
-                Is.EqualTo("입력 설정이 초기화되었습니다."));
+                Is.EqualTo("키 설정을 초기화했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
                 Is.EqualTo("이 키는 사용할 수 없습니다."));
@@ -1090,7 +1090,7 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
             presenter.RefreshLocalization();
 
-            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
+            Assert.That(presenter.InputPresenter.ViewModel.StatusText, Is.EqualTo("키 설정을 초기화했습니다."));
             Assert.That(presenter.InputPresenter.ViewModel.PushCurrentText, Is.EqualTo("J"));
             Assert.That(presenter.InputPresenter.ViewModel.FlipCurrentText, Is.EqualTo("K"));
         }
@@ -1203,7 +1203,7 @@ namespace Game.Feature.UI.Tests
                 resolver.SetLocale("ko-KR");
                 presenter.RefreshLocalization();
 
-                Assert.That(fixture.InputView.StatusText, Is.EqualTo("입력 설정이 초기화되었습니다."));
+                Assert.That(fixture.InputView.StatusText, Is.EqualTo("키 설정을 초기화했습니다."));
                 fixture.AssertMovementScheme(useArrowKeys: false);
             }
             finally
@@ -1778,7 +1778,7 @@ namespace Game.Feature.UI.Tests
                         ["ui.settings.language.english"] = "영어",
                         ["ui.settings.language.korean"] = "한국어",
                         ["ui.settings.input.rebind_canceled"] = "키 재지정을 취소했습니다.",
-                        ["ui.settings.input.reset_complete"] = "입력 설정이 초기화되었습니다.",
+                        ["ui.settings.input.reset_complete"] = "키 설정을 초기화했습니다.",
                         ["ui.settings.input.reserved_key"] = "이 키는 사용할 수 없습니다.",
                         ["ui.settings.input.movement_conflict"] = "이동 키는 서로 중복될 수 없습니다.",
                         ["ui.settings.input.already_rebinding"] = "이미 다른 키를 재지정하고 있습니다.",

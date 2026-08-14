@@ -366,7 +366,7 @@ namespace Game.Feature.UI.Tests
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "키 재지정을 취소했습니다.",
-                "입력 설정이 초기화되었습니다.",
+                "키 설정을 초기화했습니다.",
                 "이 키는 사용할 수 없습니다.",
                 "이동 키는 서로 중복될 수 없습니다.",
                 "이미 다른 키를 재지정하고 있습니다.",
@@ -415,7 +415,7 @@ namespace Game.Feature.UI.Tests
                 (Key: "ui.hud.objective.activate_button", English: "Place a pushable box on the button ({0}/{1})", Korean: "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"),
                 (Key: "ui.hud.objective.activate_moon_button", English: "Place the moon-marked box on the button ({0}/{1})", Korean: "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"),
                 (Key: "ui.hud.objective.reach_zone", English: "Reach the designated zone ({0}/{1})", Korean: "지정 구역에 도달하기 ({0}/{1})"),
-                (Key: "ui.settings.input.reset_confirm.body", English: "Reset input settings to defaults?", Korean: "입력 설정을 기본값으로 초기화할까요?"),
+                (Key: "ui.settings.input.reset_confirm.body", English: "Reset input settings to defaults?", Korean: "키 설정을 기본값으로 초기화할까요?"),
                 (Key: "ui.settings.display.preview_confirm.title", English: "Confirm Display Preview", Korean: "화면 설정을 유지할까요?"),
                 (Key: "ui.settings.display.preview_confirm.fullscreen_body", English: "Preview {0} x {1} in Borderless Fullscreen. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} × {1} 테두리 없는 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."),
                 (Key: "ui.settings.display.preview_confirm.windowed_body", English: "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} × {1} 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."),
@@ -968,7 +968,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("키 재지정을 취소했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
-                Is.EqualTo("입력 설정이 초기화되었습니다."));
+                Is.EqualTo("키 설정을 초기화했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
                 Is.EqualTo("이 키는 사용할 수 없습니다."));

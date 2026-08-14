@@ -196,7 +196,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(english.SlotCards[1].StageText, Is.EqualTo("Stage Ward[A]-02"));
             Assert.That(english.SlotCards[1].ChancesText, Is.EqualTo("Chances 2"));
             Assert.That(english.SlotCards[1].DeathsText, Is.EqualTo("Deaths 3"));
-            Assert.That(english.SlotCards[1].LastPlayedText, Is.EqualTo("Played Jul 29, 2026"));
+            Assert.That(english.SlotCards[1].LastPlayedText, Is.EqualTo("Last Played: Jul 29, 2026"));
             Assert.That(english.SlotCards[1].DeleteActionText, Is.EqualTo("Delete"));
             Assert.That(english.SlotCards[2].StatusText, Is.EqualTo("Completed"));
             Assert.That(english.SlotCards[2].PrimaryActionText, Is.EqualTo("Restart"));

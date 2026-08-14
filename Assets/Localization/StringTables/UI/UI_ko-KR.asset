@@ -120,7 +120,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195264688128
-    m_Localized: "\uC785\uB825 \uC124\uC815\uC774 \uCD08\uAE30\uD654\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+    m_Localized: 키 설정을 초기화했습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195306631168
@@ -206,11 +206,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693638
-    m_Localized: "입력 설정 초기화"
+    m_Localized: "키 설정 초기화"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693639
-    m_Localized: "입력 설정을 기본값으로 초기화할까요?"
+    m_Localized: "키 설정을 기본값으로 초기화할까요?"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693640
