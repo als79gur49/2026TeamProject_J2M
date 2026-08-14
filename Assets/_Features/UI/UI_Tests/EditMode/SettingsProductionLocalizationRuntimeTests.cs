@@ -37,8 +37,8 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
-            AssertInputLabels(view.InputView, "이동 키", "밀기", "뒤집기", "입력 초기화");
+            AssertSettingsLabels(view, "설정", "오디오", "화면", "조작", "뒤로");
+            AssertInputLabels(view.InputView, "이동 키", "밀기", "뒤집기", "키 설정 초기화");
         }
 
         [Test]
@@ -63,8 +63,8 @@ namespace Game.Feature.UI.Tests
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
-                "입력 설정 초기화",
-                "입력 설정을 기본값으로 초기화할까요?",
+                "키 설정 초기화",
+                "키 설정을 기본값으로 초기화할까요?",
                 "초기화",
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -85,8 +85,8 @@ namespace Game.Feature.UI.Tests
 
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
-                "입력 설정 초기화",
-                "입력 설정을 기본값으로 초기화할까요?",
+                "키 설정 초기화",
+                "키 설정을 기본값으로 초기화할까요?",
                 "초기화",
                 "취소");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -108,7 +108,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "화면 설정을 유지할까요?",
-                "1280 x 720 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 15초 후 이전 설정으로 돌아갑니다.",
+                "1280 × 720 테두리 없는 창 모드를 적용했습니다. 15초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.",
                 "유지",
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -128,7 +128,7 @@ namespace Game.Feature.UI.Tests
             AssertConfirmCopy(
                 harness.ConfirmPopupView,
                 "화면 설정을 유지할까요?",
-                "1280 x 720 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 15초 후 이전 설정으로 돌아갑니다.",
+                "1280 × 720 테두리 없는 창 모드를 적용했습니다. 15초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.",
                 "유지",
                 "되돌리기");
             AssertConfirmTypography(harness.ConfirmPopupView, PackageFreeLocalizedTextResolver.KoreanLocaleCode);
@@ -377,7 +377,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayScreenRuntimeFactory_KoreanDisplayStatusRetainsAuthoredTwoLineLayout()
+        public void GameplayScreenRuntimeFactory_KoreanDisplayStatusFitsAuthoredSingleLineLayout()
         {
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             using var harness = GameplaySettingsHarness.Create(resolver);
@@ -414,19 +414,19 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(
                     status.textInfo.lineCount,
-                    Is.EqualTo(2),
-                    "Authored Display status intentionally permits two lines.");
+                    Is.EqualTo(1),
+                    "The concise Korean Display status must fit the authored single-line layout.");
             }
             else
             {
                 Assert.That(
                     singleLinePreferred.x,
-                    Is.GreaterThan(status.rectTransform.rect.width),
-                    "The Korean Display status must retain its authored two-line flow.");
+                    Is.LessThanOrEqualTo(status.rectTransform.rect.width + 0.01f),
+                    "The concise Korean Display status must fit the authored single-line width.");
                 Assert.That(
                     constrainedPreferred.y,
-                    Is.GreaterThan(singleLinePreferred.y + 0.01f),
-                    "The Korean Display status must retain its authored two-line flow.");
+                    Is.LessThanOrEqualTo(singleLinePreferred.y + 0.01f),
+                    "The concise Korean Display status must not wrap at the authored width.");
             }
             Assert.That(
                 minimumSizeConstrainedPreferred.y,
@@ -509,14 +509,14 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
+            AssertSettingsLabels(view, "설정", "오디오", "화면", "조작", "뒤로");
             Assert.That(GetAudioValueText(view.AudioView, "_mainRow").text, Is.EqualTo("50% (음소거)"));
             Assert.That(view.DisplayView.LanguageLabelText, Is.EqualTo("언어"));
             Assert.That(view.DisplayView.CurrentLanguageText, Is.EqualTo("한국어"));
             Assert.That(view.DisplayView.DisplayStatusText, Does.Contain("15초"));
             Assert.That(GetText(view.DisplayView, "_previewCountdownLabel").text, Is.EqualTo("15초 후 되돌림"));
             Assert.That(keyboardPort.IsRebinding, Is.True);
-            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기에 사용할 키를 누르세요..."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("밀기 키를 누르세요…"));
             Assert.That(GetField<SettingsScreenViewModel>(view, "_viewModel"), Is.SameAs(screenModel));
             Assert.That(GetField<SettingsAudioViewModel>(view.AudioView, "_viewModel"), Is.SameAs(audioModel));
             Assert.That(GetField<SettingsDisplayViewModel>(view.DisplayView, "_viewModel"), Is.SameAs(displayModel));
@@ -536,10 +536,10 @@ namespace Game.Feature.UI.Tests
 
         [TestCase(
             KeyboardBindableAction.Push,
-            "밀기에 사용할 키를 누르세요...")]
+            "밀기 키를 누르세요…")]
         [TestCase(
             KeyboardBindableAction.Flip,
-            "뒤집기에 사용할 키를 누르세요...")]
+            "뒤집기 키를 누르세요…")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_RebindPromptStartedInKoreanUsesCurrentLocale(
             KeyboardBindableAction action,
             string expectedPrompt)
@@ -561,11 +561,11 @@ namespace Game.Feature.UI.Tests
         [TestCase(
             KeyboardBindableAction.Push,
             "Press a key for Push...",
-            "밀기에 사용할 키를 누르세요...")]
+            "밀기 키를 누르세요…")]
         [TestCase(
             KeyboardBindableAction.Flip,
             "Press a key for Flip...",
-            "뒤집기에 사용할 키를 누르세요...")]
+            "뒤집기 키를 누르세요…")]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_ActiveRebindPromptFollowsLocaleRoundTrip(
             KeyboardBindableAction action,
             string englishPrompt,
@@ -658,7 +658,7 @@ namespace Game.Feature.UI.Tests
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            Assert.That(view.InputView.StatusText, Is.EqualTo("다른 키를 설정하는 중입니다."));
+            Assert.That(view.InputView.StatusText, Is.EqualTo("이미 다른 키를 재지정하고 있습니다."));
             Assert.That(GetText(view.InputView, "_pushKeyDisplayLabel").text, Is.EqualTo("J"));
         }
 
@@ -729,7 +729,7 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            AssertInputLabels(input, "이동 키", "밀기", "뒤집기", "입력 초기화");
+            AssertInputLabels(input, "이동 키", "밀기", "뒤집기", "키 설정 초기화");
             AssertKeyDisplayPair(pushCurrent, pushKeycap, pushDisplayName);
             AssertKeyDisplayPair(flipCurrent, flipKeycap, flipDisplayName);
             AssertInvariantTypography(states, "ko-KR");
@@ -869,7 +869,7 @@ namespace Game.Feature.UI.Tests
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.KoreanLocaleCode);
 
-            AssertSettingsLabels(harness.Runtime.View, "설정", "오디오", "디스플레이", "입력", "뒤로");
+            AssertSettingsLabels(harness.Runtime.View, "설정", "오디오", "화면", "조작", "뒤로");
 
             harness.Runtime.Dispose();
 
@@ -906,7 +906,7 @@ namespace Game.Feature.UI.Tests
             view.DisplayView.ClickLanguageCycle();
 
             Assert.That(resolver.CurrentLocaleCode, Is.EqualTo("ko-KR"));
-            AssertSettingsLabels(view, "설정", "오디오", "디스플레이", "입력", "뒤로");
+            AssertSettingsLabels(view, "설정", "오디오", "화면", "조작", "뒤로");
 
             harness.Runtime.Dispose();
 
@@ -979,17 +979,17 @@ namespace Game.Feature.UI.Tests
             var resolver = PackageFreeLocalizedTextResolver.CreateSettingsDefault();
             var staticLabels = new[]
             {
-                (SettingsStaticTextDescriptors.AudioMain, "Master", "마스터"),
+                (SettingsStaticTextDescriptors.AudioMain, "Master", "전체 음량"),
                 (SettingsStaticTextDescriptors.AudioBgm, "Background Music", "배경 음악"),
                 (SettingsStaticTextDescriptors.AudioSfx, "Effects", "효과음"),
                 (SettingsStaticTextDescriptors.AudioMute, "Mute", "음소거"),
-                (SettingsStaticTextDescriptors.DisplayCurrent, "Current Display", "현재 디스플레이"),
+                (SettingsStaticTextDescriptors.DisplayCurrent, "Current Display", "현재 화면 설정"),
                 (SettingsStaticTextDescriptors.DisplayResolution, "Resolution", "해상도"),
                 (
                     SettingsStaticTextDescriptors.DisplayResolutionHint,
                     "Only automatically detected resolutions are shown.",
                     "자동으로 감지된 해상도만 표시됩니다."),
-                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Borderless Fullscreen", "테두리 없는 전체 화면"),
+                (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Borderless Fullscreen", "테두리 없는 창 모드"),
                 (SettingsStaticTextDescriptors.DisplayFullscreenOn, "On", "켜짐"),
                 (SettingsStaticTextDescriptors.DisplayApply, "Apply", "적용"),
                 (SettingsStaticTextDescriptors.DisplayRevert, "Revert", "되돌리기"),

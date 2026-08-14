@@ -343,7 +343,7 @@ namespace Game.Feature.UI.Tests
                 collection.GetTable("ko-KR") as StringTable,
                 "{0}",
                 "{0}초 후 되돌림",
-                "미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 {0}초 후 되돌아갑니다.");
+                "화면 설정을 미리 적용했습니다. {0}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다.");
         }
 
         [Test]
@@ -366,14 +366,14 @@ namespace Game.Feature.UI.Tests
             AssertInputDynamicEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "키 재지정을 취소했습니다.",
-                "입력 설정이 초기화되었습니다.",
+                "키 설정을 초기화했습니다.",
                 "이 키는 사용할 수 없습니다.",
                 "이동 키는 서로 중복될 수 없습니다.",
-                "다른 키를 설정하는 중입니다.",
+                "이미 다른 키를 재지정하고 있습니다.",
                 "이 키는 이미 {0}에 할당되어 있습니다.",
                 "이 키는 사용할 수 없습니다.",
-                "밀기에 사용할 키를 누르세요...",
-                "뒤집기에 사용할 키를 누르세요...");
+                "밀기 키를 누르세요…",
+                "뒤집기 키를 누르세요…");
         }
 
         [Test]
@@ -415,10 +415,10 @@ namespace Game.Feature.UI.Tests
                 (Key: "ui.hud.objective.activate_button", English: "Place a pushable box on the button ({0}/{1})", Korean: "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"),
                 (Key: "ui.hud.objective.activate_moon_button", English: "Place the moon-marked box on the button ({0}/{1})", Korean: "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"),
                 (Key: "ui.hud.objective.reach_zone", English: "Reach the designated zone ({0}/{1})", Korean: "지정 구역에 도달하기 ({0}/{1})"),
-                (Key: "ui.settings.input.reset_confirm.body", English: "Reset input settings to defaults?", Korean: "입력 설정을 기본값으로 초기화할까요?"),
+                (Key: "ui.settings.input.reset_confirm.body", English: "Reset input settings to defaults?", Korean: "키 설정을 기본값으로 초기화할까요?"),
                 (Key: "ui.settings.display.preview_confirm.title", English: "Confirm Display Preview", Korean: "화면 설정을 유지할까요?"),
-                (Key: "ui.settings.display.preview_confirm.fullscreen_body", English: "Preview {0} x {1} in Borderless Fullscreen. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} x {1} 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."),
-                (Key: "ui.settings.display.preview_confirm.windowed_body", English: "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} x {1} 해상도로 창 모드를 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."),
+                (Key: "ui.settings.display.preview_confirm.fullscreen_body", English: "Preview {0} x {1} in Borderless Fullscreen. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} × {1} 테두리 없는 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."),
+                (Key: "ui.settings.display.preview_confirm.windowed_body", English: "Preview {0} x {1} in Windowed mode. These changes are temporary and will revert in {2} seconds unless you confirm.", Korean: "{0} × {1} 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."),
                 (Key: "ui.main_menu.slot.confirm.restart.warning", English: "Existing progress will be replaced.", Korean: "기존 진행 상황이 초기화됩니다."),
                 (Key: "ui.main_menu.slot.confirm.overwrite.warning", English: "Existing progress will be overwritten.", Korean: "기존 진행 상황을 덮어씁니다."),
                 (Key: "ui.main_menu.quit_confirm.body", English: "Quit to desktop?", Korean: "게임을 종료하고 바탕 화면으로 나갈까요?"),
@@ -459,10 +459,10 @@ namespace Game.Feature.UI.Tests
 
             var expected = new[]
             {
-                (Key: "ui.settings.input.already_rebinding", English: "Another key is already being reassigned.", Korean: "다른 키를 설정하는 중입니다."),
-                (Key: "ui.settings.display.fullscreen_window", English: "Borderless Fullscreen", Korean: "테두리 없는 전체 화면"),
-                (Key: "ui.settings.input.rebind_push_prompt", English: "Press a key for Push...", Korean: "밀기에 사용할 키를 누르세요..."),
-                (Key: "ui.settings.input.rebind_flip_prompt", English: "Press a key for Flip...", Korean: "뒤집기에 사용할 키를 누르세요..."),
+                (Key: "ui.settings.input.already_rebinding", English: "Another key is already being reassigned.", Korean: "이미 다른 키를 재지정하고 있습니다."),
+                (Key: "ui.settings.display.fullscreen_window", English: "Borderless Fullscreen", Korean: "테두리 없는 창 모드"),
+                (Key: "ui.settings.input.rebind_push_prompt", English: "Press a key for Push...", Korean: "밀기 키를 누르세요…"),
+                (Key: "ui.settings.input.rebind_flip_prompt", English: "Press a key for Flip...", Korean: "뒤집기 키를 누르세요…"),
                 (Key: "ui.settings.input.action_conflict", English: "This key is already used by {0}.", Korean: "이 키는 이미 {0}에 할당되어 있습니다."),
             };
 
@@ -490,7 +490,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 koreanTable.GetEntry("ui.settings.display.current")?.LocalizedValue,
-                Is.EqualTo("현재 디스플레이"),
+                Is.EqualTo("현재 화면 설정"),
                 "Pass 2 explicitly excludes Current Display.");
             Assert.That(
                 englishTable.GetEntry("ui.settings.display.current")?.LocalizedValue,
@@ -599,8 +599,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(legacyKorean, Is.Not.Null);
             Assert.That(legacyEnglish.KeyId, Is.EqualTo(legacyShared.Id));
             Assert.That(legacyEnglish.KeyId, Is.EqualTo(legacyKorean.KeyId));
-            Assert.That(legacyEnglish.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameValue));
-            Assert.That(legacyKorean.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameValue));
+            Assert.That(legacyEnglish.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameEnglishValue));
+            Assert.That(legacyKorean.LocalizedValue, Is.EqualTo(LegacyStageDisplayNameKoreanValue));
             Assert.That(
                 activeStageEntries.Select(entry => entry.Key),
                 Does.Not.Contain(LegacyStageDisplayNameKey));
@@ -805,7 +805,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(
                 resolver.Resolve(StageDisplayNameTextDescriptors.Create(LegacyStageDisplayNameKey)),
-                Is.EqualTo(LegacyStageDisplayNameValue));
+                Is.EqualTo(LegacyStageDisplayNameEnglishValue));
         }
 
         [Test]
@@ -915,16 +915,16 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("10초 후 되돌림"));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(10)),
-                Is.EqualTo("미리 보기 중입니다. 현재 화면 설정은 임시 상태이며 저장되지 않았습니다. 유지하려면 확인하세요. 그렇지 않으면 10초 후 되돌아갑니다."));
+                Is.EqualTo("화면 설정을 미리 적용했습니다. 10초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayPreviewRevertedStatus()),
-                Is.EqualTo("미리 보기가 이전에 저장된 화면 설정으로 되돌아갔습니다."));
+                Is.EqualTo("화면 설정이 이전에 저장된 값으로 돌아갔습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplaySavedStatus()),
                 Is.EqualTo("화면 설정이 저장되었습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.DisplayExternalDriftStatus()),
-                Is.EqualTo("현재 화면이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다."));
+                Is.EqualTo("현재 화면 설정이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다."));
         }
 
         [Test]
@@ -968,7 +968,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("키 재지정을 취소했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputResetComplete()),
-                Is.EqualTo("입력 설정이 초기화되었습니다."));
+                Is.EqualTo("키 설정을 초기화했습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputReservedKey()),
                 Is.EqualTo("이 키는 사용할 수 없습니다."));
@@ -977,7 +977,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("이동 키는 서로 중복될 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputAlreadyRebinding()),
-                Is.EqualTo("다른 키를 설정하는 중입니다."));
+                Is.EqualTo("이미 다른 키를 재지정하고 있습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputActionConflict(
                     SettingsStaticTextDescriptors.Flip)),
@@ -987,10 +987,10 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("이 키는 사용할 수 없습니다."));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Push)),
-                Is.EqualTo("밀기에 사용할 키를 누르세요..."));
+                Is.EqualTo("밀기 키를 누르세요…"));
             Assert.That(
                 resolver.Resolve(SettingsDynamicTextDescriptors.InputRebindPrompt(KeyboardBindableAction.Flip)),
-                Is.EqualTo("뒤집기에 사용할 키를 누르세요..."));
+                Is.EqualTo("뒤집기 키를 누르세요…"));
         }
 
         [Test]
@@ -1063,14 +1063,14 @@ namespace Game.Feature.UI.Tests
 
             AssertSettingsStaticShell(
                 harness.SettingsView,
-                "마스터",
+                "전체 음량",
                 "배경 음악",
                 "효과음",
                 "음소거",
-                "현재 디스플레이",
+                "현재 화면 설정",
                 "해상도",
                 "자동으로 감지된 해상도만 표시됩니다.",
-                "테두리 없는 전체 화면",
+                "테두리 없는 창 모드",
                 "켜짐",
                 "적용",
                 "되돌리기");
@@ -1836,11 +1836,11 @@ namespace Game.Feature.UI.Tests
             ("stage-0-3", "stage.stage-0-3.display_name", "Lab-03", "연구실-03"),
             ("stage-1-1", "stage.stage-1-1.display_name", "Lobby-01", "로비-01"),
             ("stage-1-2", "stage.stage-1-2.display_name", "Lobby-02", "로비-02"),
-            ("stage-2-1", "stage.stage-2-1.display_name", "Ward[A]-01", "병동[A]-01"),
-            ("stage-2-2", "stage.stage-2-2.display_name", "Ward[A]-02", "병동[A]-02"),
-            ("stage-3-1", "stage.stage-3-1.display_name", "Ward[B]-01", "병동[B]-01"),
-            ("stage-3-2", "stage.stage-3-2.display_name", "Ward[B]-02", "병동[B]-02"),
-            ("stage-3-3", "stage.stage-3-3.display_name", "Ward[B]-03", "병동[B]-03"),
+            ("stage-2-1", "stage.stage-2-1.display_name", "Ward[A]-01", "A병동-01"),
+            ("stage-2-2", "stage.stage-2-2.display_name", "Ward[A]-02", "A병동-02"),
+            ("stage-3-1", "stage.stage-3-1.display_name", "Ward[B]-01", "B병동-01"),
+            ("stage-3-2", "stage.stage-3-2.display_name", "Ward[B]-02", "B병동-02"),
+            ("stage-3-3", "stage.stage-3-3.display_name", "Ward[B]-03", "B병동-03"),
             ("stage-4-1", "stage.stage-4-1.display_name", "Morgue-01", "영안실-01"),
             ("stage-4-2", "stage.stage-4-2.display_name", "Morgue-02", "영안실-02"),
             ("stage-4-3", "stage.stage-4-3.display_name", "Morgue-03", "영안실-03"),
@@ -1848,7 +1848,8 @@ namespace Game.Feature.UI.Tests
 
         private const string LegacyStageDisplayNameKey =
             "stage.legacy-stage-5-1.display_name";
-        private const string LegacyStageDisplayNameValue = "Legacy 5-1";
+        private const string LegacyStageDisplayNameEnglishValue = "Legacy 5-1";
+        private const string LegacyStageDisplayNameKoreanValue = "레거시 5-1";
 
         private static TMP_Text GetText(object target, string fieldName)
         {

@@ -28,11 +28,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1877434369
-    m_Localized: "\uB514\uC2A4\uD50C\uB808\uC774"
+    m_Localized: 화면
     m_Metadata:
       m_Items: []
   - m_Id: 1877434370
-    m_Localized: "\uC785\uB825"
+    m_Localized: 조작
     m_Metadata:
       m_Items: []
   - m_Id: 1881628672
@@ -48,7 +48,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 1881628677
-    m_Localized: "\uC785\uB825 \uCD08\uAE30\uD654"
+    m_Localized: 키 설정 초기화
     m_Metadata:
       m_Items: []
   - m_Id: 1881628678
@@ -120,7 +120,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195264688128
-    m_Localized: "\uC785\uB825 \uC124\uC815\uC774 \uCD08\uAE30\uD654\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+    m_Localized: 키 설정을 초기화했습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 283195306631168
@@ -132,11 +132,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 283195390517248
-    m_Localized: 다른 키를 설정하는 중입니다.
+    m_Localized: 이미 다른 키를 재지정하고 있습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587484864512
-    m_Localized: "\uB9C8\uC2A4\uD130"
+    m_Localized: 전체 음량
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499328
@@ -152,7 +152,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499331
-    m_Localized: "\uD604\uC7AC \uB514\uC2A4\uD50C\uB808\uC774"
+    m_Localized: 현재 화면 설정
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499332
@@ -165,7 +165,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499334
-    m_Localized: "\uD14C\uB450\uB9AC \uC5C6\uB294 \uC804\uCCB4 \uD654\uBA74"
+    m_Localized: 테두리 없는 창 모드
     m_Metadata:
       m_Items: []
   - m_Id: 4971587606499335
@@ -181,16 +181,12 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693632
-    m_Localized: "\uBBF8\uB9AC \uBCF4\uAE30 \uC911\uC785\uB2C8\uB2E4. \uD604\uC7AC
-      \uD654\uBA74 \uC124\uC815\uC740 \uC784\uC2DC \uC0C1\uD0DC\uC774\uBA70 \uC800\uC7A5\uB418\uC9C0
-      \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uC720\uC9C0\uD558\uB824\uBA74 \uD655\uC778\uD558\uC138\uC694.
-      \uADF8\uB807\uC9C0 \uC54A\uC73C\uBA74 {0}\uCD08 \uD6C4 \uB418\uB3CC\uC544\uAC11\uB2C8\uB2E4."
+    m_Localized: "화면 설정을 미리 적용했습니다. {0}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693633
-    m_Localized: "\uBBF8\uB9AC \uBCF4\uAE30\uAC00 \uC774\uC804\uC5D0 \uC800\uC7A5\uB41C
-      \uD654\uBA74 \uC124\uC815\uC73C\uB85C \uB418\uB3CC\uC544\uAC14\uC2B5\uB2C8\uB2E4."
+    m_Localized: 화면 설정이 이전에 저장된 값으로 돌아갔습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693634
@@ -198,25 +194,23 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693635
-    m_Localized: "\uD604\uC7AC \uD654\uBA74\uC774 \uC800\uC7A5\uB41C \uC124\uC815\uACFC
-      \uB2E4\uB985\uB2C8\uB2E4. \uB2E4\uC2DC \uC801\uC6A9\uD558\uAE30 \uC804\uAE4C\uC9C0
-      \uC800\uC7A5\uB41C \uC124\uC815\uC740 \uBCC0\uACBD\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."
+    m_Localized: 현재 화면 설정이 저장된 설정과 다릅니다. 다시 적용하기 전까지 저장된 설정은 변경되지 않습니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693636
-    m_Localized: "\uBC00\uAE30\uC5D0 \uC0AC\uC6A9\uD560 \uD0A4\uB97C \uB204\uB974\uC138\uC694..."
+    m_Localized: 밀기 키를 누르세요…
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693637
-    m_Localized: "\uB4A4\uC9D1\uAE30\uC5D0 \uC0AC\uC6A9\uD560 \uD0A4\uB97C \uB204\uB974\uC138\uC694..."
+    m_Localized: 뒤집기 키를 누르세요…
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693638
-    m_Localized: "입력 설정 초기화"
+    m_Localized: "키 설정 초기화"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693639
-    m_Localized: "입력 설정을 기본값으로 초기화할까요?"
+    m_Localized: "키 설정을 기본값으로 초기화할까요?"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693640
@@ -232,17 +226,17 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693643
-    m_Localized: "{0} x {1} 해상도로 테두리 없는 전체 화면을 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."
+    m_Localized: "{0} × {1} 테두리 없는 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693644
-    m_Localized: "{0} x {1} 해상도로 창 모드를 미리 적용했습니다. 확인하지 않으면 {2}초 후 이전 설정으로 돌아갑니다."
+    m_Localized: "{0} × {1} 창 모드를 적용했습니다. {2}초 안에 확인하지 않으면 이전 설정으로 돌아갑니다."
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693645
-    m_Localized: "유지"
+    m_Localized: 유지
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693646
@@ -278,7 +272,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693653
-    m_Localized: "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."
+    m_Localized: "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693654
@@ -328,17 +322,17 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693667
-    m_Localized: 기회 {0}
+    m_Localized: "남은 기회: {0}"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693668
-    m_Localized: 사망 {0}
+    m_Localized: "사망 횟수: {0}"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693669
-    m_Localized: 최근 플레이 {0}
+    m_Localized: "마지막 플레이: {0}"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -372,7 +366,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693677
-    m_Localized: 슬롯 다시 시작
+    m_Localized: 슬롯 처음부터 시작
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693678
@@ -422,15 +416,15 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693689
-    m_Localized: 지원하지 않는 저장 데이터
+    m_Localized: 호환되지 않는 저장 데이터
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693690
-    m_Localized: 지원하지 않는 버전에서 생성된 저장 데이터입니다.
+    m_Localized: 지원되지 않는 버전에서 생성된 저장 데이터입니다.
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693691
-    m_Localized: 저장 데이터 손상
+    m_Localized: 손상된 저장 데이터
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693692
@@ -446,7 +440,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693695
-    m_Localized: 저장 불러오기 실패
+    m_Localized: 저장 데이터 불러오기 실패
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693696
@@ -475,7 +469,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693702
-    m_Localized: 재시도 기회
+    m_Localized: 남은 기회
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693703

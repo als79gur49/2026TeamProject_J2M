@@ -66,7 +66,7 @@ namespace Game.Feature.UI.Tests
                 (
                     TerminalResultLocalizationContract.Keys.ChancesExhaustedDetail,
                     "All chances have been used. Restart the stage or return to the main menu.",
-                    "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."),
+                    "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."),
                 (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "스테이지 다시 시작"),
                 (TerminalResultLocalizationContract.Keys.MainMenu, "Main Menu", "메인 메뉴"),
                 (TerminalResultLocalizationContract.Keys.GameClearTitle, "Game Clear", "게임 클리어"),
@@ -249,7 +249,7 @@ namespace Game.Feature.UI.Tests
                 koreanView,
                 "ko-KR",
                 "스테이지 실패",
-                "모든 기회를 소진했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.",
+                "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.",
                 "스테이지 다시 시작",
                 "메인 메뉴");
             Assert.That(resolver.SubscriptionCount, Is.Zero);

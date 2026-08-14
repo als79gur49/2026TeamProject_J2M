@@ -56,7 +56,7 @@ Current baseline captured for this cleanup pass:
 | Addressables local/default settings | Done | Addressables settings are local/default; tests guard against remote catalog/path introduction. |
 | `en-US` / `ko-KR` Locale | Done | Locale assets exist and are required by `UnityStringTableTextResolver`. |
 | `UI` String Table | Done | `UI` collection has `en-US` and `ko-KR` tables for Settings, Pause, and Main Menu shell entries. |
-| `Stage` String Table | Done | `Stage` collection has `en-US` and `ko-KR` entries for active stage display-name keys. Current values are code-form copy such as `Lab-01` and `Ward[A]-01`; product-authored Korean stage naming remains follow-up scope. |
+| `Stage` String Table | Done | `Stage` collection has `en-US` and `ko-KR` entries for active stage display-name keys. Korean display names use localized facility naming such as `연구실-01`, `A병동-01`, and `영안실-01`; the catalog-only archived stage uses `레거시 5-1`. |
 | Localization Settings active registration | Done | Active Localization Settings and its serialized SmartFormat source/formatter graph load successfully and are validated by production integration tests. |
 | TMP Settings fallback unchanged | Done | `TMP Settings.asset` does not include `NanumGothic SDF` as a global fallback. |
 
@@ -155,11 +155,11 @@ A String Table entry is marked Smart if and only if its localized value contains
 |---|---|---|
 | `StagePresentationDefinition.displayNameKey` canonical owner | Done | Presentation definition owns the stage display-name key. |
 | Legacy `displayName` fallback removal | Done | Runtime/read-model surfaces propagate display-name keys, not legacy resolved display strings. |
-| Stage String Table entries | Done | Active stage display-name keys are validated against `en-US` and `ko-KR` `Stage` String Tables; both locales currently retain code-form copy. |
+| Stage String Table entries | Done | Active stage display-name keys are validated against `en-US` and `ko-KR` `Stage` String Tables, with localized Korean facility names and consistent `A병동` / `B병동` notation. |
 | Stage display name descriptor / locale rebind propagation | Done | UI flow converts display-name keys to `LocalizedTextDescriptor` for resolver-owned lookup and refreshes the resolved value on locale changes. |
 | `StageResult` title/detail/continue schema not revived | Explicit Non-goal | StageResult remains on the minimal navigation endpoint path; removed result-text schema is not reintroduced. |
 
-StageName key authoring, Stage String Table lookup, `LocalizedTextDescriptor` resolution, and the locale rebind path are complete. Actual `ko-KR` StageName copy, Stage HUD `TypographyBinding`, and StageName visual QA remain follow-up scope.
+StageName key authoring, bilingual Stage String Table copy, `LocalizedTextDescriptor` resolution, and the locale rebind path are complete. Stage HUD `TypographyBinding` and StageName visual QA remain follow-up scope.
 
 ## 3. Current Limitations
 
@@ -190,7 +190,7 @@ Deferred localization scope:
 | Reset confirm payload | Deferred | Confirm popup still accepts raw string payloads. |
 | Confirm popup payload | Deferred | Popup payload schema has not moved to descriptors. |
 | HUD objective | Deferred | HUD runtime objective text is separate from the Settings/Pause/Main Menu localization baseline. |
-| Actual `ko-KR` StageName copy | Deferred | Both locale tables currently retain code-form stage names; product-authored Korean naming is not part of this foundation PR. |
+| Actual `ko-KR` StageName copy | Done | Korean stage display names use localized facility names and consistent `A병동` / `B병동` notation; the archived legacy entry is minimally localized as `레거시 5-1`. |
 | Stage HUD `TypographyBinding` | Deferred | Stage HUD typography authoring was not added by the display-name key/descriptor path. |
 | StageName visual QA | Deferred | Current typography visual evidence covers Settings, Pause, and Main Menu only. |
 | StageResult text schema | Deferred | StageResult result-title/detail/continue text schema intentionally remains removed. |
@@ -689,7 +689,7 @@ Editor validation:
 | Reset confirm payload | Confirm popup payload still uses raw strings and needs descriptor migration. |
 | Confirm popup payload | Popup-wide localization schema should be handled as a separate UI migration. |
 | HUD objective | Objective text is gameplay/runtime content and needs content localization policy. |
-| Actual `ko-KR` StageName copy | Current `en-US` and `ko-KR` entries use code-form copy; Korean product naming remains separate. |
+| Actual `ko-KR` StageName copy | Complete for the current table: localized facility names, consistent ward notation, and a minimally localized archived legacy entry. |
 | Stage HUD `TypographyBinding` | The display-name key/descriptor/rebind path does not add Stage HUD typography authoring. |
 | StageName visual QA | Existing visual evidence does not include the Stage HUD or StageName. |
 | StageResult title/detail/continue label | Removed schema should not be revived without a new StageResult product requirement. |

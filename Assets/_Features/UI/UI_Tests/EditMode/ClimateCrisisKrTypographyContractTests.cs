@@ -48,7 +48,7 @@ namespace Game.Feature.UI.Tests
                 "5360535d0de75234ca21822297323672",
                 Climate2000FontGuid,
                 Climate2000MaterialLocalId,
-                277,
+                287,
                 "Climate 2000");
             AssertClimateAssetContract(
                 LoadClimate2019Font(),
@@ -56,7 +56,7 @@ namespace Game.Feature.UI.Tests
                 "56e1f07e315e49a4a8e5043a11e04e29",
                 Climate2019FontGuid,
                 Climate2019MaterialLocalId,
-                295,
+                305,
                 "Climate 2019");
         }
 
@@ -151,14 +151,14 @@ namespace Game.Feature.UI.Tests
                 Is.EquivalentTo(new[] { StageKoreanStringTablePath, UiKoreanStringTablePath }),
                 "Every managed ko-KR table must participate in native Climate glyph validation.");
             Assert.That(values, Has.Length.EqualTo(123));
-            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(113));
-            Assert.That(values, Does.Contain("밀기에 사용할 키를 누르세요..."));
-            Assert.That(values, Does.Contain("뒤집기에 사용할 키를 누르세요..."));
-            Assert.That(values, Does.Contain("기회 {0}"));
+            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(112));
+            Assert.That(values, Does.Contain("밀기 키를 누르세요…"));
+            Assert.That(values, Does.Contain("뒤집기 키를 누르세요…"));
+            Assert.That(values, Does.Contain("남은 기회: {0}"));
             Assert.That(values, Does.Contain("이동"));
             Assert.That(values, Does.Contain("연구실-01"));
             Assert.That(values, Does.Contain("로비-01"));
-            Assert.That(values, Does.Contain("병동[A]-01"));
+            Assert.That(values, Does.Contain("A병동-01"));
             Assert.That(values, Does.Contain("영안실-01"));
             Assert.That(codepoints, Has.Length.EqualTo(186));
             foreach (var fontAsset in fontAssets)

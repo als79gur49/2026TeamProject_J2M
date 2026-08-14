@@ -158,12 +158,12 @@ namespace Game.Feature.UI.Tests
                 deathCount: 1,
                 text: new SceneTransitionOverlayTextSnapshot(
                     "ko-KR",
-                    "재시도 기회",
+                    "남은 기회",
                     "불러오는 중..."));
 
             view.Bind(model);
 
-            Assert.That(content.RemainingChancesLabel.text, Is.EqualTo("재시도 기회"));
+            Assert.That(content.RemainingChancesLabel.text, Is.EqualTo("남은 기회"));
             Assert.That(content.LoadingLabel.text, Is.EqualTo("불러오는 중..."));
             Assert.That(content.ProgressText.text, Is.EqualTo("25%"));
 

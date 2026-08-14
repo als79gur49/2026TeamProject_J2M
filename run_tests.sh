@@ -169,7 +169,7 @@ CLIMATE_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000.ttf"
 CLIMATE_SOURCE_TTF_META="$CLIMATE_SOURCE_TTF_ASSET.meta"
 CLIMATE_SDF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset"
 CLIMATE_SDF_META="$CLIMATE_SDF_ASSET.meta"
-CLIMATE_COMMITTED_SDF_SHA256="66193afe72fe9e2c4de11596ed68c1eb038fffb7f0f71b8605669f68922c459f"
+CLIMATE_COMMITTED_SDF_SHA256="26054025854979ef8c0702e2983ad067b330e7321d07df6b10b7b68cf6515b84"
 CLIMATE_SOURCE_TTF_SHA256="aa0e58ef1dd54ae760c29bdd0ce28d6b710c2d5910e88efadf5e23416b01d0f1"
 CLIMATE_SOURCE_TTF_GUID="5360535d0de75234ca21822297323672"
 CLIMATE_SDF_GUID="40d61154fd6576b4d85c2d78460b16ad"
@@ -179,7 +179,7 @@ CLIMATE_2019_SOURCE_TTF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019.ttf"
 CLIMATE_2019_SOURCE_TTF_META="$CLIMATE_2019_SOURCE_TTF_ASSET.meta"
 CLIMATE_2019_SDF_ASSET="Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset"
 CLIMATE_2019_SDF_META="$CLIMATE_2019_SDF_ASSET.meta"
-CLIMATE_2019_COMMITTED_SDF_SHA256="6e2a0b412311d1942cc2d332c2af7892a1d3c48a094019e1e3e54f07ef91ace0"
+CLIMATE_2019_COMMITTED_SDF_SHA256="707bd44cf580957f6dbc441d8c3a095d40a97dab35f6e31924e5ac33e0c98265"
 CLIMATE_2019_SOURCE_TTF_SHA256="48e723743cd5c162ba5efb6f560f179e3dc7b56bacc5c72ffe6ac4be0c8660f3"
 CLIMATE_2019_SOURCE_TTF_GUID="56e1f07e315e49a4a8e5043a11e04e29"
 CLIMATE_2019_SDF_GUID="7dfd9aae81fc1d242b007a3b7a042fb0"
@@ -2567,7 +2567,7 @@ scenarios = (
     (
         "M1BSaveSlots",
         "ko-KR",
-        ("스테이지 연구실-01", "스테이지 병동[A]-01", "스테이지 영안실-01"),
+        ("스테이지 연구실-01", "스테이지 A병동-01", "스테이지 영안실-01"),
         24,
         "capture-ko-KR-MainMenu.log",
     ),
@@ -2658,7 +2658,7 @@ lines.extend(
         "",
         "[contract]",
         "families=Lab,Lobby,Ward,Morgue",
-        "bracket_suffix=Stage Ward[A]-01,스테이지 병동[A]-01",
+        "bracket_suffix=Stage Ward[A]-01,스테이지 A병동-01",
         "hyphen_suffix=PASS",
         "overall_result=PASS",
     )
@@ -7203,7 +7203,7 @@ for field in ("semantic_fixture_hash", "non_text_graphic_hash"):
 
 ward_expected = {
     "stage-2-1/en-US": "Ward[A]-01",
-    "stage-2-1/ko-KR": "병동[A]-01",
+    "stage-2-1/ko-KR": "A병동-01",
 }
 for section, expected_stage_name in ward_expected.items():
     entry = sections[section]

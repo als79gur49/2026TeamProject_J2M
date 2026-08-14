@@ -336,7 +336,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873344
   - m_Id: 4971587610693669
-    m_Localized: Played {0}
+    m_Localized: 'Last Played: {0}'
     m_Metadata:
       m_Items:
       - rid: 5336917459874873344
