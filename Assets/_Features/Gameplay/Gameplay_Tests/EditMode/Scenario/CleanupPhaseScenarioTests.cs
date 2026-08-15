@@ -88,6 +88,100 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.False);
         }
 
+        [TestCase(6, true)]
+        [TestCase(7, false)]
+        [TestCase(8, false)]
+        [Category("Extended")]
+        public void Cleanup_UnconsumedPendingEnemyBlockedReaction_HonorsExpiryBoundary(
+            int tickIndex,
+            bool expectedToRemain)
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: sourceCell, hp: 3),
+            });
+            worldState.CreateWriteContext().SetPendingEnemyBlockedReaction(
+                10,
+                CreatePendingEnemyBlockedReaction(10, sourceCell, expireTick: 7));
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(tickIndex));
+            var afterSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+            var expiryEvents = result.EventLog
+                .Where(entry => entry.StartsWith("PendingEnemyBlockedReactionExpired|", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.That(afterSnapshot.TryGetEntity(10, out var survivingEntity), Is.True);
+            Assert.That(survivingEntity.position, Is.EqualTo(sourceCell));
+            Assert.That(survivingEntity.hp, Is.EqualTo(3));
+            Assert.That(
+                afterSnapshot.TryGetPendingEnemyBlockedReaction(10, out _),
+                Is.EqualTo(expectedToRemain));
+
+            if (expectedToRemain)
+            {
+                Assert.That(expiryEvents, Is.Empty);
+                return;
+            }
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    $"PendingEnemyBlockedReactionExpired|E=10|Created=6|Expire=7|Tick={tickIndex}",
+                },
+                expiryEvents);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Cleanup_ExpiredPendingEnemyBlockedReactions_OrderByEntityIdAndSkipRemovedEnemy()
+        {
+            var sourceCell10 = new SurfaceCell(FaceId.Floor, 1, 0);
+            var sourceCell20 = new SurfaceCell(FaceId.Floor, 2, 0);
+            var sourceCell30 = new SurfaceCell(FaceId.Floor, 3, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 30, position: sourceCell30, hp: 3),
+                CreateUnit(entityId: 10, position: sourceCell10, hp: 3),
+                CreateUnit(entityId: 20, position: sourceCell20, hp: 0),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPendingEnemyBlockedReaction(
+                30,
+                CreatePendingEnemyBlockedReaction(30, sourceCell30, expireTick: 7));
+            writeContext.SetPendingEnemyBlockedReaction(
+                10,
+                CreatePendingEnemyBlockedReaction(10, sourceCell10, expireTick: 7));
+            writeContext.SetPendingEnemyBlockedReaction(
+                20,
+                CreatePendingEnemyBlockedReaction(20, sourceCell20, expireTick: 7));
+            var pipeline = CreateMinimalRespawnPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(7));
+            var afterSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
+            var expiryEvents = result.EventLog
+                .Where(entry => entry.StartsWith("PendingEnemyBlockedReactionExpired|", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.True);
+            Assert.That(afterSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(afterSnapshot.TryGetEntity(30, out _), Is.True);
+            Assert.That(afterSnapshot.TryGetPendingEnemyBlockedReaction(10, out _), Is.False);
+            Assert.That(afterSnapshot.TryGetPendingEnemyBlockedReaction(20, out _), Is.False);
+            Assert.That(afterSnapshot.TryGetPendingEnemyBlockedReaction(30, out _), Is.False);
+            CollectionAssert.AreEqual(
+                new[] { 20 },
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "PendingEnemyBlockedReactionExpired|E=10|Created=6|Expire=7|Tick=7",
+                    "PendingEnemyBlockedReactionExpired|E=30|Created=6|Expire=7|Tick=7",
+                },
+                expiryEvents);
+        }
+
         [Test]
         [Category("Core")]
         public void PlayerDiesOnInitialBottomFace_SameBottomRespawnUnchanged()
@@ -923,6 +1017,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private static PendingEnemyBlockedReaction CreatePendingEnemyBlockedReaction(
+            int enemyEntityId,
+            SurfaceCell sourceCell,
+            int expireTick)
+        {
+            return new PendingEnemyBlockedReaction(
+                enemyEntityId,
+                EnemyBlockedReactionKind.KinematicContinuationTargetBlocked,
+                EnemyAiMode.Chase,
+                sourceCell,
+                sourceCell + Vector2Int.right,
+                Direction.Right,
+                LegalityBlockerKind.Solid,
+                SolidKind.Box,
+                EntityType.Box,
+                blockerEntityId: 90,
+                createdTick: expireTick - 1,
+                expireTick: expireTick);
         }
 
         private static EntityState CreateWall(int entityId, SurfaceCell position)
