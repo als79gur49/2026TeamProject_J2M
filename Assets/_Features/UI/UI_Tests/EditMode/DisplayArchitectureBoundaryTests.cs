@@ -28,6 +28,29 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void CursorConfinement_RemainsOwnedBySharedDisplayRuntime()
+        {
+            var policySource = ReadRepoFile(
+                "Assets/_Shared/Display/Runtime/FullscreenCursorConfinementPolicy.cs");
+            var presenterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
+            var adapterSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/DisplaySettingsPortAdapter.cs");
+            var lifecycleRelaySource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/DisplaySettingsLifecycleRelay.cs");
+            var displayViewSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
+            var uiSources = presenterSource + adapterSource + lifecycleRelaySource + displayViewSource;
+
+            Assert.That(policySource, Does.Contain("Cursor.lockState"));
+            Assert.That(policySource, Does.Contain("CursorLockMode.Confined"));
+            Assert.That(policySource, Does.Not.Contain("Cursor.visible"));
+            Assert.That(policySource, Does.Not.Contain("PlayerPrefs"));
+            Assert.That(uiSources, Does.Not.Contain("Cursor.lockState"));
+            Assert.That(uiSources, Does.Not.Contain("Cursor.visible"));
+        }
+
+        [Test]
         public void SettingsRootView_Source_RemainsShellOnly_WithSerializedSectionReferences()
         {
             var rootViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");

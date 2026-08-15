@@ -34,6 +34,12 @@ Editor-only execution is insufficient evidence for fullscreen/window correctness
   - alt-tab during preview and after commit
   - minimize and restore
   - verify the runtime label resync is sane and saved state is not silently changed
+  - in borderless fullscreen, verify the visible cursor remains inside the focused Player window
+  - after alt-tab or minimize, verify cursor confinement releases so other applications and displays remain usable
+  - after returning focus to borderless fullscreen, verify cursor confinement is restored
+  - in windowed mode, verify the cursor can leave the Player window
+  - switch both directions with the native fullscreen shortcut and verify confinement follows the live window mode
 - environment-sensitive checks:
-  - multi-monitor behavior if relevant for the target setup
+  - on a multi-monitor setup, verify the cursor cannot cross to an adjacent display while the fullscreen Player is focused
+  - verify the adjacent display becomes usable after the Player loses focus
   - CanvasScaler / anchor stability after resolution changes

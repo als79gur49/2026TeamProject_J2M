@@ -20,9 +20,10 @@
 - Current Climate Crisis KR PR2 typography contract rerun: green on 2026-07-26 KST with code-head `CommandLine-20260726-052954`, Settings 38 applied / 13 skipped, six canonical PNGs, and three separate Climate diagnostic PNGs
 - Current Settings movement-key toggle rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1357 total / 0 failed`; Settings now has 37 locale-themed bindings / 10 invariant bindings over 47 TMP targets
 - Current Settings Push/Flip keycap rebind rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1361 total / 0 failed`; Settings now has 35 locale-themed bindings / 10 invariant bindings over 45 TMP targets, with the obsolete Change localization entry removed
+- Current fullscreen cursor confinement rerun: green on 2026-08-15 KST, Windows UI build passed and Unity UI EditMode `1386 total / 0 failed`
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1361 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1361 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1386 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1386 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -32,6 +33,7 @@
 
 ## Structural Delta
 - Added tests:
+  - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
   - Climate Crisis KR committed TTF/SDF Git-blob, GUID, material localID, and Nanum-retention preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values are diagnostic only
   - Climate ko-KR diagnostic screenshot coverage for ConfirmPopup, Settings Audio muted, and Settings Display status, kept outside the exact canonical six-file root
@@ -70,6 +72,9 @@
   - current rerun: `1150 total / 0 failed`
   - slice-local delta against the exact-head expectation: `+1` transition payload decommission guard
   - observed delta against the previously documented result: `+76`; the remaining `+75` predates this slice on the current branch
+  - cursor-confinement slice pre-change observed result: `1383 total / 0 failed`
+  - cursor-confinement slice current rerun: `1386 total / 0 failed`
+  - cursor-confinement slice-local delta: `+3`; the `+22` between the prior documented `1361` result and this slice's pre-change result predates this change
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.

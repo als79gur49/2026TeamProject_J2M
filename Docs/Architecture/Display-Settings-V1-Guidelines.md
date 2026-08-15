@@ -10,6 +10,18 @@ This document is the display-settings-specific supplement to the canonical UI ar
 - Boot normalization must never save.
 - Boot apply must skip `Screen.SetResolution` when the normalized target already matches live runtime state.
 
+## Fullscreen Cursor Confinement Policy
+- `DisplayRuntimeInstaller` owns the application-wide cursor confinement lifecycle through `FullscreenCursorConfinementPolicy`.
+- A focused `FullScreenWindow` runtime confines the visible cursor to the Player window with `CursorLockMode.Confined`.
+- A `Windowed`, unfocused, or paused runtime releases confinement with `CursorLockMode.None`.
+- Focus regain, pause return, deferred `Screen.SetResolution` completion, and native fullscreen switching resync from the live runtime window mode.
+- Runtime reconciliation is idempotent and must not write `Cursor.lockState` when the desired state already matches.
+- The policy is active only in Windows and Linux standalone Players. It is inactive in the Editor and on unsupported platforms.
+- The display runtime does not own `Cursor.visible` and does not use `CursorLockMode.Locked`.
+- Cursor confinement is derived from live window mode and must not add a persisted setting or PlayerPrefs key.
+- UI presenters, views, adapters, and `DisplaySettingsLifecycleRelay` must not call the Unity Cursor API directly.
+- A future gameplay owner that needs `CursorLockMode.Locked` requires a separate cursor-ownership arbitration review before introduction.
+
 ## Catalog And Normalization Policy
 - V1 sources visible display modes from runtime-supported system resolutions only.
 - Visible ordering preserves first-seen `width x height` order from the runtime catalog.

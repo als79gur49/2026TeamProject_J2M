@@ -139,6 +139,55 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void FullscreenCursorConfinementPolicy_SupportedRuntime_ReconcilesWindowModeAndFocus_Idempotently()
+        {
+            var gateway = new FakeCursorConfinementRuntimeGateway(
+                supportsConfinement: true,
+                isApplicationFocused: true,
+                windowMode: DisplayWindowMode.Windowed,
+                lockState: CursorLockMode.None);
+            var policy = new FullscreenCursorConfinementPolicy(gateway);
+
+            policy.Reconcile();
+            Assert.That(gateway.SetLockStateCallCount, Is.Zero);
+
+            gateway.WindowMode = DisplayWindowMode.FullScreenWindow;
+            policy.Reconcile();
+            Assert.That(gateway.LockState, Is.EqualTo(CursorLockMode.Confined));
+            Assert.That(gateway.SetLockStateCallCount, Is.EqualTo(1));
+
+            policy.Reconcile();
+            Assert.That(gateway.SetLockStateCallCount, Is.EqualTo(1));
+
+            policy.Reconcile(isApplicationFocused: false);
+            Assert.That(gateway.LockState, Is.EqualTo(CursorLockMode.None));
+            Assert.That(gateway.SetLockStateCallCount, Is.EqualTo(2));
+
+            gateway.LockState = CursorLockMode.Locked;
+            gateway.WindowMode = DisplayWindowMode.Windowed;
+            policy.Reconcile(isApplicationFocused: true);
+            Assert.That(gateway.LockState, Is.EqualTo(CursorLockMode.None));
+            Assert.That(gateway.SetLockStateCallCount, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void FullscreenCursorConfinementPolicy_UnsupportedRuntime_DoesNotReadOrWriteCursorState()
+        {
+            var gateway = new FakeCursorConfinementRuntimeGateway(
+                supportsConfinement: false,
+                isApplicationFocused: true,
+                windowMode: DisplayWindowMode.FullScreenWindow,
+                lockState: CursorLockMode.None);
+            var policy = new FullscreenCursorConfinementPolicy(gateway);
+
+            policy.Reconcile();
+
+            Assert.That(gateway.ReadWindowModeCallCount, Is.Zero);
+            Assert.That(gateway.ReadLockStateCallCount, Is.Zero);
+            Assert.That(gateway.SetLockStateCallCount, Is.Zero);
+        }
+
+        [Test]
         public void DisplayPreviewSessionHost_ConfirmAndScreenTransition_ClearSessionOnce()
         {
             var rootObject = new GameObject("DisplayPreviewSessionHost_ConfirmAndScreenTransition_ClearSessionOnce");
@@ -438,6 +487,53 @@ namespace Game.Feature.UI.Tests
                 ApplyCallCount++;
                 LastAppliedSnapshot = snapshot;
                 CurrentSnapshot = snapshot;
+            }
+        }
+
+        private sealed class FakeCursorConfinementRuntimeGateway : ICursorConfinementRuntimeGateway
+        {
+            public FakeCursorConfinementRuntimeGateway(
+                bool supportsConfinement,
+                bool isApplicationFocused,
+                DisplayWindowMode windowMode,
+                CursorLockMode lockState)
+            {
+                SupportsConfinement = supportsConfinement;
+                IsApplicationFocused = isApplicationFocused;
+                WindowMode = windowMode;
+                LockState = lockState;
+            }
+
+            public bool SupportsConfinement { get; }
+
+            public bool IsApplicationFocused { get; set; }
+
+            public DisplayWindowMode WindowMode { get; set; }
+
+            public CursorLockMode LockState { get; set; }
+
+            public int ReadWindowModeCallCount { get; private set; }
+
+            public int ReadLockStateCallCount { get; private set; }
+
+            public int SetLockStateCallCount { get; private set; }
+
+            public DisplayWindowMode ReadCurrentWindowMode()
+            {
+                ReadWindowModeCallCount++;
+                return WindowMode;
+            }
+
+            public CursorLockMode ReadCurrentLockState()
+            {
+                ReadLockStateCallCount++;
+                return LockState;
+            }
+
+            public void SetLockState(CursorLockMode lockState)
+            {
+                SetLockStateCallCount++;
+                LockState = lockState;
             }
         }
 

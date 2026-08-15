@@ -10,6 +10,7 @@ namespace Game.Shared.Display
         [SerializeField] private bool installOnAwake = true;
 
         private DisplaySettingsService displaySettingsService;
+        private FullscreenCursorConfinementPolicy fullscreenCursorConfinementPolicy;
         private bool isInstalled;
 
         public IDisplaySettingsService DisplaySettingsService => displaySettingsService;
@@ -24,6 +25,38 @@ namespace Game.Shared.Display
             }
         }
 
+        private void Update()
+        {
+            if (isInstalled)
+            {
+                fullscreenCursorConfinementPolicy?.Reconcile();
+            }
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (isInstalled)
+            {
+                fullscreenCursorConfinementPolicy?.Reconcile(hasFocus);
+            }
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (!isInstalled)
+            {
+                return;
+            }
+
+            if (pauseStatus)
+            {
+                fullscreenCursorConfinementPolicy?.Reconcile(false);
+                return;
+            }
+
+            fullscreenCursorConfinementPolicy?.Reconcile();
+        }
+
         public void Install()
         {
             if (isInstalled)
@@ -32,13 +65,23 @@ namespace Game.Shared.Display
             }
 
             displaySettingsService ??= new DisplaySettingsService(new PlayerPrefsDisplaySettingsStore());
+            fullscreenCursorConfinementPolicy ??= new FullscreenCursorConfinementPolicy(
+                new UnityCursorConfinementRuntimeGateway());
             displaySettingsService.ApplyBootSettingsOnce();
             isInstalled = true;
+            fullscreenCursorConfinementPolicy.Reconcile();
         }
 
         internal void SetDisplaySettingsServiceForTesting(DisplaySettingsService service)
         {
             displaySettingsService = service ?? throw new ArgumentNullException(nameof(service));
+            isInstalled = false;
+        }
+
+        internal void SetFullscreenCursorConfinementPolicyForTesting(
+            FullscreenCursorConfinementPolicy policy)
+        {
+            fullscreenCursorConfinementPolicy = policy ?? throw new ArgumentNullException(nameof(policy));
             isInstalled = false;
         }
     }
