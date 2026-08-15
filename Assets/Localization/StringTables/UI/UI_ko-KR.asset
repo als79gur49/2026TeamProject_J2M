@@ -271,12 +271,8 @@ MonoBehaviour:
     m_Localized: "스테이지 실패"
     m_Metadata:
       m_Items: []
-  - m_Id: 4971587610693653
-    m_Localized: "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."
-    m_Metadata:
-      m_Items: []
   - m_Id: 4971587610693654
-    m_Localized: "스테이지 다시 시작"
+    m_Localized: "다시 시작"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693655

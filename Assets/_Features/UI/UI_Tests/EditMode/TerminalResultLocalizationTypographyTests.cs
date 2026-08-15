@@ -56,29 +56,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TerminalResultContract_HasExactSevenEntryCopyAndZeroArguments()
+        public void TerminalResultContract_HasExactSixEntryCopyAndZeroArguments()
         {
             var expected = new[]
             {
                 (TerminalResultLocalizationContract.Keys.Continue, "Continue", "계속"),
                 (TerminalResultLocalizationContract.Keys.StageClearTitle, "Stage Clear", "스테이지 클리어"),
                 (TerminalResultLocalizationContract.Keys.LevelFailedTitle, "Stage Failed", "스테이지 실패"),
-                (
-                    TerminalResultLocalizationContract.Keys.ChancesExhaustedDetail,
-                    "All chances have been used. Restart the stage or return to the main menu.",
-                    "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요."),
-                (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "스테이지 다시 시작"),
+                (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "다시 시작"),
                 (TerminalResultLocalizationContract.Keys.MainMenu, "Main Menu", "메인 메뉴"),
                 (TerminalResultLocalizationContract.Keys.GameClearTitle, "Game Clear", "게임 클리어"),
             };
 
-            Assert.That(TerminalResultLocalizationContract.Entries.Count, Is.EqualTo(7));
+            Assert.That(TerminalResultLocalizationContract.Entries.Count, Is.EqualTo(6));
             Assert.That(
                 TerminalResultLocalizationContract.Entries.Select(entry => entry.Id),
                 Is.EquivalentTo(Enum.GetValues(typeof(TerminalResultLocalizationEntryId))));
             Assert.That(
                 TerminalResultLocalizationContract.Entries.Select(entry => entry.Key).Distinct().Count(),
-                Is.EqualTo(7));
+                Is.EqualTo(6));
 
             foreach (var item in expected)
             {
@@ -101,7 +97,6 @@ namespace Game.Feature.UI.Tests
                 TerminalResultTextDescriptors.Continue,
                 TerminalResultTextDescriptors.StageClearTitle,
                 TerminalResultTextDescriptors.LevelFailedTitle,
-                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 TerminalResultTextDescriptors.RestartStage,
                 TerminalResultTextDescriptors.MainMenu,
                 TerminalResultTextDescriptors.GameClearTitle,
@@ -113,7 +108,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(TerminalResultTextDescriptors.Continue.Role, Is.EqualTo(LocalizedTextRole.Button));
             Assert.That(TerminalResultTextDescriptors.StageClearTitle.Role, Is.EqualTo(LocalizedTextRole.Title));
             Assert.That(TerminalResultTextDescriptors.LevelFailedTitle.Role, Is.EqualTo(LocalizedTextRole.Title));
-            Assert.That(TerminalResultTextDescriptors.ChancesExhaustedDetail.Role, Is.EqualTo(LocalizedTextRole.Body));
             Assert.That(TerminalResultTextDescriptors.RestartStage.Role, Is.EqualTo(LocalizedTextRole.Button));
             Assert.That(TerminalResultTextDescriptors.MainMenu.Role, Is.EqualTo(LocalizedTextRole.Button));
             Assert.That(TerminalResultTextDescriptors.GameClearTitle.Role, Is.EqualTo(LocalizedTextRole.Title));
@@ -171,7 +165,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void LevelFailedMapper_PreservesTypedReasonAndNavigation_UnknownFailsClosed()
+        public void LevelFailedMapper_PreservesNavigationAndOmitsDisplayCopy()
         {
             var stageId = StageId.CreateOrThrow("stage-2-1");
             var request = new StageNavigationRequest(
@@ -186,18 +180,13 @@ namespace Game.Feature.UI.Tests
             var payload = LevelFailedPayloadMapper.Map(readModel);
 
             Assert.That(readModel.Reason, Is.EqualTo(GameplayLevelFailureReason.ChancesExhausted));
-            Assert.That(payload.DetailTextDescriptor, Is.EqualTo(TerminalResultTextDescriptors.ChancesExhaustedDetail));
             AssertNavigationEqual(request, payload.RestartLevelRequest);
             Assert.That(
-                LevelFailedPayloadMapper.Map(new GameplayLevelFailedReadModel(
-                    GameplayLevelFailureReason.None,
-                    request)).DetailTextDescriptor,
-                Is.EqualTo(default(LocalizedTextDescriptor)));
+                typeof(LevelFailedScreenPayload).GetProperty("DetailTextDescriptor"),
+                Is.Null);
             Assert.That(
-                LevelFailedPayloadMapper.Map(new GameplayLevelFailedReadModel(
-                    (GameplayLevelFailureReason)999,
-                    request)).DetailTextDescriptor,
-                Is.EqualTo(default(LocalizedTextDescriptor)));
+                typeof(LevelFailedScreenViewModel).GetProperty("DetailText"),
+                Is.Null);
         }
 
         [Test]
@@ -207,9 +196,7 @@ namespace Game.Feature.UI.Tests
                 StageId.CreateOrThrow("stage-1-1"),
                 StageNavigationKind.Retry,
                 "level-failed-restart-level");
-            var payload = new LevelFailedScreenPayload(
-                TerminalResultTextDescriptors.ChancesExhaustedDetail,
-                request);
+            var payload = new LevelFailedScreenPayload(request);
             var resolver = new RecordingResolver("en-US");
             using var harness = TerminalRuntimeHarness.Create(resolver);
             var screenRequest = new ScreenRequest(
@@ -225,7 +212,6 @@ namespace Game.Feature.UI.Tests
                 englishView,
                 "en-US",
                 "Stage Failed",
-                "All chances have been used. Restart the stage or return to the main menu.",
                 "Restart Stage",
                 "Main Menu");
             Assert.That(resolver.SubscriptionCount, Is.Zero);
@@ -249,8 +235,7 @@ namespace Game.Feature.UI.Tests
                 koreanView,
                 "ko-KR",
                 "스테이지 실패",
-                "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.",
-                "스테이지 다시 시작",
+                "다시 시작",
                 "메인 메뉴");
             Assert.That(resolver.SubscriptionCount, Is.Zero);
 
@@ -269,7 +254,6 @@ namespace Game.Feature.UI.Tests
                 recreatedEnglishView,
                 "en-US",
                 "Stage Failed",
-                "All chances have been used. Restart the stage or return to the main menu.",
                 "Restart Stage",
                 "Main Menu");
             Assert.That(resolver.SubscriptionCount, Is.Zero);
@@ -302,11 +286,6 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
                 "_titleLabel",
                 TypographyStyleTag.HeaderLarge,
-                theme);
-            AssertTypography(
-                UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
-                "_detailLabel",
-                TypographyStyleTag.Body,
                 theme);
             AssertTypography(
                 UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath,
@@ -361,24 +340,15 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TerminalPrefabAuthoring_HasSizedWrappedDetailAndNoStaleGameOver()
+        public void TerminalPrefabAuthoring_HasNoFailureDetailOrStaleGameOver()
         {
             var levelFailed = File.ReadAllText(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
             var gameClear = File.ReadAllText(UiTestPrefabAssetUtility.GameClearScreenPrefabPath);
             Assert.That(levelFailed, Does.Not.Contain("Game Over"));
             Assert.That(gameClear, Does.Not.Contain("Game Over"));
-
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-                UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
-            var view = prefab.GetComponent<LevelFailedScreenView>();
-            var detail = GetField<TMP_Text>(view, "_detailLabel");
-            Assert.That(detail.fontSize, Is.GreaterThan(0f));
-            var serializedDetail = new SerializedObject(detail);
-            Assert.That(
-                serializedDetail.FindProperty("m_fontSizeBase").floatValue,
-                Is.GreaterThan(0f));
-            Assert.That(detail.textWrappingMode, Is.Not.EqualTo(TextWrappingModes.NoWrap));
-            Assert.That(detail.overflowMode, Is.EqualTo(TextOverflowModes.Overflow));
+            Assert.That(levelFailed, Does.Not.Contain("_detailLabel"));
+            Assert.That(levelFailed, Does.Not.Contain("m_Name: ResultDetail"));
+            Assert.That(levelFailed, Does.Not.Contain("m_Name: Detail"));
         }
 
         [Test]
@@ -541,18 +511,15 @@ namespace Game.Feature.UI.Tests
             LevelFailedScreenView view,
             string localeCode,
             string expectedTitle,
-            string expectedDetail,
             string expectedRestart,
             string expectedMain)
         {
             Assert.That(view, Is.Not.Null);
             Assert.That(view.IsVisible, Is.True);
             var title = GetField<TMP_Text>(view, "_titleLabel");
-            var detail = GetField<TMP_Text>(view, "_detailLabel");
             var restart = GetField<TMP_Text>(view, "_restartLevelButtonLabel");
             var main = GetField<TMP_Text>(view, "_mainButtonLabel");
             Assert.That(title.text, Is.EqualTo(expectedTitle));
-            Assert.That(detail.text, Is.EqualTo(expectedDetail));
             Assert.That(restart.text, Is.EqualTo(expectedRestart));
             Assert.That(main.text, Is.EqualTo(expectedMain));
 
@@ -563,14 +530,12 @@ namespace Game.Feature.UI.Tests
                 var prefab = UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(
                     UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath);
                 AssertTextStyle(title, GetField<TMP_Text>(prefab, "_titleLabel"));
-                AssertTextStyle(detail, GetField<TMP_Text>(prefab, "_detailLabel"));
                 AssertTextStyle(restart, GetField<TMP_Text>(prefab, "_restartLevelButtonLabel"));
                 AssertTextStyle(main, GetField<TMP_Text>(prefab, "_mainButtonLabel"));
             }
             else
             {
                 AssertTextStyle(title, theme.ResolveOrThrow(localeCode, TypographyStyleTag.HeaderLarge));
-                AssertTextStyle(detail, theme.ResolveOrThrow(localeCode, TypographyStyleTag.Body));
                 AssertTextStyle(restart, theme.ResolveOrThrow(localeCode, TypographyStyleTag.Button));
                 AssertTextStyle(main, theme.ResolveOrThrow(localeCode, TypographyStyleTag.Button));
             }

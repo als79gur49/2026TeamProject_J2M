@@ -688,10 +688,6 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishTickEvents(
                 CreateStageClearedBatch(tickIndex: 91, staleToken));
             presentationSource.PublishLevelFailed(new LevelFailedScreenPayload(
-                "Level Failed",
-                "stale",
-                "Restart",
-                "Main",
                 new StageNavigationRequest(
                     StageId.CreateOrThrow("stage-1-1"),
                     StageNavigationKind.Retry,
@@ -699,10 +695,6 @@ namespace Game.Feature.UI.Tests
                     transitionIntent: SceneTransitionIntent.ManualRetry),
                 staleToken));
             presentationSource.PublishLevelFailed(new LevelFailedScreenPayload(
-                "Level Failed",
-                "wrong destination",
-                "Restart",
-                "Main",
                 new StageNavigationRequest(
                     StageId.CreateOrThrow("stage-1-1"),
                     StageNavigationKind.Retry,
@@ -982,7 +974,6 @@ namespace Game.Feature.UI.Tests
             var terminalToken = BeginSameSceneTerminal(
                 TerminalDestinationKind.SameSceneLevelFailed);
             var payload = new LevelFailedScreenPayload(
-                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 restartRequest,
                 terminalToken);
 
@@ -1032,7 +1023,6 @@ namespace Game.Feature.UI.Tests
             var terminalToken = BeginSameSceneTerminal(
                 TerminalDestinationKind.SameSceneLevelFailed);
             presentationSource.PublishLevelFailed(new LevelFailedScreenPayload(
-                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 restartRequest,
                 terminalToken));
             var levelFailedRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.LevelFailed);

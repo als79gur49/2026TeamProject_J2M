@@ -1,4 +1,3 @@
-using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.ViewShared;
 
 namespace Game.Feature.UI.Application
@@ -14,9 +13,6 @@ namespace Game.Feature.UI.Application
         public static readonly LocalizedTextDescriptor LevelFailedTitle =
             Create(TerminalResultLocalizationEntryId.LevelFailedTitle);
 
-        public static readonly LocalizedTextDescriptor ChancesExhaustedDetail =
-            Create(TerminalResultLocalizationEntryId.ChancesExhaustedDetail);
-
         public static readonly LocalizedTextDescriptor RestartStage =
             Create(TerminalResultLocalizationEntryId.RestartStage);
 
@@ -25,13 +21,6 @@ namespace Game.Feature.UI.Application
 
         public static readonly LocalizedTextDescriptor GameClearTitle =
             Create(TerminalResultLocalizationEntryId.GameClearTitle);
-
-        public static LocalizedTextDescriptor DetailFor(GameplayLevelFailureReason reason)
-        {
-            return reason == GameplayLevelFailureReason.ChancesExhausted
-                ? ChancesExhaustedDetail
-                : default;
-        }
 
         private static LocalizedTextDescriptor Create(TerminalResultLocalizationEntryId id)
         {

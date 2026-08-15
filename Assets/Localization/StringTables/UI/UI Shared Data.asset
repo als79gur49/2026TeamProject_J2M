@@ -255,10 +255,6 @@ MonoBehaviour:
     m_Key: ui.result.level_failed.title
     m_Metadata:
       m_Items: []
-  - m_Id: 4971587610693653
-    m_Key: ui.result.level_failed.detail.chances_exhausted
-    m_Metadata:
-      m_Items: []
   - m_Id: 4971587610693654
     m_Key: ui.result.action.restart_stage
     m_Metadata:

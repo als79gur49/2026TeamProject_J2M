@@ -309,7 +309,6 @@ namespace Game.Feature.UI.ViewShared
         Continue,
         StageClearTitle,
         LevelFailedTitle,
-        ChancesExhaustedDetail,
         RestartStage,
         MainMenu,
         GameClearTitle,
@@ -359,8 +358,6 @@ namespace Game.Feature.UI.ViewShared
             public const string Continue = "ui.result.action.continue";
             public const string StageClearTitle = "ui.result.stage_clear.title";
             public const string LevelFailedTitle = "ui.result.level_failed.title";
-            public const string ChancesExhaustedDetail =
-                "ui.result.level_failed.detail.chances_exhausted";
             public const string RestartStage = "ui.result.action.restart_stage";
             public const string MainMenu = "ui.result.action.main_menu";
             public const string GameClearTitle = "ui.result.game_clear.title";
@@ -391,17 +388,10 @@ namespace Game.Feature.UI.ViewShared
                     LocalizedTextRole.Title,
                     LocalizedTextWeight.Bold),
                 Entry(
-                    TerminalResultLocalizationEntryId.ChancesExhaustedDetail,
-                    Keys.ChancesExhaustedDetail,
-                    "All chances have been used. Restart the stage or return to the main menu.",
-                    "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.",
-                    LocalizedTextRole.Body,
-                    LocalizedTextWeight.Regular),
-                Entry(
                     TerminalResultLocalizationEntryId.RestartStage,
                     Keys.RestartStage,
                     "Restart Stage",
-                    "스테이지 다시 시작",
+                    "다시 시작",
                     LocalizedTextRole.Button,
                     LocalizedTextWeight.Regular),
                 Entry(

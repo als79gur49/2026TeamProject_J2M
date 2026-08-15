@@ -150,8 +150,8 @@ namespace Game.Feature.UI.Tests
                 tablePaths,
                 Is.EquivalentTo(new[] { StageKoreanStringTablePath, UiKoreanStringTablePath }),
                 "Every managed ko-KR table must participate in native Climate glyph validation.");
-            Assert.That(values, Has.Length.EqualTo(124));
-            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(113));
+            Assert.That(values, Has.Length.EqualTo(123));
+            Assert.That(values.Distinct(StringComparer.Ordinal).Count(), Is.EqualTo(111));
             Assert.That(values, Does.Contain("밀기 키를 누르세요…"));
             Assert.That(values, Does.Contain("뒤집기 키를 누르세요…"));
             Assert.That(values, Does.Contain("남은 기회: {0}"));

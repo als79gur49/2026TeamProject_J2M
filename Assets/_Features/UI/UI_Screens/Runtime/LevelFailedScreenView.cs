@@ -13,7 +13,6 @@ namespace Game.Feature.UI.Screens
 
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
-        [SerializeField] private TMP_Text _detailLabel;
         [SerializeField] private Button _restartLevelButton;
         [SerializeField] private TMP_Text _restartLevelButtonLabel;
         [SerializeField] private Button _mainButton;
@@ -64,11 +63,6 @@ namespace Game.Feature.UI.Screens
                 localeCode,
                 typographyTheme,
                 TypographyStyleTag.HeaderLarge);
-            TerminalScreenTypographyUtility.Apply(
-                _detailLabel,
-                localeCode,
-                typographyTheme,
-                TypographyStyleTag.Body);
             TerminalScreenTypographyUtility.Apply(
                 _restartLevelButtonLabel,
                 localeCode,
@@ -186,7 +180,6 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_detailLabel, nameof(_detailLabel));
             ValidateSerializedReference(_restartLevelButton, nameof(_restartLevelButton));
             ValidateSerializedReference(_restartLevelButtonLabel, nameof(_restartLevelButtonLabel));
             ValidateSerializedReference(_mainButton, nameof(_mainButton));
@@ -222,11 +215,6 @@ namespace Game.Feature.UI.Screens
             if (_titleLabel != null)
             {
                 _titleLabel.text = _viewModel.TitleText;
-            }
-
-            if (_detailLabel != null)
-            {
-                _detailLabel.text = _viewModel.DetailText;
             }
 
             if (_restartLevelButtonLabel != null)

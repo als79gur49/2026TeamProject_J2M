@@ -130,9 +130,7 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = UiAudioHarness.Create();
             var request = CreateStageNavigationRequest(StageNavigationKind.Retry);
-            var payload = new LevelFailedScreenPayload(
-                TerminalResultTextDescriptors.ChancesExhaustedDetail,
-                request);
+            var payload = new LevelFailedScreenPayload(request);
 
             Assert.That(
                 harness.ScreenController.Show(new ScreenRequest(ScreenId.LevelFailed, payload, "level-failed-audio")),
@@ -151,7 +149,6 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = UiAudioHarness.Create();
             var payload = new LevelFailedScreenPayload(
-                TerminalResultTextDescriptors.ChancesExhaustedDetail,
                 CreateStageNavigationRequest(StageNavigationKind.Retry));
 
             Assert.That(

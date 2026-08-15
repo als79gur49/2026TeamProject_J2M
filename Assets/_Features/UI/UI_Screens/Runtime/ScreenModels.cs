@@ -798,20 +798,16 @@ namespace Game.Feature.UI.Screens
 
         public string TitleText { get; private set; } = string.Empty;
 
-        public string DetailText { get; private set; } = string.Empty;
-
         public string RestartLevelLabel { get; private set; } = string.Empty;
 
         public string MainLabel { get; private set; } = string.Empty;
 
         public void SetContent(
             string titleText,
-            string detailText,
             string restartLevelLabel,
             string mainLabel)
         {
             TitleText = titleText ?? string.Empty;
-            DetailText = detailText ?? string.Empty;
             RestartLevelLabel = restartLevelLabel ?? string.Empty;
             MainLabel = mainLabel ?? string.Empty;
             Changed?.Invoke();

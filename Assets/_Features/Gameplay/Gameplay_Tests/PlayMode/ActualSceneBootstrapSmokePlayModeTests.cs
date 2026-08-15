@@ -860,10 +860,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                             new ScreenRequest(
                                 ScreenId.LevelFailed,
                                 new LevelFailedScreenPayload(
-                                    "Level Failed",
-                                    "M4 direct menu route",
-                                    "Restart",
-                                    "Main",
                                     new StageNavigationRequest(
                                         stageId,
                                         StageNavigationKind.Retry,
@@ -1251,12 +1247,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 SceneTransitionIntent.ManualRetry);
             sourceInstaller.ScreenController.SetRoot(new ScreenRequest(
                 ScreenId.LevelFailed,
-                new LevelFailedScreenPayload(
-                    "Level Failed",
-                    "Retry lifecycle",
-                    "Restart Level",
-                    "Main",
-                    restartRequest),
+                new LevelFailedScreenPayload(restartRequest),
                 "m2-level-failed"));
             var sourceScreen = sourceInstaller.LevelFailedScreenView;
             Assert.That(sourceScreen, Is.Not.Null);

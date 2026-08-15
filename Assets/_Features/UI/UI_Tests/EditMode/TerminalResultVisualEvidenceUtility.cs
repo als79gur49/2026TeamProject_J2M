@@ -524,15 +524,13 @@ namespace Game.Feature.UI.Tests
                         return new[]
                         {
                             new TextExpectation(typeof(LevelFailedScreenView), "_titleLabel", "스테이지 실패", TypographyStyleTag.HeaderLarge),
-                            new TextExpectation(typeof(LevelFailedScreenView), "_detailLabel", "남은 기회를 모두 사용했습니다. 스테이지를 다시 시작하거나 메인 메뉴로 돌아가세요.", TypographyStyleTag.Body, isLevelFailedDetail: true),
-                            new TextExpectation(typeof(LevelFailedScreenView), "_restartLevelButtonLabel", "스테이지 다시 시작", TypographyStyleTag.Button),
+                            new TextExpectation(typeof(LevelFailedScreenView), "_restartLevelButtonLabel", "다시 시작", TypographyStyleTag.Button),
                             new TextExpectation(typeof(LevelFailedScreenView), "_mainButtonLabel", "메인 메뉴", TypographyStyleTag.Button),
                         };
                     }
                     return new[]
                     {
                         new TextExpectation(typeof(LevelFailedScreenView), "_titleLabel", "Stage Failed", TypographyStyleTag.HeaderLarge),
-                        new TextExpectation(typeof(LevelFailedScreenView), "_detailLabel", "All chances have been used. Restart the stage or return to the main menu.", TypographyStyleTag.Body, isLevelFailedDetail: true),
                         new TextExpectation(typeof(LevelFailedScreenView), "_restartLevelButtonLabel", "Restart Stage", TypographyStyleTag.Button),
                         new TextExpectation(typeof(LevelFailedScreenView), "_mainButtonLabel", "Main Menu", TypographyStyleTag.Button),
                     };
@@ -625,22 +623,6 @@ namespace Game.Feature.UI.Tests
             {
                 throw new InvalidOperationException(
                     $"{expectation.FieldName} lies outside the capture viewport.");
-            }
-            if (!expectation.IsLevelFailedDetail)
-            {
-                return;
-            }
-
-            var serialized = new SerializedObject(text);
-            var baseSize = serialized.FindProperty("m_fontSizeBase")?.floatValue ?? -1f;
-            if (!Mathf.Approximately(text.fontSize, 18f) ||
-                !Mathf.Approximately(baseSize, 18f) ||
-                text.textInfo.lineCount > 2 ||
-                text.textWrappingMode == TextWrappingModes.NoWrap ||
-                text.overflowMode != TextOverflowModes.Overflow)
-            {
-                throw new InvalidOperationException(
-                    "LevelFailed detail must remain size/base 18, wrapped, unclipped, and at most two lines.");
             }
         }
 
@@ -1136,21 +1118,18 @@ namespace Game.Feature.UI.Tests
                 Type viewType,
                 string fieldName,
                 string expectedText,
-                TypographyStyleTag role,
-                bool isLevelFailedDetail = false)
+                TypographyStyleTag role)
             {
                 ViewType = viewType;
                 FieldName = fieldName;
                 ExpectedText = expectedText;
                 Role = role;
-                IsLevelFailedDetail = isLevelFailedDetail;
             }
 
             public Type ViewType { get; }
             public string FieldName { get; }
             public string ExpectedText { get; }
             public TypographyStyleTag Role { get; }
-            public bool IsLevelFailedDetail { get; }
         }
 
         private readonly struct TextState
