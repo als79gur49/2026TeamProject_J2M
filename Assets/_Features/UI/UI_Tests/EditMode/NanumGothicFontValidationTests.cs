@@ -33,6 +33,7 @@ namespace Game.Feature.UI.Tests
                 ["ui.settings.display.resolution_hint"] = "자동으로 감지된 해상도만 표시됩니다.",
                 ["ui.settings.display.fullscreen_window"] = "테두리 없는 창 모드",
                 ["ui.settings.display.fullscreen_on"] = "켜짐",
+                ["ui.settings.display.fullscreen_off"] = "꺼짐",
                 ["ui.settings.display.apply"] = "적용",
                 ["ui.settings.display.revert"] = "되돌리기",
                 ["ui.settings.input.movement_keys"] = "이동 키",
@@ -205,7 +206,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsStaticDescriptorKeys_MatchFontCoverageMap()
+        public void SettingsLocalizationKeys_MatchFontCoverageMap()
         {
             var descriptorKeys = new[]
             {
@@ -221,7 +222,8 @@ namespace Game.Feature.UI.Tests
                 SettingsStaticTextDescriptors.DisplayResolution.Key,
                 SettingsStaticTextDescriptors.DisplayResolutionHint.Key,
                 SettingsStaticTextDescriptors.DisplayFullscreenWindow.Key,
-                SettingsStaticTextDescriptors.DisplayFullscreenOn.Key,
+                SettingsDynamicTextDescriptors.DisplayFullscreenOnKey,
+                SettingsDynamicTextDescriptors.DisplayFullscreenOffKey,
                 SettingsStaticTextDescriptors.DisplayApply.Key,
                 SettingsStaticTextDescriptors.DisplayRevert.Key,
                 SettingsStaticTextDescriptors.MovementKeys.Key,

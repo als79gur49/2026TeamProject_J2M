@@ -37,7 +37,6 @@ namespace Game.Feature.UI.Tests
             SettingsStaticTextDescriptors.DisplayResolution,
             SettingsStaticTextDescriptors.DisplayResolutionHint,
             SettingsStaticTextDescriptors.DisplayFullscreenWindow,
-            SettingsStaticTextDescriptors.DisplayFullscreenOn,
             SettingsStaticTextDescriptors.DisplayApply,
             SettingsStaticTextDescriptors.DisplayRevert,
             SettingsStaticTextDescriptors.Back,
@@ -141,6 +140,21 @@ namespace Game.Feature.UI.Tests
             Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Body));
             Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
             Assert.That(descriptor.Arguments, Is.EqualTo(new object[] { 10 }));
+        }
+
+        [TestCase(true, "ui.settings.display.fullscreen_on")]
+        [TestCase(false, "ui.settings.display.fullscreen_off")]
+        public void SettingsDisplayFullscreenStateDynamicDescriptor_UsesStateSpecificKey(
+            bool isFullscreenEnabled,
+            string expectedKey)
+        {
+            var descriptor = SettingsDynamicTextDescriptors.DisplayFullscreenState(isFullscreenEnabled);
+
+            Assert.That(descriptor.Table, Is.EqualTo("UI"));
+            Assert.That(descriptor.Key, Is.EqualTo(expectedKey));
+            Assert.That(descriptor.Role, Is.EqualTo(LocalizedTextRole.Label));
+            Assert.That(descriptor.Weight, Is.EqualTo(LocalizedTextWeight.Regular));
+            Assert.That(descriptor.Arguments, Is.Empty);
         }
 
         [TestCase(
@@ -516,7 +530,6 @@ namespace Game.Feature.UI.Tests
                     "ui.settings.display.resolution",
                     "ui.settings.display.resolution_hint",
                     "ui.settings.display.fullscreen_window",
-                    "ui.settings.display.fullscreen_on",
                     "ui.settings.display.apply",
                     "ui.settings.display.revert",
                     "ui.common.back",
@@ -1513,7 +1526,6 @@ namespace Game.Feature.UI.Tests
                 payload.DisplayResolutionTextDescriptor,
                 payload.ResolutionHintDescriptor,
                 payload.FullscreenWindowLabelDescriptor,
-                payload.FullscreenOnLabelDescriptor,
                 payload.DisplayApplyButtonTextDescriptor,
                 payload.DisplayRevertButtonTextDescriptor,
                 payload.BackLabelDescriptor,

@@ -21,8 +21,8 @@ namespace Game.Feature.UI.Tests
     {
         private const string TypographyThemeAssetPath =
             "Assets/_Features/UI/UI_Composition/Authoring/Typography/GameplayUiTypographyTheme.asset";
-        private const int SettingsStaticBindingCount = 26;
-        private const int SettingsTypographyBindingCount = 26;
+        private const int SettingsStaticBindingCount = 25;
+        private const int SettingsTypographyBindingCount = 25;
         [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_BindsPackageFreeResolverAndRefreshesLocale()
         {
@@ -244,6 +244,7 @@ namespace Game.Feature.UI.Tests
                     Array.Empty<string>(),
                     0,
                     false,
+                    "Off",
                     string.Empty,
                     false,
                     false,
@@ -990,7 +991,6 @@ namespace Game.Feature.UI.Tests
                     "Only automatically detected resolutions are shown.",
                     "자동으로 감지된 해상도만 표시됩니다."),
                 (SettingsStaticTextDescriptors.DisplayFullscreenWindow, "Borderless Fullscreen", "테두리 없는 창 모드"),
-                (SettingsStaticTextDescriptors.DisplayFullscreenOn, "On", "켜짐"),
                 (SettingsStaticTextDescriptors.DisplayApply, "Apply", "적용"),
                 (SettingsStaticTextDescriptors.DisplayRevert, "Revert", "되돌리기"),
             };
@@ -998,6 +998,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("Settings"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("Language"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("Korean"));
+            Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(false)), Is.EqualTo("Off"));
+            Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(true)), Is.EqualTo("On"));
             foreach (var (descriptor, english, _) in staticLabels)
             {
                 Assert.That(
@@ -1011,6 +1013,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Title), Is.EqualTo("설정"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.Language), Is.EqualTo("언어"));
             Assert.That(resolver.Resolve(SettingsStaticTextDescriptors.LanguageKorean), Is.EqualTo("한국어"));
+            Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(false)), Is.EqualTo("꺼짐"));
+            Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(true)), Is.EqualTo("켜짐"));
             foreach (var (descriptor, _, korean) in staticLabels)
             {
                 Assert.That(
@@ -1020,6 +1024,9 @@ namespace Game.Feature.UI.Tests
             }
 
             resolver.SetLocale(PackageFreeLocalizedTextResolver.DefaultLocaleCode);
+
+            Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(false)), Is.EqualTo("Off"));
+            Assert.That(resolver.Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(true)), Is.EqualTo("On"));
 
             foreach (var (descriptor, english, _) in staticLabels)
             {

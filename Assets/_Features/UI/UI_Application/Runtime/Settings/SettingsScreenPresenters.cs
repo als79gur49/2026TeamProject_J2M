@@ -451,13 +451,15 @@ namespace Game.Feature.UI.Application
                 ? _displaySnapshot.AvailableModes[
                     ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count)]
                 : default;
+            var isFullscreenEnabled = _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow;
 
             ViewModel.SetContent(
                 Resolve(SettingsDynamicTextDescriptors.DisplayResolutionValue(
                     _displaySnapshot.CurrentRuntimeResolutionLabel)),
                 resolutionOptions,
                 _stagedDisplayModeIndex,
-                _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
+                isFullscreenEnabled,
+                Resolve(SettingsDynamicTextDescriptors.DisplayFullscreenState(isFullscreenEnabled)),
                 displayStatusText,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
@@ -936,6 +938,7 @@ namespace Game.Feature.UI.Application
             [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "Only automatically detected resolutions are shown.",
             [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "Borderless Fullscreen",
             [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "On",
+            [SettingsLocalizationContract.Keys.DisplayFullscreenOff] = "Off",
             [SettingsLocalizationContract.Keys.DisplayApply] = "Apply",
             [SettingsLocalizationContract.Keys.DisplayRevert] = "Revert",
             [SettingsLocalizationContract.Keys.InputMovementKeys] = "Movement Keys",

@@ -451,6 +451,10 @@ MonoBehaviour:
     m_Key: ui.transition.loading
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693704
+    m_Key: ui.settings.display.fullscreen_off
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

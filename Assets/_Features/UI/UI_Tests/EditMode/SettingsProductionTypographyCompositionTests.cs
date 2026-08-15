@@ -122,8 +122,8 @@ namespace Game.Feature.UI.Tests
                 inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic ||
                                         item.Classification == TargetClassification.LocalizedDynamic),
                 Is.EqualTo(33));
-            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic), Is.EqualTo(22));
-            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedDynamic), Is.EqualTo(11));
+            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedStatic), Is.EqualTo(21));
+            Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocalizedDynamic), Is.EqualTo(12));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.LocaleInvariantKeyDisplay), Is.EqualTo(10));
             Assert.That(inventory.Count(item => item.Classification == TargetClassification.Decorative), Is.EqualTo(2));
             Assert.That(
@@ -535,7 +535,7 @@ namespace Game.Feature.UI.Tests
                 Static("Display resolution", GetField<TMP_Text>(display, "_resolutionLabel")),
                 Static("Display hint", GetField<TMP_Text>(display, "_resolutionHoverHintLabel")),
                 Static("Display fullscreen", GetField<TMP_Text>(display, "_fullscreenLabel")),
-                Static("Display fullscreen toggle", GetField<TMP_Text>(display, "_fullscreenToggleLabel")),
+                Dynamic("Display fullscreen toggle", GetField<TMP_Text>(display, "_fullscreenToggleLabel")),
                 Static("Display apply", GetField<TMP_Text>(display, "_applyButtonLabel")),
                 Static("Display revert", GetField<TMP_Text>(display, "_revertButtonLabel")),
                 Dynamic("Display language label", GetField<TMP_Text>(display, "_languageLabel")),

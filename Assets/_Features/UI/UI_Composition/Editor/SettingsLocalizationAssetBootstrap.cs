@@ -34,6 +34,7 @@ namespace Game.Feature.UI.Composition.Editor
             (SettingsLocalizationContract.Keys.DisplayResolutionHint, "Only automatically detected resolutions are shown.", "자동으로 감지된 해상도만 표시됩니다.", false),
             (SettingsLocalizationContract.Keys.DisplayFullscreenWindow, "Borderless Fullscreen", "테두리 없는 창 모드", false),
             (SettingsLocalizationContract.Keys.DisplayFullscreenOn, "On", "켜짐", false),
+            (SettingsLocalizationContract.Keys.DisplayFullscreenOff, "Off", "꺼짐", false),
             (SettingsLocalizationContract.Keys.DisplayApply, "Apply", "적용", false),
             (SettingsLocalizationContract.Keys.DisplayRevert, "Revert", "되돌리기", false),
             (SettingsLocalizationContract.Keys.InputMovementKeys, "Movement Keys", "이동 키", false),

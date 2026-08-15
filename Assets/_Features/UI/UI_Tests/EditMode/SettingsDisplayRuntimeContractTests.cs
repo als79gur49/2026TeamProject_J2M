@@ -69,6 +69,46 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_FullscreenToggleAndStateLabelStaySynchronized()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_FullscreenState");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                var factory = CreateFactory(runtimeContext, new FakeDisplaySettingsPort());
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                Assert.That(view, Is.Not.Null);
+                view.ClickDisplayTab();
+
+                var displayView = view.DisplayView;
+                var toggle = GetDisplayPrivateField<Toggle>(displayView, "_fullscreenToggle");
+                var stateLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_fullscreenToggleLabel");
+
+                Assert.That(toggle.isOn, Is.False);
+                Assert.That(stateLabel.text, Is.EqualTo("Off"));
+
+                displayView.SetFullscreen(true);
+
+                Assert.That(toggle.isOn, Is.True);
+                Assert.That(stateLabel.text, Is.EqualTo("On"));
+
+                displayView.SetFullscreen(false);
+
+                Assert.That(toggle.isOn, Is.False);
+                Assert.That(stateLabel.text, Is.EqualTo("Off"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_StartsPreviewAndCommitsThroughConfirmPopup()
         {
             var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_Commit");

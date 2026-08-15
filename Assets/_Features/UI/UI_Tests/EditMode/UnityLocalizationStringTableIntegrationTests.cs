@@ -75,13 +75,13 @@ namespace Game.Feature.UI.Tests
                 .Cast<SettingsLocalizationEntryId>()
                 .ToArray();
 
-            Assert.That(entries, Has.Count.EqualTo(48));
+            Assert.That(entries, Has.Count.EqualTo(49));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.StaticDescriptor)),
-                Is.EqualTo(29));
+                Is.EqualTo(28));
             Assert.That(
                 entries.Count(entry => entry.Coverage.HasFlag(SettingsLocalizationCoverage.DynamicDescriptor)),
-                Is.EqualTo(19));
+                Is.EqualTo(21));
             Assert.That(entries.Count(entry => entry.IsSmart), Is.EqualTo(8));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.PercentArgument),
@@ -91,7 +91,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(6));
             Assert.That(
                 entries.Count(entry => entry.FormatKind == SettingsLocalizationFormatKind.None),
-                Is.EqualTo(40));
+                Is.EqualTo(41));
             Assert.That(
                 entries.Select(entry => entry.Id).ToArray(),
                 Is.EquivalentTo(declaredIds),
@@ -241,7 +241,7 @@ namespace Game.Feature.UI.Tests
             var koreanTable = collection.GetTable(PackageFreeLocalizedTextResolver.KoreanLocaleCode) as StringTable;
             Assert.That(englishTable, Is.Not.Null);
             Assert.That(koreanTable, Is.Not.Null);
-            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(109));
+            Assert.That(collection.SharedData.Entries, Has.Count.EqualTo(110));
 
             var contractKeys = SettingsLocalizationContract.Entries.Select(entry => entry.Key).ToArray();
             var sharedManagedKeys = collection.SharedData.Entries
@@ -1054,9 +1054,13 @@ namespace Game.Feature.UI.Tests
                 "Resolution",
                 "Only automatically detected resolutions are shown.",
                 "Borderless Fullscreen",
-                "On",
                 "Apply",
                 "Revert");
+            Assert.That(
+                GetTextAtPath(
+                    harness.SettingsView,
+                    "SettingsSectionHost/SettingsDisplaySection/FullscreenRow/FullscreenToggle/Label").text,
+                Is.EqualTo("Off"));
             AssertRawInputNames(harness.SettingsView, "J", "K");
 
             Assert.That(resolver.TrySetLocale("ko-KR"), Is.True);
@@ -1071,9 +1075,13 @@ namespace Game.Feature.UI.Tests
                 "해상도",
                 "자동으로 감지된 해상도만 표시됩니다.",
                 "테두리 없는 창 모드",
-                "켜짐",
                 "적용",
                 "되돌리기");
+            Assert.That(
+                GetTextAtPath(
+                    harness.SettingsView,
+                    "SettingsSectionHost/SettingsDisplaySection/FullscreenRow/FullscreenToggle/Label").text,
+                Is.EqualTo("꺼짐"));
             AssertRawInputNames(harness.SettingsView, "J", "K");
         }
 
@@ -1870,7 +1878,6 @@ namespace Game.Feature.UI.Tests
             string resolution,
             string resolutionHint,
             string fullscreenWindow,
-            string fullscreenOn,
             string apply,
             string revert)
         {
@@ -1887,7 +1894,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(GetTextAtPath(view, $"{displayRoot}/ResolutionRow/ResolutionLabel").text, Is.EqualTo(resolution));
             Assert.That(GetTextAtPath(view, $"{displayRoot}/ResolutionHoverHint/ResolutionHoverHintText").text, Is.EqualTo(resolutionHint));
             Assert.That(GetTextAtPath(view, $"{displayRoot}/FullscreenRow/FullscreenLabel").text, Is.EqualTo(fullscreenWindow));
-            Assert.That(GetTextAtPath(view, $"{displayRoot}/FullscreenRow/FullscreenToggle/Label").text, Is.EqualTo(fullscreenOn));
             Assert.That(GetTextAtPath(view, $"{displayRoot}/DisplayActionRow/DisplayApplyButton_New/MASK/Item/FlipChangeLabel").text, Is.EqualTo(apply));
             Assert.That(GetTextAtPath(view, $"{displayRoot}/DisplayActionRow/DisplayRevertButton_New/MASK/Item/FlipChangeLabel").text, Is.EqualTo(revert));
         }

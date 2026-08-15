@@ -42,6 +42,7 @@ namespace Game.Feature.UI.ViewShared
         DisplayResolutionHint,
         DisplayFullscreenWindow,
         DisplayFullscreenOn,
+        DisplayFullscreenOff,
         DisplayApply,
         DisplayRevert,
         InputMovementKeys,
@@ -157,6 +158,7 @@ namespace Game.Feature.UI.ViewShared
             public const string DisplayResolutionHint = "ui.settings.display.resolution_hint";
             public const string DisplayFullscreenWindow = "ui.settings.display.fullscreen_window";
             public const string DisplayFullscreenOn = "ui.settings.display.fullscreen_on";
+            public const string DisplayFullscreenOff = "ui.settings.display.fullscreen_off";
             public const string DisplayApply = "ui.settings.display.apply";
             public const string DisplayRevert = "ui.settings.display.revert";
             public const string InputMovementKeys = "ui.settings.input.movement_keys";
@@ -211,7 +213,6 @@ namespace Game.Feature.UI.ViewShared
                 Static(SettingsLocalizationEntryId.DisplayResolution, Keys.DisplayResolution),
                 Static(SettingsLocalizationEntryId.DisplayResolutionHint, Keys.DisplayResolutionHint),
                 Static(SettingsLocalizationEntryId.DisplayFullscreenWindow, Keys.DisplayFullscreenWindow),
-                Static(SettingsLocalizationEntryId.DisplayFullscreenOn, Keys.DisplayFullscreenOn),
                 Static(SettingsLocalizationEntryId.DisplayApply, Keys.DisplayApply),
                 Static(SettingsLocalizationEntryId.DisplayRevert, Keys.DisplayRevert),
                 Static(SettingsLocalizationEntryId.InputMovementKeys, Keys.InputMovementKeys),
@@ -236,6 +237,8 @@ namespace Game.Feature.UI.ViewShared
                     SettingsLocalizationEntryId.AudioVolumeValueMuted,
                     Keys.AudioVolumeValueMuted,
                     SettingsLocalizationFormatKind.PercentArgument),
+                Dynamic(SettingsLocalizationEntryId.DisplayFullscreenOn, Keys.DisplayFullscreenOn),
+                Dynamic(SettingsLocalizationEntryId.DisplayFullscreenOff, Keys.DisplayFullscreenOff),
                 Dynamic(
                     SettingsLocalizationEntryId.DisplayResolutionValue,
                     Keys.DisplayResolutionValue,
@@ -911,6 +914,7 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "Only automatically detected resolutions are shown.",
                     [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "Borderless Fullscreen",
                     [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "On",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenOff] = "Off",
                     [SettingsLocalizationContract.Keys.DisplayApply] = "Apply",
                     [SettingsLocalizationContract.Keys.DisplayRevert] = "Revert",
                     [SettingsLocalizationContract.Keys.InputMovementKeys] = "Movement Keys",
@@ -971,6 +975,7 @@ namespace Game.Feature.UI.ViewShared
                     [SettingsLocalizationContract.Keys.DisplayResolutionHint] = "자동으로 감지된 해상도만 표시됩니다.",
                     [SettingsLocalizationContract.Keys.DisplayFullscreenWindow] = "테두리 없는 창 모드",
                     [SettingsLocalizationContract.Keys.DisplayFullscreenOn] = "켜짐",
+                    [SettingsLocalizationContract.Keys.DisplayFullscreenOff] = "꺼짐",
                     [SettingsLocalizationContract.Keys.DisplayApply] = "적용",
                     [SettingsLocalizationContract.Keys.DisplayRevert] = "되돌리기",
                     [SettingsLocalizationContract.Keys.InputMovementKeys] = "이동 키",

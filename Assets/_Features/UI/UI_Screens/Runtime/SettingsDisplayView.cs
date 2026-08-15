@@ -121,7 +121,6 @@ namespace Game.Feature.UI.Screens
                 CreateBinding(_resolutionLabel, payload.DisplayResolutionTextDescriptor),
                 CreateBinding(_resolutionHoverHintLabel, payload.ResolutionHintDescriptor),
                 CreateBinding(_fullscreenLabel, payload.FullscreenWindowLabelDescriptor),
-                CreateBinding(_fullscreenToggleLabel, payload.FullscreenOnLabelDescriptor),
                 CreateBinding(_applyButtonLabel, payload.DisplayApplyButtonTextDescriptor),
                 CreateBinding(_revertButtonLabel, payload.DisplayRevertButtonTextDescriptor),
             };
@@ -508,6 +507,11 @@ namespace Game.Feature.UI.Screens
                     _languageLabel.text = string.Empty;
                 }
 
+                if (_fullscreenToggleLabel != null)
+                {
+                    _fullscreenToggleLabel.text = string.Empty;
+                }
+
                 if (_languageCycleButtonLabel != null)
                 {
                     _languageCycleButtonLabel.text = string.Empty;
@@ -576,6 +580,11 @@ namespace Game.Feature.UI.Screens
                 {
                     _fullscreenToggle.SetIsOnWithoutNotify(_viewModel.IsFullscreenEnabled);
                     _fullscreenToggle.interactable = !_viewModel.IsDisplayPreviewActive;
+                }
+
+                if (_fullscreenToggleLabel != null)
+                {
+                    _fullscreenToggleLabel.text = _viewModel.FullscreenStateText;
                 }
 
                 if (_languageLabel != null)

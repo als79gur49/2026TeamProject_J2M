@@ -476,6 +476,10 @@ MonoBehaviour:
     m_Localized: 불러오는 중...
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693704
+    m_Localized: 꺼짐
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

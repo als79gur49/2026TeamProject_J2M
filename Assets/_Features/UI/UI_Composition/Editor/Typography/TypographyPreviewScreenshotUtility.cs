@@ -897,7 +897,9 @@ namespace Game.Feature.UI.Composition.Editor
                     target,
                     resolver,
                     capture,
-                    GetSettingsDescriptors(SettingsScreenPayload.Default)
+                    GetSettingsDescriptors(
+                            SettingsScreenPayload.Default,
+                            string.Equals(target.FileStem, "SettingsDisplayStatus", StringComparison.Ordinal))
                         .Concat(GetM2bStatusDescriptors(target.FileStem)),
                     prefabRoot);
                 return new DisposableAction(() =>
@@ -2057,6 +2059,23 @@ namespace Game.Feature.UI.Composition.Editor
                 return;
             }
 
+            var defaultDisplayViewModel = new SettingsDisplayViewModel();
+            defaultDisplayViewModel.SetContent(
+                "1920 x 1080",
+                new[] { "1920 x 1080" },
+                selectedResolutionIndex: 0,
+                isFullscreenEnabled: false,
+                fullscreenStateText: resolver.Resolve(
+                    SettingsDynamicTextDescriptors.DisplayFullscreenState(false)),
+                displayStatusText: string.Empty,
+                isDisplayApplyInteractable: false,
+                isDisplayRevertInteractable: false,
+                isDisplayPreviewActive: false,
+                previewCountdownText: string.Empty,
+                previewCountdownNormalized: 0f,
+                isPreviewCountdownVisible: false);
+            view.DisplayView.Bind(defaultDisplayViewModel);
+
             if (string.Equals(target.FileStem, "SettingsAudioMuted", StringComparison.Ordinal))
             {
                 var value = resolver.Resolve(SettingsDynamicTextDescriptors.AudioVolumeValue(25, isMuted: true));
@@ -2075,6 +2094,8 @@ namespace Game.Feature.UI.Composition.Editor
                     new[] { "1920 x 1080" },
                     selectedResolutionIndex: 0,
                     isFullscreenEnabled: true,
+                    fullscreenStateText: resolver.Resolve(
+                        SettingsDynamicTextDescriptors.DisplayFullscreenState(true)),
                     displayStatusText: resolver.Resolve(
                         SettingsDynamicTextDescriptors.DisplayPreviewActiveStatus(15)),
                     isDisplayApplyInteractable: false,
@@ -2218,7 +2239,9 @@ namespace Game.Feature.UI.Composition.Editor
                        fallback.HasCharacter(character, searchFallbacks: true, tryAddCharacter: false));
         }
 
-        private static IReadOnlyList<LocalizedTextDescriptor> GetSettingsDescriptors(SettingsScreenPayload payload)
+        private static IReadOnlyList<LocalizedTextDescriptor> GetSettingsDescriptors(
+            SettingsScreenPayload payload,
+            bool isFullscreenEnabled)
         {
             return new[]
             {
@@ -2238,7 +2261,7 @@ namespace Game.Feature.UI.Composition.Editor
                 payload.DisplayResolutionTextDescriptor,
                 payload.ResolutionHintDescriptor,
                 payload.FullscreenWindowLabelDescriptor,
-                payload.FullscreenOnLabelDescriptor,
+                SettingsDynamicTextDescriptors.DisplayFullscreenState(isFullscreenEnabled),
                 payload.DisplayApplyButtonTextDescriptor,
                 payload.DisplayRevertButtonTextDescriptor,
                 payload.BackLabelDescriptor,

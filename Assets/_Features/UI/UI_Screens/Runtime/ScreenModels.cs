@@ -43,7 +43,6 @@ namespace Game.Feature.UI.Screens
             LocalizedTextDescriptor resolutionLabelDescriptor = default,
             LocalizedTextDescriptor resolutionHintDescriptor = default,
             LocalizedTextDescriptor fullscreenWindowLabelDescriptor = default,
-            LocalizedTextDescriptor fullscreenOnLabelDescriptor = default,
             LocalizedTextDescriptor displayApplyLabelDescriptor = default,
             LocalizedTextDescriptor displayRevertLabelDescriptor = default)
         {
@@ -67,7 +66,6 @@ namespace Game.Feature.UI.Screens
             DisplayResolutionTextDescriptor = OrDefault(resolutionLabelDescriptor, SettingsStaticTextDescriptors.DisplayResolution);
             ResolutionHintDescriptor = OrDefault(resolutionHintDescriptor, SettingsStaticTextDescriptors.DisplayResolutionHint);
             FullscreenWindowLabelDescriptor = OrDefault(fullscreenWindowLabelDescriptor, SettingsStaticTextDescriptors.DisplayFullscreenWindow);
-            FullscreenOnLabelDescriptor = OrDefault(fullscreenOnLabelDescriptor, SettingsStaticTextDescriptors.DisplayFullscreenOn);
             DisplayApplyButtonTextDescriptor = OrDefault(displayApplyLabelDescriptor, SettingsStaticTextDescriptors.DisplayApply);
             DisplayRevertButtonTextDescriptor = OrDefault(displayRevertLabelDescriptor, SettingsStaticTextDescriptors.DisplayRevert);
         }
@@ -111,8 +109,6 @@ namespace Game.Feature.UI.Screens
         public LocalizedTextDescriptor ResolutionHintDescriptor { get; }
 
         public LocalizedTextDescriptor FullscreenWindowLabelDescriptor { get; }
-
-        public LocalizedTextDescriptor FullscreenOnLabelDescriptor { get; }
 
         public LocalizedTextDescriptor DisplayApplyButtonTextDescriptor { get; }
 
@@ -201,12 +197,6 @@ namespace Game.Feature.UI.Screens
         public static readonly LocalizedTextDescriptor DisplayFullscreenWindow = new(
             Table,
             SettingsLocalizationContract.Keys.DisplayFullscreenWindow,
-            LocalizedTextRole.Label,
-            LocalizedTextWeight.Regular);
-
-        public static readonly LocalizedTextDescriptor DisplayFullscreenOn = new(
-            Table,
-            SettingsLocalizationContract.Keys.DisplayFullscreenOn,
             LocalizedTextRole.Label,
             LocalizedTextWeight.Regular);
 
@@ -311,6 +301,8 @@ namespace Game.Feature.UI.Screens
     {
         public const string AudioVolumeValueKey = SettingsLocalizationContract.Keys.AudioVolumeValue;
         public const string AudioVolumeValueMutedKey = SettingsLocalizationContract.Keys.AudioVolumeValueMuted;
+        public const string DisplayFullscreenOnKey = SettingsLocalizationContract.Keys.DisplayFullscreenOn;
+        public const string DisplayFullscreenOffKey = SettingsLocalizationContract.Keys.DisplayFullscreenOff;
         public const string DisplayResolutionValueKey = SettingsLocalizationContract.Keys.DisplayResolutionValue;
         public const string DisplayPreviewCountdownKey = SettingsLocalizationContract.Keys.DisplayPreviewCountdown;
         public const string DisplayPreviewActiveStatusKey = SettingsLocalizationContract.Keys.DisplayPreviewActiveStatus;
@@ -339,6 +331,15 @@ namespace Game.Feature.UI.Screens
                 LocalizedTextRole.Label,
                 LocalizedTextWeight.Regular,
                 new object[] { percent });
+        }
+
+        public static LocalizedTextDescriptor DisplayFullscreenState(bool isFullscreenEnabled)
+        {
+            return new LocalizedTextDescriptor(
+                SettingsStaticTextDescriptors.Table,
+                isFullscreenEnabled ? DisplayFullscreenOnKey : DisplayFullscreenOffKey,
+                LocalizedTextRole.Label,
+                LocalizedTextWeight.Regular);
         }
 
         public static LocalizedTextDescriptor DisplayResolutionValue(string resolutionLabel)
@@ -607,6 +608,8 @@ namespace Game.Feature.UI.Screens
 
         public bool IsFullscreenEnabled { get; private set; }
 
+        public string FullscreenStateText { get; private set; } = string.Empty;
+
         public int SelectedResolutionWidth { get; private set; }
 
         public int SelectedResolutionHeight { get; private set; }
@@ -634,6 +637,7 @@ namespace Game.Feature.UI.Screens
             IReadOnlyList<string> resolutionOptionTexts,
             int selectedResolutionIndex,
             bool isFullscreenEnabled,
+            string fullscreenStateText,
             string displayStatusText,
             bool isDisplayApplyInteractable,
             bool isDisplayRevertInteractable,
@@ -653,6 +657,7 @@ namespace Game.Feature.UI.Screens
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
             SelectedResolutionIndex = selectedResolutionIndex;
             IsFullscreenEnabled = isFullscreenEnabled;
+            FullscreenStateText = fullscreenStateText ?? string.Empty;
             DisplayStatusText = displayStatusText ?? string.Empty;
             IsDisplayStatusVisible = isDisplayStatusVisible && DisplayStatusText.Length > 0;
             IsDisplayStatusTransient = IsDisplayStatusVisible && isDisplayStatusTransient;
