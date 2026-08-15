@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -30,6 +31,8 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void CursorConfinement_RemainsOwnedBySharedDisplayRuntime()
         {
+            const string defaultCursorPath =
+                "Assets/Synty/InterfaceSciFiSoldierHUD/Sprites/Cursors/SPR_MouseCursor_SciFiSoldier_Pointer_01.png";
             var policySource = ReadRepoFile(
                 "Assets/_Shared/Display/Runtime/FullscreenCursorConfinementPolicy.cs");
             var presenterSource = ReadRepoFile(
@@ -48,6 +51,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(policySource, Does.Not.Contain("PlayerPrefs"));
             Assert.That(uiSources, Does.Not.Contain("Cursor.lockState"));
             Assert.That(uiSources, Does.Not.Contain("Cursor.visible"));
+
+            Assert.That(PlayerSettings.defaultCursor, Is.Not.Null);
+            Assert.That(AssetDatabase.GetAssetPath(PlayerSettings.defaultCursor), Is.EqualTo(defaultCursorPath));
+            Assert.That(PlayerSettings.defaultCursor.width, Is.EqualTo(47));
+            Assert.That(PlayerSettings.defaultCursor.height, Is.EqualTo(62));
+            Assert.That(PlayerSettings.cursorHotspot, Is.EqualTo(new Vector2(4f, 4f)));
         }
 
         [Test]

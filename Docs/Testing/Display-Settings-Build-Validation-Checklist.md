@@ -35,6 +35,7 @@ Editor-only execution is insufficient evidence for fullscreen/window correctness
   - minimize and restore
   - verify the runtime label resync is sane and saved state is not silently changed
   - in borderless fullscreen, verify the visible cursor remains inside the focused Player window
+  - move the custom cursor to all four edges and verify its pointer tip remains visible without complete disappearance
   - after alt-tab or minimize, verify cursor confinement releases so other applications and displays remain usable
   - after returning focus to borderless fullscreen, verify cursor confinement is restored
   - in windowed mode, verify the cursor can leave the Player window

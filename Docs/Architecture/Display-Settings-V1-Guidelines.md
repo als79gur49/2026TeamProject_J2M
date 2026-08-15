@@ -19,6 +19,7 @@ This document is the display-settings-specific supplement to the canonical UI ar
 - The policy is active only in Windows and Linux standalone Players. It is inactive in the Editor and on unsupported platforms.
 - The display runtime does not own `Cursor.visible` and does not use `CursorLockMode.Locked`.
 - Cursor confinement is derived from live window mode and must not add a persisted setting or PlayerPrefs key.
+- The authored default cursor uses its Player Settings `Cursor Hotspot`, not the Sprite pivot; keep the hotspot on the opaque pointer tip and remove fully transparent outer padding.
 - UI presenters, views, adapters, and `DisplaySettingsLifecycleRelay` must not call the Unity Cursor API directly.
 - A future gameplay owner that needs `CursorLockMode.Locked` requires a separate cursor-ownership arbitration review before introduction.
 
