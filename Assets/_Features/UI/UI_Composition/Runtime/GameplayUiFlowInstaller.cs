@@ -1134,7 +1134,7 @@ namespace Game.Feature.UI.Composition
             }
 
             SyncViews();
-            _navigationInputRouter?.RestoreNavigationFocus();
+            _navigationInputRouter?.ClearNavigationFocus();
         }
 
         private void TickVictoryResultHandoff(float unscaledDeltaTime)

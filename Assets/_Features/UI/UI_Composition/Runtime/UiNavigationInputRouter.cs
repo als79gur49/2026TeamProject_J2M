@@ -145,24 +145,6 @@ namespace Game.Feature.UI.Composition
             SetCurrentTarget(null);
         }
 
-        internal bool RestoreNavigationFocus()
-        {
-            if (IsBlocked())
-            {
-                return false;
-            }
-
-            var target = ResolveTarget().Target;
-            SetCurrentTarget(target);
-            if (target == null || !target.CanHandleUiNavigation)
-            {
-                return false;
-            }
-
-            RevealCurrentTargetFocus();
-            return true;
-        }
-
         public static bool TryConvertNavigateVector(Vector2 value, out UiNavigationCommand command)
         {
             command = UiNavigationCommand.Down;

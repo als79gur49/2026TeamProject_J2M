@@ -13,6 +13,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using NUnit.Framework;
 using TMPro;
 using UnityEngine;
@@ -539,6 +540,71 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiFlowInstaller_LevelFailedTerminalCompletion_KeepsSelectionHiddenUntilInput()
+        {
+            var hostObject = new GameObject(nameof(
+                GameplayUiFlowInstaller_LevelFailedTerminalCompletion_KeepsSelectionHiddenUntilInput));
+            try
+            {
+                var host = CreateHost(hostObject);
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                var terminalToken = ClaimTerminalSession(
+                    TerminalTransitionKind.Defeat,
+                    TerminalDestinationKind.SameSceneLevelFailed,
+                    sceneHandle: 903);
+                var restartRequest = new StageNavigationRequest(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    StageNavigationKind.Retry,
+                    "level-failed-selection-visibility");
+                installer.ScreenController.SetRoot(new ScreenRequest(
+                    ScreenId.LevelFailed,
+                    new LevelFailedScreenPayload(restartRequest, terminalToken),
+                    "level-failed-selection-visibility"));
+
+                var view = installer.LevelFailedScreenView;
+                var navigationGroup = GetNavigationGroup(view);
+                Assert.That(view, Is.Not.Null);
+                Assert.That(navigationGroup.SelectedIndex, Is.EqualTo(1));
+                AssertSelectionFrameVisibility(
+                    navigationGroup,
+                    restartVisible: false,
+                    mainVisible: false);
+
+                Assert.That(
+                    TerminalSessionRegistry.TryAdvance(
+                        terminalToken,
+                        TerminalSessionPhase.Revealing),
+                    Is.True);
+                Assert.That(TerminalSessionRegistry.TryComplete(terminalToken), Is.True);
+
+                Assert.That(navigationGroup.SelectedIndex, Is.EqualTo(1));
+                AssertSelectionFrameVisibility(
+                    navigationGroup,
+                    restartVisible: false,
+                    mainVisible: false);
+
+                var mainRequestCount = 0;
+                view.MainRequested += () => mainRequestCount++;
+                var navigationRouter = hostObject.GetComponent<UiNavigationInputRouter>();
+                Assert.That(navigationRouter, Is.Not.Null);
+                Assert.That(navigationRouter.DispatchSubmit(), Is.True);
+                Assert.That(mainRequestCount, Is.Zero);
+                AssertSelectionFrameVisibility(
+                    navigationGroup,
+                    restartVisible: false,
+                    mainVisible: true);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiFlowInstaller_TerminalSessionClosesExpandedTmpDropdownAndClearsSelection()
         {
             var hostObject = new GameObject("GameplayUiFlowInstaller_TerminalDropdownOwnership");
@@ -615,6 +681,34 @@ namespace Game.Feature.UI.Tests
                 destinationKind));
             Assert.That(claim.Accepted, Is.True);
             return claim.Token;
+        }
+
+        private static UiSelectableButtonGroup GetNavigationGroup(LevelFailedScreenView view)
+        {
+            Assert.That(view, Is.Not.Null);
+            var field = typeof(LevelFailedScreenView).GetField(
+                "_navigationGroup",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            var group = field.GetValue(view) as UiSelectableButtonGroup;
+            Assert.That(group, Is.Not.Null);
+            Assert.That(group.SlotCount, Is.EqualTo(2));
+            return group;
+        }
+
+        private static void AssertSelectionFrameVisibility(
+            UiSelectableButtonGroup group,
+            bool restartVisible,
+            bool mainVisible)
+        {
+            Assert.That(group.GetSlot(0)?.SelectionFrame, Is.Not.Null);
+            Assert.That(group.GetSlot(1)?.SelectionFrame, Is.Not.Null);
+            Assert.That(
+                group.GetSlot(0).SelectionFrame.gameObject.activeSelf,
+                Is.EqualTo(restartVisible));
+            Assert.That(
+                group.GetSlot(1).SelectionFrame.gameObject.activeSelf,
+                Is.EqualTo(mainVisible));
         }
 
         private static void AssertDestinationInstallFailureTerminalizesSceneEntry(
