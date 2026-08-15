@@ -203,14 +203,18 @@
 
 ## Stage Contract
 - `Plan`과 `Resolve`는 phase-entry snapshot과 published reservation read model만 읽는다.
-- `Finalize`만 `WorldState`를 mutate할 수 있다.
+- 아래에 문서화된 Cleanup/Respawn bounded exception을 제외하면 `Finalize`만 `WorldState`를 mutate할 수 있다.
 - `Finalize`는 legality를 재평가하거나 target을 다시 고르지 않는다.
 - `Finalize`는 `FinalizationBatch.ApplyTo` 기반 apply-only stage다. `CanPlace`, `CanTraverse`, `CanSettle`, placement/traversal/settlement policy evaluation, target picking 같은 legality recheck를 추가하지 않는다.
 - semantic slice handoff는 오직 두 가지다.
   - 이전 slice `Finalize` 이후의 새 snapshot
   - 이전 slice가 publish한 finalized reservation output
 - Cleanup/Respawn direct write path는 current bounded exception이다.
-  - 허용된 direct write entrypoint는 `CleanupProcessor.Process`, `ExpireBoxInteractionLocks`, `RespawnProcessor.Process`, `MoonBlockGeneratorRespawnProcessor.Process`다.
+  - 허용된 Cleanup direct write entrypoint는 `CleanupProcessor.Process`, `ExpireBoxInteractionLocks`, `ExpireEnemyGravityFieldAuraFields`, `ExpirePendingEnemyBlockedReactions`다.
+  - Cleanup direct write 호출 순서는 `CleanupProcessor.Process` -> `ExpireBoxInteractionLocks` -> `ExpireEnemyGravityFieldAuraFields` -> `ExpirePendingEnemyBlockedReactions`로 고정한다.
+  - Cleanup은 post-Finalize snapshot을 읽고, 해당 tick에서 생성한 단일 write context를 사용한다.
+  - 각 expiry entrypoint 내부의 대상 enumeration과 event emission은 entity/field ID 기준의 결정적 순서를 유지한다.
+  - 허용된 Respawn direct write entrypoint는 `RespawnProcessor.Process`, `MoonBlockGeneratorRespawnProcessor.Process`다.
   - 이 예외는 current contract를 문서화한 것이며, 장기적으로 유지/삭제/`FinalizationBatch` 통합 여부는 별도 architecture decision 대상이다.
   - SRP 작업 중 몰래 `FinalizationBatch`로 옮기지 않는다. 이동은 ordering, event log, hash, presentation evidence를 동반한 별도 설계 변경으로만 다룬다.
 - phased ordering contract:

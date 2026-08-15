@@ -96,11 +96,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var moonBlockRespawnProcessorSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.MoonBlockGeneratorRespawnProcessor.cs");
             var canonicalSpec = ReadRepoFile("Docs/Architecture/Tick-Simulation-Canonical-Spec.md");
 
-            var runTickBody = ExtractMethodBody(tickPipelineSource, "public TickResult RunTick(");
+            var runTickWrapperBody = ExtractMethodBody(
+                tickPipelineSource,
+                "public TickResult RunTick(in TickInput input)");
+            var runTickBody = ExtractMethodBody(
+                tickPipelineSource,
+                "DemoGameplayOverrideSnapshot demoGameplayOverrideSnapshot)");
+            Assert.That(
+                runTickWrapperBody,
+                Does.Contain("return RunTick(input, DemoGameplayOverrideSnapshot.None);"));
             Assert.That(CountOccurrences(tickPipelineSource, "_worldState.CreateWriteContext("), Is.EqualTo(1));
             Assert.That(runTickBody, Does.Contain("var writeContext = _worldState.CreateWriteContext();"));
-            Assert.That(runTickBody, Does.Contain("RunFinalizePhase(resolvePhaseResult.FinalizationBatch, writeContext, completedPhases, phaseTrace);"));
-            Assert.That(runTickBody, Does.Contain("RunCleanupPhase("));
+            AssertAppearsInOrder(
+                runTickBody,
+                "RunFinalizePhase(resolvePhaseResult.FinalizationBatch, writeContext, completedPhases, phaseTrace);",
+                "var postFinalizeSnapshot = SnapshotBuilder.Create(_worldState);",
+                "var cleanupPhaseResult = RunCleanupPhase(",
+                "postFinalizeSnapshot,",
+                "writeContext,",
+                "var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);");
             Assert.That(runTickBody, Does.Contain("RunRespawnPhase("));
 
             var runPlanPhaseBody = ExtractMethodBody(tickPipelineSource, "private PlanPhaseResult RunPlanPhase(");
@@ -112,10 +126,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var runCleanupPhaseBody = ExtractMethodBody(tickPipelineSource, "private CleanupPhaseResult RunCleanupPhase(");
             var expireBoxInteractionLocksBody = ExtractMethodBody(tickPipelineSource, "private static CleanupPhaseResult ExpireBoxInteractionLocks(");
+            var expireEnemyGravityFieldAuraFieldsBody = ExtractMethodBody(
+                tickPipelineSource,
+                "private static CleanupPhaseResult ExpireEnemyGravityFieldAuraFields(");
+            var expirePendingEnemyBlockedReactionsBody = ExtractMethodBody(
+                tickPipelineSource,
+                "private static CleanupPhaseResult ExpirePendingEnemyBlockedReactions(");
             var runRespawnPhaseBody = ExtractMethodBody(tickPipelineSource, "private RespawnPhaseResult RunRespawnPhase(");
-            Assert.That(runCleanupPhaseBody, Does.Contain("_cleanupProcessor.Process(snapshot, writeContext, tickIndex)"));
-            Assert.That(runCleanupPhaseBody, Does.Contain("ExpireBoxInteractionLocks(snapshot, writeContext, tickIndex, cleanupPhaseResult)"));
+            AssertAppearsInOrder(
+                runCleanupPhaseBody,
+                "_cleanupProcessor.Process(snapshot, writeContext, tickIndex)",
+                "ExpireBoxInteractionLocks(snapshot, writeContext, tickIndex, cleanupPhaseResult)",
+                "ExpireEnemyGravityFieldAuraFields(snapshot, writeContext, tickIndex, cleanupPhaseResult)",
+                "ExpirePendingEnemyBlockedReactions(snapshot, writeContext, tickIndex, cleanupPhaseResult)");
+            Assert.That(
+                CountOccurrences(runCleanupPhaseBody, "_cleanupProcessor.Process(snapshot, writeContext, tickIndex)"),
+                Is.EqualTo(1));
+            Assert.That(
+                CountOccurrences(runCleanupPhaseBody, "ExpireBoxInteractionLocks(snapshot, writeContext, tickIndex, cleanupPhaseResult)"),
+                Is.EqualTo(1));
+            Assert.That(
+                CountOccurrences(runCleanupPhaseBody, "ExpireEnemyGravityFieldAuraFields(snapshot, writeContext, tickIndex, cleanupPhaseResult)"),
+                Is.EqualTo(1));
+            Assert.That(
+                CountOccurrences(runCleanupPhaseBody, "ExpirePendingEnemyBlockedReactions(snapshot, writeContext, tickIndex, cleanupPhaseResult)"),
+                Is.EqualTo(1));
+            Assert.That(CountOccurrences(runCleanupPhaseBody, "writeContext"), Is.EqualTo(4));
+            Assert.That(runCleanupPhaseBody, Does.Not.Contain("writeContext."));
+            Assert.That(runCleanupPhaseBody, Does.Not.Contain("_worldState."));
             Assert.That(expireBoxInteractionLocksBody, Does.Contain("writeContext.RemoveBoxInteractionLockState("));
+            Assert.That(
+                expireBoxInteractionLocksBody,
+                Does.Contain("snapshot.EnumerateBoxInteractionLockStatesOrdered("));
+            Assert.That(
+                expireEnemyGravityFieldAuraFieldsBody,
+                Does.Contain("writeContext.RemoveEnemyGravityFieldAuraFieldState("));
+            Assert.That(
+                expireEnemyGravityFieldAuraFieldsBody,
+                Does.Contain("snapshot.EnumerateEnemyGravityFieldAuraFieldStatesOrdered("));
+            Assert.That(
+                expirePendingEnemyBlockedReactionsBody,
+                Does.Contain("writeContext.ClearPendingEnemyBlockedReaction("));
+            Assert.That(
+                expirePendingEnemyBlockedReactionsBody,
+                Does.Contain("snapshot.EnumeratePendingEnemyBlockedReactionsOrdered("));
             Assert.That(runRespawnPhaseBody, Does.Contain("_respawnProcessor.Process("));
             Assert.That(runRespawnPhaseBody, Does.Contain("_moonBlockGeneratorRespawnProcessor.Process("));
             Assert.That(runRespawnPhaseBody, Does.Contain("writeContext);"));
@@ -128,7 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(moonBlockRespawnProcessorSource, Does.Contain("IWorldWriteContext writeContext"));
 
             Assert.That(CountOccurrences(tickPipelineSource, "IWorldWriteContext writeContext"), Is.EqualTo(2));
-            Assert.That(CountOccurrences(tickPipelineSource, "ICleanupCommitContext writeContext"), Is.EqualTo(2));
+            Assert.That(CountOccurrences(tickPipelineSource, "ICleanupCommitContext"), Is.EqualTo(4));
             Assert.That(CountOccurrences(respawnProcessorSource, "IWorldWriteContext writeContext"), Is.EqualTo(1));
             Assert.That(CountOccurrences(moonBlockRespawnProcessorSource, "IWorldWriteContext writeContext"), Is.EqualTo(1));
             Assert.That(CountOccurrences(cleanupProcessorSource, "ICleanupCommitContext writeContext"), Is.EqualTo(1));
@@ -137,9 +191,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(finalizationBatchSource, Does.Not.Contain("RespawnProcessor"));
             Assert.That(finalizationBatchSource, Does.Not.Contain("MoonBlockGeneratorRespawnProcessor"));
             Assert.That(finalizationBatchSource, Does.Not.Contain("ExpireBoxInteractionLocks"));
+            Assert.That(finalizationBatchSource, Does.Not.Contain("ExpireEnemyGravityFieldAuraFields"));
+            Assert.That(finalizationBatchSource, Does.Not.Contain("ExpirePendingEnemyBlockedReactions"));
 
             Assert.That(canonicalSpec, Does.Contain("Cleanup/Respawn direct write path"));
             Assert.That(canonicalSpec, Does.Contain("bounded exception"));
+            AssertContainsExactTrimmedLine(
+                canonicalSpec,
+                "- 허용된 Cleanup direct write entrypoint는 `CleanupProcessor.Process`, `ExpireBoxInteractionLocks`, `ExpireEnemyGravityFieldAuraFields`, `ExpirePendingEnemyBlockedReactions`다.");
+            AssertContainsExactTrimmedLine(
+                canonicalSpec,
+                "- 허용된 Respawn direct write entrypoint는 `RespawnProcessor.Process`, `MoonBlockGeneratorRespawnProcessor.Process`다.");
             Assert.That(canonicalSpec, Does.Contain("SRP 작업 중 몰래 `FinalizationBatch`로 옮기지 않는다"));
         }
 
@@ -202,6 +264,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return count;
+        }
+
+        private static void AssertAppearsInOrder(string source, params string[] tokens)
+        {
+            var previousIndex = -1;
+            for (var i = 0; i < tokens.Length; i++)
+            {
+                var currentIndex = source.IndexOf(tokens[i], previousIndex + 1, StringComparison.Ordinal);
+                Assert.That(
+                    currentIndex,
+                    Is.GreaterThan(previousIndex),
+                    $"Expected token in order: {tokens[i]}");
+                previousIndex = currentIndex;
+            }
+        }
+
+        private static void AssertContainsExactTrimmedLine(string source, string expectedLine)
+        {
+            var lines = source.Replace("\r\n", "\n").Split('\n');
+            var matchCount = 0;
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (string.Equals(lines[i].Trim(), expectedLine, StringComparison.Ordinal))
+                {
+                    matchCount++;
+                }
+            }
+
+            Assert.That(matchCount, Is.EqualTo(1), $"Expected exactly one line: {expectedLine}");
         }
 
         private static string NormalizeWhitespace(string source)
