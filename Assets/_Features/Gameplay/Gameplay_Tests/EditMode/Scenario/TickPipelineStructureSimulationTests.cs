@@ -664,6 +664,76 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Full")]
+        public void GameplaySceneHost_Initialize_DetachedBoxSharingPlayerCell_PreservesDetachedEntityWithoutClaimingOccupancy()
+        {
+            var hostObject = new GameObject(
+                nameof(GameplaySceneHost_Initialize_DetachedBoxSharingPlayerCell_PreservesDetachedEntityWithoutClaimingOccupancy));
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var sharedCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                var configuration = new GameplaySceneHostConfiguration
+                {
+                    AutoAdvanceTicks = false,
+                    AutoCreateViews = false,
+                    InitialBoardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                    InitialEntities = new[]
+                    {
+                        new EntityState
+                        {
+                            entityId = 10,
+                            position = sharedCell,
+                            hp = 3,
+                            maxHp = 3,
+                            teamId = 1,
+                            type = EntityType.Unit,
+                            unitRole = UnitRole.Player,
+                            state = EntityPhaseState.Idle,
+                            facing = Direction.Right,
+                            boardPresence = EntityBoardPresence.Occupying,
+                        },
+                        new EntityState
+                        {
+                            entityId = 20,
+                            position = sharedCell,
+                            hp = 1,
+                            maxHp = 1,
+                            teamId = 0,
+                            type = EntityType.Box,
+                            state = EntityPhaseState.Idle,
+                            facing = Direction.Right,
+                            boxCapabilities = BoxCapabilities.Push,
+                            boardPresence = EntityBoardPresence.Detached,
+                        },
+                    },
+                    InitialTopology = new CubeTopologyState(FaceId.Floor),
+                    PlayerEntityId = 10,
+                    StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                };
+
+                Assert.DoesNotThrow(
+                    () => host.Initialize(configuration),
+                    "A detached Box does not claim authoritative occupancy and must not block host bootstrap.");
+
+                var snapshot = host.WorldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+                Assert.That(player.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                Assert.That(snapshot.TryGetEntity(20, out var detachedBox), Is.True);
+                Assert.That(detachedBox.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(snapshot.TryGetPrimaryUnitAt(sharedCell, out var occupant), Is.True);
+                Assert.That(occupant.entityId, Is.EqualTo(10));
+                Assert.That(snapshot.TryGetSolidOccupantAt(sharedCell, out _), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming");

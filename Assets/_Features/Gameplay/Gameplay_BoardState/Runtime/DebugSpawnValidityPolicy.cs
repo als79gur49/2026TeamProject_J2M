@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         public static void EnsureRepresentable(
             BoardBounds boardBounds,
+            CubeTopologyState topology,
             IEnumerable<EntityState> entities)
         {
             if (entities == null)
@@ -28,7 +29,16 @@ namespace Game.Feature.Gameplay.BoardState
                         $"Debug spawns must use unique entity ids. Duplicate entity id {entity.entityId}.");
                 }
 
-                if (WorldPlacementPolicy.TryGetRepresentablePlacementBlocker(
+                EnsureSupportedEntityType(entity.type);
+
+                var spatialState = SpatialStateResolver.Resolve(
+                    entity,
+                    topology,
+                    jumpState: null);
+                var claimsAuthoritativeOccupancy = spatialState.ClaimsAuthoritativeOccupancy;
+
+                if (claimsAuthoritativeOccupancy &&
+                    WorldPlacementPolicy.TryGetRepresentablePlacementBlocker(
                         entitiesById,
                         stackedUnitsByCell,
                         solidOccupancyByCell,
@@ -43,7 +53,10 @@ namespace Game.Feature.Gameplay.BoardState
                 }
 
                 entitiesById.Add(entity.entityId, entity);
-                ReserveEntityOccupancy(entity, stackedUnitsByCell, solidOccupancyByCell);
+                if (claimsAuthoritativeOccupancy)
+                {
+                    ReserveClaimedEntityOccupancy(entity, stackedUnitsByCell, solidOccupancyByCell);
+                }
             }
         }
 
@@ -61,16 +74,11 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
-        private static void ReserveEntityOccupancy(
+        private static void ReserveClaimedEntityOccupancy(
             EntityState entity,
             IDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
             IDictionary<SurfaceCell, int> solidOccupancyByCell)
         {
-            if (entity.boardPresence != EntityBoardPresence.Occupying)
-            {
-                return;
-            }
-
             switch (entity.type)
             {
                 case EntityType.Unit:
@@ -84,8 +92,32 @@ namespace Game.Feature.Gameplay.BoardState
                     break;
 
                 case EntityType.Box:
+                case EntityType.None:
                     solidOccupancyByCell[entity.position] = entity.entityId;
                     break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(entity.type),
+                        entity.type,
+                        "Unsupported debug spawn entity type.");
+            }
+        }
+
+        private static void EnsureSupportedEntityType(EntityType entityType)
+        {
+            switch (entityType)
+            {
+                case EntityType.None:
+                case EntityType.Unit:
+                case EntityType.Box:
+                    return;
+
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(entityType),
+                        entityType,
+                        "Unsupported debug spawn entity type.");
             }
         }
 

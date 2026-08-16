@@ -103,6 +103,7 @@ namespace Game.Feature.Gameplay.Host
             var normalizedInitialEntities = NormalizeInitialEntitiesForRuntime(initialEntities, generalTimingProfile);
             DebugSpawnValidityPolicy.EnsureRepresentable(
                 configuration.InitialBoardBounds,
+                configuration.InitialTopology,
                 normalizedInitialEntities);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(

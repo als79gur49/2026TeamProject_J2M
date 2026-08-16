@@ -296,6 +296,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CreateSnapshot_DetachedBoxBeforeUnitSharingCell_RemainsMaterializableAndDoesNotBlockOccupancy()
+        {
+            var detachedBox = CreateBox(entityId: 20, position: Vector2Int.zero);
+            detachedBox.boardPresence = EntityBoardPresence.Detached;
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    detachedBox,
+                    CreateUnit(entityId: 10, position: Vector2Int.zero),
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var unit), Is.True);
+            Assert.That(unit.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(snapshot.TryGetEntity(20, out var detachedEntity), Is.True);
+            Assert.That(detachedEntity.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
+            Assert.That(snapshot.TryGetSolidOccupantAt(Vector2Int.zero, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SpawnEntity_BoxOccupiedDestination_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(

@@ -84,6 +84,7 @@ namespace Game.Feature.Gameplay.Tests
                 timingProfile ?? GameplayTimingProfile.CreateDefault());
             DebugSpawnValidityPolicy.EnsureRepresentable(
                 boardBounds,
+                topology,
                 normalizedInitialEntities);
 
             return GameplayCompositionRoot.CreateWorldState(
