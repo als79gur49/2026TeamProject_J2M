@@ -1342,7 +1342,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(
-                RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(snapshot, EntityType.Unit, wallCell, 40).Verdict,
+                RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                    snapshot,
+                    EntityType.Unit,
+                    wallCell,
+                    40,
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
@@ -1352,15 +1357,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         terrainCell,
                         snapshot.Topology,
                         SpatialState.Anchored,
-                        ReservationStatus.None,
-                        tileDefinitions)).Verdict,
+                        ReservationStatus.None),
+                    new TileFeatureSettlementEvidence(tileDefinitions)).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
                     snapshot,
                     EntityType.Unit,
                     new SurfaceCell(FaceId.Floor, 2, 0),
-                    40).Verdict,
+                    40,
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
@@ -1368,6 +1374,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EntityType.Unit,
                     emptyCell,
                     40,
+                    TileFeatureSettlementEvidence.Empty,
                     ReservationStatus.Conflicted).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
 
@@ -1383,7 +1390,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         worldState.CreateSnapshot(),
                         EntityType.Unit,
                         wallCell,
-                        40).Verdict,
+                        40,
+                        TileFeatureSettlementEvidence.Empty).Verdict,
                     Is.EqualTo(LegalityVerdict.Blocked));
             }
         }
@@ -1467,6 +1475,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EntityType.Unit,
                     wallCell,
                     40,
+                    TileFeatureSettlementEvidence.Empty,
                     ReservationStatus.Conflicted).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
@@ -1830,7 +1839,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         40,
                         snapshot.Topology,
                         CubeRotationKind.None,
-                        snapshot.Topology).Verdict,
+                        snapshot.Topology,
+                        TileFeatureTraversalEvidence.Empty).Verdict,
                     Is.EqualTo(LegalityVerdict.Allowed));
                 var pipeline = CreateGlideKinematicPipeline(profile, worldState);
 
@@ -1875,7 +1885,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         40,
                         snapshot.Topology,
                         CubeRotationKind.None,
-                        snapshot.Topology).Verdict,
+                        snapshot.Topology,
+                        TileFeatureTraversalEvidence.Empty).Verdict,
                     Is.EqualTo(LegalityVerdict.Allowed));
                 var pipeline = CreateGlideKinematicPipeline(profile, worldState);
 

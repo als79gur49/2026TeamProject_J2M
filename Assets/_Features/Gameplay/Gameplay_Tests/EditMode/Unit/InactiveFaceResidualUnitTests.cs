@@ -218,7 +218,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot,
                     targetCell,
                     sourceId: 40,
-                    ignoredDeadTargetId: 0).Verdict,
+                    ignoredDeadTargetId: 0,
+                    tileFeatureEvidence: TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
 
@@ -252,7 +253,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot,
                     targetCell,
                     sourceId: 40,
-                    ignoredDeadTargetId: 0).Verdict,
+                    ignoredDeadTargetId: 0,
+                    tileFeatureEvidence: TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
         }
 

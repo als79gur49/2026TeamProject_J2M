@@ -835,8 +835,8 @@ namespace Game.Feature.Gameplay.Entities
                     evaluationTopology,
                     rotationKind == CubeRotationKind.None
                         ? TransitionRequirement.None
-                        : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
-                    tileFeatureDefinitions: tileFeatureDefinitions));
+                        : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology)),
+                CreateTileFeatureTraversalEvidence(tileFeatureDefinitions));
             if (legality.Verdict != LegalityVerdict.Allowed ||
                 legality.TransitionRequirement.Kind != TransitionRequirementKind.None)
             {
@@ -873,7 +873,7 @@ namespace Game.Feature.Gameplay.Entities
             return RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(
                        snapshot,
                        destinationCell,
-                       tileFeatureDefinitions: tileFeatureDefinitions).Verdict ==
+                       CreateTileFeatureTraversalEvidence(tileFeatureDefinitions)).Verdict ==
                    LegalityVerdict.Allowed;
         }
 
@@ -1437,6 +1437,14 @@ namespace Game.Feature.Gameplay.Entities
             };
         }
 
+        private static TileFeatureTraversalEvidence CreateTileFeatureTraversalEvidence(
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            return tileFeatureDefinitions == null
+                ? TileFeatureTraversalEvidence.Empty
+                : new TileFeatureTraversalEvidence(tileFeatureDefinitions);
+        }
+
     }
 
     internal static class EnemyChargeStrategyShared
@@ -1567,7 +1575,7 @@ namespace Game.Feature.Gameplay.Entities
                 if (RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(
                         snapshot,
                         nextCell,
-                        tileFeatureDefinitions: tileFeatureDefinitions).Verdict == LegalityVerdict.Blocked)
+                        CreateTileFeatureTraversalEvidence(tileFeatureDefinitions)).Verdict == LegalityVerdict.Blocked)
                 {
                     return reachableSteps > 0;
                 }
@@ -1577,6 +1585,14 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return reachableSteps > 0;
+        }
+
+        private static TileFeatureTraversalEvidence CreateTileFeatureTraversalEvidence(
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
+            return tileFeatureDefinitions == null
+                ? TileFeatureTraversalEvidence.Empty
+                : new TileFeatureTraversalEvidence(tileFeatureDefinitions);
         }
 
         private static bool TryResolveChargeScanStep(

@@ -5,10 +5,19 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class RuntimeTraversalLegalityPolicy
     {
-        public static LegalityResult EvaluateDestination(TraverseContext context)
+        public static LegalityResult EvaluateDestination(
+            TraverseContext context,
+            TileFeatureTraversalEvidence tileFeatureEvidence)
         {
+            var tileFeatureDefinitions = tileFeatureEvidence.Definitions;
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             var capabilities = ModifierQuery.GetTraversalCapabilities(context.Actor);
+
+            var topologyTileFeatureGuard = EvaluateTopologyTransitionTileFeatureGuard(context);
+            if (topologyTileFeatureGuard.Verdict == LegalityVerdict.Blocked)
+            {
+                return topologyTileFeatureGuard;
+            }
 
             if (!context.EvaluationTopology.IsFaceActive(context.CandidateCell.face))
             {
@@ -28,7 +37,10 @@ namespace Game.Feature.Gameplay.BoardState
                     context.Actor.EntityId,
                     out var blocker))
             {
-                if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
+                if (TryGetUnitTileFeatureBlocker(
+                        context,
+                        tileFeatureDefinitions,
+                        out var tileFeatureBlocker))
                 {
                     return LegalityResult.Blocked(
                         LegalityDomain.Traversal,
@@ -60,7 +72,10 @@ namespace Game.Feature.Gameplay.BoardState
             var blockers = RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker);
             if (ModifierQuery.IgnoresTraversalBlocker(capabilities, blockers[0]))
             {
-                if (TryGetUnitTileFeatureBlocker(context, out var tileFeatureBlocker))
+                if (TryGetUnitTileFeatureBlocker(
+                        context,
+                        tileFeatureDefinitions,
+                        out var tileFeatureBlocker))
                 {
                     return LegalityResult.Blocked(
                         LegalityDomain.Traversal,
@@ -98,6 +113,14 @@ namespace Game.Feature.Gameplay.BoardState
                 context.TransitionRequirement);
         }
 
+        public static LegalityResult EvaluateTopologyTransitionTileFeatureGuard(
+            TraverseContext context,
+            TileFeatureTraversalEvidence tileFeatureEvidence)
+        {
+            _ = tileFeatureEvidence.Definitions;
+            return EvaluateTopologyTransitionTileFeatureGuard(context);
+        }
+
         public static LegalityResult EvaluateDestination(
             WorldSnapshot snapshot,
             EntityType entityType,
@@ -106,13 +129,15 @@ namespace Game.Feature.Gameplay.BoardState
             CubeTopologyState evaluatedTopology,
             CubeRotationKind rotationKind,
             CubeTopologyState updatedTopology,
-            ReservationStatus reservationStatus = ReservationStatus.None,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            TileFeatureTraversalEvidence tileFeatureEvidence,
+            ReservationStatus reservationStatus = ReservationStatus.None)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
+
+            _ = tileFeatureEvidence.Definitions;
 
             return EvaluateDestination(
                 new TraverseContext(
@@ -126,21 +151,23 @@ namespace Game.Feature.Gameplay.BoardState
                     transitionRequirement: rotationKind == CubeRotationKind.None
                         ? TransitionRequirement.None
                         : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
-                    reservationStatus: reservationStatus,
-                    tileFeatureDefinitions: tileFeatureDefinitions));
+                    reservationStatus: reservationStatus),
+                tileFeatureEvidence);
         }
 
         // Charge movement ignores overlapping units and only stops on hard board blockers.
         public static LegalityResult EvaluateChargeSolidOnlyStopCell(
             WorldSnapshot snapshot,
             SurfaceCell cell,
-            ReservationStatus reservationStatus = ReservationStatus.None,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            TileFeatureTraversalEvidence tileFeatureEvidence,
+            ReservationStatus reservationStatus = ReservationStatus.None)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
+
+            var tileFeatureDefinitions = tileFeatureEvidence.Definitions;
 
             if (!snapshot.IsInsideBoard(cell))
             {
@@ -193,8 +220,34 @@ namespace Game.Feature.Gameplay.BoardState
             return StateQuery.BuildActorRef(snapshot, entityId, entityType);
         }
 
+        private static LegalityResult EvaluateTopologyTransitionTileFeatureGuard(TraverseContext context)
+        {
+            if (context.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate &&
+                TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
+                    context.Snapshot,
+                    context.CandidateCell,
+                    out var topologyTransitionBlocker))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Traversal,
+                    context.CandidateCell,
+                    context.EvaluationTopology,
+                    RuntimeLegalityBlockerFactory.CreateTileFeature(topologyTransitionBlocker),
+                    context.ReservationStatus,
+                    context.TransitionRequirement);
+            }
+
+            return LegalityResult.Allowed(
+                LegalityDomain.Traversal,
+                context.CandidateCell,
+                context.EvaluationTopology,
+                context.ReservationStatus,
+                context.TransitionRequirement);
+        }
+
         private static bool TryGetUnitTileFeatureBlocker(
             in TraverseContext context,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out TileFeatureState tileFeatureBlocker)
         {
             if (context.Actor.EntityType != EntityType.Unit)
@@ -208,7 +261,7 @@ namespace Game.Feature.Gameplay.BoardState
                 : TileFeatureMovementKind.GroundStep;
             return TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                 context.Snapshot,
-                context.TileFeatureDefinitions,
+                tileFeatureDefinitions,
                 context.CandidateCell,
                 TileFeatureBlockerSubject.Unit,
                 movementKind,

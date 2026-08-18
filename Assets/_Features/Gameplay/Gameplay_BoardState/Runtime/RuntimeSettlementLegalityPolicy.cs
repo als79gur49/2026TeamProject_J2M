@@ -31,8 +31,11 @@ namespace Game.Feature.Gameplay.BoardState
 
     internal static class RuntimeSettlementLegalityPolicy
     {
-        public static LegalityResult EvaluateLandingPlacement(SettlementContext context)
+        public static LegalityResult EvaluateLandingPlacement(
+            SettlementContext context,
+            TileFeatureSettlementEvidence tileFeatureEvidence)
         {
+            var tileFeatureDefinitions = tileFeatureEvidence.Definitions;
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
 
@@ -46,7 +49,10 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (TryGetUnitTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            if (TryGetUnitTileFeatureSettlementBlocker(
+                    context,
+                    tileFeatureDefinitions,
+                    out var tileFeatureBlocker))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -121,6 +127,7 @@ namespace Game.Feature.Gameplay.BoardState
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
+            TileFeatureSettlementEvidence tileFeatureEvidence,
             ReservationStatus reservationStatus = ReservationStatus.None)
         {
             if (snapshot == null)
@@ -135,7 +142,8 @@ namespace Game.Feature.Gameplay.BoardState
                     cell,
                     snapshot.Topology,
                     SpatialState.Anchored,
-                    reservationStatus));
+                    reservationStatus),
+                tileFeatureEvidence);
         }
 
         public static LegalityResult EvaluateBoxFlipLandingPlacement(SettlementContext context)
@@ -175,8 +183,10 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static LegalityResult EvaluateJumpLandingCell(
             SettlementContext context,
-            JumpLandingEvidence evidence)
+            JumpLandingEvidence evidence,
+            TileFeatureSettlementEvidence tileFeatureEvidence)
         {
+            var tileFeatureDefinitions = tileFeatureEvidence.Definitions;
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
 
@@ -190,7 +200,10 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (TryGetUnitTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            if (TryGetUnitTileFeatureSettlementBlocker(
+                    context,
+                    tileFeatureDefinitions,
+                    out var tileFeatureBlocker))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -240,14 +253,18 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static JumpCrushLandingEvaluation EvaluateJumpCrushLandingCell(
             SettlementContext context,
-            JumpLandingEvidence evidence)
+            JumpLandingEvidence evidence,
+            TileFeatureSettlementEvidence tileFeatureEvidence)
         {
+            var tileFeatureDefinitions = tileFeatureEvidence.Definitions;
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
 
             if (context.TerminalCell != evidence.LockedTargetCell)
             {
-                return new JumpCrushLandingEvaluation(EvaluateJumpLandingCell(context, evidence), crushedBoxEntityId: 0);
+                return new JumpCrushLandingEvaluation(
+                    EvaluateJumpLandingCell(context, evidence, tileFeatureEvidence),
+                    crushedBoxEntityId: 0);
             }
 
             if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
@@ -262,7 +279,10 @@ namespace Game.Feature.Gameplay.BoardState
                     crushedBoxEntityId: 0);
             }
 
-            if (TryGetUnitTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            if (TryGetUnitTileFeatureSettlementBlocker(
+                    context,
+                    tileFeatureDefinitions,
+                    out var tileFeatureBlocker))
             {
                 return new JumpCrushLandingEvaluation(
                     LegalityResult.Blocked(
@@ -280,7 +300,9 @@ namespace Game.Feature.Gameplay.BoardState
                     context.Actor.EntityId,
                     out var blocker))
             {
-                return new JumpCrushLandingEvaluation(EvaluateJumpLandingCell(context, evidence), crushedBoxEntityId: 0);
+                return new JumpCrushLandingEvaluation(
+                    EvaluateJumpLandingCell(context, evidence, tileFeatureEvidence),
+                    crushedBoxEntityId: 0);
             }
 
             if (blocker.Kind != SlideStopperKind.Entity ||
@@ -332,6 +354,7 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell destinationCell,
             int sourceId,
             int ignoredDeadTargetId,
+            TileFeatureSettlementEvidence tileFeatureEvidence,
             ReservationStatus reservationStatus = ReservationStatus.None)
         {
             if (movementSnapshot == null)
@@ -352,20 +375,24 @@ namespace Game.Feature.Gameplay.BoardState
                     movementSnapshot.Topology,
                     SpatialState.Anchored,
                     reservationStatus),
-                new JumpLandingEvidence(damageProjectionSnapshot, destinationCell));
+                new JumpLandingEvidence(damageProjectionSnapshot, destinationCell),
+                tileFeatureEvidence);
         }
 
         public static LegalityResult EvaluateImpactFollowThrough(
             SettlementContext context,
-            ImpactFollowThroughEvidence evidence)
+            ImpactFollowThroughEvidence evidence,
+            TileFeatureSettlementEvidence tileFeatureEvidence)
         {
-            return EvaluateImpactFollowThroughDetailed(context, evidence).LegalityResult;
+            return EvaluateImpactFollowThroughDetailed(context, evidence, tileFeatureEvidence).LegalityResult;
         }
 
         public static ImpactFollowThroughSettlementEvaluation EvaluateImpactFollowThroughDetailed(
             SettlementContext context,
-            ImpactFollowThroughEvidence evidence)
+            ImpactFollowThroughEvidence evidence,
+            TileFeatureSettlementEvidence tileFeatureEvidence)
         {
+            var tileFeatureDefinitions = tileFeatureEvidence.Definitions;
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
             var modifiers = ModifierQuery.GetImpactFollowThroughModifiers(evidence);
@@ -414,6 +441,7 @@ namespace Game.Feature.Gameplay.BoardState
             if (TryGetImpactFollowThroughBarricadeReassertCrush(
                     context,
                     evidence,
+                    tileFeatureDefinitions,
                     out var reassertingBarricade))
             {
                 return new ImpactFollowThroughSettlementEvaluation(
@@ -427,7 +455,10 @@ namespace Game.Feature.Gameplay.BoardState
                     reassertingBarricade);
             }
 
-            if (TryGetImpactFollowThroughTileFeatureSettlementBlocker(context, out var tileFeatureBlocker))
+            if (TryGetImpactFollowThroughTileFeatureSettlementBlocker(
+                    context,
+                    tileFeatureDefinitions,
+                    out var tileFeatureBlocker))
             {
                 return Ordinary(
                     LegalityResult.Blocked(
@@ -480,8 +511,8 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot attackSnapshot,
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
             MovementImpactReservationPayload payload,
-            ReservationStatus reservationStatus = ReservationStatus.None,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            TileFeatureSettlementEvidence tileFeatureEvidence,
+            ReservationStatus reservationStatus = ReservationStatus.None)
         {
             if (attackSnapshot == null)
             {
@@ -500,12 +531,12 @@ namespace Game.Feature.Gameplay.BoardState
                     payload.Travel.FollowThroughCell,
                     attackSnapshot.Topology,
                     SpatialState.Anchored,
-                    reservationStatus,
-                    tileFeatureDefinitions),
+                    reservationStatus),
                 new ImpactFollowThroughEvidence(
                     payload.Attack.AttackSourceEntityId,
                     payload.Participants.TargetEntityIds,
-                    destroyResolutions));
+                    destroyResolutions),
+                tileFeatureEvidence);
         }
 
         private static bool HasAnyExistingTarget(WorldSnapshot snapshot, IReadOnlyList<int> targetIds)
@@ -564,6 +595,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool TryGetUnitTileFeatureSettlementBlocker(
             SettlementContext context,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out TileFeatureState tileFeatureBlocker)
         {
             if (context.Actor.EntityType != EntityType.Unit)
@@ -574,7 +606,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             return TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                 context.OccupancySnapshot,
-                context.TileFeatureDefinitions,
+                tileFeatureDefinitions,
                 context.TerminalCell,
                 TileFeatureBlockerSubject.Unit,
                 TileFeatureMovementKind.UnitSettlement,
@@ -585,11 +617,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool TryGetImpactFollowThroughTileFeatureSettlementBlocker(
             SettlementContext context,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out TileFeatureState tileFeatureBlocker)
         {
             return TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
                 context.OccupancySnapshot,
-                context.TileFeatureDefinitions,
+                tileFeatureDefinitions,
                 context.TerminalCell,
                 TileFeatureBlockerSubject.Box,
                 TileFeatureMovementKind.ImpactFollowThrough,
@@ -600,12 +633,12 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool TryGetImpactFollowThroughBarricadeReassertCrush(
             SettlementContext context,
             ImpactFollowThroughEvidence evidence,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out TileFeatureState barricade)
         {
             barricade = default;
             if (context.Actor.EntityType != EntityType.Box ||
-                context.TileFeatureDefinitions == null ||
-                context.TileFeatureDefinitions.Count == 0)
+                tileFeatureDefinitions.Count == 0)
             {
                 return false;
             }
@@ -616,7 +649,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 var tileFeature = tileFeatures[i];
                 if (tileFeature.Kind != TileFeatureKind.Barricade ||
-                    !TryFindTileFeatureDefinition(context.TileFeatureDefinitions, tileFeature.TileId, out var definition))
+                    !TryFindTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition))
                 {
                     continue;
                 }

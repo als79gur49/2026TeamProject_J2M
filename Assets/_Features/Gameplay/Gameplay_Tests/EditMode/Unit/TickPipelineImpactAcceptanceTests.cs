@@ -27,7 +27,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
         }
 
@@ -48,7 +49,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
 
@@ -78,7 +80,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     context,
-                    new ImpactFollowThroughEvidence(10, 30, destroyResolutions)).Verdict,
+                    new ImpactFollowThroughEvidence(10, 30, destroyResolutions),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
@@ -87,7 +90,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         10,
                         30,
                         destroyResolutions,
-                        ignoreActiveGlideOccupants: true)).Verdict,
+                        ignoreActiveGlideOccupants: true),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
         }
 
@@ -107,7 +111,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: false) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
 
@@ -126,7 +131,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
 
@@ -147,7 +153,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
 

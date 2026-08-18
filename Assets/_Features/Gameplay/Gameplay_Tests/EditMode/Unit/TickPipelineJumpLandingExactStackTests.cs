@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -45,9 +46,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetCell,
                     snapshot.Topology,
                     SpatialState.Anchored),
-                new JumpLandingEvidence(snapshot, targetCell));
+                new JumpLandingEvidence(snapshot, targetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EvaluateLandingPlacement_DefaultTileFeatureEvidence_FailsBeforeReservationVerdict()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(40, sourceCell, teamId: 2),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var context = new SettlementContext(
+                snapshot,
+                StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                sourceCell,
+                snapshot.Topology,
+                SpatialState.Anchored,
+                ReservationStatus.Conflicted);
+
+            Assert.Throws<InvalidOperationException>(
+                () => RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(context, default));
         }
 
         [Test]
@@ -70,7 +94,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetCell,
                     snapshot.Topology,
                     SpatialState.Anchored),
-                new JumpLandingEvidence(snapshot, targetCell));
+                new JumpLandingEvidence(snapshot, targetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(evaluation.LegalityResult.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(evaluation.CrushedBoxEntityId, Is.EqualTo(50));
@@ -347,7 +372,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetCell,
                     snapshot.Topology,
                     SpatialState.Anchored),
-                new JumpLandingEvidence(snapshot, targetCell));
+                new JumpLandingEvidence(snapshot, targetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(evaluation.LegalityResult.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(evaluation.CrushedBoxEntityId, Is.Zero);
@@ -374,7 +400,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetCell,
                     snapshot.Topology,
                     SpatialState.Anchored),
-                new JumpLandingEvidence(snapshot, lockedTargetCell));
+                new JumpLandingEvidence(snapshot, lockedTargetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
@@ -399,7 +426,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetCell,
                     snapshot.Topology,
                     SpatialState.Anchored),
-                new JumpLandingEvidence(snapshot, targetCell));
+                new JumpLandingEvidence(snapshot, targetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
@@ -424,7 +452,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetCell,
                     snapshot.Topology,
                     SpatialState.Anchored),
-                new JumpLandingEvidence(snapshot, targetCell));
+                new JumpLandingEvidence(snapshot, targetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
         }
@@ -449,12 +478,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
                     new SettlementContext(snapshot, actor, solidCell, snapshot.Topology, SpatialState.Anchored),
-                    new JumpLandingEvidence(snapshot, solidCell)).Verdict,
+                    new JumpLandingEvidence(snapshot, solidCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
                     new SettlementContext(snapshot, actor, outOfBoundsCell, snapshot.Topology, SpatialState.Anchored),
-                    new JumpLandingEvidence(snapshot, outOfBoundsCell)).Verdict,
+                    new JumpLandingEvidence(snapshot, outOfBoundsCell),
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
         }
 
@@ -479,7 +510,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot.Topology,
                     SpatialState.Anchored,
                     ReservationStatus.Conflicted),
-                new JumpLandingEvidence(snapshot, targetCell));
+                new JumpLandingEvidence(snapshot, targetCell),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
         }
@@ -503,7 +535,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
                     terminalCell,
                     snapshot.Topology,
-                    SpatialState.Phased));
+                    SpatialState.Phased),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(result.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
         }
@@ -554,7 +587,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     terminalCell,
                     snapshot.Topology,
                     SpatialState.Phased,
-                    reservationStatus));
+                    reservationStatus),
+                TileFeatureSettlementEvidence.Empty);
         }
 
         private static FinalizationBatch ResolveJumpLandingSpaceContestsCanonical(

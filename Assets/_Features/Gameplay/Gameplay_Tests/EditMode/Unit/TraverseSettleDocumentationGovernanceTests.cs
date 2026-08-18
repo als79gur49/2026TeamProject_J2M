@@ -8,14 +8,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void CanonicalSpec_DescribesTraverseSettleSpatialState_And_ReservedFutureStates()
+        public void CanonicalSpec_DescribesTraverseSettleContexts_TypedEvidence_And_ReservedFutureStates()
         {
             var spec = ReadRepoFile("Docs/Architecture/Tick-Simulation-Canonical-Spec.md");
 
             Assert.That(spec, Does.Contain("Traverse / Settle"));
             Assert.That(spec, Does.Contain("SpatialState"));
-            Assert.That(spec, Does.Contain("TraverseContext"));
-            Assert.That(spec, Does.Contain("SettlementContext"));
+            Assert.That(spec, Does.Contain("`TraverseContext`: 정확히 7필드"));
+            Assert.That(spec, Does.Contain("`SettlementContext`: 정확히 6필드"));
+            Assert.That(spec, Does.Contain("`TileFeatureTraversalEvidence`"));
+            Assert.That(spec, Does.Contain("`TileFeatureSettlementEvidence`"));
+            Assert.That(spec, Does.Contain("featureless caller는 `Empty`를 명시"));
+            Assert.That(spec, Does.Contain("`null` 또는 `default` missing input은 유효한 evidence가 아니다"));
+            Assert.That(spec, Does.Contain("blocker 및 최종 verdict는 해당 legality policy owner가 계산한다"));
             Assert.That(spec, Does.Contain("orchestration-only"));
             Assert.That(spec, Does.Contain("reserved future state"));
             Assert.That(spec, Does.Contain("TS-01"));

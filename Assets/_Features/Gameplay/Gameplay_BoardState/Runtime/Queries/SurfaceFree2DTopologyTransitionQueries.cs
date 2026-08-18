@@ -182,6 +182,10 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
+            var tileFeatureEvidence = tileFeatureDefinitions == null
+                ? TileFeatureTraversalEvidence.Empty
+                : new TileFeatureTraversalEvidence(tileFeatureDefinitions);
+
             var radius = NormalizeCollisionRadiusUnits(radiusUnits);
             if (radius <= 0 ||
                 axes == SurfaceContactProjectionAxes.None)
@@ -212,7 +216,7 @@ namespace Game.Feature.Gameplay.BoardState
                         sourceAnchor,
                         sourceAnchor + Vector2Int.right,
                         evaluationTopology,
-                        tileFeatureDefinitions,
+                        tileFeatureEvidence,
                         out var legality))
                 {
                     projectedX = GetPositiveBlockedClamp(radius);
@@ -227,7 +231,7 @@ namespace Game.Feature.Gameplay.BoardState
                         sourceAnchor,
                         sourceAnchor + Vector2Int.left,
                         evaluationTopology,
-                        tileFeatureDefinitions,
+                        tileFeatureEvidence,
                         out legality))
                 {
                     projectedX = GetNegativeBlockedClamp(radius);
@@ -245,7 +249,7 @@ namespace Game.Feature.Gameplay.BoardState
                         sourceAnchor,
                         sourceAnchor + Vector2Int.up,
                         evaluationTopology,
-                        tileFeatureDefinitions,
+                        tileFeatureEvidence,
                         out var legality))
                 {
                     projectedY = GetPositiveBlockedClamp(radius);
@@ -260,7 +264,7 @@ namespace Game.Feature.Gameplay.BoardState
                         sourceAnchor,
                         sourceAnchor + Vector2Int.down,
                         evaluationTopology,
-                        tileFeatureDefinitions,
+                        tileFeatureEvidence,
                         out legality))
                 {
                     projectedY = GetNegativeBlockedClamp(radius);
@@ -287,7 +291,7 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell sourceAnchor,
             SurfaceCell contactCell,
             CubeTopologyState evaluationTopology,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            TileFeatureTraversalEvidence tileFeatureEvidence,
             out LegalityResult legality)
         {
             legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
@@ -297,8 +301,8 @@ namespace Game.Feature.Gameplay.BoardState
                     sourceAnchor,
                     contactCell,
                     evaluationTopology,
-                    TransitionRequirement.None,
-                    tileFeatureDefinitions: tileFeatureDefinitions));
+                    TransitionRequirement.None),
+                tileFeatureEvidence);
             return legality.Verdict != LegalityVerdict.Allowed;
         }
 
@@ -349,6 +353,10 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
+
+            var tileFeatureEvidence = tileFeatureDefinitions == null
+                ? TileFeatureTraversalEvidence.Empty
+                : new TileFeatureTraversalEvidence(tileFeatureDefinitions);
 
             if (Math.Abs(directionDelta.x) + Math.Abs(directionDelta.y) != 1)
             {
@@ -437,38 +445,6 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            if (TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
-                    snapshot,
-                    remap.TargetAnchor,
-                    out var topologyTransitionBlocker))
-            {
-                var topologyTransitionBlockerLegality = LegalityResult.Blocked(
-                    LegalityDomain.Traversal,
-                    remap.TargetAnchor,
-                    remap.UpdatedTopology,
-                    RuntimeLegalityBlockerFactory.CreateTileFeature(topologyTransitionBlocker),
-                    transitionRequirement: TransitionRequirement.TopologyUpdate(
-                        remap.RotationKind,
-                        remap.UpdatedTopology));
-                result = new Free2DTopologyTransitionResult(
-                    false,
-                    entityId,
-                    entity.position,
-                    pose.LocalOffset,
-                    velocityDelta,
-                    remap.TargetAnchor,
-                    remap.UpdatedTopology,
-                    remap.RotationKind,
-                    remap.TargetLocalOffset,
-                    remap.TargetVelocity,
-                    0,
-                    0,
-                    Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature,
-                    topologyTransitionBlockerLegality,
-                    sourceContactProjection);
-                return false;
-            }
-
             var targetLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 snapshot,
                 EntityType.Unit,
@@ -477,7 +453,7 @@ namespace Game.Feature.Gameplay.BoardState
                 remap.UpdatedTopology,
                 remap.RotationKind,
                 remap.UpdatedTopology,
-                tileFeatureDefinitions: tileFeatureDefinitions);
+                tileFeatureEvidence);
             if (targetLegality.Verdict != LegalityVerdict.Allowed)
             {
                 result = new Free2DTopologyTransitionResult(
@@ -655,6 +631,9 @@ namespace Game.Feature.Gameplay.BoardState
         {
             rejectReason = Free2DTopologyTransitionRejectReason.None;
             legality = default;
+            var tileFeatureEvidence = tileFeatureDefinitions == null
+                ? TileFeatureTraversalEvidence.Empty
+                : new TileFeatureTraversalEvidence(tileFeatureDefinitions);
             var radius = Math.Max(0, Math.Min(SimulationFixed.HalfCellUnits - 1, collisionRadiusUnits));
             if (radius <= 0)
             {
@@ -662,14 +641,14 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             if (OverflowsPositiveFootprint(targetLocalOffset.X.RawValue, radius) &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.right, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.right, targetTopology, out rejectReason, out legality, tileFeatureEvidence))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
             }
 
             if (OverflowsNegativeFootprint(targetLocalOffset.X.RawValue, radius) &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.left, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.left, targetTopology, out rejectReason, out legality, tileFeatureEvidence))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
@@ -678,7 +657,7 @@ namespace Game.Feature.Gameplay.BoardState
             var movingForward = entryDirectionDelta.y > 0;
             if (movingForward &&
                 OverflowsPositiveFootprint(targetLocalOffset.Y.RawValue, radius) &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.up, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.up, targetTopology, out rejectReason, out legality, tileFeatureEvidence))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
@@ -686,7 +665,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (!movingForward &&
                 OverflowsNegativeFootprint(targetLocalOffset.Y.RawValue, radius) &&
-                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.down, targetTopology, out rejectReason, out legality, tileFeatureDefinitions))
+                IsBlocked(snapshot, entityId, targetAnchor + Vector2Int.down, targetTopology, out rejectReason, out legality, tileFeatureEvidence))
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked;
                 return true;
@@ -712,7 +691,7 @@ namespace Game.Feature.Gameplay.BoardState
             CubeTopologyState targetTopology,
             out Free2DTopologyTransitionRejectReason rejectReason,
             out LegalityResult legality,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            TileFeatureTraversalEvidence tileFeatureEvidence)
         {
             legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 snapshot,
@@ -722,7 +701,7 @@ namespace Game.Feature.Gameplay.BoardState
                 targetTopology,
                 CubeRotationKind.None,
                 targetTopology,
-                tileFeatureDefinitions: tileFeatureDefinitions);
+                tileFeatureEvidence);
             if (legality.Verdict == LegalityVerdict.Allowed)
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.None;

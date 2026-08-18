@@ -983,15 +983,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Free2DTopologyTransition_TargetAnchorWithSolid_StillBlocks()
+        public void Free2DTopologyTransition_TargetSolidAndTileFeature_PrefersDirectSolidBlocker()
         {
+            var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
-                    CreateWall(20, new SurfaceCell(FaceId.Front, 0, 0)),
+                    CreateWall(20, targetCell),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Barricade) });
             SetContinuousPoseAtForwardSeam(worldState, 10);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
@@ -1000,11 +1004,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Vector2Int.up,
                 new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
-                out var result);
+                out var result,
+                new[] { CreateDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
 
             Assert.That(resolved, Is.False);
             Assert.That(result.Success, Is.False);
+            Assert.That(result.TargetAnchor, Is.EqualTo(targetCell));
             Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid));
+            Assert.That(result.RejectReason, Is.Not.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTileFeature));
         }
 
         [Test]

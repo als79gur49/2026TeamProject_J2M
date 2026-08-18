@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
         private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions;
+        private readonly TileFeatureTraversalEvidence _tileFeatureTraversalEvidence;
+        private readonly TileFeatureSettlementEvidence _tileFeatureSettlementEvidence;
         private readonly IReadOnlyList<MoonBlockRespawnDefinition> _moonBlockRespawnDefinitions;
         private readonly ITileEffectResolver _tileEffectResolver;
         private readonly WorldState _worldState;
@@ -159,6 +161,8 @@ namespace Game.Feature.Gameplay.Loop
             _tileFeatureDefinitions = tileFeatureDefinitions == null
                 ? Array.Empty<TileFeatureRuntimeDefinition>()
                 : new List<TileFeatureRuntimeDefinition>(tileFeatureDefinitions).AsReadOnly();
+            _tileFeatureTraversalEvidence = new TileFeatureTraversalEvidence(_tileFeatureDefinitions);
+            _tileFeatureSettlementEvidence = new TileFeatureSettlementEvidence(_tileFeatureDefinitions);
             _moonBlockRespawnDefinitions = moonBlockRespawnDefinitions == null
                 ? Array.Empty<MoonBlockRespawnDefinition>()
                 : new List<MoonBlockRespawnDefinition>(moonBlockRespawnDefinitions).AsReadOnly();
@@ -3100,7 +3104,7 @@ namespace Game.Feature.Gameplay.Loop
                 snapshot.Topology,
                 CubeRotationKind.None,
                 snapshot.Topology,
-                tileFeatureDefinitions: _tileFeatureDefinitions);
+                _tileFeatureTraversalEvidence);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 rejectedReasons.Add(
@@ -3337,7 +3341,7 @@ namespace Game.Feature.Gameplay.Loop
                     snapshot.Topology,
                     CubeRotationKind.None,
                     snapshot.Topology,
-                    tileFeatureDefinitions: _tileFeatureDefinitions);
+                    _tileFeatureTraversalEvidence);
                 if (anchorCommitLegality.Verdict != LegalityVerdict.Allowed)
                 {
                     rejectedReasons.Add(FormatEnemyKinematicContinuationBlockedReason(
@@ -5908,11 +5912,11 @@ namespace Game.Feature.Gameplay.Loop
                         BuildLegalityActorRef(snapshot, jumpEntry.EntityId, EntityType.Unit),
                         jumpState.lockedTargetCell,
                         snapshot.Topology,
-                        SpatialState.Anchored,
-                        tileFeatureDefinitions: _tileFeatureDefinitions),
+                        SpatialState.Anchored),
                     new JumpLandingEvidence(
                         snapshot,
-                        jumpState.lockedTargetCell));
+                        jumpState.lockedTargetCell),
+                    _tileFeatureSettlementEvidence);
                 if (crushEvaluation.LegalityResult.Verdict == LegalityVerdict.Allowed &&
                     crushEvaluation.CrushedBoxEntityId > 0)
                 {
@@ -6127,8 +6131,7 @@ namespace Game.Feature.Gameplay.Loop
                     payload.DestinationCell,
                     movementSnapshot.Topology,
                     SpatialState.Anchored,
-                    reservationStatus,
-                    _tileFeatureDefinitions);
+                    reservationStatus);
                 var jumpLandingEvidence = new JumpLandingEvidence(
                     damageProjectionSnapshot,
                     payload.SuccessJumpState.lockedTargetCell);
@@ -6138,7 +6141,8 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     var crushEvaluation = RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell(
                         settlementContext,
-                        jumpLandingEvidence);
+                        jumpLandingEvidence,
+                        _tileFeatureSettlementEvidence);
                     landingLegality = crushEvaluation.LegalityResult;
                     resolvedCrushedBoxEntityId = crushEvaluation.CrushedBoxEntityId;
                 }
@@ -6146,7 +6150,8 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     landingLegality = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
                         settlementContext,
-                        jumpLandingEvidence);
+                        jumpLandingEvidence,
+                        _tileFeatureSettlementEvidence);
                 }
 
                 var accepted = payload.LandingKind != JumpLandingKind.RetryOnly &&
@@ -8663,12 +8668,12 @@ namespace Game.Feature.Gameplay.Loop
                                         payload.ImpactReservationPayload.Travel.FollowThroughCell,
                                         attackSnapshot.Topology,
                                         SpatialState.Anchored,
-                                        reservationStatus,
-                                        _tileFeatureDefinitions),
+                                        reservationStatus),
                                     new ImpactFollowThroughEvidence(
                                         payload.ImpactReservationPayload.Attack.AttackSourceEntityId,
                                         payload.ImpactReservationPayload.Participants.TargetEntityIds,
-                                        destroyResolutions));
+                                        destroyResolutions),
+                                    _tileFeatureSettlementEvidence);
                                 var impactLegality = impactEvaluation.LegalityResult;
                                 followThroughAccepted = impactLegality.Verdict == LegalityVerdict.Allowed;
                                 if (followThroughAccepted)
@@ -8711,13 +8716,13 @@ namespace Game.Feature.Gameplay.Loop
                                     payload.ImpactReservationPayload.Travel.FollowThroughCell,
                                     attackSnapshot.Topology,
                                     SpatialState.Anchored,
-                                    flipReservationStatus,
-                                    _tileFeatureDefinitions),
+                                    flipReservationStatus),
                                 new ImpactFollowThroughEvidence(
                                     payload.ImpactReservationPayload.Attack.AttackSourceEntityId,
                                     payload.ImpactReservationPayload.Participants.TargetEntityIds,
                                     destroyResolutions,
-                                    ignoreActiveGlideOccupants: true));
+                                    ignoreActiveGlideOccupants: true),
+                                _tileFeatureSettlementEvidence);
                             var flipImpactLegality = flipImpactEvaluation.LegalityResult;
                             followThroughAccepted = flipImpactLegality.Verdict == LegalityVerdict.Allowed;
                             if (followThroughAccepted)

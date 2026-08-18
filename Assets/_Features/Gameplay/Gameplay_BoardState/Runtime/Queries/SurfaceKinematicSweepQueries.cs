@@ -83,6 +83,10 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
+            var tileFeatureEvidence = tileFeatureDefinitions == null
+                ? TileFeatureTraversalEvidence.Empty
+                : new TileFeatureTraversalEvidence(tileFeatureDefinitions);
+
             if (!snapshot.TryGetEntity(entityId, out var entity))
             {
                 result = CreateRejected(entityId, default, KinematicSweepRejectionReason.MissingEntity);
@@ -139,7 +143,7 @@ namespace Game.Feature.Gameplay.BoardState
                 snapshot.Topology,
                 CubeRotationKind.None,
                 snapshot.Topology,
-                tileFeatureDefinitions: tileFeatureDefinitions);
+                tileFeatureEvidence);
             if (legality.Verdict != LegalityVerdict.Allowed)
             {
                 result = CreateClamped(entityId, pose, delta, anchorDelta, KinematicSweepRejectionReason.TraversalBlocked);

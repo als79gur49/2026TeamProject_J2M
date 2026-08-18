@@ -3108,6 +3108,42 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void MovementExpander_FeaturelessOverload_DeferredSlidingImpact_UsesExplicitEmptyTileFeatures()
+        {
+            var impactCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var slidingBox = CreateSlidingPushBox(30, new SurfaceCell(FaceId.Floor, 2, 0), Direction.Right);
+            var friendlyStopper = CreateUnit(11, impactCell, hp: 3, teamId: 1);
+            var jumper = CreateAirborneEnemyJumper(40, new SurfaceCell(FaceId.Floor, 0, 0));
+            var worldState = CreateWorldState(
+                new[] { slidingBox, friendlyStopper, jumper },
+                DeferredJumpPredictionBounds(),
+                Array.Empty<TileFeatureState>());
+            SeedAirborneJumpState(worldState, 40, jumper.position, impactCell, landingTick: 1);
+            var intent = new MoveIntent(30, priority: 100, destination: impactCell.PlanarPosition);
+            intent.AssignIntentId(1);
+            var groups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            Assert.DoesNotThrow(() =>
+                new MovementExpander().Expand(
+                    CreateSnapshot(worldState),
+                    tickIndex: 1,
+                    sortedIntents: new[] { intent },
+                    playerTraversalSourceIds: null,
+                    buffer: groups,
+                    rejectedReasons: rejectedReasons));
+
+            Assert.That(groups, Has.Count.EqualTo(1));
+            var group = groups.Single();
+            Assert.That(group.GroupKind, Is.EqualTo(ActionGroupKind.Stop));
+            Assert.That(group.HasDeferredImpact, Is.True);
+            Assert.That(group.DeferredImpactSourceId, Is.EqualTo(30));
+            Assert.That(group.DeferredImpactCell, Is.EqualTo(impactCell));
+            Assert.That(group.Moves, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void MovementExpander_DeferredSlidingImpact_UsesTileFeatureAwareJumpLanding_BarricadeFallback()
         {
             var exactCell = new SurfaceCell(FaceId.Floor, 3, 0);

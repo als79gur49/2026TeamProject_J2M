@@ -1887,7 +1887,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState.CreateSnapshot(),
                     EntityType.Unit,
                     wallCell,
-                    40).Verdict,
+                    40,
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
         }
 

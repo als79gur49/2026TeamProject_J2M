@@ -42,8 +42,7 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell candidateCell,
             CubeTopologyState evaluationTopology,
             TransitionRequirement transitionRequirement,
-            ReservationStatus reservationStatus = ReservationStatus.None,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            ReservationStatus reservationStatus = ReservationStatus.None)
         {
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             Actor = actor;
@@ -52,7 +51,6 @@ namespace Game.Feature.Gameplay.BoardState
             EvaluationTopology = evaluationTopology;
             TransitionRequirement = transitionRequirement;
             ReservationStatus = reservationStatus;
-            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
         }
 
         public WorldSnapshot Snapshot { get; }
@@ -68,8 +66,23 @@ namespace Game.Feature.Gameplay.BoardState
         public TransitionRequirement TransitionRequirement { get; }
 
         public ReservationStatus ReservationStatus { get; }
+    }
 
-        public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
+    internal readonly struct TileFeatureTraversalEvidence
+    {
+        private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _definitions;
+
+        public TileFeatureTraversalEvidence(IReadOnlyList<TileFeatureRuntimeDefinition> definitions)
+        {
+            _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
+        }
+
+        public IReadOnlyList<TileFeatureRuntimeDefinition> Definitions =>
+            _definitions ?? throw new InvalidOperationException(
+                "TileFeature traversal evidence was not specified.");
+
+        public static TileFeatureTraversalEvidence Empty { get; } =
+            new TileFeatureTraversalEvidence(Array.Empty<TileFeatureRuntimeDefinition>());
     }
 
     internal readonly struct SettlementContext
@@ -80,8 +93,7 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell terminalCell,
             CubeTopologyState terminalTopology,
             SpatialState requestedTerminalState,
-            ReservationStatus reservationStatus = ReservationStatus.None,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            ReservationStatus reservationStatus = ReservationStatus.None)
         {
             OccupancySnapshot = occupancySnapshot ?? throw new ArgumentNullException(nameof(occupancySnapshot));
             Actor = actor;
@@ -89,7 +101,6 @@ namespace Game.Feature.Gameplay.BoardState
             TerminalTopology = terminalTopology;
             RequestedTerminalState = requestedTerminalState;
             ReservationStatus = reservationStatus;
-            TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
         }
 
         public WorldSnapshot OccupancySnapshot { get; }
@@ -103,8 +114,23 @@ namespace Game.Feature.Gameplay.BoardState
         public SpatialState RequestedTerminalState { get; }
 
         public ReservationStatus ReservationStatus { get; }
+    }
 
-        public IReadOnlyList<TileFeatureRuntimeDefinition> TileFeatureDefinitions { get; }
+    internal readonly struct TileFeatureSettlementEvidence
+    {
+        private readonly IReadOnlyList<TileFeatureRuntimeDefinition> _definitions;
+
+        public TileFeatureSettlementEvidence(IReadOnlyList<TileFeatureRuntimeDefinition> definitions)
+        {
+            _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
+        }
+
+        public IReadOnlyList<TileFeatureRuntimeDefinition> Definitions =>
+            _definitions ?? throw new InvalidOperationException(
+                "TileFeature settlement evidence was not specified.");
+
+        public static TileFeatureSettlementEvidence Empty { get; } =
+            new TileFeatureSettlementEvidence(Array.Empty<TileFeatureRuntimeDefinition>());
     }
 
     internal readonly struct JumpLandingEvidence

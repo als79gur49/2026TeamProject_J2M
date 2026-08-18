@@ -37,7 +37,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     originCell: source.position,
                     candidateCell: destinationCell,
                     evaluationTopology: snapshot.Topology,
-                    TransitionRequirement.None));
+                    TransitionRequirement.None),
+                TileFeatureTraversalEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(legality.Blockers, Is.Empty);
@@ -65,7 +66,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     originCell: source.position,
                     candidateCell: destinationCell,
                     evaluationTopology: snapshot.Topology,
-                    TransitionRequirement.None));
+                    TransitionRequirement.None),
+                TileFeatureTraversalEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(legality.Blockers, Is.Empty);
@@ -308,7 +310,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     terminalCell,
                     snapshot.Topology,
                     SpatialState.Phased,
-                    ReservationStatus.None));
+                    ReservationStatus.None),
+                TileFeatureSettlementEvidence.Empty);
             var blocked = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
                 new SettlementContext(
                     snapshot,
@@ -316,7 +319,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     terminalCell,
                     snapshot.Topology,
                     SpatialState.Phased,
-                    ReservationStatus.Conflicted));
+                    ReservationStatus.Conflicted),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(allowed.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(blocked.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
@@ -346,7 +350,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     StateQuery.BuildActorRef(snapshot, source),
                     terminalCell,
                     snapshot.Topology,
-                    SpatialState.Phased));
+                    SpatialState.Phased),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(legality.Blockers.Any(blocker => blocker.Kind == LegalityBlockerKind.Unit), Is.False);
@@ -373,7 +378,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     StateQuery.BuildActorRef(snapshot, source),
                     terminalCell,
                     snapshot.Topology,
-                    SpatialState.Phased));
+                    SpatialState.Phased),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(legality.Blockers.Count, Is.EqualTo(1));
@@ -405,7 +411,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     StateQuery.BuildActorRef(snapshot, source),
                     terminalCell,
                     snapshot.Topology,
-                    SpatialState.Anchored));
+                    SpatialState.Anchored),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(legality.Blockers.Count, Is.EqualTo(1));
@@ -434,7 +441,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     terminalCell,
                     snapshot.Topology,
                     SpatialState.Phased,
-                    ReservationStatus.Conflicted));
+                    ReservationStatus.Conflicted),
+                TileFeatureSettlementEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(legality.Blockers.Count, Is.EqualTo(1));
@@ -582,7 +590,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     originCell: source.position,
                     candidateCell: destinationCell,
                     evaluationTopology: snapshot.Topology,
-                    TransitionRequirement.None));
+                    TransitionRequirement.None),
+                TileFeatureTraversalEvidence.Empty);
 
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(legality.Blockers, Is.Empty);

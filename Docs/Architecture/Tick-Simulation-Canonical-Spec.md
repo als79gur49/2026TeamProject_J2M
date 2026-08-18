@@ -70,6 +70,7 @@
 - caller rule:
   - resolver와 `TickPipeline`은 candidate ordering, `TraverseContext`/`SettlementContext` 조립, typed evidence 전달만 수행한다.
   - resolver와 `TickPipeline`은 file-local helper로 legality 의미를 재조립하지 않는다.
+- `RuntimeTraversalLegalityPolicy`와 `RuntimeSettlementLegalityPolicy`는 각각 context의 current snapshot fact와 typed evidence를 결합해 blocker와 최종 verdict를 계산한다.
 - `TickPipeline`은 orchestration-only owner다. legality owner가 아니며 `SpatialState` source aggregation owner도 아니다.
 
 ## Blocker Vocabulary
@@ -165,8 +166,8 @@
   - `FreshSelectionSuppressedWithCurrentEnemyLockRetention`는 current stage-local contract 이름일 뿐이며, future lock taxonomy의 generic seed가 아니다.
 
 ## Legality Contexts
-- base legality context는 core field budget을 유지한다.
-  - `TraverseContext`
+- base legality context는 정확한 core field budget을 유지한다.
+  - `TraverseContext`: 정확히 7필드
     - `Snapshot`
     - `Actor`
     - `OriginCell`
@@ -174,7 +175,7 @@
     - `EvaluationTopology`
     - `TransitionRequirement`
     - `ReservationStatus`
-  - `SettlementContext`
+  - `SettlementContext`: 정확히 6필드
     - `OccupancySnapshot`
     - `Actor`
     - `TerminalCell`
@@ -182,8 +183,12 @@
     - `RequestedTerminalState`
     - `ReservationStatus`
 - feature-specific semantics는 base context를 늘리지 않고 typed evidence로 전달한다.
+  - `TileFeatureTraversalEvidence`
+  - `TileFeatureSettlementEvidence`
   - `JumpLandingEvidence`
   - `ImpactFollowThroughEvidence`
+- `TileFeatureTraversalEvidence`와 `TileFeatureSettlementEvidence`는 각각 traversal/settlement의 feature-specific definition read seam만 운반하는 필수 typed evidence다. featureless caller는 `Empty`를 명시하며, `null` 또는 `default` missing input은 유효한 evidence가 아니다. current snapshot과 evidence를 결합한 blocker 및 최종 verdict는 해당 legality policy owner가 계산한다.
+- current Flip landing의 caller-local Barricade precheck는 Push/Flip impact 경로에 남은 narrow exception이며, 이 context/evidence 계약을 다른 caller-local legality 조립으로 일반화하는 선례가 아니다.
 - context rule:
   - raw blocker list, raw occupant enumeration, semantic fact cache, mutation handle, caller-specific boolean은 base context에 넣지 않는다.
   - `LegalityActorRef`는 raw `boardPresence`나 raw jump phase가 아니라 `ResolvedSpatialState`만 운반한다.

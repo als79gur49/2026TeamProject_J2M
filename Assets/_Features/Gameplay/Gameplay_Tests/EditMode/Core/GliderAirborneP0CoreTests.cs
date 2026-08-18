@@ -733,7 +733,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                     worldState.CreateSnapshot(),
                     EntityType.Unit,
                     solidCell,
-                    entityId).Verdict,
+                    entityId,
+                    TileFeatureSettlementEvidence.Empty).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
         }
 

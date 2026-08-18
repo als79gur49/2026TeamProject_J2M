@@ -110,6 +110,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 throw new ArgumentNullException(nameof(rejectedReasons));
             }
 
+            tileFeatureDefinitions ??= Array.Empty<TileFeatureRuntimeDefinition>();
+
             buffer.Clear();
             rejectedReasons.Clear();
 
@@ -227,33 +229,35 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (intent.CommandKind == MovementCommandKind.Move &&
                 usesPlayerTraversal &&
                 EntityRolePolicy.IsPlayerUnit(source) &&
-                rotationKind != CubeRotationKind.None &&
-                TileFeatureMovementBlockerQuery.TryGetTopologyTransitionTileFeatureBlocker(
-                    snapshot,
-                    destinationCell,
-                    out var topologyTransitionBlocker))
+                rotationKind != CubeRotationKind.None)
             {
-                var transitionBlockedLegality = LegalityResult.Blocked(
-                    LegalityDomain.Traversal,
-                    destinationCell,
-                    movementTopology,
-                    RuntimeLegalityBlockerFactory.CreateTileFeature(topologyTransitionBlocker),
-                    transitionRequirement: TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology));
-                AddPlayerTopologyTransitionBlockedSignalIfNeeded(
-                    playerTopologyTransitionBlockedSignals,
+                var transitionContext = CreateTraverseContext(
                     snapshot,
                     source,
-                    intent,
-                    stepFacing,
                     destinationCell,
+                    movementTopology,
                     rotationKind,
-                    updatedTopology,
-                    traversalStepResolved,
-                    transitionBlockedLegality);
-                var actorRef = BuildActorRef(snapshot, source);
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(destinationCell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(transitionBlockedLegality, actorRef.SpatialState)}");
-                return;
+                    updatedTopology);
+                var transitionLegality = RuntimeTraversalLegalityPolicy.EvaluateTopologyTransitionTileFeatureGuard(
+                    transitionContext,
+                    new TileFeatureTraversalEvidence(tileFeatureDefinitions));
+                if (transitionLegality.Verdict == LegalityVerdict.Blocked)
+                {
+                    AddPlayerTopologyTransitionBlockedSignalIfNeeded(
+                        playerTopologyTransitionBlockedSignals,
+                        snapshot,
+                        source,
+                        intent,
+                        stepFacing,
+                        destinationCell,
+                        rotationKind,
+                        updatedTopology,
+                        traversalStepResolved,
+                        transitionLegality);
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(destinationCell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(transitionLegality, transitionContext.Actor.SpatialState)}");
+                    return;
+                }
             }
 
             if (intent.CommandKind == MovementCommandKind.Move &&
@@ -378,9 +382,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 destinationCell,
                 movementTopology,
                 rotationKind,
-                updatedTopology,
-                tileFeatureDefinitions);
-            var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(movementContext);
+                updatedTopology);
+            var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                movementContext,
+                new TileFeatureTraversalEvidence(tileFeatureDefinitions));
             if (movementLegality.Verdict == LegalityVerdict.Blocked)
             {
                 AddPlayerTopologyTransitionBlockedSignalIfNeeded(
@@ -1323,8 +1328,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             SurfaceCell candidateCell,
             CubeTopologyState evaluationTopology,
             CubeRotationKind rotationKind,
-            CubeTopologyState updatedTopology,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            CubeTopologyState updatedTopology)
         {
             return new TraverseContext(
                 snapshot,
@@ -1334,8 +1338,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 evaluationTopology,
                 rotationKind == CubeRotationKind.None
                     ? TransitionRequirement.None
-                    : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
-                tileFeatureDefinitions: tileFeatureDefinitions);
+                    : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology));
         }
 
         private static SettlementContext CreateSettlementContext(

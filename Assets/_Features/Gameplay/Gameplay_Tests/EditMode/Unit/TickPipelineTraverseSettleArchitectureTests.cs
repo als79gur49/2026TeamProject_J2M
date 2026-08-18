@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "EnumerateUnitsAt(",
             "TryResolveContestedJumpLandingTarget(",
             "EnemyJumpPhase.Airborne",
+            "TileFeatureMovementBlockerQuery.",
+            "BarricadeEffectiveActivationPolicy.",
         };
 
         private static readonly string[] ImpactForbiddenTokens =
@@ -26,6 +28,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "TryGetSolidSemanticAt(",
             "EntityBoardPresence.Detached",
             "EnemyJumpPhase.Airborne",
+            "TileFeatureMovementBlockerQuery.",
+            "BarricadeEffectiveActivationPolicy.",
         };
 
         [Test]
@@ -40,6 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateJumpCrushLandingCell("));
             Assert.That(body, Does.Contain("new SettlementContext("));
             Assert.That(body, Does.Contain("new JumpLandingEvidence("));
+            Assert.That(body, Does.Contain("_tileFeatureSettlementEvidence"));
             Assert.That(body, Does.Not.Contain("payload.CrushedBoxEntityId"));
         }
 
@@ -54,6 +59,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThroughDetailed("));
             Assert.That(body, Does.Contain("new SettlementContext("));
             Assert.That(body, Does.Contain("new ImpactFollowThroughEvidence("));
+            Assert.That(body, Does.Contain("_tileFeatureSettlementEvidence"));
         }
 
         private static void AssertContainsNoForbiddenTokens(string source, string[] forbiddenTokens)

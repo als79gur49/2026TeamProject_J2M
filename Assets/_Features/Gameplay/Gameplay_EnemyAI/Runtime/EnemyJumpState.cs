@@ -205,6 +205,7 @@ namespace Game.Feature.Gameplay.Entities
             landingCell = default;
             landingRule = string.Empty;
             var actorRef = BuildActorRef(snapshot, source);
+            var tileFeatureSettlementEvidence = new TileFeatureSettlementEvidence(tileFeatureDefinitions);
             var hasRiskLanding = false;
             var riskLandingCell = default(SurfaceCell);
             var riskLandingRule = string.Empty;
@@ -215,8 +216,8 @@ namespace Game.Feature.Gameplay.Entities
                         actorRef,
                         jumpState.lockedTargetCell,
                         snapshot.Topology,
-                        SpatialState.Anchored,
-                        tileFeatureDefinitions: tileFeatureDefinitions)).Verdict == LegalityVerdict.Allowed)
+                        SpatialState.Anchored),
+                    tileFeatureSettlementEvidence).Verdict == LegalityVerdict.Allowed)
             {
                 if (EvaluateLandingRisk(snapshot, tileFeatureDefinitions, source, jumpState.lockedTargetCell) == TileApproachRisk.Neutral)
                 {
@@ -244,6 +245,7 @@ namespace Game.Feature.Gameplay.Entities
                     orderedOffsets,
                     "Target",
                     tileFeatureDefinitions,
+                    tileFeatureSettlementEvidence,
                     source,
                     out landingCell,
                     out landingRule,
@@ -260,8 +262,8 @@ namespace Game.Feature.Gameplay.Entities
                         actorRef,
                         jumpState.sourceCell,
                         snapshot.Topology,
-                        SpatialState.Anchored,
-                        tileFeatureDefinitions: tileFeatureDefinitions)).Verdict == LegalityVerdict.Allowed)
+                        SpatialState.Anchored),
+                    tileFeatureSettlementEvidence).Verdict == LegalityVerdict.Allowed)
             {
                 if (EvaluateLandingRisk(snapshot, tileFeatureDefinitions, source, jumpState.sourceCell) == TileApproachRisk.Neutral)
                 {
@@ -285,6 +287,7 @@ namespace Game.Feature.Gameplay.Entities
                 orderedOffsets,
                 "Source",
                 tileFeatureDefinitions,
+                tileFeatureSettlementEvidence,
                 source,
                 out landingCell,
                 out landingRule,
@@ -312,6 +315,7 @@ namespace Game.Feature.Gameplay.Entities
             IReadOnlyList<(Vector2Int Offset, string Rule)> orderedOffsets,
             string prefix,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            TileFeatureSettlementEvidence tileFeatureSettlementEvidence,
             in EntityState source,
             out SurfaceCell landingCell,
             out string landingRule,
@@ -328,8 +332,8 @@ namespace Game.Feature.Gameplay.Entities
                             actorRef,
                             candidate,
                             snapshot.Topology,
-                            SpatialState.Anchored,
-                            tileFeatureDefinitions: tileFeatureDefinitions)).Verdict != LegalityVerdict.Allowed)
+                            SpatialState.Anchored),
+                        tileFeatureSettlementEvidence).Verdict != LegalityVerdict.Allowed)
                 {
                     continue;
                 }

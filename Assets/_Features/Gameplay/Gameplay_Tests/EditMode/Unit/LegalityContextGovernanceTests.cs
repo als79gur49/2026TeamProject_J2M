@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -23,9 +24,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "EvaluationTopology",
                 "TransitionRequirement",
                 "ReservationStatus",
-                "TileFeatureDefinitions",
             }));
-            Assert.That(properties, Has.Length.EqualTo(8));
+            Assert.That(properties, Has.Length.EqualTo(7));
         }
 
         [Test]
@@ -69,6 +69,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TypedEvidence_RemainsOutsideBaseContextShape()
         {
             Assert.That(
+                GetPublicInstanceProperties(typeof(TileFeatureTraversalEvidence)).Select(property => property.Name),
+                Is.EquivalentTo(new[]
+                {
+                    "Definitions",
+                }));
+            Assert.That(
+                GetPublicInstanceProperties(typeof(TileFeatureSettlementEvidence)).Select(property => property.Name),
+                Is.EquivalentTo(new[]
+                {
+                    "Definitions",
+                }));
+            Assert.That(
                 GetPublicInstanceProperties(typeof(JumpLandingEvidence)).Select(property => property.Name),
                 Is.EquivalentTo(new[]
                 {
@@ -85,6 +97,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "DestroyResolutions",
                     "IgnoreActiveGlideOccupants",
                 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureEvidence_DistinguishesExplicitEmptyFromMissingInput()
+        {
+            Assert.Throws<ArgumentNullException>(() => new TileFeatureTraversalEvidence(null));
+            Assert.Throws<InvalidOperationException>(() => _ = default(TileFeatureTraversalEvidence).Definitions);
+            Assert.That(TileFeatureTraversalEvidence.Empty.Definitions, Is.Empty);
+
+            Assert.Throws<ArgumentNullException>(() => new TileFeatureSettlementEvidence(null));
+            Assert.Throws<InvalidOperationException>(() => _ = default(TileFeatureSettlementEvidence).Definitions);
+            Assert.That(TileFeatureSettlementEvidence.Empty.Definitions, Is.Empty);
         }
 
         private static PropertyInfo[] GetPublicInstanceProperties(System.Type type)
