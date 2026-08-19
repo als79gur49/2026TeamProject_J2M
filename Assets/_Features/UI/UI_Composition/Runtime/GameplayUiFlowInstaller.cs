@@ -54,11 +54,11 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private UiAudioCueMap _uiAudioCueMap;
         [SerializeField] private GameplayStageLaunchRouteConfig _routeConfig;
-        [SerializeField] private SlotCinematicDefinition _slotCinematicDefinition;
+        [SerializeField] private ComicCinematicSequenceDefinition _outroComicCinematicDefinition;
         [SerializeField] private DemoStageControlSettings _demoStageControlSettings = DemoStageControlSettings.EnabledByDefault();
         [SerializeField] private bool _installOnStart = true;
 
-        private CinematicFlowCoordinator _cinematicFlowCoordinator;
+        private ComicCinematicFlowCoordinator _cinematicFlowCoordinator;
         private CampaignStageSequenceResolver _campaignStageSequenceResolver;
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
@@ -963,7 +963,7 @@ namespace Game.Feature.UI.Composition
                 () => ScreenController != null && ScreenController.CurrentScreenId == ScreenId.GameClear);
         }
 
-        private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()
+        private ComicCinematicFlowCoordinator EnsureCinematicFlowCoordinator()
         {
             if (_cinematicFlowCoordinator != null)
             {
@@ -971,14 +971,14 @@ namespace Game.Feature.UI.Composition
             }
 
             var overlay = _rootView != null
-                ? _rootView.GetComponentInChildren<CinematicVideoOverlayView>(includeInactive: true)
+                ? _rootView.GetComponentInChildren<ComicCinematicOverlayView>(includeInactive: true)
                 : null;
             if (overlay == null)
             {
                 var parent = _rootView != null ? _rootView.transform : transform;
-                var overlayObject = new GameObject("CinematicVideoOverlay", typeof(RectTransform));
+                var overlayObject = new GameObject("ComicCinematicOverlay", typeof(RectTransform));
                 overlayObject.transform.SetParent(parent, false);
-                overlay = overlayObject.AddComponent<CinematicVideoOverlayView>();
+                overlay = overlayObject.AddComponent<ComicCinematicOverlayView>();
                 overlayObject.SetActive(false);
             }
 
@@ -989,8 +989,9 @@ namespace Game.Feature.UI.Composition
                 audioFocus = gameObject.AddComponent<CinematicAudioFocusController>();
             }
 
-            _cinematicFlowCoordinator = new CinematicFlowCoordinator(
-                _slotCinematicDefinition,
+            _cinematicFlowCoordinator = new ComicCinematicFlowCoordinator(
+                null,
+                _outroComicCinematicDefinition,
                 overlay,
                 audioFocus);
             return _cinematicFlowCoordinator;

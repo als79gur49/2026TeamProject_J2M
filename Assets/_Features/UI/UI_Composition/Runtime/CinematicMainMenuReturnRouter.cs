@@ -11,14 +11,14 @@ namespace Game.Feature.UI.Composition
         private readonly ActiveSlotProvider _activeSlotProvider;
         private readonly Func<bool> _isFinalClearMainReturn;
         private readonly IMainMenuReturnRouter _inner;
-        private readonly ISlotCinematicPlayer _player;
+        private readonly ICinematicSequencePlayer _player;
         private readonly SlotCinematicProgressStore _progressStore;
 
         public CinematicMainMenuReturnRouter(
             IMainMenuReturnRouter inner,
             ICampaignSaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
-            ISlotCinematicPlayer player,
+            ICinematicSequencePlayer player,
             Func<bool> isFinalClearMainReturn)
             : this(inner, new SlotCinematicProgressStore(saveSlotStore), activeSlotProvider, player, isFinalClearMainReturn)
         {
@@ -28,7 +28,7 @@ namespace Game.Feature.UI.Composition
             IMainMenuReturnRouter inner,
             SlotCinematicProgressStore progressStore,
             ActiveSlotProvider activeSlotProvider,
-            ISlotCinematicPlayer player,
+            ICinematicSequencePlayer player,
             Func<bool> isFinalClearMainReturn)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
@@ -51,7 +51,7 @@ namespace Game.Feature.UI.Composition
 
             if (!_isFinalClearMainReturn() ||
                 !_activeSlotProvider.TryGetActiveSlotNumber(out var slotNumber) ||
-                !_player.HasOutroClip ||
+                !_player.HasOutroContent ||
                 _progressStore.IsOutroPlayed(slotNumber))
             {
                 _inner.ReturnToMainMenu(transitionIntent);

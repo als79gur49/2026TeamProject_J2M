@@ -419,7 +419,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 ExtractSourceRange(
                     ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
                     "private IMainMenuReturnRouter CreateMainMenuReturnRouter()",
-                    "private CinematicFlowCoordinator EnsureCinematicFlowCoordinator()"));
+                    "private ComicCinematicFlowCoordinator EnsureCinematicFlowCoordinator()"));
             AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
                 "DirectPlay production overwrite branch",
                 CampaignSaveSourceContractGuard.ExtractMethod(

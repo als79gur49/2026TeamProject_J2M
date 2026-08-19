@@ -11,14 +11,14 @@ namespace Game.Feature.UI.Composition
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
         private readonly ICinematicOpaqueHandoffCancellationOwner
             _opaqueHandoffCancellationOwner;
-        private readonly ISlotCinematicPlayer _player;
+        private readonly ICinematicSequencePlayer _player;
         private readonly SlotCinematicProgressStore _progressStore;
 
         public CinematicStageLaunchRouter(
             IStageLaunchRouter inner,
             ICampaignSaveSlotStore saveSlotStore,
             ICampaignLaunchHandoffStore launchHandoffStore,
-            ISlotCinematicPlayer player)
+            ICinematicSequencePlayer player)
             : this(inner, new SlotCinematicProgressStore(saveSlotStore), launchHandoffStore, player)
         {
         }
@@ -27,7 +27,7 @@ namespace Game.Feature.UI.Composition
             IStageLaunchRouter inner,
             SlotCinematicProgressStore progressStore,
             ICampaignLaunchHandoffStore launchHandoffStore,
-            ISlotCinematicPlayer player)
+            ICinematicSequencePlayer player)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _progressStore = progressStore ?? throw new ArgumentNullException(nameof(progressStore));
@@ -60,7 +60,7 @@ namespace Game.Feature.UI.Composition
                     "Main menu cinematic launch request does not match the pending campaign launch handoff.");
             }
 
-            if (!_player.HasIntroClip ||
+            if (!_player.HasIntroContent ||
                 _progressStore.IsIntroPlayed(handoff.SlotNumber))
             {
                 LaunchOrClear(request, handoff);
@@ -110,7 +110,6 @@ namespace Game.Feature.UI.Composition
                     switch (result.Kind)
                     {
                         case CinematicPlaybackCompletionKind.Completed:
-                        case CinematicPlaybackCompletionKind.Skipped:
                             try
                             {
                                 LaunchOrClear(

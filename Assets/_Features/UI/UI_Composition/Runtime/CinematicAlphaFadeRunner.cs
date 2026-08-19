@@ -4,7 +4,7 @@ namespace Game.Feature.UI.Composition
 {
     internal sealed class CinematicAlphaFadeRunner
     {
-        private CinematicFadeSettings _settings;
+        private CinematicFadeEase _ease;
         private float _from;
         private float _to;
         private float _duration;
@@ -16,9 +16,9 @@ namespace Game.Feature.UI.Composition
 
         public float Progress => _duration <= 0f ? 1f : Mathf.Clamp01(_elapsed / _duration);
 
-        public bool Begin(float from, float to, float duration, CinematicFadeSettings settings)
+        public bool Begin(float from, float to, float duration, CinematicFadeEase ease)
         {
-            _settings = settings;
+            _ease = ease;
             _from = Mathf.Clamp01(from);
             _to = Mathf.Clamp01(to);
             _duration = Mathf.Max(0f, duration);
@@ -44,7 +44,10 @@ namespace Game.Feature.UI.Composition
             }
 
             _elapsed = Mathf.Min(_duration, _elapsed + Mathf.Max(0f, deltaSeconds));
-            var easedProgress = _settings.Evaluate(Progress);
+            var progress = Progress;
+            var easedProgress = _ease == CinematicFadeEase.Linear
+                ? progress
+                : progress * progress * (3f - 2f * progress);
             CurrentAlpha = Mathf.Lerp(_from, _to, easedProgress);
 
             if (_elapsed < _duration)
@@ -59,7 +62,7 @@ namespace Game.Feature.UI.Composition
 
         public void Reset()
         {
-            _settings = default;
+            _ease = default;
             _from = 0f;
             _to = 0f;
             _duration = 0f;

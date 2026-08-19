@@ -504,7 +504,7 @@ namespace Game.Feature.UI.Tests
             var mainMenu = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
             var cinematic = File.ReadAllText(
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicVideoOverlayView.cs");
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicCinematicOverlayView.cs");
             var profile = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisMotionProfile.cs");
 

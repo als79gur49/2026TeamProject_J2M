@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e25a3dfb7bb34978aa1e655b5c81f4b0, type: 3}
+  m_Name: IntroComicSequence_CampaignMain
+  m_EditorClassIdentifier: 
+  _pages:
+  - _panels:
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290101, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 14, y: 33, width: 619, height: 284}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290102, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 30, y: 406, width: 868, height: 526}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290103, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 1097, y: 30, width: 626, height: 375}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290104, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 1023, y: 473, width: 379, height: 331}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290105, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 1383, y: 456, width: 514, height: 604}
+  - _panels:
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290201, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 14, y: 116, width: 366, height: 206}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290202, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 399, y: 142, width: 513, height: 385}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290203, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 1089, y: 48, width: 622, height: 247}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290204, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 53, y: 558, width: 638, height: 498}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290205, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 984, y: 360, width: 397, height: 650}
+    - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290206, type: 3}
+      _referenceRect: {serializedVersion: 2, x: 1392, y: 396, width: 513, height: 384}
+  _finalBeforeSprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290301, type: 3}
+  _finalAfterSprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290302, type: 3}
+  _audioClip: {fileID: 8300000, guid: c91f4af0cdd246f68c28bad4b1290401, type: 3}
+  _timing:
+    _enterFadeDuration: 0.25
+    _panelRevealDuration: 0.18
+    _pageFadeOutDuration: 0.3
+    _pageFadeInDuration: 0.25
+    _finalSwapFadeOutDuration: 0.35
+    _finalSwapBlackHoldDuration: 0.1
+    _finalSwapFadeInDuration: 0.5
+    _exitFadeDuration: 0.3
+    _fadeColor: {r: 0, g: 0, b: 0, a: 1}
+    _fadeEase: 0

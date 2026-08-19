@@ -20,7 +20,6 @@
     "Game.Feature.Flow.Audio",
     "Unity.Cinemachine",
     "Unity.InputSystem",
-    "UnityEngine.VideoModule",
     "Unity.Splines",
     "Unity.TextMeshPro",
     "Unity.Localization",
