@@ -129,8 +129,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1386 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("result `1386 total / 0 failed`, failed tests `none`, failure category `none`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `1324 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("result `1324 total / 0 failed`, failed tests `none`, failure category `none`"));
             Assert.That(resultSection, Does.Contain("CommandLine-20260726-052954"));
             Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
