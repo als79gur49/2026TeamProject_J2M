@@ -417,6 +417,18 @@ namespace Game.Feature.Stages
             try
             {
                 dto = JsonUtility.FromJson<SaveSlotStoreDto>(rawPayload);
+                if (!SaveSlotStoreDtoValidator.IsCurrentDtoValid(dto, out var invalidReason))
+                {
+                    return CreateResult(
+                        IsUnsupportedDto(dto)
+                            ? CampaignLegacyImportStatus.UnsupportedSchema
+                            : CampaignLegacyImportStatus.InvalidPayload,
+                        null,
+                        importedSourceHash,
+                        invalidReason,
+                        true,
+                        false);
+                }
             }
             catch (Exception exception)
             {
@@ -425,19 +437,6 @@ namespace Game.Feature.Stages
                     null,
                     importedSourceHash,
                     exception.Message,
-                    true,
-                    false);
-            }
-
-            if (!SaveSlotStoreDtoValidator.IsCurrentDtoValid(dto, out var invalidReason))
-            {
-                return CreateResult(
-                    IsUnsupportedDto(dto)
-                        ? CampaignLegacyImportStatus.UnsupportedSchema
-                        : CampaignLegacyImportStatus.InvalidPayload,
-                    null,
-                    importedSourceHash,
-                    invalidReason,
                     true,
                     false);
             }
