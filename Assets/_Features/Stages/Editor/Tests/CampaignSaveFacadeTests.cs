@@ -284,13 +284,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs"),
                 Does.Contain("ICampaignSaveSlotStore"));
             Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/SlotCinematicProgressStore.cs"),
+                ReadAssetText("_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs"),
                 Does.Contain("ICampaignSaveSlotStore"));
             Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs"),
+                ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs"),
                 Does.Contain("ICampaignSaveSlotStore"));
             Assert.That(
-                ReadAssetText("_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs"),
+                ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs"),
                 Does.Contain("ICampaignSaveSlotStore"));
             Assert.That(
                 ReadAssetText("_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs"),
@@ -307,14 +307,14 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void MainMenuGameplayCinematicAndValidationUseProviderBackedStore()
+        public void MainMenuGameplayComicFlowAndValidationUseProviderBackedStore()
         {
             Assert.That(
                 ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
                 Does.Contain("var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
             Assert.That(
                 ReadAssetText("_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs"),
-                Does.Contain("new CinematicStageLaunchRouter("));
+                Does.Contain("new ComicIntroStageLaunchRouter("));
             Assert.That(
                 ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
                 Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
@@ -335,8 +335,8 @@ namespace Game.Feature.Stages.Editor.Tests
             var gameplayFlow = ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs");
             var chancesReadSource = ReadAssetText("_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs");
             var gameplayUiInstaller = ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
-            var cinematicLaunch = ReadAssetText("_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs");
-            var cinematicReturn = ReadAssetText("_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs");
+            var comicIntroLaunch = ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs");
+            var comicOutroReturn = ReadAssetText("_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs");
             var directPlayLauncher = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs");
             var gameplayProductionBranch = CampaignSaveSourceContractGuard.ExtractTailFromToken(
                 CampaignSaveSourceContractGuard.ExtractMethod(
@@ -355,8 +355,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(chancesReadSource, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
 
             Assert.That(gameplayUiInstaller, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
-            Assert.That(cinematicLaunch, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
-            Assert.That(cinematicReturn, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
+            Assert.That(comicIntroLaunch, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
+            Assert.That(comicOutroReturn, Does.Contain("ICampaignSaveSlotStore saveSlotStore"));
             Assert.That(directPlayProduction, Does.Contain("CampaignSaveCompositionProvider.CreateProductionProfileBacked()"));
 
             var productionConsumers = new[]
@@ -367,8 +367,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 ("Gameplay campaign flow", gameplayFlow),
                 ("Gameplay chances source", chancesReadSource),
                 ("Gameplay UI composition", gameplayUiInstaller),
-                ("Cinematic launch", cinematicLaunch),
-                ("Cinematic return", cinematicReturn),
+                ("Comic intro launch", comicIntroLaunch),
+                ("Comic outro return", comicOutroReturn),
                 ("Editor production-slot overwrite", directPlayProduction),
             };
             foreach (var (consumerName, source) in productionConsumers)
@@ -415,11 +415,11 @@ namespace Game.Feature.Stages.Editor.Tests
                     ensureCampaignStores,
                     "_saveSlotStore ??= CampaignSaveCompositionProvider.CreateProductionProfileBacked();"));
             AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
-                "Gameplay cinematic return router",
+                "Gameplay comic outro return router",
                 ExtractSourceRange(
                     ReadAssetText("_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs"),
                     "private IMainMenuReturnRouter CreateMainMenuReturnRouter()",
-                    "private ComicCinematicFlowCoordinator EnsureCinematicFlowCoordinator()"));
+                    "private ComicSequenceFlowCoordinator EnsureComicSequenceFlowCoordinator()"));
             AssertProductionBranchDoesNotUsePlayerPrefsCampaignStorage(
                 "DirectPlay production overwrite branch",
                 CampaignSaveSourceContractGuard.ExtractMethod(
@@ -435,9 +435,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 "_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs",
                 "_Features/UI/UI_Application/Runtime/MainMenuController.cs",
                 "_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
-                "_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs",
-                "_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs",
-                "_Features/UI/UI_Composition/Runtime/SlotCinematicProgressStore.cs",
+                "_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
+                "_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
                 "_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
                 "_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs",
             };

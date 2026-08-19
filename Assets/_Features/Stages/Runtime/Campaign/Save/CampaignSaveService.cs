@@ -102,9 +102,9 @@ namespace Game.Feature.Stages
 
         public bool? CampaignCompleted { get; set; }
 
-        public bool? IntroPlayed { get; set; }
+        public bool? IntroComicCompleted { get; set; }
 
-        public bool? OutroPlayed { get; set; }
+        public bool? OutroComicCompleted { get; set; }
 
         public int? TotalDeaths { get; set; }
 
@@ -164,11 +164,11 @@ namespace Game.Feature.Stages
         public int ClearCountIncrement { get; set; } = 1;
     }
 
-    public sealed class CampaignCinematicFlagUpdate
+    public sealed class CampaignComicProgressUpdate
     {
         public string StageId { get; set; }
 
-        public bool Played { get; set; } = true;
+        public bool Completed { get; set; } = true;
     }
 
     public interface ICampaignSaveResetMarkerPort
@@ -371,8 +371,8 @@ namespace Game.Feature.Stages
                     RemainingChances = SaveSlotStore.DefaultRemainingChances,
                     CampaignCompleted = false,
                     NormalCampaignCompletionReceipt = null,
-                    IntroPlayed = false,
-                    OutroPlayed = false,
+                    IntroComicCompleted = false,
+                    OutroComicCompleted = false,
                     TotalDeaths = 0,
                     LastPlayedAtUtc = lastPlayedAtUtc,
                     StageClearProfileSnapshot = new CampaignStageClearProfileDocument(),
@@ -618,14 +618,14 @@ namespace Game.Feature.Stages
             });
         }
 
-        public CampaignSaveServiceResult SetIntroPlayed(int slotNumber, string stageId)
+        public CampaignSaveServiceResult SetIntroComicCompleted(int slotNumber, string stageId)
         {
-            return SetCinematicFlag(slotNumber, new CampaignCinematicFlagUpdate { StageId = stageId, Played = true }, intro: true);
+            return SetComicCompletion(slotNumber, new CampaignComicProgressUpdate { StageId = stageId, Completed = true }, intro: true);
         }
 
-        public CampaignSaveServiceResult SetOutroPlayed(int slotNumber, string stageId)
+        public CampaignSaveServiceResult SetOutroComicCompleted(int slotNumber, string stageId)
         {
-            return SetCinematicFlag(slotNumber, new CampaignCinematicFlagUpdate { StageId = stageId, Played = true }, intro: false);
+            return SetComicCompletion(slotNumber, new CampaignComicProgressUpdate { StageId = stageId, Completed = true }, intro: false);
         }
 
         public CampaignSaveServiceResult GetStageClearProfile(int slotNumber)
@@ -643,9 +643,9 @@ namespace Game.Feature.Stages
                 "Campaign stage clear profile loaded.");
         }
 
-        private CampaignSaveServiceResult SetCinematicFlag(
+        private CampaignSaveServiceResult SetComicCompletion(
             int slotNumber,
-            CampaignCinematicFlagUpdate update,
+            CampaignComicProgressUpdate update,
             bool intro)
         {
             if (!SaveSlotStore.IsValidSlotNumber(slotNumber))
@@ -673,11 +673,11 @@ namespace Game.Feature.Stages
 
                 if (intro)
                 {
-                    slot.IntroPlayed = update.Played;
+                    slot.IntroComicCompleted = update.Completed;
                 }
                 else
                 {
-                    slot.OutroPlayed = update.Played;
+                    slot.OutroComicCompleted = update.Completed;
                 }
 
                 TouchSlot(slot, now);
@@ -685,7 +685,9 @@ namespace Game.Feature.Stages
                 return CampaignSaveServiceResult.Success(
                     document,
                     CloneSlot(slot),
-                    message: intro ? "Intro cinematic flag saved." : "Outro cinematic flag saved.");
+                    message: intro
+                        ? "Intro comic completion saved."
+                        : "Outro comic completion saved.");
             });
         }
 
@@ -808,14 +810,14 @@ namespace Game.Feature.Stages
                     update.NormalCampaignCompletionReceipt);
             }
 
-            if (update.IntroPlayed.HasValue)
+            if (update.IntroComicCompleted.HasValue)
             {
-                slot.IntroPlayed = update.IntroPlayed.Value;
+                slot.IntroComicCompleted = update.IntroComicCompleted.Value;
             }
 
-            if (update.OutroPlayed.HasValue)
+            if (update.OutroComicCompleted.HasValue)
             {
-                slot.OutroPlayed = update.OutroPlayed.Value;
+                slot.OutroComicCompleted = update.OutroComicCompleted.Value;
             }
 
             if (update.TotalDeaths.HasValue)
@@ -1198,8 +1200,8 @@ namespace Game.Feature.Stages
                     slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CloneReceipt(
                     slot.NormalCampaignCompletionReceipt),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = CloneStageClearProfile(slot.StageClearProfileSnapshot),

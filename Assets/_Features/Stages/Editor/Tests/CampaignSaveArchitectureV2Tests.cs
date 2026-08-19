@@ -23,7 +23,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var document = new CampaignProfileDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = "test-product",
                 SavedAtUtc = "2026-07-06T09:00:00Z",
                 ProfileId = "profile-a",
@@ -53,8 +53,8 @@ namespace Game.Feature.Stages.Editor.Tests
                         LevelGroupId = "level-1",
                         RemainingChances = 3,
                         CampaignCompleted = false,
-                        IntroPlayed = true,
-                        OutroPlayed = true,
+                        IntroComicCompleted = true,
+                        OutroComicCompleted = true,
                         TotalDeaths = 5,
                         LastPlayedAtUtc = "2026-07-06T11:00:00Z",
                         StageClearProfileSnapshot = new CampaignStageClearProfileDocument
@@ -81,7 +81,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var json = JsonUtility.ToJson(document);
             var roundTripped = JsonUtility.FromJson<CampaignProfileDocument>(json);
 
-            Assert.That(roundTripped.SchemaVersion, Is.EqualTo(1));
+            Assert.That(roundTripped.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(roundTripped.ProductVersion, Is.EqualTo("test-product"));
             Assert.That(roundTripped.SavedAtUtc, Is.EqualTo("2026-07-06T09:00:00Z"));
             Assert.That(roundTripped.ProfileId, Is.EqualTo("profile-a"));
@@ -100,8 +100,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(roundTripped.Slots[0].LevelGroupId, Is.EqualTo("level-1"));
             Assert.That(roundTripped.Slots[0].RemainingChances, Is.EqualTo(3));
             Assert.That(roundTripped.Slots[0].CampaignCompleted, Is.False);
-            Assert.That(roundTripped.Slots[0].IntroPlayed, Is.True);
-            Assert.That(roundTripped.Slots[0].OutroPlayed, Is.True);
+            Assert.That(roundTripped.Slots[0].IntroComicCompleted, Is.True);
+            Assert.That(roundTripped.Slots[0].OutroComicCompleted, Is.True);
             Assert.That(roundTripped.Slots[0].TotalDeaths, Is.EqualTo(5));
             Assert.That(roundTripped.Slots[0].LastPlayedAtUtc, Is.EqualTo("2026-07-06T11:00:00Z"));
             Assert.That(roundTripped.Slots[0].StageClearProfileSnapshot.Version, Is.EqualTo(7));
@@ -125,8 +125,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 LevelGroupId = "level-2",
                 RemainingChances = 1,
                 CampaignCompleted = true,
-                IntroPlayed = true,
-                OutroPlayed = true,
+                IntroComicCompleted = true,
+                OutroComicCompleted = true,
                 TotalDeaths = 12,
                 LastPlayedAtUtc = "2026-07-06T12:00:00Z",
             };
@@ -134,8 +134,8 @@ namespace Game.Feature.Stages.Editor.Tests
             var json = JsonUtility.ToJson(document);
             var roundTripped = JsonUtility.FromJson<CampaignSlotDocument>(json);
 
-            Assert.That(roundTripped.IntroPlayed, Is.True);
-            Assert.That(roundTripped.OutroPlayed, Is.True);
+            Assert.That(roundTripped.IntroComicCompleted, Is.True);
+            Assert.That(roundTripped.OutroComicCompleted, Is.True);
             Assert.That(roundTripped.TotalDeaths, Is.EqualTo(12));
         }
 
@@ -194,7 +194,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "2026-07-06T13:00:00Z",
                 "test-product");
 
-            Assert.That(document.SchemaVersion, Is.EqualTo(1));
+            Assert.That(document.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(document.ProductVersion, Is.EqualTo("test-product"));
             Assert.That(document.SavedAtUtc, Is.EqualTo("2026-07-06T13:00:00Z"));
             Assert.That(document.ProfileId, Is.EqualTo("profile-lossless"));
@@ -448,8 +448,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result.Document.ProfileId, Is.EqualTo(document.ProfileId));
             Assert.That(result.Document.Slots, Has.Length.EqualTo(1));
             Assert.That(result.Document.Slots[0].StageId, Is.EqualTo(document.Slots[0].StageId));
-            Assert.That(result.Document.Slots[0].IntroPlayed, Is.EqualTo(document.Slots[0].IntroPlayed));
-            Assert.That(result.Document.Slots[0].OutroPlayed, Is.EqualTo(document.Slots[0].OutroPlayed));
+            Assert.That(result.Document.Slots[0].IntroComicCompleted, Is.EqualTo(document.Slots[0].IntroComicCompleted));
+            Assert.That(result.Document.Slots[0].OutroComicCompleted, Is.EqualTo(document.Slots[0].OutroComicCompleted));
             Assert.That(result.Document.Slots[0].TotalDeaths, Is.EqualTo(document.Slots[0].TotalDeaths));
             Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Version, Is.EqualTo(2));
             Assert.That(result.Document.Slots[0].StageClearProfileSnapshot.Records, Has.Length.EqualTo(1));
@@ -509,7 +509,9 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             using var harness = CreateHarness();
             Directory.CreateDirectory(harness.SaveRootPath);
-            File.WriteAllText(harness.ProfilePath, "{\"SchemaVersion\":1,\"ProfileId\":\"profile-no-slots\"}");
+            File.WriteAllText(
+                harness.ProfilePath,
+                $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"profile-no-slots\"}}");
 
             var result = harness.Repository.Load();
 
@@ -519,20 +521,35 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignProfileRepository_OldProfileWithoutDeletedSlotGuardsLoadsSuccessfully()
+        public void CampaignProfileRepository_CurrentProfileWithoutDeletedSlotGuardsLoadsSuccessfully()
         {
             using var harness = CreateHarness();
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(
                 harness.ProfilePath,
-                "{\"SchemaVersion\":1,\"ProfileId\":\"profile-old\",\"LegacyImport\":{\"ImportedSourceHash\":\"source-hash\"}}");
+                $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"profile-current\",\"LegacyImport\":{{\"ImportedSourceHash\":\"source-hash\"}}}}");
 
             var result = harness.Repository.Load();
 
             Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.Loaded));
             Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Not.Null);
             Assert.That(result.Document.LegacyImport.DeletedSlotGuards, Is.Empty);
-            Assert.That(result.Document.SchemaVersion, Is.EqualTo(1));
+            Assert.That(result.Document.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
+        }
+
+        [Test]
+        public void CampaignProfileRepository_PreviousSchemaIsRejected()
+        {
+            using var harness = CreateHarness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(
+                harness.ProfilePath,
+                "{\"SchemaVersion\":1,\"ProfileId\":\"profile-previous\",\"Slots\":[]}");
+
+            var result = harness.Repository.Load();
+
+            Assert.That(result.Status, Is.EqualTo(CampaignProfileLoadStatus.SchemaInvalid));
+            Assert.That(result.HasDocument, Is.False);
         }
 
         [Test]
@@ -542,7 +559,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Directory.CreateDirectory(harness.SaveRootPath);
             File.WriteAllText(
                 harness.ProfilePath,
-                "{\"SchemaVersion\":1,\"ProfileId\":\"profile-null-guards\",\"LegacyImport\":{\"DeletedSlotGuards\":null}}");
+                $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"profile-null-guards\",\"LegacyImport\":{{\"DeletedSlotGuards\":null}}}}");
 
             var result = harness.Repository.Load();
 
@@ -615,10 +632,12 @@ namespace Game.Feature.Stages.Editor.Tests
 
             var section = readme.Substring(sectionStart, sectionEnd - sectionStart);
             Assert.That(section, Does.Contain("Saves/profile.json"));
-            Assert.That(section, Does.Contain("SchemaVersion = 1"));
+            Assert.That(
+                section,
+                Does.Contain("`CampaignProfileDocument`의 `SchemaVersion = 2`"));
             Assert.That(section, Does.Contain("Records[]"));
             Assert.That(section, Does.Contain("Game.Feature.Stages.StageClearSaveSlots"));
-            Assert.That(section, Does.Contain("SchemaVersion = 2"));
+            Assert.That(section, Does.Contain("PlayerPrefs DTO는 `SchemaId = StageClearSaveSlots`, `SchemaVersion = 3`"));
             Assert.That(section, Does.Contain("ClearRecordsByStageId[]"));
             Assert.That(section, Does.Contain("Profile `ProcessedStageRunIds`"));
             Assert.That(section, Does.Contain("`ProcessedClearAttemptIds`"));
@@ -638,7 +657,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return new CampaignProfileDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = "test-product",
                 SavedAtUtc = "2026-07-06T09:00:00Z",
                 ProfileId = profileId,
@@ -652,8 +671,8 @@ namespace Game.Feature.Stages.Editor.Tests
                         StageId = "stage-1-1",
                         LevelGroupId = "level-1",
                         RemainingChances = 3,
-                        IntroPlayed = true,
-                        OutroPlayed = false,
+                        IntroComicCompleted = true,
+                        OutroComicCompleted = false,
                         TotalDeaths = 6,
                         LastPlayedAtUtc = "2026-07-06T10:00:00Z",
                         StageClearProfileSnapshot = new CampaignStageClearProfileDocument
@@ -689,8 +708,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 CurrentLevelGroupId = "level-3",
                 RemainingChances = 1,
                 CampaignCompleted = true,
-                IntroPlayed = true,
-                OutroPlayed = true,
+                IntroComicCompleted = true,
+                OutroComicCompleted = true,
                 TotalDeaths = 9,
                 LastPlayedAt = "2026-07-06T14:00:00Z",
                 StageClearProfileSnapshot = new StageClearProfileSnapshot
@@ -728,8 +747,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(document.LevelGroupId, Is.EqualTo(slot.CurrentLevelGroupId));
             Assert.That(document.RemainingChances, Is.EqualTo(slot.RemainingChances));
             Assert.That(document.CampaignCompleted, Is.EqualTo(slot.CampaignCompleted));
-            Assert.That(document.IntroPlayed, Is.EqualTo(slot.IntroPlayed));
-            Assert.That(document.OutroPlayed, Is.EqualTo(slot.OutroPlayed));
+            Assert.That(document.IntroComicCompleted, Is.EqualTo(slot.IntroComicCompleted));
+            Assert.That(document.OutroComicCompleted, Is.EqualTo(slot.OutroComicCompleted));
             Assert.That(document.TotalDeaths, Is.EqualTo(slot.TotalDeaths));
             Assert.That(document.LastPlayedAtUtc, Is.EqualTo(slot.LastPlayedAt));
             Assert.That(document.StageClearProfileSnapshot.Version, Is.EqualTo(slot.StageClearProfileSnapshot.Version));
@@ -756,8 +775,8 @@ namespace Game.Feature.Stages.Editor.Tests
             TestContext.WriteLine("CurrentLevelGroupId | SaveSlotData | yes | CampaignSlotDocument.LevelGroupId | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
             TestContext.WriteLine("RemainingChances | SaveSlotData | yes | CampaignSlotDocument.RemainingChances | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
             TestContext.WriteLine("CampaignCompleted | SaveSlotData | yes | CampaignSlotDocument.CampaignCompleted | yes | CampaignProfileDocumentMapper_MapsSaveSlotDataWithoutKnownLoss");
-            TestContext.WriteLine("IntroPlayed | SaveSlotData | yes | CampaignSlotDocument.IntroPlayed | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
-            TestContext.WriteLine("OutroPlayed | SaveSlotData | yes | CampaignSlotDocument.OutroPlayed | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
+            TestContext.WriteLine("IntroComicCompleted | SaveSlotData | yes | CampaignSlotDocument.IntroComicCompleted | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
+            TestContext.WriteLine("OutroComicCompleted | SaveSlotData | yes | CampaignSlotDocument.OutroComicCompleted | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
             TestContext.WriteLine("TotalDeaths | SaveSlotData | yes | CampaignSlotDocument.TotalDeaths | yes | CampaignSlotDocument_RoundTripsExtendedSlotFieldsThroughJsonUtility");
             TestContext.WriteLine("LastPlayedAt | SaveSlotData | yes | CampaignSlotDocument.LastPlayedAtUtc | yes | CampaignProfileDocument_RoundTripsThroughJsonUtility");
             TestContext.WriteLine("StageClearProfileSnapshot.Version | StageClearProfileSnapshot | yes | CampaignStageClearProfileDocument.Version | yes | CampaignSlotDocument_RoundTripsStageClearProfileRecordsThroughJsonUtility");

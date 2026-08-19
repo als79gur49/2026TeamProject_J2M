@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Composition
 {
-    public enum ComicCinematicPresentationState
+    public enum ComicSequencePresentationState
     {
         Idle = 0,
         Entering = 1,
@@ -20,25 +20,25 @@ namespace Game.Feature.UI.Composition
         Completed = 8,
     }
 
-    internal interface IComicCinematicPlaybackOverlay
+    internal interface IComicSequenceOverlay
     {
-        bool IsPlaying { get; }
-        AudioSource CinematicAudioSource { get; }
+        bool IsPresenting { get; }
+        AudioSource ComicSequenceAudioSource { get; }
         void EnsureHierarchy();
-        void SetAudioFocusController(CinematicAudioFocusController audioFocusController);
-        void Play(
-            ComicCinematicSequenceDefinition definition,
-            CinematicOpaqueHandoffToken opaqueHandoffToken,
-            Action<CinematicPlaybackCompletion> completion);
-        bool AbortSetupAfterFailure(CinematicOpaqueHandoffToken expectedToken);
-        void ReleaseOpaqueHandoff(CinematicOpaqueHandoffToken token);
+        void SetAudioFocusController(ComicSequenceAudioFocusController audioFocusController);
+        void Present(
+            ComicSequenceDefinition definition,
+            ComicSequenceOpaqueHandoffToken opaqueHandoffToken,
+            Action<ComicSequenceResult> completion);
+        bool AbortSetupAfterFailure(ComicSequenceOpaqueHandoffToken expectedToken);
+        void ReleaseOpaqueHandoff(ComicSequenceOpaqueHandoffToken token);
     }
 
     [DisallowMultipleComponent]
-    public sealed class ComicCinematicOverlayView :
+    public sealed class ComicSequenceOverlayView :
         MonoBehaviour,
         IPointerClickHandler,
-        IComicCinematicPlaybackOverlay
+        IComicSequenceOverlay
     {
         private const string UiMapName = "UI";
         private const string SubmitActionName = "Submit";
@@ -63,51 +63,51 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private RectTransform _pageViewport;
         [SerializeField] private AspectRatioFitter _pageFitter;
         [SerializeField] private RectTransform _panelRoot;
-        [SerializeField] private RectTransform _finalViewport;
-        [SerializeField] private AspectRatioFitter _finalFitter;
-        [SerializeField] private Image _finalImage;
+        [SerializeField] private RectTransform _finalTransitionViewport;
+        [SerializeField] private AspectRatioFitter _finalTransitionFitter;
+        [SerializeField] private Image _finalTransitionImage;
         [SerializeField] private Image _blackFadeImage;
-        [SerializeField] private AudioSource _cinematicAudioSource;
+        [SerializeField] private AudioSource _comicSequenceAudioSource;
 
-        private readonly CinematicAlphaFadeRunner _fadeRunner = new();
+        private readonly ComicSequenceAlphaFadeRunner _fadeRunner = new();
         private readonly List<Image> _panelImages = new();
-        private Action<CinematicPlaybackCompletion> _completion;
-        private CinematicAudioFocusController _audioFocusController;
-        private ComicCinematicSequenceDefinition _definition;
-        private ComicCinematicTimingSettings _timing;
+        private Action<ComicSequenceResult> _completion;
+        private ComicSequenceAudioFocusController _audioFocusController;
+        private ComicSequenceDefinition _definition;
+        private ComicSequenceTimingSettings _timing;
         private FadeOperation _fadeOperation;
         private Image _panelBeingRevealed;
         private InputAction _submitAction;
         private bool _submitActionWasEnabled;
-        private CinematicOpaqueHandoffToken _opaqueHandoffToken;
-        private CinematicPlaybackCompletion _pendingCompletion;
+        private ComicSequenceOpaqueHandoffToken _opaqueHandoffToken;
+        private ComicSequenceResult _pendingCompletion;
         private int _currentPageIndex = -1;
         private int _visiblePanelCount;
         private int _opaqueRenderRequestFrame = -1;
         private float _finalBlackHoldRemaining;
         private bool _awaitingOpaqueRender;
         private bool _completionDispatched;
-        private bool _finalBeforeDisplayed;
-        private bool _finalAfterDisplayed;
+        private bool _finalTransitionBeforeDisplayed;
+        private bool _finalTransitionAfterDisplayed;
 
-        public bool IsPlaying { get; private set; }
+        public bool IsPresenting { get; private set; }
 
-        public AudioSource CinematicAudioSource
+        public AudioSource ComicSequenceAudioSource
         {
             get
             {
                 EnsureHierarchy();
-                return _cinematicAudioSource;
+                return _comicSequenceAudioSource;
             }
         }
 
-        public ComicCinematicPresentationState CurrentPresentationState { get; private set; } =
-            ComicCinematicPresentationState.Idle;
+        public ComicSequencePresentationState CurrentPresentationState { get; private set; } =
+            ComicSequencePresentationState.Idle;
 
         internal int CurrentPageIndex => _currentPageIndex;
         internal int VisiblePanelCount => _visiblePanelCount;
-        internal bool IsFinalBeforeDisplayed => _finalBeforeDisplayed;
-        internal bool IsFinalAfterDisplayed => _finalAfterDisplayed;
+        internal bool IsFinalTransitionBeforeDisplayed => _finalTransitionBeforeDisplayed;
+        internal bool IsFinalTransitionAfterDisplayed => _finalTransitionAfterDisplayed;
         internal float CurrentFadeAlpha =>
             _blackFadeImage != null ? _blackFadeImage.color.a : 0f;
         internal IReadOnlyList<Image> PanelImages => _panelImages;
@@ -117,7 +117,7 @@ namespace Game.Feature.UI.Composition
             _inputActions = inputActions;
         }
 
-        public void SetAudioFocusController(CinematicAudioFocusController audioFocusController)
+        public void SetAudioFocusController(ComicSequenceAudioFocusController audioFocusController)
         {
             _audioFocusController = audioFocusController;
         }
@@ -143,45 +143,45 @@ namespace Game.Feature.UI.Composition
             EnsureFinalViewport();
             EnsureBlackFadeLayer();
 
-            _cinematicAudioSource = _cinematicAudioSource != null
-                ? _cinematicAudioSource
+            _comicSequenceAudioSource = _comicSequenceAudioSource != null
+                ? _comicSequenceAudioSource
                 : GetComponent<AudioSource>();
-            if (_cinematicAudioSource == null)
+            if (_comicSequenceAudioSource == null)
             {
-                _cinematicAudioSource = gameObject.AddComponent<AudioSource>();
+                _comicSequenceAudioSource = gameObject.AddComponent<AudioSource>();
             }
 
-            _cinematicAudioSource.playOnAwake = false;
-            _cinematicAudioSource.loop = false;
-            _cinematicAudioSource.spatialBlend = 0f;
+            _comicSequenceAudioSource.playOnAwake = false;
+            _comicSequenceAudioSource.loop = false;
+            _comicSequenceAudioSource.spatialBlend = 0f;
         }
 
-        internal void Play(
-            ComicCinematicSequenceDefinition definition,
-            CinematicOpaqueHandoffToken opaqueHandoffToken,
-            Action<CinematicPlaybackCompletion> completion)
+        internal void Present(
+            ComicSequenceDefinition definition,
+            ComicSequenceOpaqueHandoffToken opaqueHandoffToken,
+            Action<ComicSequenceResult> completion)
         {
             if (definition == null)
             {
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Failed,
-                    "Comic cinematic definition is missing."));
+                completion?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Failed,
+                    "Comic sequence definition is missing."));
                 return;
             }
 
             if (!definition.TryValidate(out var failureReason))
             {
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Failed,
+                completion?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Failed,
                     failureReason));
                 return;
             }
 
-            if (IsPlaying)
+            if (IsPresenting)
             {
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Failed,
-                    "A comic cinematic is already playing."));
+                completion?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Failed,
+                    "A comic sequence is already being presented."));
                 return;
             }
 
@@ -198,16 +198,16 @@ namespace Game.Feature.UI.Composition
             _completionDispatched = false;
             _awaitingOpaqueRender = false;
             _opaqueRenderRequestFrame = -1;
-            _pendingCompletion = new CinematicPlaybackCompletion(
-                CinematicPlaybackCompletionKind.Completed);
-            IsPlaying = true;
+            _pendingCompletion = new ComicSequenceResult(
+                ComicSequenceResultKind.Completed);
+            IsPresenting = true;
 
             _canvasGroup.alpha = 1f;
             _canvasGroup.blocksRaycasts = true;
             _canvasGroup.interactable = true;
             ApplyBlackFadeAlpha(0f);
             BindAdvanceInput();
-            CurrentPresentationState = ComicCinematicPresentationState.Entering;
+            CurrentPresentationState = ComicSequencePresentationState.Entering;
             BeginFade(
                 FadeOperation.EnterToBlack,
                 0f,
@@ -215,17 +215,17 @@ namespace Game.Feature.UI.Composition
                 _timing.EnterFadeDuration);
         }
 
-        void IComicCinematicPlaybackOverlay.Play(
-            ComicCinematicSequenceDefinition definition,
-            CinematicOpaqueHandoffToken opaqueHandoffToken,
-            Action<CinematicPlaybackCompletion> completion) =>
-            Play(definition, opaqueHandoffToken, completion);
+        void IComicSequenceOverlay.Present(
+            ComicSequenceDefinition definition,
+            ComicSequenceOpaqueHandoffToken opaqueHandoffToken,
+            Action<ComicSequenceResult> completion) =>
+            Present(definition, opaqueHandoffToken, completion);
 
         public void RequestAdvance()
         {
-            if (!IsPlaying ||
+            if (!IsPresenting ||
                 _completionDispatched ||
-                CurrentPresentationState != ComicCinematicPresentationState.AwaitingAdvance)
+                CurrentPresentationState != ComicSequencePresentationState.AwaitingAdvance)
             {
                 return;
             }
@@ -241,7 +241,7 @@ namespace Game.Feature.UI.Composition
 
                 if (_currentPageIndex + 1 < _definition.Pages.Length)
                 {
-                    CurrentPresentationState = ComicCinematicPresentationState.PageTransition;
+                    CurrentPresentationState = ComicSequencePresentationState.PageTransition;
                     BeginFade(
                         FadeOperation.PageToBlack,
                         CurrentFadeAlpha,
@@ -250,9 +250,9 @@ namespace Game.Feature.UI.Composition
                     return;
                 }
 
-                if (_definition.HasFinalShots)
+                if (_definition.HasFinalTransition)
                 {
-                    CurrentPresentationState = ComicCinematicPresentationState.FinalTransition;
+                    CurrentPresentationState = ComicSequencePresentationState.FinalTransition;
                     BeginFade(
                         FadeOperation.FinalBeforeToBlack,
                         CurrentFadeAlpha,
@@ -265,9 +265,9 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            if (_finalBeforeDisplayed)
+            if (_finalTransitionBeforeDisplayed)
             {
-                CurrentPresentationState = ComicCinematicPresentationState.FinalTransition;
+                CurrentPresentationState = ComicSequencePresentationState.FinalTransition;
                 BeginFade(
                     FadeOperation.FinalSwapToBlack,
                     CurrentFadeAlpha,
@@ -276,7 +276,7 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            if (_finalAfterDisplayed)
+            if (_finalTransitionAfterDisplayed)
             {
                 BeginExit();
             }
@@ -302,7 +302,7 @@ namespace Game.Feature.UI.Composition
                 _completionDispatched ||
                 !_opaqueHandoffToken.IsValid ||
                 CurrentFadeAlpha < 0.9999f ||
-                !CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(
+                !ComicSequenceOpaqueHandoffRegistry.TryAcknowledgeComicSequenceOpaqueRendered(
                     _opaqueHandoffToken))
             {
                 return false;
@@ -313,7 +313,7 @@ namespace Game.Feature.UI.Composition
             return true;
         }
 
-        internal bool AbortSetupAfterFailure(CinematicOpaqueHandoffToken expectedToken)
+        internal bool AbortSetupAfterFailure(ComicSequenceOpaqueHandoffToken expectedToken)
         {
             if ((expectedToken.IsValid && expectedToken != _opaqueHandoffToken) ||
                 (!expectedToken.IsValid && _opaqueHandoffToken.IsValid))
@@ -326,20 +326,20 @@ namespace Game.Feature.UI.Composition
             return true;
         }
 
-        bool IComicCinematicPlaybackOverlay.AbortSetupAfterFailure(
-            CinematicOpaqueHandoffToken expectedToken) =>
+        bool IComicSequenceOverlay.AbortSetupAfterFailure(
+            ComicSequenceOpaqueHandoffToken expectedToken) =>
             AbortSetupAfterFailure(expectedToken);
 
-        internal void ReleaseOpaqueHandoff(CinematicOpaqueHandoffToken token)
+        internal void ReleaseOpaqueHandoff(ComicSequenceOpaqueHandoffToken token)
         {
             if (!token.IsValid ||
                 token != _opaqueHandoffToken ||
                 !_completionDispatched ||
-                CurrentPresentationState != ComicCinematicPresentationState.Completed ||
+                CurrentPresentationState != ComicSequencePresentationState.Completed ||
                 CurrentFadeAlpha < 0.9999f)
             {
                 throw new InvalidOperationException(
-                    $"Comic cinematic opaque owner release rejected token {token}.");
+                    $"Comic sequence opaque owner release rejected token {token}.");
             }
 
             _opaqueHandoffToken = default;
@@ -347,8 +347,8 @@ namespace Game.Feature.UI.Composition
             SetInactive();
         }
 
-        void IComicCinematicPlaybackOverlay.ReleaseOpaqueHandoff(
-            CinematicOpaqueHandoffToken token) =>
+        void IComicSequenceOverlay.ReleaseOpaqueHandoff(
+            ComicSequenceOpaqueHandoffToken token) =>
             ReleaseOpaqueHandoff(token);
 
         private void Update()
@@ -420,7 +420,7 @@ namespace Game.Feature.UI.Composition
                 _definition != null &&
                 _definition.AudioClip != null)
             {
-                _audioFocusController?.SetCinematicFadeGain(1f - _fadeRunner.Progress);
+                _audioFocusController?.SetComicSequenceFadeGain(1f - _fadeRunner.Progress);
             }
         }
 
@@ -445,14 +445,14 @@ namespace Game.Feature.UI.Composition
                 case FadeOperation.FinalBeforeFromBlack:
                 case FadeOperation.FinalSwapFromBlack:
                     CurrentPresentationState =
-                        ComicCinematicPresentationState.AwaitingAdvance;
+                        ComicSequencePresentationState.AwaitingAdvance;
                     break;
 
                 case FadeOperation.PanelReveal:
                     SetImageAlpha(_panelBeingRevealed, 1f);
                     _panelBeingRevealed = null;
                     CurrentPresentationState =
-                        ComicCinematicPresentationState.AwaitingAdvance;
+                        ComicSequencePresentationState.AwaitingAdvance;
                     break;
 
                 case FadeOperation.PageToBlack:
@@ -465,7 +465,7 @@ namespace Game.Feature.UI.Composition
                     break;
 
                 case FadeOperation.FinalBeforeToBlack:
-                    ConfigureFinalShot(showAfter: false);
+                    ConfigureFinalTransition(showAfter: false);
                     BeginFade(
                         FadeOperation.FinalBeforeFromBlack,
                         1f,
@@ -474,7 +474,7 @@ namespace Game.Feature.UI.Composition
                     break;
 
                 case FadeOperation.FinalSwapToBlack:
-                    ConfigureFinalShot(showAfter: true);
+                    ConfigureFinalTransition(showAfter: true);
                     _finalBlackHoldRemaining = _timing.FinalSwapBlackHoldDuration;
                     if (_finalBlackHoldRemaining <= 0f)
                     {
@@ -500,7 +500,7 @@ namespace Game.Feature.UI.Composition
             }
             else
             {
-                ConfigureFinalShot(showAfter: false);
+                ConfigureFinalTransition(showAfter: false);
             }
         }
 
@@ -508,10 +508,10 @@ namespace Game.Feature.UI.Composition
         {
             _currentPageIndex = pageIndex;
             _visiblePanelCount = 0;
-            _finalBeforeDisplayed = false;
-            _finalAfterDisplayed = false;
+            _finalTransitionBeforeDisplayed = false;
+            _finalTransitionAfterDisplayed = false;
             _pageViewport.gameObject.SetActive(true);
-            _finalViewport.gameObject.SetActive(false);
+            _finalTransitionViewport.gameObject.SetActive(false);
 
             for (var index = 0; index < _panelImages.Count; index++)
             {
@@ -535,14 +535,14 @@ namespace Game.Feature.UI.Composition
             _visiblePanelCount = 1;
         }
 
-        private void RevealNextPanel(ComicCinematicPageDefinition page)
+        private void RevealNextPanel(ComicPageDefinition page)
         {
             var image = _panelImages[_visiblePanelCount];
             image.gameObject.SetActive(true);
             SetImageAlpha(image, 0f);
             _panelBeingRevealed = image;
             _visiblePanelCount++;
-            CurrentPresentationState = ComicCinematicPresentationState.Revealing;
+            CurrentPresentationState = ComicSequencePresentationState.Revealing;
             BeginFade(
                 FadeOperation.PanelReveal,
                 0f,
@@ -550,26 +550,26 @@ namespace Game.Feature.UI.Composition
                 _timing.PanelRevealDuration);
         }
 
-        private void ConfigureFinalShot(bool showAfter)
+        private void ConfigureFinalTransition(bool showAfter)
         {
             _currentPageIndex = -1;
             _visiblePanelCount = 0;
             _pageViewport.gameObject.SetActive(false);
-            _finalViewport.gameObject.SetActive(true);
-            _finalImage.sprite = showAfter
-                ? _definition.FinalAfterSprite
-                : _definition.FinalBeforeSprite;
-            _finalImage.preserveAspect = true;
-            _finalImage.raycastTarget = false;
-            _finalBeforeDisplayed = !showAfter;
-            _finalAfterDisplayed = showAfter;
+            _finalTransitionViewport.gameObject.SetActive(true);
+            _finalTransitionImage.sprite = showAfter
+                ? _definition.FinalTransitionAfterSprite
+                : _definition.FinalTransitionBeforeSprite;
+            _finalTransitionImage.preserveAspect = true;
+            _finalTransitionImage.raycastTarget = false;
+            _finalTransitionBeforeDisplayed = !showAfter;
+            _finalTransitionAfterDisplayed = showAfter;
         }
 
         private void BeginExit()
         {
-            CurrentPresentationState = ComicCinematicPresentationState.Exiting;
-            _pendingCompletion = new CinematicPlaybackCompletion(
-                CinematicPlaybackCompletionKind.Completed);
+            CurrentPresentationState = ComicSequencePresentationState.Exiting;
+            _pendingCompletion = new ComicSequenceResult(
+                ComicSequenceResultKind.Completed);
             BeginFade(
                 FadeOperation.ExitToBlack,
                 CurrentFadeAlpha,
@@ -580,11 +580,11 @@ namespace Game.Feature.UI.Composition
         private void CompleteExitFade()
         {
             ApplyBlackFadeAlpha(1f);
-            _audioFocusController?.SetCinematicFadeGain(0f);
+            _audioFocusController?.SetComicSequenceFadeGain(0f);
             if (_opaqueHandoffToken.IsValid)
             {
                 CurrentPresentationState =
-                    ComicCinematicPresentationState.AwaitingOpaqueRender;
+                    ComicSequencePresentationState.AwaitingOpaqueRender;
                 _opaqueRenderRequestFrame = Time.frameCount;
                 _awaitingOpaqueRender = true;
                 Canvas.ForceUpdateCanvases();
@@ -594,7 +594,7 @@ namespace Game.Feature.UI.Composition
             CompleteOnce(_pendingCompletion);
         }
 
-        private void CompleteOnce(CinematicPlaybackCompletion completion)
+        private void CompleteOnce(ComicSequenceResult completion)
         {
             if (_completionDispatched)
             {
@@ -602,17 +602,17 @@ namespace Game.Feature.UI.Composition
             }
 
             _completionDispatched = true;
-            IsPlaying = false;
+            IsPresenting = false;
             UnbindAdvanceInput();
-            if (_cinematicAudioSource != null)
+            if (_comicSequenceAudioSource != null)
             {
-                _cinematicAudioSource.Stop();
-                _cinematicAudioSource.clip = null;
+                _comicSequenceAudioSource.Stop();
+                _comicSequenceAudioSource.clip = null;
             }
 
             var callback = _completion;
             _completion = null;
-            CurrentPresentationState = ComicCinematicPresentationState.Completed;
+            CurrentPresentationState = ComicSequencePresentationState.Completed;
             if (!_opaqueHandoffToken.IsValid)
             {
                 SetInactive();
@@ -669,37 +669,37 @@ namespace Game.Feature.UI.Composition
 
         private void EnsureFinalViewport()
         {
-            _finalViewport = transform.Find("FinalShotViewport") as RectTransform;
-            if (_finalViewport == null)
+            _finalTransitionViewport = transform.Find("FinalTransitionViewport") as RectTransform;
+            if (_finalTransitionViewport == null)
             {
                 var finalObject = new GameObject(
-                    "FinalShotViewport",
+                    "FinalTransitionViewport",
                     typeof(RectTransform),
                     typeof(AspectRatioFitter));
                 finalObject.transform.SetParent(transform, false);
-                _finalViewport = (RectTransform)finalObject.transform;
-                UiCanvasElementFactory.Stretch(_finalViewport);
+                _finalTransitionViewport = (RectTransform)finalObject.transform;
+                UiCanvasElementFactory.Stretch(_finalTransitionViewport);
             }
 
-            _finalFitter = _finalViewport.GetComponent<AspectRatioFitter>();
-            _finalFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            _finalFitter.aspectRatio = ComicCinematicSequenceDefinition.FinalShotAspectRatio;
+            _finalTransitionFitter = _finalTransitionViewport.GetComponent<AspectRatioFitter>();
+            _finalTransitionFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            _finalTransitionFitter.aspectRatio = ComicSequenceDefinition.FinalTransitionAspectRatio;
 
-            var finalImageRect = _finalViewport.Find("FinalShot") as RectTransform;
+            var finalImageRect = _finalTransitionViewport.Find("FinalTransition") as RectTransform;
             if (finalImageRect == null)
             {
                 var finalImageObject = new GameObject(
-                    "FinalShot",
+                    "FinalTransition",
                     typeof(RectTransform),
                     typeof(Image));
-                finalImageObject.transform.SetParent(_finalViewport, false);
+                finalImageObject.transform.SetParent(_finalTransitionViewport, false);
                 finalImageRect = (RectTransform)finalImageObject.transform;
                 UiCanvasElementFactory.Stretch(finalImageRect);
             }
 
-            _finalImage = finalImageRect.GetComponent<Image>();
-            _finalImage.color = Color.white;
-            _finalImage.raycastTarget = false;
+            _finalTransitionImage = finalImageRect.GetComponent<Image>();
+            _finalTransitionImage.color = Color.white;
+            _finalTransitionImage.raycastTarget = false;
         }
 
         private void EnsureBlackFadeLayer()
@@ -739,7 +739,7 @@ namespace Game.Feature.UI.Composition
         }
 
         private static int ResolveMaximumPanelCount(
-            ComicCinematicSequenceDefinition definition)
+            ComicSequenceDefinition definition)
         {
             var maximum = 0;
             var pages = definition.Pages;
@@ -753,7 +753,7 @@ namespace Game.Feature.UI.Composition
 
         private static void ApplyReferenceRect(RectTransform target, Rect referenceRect)
         {
-            var reference = ComicCinematicSequenceDefinition.ReferenceResolution;
+            var reference = ComicSequenceDefinition.ReferenceResolution;
             target.anchorMin = new Vector2(
                 referenceRect.xMin / reference.x,
                 1f - referenceRect.yMax / reference.y);
@@ -773,8 +773,8 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            _cinematicAudioSource.clip = _definition.AudioClip;
-            _cinematicAudioSource.Play();
+            _comicSequenceAudioSource.clip = _definition.AudioClip;
+            _comicSequenceAudioSource.Play();
         }
 
         private void BindAdvanceInput()
@@ -843,8 +843,8 @@ namespace Game.Feature.UI.Composition
         {
             _currentPageIndex = -1;
             _visiblePanelCount = 0;
-            _finalBeforeDisplayed = false;
-            _finalAfterDisplayed = false;
+            _finalTransitionBeforeDisplayed = false;
+            _finalTransitionAfterDisplayed = false;
             _finalBlackHoldRemaining = 0f;
             _panelBeingRevealed = null;
             _fadeOperation = FadeOperation.None;
@@ -855,19 +855,19 @@ namespace Game.Feature.UI.Composition
                 _pageViewport.gameObject.SetActive(false);
             }
 
-            if (_finalViewport != null)
+            if (_finalTransitionViewport != null)
             {
-                _finalViewport.gameObject.SetActive(false);
+                _finalTransitionViewport.gameObject.SetActive(false);
             }
         }
 
         private void StopAndResetRuntime()
         {
             UnbindAdvanceInput();
-            if (_cinematicAudioSource != null)
+            if (_comicSequenceAudioSource != null)
             {
-                _cinematicAudioSource.Stop();
-                _cinematicAudioSource.clip = null;
+                _comicSequenceAudioSource.Stop();
+                _comicSequenceAudioSource.clip = null;
             }
 
             _completion = null;
@@ -876,8 +876,8 @@ namespace Game.Feature.UI.Composition
             _opaqueRenderRequestFrame = -1;
             _opaqueHandoffToken = default;
             _definition = null;
-            IsPlaying = false;
-            CurrentPresentationState = ComicCinematicPresentationState.Idle;
+            IsPresenting = false;
+            CurrentPresentationState = ComicSequencePresentationState.Idle;
             ResetPresentationContent();
         }
 
@@ -901,12 +901,12 @@ namespace Game.Feature.UI.Composition
         private void OnDisable()
         {
             Canvas.willRenderCanvases -= HandleWillRenderCanvases;
-            CancelPlaybackBecauseDisabled();
+            CancelPresentationBecauseDisabled();
         }
 
-        private void CancelPlaybackBecauseDisabled()
+        private void CancelPresentationBecauseDisabled()
         {
-            if (!IsPlaying || _completionDispatched)
+            if (!IsPresenting || _completionDispatched)
             {
                 return;
             }
@@ -914,10 +914,10 @@ namespace Game.Feature.UI.Composition
             var callback = _completion;
             var token = _opaqueHandoffToken;
             StopAndResetRuntime();
-            CinematicOpaqueHandoffRegistry.TryReleaseAbandonedOwner(token);
-            callback?.Invoke(new CinematicPlaybackCompletion(
-                CinematicPlaybackCompletionKind.Cancelled,
-                "Comic cinematic overlay was disabled before playback completed."));
+            ComicSequenceOpaqueHandoffRegistry.TryReleaseAbandonedOwner(token);
+            callback?.Invoke(new ComicSequenceResult(
+                ComicSequenceResultKind.Cancelled,
+                "Comic sequence overlay was disabled before presentation completed."));
         }
 
         private void HandleWillRenderCanvases()
@@ -935,12 +935,12 @@ namespace Game.Feature.UI.Composition
             }
 
             _awaitingOpaqueRender = false;
-            if (!CinematicOpaqueHandoffRegistry.TryAcknowledgeCinematicOpaqueRendered(
+            if (!ComicSequenceOpaqueHandoffRegistry.TryAcknowledgeComicSequenceOpaqueRendered(
                     _opaqueHandoffToken))
             {
-                CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                ComicSequenceOpaqueHandoffRegistry.TryFailHoldingOpaque(
                     _opaqueHandoffToken,
-                    "The comic cinematic exact-opaque render acknowledgement was stale.");
+                    "The comic sequence exact-opaque render acknowledgement was stale.");
                 return;
             }
 
@@ -950,22 +950,22 @@ namespace Game.Feature.UI.Composition
         private void OnDestroy()
         {
             UnbindAdvanceInput();
-            if (IsPlaying && !_completionDispatched)
+            if (IsPresenting && !_completionDispatched)
             {
                 _completionDispatched = true;
-                IsPlaying = false;
+                IsPresenting = false;
                 var callback = _completion;
                 _completion = null;
-                callback?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Cancelled,
-                    "Comic cinematic overlay was destroyed before playback completed."));
+                callback?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Cancelled,
+                    "Comic sequence overlay was destroyed before presentation completed."));
             }
 
             if (_opaqueHandoffToken.IsValid)
             {
-                CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                ComicSequenceOpaqueHandoffRegistry.TryFailHoldingOpaque(
                     _opaqueHandoffToken,
-                    "Comic cinematic overlay was destroyed before ownership transfer.");
+                    "Comic sequence overlay was destroyed before ownership transfer.");
             }
         }
     }

@@ -2,9 +2,9 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
-    internal sealed class CinematicAlphaFadeRunner
+    internal sealed class ComicSequenceAlphaFadeRunner
     {
-        private CinematicFadeEase _ease;
+        private ComicSequenceFadeEase _ease;
         private float _from;
         private float _to;
         private float _duration;
@@ -16,7 +16,7 @@ namespace Game.Feature.UI.Composition
 
         public float Progress => _duration <= 0f ? 1f : Mathf.Clamp01(_elapsed / _duration);
 
-        public bool Begin(float from, float to, float duration, CinematicFadeEase ease)
+        public bool Begin(float from, float to, float duration, ComicSequenceFadeEase ease)
         {
             _ease = ease;
             _from = Mathf.Clamp01(from);
@@ -45,7 +45,7 @@ namespace Game.Feature.UI.Composition
 
             _elapsed = Mathf.Min(_duration, _elapsed + Mathf.Max(0f, deltaSeconds));
             var progress = Progress;
-            var easedProgress = _ease == CinematicFadeEase.Linear
+            var easedProgress = _ease == ComicSequenceFadeEase.Linear
                 ? progress
                 : progress * progress * (3f - 2f * progress);
             CurrentAlpha = Mathf.Lerp(_from, _to, easedProgress);

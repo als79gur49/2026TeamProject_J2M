@@ -169,9 +169,9 @@ namespace Game.Feature.Stages
 
         public NormalCampaignCompletionReceipt NormalCampaignCompletionReceipt { get; set; }
 
-        public bool IntroPlayed { get; set; }
+        public bool IntroComicCompleted { get; set; }
 
-        public bool OutroPlayed { get; set; }
+        public bool OutroComicCompleted { get; set; }
 
         public int TotalDeaths { get; set; }
 
@@ -183,8 +183,8 @@ namespace Game.Feature.Stages
                                !CampaignCompleted &&
                                !HasNormalCampaignCompletionReceipt &&
                                NormalCampaignCompletionReceipt == null &&
-                               !IntroPlayed &&
-                               !OutroPlayed &&
+                               !IntroComicCompleted &&
+                               !OutroComicCompleted &&
                                TotalDeaths == 0 &&
                                string.IsNullOrWhiteSpace(LastPlayedAt) &&
                                IsClearProfileEmpty(StageClearProfileSnapshot);
@@ -201,8 +201,8 @@ namespace Game.Feature.Stages
                 HasNormalCampaignCompletionReceipt =
                     HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = NormalCampaignCompletionReceipt?.Clone(),
-                IntroPlayed = IntroPlayed,
-                OutroPlayed = OutroPlayed,
+                IntroComicCompleted = IntroComicCompleted,
+                OutroComicCompleted = OutroComicCompleted,
                 TotalDeaths = TotalDeaths,
                 LastPlayedAt = LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot(),
@@ -220,8 +220,8 @@ namespace Game.Feature.Stages
                 CampaignCompleted = false,
                 HasNormalCampaignCompletionReceipt = false,
                 NormalCampaignCompletionReceipt = null,
-                IntroPlayed = false,
-                OutroPlayed = false,
+                IntroComicCompleted = false,
+                OutroComicCompleted = false,
                 TotalDeaths = 0,
                 LastPlayedAt = string.Empty,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
@@ -248,8 +248,8 @@ namespace Game.Feature.Stages
                 CampaignCompleted = false,
                 HasNormalCampaignCompletionReceipt = false,
                 NormalCampaignCompletionReceipt = null,
-                IntroPlayed = false,
-                OutroPlayed = false,
+                IntroComicCompleted = false,
+                OutroComicCompleted = false,
                 TotalDeaths = 0,
                 LastPlayedAt = lastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = new StageClearProfileSnapshot(),
@@ -1677,7 +1677,7 @@ namespace Game.Feature.Stages
     public sealed class SaveSlotStore : ICampaignSaveSlotStore
     {
         public const string SchemaId = "StageClearSaveSlots";
-        public const int SchemaVersion = 2;
+        public const int SchemaVersion = 3;
         public const int SaveVersion = 1;
         public const int SlotCount = 3;
         public const int DefaultRemainingChances = 3;
@@ -1998,8 +1998,8 @@ namespace Game.Feature.Stages
         public bool CampaignCompleted;
         public bool HasNormalCampaignCompletionReceipt;
         public NormalCampaignCompletionReceiptDocument NormalCampaignCompletionReceipt;
-        public bool IntroPlayed;
-        public bool OutroPlayed;
+        public bool IntroComicCompleted;
+        public bool OutroComicCompleted;
         public int TotalDeaths;
         public string LastPlayedAt;
         public StageClearProfileSnapshotDto StageClearProfileSnapshot;
@@ -2139,8 +2139,8 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAt = slot.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = ToDto(slot.StageClearProfileSnapshot),
@@ -2164,8 +2164,8 @@ namespace Game.Feature.Stages
                 NormalCampaignCompletionReceipt = dto.HasNormalCampaignCompletionReceipt
                     ? CampaignProfileDocumentMapper.ToReceipt(dto.NormalCampaignCompletionReceipt)
                     : null,
-                IntroPlayed = dto.IntroPlayed,
-                OutroPlayed = dto.OutroPlayed,
+                IntroComicCompleted = dto.IntroComicCompleted,
+                OutroComicCompleted = dto.OutroComicCompleted,
                 TotalDeaths = Math.Max(0, dto.TotalDeaths),
                 LastPlayedAt = dto.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = FromDto(dto.StageClearProfileSnapshot),

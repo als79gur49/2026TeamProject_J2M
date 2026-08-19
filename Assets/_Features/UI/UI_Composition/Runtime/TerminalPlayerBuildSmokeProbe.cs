@@ -1155,7 +1155,7 @@ namespace Game.Feature.UI.Composition
                 selectedIntent != expectedIntent ||
                 !SceneEntryPresentationRegistry.IsActive ||
                 entryIntent != SceneTransitionIntent.GameplayEntry &&
-                entryIntent != SceneTransitionIntent.CinematicToGameplay)
+                entryIntent != SceneTransitionIntent.ComicIntroToGameplay)
             {
                 Fail(
                     $"Main Menu route dispatch invalid click={primaryClickCount} " +
@@ -1167,23 +1167,23 @@ namespace Game.Feature.UI.Composition
             }
 
             var introAdvanceDispatchCount = 0;
-            if (entryIntent == SceneTransitionIntent.CinematicToGameplay)
+            if (entryIntent == SceneTransitionIntent.ComicIntroToGameplay)
             {
-                ComicCinematicOverlayView cinematic = null;
-                RectTransform cinematicAdvanceTarget = null;
+                ComicSequenceOverlayView comicSequence = null;
+                RectTransform comicAdvanceTarget = null;
                 deadline = Time.realtimeSinceStartup + TimeoutSeconds;
                 while (Time.realtimeSinceStartup < deadline)
                 {
-                    cinematic = FindFirstObjectByType<ComicCinematicOverlayView>(
+                    comicSequence = FindFirstObjectByType<ComicSequenceOverlayView>(
                         FindObjectsInactive.Include);
-                    cinematicAdvanceTarget = FindNamedRectTransform(
-                        cinematic,
+                    comicAdvanceTarget = FindNamedRectTransform(
+                        comicSequence,
                         "Background");
-                    if (cinematic != null &&
-                        cinematic.IsPlaying &&
-                        cinematic.CurrentPresentationState ==
-                            ComicCinematicPresentationState.AwaitingAdvance &&
-                        cinematicAdvanceTarget != null)
+                    if (comicSequence != null &&
+                        comicSequence.IsPresenting &&
+                        comicSequence.CurrentPresentationState ==
+                            ComicSequencePresentationState.AwaitingAdvance &&
+                        comicAdvanceTarget != null)
                     {
                         break;
                     }
@@ -1191,28 +1191,28 @@ namespace Game.Feature.UI.Composition
                     yield return null;
                 }
 
-                if (cinematic == null ||
-                    !cinematic.IsPlaying ||
-                    cinematicAdvanceTarget == null)
+                if (comicSequence == null ||
+                    !comicSequence.IsPresenting ||
+                    comicAdvanceTarget == null)
                 {
                     Fail("Main Menu intro comic did not expose its production advance target");
                     yield break;
                 }
 
                 deadline = Time.realtimeSinceStartup + TimeoutSeconds;
-                while (cinematic.IsPlaying &&
+                while (comicSequence.IsPresenting &&
                        Time.realtimeSinceStartup < deadline)
                 {
-                    if (cinematic.CurrentPresentationState !=
-                        ComicCinematicPresentationState.AwaitingAdvance)
+                    if (comicSequence.CurrentPresentationState !=
+                        ComicSequencePresentationState.AwaitingAdvance)
                     {
                         yield return null;
                         continue;
                     }
 
                     yield return DispatchPointerClick(
-                        cinematicAdvanceTarget,
-                        cinematic,
+                        comicAdvanceTarget,
+                        comicSequence,
                         gameplayInstaller: null,
                         "Main Menu intro comic advance");
                     if (!_pointerDispatchSucceeded)
@@ -1223,12 +1223,12 @@ namespace Game.Feature.UI.Composition
                     introAdvanceDispatchCount++;
                 }
 
-                if (cinematic.IsPlaying || introAdvanceDispatchCount == 0)
+                if (comicSequence.IsPresenting || introAdvanceDispatchCount == 0)
                 {
                     Fail(
                         $"Main Menu intro comic did not complete by sequential advance; " +
                         $"dispatches={introAdvanceDispatchCount} " +
-                        $"state={cinematic.CurrentPresentationState}");
+                        $"state={comicSequence.CurrentPresentationState}");
                     yield break;
                 }
             }
@@ -1245,8 +1245,8 @@ namespace Game.Feature.UI.Composition
             yield return AwaitGameplayEntryCompletion(
                 sourceHostInstanceId: 0,
                 expectedIntent: entryIntent,
-                expectedSourceKind: entryIntent == SceneTransitionIntent.CinematicToGameplay
-                    ? GameplayEntrySourceCloseVisualKind.CinematicOpaqueOwner
+                expectedSourceKind: entryIntent == SceneTransitionIntent.ComicIntroToGameplay
+                    ? GameplayEntrySourceCloseVisualKind.ComicSequenceOpaqueOwner
                     : GameplayEntrySourceCloseVisualKind.MainMenuIris,
                 sourceIris: null,
                 sourceRootName: entryIntent == SceneTransitionIntent.GameplayEntry
@@ -1461,10 +1461,10 @@ namespace Game.Feature.UI.Composition
                 yield break;
             }
 
-            var cinematicHandoffToken =
+            var comicSequenceHandoffToken =
                 expectedSourceKind ==
-                GameplayEntrySourceCloseVisualKind.CinematicOpaqueOwner
-                    ? CinematicOpaqueHandoffRegistry.Current.Token
+                GameplayEntrySourceCloseVisualKind.ComicSequenceOpaqueOwner
+                    ? ComicSequenceOpaqueHandoffRegistry.Current.Token
                     : default;
 
             var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
@@ -1501,16 +1501,16 @@ namespace Game.Feature.UI.Composition
 
                 _sourceOpaqueAcknowledged |=
                     sourceIris != null && sourceIris.HasRenderedEntryClosedFrame;
-                var cinematicHandoff = CinematicOpaqueHandoffRegistry.Current;
+                var comicSequenceHandoff = ComicSequenceOpaqueHandoffRegistry.Current;
                 _sourceOpaqueAcknowledged |=
-                    cinematicHandoffToken.IsValid &&
-                    cinematicHandoff.Token == cinematicHandoffToken &&
-                    (cinematicHandoff.Phase ==
-                         CinematicOpaqueHandoffPhase.CinematicOpaqueRendered ||
-                     cinematicHandoff.Phase ==
-                         CinematicOpaqueHandoffPhase.PersistentCoverRendered ||
-                     cinematicHandoff.Phase ==
-                         CinematicOpaqueHandoffPhase.Released);
+                    comicSequenceHandoffToken.IsValid &&
+                    comicSequenceHandoff.Token == comicSequenceHandoffToken &&
+                    (comicSequenceHandoff.Phase ==
+                         ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered ||
+                     comicSequenceHandoff.Phase ==
+                         ComicSequenceOpaqueHandoffPhase.PersistentCoverRendered ||
+                     comicSequenceHandoff.Phase ==
+                         ComicSequenceOpaqueHandoffPhase.Released);
                 persistentCover ??=
                     FindFirstObjectByType<SceneTransitionOverlayShellView>(
                         FindObjectsInactive.Include);
@@ -2736,25 +2736,25 @@ namespace Game.Feature.UI.Composition
             _inputReleased = false;
             var claimed = MainMenuEntryPresentationRegistry.Current;
             var selectedPreset = claimed.TransitionIntent.ToString();
-            var cinematicHandoffToken = default(CinematicOpaqueHandoffToken);
-            var cinematicAdvanceDispatchCount = 0;
-            if (claimed.TransitionIntent == SceneTransitionIntent.CinematicToMainMenu)
+            var comicSequenceHandoffToken = default(ComicSequenceOpaqueHandoffToken);
+            var comicAdvanceDispatchCount = 0;
+            if (claimed.TransitionIntent == SceneTransitionIntent.ComicOutroToMainMenu)
             {
-                ComicCinematicOverlayView cinematic = null;
-                RectTransform cinematicAdvanceTarget = null;
-                var cinematicDeadline = Time.realtimeSinceStartup + TimeoutSeconds;
-                while (Time.realtimeSinceStartup < cinematicDeadline)
+                ComicSequenceOverlayView comicSequence = null;
+                RectTransform comicAdvanceTarget = null;
+                var comicSequenceDeadline = Time.realtimeSinceStartup + TimeoutSeconds;
+                while (Time.realtimeSinceStartup < comicSequenceDeadline)
                 {
-                    cinematic = FindFirstObjectByType<ComicCinematicOverlayView>(
+                    comicSequence = FindFirstObjectByType<ComicSequenceOverlayView>(
                         FindObjectsInactive.Include);
-                    cinematicAdvanceTarget = FindNamedRectTransform(
-                        cinematic,
+                    comicAdvanceTarget = FindNamedRectTransform(
+                        comicSequence,
                         "Background");
-                    if (cinematic != null &&
-                        cinematic.IsPlaying &&
-                        cinematic.CurrentPresentationState ==
-                            ComicCinematicPresentationState.AwaitingAdvance &&
-                        cinematicAdvanceTarget != null)
+                    if (comicSequence != null &&
+                        comicSequence.IsPresenting &&
+                        comicSequence.CurrentPresentationState ==
+                            ComicSequencePresentationState.AwaitingAdvance &&
+                        comicAdvanceTarget != null)
                     {
                         break;
                     }
@@ -2762,31 +2762,31 @@ namespace Game.Feature.UI.Composition
                     yield return null;
                 }
 
-                if (cinematic == null ||
-                    !cinematic.IsPlaying ||
-                    cinematic.CurrentPresentationState !=
-                        ComicCinematicPresentationState.AwaitingAdvance ||
-                    cinematicAdvanceTarget == null)
+                if (comicSequence == null ||
+                    !comicSequence.IsPresenting ||
+                    comicSequence.CurrentPresentationState !=
+                        ComicSequencePresentationState.AwaitingAdvance ||
+                    comicAdvanceTarget == null)
                 {
                     Fail("GameClear outro comic did not expose its production advance target");
                     yield break;
                 }
 
-                cinematicHandoffToken = CinematicOpaqueHandoffRegistry.Current.Token;
-                cinematicDeadline = Time.realtimeSinceStartup + TimeoutSeconds;
-                while (cinematic.IsPlaying &&
-                       Time.realtimeSinceStartup < cinematicDeadline)
+                comicSequenceHandoffToken = ComicSequenceOpaqueHandoffRegistry.Current.Token;
+                comicSequenceDeadline = Time.realtimeSinceStartup + TimeoutSeconds;
+                while (comicSequence.IsPresenting &&
+                       Time.realtimeSinceStartup < comicSequenceDeadline)
                 {
-                    if (cinematic.CurrentPresentationState !=
-                        ComicCinematicPresentationState.AwaitingAdvance)
+                    if (comicSequence.CurrentPresentationState !=
+                        ComicSequencePresentationState.AwaitingAdvance)
                     {
                         yield return null;
                         continue;
                     }
 
                     yield return DispatchPointerClick(
-                        cinematicAdvanceTarget,
-                        cinematic,
+                        comicAdvanceTarget,
+                        comicSequence,
                         installer,
                         "GameClear outro comic advance");
                     if (!_pointerDispatchSucceeded)
@@ -2794,15 +2794,15 @@ namespace Game.Feature.UI.Composition
                         yield break;
                     }
 
-                    cinematicAdvanceDispatchCount++;
+                    comicAdvanceDispatchCount++;
                 }
 
-                if (cinematic.IsPlaying || cinematicAdvanceDispatchCount == 0)
+                if (comicSequence.IsPresenting || comicAdvanceDispatchCount == 0)
                 {
                     Fail(
                         $"GameClear outro comic did not complete by sequential advance; " +
-                        $"dispatches={cinematicAdvanceDispatchCount} " +
-                        $"state={cinematic.CurrentPresentationState}");
+                        $"dispatches={comicAdvanceDispatchCount} " +
+                        $"state={comicSequence.CurrentPresentationState}");
                     yield break;
                 }
             }
@@ -2814,17 +2814,17 @@ namespace Game.Feature.UI.Composition
             while (Time.realtimeSinceStartup < deadline)
             {
                 MaintainRequestedResolution();
-                var cinematicHandoff = CinematicOpaqueHandoffRegistry.Current;
+                var comicSequenceHandoff = ComicSequenceOpaqueHandoffRegistry.Current;
                 _sourceOpaqueAcknowledged |=
                     irisView != null && irisView.HasRenderedEntryClosedFrame ||
-                    cinematicHandoffToken.IsValid &&
-                    cinematicHandoff.Token == cinematicHandoffToken &&
-                    (cinematicHandoff.Phase ==
-                         CinematicOpaqueHandoffPhase.CinematicOpaqueRendered ||
-                     cinematicHandoff.Phase ==
-                         CinematicOpaqueHandoffPhase.PersistentCoverRendered ||
-                     cinematicHandoff.Phase ==
-                         CinematicOpaqueHandoffPhase.Released);
+                    comicSequenceHandoffToken.IsValid &&
+                    comicSequenceHandoff.Token == comicSequenceHandoffToken &&
+                    (comicSequenceHandoff.Phase ==
+                         ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered ||
+                     comicSequenceHandoff.Phase ==
+                         ComicSequenceOpaqueHandoffPhase.PersistentCoverRendered ||
+                     comicSequenceHandoff.Phase ==
+                         ComicSequenceOpaqueHandoffPhase.Released);
                 persistentCover ??=
                     FindFirstObjectByType<SceneTransitionOverlayShellView>(
                         FindObjectsInactive.Include);
@@ -2900,8 +2900,8 @@ namespace Game.Feature.UI.Composition
                     $"intent={MainMenuEntryPresentationRegistry.Current.TransitionIntent} " +
                     $"phase={MainMenuEntryPresentationRegistry.Current.Phase} " +
                     $"transitionId={MainMenuEntryPresentationRegistry.Current.TransitionId} " +
-                    $"cinematicHandoffPhase={CinematicOpaqueHandoffRegistry.Current.Phase} " +
-                    $"cinematicAdvanceDispatchCount={cinematicAdvanceDispatchCount} " +
+                    $"comicSequenceHandoffPhase={ComicSequenceOpaqueHandoffRegistry.Current.Phase} " +
+                    $"comicAdvanceDispatchCount={comicAdvanceDispatchCount} " +
                     eventSystemDiagnostic);
                 yield break;
             }
@@ -2912,7 +2912,7 @@ namespace Game.Feature.UI.Composition
                 mainDispatchCount,
                 SceneManager.GetActiveScene().name,
                 $"entrySession=none staleGameClearRoot=false callbackDuplicate=0 " +
-                $"cinematicAdvanceDispatchCount={cinematicAdvanceDispatchCount}",
+                $"comicAdvanceDispatchCount={comicAdvanceDispatchCount}",
                 inputMode);
         }
 

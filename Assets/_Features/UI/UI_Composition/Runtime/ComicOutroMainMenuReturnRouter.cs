@@ -6,35 +6,35 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
-    public sealed class CinematicMainMenuReturnRouter : IMainMenuReturnRouter
+    public sealed class ComicOutroMainMenuReturnRouter : IMainMenuReturnRouter
     {
         private readonly ActiveSlotProvider _activeSlotProvider;
         private readonly Func<bool> _isFinalClearMainReturn;
         private readonly IMainMenuReturnRouter _inner;
-        private readonly ICinematicSequencePlayer _player;
-        private readonly SlotCinematicProgressStore _progressStore;
+        private readonly IComicIntroOutroFlow _comicFlow;
+        private readonly SlotComicProgressStore _progressStore;
 
-        public CinematicMainMenuReturnRouter(
+        public ComicOutroMainMenuReturnRouter(
             IMainMenuReturnRouter inner,
             ICampaignSaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider,
-            ICinematicSequencePlayer player,
+            IComicIntroOutroFlow comicFlow,
             Func<bool> isFinalClearMainReturn)
-            : this(inner, new SlotCinematicProgressStore(saveSlotStore), activeSlotProvider, player, isFinalClearMainReturn)
+            : this(inner, new SlotComicProgressStore(saveSlotStore), activeSlotProvider, comicFlow, isFinalClearMainReturn)
         {
         }
 
-        internal CinematicMainMenuReturnRouter(
+        internal ComicOutroMainMenuReturnRouter(
             IMainMenuReturnRouter inner,
-            SlotCinematicProgressStore progressStore,
+            SlotComicProgressStore progressStore,
             ActiveSlotProvider activeSlotProvider,
-            ICinematicSequencePlayer player,
+            IComicIntroOutroFlow comicFlow,
             Func<bool> isFinalClearMainReturn)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _progressStore = progressStore ?? throw new ArgumentNullException(nameof(progressStore));
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
-            _player = player ?? throw new ArgumentNullException(nameof(player));
+            _comicFlow = comicFlow ?? throw new ArgumentNullException(nameof(comicFlow));
             _isFinalClearMainReturn = isFinalClearMainReturn ?? (() => false);
         }
 
@@ -46,65 +46,65 @@ namespace Game.Feature.UI.Composition
             if (routePolicy.Intent != SceneTransitionIntent.ReturnToMainMenu)
             {
                 throw new InvalidOperationException(
-                    $"Cinematic main-menu return accepts ReturnToMainMenu, not {routePolicy.Intent}.");
+                    $"Comic sequence main-menu return accepts ReturnToMainMenu, not {routePolicy.Intent}.");
             }
 
             if (!_isFinalClearMainReturn() ||
                 !_activeSlotProvider.TryGetActiveSlotNumber(out var slotNumber) ||
-                !_player.HasOutroContent ||
-                _progressStore.IsOutroPlayed(slotNumber))
+                !_comicFlow.HasOutroSequence ||
+                _progressStore.IsOutroComicCompleted(slotNumber))
             {
                 _inner.ReturnToMainMenu(transitionIntent);
                 return;
             }
 
             if (!MainMenuEntryPresentationRegistry.TryClaim(
-                    SceneTransitionIntent.CinematicToMainMenu,
+                    SceneTransitionIntent.ComicOutroToMainMenu,
                     TerminalSessionRegistry.Authority.CurrentSceneGeneration,
                     "game-clear-outro",
                     out var entryToken))
             {
                 throw new InvalidOperationException(
-                    "Outro cinematic could not claim the CinematicToMainMenu destination session.");
+                    "Outro comic sequence could not claim the ComicOutroToMainMenu destination session.");
             }
 
             var terminalClaimed = 0;
             try
             {
-                _player.PlayOutro(result =>
+                _comicFlow.PresentOutro(result =>
                 {
                     var current = MainMenuEntryPresentationRegistry.Current;
                     if (Volatile.Read(ref terminalClaimed) != 0 ||
                         !current.IsActive ||
                         current.Token != entryToken ||
                         current.TransitionIntent !=
-                        SceneTransitionIntent.CinematicToMainMenu ||
+                        SceneTransitionIntent.ComicOutroToMainMenu ||
                         current.Phase != SceneEntryPresentationPhase.Claimed ||
                         Interlocked.CompareExchange(ref terminalClaimed, 1, 0) != 0)
                     {
                         return;
                     }
 
-                    if (result.Kind == CinematicPlaybackCompletionKind.Cancelled)
+                    if (result.Kind == ComicSequenceResultKind.Cancelled)
                     {
                         MainMenuEntryPresentationRegistry.TryCancelClaim(entryToken);
                         return;
                     }
 
-                    if (result.Kind == CinematicPlaybackCompletionKind.Failed)
+                    if (result.Kind == ComicSequenceResultKind.Failed)
                     {
                         MainMenuEntryPresentationRegistry.TryFailHoldingCover(
                             entryToken,
                             string.IsNullOrWhiteSpace(result.Message)
-                                ? "Outro cinematic failed while holding its opaque owner."
+                                ? "Outro comic sequence failed while holding its opaque owner."
                                 : result.Message);
                         return;
                     }
 
                     try
                     {
-                        _inner.ReturnToMainMenu(SceneTransitionIntent.CinematicToMainMenu);
-                        _progressStore.MarkOutroPlayed(slotNumber);
+                        _inner.ReturnToMainMenu(SceneTransitionIntent.ComicOutroToMainMenu);
+                        _progressStore.MarkOutroComicCompleted(slotNumber);
                     }
                     catch (Exception exception)
                     {
@@ -129,7 +129,7 @@ namespace Game.Feature.UI.Composition
             var current = MainMenuEntryPresentationRegistry.Current;
             if (!current.IsActive ||
                 current.Token != token ||
-                current.TransitionIntent != SceneTransitionIntent.CinematicToMainMenu ||
+                current.TransitionIntent != SceneTransitionIntent.ComicOutroToMainMenu ||
                 current.Phase != SceneEntryPresentationPhase.Claimed)
             {
                 return;

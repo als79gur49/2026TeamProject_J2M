@@ -9,29 +9,29 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
-    public sealed class ComicCinematicFlowTests
+    public sealed class ComicSequenceFlowTests
     {
         private const string IntroSequencePath =
-            "Assets/_Features/UI/UI_Composition/Authoring/Cinematics/Intro/" +
+            "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/Intro/" +
             "IntroComicSequence_CampaignMain.asset";
         private const string OutroSequencePath =
-            "Assets/_Features/UI/UI_Composition/Authoring/Cinematics/Outro/" +
+            "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/Outro/" +
             "OutroComicSequence_CampaignMain.asset";
 
         [SetUp]
         public void SetUp()
         {
             TerminalSessionRegistry.ResetForTests();
-            CinematicOpaqueHandoffRegistry.ResetForTests();
+            ComicSequenceOpaqueHandoffRegistry.ResetForTests();
             TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
                 9812,
-                nameof(ComicCinematicFlowTests));
+                nameof(ComicSequenceFlowTests));
         }
 
         [TearDown]
         public void TearDown()
         {
-            CinematicOpaqueHandoffRegistry.ResetForTests();
+            ComicSequenceOpaqueHandoffRegistry.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
         }
 
@@ -47,8 +47,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 Array.ConvertAll(definition.Pages[1].Panels, panel => panel.Sprite.name),
                 Is.EqualTo(new[] { "2-1", "2-2-2", "2-4-1", "2-3", "2-5", "2-6" }));
-            Assert.That(definition.FinalBeforeSprite.name, Is.EqualTo("3-1"));
-            Assert.That(definition.FinalAfterSprite.name, Is.EqualTo("3-2"));
+            Assert.That(definition.FinalTransitionBeforeSprite.name, Is.EqualTo("3-1"));
+            Assert.That(definition.FinalTransitionAfterSprite.name, Is.EqualTo("3-2"));
             Assert.That(definition.AudioClip, Is.Not.Null);
 
             foreach (var page in definition.Pages)
@@ -59,12 +59,12 @@ namespace Game.Feature.UI.Tests
                 }
             }
 
-            AssertUiSpriteImport(definition.FinalBeforeSprite);
-            AssertUiSpriteImport(definition.FinalAfterSprite);
+            AssertUiSpriteImport(definition.FinalTransitionBeforeSprite);
+            AssertUiSpriteImport(definition.FinalTransitionAfterSprite);
             Assert.That(
-                definition.FinalBeforeSprite.rect.width /
-                definition.FinalBeforeSprite.rect.height,
-                Is.EqualTo(ComicCinematicSequenceDefinition.FinalShotAspectRatio)
+                definition.FinalTransitionBeforeSprite.rect.width /
+                definition.FinalTransitionBeforeSprite.rect.height,
+                Is.EqualTo(ComicSequenceDefinition.FinalTransitionAspectRatio)
                     .Within(0.005f));
         }
 
@@ -72,7 +72,7 @@ namespace Game.Feature.UI.Tests
         public void ProductionOutroValidationSequence_IsIndependentCopyOfIntro()
         {
             var intro = LoadProductionDefinition();
-            var outro = AssetDatabase.LoadAssetAtPath<ComicCinematicSequenceDefinition>(
+            var outro = AssetDatabase.LoadAssetAtPath<ComicSequenceDefinition>(
                 OutroSequencePath);
 
             Assert.That(outro, Is.Not.Null, $"Missing {OutroSequencePath}");
@@ -95,8 +95,8 @@ namespace Game.Feature.UI.Tests
                 }
             }
 
-            Assert.That(outro.FinalBeforeSprite, Is.SameAs(intro.FinalBeforeSprite));
-            Assert.That(outro.FinalAfterSprite, Is.SameAs(intro.FinalAfterSprite));
+            Assert.That(outro.FinalTransitionBeforeSprite, Is.SameAs(intro.FinalTransitionBeforeSprite));
+            Assert.That(outro.FinalTransitionAfterSprite, Is.SameAs(intro.FinalTransitionAfterSprite));
             Assert.That(outro.AudioClip, Is.SameAs(intro.AudioClip));
             Assert.That(outro.Timing, Is.EqualTo(intro.Timing));
         }
@@ -110,15 +110,15 @@ namespace Game.Feature.UI.Tests
                 typeof(RectTransform));
             try
             {
-                var view = root.AddComponent<ComicCinematicOverlayView>();
-                CinematicPlaybackCompletion? completion = null;
+                var view = root.AddComponent<ComicSequenceOverlayView>();
+                ComicSequenceResult? completion = null;
 
-                view.Play(definition, default, result => completion = result);
+                view.Present(definition, default, result => completion = result);
                 SettleFade(view);
                 SettleFade(view);
 
                 Assert.That(view.CurrentPresentationState,
-                    Is.EqualTo(ComicCinematicPresentationState.AwaitingAdvance));
+                    Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
                 Assert.That(view.CurrentPageIndex, Is.EqualTo(0));
                 Assert.That(view.VisiblePanelCount, Is.EqualTo(1));
 
@@ -129,7 +129,7 @@ namespace Game.Feature.UI.Tests
                     advanceCount++;
                     view.RequestAdvance();
                     Assert.That(view.CurrentPresentationState,
-                        Is.EqualTo(ComicCinematicPresentationState.Revealing));
+                        Is.EqualTo(ComicSequencePresentationState.Revealing));
                     SettleFade(view);
                 }
 
@@ -152,26 +152,26 @@ namespace Game.Feature.UI.Tests
                 advanceCount++;
                 SettleFade(view);
                 SettleFade(view);
-                Assert.That(view.IsFinalBeforeDisplayed, Is.True);
+                Assert.That(view.IsFinalTransitionBeforeDisplayed, Is.True);
 
                 view.RequestAdvance();
                 advanceCount++;
                 SettleFade(view);
                 SettleFade(view);
                 SettleFade(view);
-                Assert.That(view.IsFinalAfterDisplayed, Is.True);
+                Assert.That(view.IsFinalTransitionAfterDisplayed, Is.True);
 
                 view.RequestAdvance();
                 advanceCount++;
                 SettleFade(view);
 
                 Assert.That(advanceCount, Is.EqualTo(13));
-                Assert.That(view.IsPlaying, Is.False);
+                Assert.That(view.IsPresenting, Is.False);
                 Assert.That(view.CurrentPresentationState,
-                    Is.EqualTo(ComicCinematicPresentationState.Completed));
+                    Is.EqualTo(ComicSequencePresentationState.Completed));
                 Assert.That(completion.HasValue, Is.True);
                 Assert.That(completion.Value.Kind,
-                    Is.EqualTo(CinematicPlaybackCompletionKind.Completed));
+                    Is.EqualTo(ComicSequenceResultKind.Completed));
             }
             finally
             {
@@ -200,8 +200,8 @@ namespace Game.Feature.UI.Tests
                 typeof(RectTransform));
             try
             {
-                var view = root.AddComponent<ComicCinematicOverlayView>();
-                view.Play(definition, default, _ => { });
+                var view = root.AddComponent<ComicSequenceOverlayView>();
+                view.Present(definition, default, _ => { });
                 SettleFade(view);
                 SettleFade(view);
 
@@ -239,24 +239,24 @@ namespace Game.Feature.UI.Tests
                 var audioSource = overlayObject.AddComponent<AudioSource>();
                 var focus = new RecordingAudioFocusOwner();
                 var overlay = new RecordingComicOverlay(audioSource);
-                var withAudioCoordinator = new ComicCinematicFlowCoordinator(
+                var withAudioCoordinator = new ComicSequenceFlowCoordinator(
                     withAudio,
                     null,
                     overlay,
                     null,
                     focus);
 
-                withAudioCoordinator.PlayIntro(_ => { });
+                withAudioCoordinator.PresentIntro(_ => { });
                 Assert.That(focus.BeginCount, Is.EqualTo(1));
 
-                CinematicOpaqueHandoffRegistry.ResetForTests();
-                var withoutAudioCoordinator = new ComicCinematicFlowCoordinator(
+                ComicSequenceOpaqueHandoffRegistry.ResetForTests();
+                var withoutAudioCoordinator = new ComicSequenceFlowCoordinator(
                     withoutAudio,
                     null,
                     overlay,
                     null,
                     focus);
-                withoutAudioCoordinator.PlayIntro(_ => { });
+                withoutAudioCoordinator.PresentIntro(_ => { });
 
                 Assert.That(focus.BeginCount, Is.EqualTo(1));
             }
@@ -276,8 +276,8 @@ namespace Game.Feature.UI.Tests
             try
             {
                 Assert.That(
-                    CinematicOpaqueHandoffRegistry.TryClaim(
-                        SceneTransitionIntent.CinematicToMainMenu,
+                    ComicSequenceOpaqueHandoffRegistry.TryClaim(
+                        SceneTransitionIntent.ComicOutroToMainMenu,
                         TerminalSessionRegistry.Authority.CurrentSceneGeneration,
                         Color.black,
                         () => { },
@@ -286,20 +286,20 @@ namespace Game.Feature.UI.Tests
                 var focus = new RecordingAudioFocusOwner();
                 var overlay = new RecordingComicOverlay(
                     overlayObject.AddComponent<AudioSource>());
-                var coordinator = new ComicCinematicFlowCoordinator(
+                var coordinator = new ComicSequenceFlowCoordinator(
                     definition,
                     null,
                     overlay,
                     null,
                     focus);
-                CinematicPlaybackCompletion? completion = null;
+                ComicSequenceResult? completion = null;
 
-                coordinator.PlayIntro(result => completion = result);
+                coordinator.PresentIntro(result => completion = result);
 
                 Assert.That(completion.HasValue, Is.True);
                 Assert.That(
                     completion.Value.Kind,
-                    Is.EqualTo(CinematicPlaybackCompletionKind.Failed));
+                    Is.EqualTo(ComicSequenceResultKind.Failed));
                 Assert.That(focus.BeginCount, Is.Zero);
                 Assert.That(focus.EndCount, Is.Zero);
             }
@@ -321,9 +321,9 @@ namespace Game.Feature.UI.Tests
                 var overlay = new RecordingComicOverlay(
                     overlayObject.AddComponent<AudioSource>())
                 {
-                    PlayException = new InvalidOperationException("injected setup failure"),
+                    PresentException = new InvalidOperationException("injected setup failure"),
                 };
-                var coordinator = new ComicCinematicFlowCoordinator(
+                var coordinator = new ComicSequenceFlowCoordinator(
                     definition,
                     null,
                     overlay,
@@ -331,12 +331,12 @@ namespace Game.Feature.UI.Tests
                     focus);
 
                 Assert.Throws<InvalidOperationException>(() =>
-                    coordinator.PlayIntro(_ => { }));
+                    coordinator.PresentIntro(_ => { }));
 
                 Assert.That(focus.BeginCount, Is.EqualTo(1));
                 Assert.That(focus.EndCount, Is.EqualTo(1));
                 Assert.That(overlay.AbortCount, Is.EqualTo(1));
-                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
             }
             finally
             {
@@ -345,29 +345,29 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Overlay_DisabledMidPlayback_CancelsAndReleasesOpaqueOwner()
+        public void Overlay_DisabledMidPresentation_CancelsAndReleasesOpaqueOwner()
         {
             var definition = CreateDefinitionWithoutAudio();
             var root = new GameObject(
-                nameof(Overlay_DisabledMidPlayback_CancelsAndReleasesOpaqueOwner),
+                nameof(Overlay_DisabledMidPresentation_CancelsAndReleasesOpaqueOwner),
                 typeof(RectTransform));
             try
             {
-                var view = root.AddComponent<ComicCinematicOverlayView>();
-                CinematicOpaqueHandoffToken token = default;
+                var view = root.AddComponent<ComicSequenceOverlayView>();
+                ComicSequenceOpaqueHandoffToken token = default;
                 Assert.That(
-                    CinematicOpaqueHandoffRegistry.TryClaim(
-                        SceneTransitionIntent.CinematicToGameplay,
+                    ComicSequenceOpaqueHandoffRegistry.TryClaim(
+                        SceneTransitionIntent.ComicIntroToGameplay,
                         TerminalSessionRegistry.Authority.CurrentSceneGeneration,
                         Color.black,
                         () => view.ReleaseOpaqueHandoff(token),
                         out token),
                     Is.True);
-                CinematicPlaybackCompletion? completion = null;
-                view.Play(definition, token, result => completion = result);
+                ComicSequenceResult? completion = null;
+                view.Present(definition, token, result => completion = result);
 
                 root.SetActive(false);
-                typeof(ComicCinematicOverlayView)
+                typeof(ComicSequenceOverlayView)
                     .GetMethod(
                         "OnDisable",
                         System.Reflection.BindingFlags.Instance |
@@ -377,12 +377,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(completion.HasValue, Is.True);
                 Assert.That(
                     completion.Value.Kind,
-                    Is.EqualTo(CinematicPlaybackCompletionKind.Cancelled));
-                Assert.That(view.IsPlaying, Is.False);
-                Assert.That(CinematicOpaqueHandoffRegistry.IsActive, Is.False);
+                    Is.EqualTo(ComicSequenceResultKind.Cancelled));
+                Assert.That(view.IsPresenting, Is.False);
+                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
                 Assert.That(
-                    CinematicOpaqueHandoffRegistry.Current.Phase,
-                    Is.EqualTo(CinematicOpaqueHandoffPhase.Released));
+                    ComicSequenceOpaqueHandoffRegistry.Current.Phase,
+                    Is.EqualTo(ComicSequenceOpaqueHandoffPhase.Released));
             }
             finally
             {
@@ -399,7 +399,7 @@ namespace Game.Feature.UI.Tests
                 typeof(RectTransform));
             try
             {
-                var view = root.AddComponent<ComicCinematicOverlayView>();
+                var view = root.AddComponent<ComicSequenceOverlayView>();
                 view.EnsureHierarchy();
 
                 Assert.That(view, Is.InstanceOf<IPointerClickHandler>());
@@ -414,15 +414,15 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static ComicCinematicSequenceDefinition LoadProductionDefinition()
+        private static ComicSequenceDefinition LoadProductionDefinition()
         {
-            var definition = AssetDatabase.LoadAssetAtPath<ComicCinematicSequenceDefinition>(
+            var definition = AssetDatabase.LoadAssetAtPath<ComicSequenceDefinition>(
                 IntroSequencePath);
             Assert.That(definition, Is.Not.Null, $"Missing {IntroSequencePath}");
             return definition;
         }
 
-        private static ComicCinematicSequenceDefinition CreateDefinitionWithoutAudio()
+        private static ComicSequenceDefinition CreateDefinitionWithoutAudio()
         {
             var definition = UnityEngine.Object.Instantiate(LoadProductionDefinition());
             var serializedDefinition = new SerializedObject(definition);
@@ -445,17 +445,17 @@ namespace Game.Feature.UI.Tests
                 assetPath);
         }
 
-        private static void SettleFade(ComicCinematicOverlayView view)
+        private static void SettleFade(ComicSequenceOverlayView view)
         {
             view.AdvanceForTesting(10f);
         }
 
-        private sealed class RecordingAudioFocusOwner : ICinematicAudioFocusOwner
+        private sealed class RecordingAudioFocusOwner : IComicSequenceAudioFocusOwner
         {
             public int BeginCount { get; private set; }
             public int EndCount { get; private set; }
 
-            public void BeginFocus(AudioSource cinematicAudioSource)
+            public void BeginFocus(AudioSource comicSequenceAudioSource)
             {
                 BeginCount++;
             }
@@ -466,16 +466,16 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class RecordingComicOverlay : IComicCinematicPlaybackOverlay
+        private sealed class RecordingComicOverlay : IComicSequenceOverlay
         {
             public RecordingComicOverlay(AudioSource audioSource)
             {
-                CinematicAudioSource = audioSource;
+                ComicSequenceAudioSource = audioSource;
             }
 
-            public bool IsPlaying => false;
-            public AudioSource CinematicAudioSource { get; }
-            public Exception PlayException { get; set; }
+            public bool IsPresenting => false;
+            public AudioSource ComicSequenceAudioSource { get; }
+            public Exception PresentException { get; set; }
             public int AbortCount { get; private set; }
 
             public void EnsureHierarchy()
@@ -483,28 +483,28 @@ namespace Game.Feature.UI.Tests
             }
 
             public void SetAudioFocusController(
-                CinematicAudioFocusController audioFocusController)
+                ComicSequenceAudioFocusController audioFocusController)
             {
             }
 
-            public void Play(
-                ComicCinematicSequenceDefinition definition,
-                CinematicOpaqueHandoffToken opaqueHandoffToken,
-                Action<CinematicPlaybackCompletion> completion)
+            public void Present(
+                ComicSequenceDefinition definition,
+                ComicSequenceOpaqueHandoffToken opaqueHandoffToken,
+                Action<ComicSequenceResult> completion)
             {
-                if (PlayException != null)
+                if (PresentException != null)
                 {
-                    throw PlayException;
+                    throw PresentException;
                 }
             }
 
-            public bool AbortSetupAfterFailure(CinematicOpaqueHandoffToken expectedToken)
+            public bool AbortSetupAfterFailure(ComicSequenceOpaqueHandoffToken expectedToken)
             {
                 AbortCount++;
                 return true;
             }
 
-            public void ReleaseOpaqueHandoff(CinematicOpaqueHandoffToken token)
+            public void ReleaseOpaqueHandoff(ComicSequenceOpaqueHandoffToken token)
             {
             }
         }

@@ -115,20 +115,20 @@ namespace Game.Feature.Stages.Editor.Tests
             var receipt = CampaignProfileDocumentMapper.ToReceipt(
                 roundTripped.Slots[0].NormalCampaignCompletionReceipt);
 
-            Assert.That(roundTripped.SchemaVersion, Is.EqualTo(1));
+            Assert.That(roundTripped.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(receipt.Version, Is.EqualTo(2));
             Assert.That(receipt.IsStructurallyValid, Is.True);
         }
 
         [Test]
-        public void OldProfileMissingReceipt_RemainsMissingAndIsNotInferred()
+        public void CurrentProfileMissingReceipt_RemainsMissingAndIsNotInferred()
         {
-            var root = CreateTemporaryRoot("old-profile");
+            var root = CreateTemporaryRoot("current-profile");
             try
             {
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    "{\"SchemaVersion\":1,\"ProfileId\":\"old-profile\",\"Slots\":[{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true}]}");
+                    $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"current-profile\",\"Slots\":[{{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true}}]}}");
                 var repository = new FileCampaignProfileRepository(new AtomicTextFileStore(root));
 
                 var load = repository.Load();
@@ -145,14 +145,14 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void RawV1Receipt_LoadsAndRemainsEligibleWithoutRuntimeIdentityTypes()
+        public void CurrentProfileWithV1Receipt_LoadsAndRemainsEligibleWithoutRuntimeIdentityTypes()
         {
             var root = CreateTemporaryRoot("v1-profile");
             try
             {
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    "{\"SchemaVersion\":1,\"ProfileId\":\"v1-profile\",\"Slots\":[" +
+                    $"{{\"SchemaVersion\":{CampaignProfileDocument.CurrentSchemaVersion},\"ProfileId\":\"v1-receipt-profile\",\"Slots\":[" +
                     "{\"SlotNumber\":1,\"StageId\":\"stage-4-3\",\"CampaignCompleted\":true," +
                     "\"HasNormalCampaignCompletionReceipt\":true," +
                     "\"NormalCampaignCompletionReceipt\":{\"Version\":1,\"CompletedStageId\":\"stage-4-3\"," +
@@ -203,7 +203,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 File.WriteAllText(
                     Path.Combine(root, FileCampaignProfileRepository.ProfileFileName),
-                    "{\"SchemaVersion\":2,\"ProfileId\":\"future-profile\",\"Slots\":[]}");
+                    "{\"SchemaVersion\":99,\"ProfileId\":\"future-profile\",\"Slots\":[]}");
                 var load = new FileCampaignProfileRepository(
                     new AtomicTextFileStore(root)).Load();
 

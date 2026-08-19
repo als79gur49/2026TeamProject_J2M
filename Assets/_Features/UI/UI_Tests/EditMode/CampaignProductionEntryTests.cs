@@ -196,6 +196,12 @@ namespace Game.Feature.UI.Tests
         {
             var root = new GameObject("main-menu-delete-popup-installer");
             var provider = CreateProvider("stage-0-1");
+            var saveHarness = new TemporaryProductionSaveHarness();
+            var productionStoreField = typeof(CampaignSaveCompositionProvider).GetField(
+                "productionProfileBackedStore",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(productionStoreField, Is.Not.Null);
+            var previousProductionStore = productionStoreField.GetValue(null);
             var catalog = AssetDatabase.LoadAssetAtPath<PopupPrefabCatalog>(PopupCatalogPath);
             var uiAudioCueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapPath);
             var prefab = AssetDatabase.LoadAssetAtPath<MainMenuScreenView>(MainMenuScreenPrefabPath);
@@ -204,6 +210,10 @@ namespace Game.Feature.UI.Tests
 
             try
             {
+                saveHarness.PrepareDefaultSlot(
+                    StageId.CreateOrThrow("stage-0-1"),
+                    SaveSlotStore.DefaultRemainingChances);
+                productionStoreField.SetValue(null, saveHarness.SaveStore);
                 var installer = root.AddComponent<MainMenuUiFlowInstaller>();
                 root.AddComponent<AudioRuntimeInstaller>();
                 root.AddComponent<DisplayRuntimeInstaller>();
@@ -232,8 +242,10 @@ namespace Game.Feature.UI.Tests
             }
             finally
             {
+                productionStoreField.SetValue(null, previousProductionStore);
                 UnityEngine.Object.DestroyImmediate(root);
                 provider.Dispose();
+                saveHarness.Dispose();
             }
         }
 

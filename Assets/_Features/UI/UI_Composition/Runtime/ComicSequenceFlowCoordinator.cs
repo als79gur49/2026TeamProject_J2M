@@ -4,24 +4,24 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
-    public sealed class ComicCinematicFlowCoordinator :
-        ICinematicSequencePlayer,
-        ICinematicOpaqueHandoffCancellationOwner
+    public sealed class ComicSequenceFlowCoordinator :
+        IComicIntroOutroFlow,
+        IComicSequenceOpaqueHandoffCancellationOwner
     {
-        private readonly ComicCinematicSequenceDefinition _introDefinition;
-        private readonly ComicCinematicSequenceDefinition _outroDefinition;
-        private readonly IComicCinematicPlaybackOverlay _overlayView;
-        private readonly CinematicAudioFocusController _overlayAudioFocusController;
-        private readonly ICinematicAudioFocusOwner _audioFocusController;
+        private readonly ComicSequenceDefinition _introDefinition;
+        private readonly ComicSequenceDefinition _outroDefinition;
+        private readonly IComicSequenceOverlay _overlayView;
+        private readonly ComicSequenceAudioFocusController _overlayAudioFocusController;
+        private readonly IComicSequenceAudioFocusOwner _audioFocusController;
         private bool _audioFocusActive;
         private bool _completionDispatched;
-        private CinematicOpaqueHandoffToken _opaqueHandoffToken;
+        private ComicSequenceOpaqueHandoffToken _opaqueHandoffToken;
 
-        public ComicCinematicFlowCoordinator(
-            ComicCinematicSequenceDefinition introDefinition,
-            ComicCinematicSequenceDefinition outroDefinition,
-            ComicCinematicOverlayView overlayView,
-            CinematicAudioFocusController audioFocusController)
+        public ComicSequenceFlowCoordinator(
+            ComicSequenceDefinition introDefinition,
+            ComicSequenceDefinition outroDefinition,
+            ComicSequenceOverlayView overlayView,
+            ComicSequenceAudioFocusController audioFocusController)
             : this(
                 introDefinition,
                 outroDefinition,
@@ -31,12 +31,12 @@ namespace Game.Feature.UI.Composition
         {
         }
 
-        internal ComicCinematicFlowCoordinator(
-            ComicCinematicSequenceDefinition introDefinition,
-            ComicCinematicSequenceDefinition outroDefinition,
-            IComicCinematicPlaybackOverlay overlayView,
-            CinematicAudioFocusController overlayAudioFocusController,
-            ICinematicAudioFocusOwner audioFocusController)
+        internal ComicSequenceFlowCoordinator(
+            ComicSequenceDefinition introDefinition,
+            ComicSequenceDefinition outroDefinition,
+            IComicSequenceOverlay overlayView,
+            ComicSequenceAudioFocusController overlayAudioFocusController,
+            IComicSequenceAudioFocusOwner audioFocusController)
         {
             _introDefinition = introDefinition;
             _outroDefinition = outroDefinition;
@@ -45,38 +45,38 @@ namespace Game.Feature.UI.Composition
             _audioFocusController = audioFocusController;
         }
 
-        public bool HasIntroContent =>
+        public bool HasIntroSequence =>
             _introDefinition != null && _introDefinition.HasContent;
 
-        public bool HasOutroContent =>
+        public bool HasOutroSequence =>
             _outroDefinition != null && _outroDefinition.HasContent;
 
-        public bool IsPlaying => _overlayView.IsPlaying;
+        public bool IsPresenting => _overlayView.IsPresenting;
 
-        public void PlayIntro(Action<CinematicPlaybackCompletion> completion)
+        public void PresentIntro(Action<ComicSequenceResult> completion)
         {
-            Play(
+            Present(
                 _introDefinition,
-                SceneTransitionIntent.CinematicToGameplay,
+                SceneTransitionIntent.ComicIntroToGameplay,
                 completion);
         }
 
-        public void PlayOutro(Action<CinematicPlaybackCompletion> completion)
+        public void PresentOutro(Action<ComicSequenceResult> completion)
         {
-            Play(
+            Present(
                 _outroDefinition,
-                SceneTransitionIntent.CinematicToMainMenu,
+                SceneTransitionIntent.ComicOutroToMainMenu,
                 completion);
         }
 
-        bool ICinematicOpaqueHandoffCancellationOwner
+        bool IComicSequenceOpaqueHandoffCancellationOwner
             .TryReleaseCancelledIntroOpaqueOwner()
         {
             var token = _opaqueHandoffToken;
             if (!token.IsValid ||
-                !CinematicOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
+                !ComicSequenceOpaqueHandoffRegistry.TryReleaseCancelledOpaqueOwner(
                     token,
-                    SceneTransitionIntent.CinematicToGameplay))
+                    SceneTransitionIntent.ComicIntroToGameplay))
             {
                 return false;
             }
@@ -85,35 +85,35 @@ namespace Game.Feature.UI.Composition
             return true;
         }
 
-        private void Play(
-            ComicCinematicSequenceDefinition definition,
+        private void Present(
+            ComicSequenceDefinition definition,
             SceneTransitionIntent intent,
-            Action<CinematicPlaybackCompletion> completion)
+            Action<ComicSequenceResult> completion)
         {
             if (definition == null || !definition.HasContent)
             {
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Completed));
+                completion?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Completed));
                 return;
             }
 
             if (!definition.TryValidate(out var failureReason))
             {
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Failed,
+                completion?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Failed,
                     failureReason));
                 return;
             }
 
-            if (IsPlaying)
+            if (IsPresenting)
             {
-                completion?.Invoke(new CinematicPlaybackCompletion(
-                    CinematicPlaybackCompletionKind.Failed,
-                    "A comic cinematic is already playing."));
+                completion?.Invoke(new ComicSequenceResult(
+                    ComicSequenceResultKind.Failed,
+                    "A comic sequence is already being presented."));
                 return;
             }
 
-            CinematicOpaqueHandoffToken handoffToken = default;
+            ComicSequenceOpaqueHandoffToken handoffToken = default;
             var overlaySetupStarted = false;
             var focusSetupStarted = false;
             _completionDispatched = false;
@@ -123,7 +123,7 @@ namespace Game.Feature.UI.Composition
                 overlaySetupStarted = true;
                 _overlayView.EnsureHierarchy();
                 _overlayView.SetAudioFocusController(_overlayAudioFocusController);
-                if (!CinematicOpaqueHandoffRegistry.TryClaim(
+                if (!ComicSequenceOpaqueHandoffRegistry.TryClaim(
                         intent,
                         TerminalSessionRegistry.Authority.CurrentSceneGeneration,
                         definition.Timing.FadeColor,
@@ -131,9 +131,9 @@ namespace Game.Feature.UI.Composition
                         out handoffToken))
                 {
                     EndAudioFocusIfActive();
-                    completion?.Invoke(new CinematicPlaybackCompletion(
-                        CinematicPlaybackCompletionKind.Failed,
-                        "The comic cinematic opaque handoff session is already owned."));
+                    completion?.Invoke(new ComicSequenceResult(
+                        ComicSequenceResultKind.Failed,
+                        "The comic sequence opaque handoff session is already owned."));
                     return;
                 }
 
@@ -141,11 +141,11 @@ namespace Game.Feature.UI.Composition
                 if (definition.AudioClip != null && _audioFocusController != null)
                 {
                     focusSetupStarted = true;
-                    _audioFocusController.BeginFocus(_overlayView.CinematicAudioSource);
+                    _audioFocusController.BeginFocus(_overlayView.ComicSequenceAudioSource);
                     _audioFocusActive = true;
                 }
 
-                _overlayView.Play(
+                _overlayView.Present(
                     definition,
                     handoffToken,
                     result => CompleteOnce(result, completion));
@@ -165,12 +165,12 @@ namespace Game.Feature.UI.Composition
         private void CleanupFailedSetup(
             Exception setupException,
             SceneTransitionIntent intent,
-            CinematicOpaqueHandoffToken handoffToken,
+            ComicSequenceOpaqueHandoffToken handoffToken,
             bool overlaySetupStarted,
             bool focusSetupStarted)
         {
             var exactClaimedOwner =
-                CinematicOpaqueHandoffRegistry.IsExactClaimedOwner(handoffToken, intent);
+                ComicSequenceOpaqueHandoffRegistry.IsExactClaimedOwner(handoffToken, intent);
             var overlayAborted = !overlaySetupStarted;
             if (overlaySetupStarted && (!handoffToken.IsValid || exactClaimedOwner))
             {
@@ -182,7 +182,7 @@ namespace Game.Feature.UI.Composition
                 {
                     AttachCleanupFailure(
                         setupException,
-                        "ComicCinematicOverlayAbortFailure",
+                        "ComicSequenceOverlayAbortFailure",
                         cleanupException);
                 }
             }
@@ -198,7 +198,7 @@ namespace Game.Feature.UI.Composition
                 {
                     AttachCleanupFailure(
                         setupException,
-                        "ComicCinematicAudioFocusEndFailure",
+                        "ComicSequenceAudioFocusEndFailure",
                         cleanupException);
                 }
             }
@@ -206,19 +206,19 @@ namespace Game.Feature.UI.Composition
             if (exactClaimedOwner)
             {
                 if (!overlayAborted ||
-                    !CinematicOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
+                    !ComicSequenceOpaqueHandoffRegistry.TryAbortClaimedOwnerAfterSetupFailure(
                         handoffToken,
                         intent))
                 {
-                    CinematicOpaqueHandoffRegistry.TryFailHoldingOpaque(
+                    ComicSequenceOpaqueHandoffRegistry.TryFailHoldingOpaque(
                         handoffToken,
                         overlayAborted
-                            ? "The exact comic cinematic setup claim could not be aborted."
-                            : "The partial comic cinematic overlay setup could not be aborted.");
+                            ? "The exact comic sequence setup claim could not be aborted."
+                            : "The partial comic sequence overlay setup could not be aborted.");
                 }
             }
 
-            var current = CinematicOpaqueHandoffRegistry.Current;
+            var current = ComicSequenceOpaqueHandoffRegistry.Current;
             if (!current.IsActive || current.Token != handoffToken)
             {
                 _opaqueHandoffToken = default;
@@ -248,8 +248,8 @@ namespace Game.Feature.UI.Composition
         }
 
         private void CompleteOnce(
-            CinematicPlaybackCompletion result,
-            Action<CinematicPlaybackCompletion> completion)
+            ComicSequenceResult result,
+            Action<ComicSequenceResult> completion)
         {
             if (_completionDispatched)
             {

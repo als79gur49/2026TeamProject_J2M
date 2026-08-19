@@ -21,7 +21,7 @@
 - Current Settings movement-key toggle rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1357 total / 0 failed`; Settings now has 37 locale-themed bindings / 10 invariant bindings over 47 TMP targets
 - Current Settings Push/Flip keycap rebind rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1361 total / 0 failed`; Settings now has 35 locale-themed bindings / 10 invariant bindings over 45 TMP targets, with the obsolete Change localization entry removed
 - Current fullscreen cursor confinement rerun: green on 2026-08-15 KST, Windows UI build passed and Unity UI EditMode `1386 total / 0 failed`
-- Current comic cinematic retirement rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired, the current runtime is sprite-sequence only, and the temporary outro definition independently duplicates the intro content for playback validation
+- Current comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired, the current runtime is sprite-sequence only, and the temporary outro definition independently duplicates the intro content for presentation validation
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
 - Current Unity UI EditMode: `1324 total / 0 failed`
 - Baseline test result: command `./run_tests.sh ui`, result `1324 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
@@ -34,7 +34,7 @@
 
 ## Structural Delta
 - Added tests:
-  - comic cinematic sequence/import/layout guards, exact 13-click progression, independent outro validation-copy parity, shared intro/outro routing contracts, retired-video absence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, setup-failure cleanup, and pointer-only background click ownership
+  - comic-sequence import/layout guards, exact 13-click progression, independent outro validation-copy parity, shared intro/outro routing contracts, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, setup-failure cleanup, and pointer-only background click ownership
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
   - Climate Crisis KR committed TTF/SDF Git-blob, GUID, material localID, and Nanum-retention preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values are diagnostic only
@@ -77,11 +77,11 @@
   - cursor-confinement slice pre-change observed result: `1383 total / 0 failed`
   - cursor-confinement slice current rerun: `1386 total / 0 failed`
   - cursor-confinement slice-local delta: `+3`; the `+22` between the prior documented `1361` result and this slice's pre-change result predates this change
-  - comic-cinematic slice pre-change observed result: `1391 total / 0 failed`
-  - comic-cinematic slice current rerun: `1324 total / 0 failed`
-  - comic-cinematic slice-local executed-case delta: `-67`; the 70-method legacy mixed suite was replaced by 13 shared-routing methods plus expanded comic guards, with parameterized cases accounting for the executed-case total
+  - comic-sequence slice pre-change observed result: `1391 total / 0 failed`
+  - comic-sequence slice current rerun: `1324 total / 0 failed`
+  - comic-sequence slice-local executed-case delta: `-67`; the 70-method legacy mixed suite was replaced by 13 shared-routing methods plus expanded comic guards, with parameterized cases accounting for the executed-case total
 - Removed tests:
-  - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `CinematicRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicCinematicFlowTests`
+  - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `ComicIntroOutroRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicSequenceFlowTests`
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
   - Diagnostics overlay behavior tests were removed with the unused runtime feature.
@@ -92,7 +92,7 @@
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
   - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:
-  - video playback/skip/aspect guards are replaced by sprite import-resolution, normalized panel-layout, click sequencing, final-shot fade, ownership cleanup, audio-focus ordering, and retired-runtime absence guards
+  - retired video playback/skip/aspect guards are replaced by sprite import-resolution, normalized panel-layout, click sequencing, final-transition fade, ownership cleanup, audio-focus ordering, and current comic-sequence component presence coverage
   - retired movement Slider, separate Arrow/WASD display-group alpha/Light checks, `Use Arrow Keys` localized label, and movement-current text expectations are replaced by one state-driven visual toggle contract
   - title-only and injected Korean font-resolver evidence is replaced by production Scene/Catalog composition coverage over all 36 governed Settings TMP targets, while a separate exact 51-target closure guard catches new unbound TMP or unclassified binding additions
   - Main Menu-only duplicated Settings assembly assertions are replaced by a thin-adapter guard plus common `SettingsScreenRuntimeBuilder` behavior coverage
@@ -148,7 +148,7 @@
 - PlayMode escalation status:
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
-  - comic cinematic production scene bootstrap continues to be covered by the existing actual-scene PlayMode smoke; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
+  - comic-sequence production scene bootstrap continues to be covered by the existing actual-scene PlayMode smoke; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
 
 ## Covered Freeze Evidence
 - architectural seams are guarded by tests, not only by convention

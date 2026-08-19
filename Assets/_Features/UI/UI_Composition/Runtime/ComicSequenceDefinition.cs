@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.Feature.UI.Composition
 {
     [Serializable]
-    public sealed class ComicCinematicPanelDefinition
+    public sealed class ComicPanelDefinition
     {
         [SerializeField] private Sprite _sprite;
         [SerializeField] private Rect _referenceRect;
@@ -17,13 +17,13 @@ namespace Game.Feature.UI.Composition
         {
             if (_sprite == null)
             {
-                failureReason = "A comic cinematic panel sprite is missing.";
+                failureReason = "A comic sequence panel sprite is missing.";
                 return false;
             }
 
             if (_referenceRect.width <= 0f || _referenceRect.height <= 0f)
             {
-                failureReason = "A comic cinematic panel reference rect must have a positive size.";
+                failureReason = "A comic sequence panel reference rect must have a positive size.";
                 return false;
             }
 
@@ -33,20 +33,20 @@ namespace Game.Feature.UI.Composition
     }
 
     [Serializable]
-    public sealed class ComicCinematicPageDefinition
+    public sealed class ComicPageDefinition
     {
-        [SerializeField] private ComicCinematicPanelDefinition[] _panels =
-            Array.Empty<ComicCinematicPanelDefinition>();
+        [SerializeField] private ComicPanelDefinition[] _panels =
+            Array.Empty<ComicPanelDefinition>();
 
-        public ComicCinematicPanelDefinition[] Panels =>
-            _panels ?? Array.Empty<ComicCinematicPanelDefinition>();
+        public ComicPanelDefinition[] Panels =>
+            _panels ?? Array.Empty<ComicPanelDefinition>();
 
         internal bool TryValidate(int pageIndex, out string failureReason)
         {
             var panels = Panels;
             if (panels.Length == 0)
             {
-                failureReason = $"Comic cinematic page {pageIndex + 1} has no panels.";
+                failureReason = $"Comic sequence page {pageIndex + 1} has no panels.";
                 return false;
             }
 
@@ -56,14 +56,14 @@ namespace Game.Feature.UI.Composition
                 if (panel == null)
                 {
                     failureReason =
-                        $"Comic cinematic page {pageIndex + 1}, panel {panelIndex + 1} is missing.";
+                        $"Comic sequence page {pageIndex + 1}, panel {panelIndex + 1} is missing.";
                     return false;
                 }
 
                 if (!panel.TryValidate(out failureReason))
                 {
                     failureReason =
-                        $"Comic cinematic page {pageIndex + 1}, panel {panelIndex + 1} is invalid. " +
+                        $"Comic sequence page {pageIndex + 1}, panel {panelIndex + 1} is invalid. " +
                         failureReason;
                     return false;
                 }
@@ -75,7 +75,7 @@ namespace Game.Feature.UI.Composition
     }
 
     [Serializable]
-    public struct ComicCinematicTimingSettings
+    public struct ComicSequenceTimingSettings
     {
         [SerializeField] [Min(0f)] private float _enterFadeDuration;
         [SerializeField] [Min(0f)] private float _panelRevealDuration;
@@ -86,9 +86,9 @@ namespace Game.Feature.UI.Composition
         [SerializeField] [Min(0f)] private float _finalSwapFadeInDuration;
         [SerializeField] [Min(0f)] private float _exitFadeDuration;
         [SerializeField] private Color _fadeColor;
-        [SerializeField] private CinematicFadeEase _fadeEase;
+        [SerializeField] private ComicSequenceFadeEase _fadeEase;
 
-        public ComicCinematicTimingSettings(
+        public ComicSequenceTimingSettings(
             float enterFadeDuration,
             float panelRevealDuration,
             float pageFadeOutDuration,
@@ -98,7 +98,7 @@ namespace Game.Feature.UI.Composition
             float finalSwapFadeInDuration,
             float exitFadeDuration,
             Color fadeColor,
-            CinematicFadeEase fadeEase)
+            ComicSequenceFadeEase fadeEase)
         {
             _enterFadeDuration = Mathf.Max(0f, enterFadeDuration);
             _panelRevealDuration = Mathf.Max(0f, panelRevealDuration);
@@ -112,7 +112,7 @@ namespace Game.Feature.UI.Composition
             _fadeEase = fadeEase;
         }
 
-        public static ComicCinematicTimingSettings Default => new(
+        public static ComicSequenceTimingSettings Default => new(
             0.25f,
             0.18f,
             0.30f,
@@ -122,7 +122,7 @@ namespace Game.Feature.UI.Composition
             0.50f,
             0.30f,
             Color.black,
-            CinematicFadeEase.SmoothStep);
+            ComicSequenceFadeEase.SmoothStep);
 
         public float EnterFadeDuration => Mathf.Max(0f, _enterFadeDuration);
         public float PanelRevealDuration => Mathf.Max(0f, _panelRevealDuration);
@@ -133,41 +133,41 @@ namespace Game.Feature.UI.Composition
         public float FinalSwapFadeInDuration => Mathf.Max(0f, _finalSwapFadeInDuration);
         public float ExitFadeDuration => Mathf.Max(0f, _exitFadeDuration);
         public Color FadeColor => _fadeColor;
-        public CinematicFadeEase FadeEase => _fadeEase;
+        public ComicSequenceFadeEase FadeEase => _fadeEase;
 
     }
 
     [CreateAssetMenu(
-        fileName = "ComicCinematicSequenceDefinition",
-        menuName = "Game/UI/Comic Cinematic Sequence Definition")]
-    public sealed class ComicCinematicSequenceDefinition : ScriptableObject
+        fileName = "ComicSequenceDefinition",
+        menuName = "Game/UI/Comic Sequence Definition")]
+    public sealed class ComicSequenceDefinition : ScriptableObject
     {
         public static readonly Vector2 ReferenceResolution = new(1920f, 1080f);
-        public const float FinalShotAspectRatio = 2.244f;
+        public const float FinalTransitionAspectRatio = 2.244f;
 
-        [SerializeField] private ComicCinematicPageDefinition[] _pages =
-            Array.Empty<ComicCinematicPageDefinition>();
-        [SerializeField] private Sprite _finalBeforeSprite;
-        [SerializeField] private Sprite _finalAfterSprite;
+        [SerializeField] private ComicPageDefinition[] _pages =
+            Array.Empty<ComicPageDefinition>();
+        [SerializeField] private Sprite _finalTransitionBeforeSprite;
+        [SerializeField] private Sprite _finalTransitionAfterSprite;
         [SerializeField] private AudioClip _audioClip;
-        [SerializeField] private ComicCinematicTimingSettings _timing =
-            ComicCinematicTimingSettings.Default;
+        [SerializeField] private ComicSequenceTimingSettings _timing =
+            ComicSequenceTimingSettings.Default;
 
-        public ComicCinematicPageDefinition[] Pages =>
-            _pages ?? Array.Empty<ComicCinematicPageDefinition>();
+        public ComicPageDefinition[] Pages =>
+            _pages ?? Array.Empty<ComicPageDefinition>();
 
-        public Sprite FinalBeforeSprite => _finalBeforeSprite;
-        public Sprite FinalAfterSprite => _finalAfterSprite;
+        public Sprite FinalTransitionBeforeSprite => _finalTransitionBeforeSprite;
+        public Sprite FinalTransitionAfterSprite => _finalTransitionAfterSprite;
         public AudioClip AudioClip => _audioClip;
-        public ComicCinematicTimingSettings Timing => _timing;
-        public bool HasFinalShots => _finalBeforeSprite != null && _finalAfterSprite != null;
-        public bool HasContent => Pages.Length > 0 || HasFinalShots;
+        public ComicSequenceTimingSettings Timing => _timing;
+        public bool HasFinalTransition => _finalTransitionBeforeSprite != null && _finalTransitionAfterSprite != null;
+        public bool HasContent => Pages.Length > 0 || HasFinalTransition;
 
         public bool TryValidate(out string failureReason)
         {
             if (!HasContent)
             {
-                failureReason = "Comic cinematic sequence has no pages or final shots.";
+                failureReason = "Comic sequence has no pages or final transition sprites.";
                 return false;
             }
 
@@ -177,7 +177,7 @@ namespace Game.Feature.UI.Composition
                 var page = pages[pageIndex];
                 if (page == null)
                 {
-                    failureReason = $"Comic cinematic page {pageIndex + 1} is missing.";
+                    failureReason = $"Comic sequence page {pageIndex + 1} is missing.";
                     return false;
                 }
 
@@ -187,10 +187,10 @@ namespace Game.Feature.UI.Composition
                 }
             }
 
-            if ((_finalBeforeSprite == null) != (_finalAfterSprite == null))
+            if ((_finalTransitionBeforeSprite == null) != (_finalTransitionAfterSprite == null))
             {
                 failureReason =
-                    "Comic cinematic final shots must provide both before and after sprites.";
+                    "Comic sequence final transition sprites must provide both before and after sprites.";
                 return false;
             }
 

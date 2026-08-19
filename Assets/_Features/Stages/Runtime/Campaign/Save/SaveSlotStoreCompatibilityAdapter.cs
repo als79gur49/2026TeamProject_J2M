@@ -191,8 +191,8 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAt ?? string.Empty,
                 StageClearProfileSnapshot = CampaignProfileDocumentMapper.ToStageClearProfileDocument(
@@ -236,8 +236,8 @@ namespace Game.Feature.Stages
                     slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceipt(
                     slot.NormalCampaignCompletionReceipt),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 TotalDeaths = Math.Max(0, slot.TotalDeaths),
                 LastPlayedAt = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = ToStageClearProfileSnapshot(slot.StageClearProfileSnapshot),

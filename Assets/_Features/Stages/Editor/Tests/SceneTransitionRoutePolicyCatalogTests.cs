@@ -15,8 +15,8 @@ namespace Game.Feature.Stages.Editor.Tests
             SceneTransitionIntent.DemoStageRelaunch,
             SceneTransitionIntent.GameplayEntry,
             SceneTransitionIntent.ReturnToMainMenu,
-            SceneTransitionIntent.CinematicToGameplay,
-            SceneTransitionIntent.CinematicToMainMenu,
+            SceneTransitionIntent.ComicIntroToGameplay,
+            SceneTransitionIntent.ComicOutroToMainMenu,
         };
 
         [Test]
@@ -56,8 +56,8 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase(SceneTransitionIntent.DemoStageRelaunch, SceneTransitionDestinationKind.Gameplay, StageTransitionKind.StageRetryManual, StageTransitionKind.Unknown)]
         [TestCase(SceneTransitionIntent.GameplayEntry, SceneTransitionDestinationKind.Gameplay, StageTransitionKind.MainToGameplay, StageTransitionKind.Unknown)]
         [TestCase(SceneTransitionIntent.ReturnToMainMenu, SceneTransitionDestinationKind.MainMenu, StageTransitionKind.GameplayToMain, StageTransitionKind.Unknown)]
-        [TestCase(SceneTransitionIntent.CinematicToGameplay, SceneTransitionDestinationKind.Gameplay, StageTransitionKind.MainToGameplay, StageTransitionKind.Unknown)]
-        [TestCase(SceneTransitionIntent.CinematicToMainMenu, SceneTransitionDestinationKind.MainMenu, StageTransitionKind.GameplayToMain, StageTransitionKind.Unknown)]
+        [TestCase(SceneTransitionIntent.ComicIntroToGameplay, SceneTransitionDestinationKind.Gameplay, StageTransitionKind.MainToGameplay, StageTransitionKind.Unknown)]
+        [TestCase(SceneTransitionIntent.ComicOutroToMainMenu, SceneTransitionDestinationKind.MainMenu, StageTransitionKind.GameplayToMain, StageTransitionKind.Unknown)]
         public void ProductionManifest_MapsEachIntentToExactDestinationAndProfile(
             SceneTransitionIntent intent,
             SceneTransitionDestinationKind destination,
@@ -126,8 +126,8 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase(SceneTransitionIntent.ReturnToMainMenu, SceneTransitionDestinationKind.MainMenu, false)]
-        [TestCase(SceneTransitionIntent.CinematicToGameplay, SceneTransitionDestinationKind.Gameplay, true)]
-        [TestCase(SceneTransitionIntent.CinematicToMainMenu, SceneTransitionDestinationKind.MainMenu, true)]
+        [TestCase(SceneTransitionIntent.ComicIntroToGameplay, SceneTransitionDestinationKind.Gameplay, true)]
+        [TestCase(SceneTransitionIntent.ComicOutroToMainMenu, SceneTransitionDestinationKind.MainMenu, true)]
         public void M4Routes_DeclareCompleteCanonicalDestinationLifecycle(
             SceneTransitionIntent intent,
             SceneTransitionDestinationKind destinationKind,
@@ -251,8 +251,8 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase(SceneTransitionIntent.ManualRetry, SceneTransitionDestinationKind.Gameplay, SceneTransitionRouteStatus.Canonical)]
         [TestCase(SceneTransitionIntent.GameplayEntry, SceneTransitionDestinationKind.Gameplay, SceneTransitionRouteStatus.Canonical)]
         [TestCase(SceneTransitionIntent.ReturnToMainMenu, SceneTransitionDestinationKind.MainMenu, SceneTransitionRouteStatus.Canonical)]
-        [TestCase(SceneTransitionIntent.CinematicToGameplay, SceneTransitionDestinationKind.Gameplay, SceneTransitionRouteStatus.Canonical)]
-        [TestCase(SceneTransitionIntent.CinematicToMainMenu, SceneTransitionDestinationKind.MainMenu, SceneTransitionRouteStatus.Canonical)]
+        [TestCase(SceneTransitionIntent.ComicIntroToGameplay, SceneTransitionDestinationKind.Gameplay, SceneTransitionRouteStatus.Canonical)]
+        [TestCase(SceneTransitionIntent.ComicOutroToMainMenu, SceneTransitionDestinationKind.MainMenu, SceneTransitionRouteStatus.Canonical)]
         [TestCase(SceneTransitionIntent.DemoStageRelaunch, SceneTransitionDestinationKind.Gameplay, SceneTransitionRouteStatus.Canonical)]
         public void ResolveProduction_ReturnsDeclaredRoute(
             SceneTransitionIntent intent,

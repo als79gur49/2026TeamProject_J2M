@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Game.Feature.UI.Composition
 {
     [DisallowMultipleComponent]
-    public sealed class CinematicAudioFocusController : MonoBehaviour, ICinematicAudioFocusOwner
+    public sealed class ComicSequenceAudioFocusController : MonoBehaviour, IComicSequenceAudioFocusOwner
     {
         [SerializeField] private AudioRuntimeInstaller _audioRuntimeInstaller;
         [SerializeField] private GlobalAudioFlowBootstrap _audioFlowBootstrap;
@@ -14,16 +14,16 @@ namespace Game.Feature.UI.Composition
         private AudioSource _activeAudioSource;
         private IAudioSettingsService _audioSettingsService;
         private bool _isFocused;
-        private float _cinematicFadeGain = 1f;
+        private float _comicSequenceFadeGain = 1f;
 
         public bool IsFocused => _isFocused;
 
-        internal float CinematicFadeGain => _cinematicFadeGain;
+        internal float ComicSequenceFadeGain => _comicSequenceFadeGain;
 
-        public void BeginFocus(AudioSource cinematicAudioSource)
+        public void BeginFocus(AudioSource comicSequenceAudioSource)
         {
-            _activeAudioSource = cinematicAudioSource ?? throw new ArgumentNullException(nameof(cinematicAudioSource));
-            _cinematicFadeGain = 1f;
+            _activeAudioSource = comicSequenceAudioSource ?? throw new ArgumentNullException(nameof(comicSequenceAudioSource));
+            _comicSequenceFadeGain = 1f;
             ResolveAudioSettingsService();
             StopCurrentBgmIfAvailable();
             ApplyCurrentSettings();
@@ -38,13 +38,13 @@ namespace Game.Feature.UI.Composition
             }
 
             _activeAudioSource = null;
-            _cinematicFadeGain = 1f;
+            _comicSequenceFadeGain = 1f;
             _isFocused = false;
         }
 
-        internal void SetCinematicFadeGain(float gain)
+        internal void SetComicSequenceFadeGain(float gain)
         {
-            _cinematicFadeGain = Mathf.Clamp01(gain);
+            _comicSequenceFadeGain = Mathf.Clamp01(gain);
             ApplyCurrentSettings();
         }
 
@@ -100,7 +100,7 @@ namespace Game.Feature.UI.Composition
                 : AudioSettingsSnapshot.Default;
             var master = snapshot.Master;
             _activeAudioSource.mute = master.IsMuted;
-            _activeAudioSource.volume = master.EffectiveFactor * _cinematicFadeGain;
+            _activeAudioSource.volume = master.EffectiveFactor * _comicSequenceFadeGain;
         }
     }
 }

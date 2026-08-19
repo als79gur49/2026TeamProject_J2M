@@ -5,36 +5,36 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
-    public sealed class CinematicStageLaunchRouter : IStageLaunchRouter
+    public sealed class ComicIntroStageLaunchRouter : IStageLaunchRouter
     {
         private readonly IStageLaunchRouter _inner;
         private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
-        private readonly ICinematicOpaqueHandoffCancellationOwner
+        private readonly IComicSequenceOpaqueHandoffCancellationOwner
             _opaqueHandoffCancellationOwner;
-        private readonly ICinematicSequencePlayer _player;
-        private readonly SlotCinematicProgressStore _progressStore;
+        private readonly IComicIntroOutroFlow _comicFlow;
+        private readonly SlotComicProgressStore _progressStore;
 
-        public CinematicStageLaunchRouter(
+        public ComicIntroStageLaunchRouter(
             IStageLaunchRouter inner,
             ICampaignSaveSlotStore saveSlotStore,
             ICampaignLaunchHandoffStore launchHandoffStore,
-            ICinematicSequencePlayer player)
-            : this(inner, new SlotCinematicProgressStore(saveSlotStore), launchHandoffStore, player)
+            IComicIntroOutroFlow comicFlow)
+            : this(inner, new SlotComicProgressStore(saveSlotStore), launchHandoffStore, comicFlow)
         {
         }
 
-        internal CinematicStageLaunchRouter(
+        internal ComicIntroStageLaunchRouter(
             IStageLaunchRouter inner,
-            SlotCinematicProgressStore progressStore,
+            SlotComicProgressStore progressStore,
             ICampaignLaunchHandoffStore launchHandoffStore,
-            ICinematicSequencePlayer player)
+            IComicIntroOutroFlow comicFlow)
         {
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
             _progressStore = progressStore ?? throw new ArgumentNullException(nameof(progressStore));
             _launchHandoffStore = launchHandoffStore ?? throw new ArgumentNullException(nameof(launchHandoffStore));
-            _player = player ?? throw new ArgumentNullException(nameof(player));
+            _comicFlow = comicFlow ?? throw new ArgumentNullException(nameof(comicFlow));
             _opaqueHandoffCancellationOwner =
-                player as ICinematicOpaqueHandoffCancellationOwner;
+                comicFlow as IComicSequenceOpaqueHandoffCancellationOwner;
         }
 
         public void Launch(StageNavigationRequest request)
@@ -45,30 +45,30 @@ namespace Game.Feature.UI.Composition
             if (routePolicy.Intent != SceneTransitionIntent.GameplayEntry)
             {
                 throw new InvalidOperationException(
-                    $"Cinematic stage launch accepts GameplayEntry, not {routePolicy.Intent}.");
+                    $"Comic sequence stage launch accepts GameplayEntry, not {routePolicy.Intent}.");
             }
 
             if (!_launchHandoffStore.TryPeek(out var handoff))
             {
                 throw new InvalidOperationException(
-                    "Main menu cinematic launch requires a pending campaign launch handoff.");
+                    "Main menu comic sequence launch requires a pending campaign launch handoff.");
             }
 
             if (!handoff.Matches(request))
             {
                 throw new InvalidOperationException(
-                    "Main menu cinematic launch request does not match the pending campaign launch handoff.");
+                    "Main menu comic sequence launch request does not match the pending campaign launch handoff.");
             }
 
-            if (!_player.HasIntroContent ||
-                _progressStore.IsIntroPlayed(handoff.SlotNumber))
+            if (!_comicFlow.HasIntroSequence ||
+                _progressStore.IsIntroComicCompleted(handoff.SlotNumber))
             {
                 LaunchOrClear(request, handoff);
                 return;
             }
 
             if (!SceneEntryPresentationRegistry.TryClaim(
-                    SceneTransitionIntent.CinematicToGameplay,
+                    SceneTransitionIntent.ComicIntroToGameplay,
                     request.StageId,
                     TerminalSessionRegistry.Authority.CurrentSceneGeneration,
                     handoff.Source,
@@ -78,13 +78,13 @@ namespace Game.Feature.UI.Composition
             {
                 TryClearCurrentHandoff(handoff);
                 throw new InvalidOperationException(
-                    "Intro cinematic could not claim the CinematicToGameplay destination session.");
+                    "Intro comic sequence could not claim the ComicIntroToGameplay destination session.");
             }
 
             var terminalClaimed = 0;
             try
             {
-                _player.PlayIntro(result =>
+                _comicFlow.PresentIntro(result =>
                 {
                     if (Volatile.Read(ref terminalClaimed) != 0 ||
                         Interlocked.CompareExchange(ref terminalClaimed, 1, 0) != 0)
@@ -109,13 +109,13 @@ namespace Game.Feature.UI.Composition
 
                     switch (result.Kind)
                     {
-                        case CinematicPlaybackCompletionKind.Completed:
+                        case ComicSequenceResultKind.Completed:
                             try
                             {
                                 LaunchOrClear(
-                                    request.WithTransitionIntent(SceneTransitionIntent.CinematicToGameplay),
+                                    request.WithTransitionIntent(SceneTransitionIntent.ComicIntroToGameplay),
                                     handoff);
-                                _progressStore.MarkIntroPlayed(handoff.SlotNumber);
+                                _progressStore.MarkIntroComicCompleted(handoff.SlotNumber);
                             }
                             catch (Exception exception)
                             {
@@ -129,11 +129,11 @@ namespace Game.Feature.UI.Composition
 
                             return;
 
-                        case CinematicPlaybackCompletionKind.Failed:
-                        case CinematicPlaybackCompletionKind.Cancelled:
+                        case ComicSequenceResultKind.Failed:
+                        case ComicSequenceResultKind.Cancelled:
                         default:
                             TryClearCurrentHandoff(handoff);
-                            if (result.Kind == CinematicPlaybackCompletionKind.Cancelled)
+                            if (result.Kind == ComicSequenceResultKind.Cancelled)
                             {
                                 SceneEntryPresentationRegistry.TryCancelClaim(entryToken);
                             }
@@ -142,7 +142,7 @@ namespace Game.Feature.UI.Composition
                                 SceneEntryPresentationRegistry.TryFailHoldingCover(
                                     entryToken,
                                     string.IsNullOrWhiteSpace(result.Message)
-                                        ? "Intro cinematic failed while holding its opaque owner."
+                                        ? "Intro comic sequence failed while holding its opaque owner."
                                         : result.Message);
                             }
 
@@ -201,7 +201,7 @@ namespace Game.Feature.UI.Composition
             return current.IsActive &&
                    current.Token == token &&
                    current.TransitionIntent ==
-                   SceneTransitionIntent.CinematicToGameplay &&
+                   SceneTransitionIntent.ComicIntroToGameplay &&
                    current.DestinationStageId.Equals(destinationStageId) &&
                    current.Phase == SceneEntryPresentationPhase.Claimed;
         }
@@ -214,7 +214,7 @@ namespace Game.Feature.UI.Composition
             var current = SceneEntryPresentationRegistry.Current;
             if (!current.IsActive ||
                 current.Token != token ||
-                current.TransitionIntent != SceneTransitionIntent.CinematicToGameplay ||
+                current.TransitionIntent != SceneTransitionIntent.ComicIntroToGameplay ||
                 !current.DestinationStageId.Equals(destinationStageId) ||
                 current.Phase != SceneEntryPresentationPhase.Claimed)
             {
@@ -231,7 +231,7 @@ namespace Game.Feature.UI.Composition
             var current = SceneEntryPresentationRegistry.Current;
             if (!current.IsActive ||
                 current.Token != token ||
-                current.TransitionIntent != SceneTransitionIntent.CinematicToGameplay ||
+                current.TransitionIntent != SceneTransitionIntent.ComicIntroToGameplay ||
                 !current.DestinationStageId.Equals(destinationStageId) ||
                 current.Phase != SceneEntryPresentationPhase.Claimed)
             {

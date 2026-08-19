@@ -5,47 +5,47 @@ using UnityEngine;
 
 namespace Game.Feature.UI.Composition
 {
-    internal enum CinematicOpaqueHandoffPhase
+    internal enum ComicSequenceOpaqueHandoffPhase
     {
         Inactive = 0,
         Claimed = 1,
-        CinematicOpaqueRendered = 2,
+        ComicSequenceOpaqueRendered = 2,
         PersistentCoverRendered = 3,
         Released = 4,
         FailedHoldingOpaque = 5,
     }
 
-    internal readonly struct CinematicOpaqueHandoffToken :
-        IEquatable<CinematicOpaqueHandoffToken>
+    internal readonly struct ComicSequenceOpaqueHandoffToken :
+        IEquatable<ComicSequenceOpaqueHandoffToken>
     {
-        internal CinematicOpaqueHandoffToken(long value)
+        internal ComicSequenceOpaqueHandoffToken(long value)
         {
             Value = value;
         }
 
         internal long Value { get; }
         internal bool IsValid => Value > 0;
-        public bool Equals(CinematicOpaqueHandoffToken other) =>
+        public bool Equals(ComicSequenceOpaqueHandoffToken other) =>
             Value == other.Value;
         public override bool Equals(object obj) =>
-            obj is CinematicOpaqueHandoffToken other && Equals(other);
+            obj is ComicSequenceOpaqueHandoffToken other && Equals(other);
         public override int GetHashCode() => Value.GetHashCode();
         public override string ToString() => IsValid ? Value.ToString() : "none";
         public static bool operator ==(
-            CinematicOpaqueHandoffToken left,
-            CinematicOpaqueHandoffToken right) => left.Equals(right);
+            ComicSequenceOpaqueHandoffToken left,
+            ComicSequenceOpaqueHandoffToken right) => left.Equals(right);
         public static bool operator !=(
-            CinematicOpaqueHandoffToken left,
-            CinematicOpaqueHandoffToken right) => !left.Equals(right);
+            ComicSequenceOpaqueHandoffToken left,
+            ComicSequenceOpaqueHandoffToken right) => !left.Equals(right);
     }
 
-    internal readonly struct CinematicOpaqueHandoffSnapshot
+    internal readonly struct ComicSequenceOpaqueHandoffSnapshot
     {
-        internal CinematicOpaqueHandoffSnapshot(
+        internal ComicSequenceOpaqueHandoffSnapshot(
             bool isActive,
-            CinematicOpaqueHandoffToken token,
+            ComicSequenceOpaqueHandoffToken token,
             SceneTransitionIntent intent,
-            CinematicOpaqueHandoffPhase phase,
+            ComicSequenceOpaqueHandoffPhase phase,
             long sourceSceneGeneration,
             Color opaqueColor,
             string failureReason)
@@ -61,21 +61,21 @@ namespace Game.Feature.UI.Composition
         }
 
         internal bool IsActive { get; }
-        internal CinematicOpaqueHandoffToken Token { get; }
+        internal ComicSequenceOpaqueHandoffToken Token { get; }
         internal SceneTransitionIntent Intent { get; }
-        internal CinematicOpaqueHandoffPhase Phase { get; }
+        internal ComicSequenceOpaqueHandoffPhase Phase { get; }
         internal long SourceSceneGeneration { get; }
         internal Color OpaqueColor { get; }
         internal string FailureReason { get; }
     }
 
-    internal static class CinematicOpaqueHandoffRegistry
+    internal static class ComicSequenceOpaqueHandoffRegistry
     {
-        private static CinematicOpaqueHandoffSnapshot _current;
+        private static ComicSequenceOpaqueHandoffSnapshot _current;
         private static Action _releaseOpaqueOwner;
         private static long _nextToken;
 
-        internal static CinematicOpaqueHandoffSnapshot Current => _current;
+        internal static ComicSequenceOpaqueHandoffSnapshot Current => _current;
         internal static bool IsActive => _current.IsActive;
 
         internal static bool TryClaim(
@@ -83,14 +83,14 @@ namespace Game.Feature.UI.Composition
             long sourceSceneGeneration,
             Color opaqueColor,
             Action releaseOpaqueOwner,
-            out CinematicOpaqueHandoffToken token)
+            out ComicSequenceOpaqueHandoffToken token)
         {
             token = default;
             if (_current.IsActive ||
                 sourceSceneGeneration <= 0 ||
                 releaseOpaqueOwner == null ||
-                (intent != SceneTransitionIntent.CinematicToGameplay &&
-                 intent != SceneTransitionIntent.CinematicToMainMenu) ||
+                (intent != SceneTransitionIntent.ComicIntroToGameplay &&
+                 intent != SceneTransitionIntent.ComicOutroToMainMenu) ||
                 !IsFinite(opaqueColor))
             {
                 return false;
@@ -105,46 +105,46 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            token = new CinematicOpaqueHandoffToken(
+            token = new ComicSequenceOpaqueHandoffToken(
                 Interlocked.Increment(ref _nextToken));
             _releaseOpaqueOwner = releaseOpaqueOwner;
-            _current = new CinematicOpaqueHandoffSnapshot(
+            _current = new ComicSequenceOpaqueHandoffSnapshot(
                 true,
                 token,
                 intent,
-                CinematicOpaqueHandoffPhase.Claimed,
+                ComicSequenceOpaqueHandoffPhase.Claimed,
                 sourceSceneGeneration,
                 opaqueColor,
                 string.Empty);
             return true;
         }
 
-        internal static bool TryAcknowledgeCinematicOpaqueRendered(
-            CinematicOpaqueHandoffToken token)
+        internal static bool TryAcknowledgeComicSequenceOpaqueRendered(
+            ComicSequenceOpaqueHandoffToken token)
         {
             if (!Matches(token) ||
-                _current.Phase != CinematicOpaqueHandoffPhase.Claimed)
+                _current.Phase != ComicSequenceOpaqueHandoffPhase.Claimed)
             {
                 return false;
             }
 
             Publish(
-                CinematicOpaqueHandoffPhase.CinematicOpaqueRendered,
+                ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered,
                 string.Empty);
             return true;
         }
 
         internal static bool IsExactClaimedOwner(
-            CinematicOpaqueHandoffToken token,
+            ComicSequenceOpaqueHandoffToken token,
             SceneTransitionIntent expectedIntent)
         {
             return Matches(token) &&
                    _current.Intent == expectedIntent &&
-                   _current.Phase == CinematicOpaqueHandoffPhase.Claimed;
+                   _current.Phase == ComicSequenceOpaqueHandoffPhase.Claimed;
         }
 
         internal static bool TryAbortClaimedOwnerAfterSetupFailure(
-            CinematicOpaqueHandoffToken token,
+            ComicSequenceOpaqueHandoffToken token,
             SceneTransitionIntent expectedIntent)
         {
             if (!IsExactClaimedOwner(token, expectedIntent))
@@ -153,11 +153,11 @@ namespace Game.Feature.UI.Composition
             }
 
             _releaseOpaqueOwner = null;
-            _current = new CinematicOpaqueHandoffSnapshot(
+            _current = new ComicSequenceOpaqueHandoffSnapshot(
                 false,
                 _current.Token,
                 _current.Intent,
-                CinematicOpaqueHandoffPhase.Released,
+                ComicSequenceOpaqueHandoffPhase.Released,
                 _current.SourceSceneGeneration,
                 _current.OpaqueColor,
                 string.Empty);
@@ -165,18 +165,18 @@ namespace Game.Feature.UI.Composition
         }
 
         internal static bool TryTransferToPersistentCover(
-            CinematicOpaqueHandoffToken token)
+            ComicSequenceOpaqueHandoffToken token)
         {
             if (!Matches(token) ||
                 _current.Phase !=
-                CinematicOpaqueHandoffPhase.CinematicOpaqueRendered ||
+                ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered ||
                 _releaseOpaqueOwner == null)
             {
                 return false;
             }
 
             Publish(
-                CinematicOpaqueHandoffPhase.PersistentCoverRendered,
+                ComicSequenceOpaqueHandoffPhase.PersistentCoverRendered,
                 string.Empty);
             try
             {
@@ -185,17 +185,17 @@ namespace Game.Feature.UI.Composition
             catch (Exception exception)
             {
                 Publish(
-                    CinematicOpaqueHandoffPhase.FailedHoldingOpaque,
+                    ComicSequenceOpaqueHandoffPhase.FailedHoldingOpaque,
                     exception.Message);
                 return false;
             }
 
             _releaseOpaqueOwner = null;
-            _current = new CinematicOpaqueHandoffSnapshot(
+            _current = new ComicSequenceOpaqueHandoffSnapshot(
                 false,
                 _current.Token,
                 _current.Intent,
-                CinematicOpaqueHandoffPhase.Released,
+                ComicSequenceOpaqueHandoffPhase.Released,
                 _current.SourceSceneGeneration,
                 _current.OpaqueColor,
                 string.Empty);
@@ -203,15 +203,15 @@ namespace Game.Feature.UI.Composition
         }
 
         internal static bool TryReleaseCancelledOpaqueOwner(
-            CinematicOpaqueHandoffToken token,
+            ComicSequenceOpaqueHandoffToken token,
             SceneTransitionIntent expectedIntent)
         {
             if (!Matches(token) ||
                 _current.Intent != expectedIntent ||
-                expectedIntent != SceneTransitionIntent.CinematicToGameplay ||
-                (_current.Phase != CinematicOpaqueHandoffPhase.Claimed &&
+                expectedIntent != SceneTransitionIntent.ComicIntroToGameplay ||
+                (_current.Phase != ComicSequenceOpaqueHandoffPhase.Claimed &&
                  _current.Phase !=
-                 CinematicOpaqueHandoffPhase.CinematicOpaqueRendered) ||
+                 ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered) ||
                 _releaseOpaqueOwner == null)
             {
                 return false;
@@ -224,17 +224,17 @@ namespace Game.Feature.UI.Composition
             catch (Exception exception)
             {
                 Publish(
-                    CinematicOpaqueHandoffPhase.FailedHoldingOpaque,
+                    ComicSequenceOpaqueHandoffPhase.FailedHoldingOpaque,
                     exception.Message);
                 return false;
             }
 
             _releaseOpaqueOwner = null;
-            _current = new CinematicOpaqueHandoffSnapshot(
+            _current = new ComicSequenceOpaqueHandoffSnapshot(
                 false,
                 _current.Token,
                 _current.Intent,
-                CinematicOpaqueHandoffPhase.Released,
+                ComicSequenceOpaqueHandoffPhase.Released,
                 _current.SourceSceneGeneration,
                 _current.OpaqueColor,
                 string.Empty);
@@ -242,22 +242,22 @@ namespace Game.Feature.UI.Composition
         }
 
         internal static bool TryReleaseAbandonedOwner(
-            CinematicOpaqueHandoffToken token)
+            ComicSequenceOpaqueHandoffToken token)
         {
             if (!Matches(token) ||
-                (_current.Phase != CinematicOpaqueHandoffPhase.Claimed &&
+                (_current.Phase != ComicSequenceOpaqueHandoffPhase.Claimed &&
                  _current.Phase !=
-                 CinematicOpaqueHandoffPhase.CinematicOpaqueRendered))
+                 ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered))
             {
                 return false;
             }
 
             _releaseOpaqueOwner = null;
-            _current = new CinematicOpaqueHandoffSnapshot(
+            _current = new ComicSequenceOpaqueHandoffSnapshot(
                 false,
                 _current.Token,
                 _current.Intent,
-                CinematicOpaqueHandoffPhase.Released,
+                ComicSequenceOpaqueHandoffPhase.Released,
                 _current.SourceSceneGeneration,
                 _current.OpaqueColor,
                 string.Empty);
@@ -265,7 +265,7 @@ namespace Game.Feature.UI.Composition
         }
 
         internal static bool TryFailHoldingOpaque(
-            CinematicOpaqueHandoffToken token,
+            ComicSequenceOpaqueHandoffToken token,
             string failureReason)
         {
             if (!Matches(token))
@@ -274,9 +274,9 @@ namespace Game.Feature.UI.Composition
             }
 
             Publish(
-                CinematicOpaqueHandoffPhase.FailedHoldingOpaque,
+                ComicSequenceOpaqueHandoffPhase.FailedHoldingOpaque,
                 string.IsNullOrWhiteSpace(failureReason)
-                    ? "Cinematic opaque ownership transfer failed."
+                    ? "Comic sequence opaque ownership transfer failed."
                     : failureReason);
             return true;
         }
@@ -288,7 +288,7 @@ namespace Game.Feature.UI.Composition
             _nextToken = 0;
         }
 
-        private static bool Matches(CinematicOpaqueHandoffToken token)
+        private static bool Matches(ComicSequenceOpaqueHandoffToken token)
         {
             return _current.IsActive &&
                    token.IsValid &&
@@ -296,10 +296,10 @@ namespace Game.Feature.UI.Composition
         }
 
         private static void Publish(
-            CinematicOpaqueHandoffPhase phase,
+            ComicSequenceOpaqueHandoffPhase phase,
             string failureReason)
         {
-            _current = new CinematicOpaqueHandoffSnapshot(
+            _current = new ComicSequenceOpaqueHandoffSnapshot(
                 true,
                 _current.Token,
                 _current.Intent,

@@ -130,19 +130,19 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CinematicFlags_Persist()
+        public void ComicCompletionFlags_Persist()
         {
             var repository = new RecordingRepository(CreateDocument(
                 CreateSlot(1, "stage-1-1", "level-1", remainingChances: 3)));
             var service = CreateService(repository);
 
-            var intro = service.SetIntroPlayed(1, "stage-1-1");
-            var outro = service.SetOutroPlayed(1, "stage-1-1");
+            var intro = service.SetIntroComicCompleted(1, "stage-1-1");
+            var outro = service.SetOutroComicCompleted(1, "stage-1-1");
 
             Assert.That(intro.Succeeded, Is.True);
             Assert.That(outro.Succeeded, Is.True);
-            Assert.That(repository.SavedDocument.Slots[0].IntroPlayed, Is.True);
-            Assert.That(repository.SavedDocument.Slots[0].OutroPlayed, Is.True);
+            Assert.That(repository.SavedDocument.Slots[0].IntroComicCompleted, Is.True);
+            Assert.That(repository.SavedDocument.Slots[0].OutroComicCompleted, Is.True);
             Assert.That(repository.SavedDocument.Slots[0].LastPlayedAtUtc, Is.EqualTo(FixedNowUtc));
         }
 
@@ -211,7 +211,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(result.Succeeded, Is.True);
             Assert.That(repository.SaveCount, Is.EqualTo(1));
-            Assert.That(repository.SavedDocument.SchemaVersion, Is.EqualTo(1));
+            Assert.That(repository.SavedDocument.SchemaVersion, Is.EqualTo(CampaignProfileDocument.CurrentSchemaVersion));
             Assert.That(repository.SavedDocument.ProfileId, Is.EqualTo(ProfileId));
             Assert.That(repository.SavedDocument.LastPlayedSlotNumber, Is.Zero);
             Assert.That(repository.SavedDocument.Slots, Is.Empty);
@@ -322,7 +322,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return new CampaignProfileDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = ProductVersion,
                 SavedAtUtc = "2026-07-06T00:00:00Z",
                 ProfileId = ProfileId,

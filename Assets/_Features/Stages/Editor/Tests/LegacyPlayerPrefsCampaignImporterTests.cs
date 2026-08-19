@@ -324,8 +324,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 CurrentLevelGroupId = levelGroupId,
                 RemainingChances = 2,
                 CampaignCompleted = false,
-                IntroPlayed = true,
-                OutroPlayed = false,
+                IntroComicCompleted = true,
+                OutroComicCompleted = false,
                 TotalDeaths = 4,
                 LastPlayedAt = "2026-07-06T11:00:00Z",
                 StageClearProfileSnapshot = new StageClearProfileSnapshot
@@ -357,8 +357,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(document.LevelGroupId, Is.EqualTo(slot.CurrentLevelGroupId));
             Assert.That(document.RemainingChances, Is.EqualTo(slot.RemainingChances));
             Assert.That(document.CampaignCompleted, Is.EqualTo(slot.CampaignCompleted));
-            Assert.That(document.IntroPlayed, Is.EqualTo(slot.IntroPlayed));
-            Assert.That(document.OutroPlayed, Is.EqualTo(slot.OutroPlayed));
+            Assert.That(document.IntroComicCompleted, Is.EqualTo(slot.IntroComicCompleted));
+            Assert.That(document.OutroComicCompleted, Is.EqualTo(slot.OutroComicCompleted));
             Assert.That(document.TotalDeaths, Is.EqualTo(slot.TotalDeaths));
             Assert.That(document.LastPlayedAtUtc, Is.EqualTo(slot.LastPlayedAt));
             Assert.That(document.StageClearProfileSnapshot.Version, Is.EqualTo(5));

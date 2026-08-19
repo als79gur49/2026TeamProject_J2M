@@ -1,21 +1,21 @@
 namespace Game.Feature.UI.Composition
 {
-    public enum CinematicPlaybackCompletionKind
+    public enum ComicSequenceResultKind
     {
         Completed = 0,
         Failed = 2,
         Cancelled = 3,
     }
 
-    public readonly struct CinematicPlaybackCompletion
+    public readonly struct ComicSequenceResult
     {
-        public CinematicPlaybackCompletion(CinematicPlaybackCompletionKind kind, string message = "")
+        public ComicSequenceResult(ComicSequenceResultKind kind, string message = "")
         {
             Kind = kind;
             Message = message ?? string.Empty;
         }
 
-        public CinematicPlaybackCompletionKind Kind { get; }
+        public ComicSequenceResultKind Kind { get; }
 
         public string Message { get; }
     }

@@ -632,8 +632,8 @@ namespace Game.Feature.Stages
                 HasNormalCampaignCompletionReceipt = slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CloneReceipt(
                     slot.NormalCampaignCompletionReceipt),
-                IntroPlayed = slot.IntroPlayed,
-                OutroPlayed = slot.OutroPlayed,
+                IntroComicCompleted = slot.IntroComicCompleted,
+                OutroComicCompleted = slot.OutroComicCompleted,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAtUtc = slot.LastPlayedAtUtc ?? string.Empty,
                 StageClearProfileSnapshot = slot.StageClearProfileSnapshot ?? new CampaignStageClearProfileDocument(),

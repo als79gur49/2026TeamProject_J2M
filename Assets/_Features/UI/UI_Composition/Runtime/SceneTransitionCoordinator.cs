@@ -269,12 +269,12 @@ namespace Game.Feature.UI.Composition
                     "GameplayEntry launch context is already owned; source Iris was not started.");
             }
 
-            var cinematicHandoff = default(CinematicOpaqueHandoffSnapshot);
+            var comicSequenceHandoff = default(ComicSequenceOpaqueHandoffSnapshot);
             if (routePolicy.TargetRequiresOpaqueOwnerTransfer)
             {
                 try
                 {
-                    cinematicHandoff = RequireCinematicOpaqueHandoff(
+                    comicSequenceHandoff = RequireComicSequenceOpaqueHandoff(
                         routePolicy.Intent);
                 }
                 catch
@@ -344,8 +344,8 @@ namespace Game.Feature.UI.Composition
                                 .OpaqueColor
                             : null,
                         routePolicy.Intent ==
-                        SceneTransitionIntent.CinematicToGameplay
-                            ? cinematicHandoff.OpaqueColor
+                        SceneTransitionIntent.ComicIntroToGameplay
+                            ? comicSequenceHandoff.OpaqueColor
                             : null);
                     gameplayVisualCaptured = true;
                     if (!SceneEntryPresentationRegistry.TryBindTransition(
@@ -391,8 +391,8 @@ namespace Game.Feature.UI.Composition
                         mainMenuEntrySession.Token,
                         routePolicy,
                         routePolicy.Intent ==
-                        SceneTransitionIntent.CinematicToMainMenu
-                            ? cinematicHandoff.OpaqueColor
+                        SceneTransitionIntent.ComicOutroToMainMenu
+                            ? comicSequenceHandoff.OpaqueColor
                             : null);
                     mainMenuVisualCaptured = true;
                     if (!MainMenuEntryPresentationRegistry.TryBindTransition(
@@ -1128,12 +1128,12 @@ namespace Game.Feature.UI.Composition
             var visual = MainMenuTransitionVisualPolicy.Require(
                 entrySession.Token,
                 routePolicy.Intent);
-            var usesCinematicOpaqueOwner =
+            var usesComicSequenceOpaqueOwner =
                 routePolicy.Intent ==
-                SceneTransitionIntent.CinematicToMainMenu;
+                SceneTransitionIntent.ComicOutroToMainMenu;
             TerminalTransitionPlayback sourceClose = null;
             GameplayUiFlowInstaller gameplaySourceInstaller = null;
-            if (!usesCinematicOpaqueOwner)
+            if (!usesComicSequenceOpaqueOwner)
             {
                 gameplaySourceInstaller =
                     FindFirstObjectByType<GameplayUiFlowInstaller>();
@@ -1165,15 +1165,15 @@ namespace Game.Feature.UI.Composition
 
             overlay.AcknowledgeOpaqueHandoffReady();
             state.PersistentCoverRendered = true;
-            if (usesCinematicOpaqueOwner)
+            if (usesComicSequenceOpaqueOwner)
             {
-                var handoff = RequireCinematicOpaqueHandoff(
+                var handoff = RequireComicSequenceOpaqueHandoff(
                     routePolicy.Intent);
-                if (!CinematicOpaqueHandoffRegistry
+                if (!ComicSequenceOpaqueHandoffRegistry
                         .TryTransferToPersistentCover(handoff.Token))
                 {
                     throw new InvalidOperationException(
-                        $"CinematicToMainMenu transition {transitionId} could not transfer rendered opaque ownership.");
+                        $"ComicOutroToMainMenu transition {transitionId} could not transfer rendered opaque ownership.");
                 }
             }
             else if (!gameplaySourceInstaller.CompleteMainMenuReturnSourceClose(
@@ -1267,12 +1267,12 @@ namespace Game.Feature.UI.Composition
             var visual = GameplayEntryTransitionVisualSnapshotRegistry.Require(
                 entrySession.Token,
                 routePolicy.Intent);
-            var usesCinematicOpaqueOwner =
+            var usesComicSequenceOpaqueOwner =
                 routePolicy.Intent ==
-                SceneTransitionIntent.CinematicToGameplay;
+                SceneTransitionIntent.ComicIntroToGameplay;
             var gameplaySourceInstaller =
                 routePolicy.Intent == SceneTransitionIntent.GameplayEntry ||
-                usesCinematicOpaqueOwner
+                usesComicSequenceOpaqueOwner
                     ? null
                     : FindFirstObjectByType<GameplayUiFlowInstaller>();
             var mainMenuSourceInstaller =
@@ -1280,7 +1280,7 @@ namespace Game.Feature.UI.Composition
                     ? FindFirstObjectByType<MainMenuUiFlowInstaller>()
                     : null;
             TerminalTransitionPlayback sourceClose = null;
-            if (!usesCinematicOpaqueOwner)
+            if (!usesComicSequenceOpaqueOwner)
             {
                 var sourceStarted = mainMenuSourceInstaller != null
                     ? mainMenuSourceInstaller.TryBeginGameplayEntrySourceClose(
@@ -1321,15 +1321,15 @@ namespace Game.Feature.UI.Composition
 
             overlay.AcknowledgeOpaqueHandoffReady();
             state.PersistentCoverRendered = true;
-            if (usesCinematicOpaqueOwner)
+            if (usesComicSequenceOpaqueOwner)
             {
-                var handoff = RequireCinematicOpaqueHandoff(
+                var handoff = RequireComicSequenceOpaqueHandoff(
                     routePolicy.Intent);
-                if (!CinematicOpaqueHandoffRegistry
+                if (!ComicSequenceOpaqueHandoffRegistry
                         .TryTransferToPersistentCover(handoff.Token))
                 {
                     throw new InvalidOperationException(
-                        $"CinematicToGameplay transition {transitionId} could not transfer rendered opaque ownership.");
+                        $"ComicIntroToGameplay transition {transitionId} could not transfer rendered opaque ownership.");
                 }
             }
             else
@@ -1800,19 +1800,19 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private static CinematicOpaqueHandoffSnapshot
-            RequireCinematicOpaqueHandoff(SceneTransitionIntent intent)
+        private static ComicSequenceOpaqueHandoffSnapshot
+            RequireComicSequenceOpaqueHandoff(SceneTransitionIntent intent)
         {
-            var handoff = CinematicOpaqueHandoffRegistry.Current;
+            var handoff = ComicSequenceOpaqueHandoffRegistry.Current;
             if (!handoff.IsActive ||
                 handoff.Intent != intent ||
                 handoff.Phase !=
-                CinematicOpaqueHandoffPhase.CinematicOpaqueRendered ||
+                ComicSequenceOpaqueHandoffPhase.ComicSequenceOpaqueRendered ||
                 handoff.SourceSceneGeneration !=
                 TerminalSessionRegistry.Authority.CurrentSceneGeneration)
             {
                 throw new InvalidOperationException(
-                    $"Cinematic route {intent} requires its current exact-opaque rendered owner.");
+                    $"Comic sequence route {intent} requires its current exact-opaque rendered owner.");
             }
 
             return handoff;
@@ -1829,7 +1829,7 @@ namespace Game.Feature.UI.Composition
             return intent == SceneTransitionIntent.GameplayEntry ||
                    intent == SceneTransitionIntent.ManualRetry ||
                    intent == SceneTransitionIntent.DemoStageRelaunch ||
-                   intent == SceneTransitionIntent.CinematicToGameplay;
+                   intent == SceneTransitionIntent.ComicIntroToGameplay;
         }
 
         internal static void SetOverlayShellResourceLoaderForTests(Func<SceneTransitionOverlayShellView> loader)

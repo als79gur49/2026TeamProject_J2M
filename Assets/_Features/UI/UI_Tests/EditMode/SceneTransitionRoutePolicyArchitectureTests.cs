@@ -19,8 +19,8 @@ namespace Game.Feature.UI.Tests
             SceneTransitionIntent.DemoStageRelaunch,
             SceneTransitionIntent.GameplayEntry,
             SceneTransitionIntent.ReturnToMainMenu,
-            SceneTransitionIntent.CinematicToGameplay,
-            SceneTransitionIntent.CinematicToMainMenu,
+            SceneTransitionIntent.ComicIntroToGameplay,
+            SceneTransitionIntent.ComicOutroToMainMenu,
         };
 
         [Test]
@@ -65,9 +65,9 @@ namespace Game.Feature.UI.Tests
         [TestCase(SceneTransitionIntent.ManualRetry, SceneTransitionDestinationKind.Gameplay, SceneTransitionDestinationExecutorKind.GameplayEntry)]
         [TestCase(SceneTransitionIntent.DemoStageRelaunch, SceneTransitionDestinationKind.Gameplay, SceneTransitionDestinationExecutorKind.GameplayEntry)]
         [TestCase(SceneTransitionIntent.GameplayEntry, SceneTransitionDestinationKind.Gameplay, SceneTransitionDestinationExecutorKind.GameplayEntry)]
-        [TestCase(SceneTransitionIntent.CinematicToGameplay, SceneTransitionDestinationKind.Gameplay, SceneTransitionDestinationExecutorKind.GameplayEntry)]
+        [TestCase(SceneTransitionIntent.ComicIntroToGameplay, SceneTransitionDestinationKind.Gameplay, SceneTransitionDestinationExecutorKind.GameplayEntry)]
         [TestCase(SceneTransitionIntent.ReturnToMainMenu, SceneTransitionDestinationKind.MainMenu, SceneTransitionDestinationExecutorKind.MainMenuEntry)]
-        [TestCase(SceneTransitionIntent.CinematicToMainMenu, SceneTransitionDestinationKind.MainMenu, SceneTransitionDestinationExecutorKind.MainMenuEntry)]
+        [TestCase(SceneTransitionIntent.ComicOutroToMainMenu, SceneTransitionDestinationKind.MainMenu, SceneTransitionDestinationExecutorKind.MainMenuEntry)]
         public void ProductionIntent_MapsToExactDestinationExecutor(
             SceneTransitionIntent intent,
             SceneTransitionDestinationKind destination,
@@ -103,11 +103,11 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
                 "SceneTransitionIntent.DemoStageRelaunch");
             AssertSourceContains(
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs",
-                "SceneTransitionIntent.CinematicToGameplay");
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "SceneTransitionIntent.ComicIntroToGameplay");
             AssertSourceContains(
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs",
-                "SceneTransitionIntent.CinematicToMainMenu");
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
+                "SceneTransitionIntent.ComicOutroToMainMenu");
 
             var validatingRouters = new[]
             {
@@ -129,8 +129,8 @@ namespace Game.Feature.UI.Tests
                 "Assets/_Features/UI/UI_Composition/Runtime/CurrentSceneStageLaunchRouter.cs",
                 "Assets/_Features/UI/UI_Composition/Runtime/ConfiguredGameplayStageLaunchRouter.cs",
                 "Assets/_Features/UI/UI_Composition/Runtime/ConfiguredMainMenuReturnRouter.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
                 "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
                 "Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs",
             };
@@ -497,14 +497,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void M4MainMenuAndCinematicRoutes_UseRenderedDestinationAndOpaqueOwnershipSeams()
+        public void M4MainMenuAndComicSequenceRoutes_UseRenderedDestinationAndOpaqueOwnershipSeams()
         {
             var coordinator = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionCoordinator.cs");
             var mainMenu = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
-            var cinematic = File.ReadAllText(
-                "Assets/_Features/UI/UI_Composition/Runtime/ComicCinematicOverlayView.cs");
+            var comicSequence = File.ReadAllText(
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceOverlayView.cs");
             var profile = File.ReadAllText(
                 "Assets/_Features/UI/UI_Composition/Runtime/TerminalIrisMotionProfile.cs");
 
@@ -514,10 +514,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(mainMenu, Does.Contain("IsStrongMainMenuDestinationReady"));
             Assert.That(mainMenu, Does.Contain("HasRenderedEntryClosedFrame"));
             Assert.That(mainMenu, Does.Contain("ReleaseMainMenuEntryCover"));
-            Assert.That(cinematic, Does.Contain("Canvas.willRenderCanvases"));
-            Assert.That(cinematic, Does.Contain("TryAcknowledgeCinematicOpaqueRendered"));
+            Assert.That(comicSequence, Does.Contain("Canvas.willRenderCanvases"));
+            Assert.That(comicSequence, Does.Contain("TryAcknowledgeComicSequenceOpaqueRendered"));
             Assert.That(profile, Does.Contain("MainMenuTransitionVisualPolicy"));
-            Assert.That(profile, Does.Contain("CinematicOpaqueOwner"));
+            Assert.That(profile, Does.Contain("ComicSequenceOpaqueOwner"));
             Assert.That(profile, Does.Not.Contain("ResultDimVisualSnapshot"));
         }
 

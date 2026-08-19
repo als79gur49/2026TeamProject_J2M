@@ -1,6 +1,6 @@
 namespace Game.Feature.UI.Composition
 {
-    public enum CinematicFadeEase
+    public enum ComicSequenceFadeEase
     {
         SmoothStep = 0,
         Linear = 1,

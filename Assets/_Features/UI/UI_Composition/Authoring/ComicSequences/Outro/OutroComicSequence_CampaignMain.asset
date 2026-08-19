@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e25a3dfb7bb34978aa1e655b5c81f4b0, type: 3}
-  m_Name: IntroComicSequence_CampaignMain
+  m_Name: OutroComicSequence_CampaignMain
   m_EditorClassIdentifier: 
   _pages:
   - _panels:
@@ -37,8 +37,8 @@ MonoBehaviour:
       _referenceRect: {serializedVersion: 2, x: 984, y: 360, width: 397, height: 650}
     - _sprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290206, type: 3}
       _referenceRect: {serializedVersion: 2, x: 1392, y: 396, width: 513, height: 384}
-  _finalBeforeSprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290301, type: 3}
-  _finalAfterSprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290302, type: 3}
+  _finalTransitionBeforeSprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290301, type: 3}
+  _finalTransitionAfterSprite: {fileID: 21300000, guid: c91f4af0cdd246f68c28bad4b1290302, type: 3}
   _audioClip: {fileID: 8300000, guid: c91f4af0cdd246f68c28bad4b1290401, type: 3}
   _timing:
     _enterFadeDuration: 0.25

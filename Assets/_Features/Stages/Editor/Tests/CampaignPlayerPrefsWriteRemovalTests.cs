@@ -37,11 +37,11 @@ namespace Game.Feature.Stages.Editor.Tests
             AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
                 "_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs");
             AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/SlotCinematicProgressStore.cs");
+                "_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs");
             AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs");
+                "_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs");
             AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
-                "_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs");
+                "_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs");
             AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
                 "_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs");
             AssertProductionSourceDoesNotTouchCampaignPlayerPrefs(
@@ -72,9 +72,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 "_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
                 "_Features/Gameplay/Gameplay_Host/Runtime/CampaignGameplayFlowController.cs",
                 "_Features/Gameplay/Gameplay_Host/Runtime/CampaignChancesReadSource.cs",
-                "_Features/UI/UI_Composition/Runtime/SlotCinematicProgressStore.cs",
-                "_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs",
-                "_Features/UI/UI_Composition/Runtime/CinematicMainMenuReturnRouter.cs",
+                "_Features/UI/UI_Composition/Runtime/SlotComicProgressStore.cs",
+                "_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
                 "_Features/Stages/Runtime/Campaign/SaveSlotValidationService.cs",
                 "_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
             };
@@ -524,30 +524,30 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CinematicIntroFlag_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
+        public void IntroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
         {
             using var harness = new Harness();
             var store = CreateProfileBackedStore(harness);
             store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(CinematicIntroFlag_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
+            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(IntroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
 
-            store.UpdateSlot(1, slot => slot.IntroPlayed = true);
+            store.UpdateSlot(1, slot => slot.IntroComicCompleted = true);
 
-            Assert.That(ReadProfile(harness).Slots[0].IntroPlayed, Is.True);
+            Assert.That(ReadProfile(harness).Slots[0].IntroComicCompleted, Is.True);
             AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
         }
 
         [Test]
-        public void CinematicOutroFlag_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
+        public void OutroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs()
         {
             using var harness = new Harness();
             var store = CreateProfileBackedStore(harness);
             store.InitializeNewGame(1, CreateResolver(), "2026-07-11T00:00:00Z");
-            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(CinematicOutroFlag_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
+            var sentinel = WriteStageClearSentinel(harness.LegacySourceKey, nameof(OutroComicCompletion_WritesProfileJson_AndDoesNotTouchStageClearSaveSlotsPlayerPrefs));
 
-            store.UpdateSlot(1, slot => slot.OutroPlayed = true);
+            store.UpdateSlot(1, slot => slot.OutroComicCompleted = true);
 
-            Assert.That(ReadProfile(harness).Slots[0].OutroPlayed, Is.True);
+            Assert.That(ReadProfile(harness).Slots[0].OutroComicCompleted, Is.True);
             AssertStageClearSentinelUnchanged(harness.LegacySourceKey, sentinel);
         }
 

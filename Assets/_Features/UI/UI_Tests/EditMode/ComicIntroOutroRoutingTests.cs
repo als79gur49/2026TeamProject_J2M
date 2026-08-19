@@ -10,7 +10,7 @@ using UnityEngine.TestTools;
 
 namespace Game.Feature.UI.Tests
 {
-    public sealed class CinematicRoutingTests
+    public sealed class ComicIntroOutroRoutingTests
     {
         [SetUp]
         public void SetUp()
@@ -18,16 +18,16 @@ namespace Game.Feature.UI.Tests
             TerminalSessionRegistry.ResetForTests();
             SceneEntryPresentationRegistry.ResetForTests();
             MainMenuEntryPresentationRegistry.ResetForTests();
-            CinematicOpaqueHandoffRegistry.ResetForTests();
+            ComicSequenceOpaqueHandoffRegistry.ResetForTests();
             TerminalSessionRegistry.Authority.RegisterSceneBootstrap(
                 9204,
-                nameof(CinematicRoutingTests));
+                nameof(ComicIntroOutroRoutingTests));
         }
 
         [TearDown]
         public void TearDown()
         {
-            CinematicOpaqueHandoffRegistry.ResetForTests();
+            ComicSequenceOpaqueHandoffRegistry.ResetForTests();
             MainMenuEntryPresentationRegistry.ResetForTests();
             SceneEntryPresentationRegistry.ResetForTests();
             TerminalSessionRegistry.ResetForTests();
@@ -39,31 +39,31 @@ namespace Game.Feature.UI.Tests
             using var harness = new IntroHarness(nameof(Intro_Completed_RoutesAndMarksProgressOnce));
 
             harness.Router.Launch(harness.Request);
-            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
-            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            harness.ComicFlow.EmitIntro(ComicSequenceResultKind.Completed);
+            harness.ComicFlow.EmitIntro(ComicSequenceResultKind.Completed);
 
-            Assert.That(harness.Player.PlayIntroCallCount, Is.EqualTo(1));
+            Assert.That(harness.ComicFlow.PresentIntroCallCount, Is.EqualTo(1));
             Assert.That(harness.Route.Requests, Has.Count.EqualTo(1));
             Assert.That(
                 harness.Route.Requests[0].TransitionIntent,
-                Is.EqualTo(SceneTransitionIntent.CinematicToGameplay));
-            Assert.That(harness.SaveStore.LoadSlot(1).IntroPlayed, Is.True);
+                Is.EqualTo(SceneTransitionIntent.ComicIntroToGameplay));
+            Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.True);
         }
 
-        [TestCase(CinematicPlaybackCompletionKind.Failed)]
-        [TestCase(CinematicPlaybackCompletionKind.Cancelled)]
+        [TestCase(ComicSequenceResultKind.Failed)]
+        [TestCase(ComicSequenceResultKind.Cancelled)]
         public void Intro_FailureOrCancellation_ClearsHandoffWithoutRouting(
-            CinematicPlaybackCompletionKind completionKind)
+            ComicSequenceResultKind completionKind)
         {
             using var harness = new IntroHarness(
                 nameof(Intro_FailureOrCancellation_ClearsHandoffWithoutRouting));
 
             harness.Router.Launch(harness.Request);
-            harness.Player.EmitIntro(completionKind);
+            harness.ComicFlow.EmitIntro(completionKind);
 
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
             Assert.That(harness.Route.Requests, Is.Empty);
-            Assert.That(harness.SaveStore.LoadSlot(1).IntroPlayed, Is.False);
+            Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.False);
         }
 
         [Test]
@@ -80,11 +80,11 @@ namespace Game.Feature.UI.Tests
                 Guid.NewGuid());
             harness.HandoffStore.ForcePending(replacement);
 
-            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            harness.ComicFlow.EmitIntro(ComicSequenceResultKind.Completed);
 
             Assert.That(harness.Route.Requests, Is.Empty);
-            Assert.That(harness.SaveStore.LoadSlot(1).IntroPlayed, Is.False);
-            Assert.That(harness.Player.ReleaseCancelledOwnerCount, Is.EqualTo(1));
+            Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.False);
+            Assert.That(harness.ComicFlow.ReleaseCancelledOwnerCount, Is.EqualTo(1));
             Assert.That(harness.HandoffStore.TryPeek(out var current), Is.True);
             Assert.That(current, Is.SameAs(replacement));
         }
@@ -93,11 +93,11 @@ namespace Game.Feature.UI.Tests
         public void Intro_MissingContent_DelegatesImmediately()
         {
             using var harness = new IntroHarness(nameof(Intro_MissingContent_DelegatesImmediately));
-            harness.Player.HasIntroContentValue = false;
+            harness.ComicFlow.HasIntroSequenceValue = false;
 
             harness.Router.Launch(harness.Request);
 
-            Assert.That(harness.Player.PlayIntroCallCount, Is.Zero);
+            Assert.That(harness.ComicFlow.PresentIntroCallCount, Is.Zero);
             Assert.That(harness.Route.Requests, Has.Count.EqualTo(1));
             Assert.That(
                 harness.Route.Requests[0].TransitionIntent,
@@ -105,14 +105,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Intro_AlreadyPlayed_DelegatesImmediately()
+        public void Intro_AlreadyCompleted_DelegatesImmediately()
         {
-            using var harness = new IntroHarness(nameof(Intro_AlreadyPlayed_DelegatesImmediately));
-            harness.SaveStore.UpdateSlot(1, slot => slot.IntroPlayed = true);
+            using var harness = new IntroHarness(nameof(Intro_AlreadyCompleted_DelegatesImmediately));
+            harness.SaveStore.UpdateSlot(1, slot => slot.IntroComicCompleted = true);
 
             harness.Router.Launch(harness.Request);
 
-            Assert.That(harness.Player.PlayIntroCallCount, Is.Zero);
+            Assert.That(harness.ComicFlow.PresentIntroCallCount, Is.Zero);
             Assert.That(harness.Route.Requests, Has.Count.EqualTo(1));
             Assert.That(
                 harness.Route.Requests[0].TransitionIntent,
@@ -129,10 +129,10 @@ namespace Game.Feature.UI.Tests
                 "intro route rejected"));
 
             harness.Router.Launch(harness.Request);
-            harness.Player.EmitIntro(CinematicPlaybackCompletionKind.Completed);
+            harness.ComicFlow.EmitIntro(ComicSequenceResultKind.Completed);
 
             Assert.That(harness.Route.Requests, Has.Count.EqualTo(1));
-            Assert.That(harness.SaveStore.LoadSlot(1).IntroPlayed, Is.False);
+            Assert.That(harness.SaveStore.LoadSlot(1).IntroComicCompleted, Is.False);
             Assert.That(harness.HandoffStore.TryPeek(out _), Is.False);
             Assert.That(SceneEntryPresentationRegistry.Current.Phase,
                 Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
@@ -144,41 +144,41 @@ namespace Game.Feature.UI.Tests
             using var harness = new OutroHarness(nameof(Outro_Completed_RoutesAndMarksProgressOnce));
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
-            harness.Player.EmitOutro(CinematicPlaybackCompletionKind.Completed);
-            harness.Player.EmitOutro(CinematicPlaybackCompletionKind.Completed);
+            harness.ComicFlow.EmitOutro(ComicSequenceResultKind.Completed);
+            harness.ComicFlow.EmitOutro(ComicSequenceResultKind.Completed);
 
-            Assert.That(harness.Player.PlayOutroCallCount, Is.EqualTo(1));
+            Assert.That(harness.ComicFlow.PresentOutroCallCount, Is.EqualTo(1));
             Assert.That(harness.Route.ReturnCallCount, Is.EqualTo(1));
             Assert.That(
                 harness.Route.LastTransitionIntent,
-                Is.EqualTo(SceneTransitionIntent.CinematicToMainMenu));
-            Assert.That(harness.SaveStore.LoadSlot(1).OutroPlayed, Is.True);
+                Is.EqualTo(SceneTransitionIntent.ComicOutroToMainMenu));
+            Assert.That(harness.SaveStore.LoadSlot(1).OutroComicCompleted, Is.True);
         }
 
-        [TestCase(CinematicPlaybackCompletionKind.Failed)]
-        [TestCase(CinematicPlaybackCompletionKind.Cancelled)]
+        [TestCase(ComicSequenceResultKind.Failed)]
+        [TestCase(ComicSequenceResultKind.Cancelled)]
         public void Outro_FailureOrCancellation_DoesNotRouteOrMarkProgress(
-            CinematicPlaybackCompletionKind completionKind)
+            ComicSequenceResultKind completionKind)
         {
             using var harness = new OutroHarness(
                 nameof(Outro_FailureOrCancellation_DoesNotRouteOrMarkProgress));
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
-            harness.Player.EmitOutro(completionKind);
+            harness.ComicFlow.EmitOutro(completionKind);
 
             Assert.That(harness.Route.ReturnCallCount, Is.Zero);
-            Assert.That(harness.SaveStore.LoadSlot(1).OutroPlayed, Is.False);
+            Assert.That(harness.SaveStore.LoadSlot(1).OutroComicCompleted, Is.False);
         }
 
         [Test]
         public void Outro_MissingContent_DelegatesImmediately()
         {
             using var harness = new OutroHarness(nameof(Outro_MissingContent_DelegatesImmediately));
-            harness.Player.HasOutroContentValue = false;
+            harness.ComicFlow.HasOutroSequenceValue = false;
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
-            Assert.That(harness.Player.PlayOutroCallCount, Is.Zero);
+            Assert.That(harness.ComicFlow.PresentOutroCallCount, Is.Zero);
             Assert.That(harness.Route.ReturnCallCount, Is.EqualTo(1));
             Assert.That(
                 harness.Route.LastTransitionIntent,
@@ -194,7 +194,7 @@ namespace Game.Feature.UI.Tests
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
-            Assert.That(harness.Player.PlayOutroCallCount, Is.Zero);
+            Assert.That(harness.ComicFlow.PresentOutroCallCount, Is.Zero);
             Assert.That(harness.Route.ReturnCallCount, Is.EqualTo(1));
             Assert.That(
                 harness.Route.LastTransitionIntent,
@@ -202,14 +202,14 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Outro_AlreadyPlayed_DelegatesImmediately()
+        public void Outro_AlreadyCompleted_DelegatesImmediately()
         {
-            using var harness = new OutroHarness(nameof(Outro_AlreadyPlayed_DelegatesImmediately));
-            harness.SaveStore.UpdateSlot(1, slot => slot.OutroPlayed = true);
+            using var harness = new OutroHarness(nameof(Outro_AlreadyCompleted_DelegatesImmediately));
+            harness.SaveStore.UpdateSlot(1, slot => slot.OutroComicCompleted = true);
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
 
-            Assert.That(harness.Player.PlayOutroCallCount, Is.Zero);
+            Assert.That(harness.ComicFlow.PresentOutroCallCount, Is.Zero);
             Assert.That(harness.Route.ReturnCallCount, Is.EqualTo(1));
             Assert.That(
                 harness.Route.LastTransitionIntent,
@@ -226,46 +226,30 @@ namespace Game.Feature.UI.Tests
                 "outro route rejected"));
 
             harness.Router.ReturnToMainMenu(SceneTransitionIntent.ReturnToMainMenu);
-            harness.Player.EmitOutro(CinematicPlaybackCompletionKind.Completed);
+            harness.ComicFlow.EmitOutro(ComicSequenceResultKind.Completed);
 
             Assert.That(harness.Route.ReturnCallCount, Is.EqualTo(1));
-            Assert.That(harness.SaveStore.LoadSlot(1).OutroPlayed, Is.False);
+            Assert.That(harness.SaveStore.LoadSlot(1).OutroComicCompleted, Is.False);
             Assert.That(MainMenuEntryPresentationRegistry.Current.Phase,
                 Is.EqualTo(SceneEntryPresentationPhase.FailedHoldingCover));
         }
 
         [Test]
-        public void RuntimeComposition_HasNoRetiredVideoCinematicDependencies()
+        public void RuntimeComposition_ProvidesComicSequenceComponents()
         {
             var projectRoot = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, ".."));
-            var retiredPaths = new[]
+            var requiredComicSequencePaths = new[]
             {
-                "Assets/3DM/VQ 인트로.mp4",
-                "Assets/3DM/VQ 아웃트로.mp4",
-                "Assets/_Features/UI/UI_Composition/Authoring/SlotCinematicDefinition_CampaignMain.asset",
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicVideoOverlayView.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/SlotCinematicDefinition.cs",
-                "Assets/_Features/UI/UI_Composition/Runtime/CinematicFlowCoordinator.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceDefinition.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceOverlayView.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicSequenceFlowCoordinator.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/ComicOutroMainMenuReturnRouter.cs",
             };
-
-            foreach (var path in retiredPaths)
+            foreach (var path in requiredComicSequencePaths)
             {
-                Assert.That(File.Exists(Path.Combine(projectRoot, path)), Is.False, path);
+                Assert.That(File.Exists(Path.Combine(projectRoot, path)), Is.True, path);
             }
-
-            var runtimeRoot = Path.Combine(
-                UnityEngine.Application.dataPath,
-                "_Features/UI/UI_Composition/Runtime");
-            var retiredNamespace = "UnityEngine." + "Video";
-            foreach (var path in Directory.GetFiles(runtimeRoot, "*.cs"))
-            {
-                Assert.That(File.ReadAllText(path), Does.Not.Contain(retiredNamespace), path);
-            }
-
-            var compositionAsmdef = File.ReadAllText(Path.Combine(
-                UnityEngine.Application.dataPath,
-                "_Features/UI/UI_Composition/UI.Composition.asmdef"));
-            Assert.That(compositionAsmdef, Does.Not.Contain("VideoModule"));
         }
 
         private static SaveSlotData CreateSlot(int slotNumber, StageId stageId)
@@ -293,7 +277,7 @@ namespace Game.Feature.UI.Tests
             public static TestKeys Create(string suffix)
             {
                 var prefix =
-                    "Game.Feature.UI.Tests.CinematicRouting." + suffix + "." +
+                    "Game.Feature.UI.Tests.ComicIntroOutroRouting." + suffix + "." +
                     Guid.NewGuid().ToString("N");
                 return new TestKeys(prefix + ".Save", prefix + ".Active");
             }
@@ -306,46 +290,46 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private sealed class ManualCinematicPlayer :
-            ICinematicSequencePlayer,
-            ICinematicOpaqueHandoffCancellationOwner
+        private sealed class ManualComicFlow :
+            IComicIntroOutroFlow,
+            IComicSequenceOpaqueHandoffCancellationOwner
         {
-            private Action<CinematicPlaybackCompletion> _introCompletion;
-            private Action<CinematicPlaybackCompletion> _outroCompletion;
+            private Action<ComicSequenceResult> _introCompletion;
+            private Action<ComicSequenceResult> _outroCompletion;
 
-            public bool HasIntroContentValue { get; set; } = true;
-            public bool HasOutroContentValue { get; set; } = true;
-            public bool HasIntroContent => HasIntroContentValue;
-            public bool HasOutroContent => HasOutroContentValue;
-            public bool IsPlaying { get; private set; }
-            public int PlayIntroCallCount { get; private set; }
-            public int PlayOutroCallCount { get; private set; }
+            public bool HasIntroSequenceValue { get; set; } = true;
+            public bool HasOutroSequenceValue { get; set; } = true;
+            public bool HasIntroSequence => HasIntroSequenceValue;
+            public bool HasOutroSequence => HasOutroSequenceValue;
+            public bool IsPresenting { get; private set; }
+            public int PresentIntroCallCount { get; private set; }
+            public int PresentOutroCallCount { get; private set; }
             public int ReleaseCancelledOwnerCount { get; private set; }
 
-            public void PlayIntro(Action<CinematicPlaybackCompletion> completion)
+            public void PresentIntro(Action<ComicSequenceResult> completion)
             {
-                PlayIntroCallCount++;
-                IsPlaying = true;
+                PresentIntroCallCount++;
+                IsPresenting = true;
                 _introCompletion = completion;
             }
 
-            public void PlayOutro(Action<CinematicPlaybackCompletion> completion)
+            public void PresentOutro(Action<ComicSequenceResult> completion)
             {
-                PlayOutroCallCount++;
-                IsPlaying = true;
+                PresentOutroCallCount++;
+                IsPresenting = true;
                 _outroCompletion = completion;
             }
 
-            public void EmitIntro(CinematicPlaybackCompletionKind kind)
+            public void EmitIntro(ComicSequenceResultKind kind)
             {
-                IsPlaying = false;
-                _introCompletion?.Invoke(new CinematicPlaybackCompletion(kind));
+                IsPresenting = false;
+                _introCompletion?.Invoke(new ComicSequenceResult(kind));
             }
 
-            public void EmitOutro(CinematicPlaybackCompletionKind kind)
+            public void EmitOutro(ComicSequenceResultKind kind)
             {
-                IsPlaying = false;
-                _outroCompletion?.Invoke(new CinematicPlaybackCompletion(kind));
+                IsPresenting = false;
+                _outroCompletion?.Invoke(new ComicSequenceResult(kind));
             }
 
             public bool TryReleaseCancelledIntroOpaqueOwner()
@@ -365,7 +349,7 @@ namespace Game.Feature.UI.Tests
                 SaveStore = new SaveSlotStore(_keys.SaveKey);
                 HandoffStore = new TestHandoffStore();
                 Route = new RecordingStageLaunchRouter();
-                Player = new ManualCinematicPlayer();
+                ComicFlow = new ManualComicFlow();
                 Request = new StageNavigationRequest(
                     StageId.CreateOrThrow("stage-0-1"),
                     StageNavigationKind.Continue,
@@ -381,19 +365,19 @@ namespace Game.Feature.UI.Tests
                         Request.Source,
                         out _),
                     Is.True);
-                Router = new CinematicStageLaunchRouter(
+                Router = new ComicIntroStageLaunchRouter(
                     Route,
                     SaveStore,
                     HandoffStore,
-                    Player);
+                    ComicFlow);
             }
 
             public SaveSlotStore SaveStore { get; }
             public TestHandoffStore HandoffStore { get; }
             public RecordingStageLaunchRouter Route { get; }
-            public ManualCinematicPlayer Player { get; }
+            public ManualComicFlow ComicFlow { get; }
             public StageNavigationRequest Request { get; }
-            public CinematicStageLaunchRouter Router { get; }
+            public ComicIntroStageLaunchRouter Router { get; }
 
             public void Dispose()
             {
@@ -413,19 +397,19 @@ namespace Game.Feature.UI.Tests
                 SaveStore.SaveSlot(CreateSlot(1, StageId.CreateOrThrow("stage-4-1")));
                 activeSlot.SetActiveSlot(1);
                 Route = new RecordingMainMenuReturnRouter();
-                Player = new ManualCinematicPlayer();
-                Router = new CinematicMainMenuReturnRouter(
+                ComicFlow = new ManualComicFlow();
+                Router = new ComicOutroMainMenuReturnRouter(
                     Route,
                     SaveStore,
                     activeSlot,
-                    Player,
+                    ComicFlow,
                     () => isFinalClearMainReturn);
             }
 
             public SaveSlotStore SaveStore { get; }
             public RecordingMainMenuReturnRouter Route { get; }
-            public ManualCinematicPlayer Player { get; }
-            public CinematicMainMenuReturnRouter Router { get; }
+            public ManualComicFlow ComicFlow { get; }
+            public ComicOutroMainMenuReturnRouter Router { get; }
 
             public void Dispose()
             {

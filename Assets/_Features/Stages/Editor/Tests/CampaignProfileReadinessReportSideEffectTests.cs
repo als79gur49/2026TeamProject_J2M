@@ -181,7 +181,7 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             return new CampaignProfileDocument
             {
-                SchemaVersion = 1,
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
                 ProductVersion = "tests",
                 SavedAtUtc = "2026-07-08T00:00:00.0000000Z",
                 ProfileId = "profile-tests",

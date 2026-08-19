@@ -2394,7 +2394,7 @@ namespace Game.Feature.Stages
             if (_current.IsActive ||
                 sourceSceneGeneration <= 0 ||
                 (transitionIntent != SceneTransitionIntent.ReturnToMainMenu &&
-                 transitionIntent != SceneTransitionIntent.CinematicToMainMenu))
+                 transitionIntent != SceneTransitionIntent.ComicOutroToMainMenu))
             {
                 return false;
             }

@@ -39,7 +39,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "\n",
                 Read(HandoffOwnerPath),
                 Read("Assets/_Features/UI/UI_Application/Runtime/MainMenuController.cs"),
-                Read("Assets/_Features/UI/UI_Composition/Runtime/CinematicStageLaunchRouter.cs"),
+                Read("Assets/_Features/UI/UI_Composition/Runtime/ComicIntroStageLaunchRouter.cs"),
                 Read("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"));
 
             Assert.That(profileDocument, Does.Contain("public int LastPlayedSlotNumber"));
