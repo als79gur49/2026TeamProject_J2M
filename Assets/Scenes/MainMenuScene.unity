@@ -183,7 +183,7 @@ MonoBehaviour:
   _routeConfig: {fileID: 11400000, guid: 610a3d54d20a4aad80ceecaee720675b, type: 2}
   _stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
   _campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
-  _introComicCinematicDefinition: {fileID: 11400000, guid: d58280cd100a46cc89dd187f38310101, type: 2}
+  _introComicSequence: {fileID: 11400000, guid: d58280cd100a46cc89dd187f38310101, type: 2}
   _settingsPreviewTimeoutSeconds: 15
   _installOnStart: 1
 --- !u!114 &1003
