@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.UI.ViewShared;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
@@ -14,18 +15,32 @@ namespace Game.Feature.UI.Screens
             "MainMenu save slot panel is missing required authored SaveSlotCardView references. Repair MainMenuScreen.prefab so SaveSlotPanelView owns exactly three SaveSlotCardView children.";
 
         [SerializeField] private SaveSlotCardView[] _slotCards = Array.Empty<SaveSlotCardView>();
+        [SerializeField] private GameObject _blockedStateRoot;
+        [SerializeField] private TMP_Text _blockedTitleLabel;
+        [SerializeField] private TMP_Text _blockedDetailLabel;
+        [SerializeField] private Button _retryButton;
+        [SerializeField] private TMP_Text _retryButtonLabel;
+        [SerializeField] private Button _resetProfileButton;
+        [SerializeField] private TMP_Text _resetProfileButtonLabel;
 
         private SaveSlotPanelViewModel _viewModel;
         private int _selectedCardIndex;
         private SaveSlotActionSelection _selectedAction = SaveSlotActionSelection.Primary;
         private bool _navigationFrameVisible;
         private bool _interactionBlocked;
+        private int _selectedRecoveryIndex;
 
         public event Action<SaveSlotIntent> SaveSlotIntentRequested;
 
+        public event Action RetryBlockedSaveRequested;
+
+        public event Action ResetBlockedSaveRequested;
+
         public SaveSlotCardView[] SlotCards => _slotCards;
 
-        public bool HasFocusableCards => FindFirstFocusableCardIndex() >= 0;
+        public bool HasFocusableCards => IsBlockedView
+            ? CanFocusRecovery(0) || CanFocusRecovery(1)
+            : FindFirstFocusableCardIndex() >= 0;
 
         public int SelectedCardIndex => _selectedCardIndex;
 
@@ -41,6 +56,11 @@ namespace Game.Feature.UI.Screens
                     targets.AddRange(_slotCards[i].CreateTypographyTargets());
                 }
             }
+
+            if (_blockedTitleLabel != null) targets.Add(_blockedTitleLabel);
+            if (_blockedDetailLabel != null) targets.Add(_blockedDetailLabel);
+            if (_retryButtonLabel != null) targets.Add(_retryButtonLabel);
+            if (_resetProfileButtonLabel != null) targets.Add(_resetProfileButtonLabel);
 
             return targets;
         }
@@ -62,6 +82,9 @@ namespace Game.Feature.UI.Screens
                     _slotCards[i]?.SetInteractionBlocked(blocked);
                 }
             }
+
+            if (_retryButton != null) _retryButton.interactable = !blocked && CanShowRetry;
+            if (_resetProfileButton != null) _resetProfileButton.interactable = !blocked && CanShowReset;
 
             if (blocked)
             {
@@ -92,11 +115,24 @@ namespace Game.Feature.UI.Screens
 
                 card.ValidateAuthoredStructureOrThrow();
             }
+
+            if (_blockedStateRoot == null ||
+                _blockedTitleLabel == null ||
+                _blockedDetailLabel == null ||
+                _retryButton == null ||
+                _retryButtonLabel == null ||
+                _resetProfileButton == null ||
+                _resetProfileButtonLabel == null)
+            {
+                throw new InvalidOperationException(
+                    "MainMenu save slot panel is missing required blocked-save recovery references.");
+            }
         }
 
         private void OnEnable()
         {
             WireSlotCards();
+            WireRecoveryButtons();
             Refresh();
         }
 
@@ -104,10 +140,16 @@ namespace Game.Feature.UI.Screens
         {
             HideNavigationFrames();
             UnwireSlotCards();
+            UnwireRecoveryButtons();
         }
 
         public bool FocusFirstAvailableCardPrimary(bool showFrame)
         {
+            if (IsBlockedView)
+            {
+                return FocusFirstRecoveryAction();
+            }
+
             var index = FindFirstFocusableCardIndex();
             if (index < 0)
             {
@@ -123,6 +165,25 @@ namespace Game.Feature.UI.Screens
         {
             if (_interactionBlocked || !HasFocusableCards)
             {
+                return false;
+            }
+
+            if (IsBlockedView)
+            {
+                if (command == UiNavigationCommand.Up ||
+                    command == UiNavigationCommand.Left)
+                {
+                    MoveRecovery(-1);
+                    return true;
+                }
+
+                if (command == UiNavigationCommand.Down ||
+                    command == UiNavigationCommand.Right)
+                {
+                    MoveRecovery(1);
+                    return true;
+                }
+
                 return false;
             }
 
@@ -159,6 +220,18 @@ namespace Game.Feature.UI.Screens
             }
 
             WireSlotCards();
+            if (IsBlockedView)
+            {
+                var button = _selectedRecoveryIndex == 1 ? _resetProfileButton : _retryButton;
+                if (button == null || !button.IsActive() || !button.IsInteractable())
+                {
+                    return false;
+                }
+
+                button.onClick.Invoke();
+                return true;
+            }
+
             var card = GetSelectedCard();
             return card != null && card.SubmitSelectedAction();
         }
@@ -185,6 +258,11 @@ namespace Game.Feature.UI.Screens
 
         public bool RefreshNavigationAfterSlotDataChanged()
         {
+            if (IsBlockedView)
+            {
+                return FocusFirstRecoveryAction();
+            }
+
             if (_slotCards == null || _slotCards.Length == 0)
             {
                 HideNavigationFrames();
@@ -269,6 +347,43 @@ namespace Game.Feature.UI.Screens
             }
         }
 
+        private void WireRecoveryButtons()
+        {
+            if (_retryButton != null)
+            {
+                _retryButton.onClick.RemoveListener(HandleRetryClicked);
+                _retryButton.onClick.AddListener(HandleRetryClicked);
+            }
+
+            if (_resetProfileButton != null)
+            {
+                _resetProfileButton.onClick.RemoveListener(HandleResetClicked);
+                _resetProfileButton.onClick.AddListener(HandleResetClicked);
+            }
+        }
+
+        private void UnwireRecoveryButtons()
+        {
+            _retryButton?.onClick.RemoveListener(HandleRetryClicked);
+            _resetProfileButton?.onClick.RemoveListener(HandleResetClicked);
+        }
+
+        private void HandleRetryClicked()
+        {
+            if (!_interactionBlocked && CanShowRetry)
+            {
+                RetryBlockedSaveRequested?.Invoke();
+            }
+        }
+
+        private void HandleResetClicked()
+        {
+            if (!_interactionBlocked && CanShowReset)
+            {
+                ResetBlockedSaveRequested?.Invoke();
+            }
+        }
+
         private void HandleCardIntentRequested(SaveSlotIntent intent)
         {
             if (_interactionBlocked)
@@ -286,6 +401,42 @@ namespace Game.Feature.UI.Screens
                 return;
             }
 
+            var blocked = IsBlockedView;
+            if (_blockedStateRoot != null)
+            {
+                _blockedStateRoot.SetActive(blocked);
+            }
+
+            for (var i = 0; i < _slotCards.Length; i++)
+            {
+                if (_slotCards[i] != null)
+                {
+                    _slotCards[i].gameObject.SetActive(!blocked);
+                }
+            }
+
+            if (blocked)
+            {
+                var blockedState = _viewModel.BlockedState;
+                if (_blockedTitleLabel != null) _blockedTitleLabel.text = blockedState.TitleText;
+                if (_blockedDetailLabel != null) _blockedDetailLabel.text = blockedState.DetailText;
+                if (_retryButtonLabel != null) _retryButtonLabel.text = blockedState.RetryActionText;
+                if (_resetProfileButtonLabel != null) _resetProfileButtonLabel.text = blockedState.ResetProfileActionText;
+                if (_retryButton != null)
+                {
+                    _retryButton.gameObject.SetActive(blockedState.ShowRetry);
+                    _retryButton.interactable = !_interactionBlocked && blockedState.ShowRetry;
+                }
+
+                if (_resetProfileButton != null)
+                {
+                    _resetProfileButton.gameObject.SetActive(blockedState.ShowResetProfile);
+                    _resetProfileButton.interactable = !_interactionBlocked && blockedState.ShowResetProfile;
+                }
+
+                return;
+            }
+
             var count = Math.Min(_slotCards.Length, _viewModel.SlotCards.Count);
             for (var i = 0; i < count; i++)
             {
@@ -296,6 +447,51 @@ namespace Game.Feature.UI.Screens
                 }
             }
         }
+
+        private bool FocusFirstRecoveryAction()
+        {
+            if (CanFocusRecovery(0))
+            {
+                SelectRecovery(0);
+                return true;
+            }
+
+            if (CanFocusRecovery(1))
+            {
+                SelectRecovery(1);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void MoveRecovery(int delta)
+        {
+            var candidate = _selectedRecoveryIndex + Math.Sign(delta);
+            if (CanFocusRecovery(candidate))
+            {
+                SelectRecovery(candidate);
+            }
+        }
+
+        private void SelectRecovery(int index)
+        {
+            _selectedRecoveryIndex = index;
+            var button = index == 1 ? _resetProfileButton : _retryButton;
+            button?.Select();
+        }
+
+        private bool CanFocusRecovery(int index)
+        {
+            var button = index == 0 ? _retryButton : index == 1 ? _resetProfileButton : null;
+            return button != null && button.IsActive() && button.IsInteractable();
+        }
+
+        private bool IsBlockedView => _viewModel?.BlockedState != null;
+
+        private bool CanShowRetry => _viewModel?.BlockedState?.ShowRetry == true;
+
+        private bool CanShowReset => _viewModel?.BlockedState?.ShowResetProfile == true;
 
         private void MoveCard(int delta)
         {

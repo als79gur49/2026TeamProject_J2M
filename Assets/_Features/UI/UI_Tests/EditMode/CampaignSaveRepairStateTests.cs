@@ -16,61 +16,70 @@ namespace Game.Feature.UI.Tests
         [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.IoFailed)]
         [TestCase(CampaignSaveLoadStatus.Unauthorized)]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending)]
         public void BlockingLoad_DoesNotRenderFreshEmptySlots(CampaignSaveLoadStatus status)
         {
             var controller = CreateController(new RecordingSaveSlotStore(BlockedReport(status)));
 
             var viewModel = controller.BuildViewModel();
 
-            Assert.That(viewModel.SlotCards, Has.Count.EqualTo(SaveSlotStore.SlotCount));
-            Assert.That(viewModel.SlotCards.All(card => card.State == SaveSlotCardState.Empty), Is.False);
-            Assert.That(viewModel.SlotCards.All(card => card.State == SaveSlotCardState.Corrupted), Is.True);
+            Assert.That(viewModel.SlotCards, Is.Empty);
+            Assert.That(viewModel.BlockedState, Is.Not.Null);
+            Assert.That(viewModel.IsBlocked, Is.True);
         }
 
         [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.IoFailed)]
         [TestCase(CampaignSaveLoadStatus.Unauthorized)]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending)]
         public void BlockingLoad_RendersPrimaryIntentNone(CampaignSaveLoadStatus status)
         {
             var controller = CreateController(new RecordingSaveSlotStore(BlockedReport(status)));
 
             var viewModel = controller.BuildViewModel();
 
-            Assert.That(viewModel.SlotCards.All(card => card.PrimaryIntentKind == SaveSlotIntentKind.None), Is.True);
-            Assert.That(viewModel.SlotCards.All(card => string.IsNullOrEmpty(card.PrimaryActionText)), Is.True);
+            Assert.That(viewModel.SlotCards, Is.Empty);
+            Assert.That(viewModel.BlockedState, Is.Not.Null);
         }
 
         [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.IoFailed)]
         [TestCase(CampaignSaveLoadStatus.Unauthorized)]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending)]
         public void BlockingLoad_HidesDelete(CampaignSaveLoadStatus status)
         {
             var controller = CreateController(new RecordingSaveSlotStore(BlockedReport(status)));
 
             var viewModel = controller.BuildViewModel();
 
-            Assert.That(viewModel.SlotCards.All(card => card.ShowDelete), Is.False);
+            Assert.That(viewModel.SlotCards, Is.Empty);
+            Assert.That(viewModel.BlockedState.ShowResetProfile,
+                Is.EqualTo(status == CampaignSaveLoadStatus.CorruptRepairRequired ||
+                           status == CampaignSaveLoadStatus.SchemaInvalidRepairRequired));
         }
 
         [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         [TestCase(CampaignSaveLoadStatus.IoFailed)]
         [TestCase(CampaignSaveLoadStatus.Unauthorized)]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending)]
         public void BlockingLoad_DisablesContinue(CampaignSaveLoadStatus status)
         {
             var controller = CreateController(new RecordingSaveSlotStore(BlockedReport(status)));
 
             var viewModel = controller.BuildViewModel();
 
-            Assert.That(viewModel.SlotCards.Any(card => card.PrimaryIntentKind == SaveSlotIntentKind.Continue), Is.False);
+            Assert.That(viewModel.SlotCards, Is.Empty);
+            Assert.That(viewModel.BlockedState.ShowRetry, Is.True);
         }
 
         [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired, SaveSlotFailurePresentationKind.CorruptedData, "Save Data Damaged", "This save data could not be read.")]
-        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.NeedsRepair, "Save Data Unavailable", "This save cannot be used in its current state.")]
+        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.UnsupportedVersion, "Unsupported Save", "This save was created by an unsupported version.")]
         [TestCase(CampaignSaveLoadStatus.IoFailed, SaveSlotFailurePresentationKind.LoadFailed, "Save Load Failed", "The save data could not be loaded.")]
         [TestCase(CampaignSaveLoadStatus.Unauthorized, SaveSlotFailurePresentationKind.PermissionDenied, "Save Access Failed", "The save data could not be accessed. Check file permissions.")]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending, SaveSlotFailurePresentationKind.RecoveryPending, "Save Reset Incomplete", "The save reset did not finish. Retry to continue.")]
         public void BlockingLoad_UsesStatusSpecificMessage(
             CampaignSaveLoadStatus status,
             SaveSlotFailurePresentationKind expectedKind,
@@ -82,9 +91,9 @@ namespace Game.Feature.UI.Tests
 
             var viewModel = controller.BuildViewModel();
 
-            Assert.That(viewModel.SlotCards.All(card => card.StatusText == expectedStatusText), Is.True);
-            Assert.That(viewModel.SlotCards.All(card => card.StageText == expectedDetailText), Is.True);
-            Assert.That(viewModel.SlotCards.All(card => card.FailureKind == expectedKind), Is.True);
+            Assert.That(viewModel.BlockedState.TitleText, Is.EqualTo(expectedStatusText));
+            Assert.That(viewModel.BlockedState.DetailText, Is.EqualTo(expectedDetailText));
+            Assert.That(viewModel.BlockedState.FailureKind, Is.EqualTo(expectedKind));
         }
 
         [TestCase(CampaignSaveLoadStatus.Missing, SaveSlotFailurePresentationKind.None)]
@@ -92,9 +101,10 @@ namespace Game.Feature.UI.Tests
         [TestCase(CampaignSaveLoadStatus.ImportedLegacy, SaveSlotFailurePresentationKind.None)]
         [TestCase(CampaignSaveLoadStatus.BackupRecovered, SaveSlotFailurePresentationKind.None)]
         [TestCase(CampaignSaveLoadStatus.CorruptRepairRequired, SaveSlotFailurePresentationKind.CorruptedData)]
-        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.NeedsRepair)]
+        [TestCase(CampaignSaveLoadStatus.SchemaInvalidRepairRequired, SaveSlotFailurePresentationKind.UnsupportedVersion)]
         [TestCase(CampaignSaveLoadStatus.IoFailed, SaveSlotFailurePresentationKind.LoadFailed)]
         [TestCase(CampaignSaveLoadStatus.Unauthorized, SaveSlotFailurePresentationKind.PermissionDenied)]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending, SaveSlotFailurePresentationKind.RecoveryPending)]
         public void CampaignLoadStatus_MapsToTypedUiFailureKind(
             CampaignSaveLoadStatus status,
             SaveSlotFailurePresentationKind expected)
@@ -166,22 +176,15 @@ namespace Game.Feature.UI.Tests
 
             var viewModel = controller.BuildViewModel();
 
-            foreach (var card in viewModel.SlotCards)
-            {
-                var playerText = string.Join(
-                    "\n",
-                    card.TitleText,
-                    card.StatusText,
-                    card.StageText,
-                    card.ChancesText,
-                    card.DeathsText,
-                    card.LastPlayedText,
-                    card.PrimaryActionText,
-                    card.DeleteActionText);
-                Assert.That(playerText, Does.Not.Contain(diagnostic));
-                Assert.That(playerText, Does.Not.Contain("UnauthorizedAccessException"));
-                Assert.That(playerText, Does.Not.Contain("C:\\Users\\Player"));
-            }
+            var playerText = string.Join(
+                "\n",
+                viewModel.BlockedState.TitleText,
+                viewModel.BlockedState.DetailText,
+                viewModel.BlockedState.RetryActionText,
+                viewModel.BlockedState.ResetProfileActionText);
+            Assert.That(playerText, Does.Not.Contain(diagnostic));
+            Assert.That(playerText, Does.Not.Contain("UnauthorizedAccessException"));
+            Assert.That(playerText, Does.Not.Contain("C:\\Users\\Player"));
         }
 
         [Test]
@@ -328,12 +331,97 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void BlockingLoad_ResetProfileConfirmation_UsesRecoveryPortInsteadOfSlotClear()
+        {
+            var store = new RecordingSaveSlotStore(
+                BlockedReport(CampaignSaveLoadStatus.SchemaInvalidRepairRequired));
+            var confirmPort = new RecordingConfirmPopupPort();
+            var recoveryPort = new RecordingSaveRecoveryPort();
+            var controller = CreateController(
+                store,
+                confirmPopupPort: confirmPort,
+                saveRecoveryPort: recoveryPort);
+
+            controller.RequestResetBlockedSave();
+            confirmPort.Complete(true);
+
+            Assert.That(confirmPort.RequestCount, Is.EqualTo(1));
+            Assert.That(confirmPort.LastPayload.IsConfirmDestructive, Is.True);
+            Assert.That(recoveryPort.ResetCount, Is.EqualTo(1));
+            Assert.That(recoveryPort.LastExpectedStatus,
+                Is.EqualTo(CampaignSaveLoadStatus.SchemaInvalidRepairRequired));
+            Assert.That(store.ClearAllCount, Is.Zero);
+            Assert.That(store.DeleteSlotCount, Is.Zero);
+        }
+
+        [Test]
+        public void BlockingLoad_ResetProfileCancellation_DoesNotMutate()
+        {
+            var store = new RecordingSaveSlotStore(
+                BlockedReport(CampaignSaveLoadStatus.CorruptRepairRequired));
+            var confirmPort = new RecordingConfirmPopupPort();
+            var recoveryPort = new RecordingSaveRecoveryPort();
+            var controller = CreateController(
+                store,
+                confirmPopupPort: confirmPort,
+                saveRecoveryPort: recoveryPort);
+
+            controller.RequestResetBlockedSave();
+            confirmPort.Complete(false);
+
+            Assert.That(recoveryPort.ResetCount, Is.Zero);
+            Assert.That(store.ProfileWriteCount, Is.Zero);
+        }
+
+        [Test]
+        public void RecoveryPending_RetryResumesRecoveryBeforeRefreshing()
+        {
+            var store = new RecordingSaveSlotStore(
+                BlockedReport(CampaignSaveLoadStatus.RecoveryPending));
+            var recoveryPort = new RecordingSaveRecoveryPort
+            {
+                HasPendingReset = true,
+            };
+            var controller = CreateController(store, saveRecoveryPort: recoveryPort);
+            SaveSlotPanelViewModel refreshed = null;
+            controller.ViewModelChanged += viewModel => refreshed = viewModel;
+
+            controller.RetryBlockedSave();
+
+            Assert.That(recoveryPort.RetryCount, Is.EqualTo(1));
+            Assert.That(store.LoadAllWithReportCount, Is.EqualTo(1));
+            Assert.That(refreshed, Is.Not.Null);
+        }
+
+        [TestCase(CampaignSaveLoadStatus.IoFailed)]
+        [TestCase(CampaignSaveLoadStatus.Unauthorized)]
+        [TestCase(CampaignSaveLoadStatus.RecoveryPending)]
+        public void NonRepairableBlockingLoad_DoesNotOfferReset(CampaignSaveLoadStatus status)
+        {
+            var confirmPort = new RecordingConfirmPopupPort();
+            var recoveryPort = new RecordingSaveRecoveryPort();
+            var controller = CreateController(
+                new RecordingSaveSlotStore(BlockedReport(status)),
+                confirmPopupPort: confirmPort,
+                saveRecoveryPort: recoveryPort);
+
+            var viewModel = controller.BuildViewModel();
+            controller.RequestResetBlockedSave();
+
+            Assert.That(viewModel.BlockedState.ShowRetry, Is.True);
+            Assert.That(viewModel.BlockedState.ShowResetProfile, Is.False);
+            Assert.That(confirmPort.RequestCount, Is.Zero);
+            Assert.That(recoveryPort.ResetCount, Is.Zero);
+        }
+
+        [Test]
         public void CampaignSaveLoadReport_BlockingPredicateCoversRepairIoAndUnauthorized()
         {
             Assert.That(BlockedReport(CampaignSaveLoadStatus.CorruptRepairRequired).BlocksCampaignAccess, Is.True);
             Assert.That(BlockedReport(CampaignSaveLoadStatus.SchemaInvalidRepairRequired).BlocksCampaignAccess, Is.True);
             Assert.That(BlockedReport(CampaignSaveLoadStatus.IoFailed).BlocksCampaignAccess, Is.True);
             Assert.That(BlockedReport(CampaignSaveLoadStatus.Unauthorized).BlocksCampaignAccess, Is.True);
+            Assert.That(BlockedReport(CampaignSaveLoadStatus.RecoveryPending).BlocksCampaignAccess, Is.True);
             Assert.That(CampaignSaveLoadReport.Missing("missing").BlocksCampaignAccess, Is.False);
             Assert.That(CampaignSaveLoadReport.Loaded("loaded", "token").BlocksCampaignAccess, Is.False);
             Assert.That(
@@ -372,7 +460,8 @@ namespace Game.Feature.UI.Tests
             RecordingCampaignLaunchHandoffStore launchHandoffStore = null,
             RecordingStageLaunchRouter router = null,
             RecordingConfirmPopupPort confirmPopupPort = null,
-            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null)
+            IMainMenuSaveDiagnosticPort saveDiagnosticPort = null,
+            ICampaignSaveRecoveryPort saveRecoveryPort = null)
         {
             return new MainMenuController(
                 store,
@@ -380,7 +469,8 @@ namespace Game.Feature.UI.Tests
                 CampaignStageSequenceTestAsset.LoadProductionResolver(),
                 router ?? new RecordingStageLaunchRouter(),
                 confirmPopupPort ?? new RecordingConfirmPopupPort(),
-                saveDiagnosticPort: saveDiagnosticPort);
+                saveDiagnosticPort: saveDiagnosticPort,
+                saveRecoveryPort: saveRecoveryPort);
         }
 
         private static CampaignSaveLoadReport BlockedReport(CampaignSaveLoadStatus status)
@@ -567,6 +657,31 @@ namespace Game.Feature.UI.Tests
             {
                 ReportCount++;
                 Last = diagnostic;
+            }
+        }
+
+        private sealed class RecordingSaveRecoveryPort : ICampaignSaveRecoveryPort
+        {
+            public bool HasPendingReset { get; set; }
+
+            public int ResetCount { get; private set; }
+
+            public int RetryCount { get; private set; }
+
+            public CampaignSaveLoadStatus LastExpectedStatus { get; private set; }
+
+            public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
+            {
+                ResetCount++;
+                LastExpectedStatus = expectedStatus;
+                return CampaignSaveResetResult.Completed;
+            }
+
+            public CampaignSaveResetResult RetryPendingReset()
+            {
+                RetryCount++;
+                HasPendingReset = false;
+                return CampaignSaveResetResult.Completed;
             }
         }
     }

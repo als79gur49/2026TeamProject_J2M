@@ -310,6 +310,7 @@ namespace Game.Feature.UI.Tests
                 }
 
                 SetPrivateField(panel, "_slotCards", cards);
+                ConfigureBlockedRecoveryReferences(panel);
 
                 var saveSlotBlockerRoot = new GameObject("SaveSlotBlocker", typeof(RectTransform));
                 saveSlotBlockerRoot.transform.SetParent(saveSlotOverlayLayer, false);
@@ -372,6 +373,7 @@ namespace Game.Feature.UI.Tests
                 }
 
                 SetPrivateField(panel, "_slotCards", cards);
+                ConfigureBlockedRecoveryReferences(panel);
 
                 Assert.DoesNotThrow(panel.ValidateAuthoredStructureOrThrow);
             }
@@ -893,6 +895,30 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("BuildPopupModule()"));
             Assert.That(source, Does.Contain("BuildSaveSlotModule()"));
             Assert.That(source, Does.Contain("BuildHubModule()"));
+        }
+
+        private static void ConfigureBlockedRecoveryReferences(SaveSlotPanelView panel)
+        {
+            var blockedRoot = new GameObject("BlockedSaveRecovery", typeof(RectTransform));
+            blockedRoot.transform.SetParent(panel.transform, false);
+            var title = new GameObject("Title", typeof(RectTransform), typeof(TextMeshProUGUI))
+                .GetComponent<TMP_Text>();
+            title.transform.SetParent(blockedRoot.transform, false);
+            var detail = new GameObject("Detail", typeof(RectTransform), typeof(TextMeshProUGUI))
+                .GetComponent<TMP_Text>();
+            detail.transform.SetParent(blockedRoot.transform, false);
+            var retryButton = CreateButton("RetryButton", blockedRoot.transform);
+            var retryLabel = CreateNestedButtonLabel(retryButton.transform);
+            var resetButton = CreateButton("ResetProfileButton", blockedRoot.transform);
+            var resetLabel = CreateNestedButtonLabel(resetButton.transform);
+
+            SetPrivateField(panel, "_blockedStateRoot", blockedRoot);
+            SetPrivateField(panel, "_blockedTitleLabel", title);
+            SetPrivateField(panel, "_blockedDetailLabel", detail);
+            SetPrivateField(panel, "_retryButton", retryButton);
+            SetPrivateField(panel, "_retryButtonLabel", retryLabel);
+            SetPrivateField(panel, "_resetProfileButton", resetButton);
+            SetPrivateField(panel, "_resetProfileButtonLabel", resetLabel);
         }
 
         private static MainMenuScreenView LoadMainMenuPrefab()

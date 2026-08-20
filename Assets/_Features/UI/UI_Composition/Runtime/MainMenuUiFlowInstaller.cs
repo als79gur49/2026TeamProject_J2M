@@ -476,6 +476,7 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException(
                     "MainMenuUiFlowInstaller campaign sequence resolver was not created during composition bootstrap.");
             var saveSlotStore = CampaignSaveCompositionProvider.CreateProductionProfileBacked();
+            var saveRecoveryPort = CampaignSaveCompositionProvider.GetProductionRecoveryPort();
             var activeSlotProvider = CampaignSaveCompositionProvider.CreateProductionActiveSlotProvider(saveSlotStore);
             ImportStandaloneCampaignSaveSeed(saveSlotStore, activeSlotProvider, sequenceResolver);
             var launchHandoffStore = CampaignLaunchHandoffSessionStore.Instance;
@@ -494,9 +495,12 @@ namespace Game.Feature.UI.Composition
                 _confirmPopupPort,
                 validationService,
                 _localizedTextResolver,
-                new UnityMainMenuSaveDiagnosticPort());
+                new UnityMainMenuSaveDiagnosticPort(),
+                saveRecoveryPort);
 
             _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested += Controller.HandleIntent;
+            _mainMenuScreenView.SaveSlotPanel.RetryBlockedSaveRequested += Controller.RetryBlockedSave;
+            _mainMenuScreenView.SaveSlotPanel.ResetBlockedSaveRequested += Controller.RequestResetBlockedSave;
             Controller.ViewModelChanged += HandleControllerViewModelChanged;
             _mainMenuScreenView.SaveSlotPanel.Bind(Controller.BuildViewModel());
         }
@@ -614,6 +618,8 @@ namespace Game.Feature.UI.Composition
             if (_mainMenuScreenView != null && _mainMenuScreenView.SaveSlotPanel != null && Controller != null)
             {
                 _mainMenuScreenView.SaveSlotPanel.SaveSlotIntentRequested -= Controller.HandleIntent;
+                _mainMenuScreenView.SaveSlotPanel.RetryBlockedSaveRequested -= Controller.RetryBlockedSave;
+                _mainMenuScreenView.SaveSlotPanel.ResetBlockedSaveRequested -= Controller.RequestResetBlockedSave;
             }
 
             if (_mainMenuScreenView != null && HubController != null)

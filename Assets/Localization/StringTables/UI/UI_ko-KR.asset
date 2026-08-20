@@ -476,6 +476,38 @@ MonoBehaviour:
     m_Localized: 꺼짐
     m_Metadata:
       m_Items: []
+  - m_Id: 4971587610693800
+    m_Localized: 다시 시도
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693801
+    m_Localized: 모든 저장 데이터 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693802
+    m_Localized: 모든 저장 데이터 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693803
+    m_Localized: 호환되지 않는 저장 데이터와 모든 저장 슬롯을 삭제하고 새로 시작할까요?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693804
+    m_Localized: 모든 진행 상황이 삭제됩니다.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693805
+    m_Localized: 모두 삭제
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693806
+    m_Localized: 저장 데이터 초기화 미완료
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4971587610693807
+    m_Localized: 저장 데이터 초기화가 완료되지 않았습니다. 다시 시도하세요.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds:

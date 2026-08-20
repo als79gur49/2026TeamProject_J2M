@@ -28,6 +28,7 @@ namespace Game.Feature.UI.Application
         RestartSlot,
         OverwriteSlot,
         QuitGame,
+        ResetBlockedProfile,
     }
 
     public static class MainMenuLocalization
@@ -86,6 +87,10 @@ namespace Game.Feature.UI.Application
                     return Failure(
                         MainMenuLocalizationEntryId.SlotErrorNeedsRepairTitle,
                         MainMenuLocalizationEntryId.SlotErrorNeedsRepairDetail);
+                case SaveSlotFailurePresentationKind.RecoveryPending:
+                    return Failure(
+                        MainMenuLocalizationEntryId.SlotErrorRecoveryPendingTitle,
+                        MainMenuLocalizationEntryId.SlotErrorRecoveryPendingDetail);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
             }
@@ -161,6 +166,15 @@ namespace Game.Feature.UI.Application
                         Descriptor(MainMenuLocalizationEntryId.QuitBody),
                         Descriptor(MainMenuLocalizationEntryId.QuitWarning),
                         Descriptor(MainMenuLocalizationEntryId.QuitConfirm),
+                        cancel,
+                        isConfirmDestructive: true);
+
+                case MainMenuConfirmationKind.ResetBlockedProfile:
+                    return new ConfirmPopupPayload(
+                        Descriptor(MainMenuLocalizationEntryId.SaveRecoveryResetTitle),
+                        Descriptor(MainMenuLocalizationEntryId.SaveRecoveryResetBody),
+                        Descriptor(MainMenuLocalizationEntryId.SaveRecoveryResetWarning),
+                        Descriptor(MainMenuLocalizationEntryId.SaveRecoveryResetConfirm),
                         cancel,
                         isConfirmDestructive: true);
 

@@ -125,6 +125,14 @@ namespace Game.Feature.UI.Composition.Editor
             (MainMenuLocalizationContract.Keys.SlotErrorLoadFailedDetail, "The save data could not be loaded.", "저장 데이터를 불러올 수 없습니다.", false),
             (MainMenuLocalizationContract.Keys.SlotErrorNeedsRepairTitle, "Save Data Unavailable", "저장 데이터 사용 불가", false),
             (MainMenuLocalizationContract.Keys.SlotErrorNeedsRepairDetail, "This save cannot be used in its current state.", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorRecoveryPendingTitle, "Save Reset Incomplete", "저장 데이터 초기화 미완료", false),
+            (MainMenuLocalizationContract.Keys.SlotErrorRecoveryPendingDetail, "The save reset did not finish. Retry to continue.", "저장 데이터 초기화가 완료되지 않았습니다. 다시 시도하세요.", false),
+            (MainMenuLocalizationContract.Keys.SaveRecoveryRetry, "Retry", "다시 시도", false),
+            (MainMenuLocalizationContract.Keys.SaveRecoveryReset, "Delete All Save Data", "모든 저장 데이터 삭제", false),
+            (MainMenuLocalizationContract.Keys.SaveRecoveryResetTitle, "Delete All Save Data", "모든 저장 데이터 삭제", false),
+            (MainMenuLocalizationContract.Keys.SaveRecoveryResetBody, "Delete the incompatible save data and every save slot, then start over?", "호환되지 않는 저장 데이터와 모든 저장 슬롯을 삭제하고 새로 시작할까요?", false),
+            (MainMenuLocalizationContract.Keys.SaveRecoveryResetWarning, "All progress will be deleted.", "모든 진행 상황이 삭제됩니다.", false),
+            (MainMenuLocalizationContract.Keys.SaveRecoveryResetConfirm, "Delete All", "모두 삭제", false),
         };
 
         public static void EnsureSettingsLocalizationAssetsAndQuit()

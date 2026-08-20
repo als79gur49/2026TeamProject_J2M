@@ -21,6 +21,7 @@ namespace Game.Feature.UI.Screens
         PermissionDenied = 3,
         LoadFailed = 4,
         NeedsRepair = 5,
+        RecoveryPending = 6,
     }
 
     public enum SaveSlotIntentKind
@@ -198,11 +199,53 @@ namespace Game.Feature.UI.Screens
 
     public sealed class SaveSlotPanelViewModel
     {
-        public SaveSlotPanelViewModel(IReadOnlyList<SaveSlotCardViewModel> slotCards)
+        public SaveSlotPanelViewModel(
+            IReadOnlyList<SaveSlotCardViewModel> slotCards,
+            CampaignSaveBlockedViewModel blockedState = null)
         {
             SlotCards = slotCards ?? Array.Empty<SaveSlotCardViewModel>();
+            BlockedState = blockedState;
         }
 
         public IReadOnlyList<SaveSlotCardViewModel> SlotCards { get; }
+
+        public CampaignSaveBlockedViewModel BlockedState { get; }
+
+        public bool IsBlocked => BlockedState != null;
+    }
+
+    public sealed class CampaignSaveBlockedViewModel
+    {
+        public CampaignSaveBlockedViewModel(
+            SaveSlotFailurePresentationKind failureKind,
+            string titleText,
+            string detailText,
+            bool showRetry,
+            bool showResetProfile,
+            string retryActionText,
+            string resetProfileActionText)
+        {
+            FailureKind = failureKind;
+            TitleText = titleText ?? string.Empty;
+            DetailText = detailText ?? string.Empty;
+            ShowRetry = showRetry;
+            ShowResetProfile = showResetProfile;
+            RetryActionText = retryActionText ?? string.Empty;
+            ResetProfileActionText = resetProfileActionText ?? string.Empty;
+        }
+
+        public SaveSlotFailurePresentationKind FailureKind { get; }
+
+        public string TitleText { get; }
+
+        public string DetailText { get; }
+
+        public bool ShowRetry { get; }
+
+        public bool ShowResetProfile { get; }
+
+        public string RetryActionText { get; }
+
+        public string ResetProfileActionText { get; }
     }
 }

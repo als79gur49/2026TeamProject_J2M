@@ -42,6 +42,14 @@ namespace Game.Feature.UI.ViewShared
         SlotErrorLoadFailedDetail,
         SlotErrorNeedsRepairTitle,
         SlotErrorNeedsRepairDetail,
+        SlotErrorRecoveryPendingTitle,
+        SlotErrorRecoveryPendingDetail,
+        SaveRecoveryRetry,
+        SaveRecoveryReset,
+        SaveRecoveryResetTitle,
+        SaveRecoveryResetBody,
+        SaveRecoveryResetWarning,
+        SaveRecoveryResetConfirm,
     }
 
     public readonly struct MainMenuLocalizationContractEntry
@@ -124,6 +132,14 @@ namespace Game.Feature.UI.ViewShared
             public const string SlotErrorLoadFailedDetail = "ui.main_menu.slot.error.load_failed.detail";
             public const string SlotErrorNeedsRepairTitle = "ui.main_menu.slot.error.needs_repair.title";
             public const string SlotErrorNeedsRepairDetail = "ui.main_menu.slot.error.needs_repair.detail";
+            public const string SlotErrorRecoveryPendingTitle = "ui.main_menu.slot.error.recovery_pending.title";
+            public const string SlotErrorRecoveryPendingDetail = "ui.main_menu.slot.error.recovery_pending.detail";
+            public const string SaveRecoveryRetry = "ui.main_menu.save_recovery.retry";
+            public const string SaveRecoveryReset = "ui.main_menu.save_recovery.reset";
+            public const string SaveRecoveryResetTitle = "ui.main_menu.save_recovery.confirm.title";
+            public const string SaveRecoveryResetBody = "ui.main_menu.save_recovery.confirm.body";
+            public const string SaveRecoveryResetWarning = "ui.main_menu.save_recovery.confirm.warning";
+            public const string SaveRecoveryResetConfirm = "ui.main_menu.save_recovery.confirm.confirm";
             public const string Cancel = "ui.common.cancel";
         }
 
@@ -167,6 +183,14 @@ namespace Game.Feature.UI.ViewShared
                 Entry(MainMenuLocalizationEntryId.SlotErrorLoadFailedDetail, Keys.SlotErrorLoadFailedDetail, "The save data could not be loaded.", "저장 데이터를 불러올 수 없습니다.", LocalizedTextRole.Body),
                 Entry(MainMenuLocalizationEntryId.SlotErrorNeedsRepairTitle, Keys.SlotErrorNeedsRepairTitle, "Save Data Unavailable", "저장 데이터 사용 불가", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
                 Entry(MainMenuLocalizationEntryId.SlotErrorNeedsRepairDetail, Keys.SlotErrorNeedsRepairDetail, "This save cannot be used in its current state.", "현재 상태에서는 이 저장 데이터를 사용할 수 없습니다.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SlotErrorRecoveryPendingTitle, Keys.SlotErrorRecoveryPendingTitle, "Save Reset Incomplete", "저장 데이터 초기화 미완료", LocalizedTextRole.Label, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SlotErrorRecoveryPendingDetail, Keys.SlotErrorRecoveryPendingDetail, "The save reset did not finish. Retry to continue.", "저장 데이터 초기화가 완료되지 않았습니다. 다시 시도하세요.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SaveRecoveryRetry, Keys.SaveRecoveryRetry, "Retry", "다시 시도", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.SaveRecoveryReset, Keys.SaveRecoveryReset, "Delete All Save Data", "모든 저장 데이터 삭제", LocalizedTextRole.Button),
+                Entry(MainMenuLocalizationEntryId.SaveRecoveryResetTitle, Keys.SaveRecoveryResetTitle, "Delete All Save Data", "모든 저장 데이터 삭제", LocalizedTextRole.Title, LocalizedTextWeight.Bold),
+                Entry(MainMenuLocalizationEntryId.SaveRecoveryResetBody, Keys.SaveRecoveryResetBody, "Delete the incompatible save data and every save slot, then start over?", "호환되지 않는 저장 데이터와 모든 저장 슬롯을 삭제하고 새로 시작할까요?", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SaveRecoveryResetWarning, Keys.SaveRecoveryResetWarning, "All progress will be deleted.", "모든 진행 상황이 삭제됩니다.", LocalizedTextRole.Body),
+                Entry(MainMenuLocalizationEntryId.SaveRecoveryResetConfirm, Keys.SaveRecoveryResetConfirm, "Delete All", "모두 삭제", LocalizedTextRole.Button),
             });
 
         public static IReadOnlyList<MainMenuLocalizationContractEntry> Entries => ContractEntries;
