@@ -61,6 +61,10 @@ Exclude these files, patterns, PlayerPrefs keys, and artifact roots from Steam C
 - `Saves/profile.json.bak`
 - `Saves/profile.*.tmp`
 - `Saves/profile.json.corrupt.*`
+- `Saves/profile.json.rejected.*`
+- `Saves/profile.json.bak.rejected.*`
+- `Saves/profile.reset.pending.json`
+- `Saves/profile.reset.pending.json.bak`
 - `campaign-save-seed.json`
 - `Settings/local-settings.json`
 - `Saves/local-launch-state.json`
@@ -83,6 +87,7 @@ Exclude these files, patterns, PlayerPrefs keys, and artifact roots from Steam C
 Cloud exclusion notes:
 
 - `profile.json.bak` is excluded by default.
+- User-confirmed reset archives and the local pending-reset marker are excluded by default.
 - Backup clouding requires a separate tested backup-cloud policy before reconsideration.
 - Direct-play temp save and temp active-slot keys are never Cloud targets.
 - Readiness reports are CI artifacts only and are not Cloud targets.
@@ -224,6 +229,10 @@ SteamPipe release content staging must exclude:
 - `Saves/profile.json.bak`
 - `Saves/profile.*.tmp`
 - `Saves/profile.json.corrupt.*`
+- `Saves/profile.json.rejected.*`
+- `Saves/profile.json.bak.rejected.*`
+- `Saves/profile.reset.pending.json`
+- `Saves/profile.reset.pending.json.bak`
 - `Settings/local-settings.json`
 - `Saves/local-launch-state.json`
 - `Saves/editor-direct-play.json`

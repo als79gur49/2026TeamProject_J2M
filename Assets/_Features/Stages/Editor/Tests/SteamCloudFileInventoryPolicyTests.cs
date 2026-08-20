@@ -27,6 +27,10 @@ namespace Game.Feature.Stages.Editor.Tests
             "Saves/profile.json.bak",
             "Saves/profile.123.tmp",
             "Saves/profile.json.corrupt.202607090000000000000",
+            "Saves/profile.json.rejected.reset-1",
+            "Saves/profile.json.bak.rejected.reset-1",
+            "Saves/profile.reset.pending.json",
+            "Saves/profile.reset.pending.json.bak",
             "campaign-save-seed.json",
             "Settings/local-settings.json",
             "Saves/local-launch-state.json",
@@ -129,6 +133,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(doc, Does.Contain("`Saves/profile.json.bak`"));
             Assert.That(doc, Does.Contain("`Saves/profile.*.tmp`"));
             Assert.That(doc, Does.Contain("`Saves/profile.json.corrupt.*`"));
+            Assert.That(doc, Does.Contain("`Saves/profile.json.rejected.*`"));
+            Assert.That(doc, Does.Contain("`Saves/profile.json.bak.rejected.*`"));
+            Assert.That(doc, Does.Contain("`Saves/profile.reset.pending.json`"));
+            Assert.That(doc, Does.Contain("`Saves/profile.reset.pending.json.bak`"));
             Assert.That(doc, Does.Contain("`Settings/local-settings.json`"));
             Assert.That(doc, Does.Contain("`Saves/local-launch-state.json`"));
             Assert.That(doc, Does.Contain("`Saves/editor-direct-play.json`"));
@@ -314,6 +322,16 @@ namespace Game.Feature.Stages.Editor.Tests
             if (value.StartsWith("Saves/profile.json.corrupt.", StringComparison.Ordinal))
             {
                 return "`Saves/profile.json.corrupt.*`";
+            }
+
+            if (value.StartsWith("Saves/profile.json.bak.rejected.", StringComparison.Ordinal))
+            {
+                return "`Saves/profile.json.bak.rejected.*`";
+            }
+
+            if (value.StartsWith("Saves/profile.json.rejected.", StringComparison.Ordinal))
+            {
+                return "`Saves/profile.json.rejected.*`";
             }
 
             if (value == "Settings/local-settings.json" ||

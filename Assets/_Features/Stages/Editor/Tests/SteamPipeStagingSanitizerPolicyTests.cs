@@ -148,6 +148,16 @@ namespace Game.Feature.Stages.Editor.Tests
                 return "`Saves/profile.json.corrupt.*`";
             }
 
+            if (value.StartsWith("Saves/profile.json.bak.rejected.", StringComparison.Ordinal))
+            {
+                return "`Saves/profile.json.bak.rejected.*`";
+            }
+
+            if (value.StartsWith("Saves/profile.json.rejected.", StringComparison.Ordinal))
+            {
+                return "`Saves/profile.json.rejected.*`";
+            }
+
             if (value == "Settings/local-settings.json" ||
                 value == "Saves/local-launch-state.json" ||
                 value == "Saves/editor-direct-play.json" ||
@@ -236,6 +246,10 @@ namespace Game.Feature.Stages.Editor.Tests
             yield return "Saves/profile.json.bak";
             yield return "Saves/profile.123.tmp";
             yield return "Saves/profile.json.corrupt.202607090000000000000";
+            yield return "Saves/profile.json.rejected.reset-1";
+            yield return "Saves/profile.json.bak.rejected.reset-1";
+            yield return "Saves/profile.reset.pending.json";
+            yield return "Saves/profile.reset.pending.json.bak";
             yield return "Settings/local-settings.json";
             yield return "Saves/local-launch-state.json";
             yield return "Saves/editor-direct-play.json";
@@ -356,6 +370,10 @@ namespace Game.Feature.Stages.Editor.Tests
         [TestCase("Saves/profile.json.bak")]
         [TestCase("Saves/profile.123.tmp")]
         [TestCase("Saves/profile.json.corrupt.202607090000000000000")]
+        [TestCase("Saves/profile.json.rejected.reset-1")]
+        [TestCase("Saves/profile.json.bak.rejected.reset-1")]
+        [TestCase("Saves/profile.reset.pending.json")]
+        [TestCase("Saves/profile.reset.pending.json.bak")]
         [TestCase("Settings/local-settings.json")]
         [TestCase("Saves/local-launch-state.json")]
         [TestCase("Saves/editor-direct-play.json")]
