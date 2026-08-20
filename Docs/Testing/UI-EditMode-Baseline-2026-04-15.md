@@ -21,7 +21,8 @@
 - Current Settings movement-key toggle rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1357 total / 0 failed`; Settings now has 37 locale-themed bindings / 10 invariant bindings over 47 TMP targets
 - Current Settings Push/Flip keycap rebind rerun: green on 2026-08-08 KST, Windows UI build passed and Unity UI EditMode `1361 total / 0 failed`; Settings now has 35 locale-themed bindings / 10 invariant bindings over 45 TMP targets, with the obsolete Change localization entry removed
 - Current fullscreen cursor confinement rerun: green on 2026-08-15 KST, Windows UI build passed and Unity UI EditMode `1386 total / 0 failed`
-- Current comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired, the current runtime is sprite-sequence only, and the temporary outro definition independently duplicates the intro content for presentation validation
+- Current comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired and the current runtime is sprite-sequence only. The 2026-08-21 product follow-up removes the temporary outro validation Definition, leaves the Gameplay scene reference explicitly null, and preserves the missing-content direct-return contract.
+- Current production-outro removal rerun: green on 2026-08-21 KST, Windows UI build passed, Unity UI EditMode `1341 total / 0 failed`, and filtered actual-scene PlayMode `1 total / 0 failed`; an active completed campaign skips comic presentation, completes the regular Main Menu lifecycle, and does not mark absent outro content complete
 - Current blocked-save recovery fail-closed rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1338 total / 0 failed`; incomplete resets remain globally blocked, Retry resumes the pending transaction, and destructive reset remains limited to incompatible/corrupt profile states
 - Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
 - Current Gameplay Stage Name typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; Stage Name resolves `HeaderLarge` through the theme for both locales and adds target-local TMP `UpperCase` presentation without changing World Guide or transition-label default-locale restoration
@@ -40,7 +41,7 @@
 - Added tests:
   - blocked-save recovery typography guards proving four authored semantic bindings, en-US/ko-KR font/material round-trip with authored sizing preserved, and fail-fast behavior when a non-card binding is missing instead of applying a card-ordinal fallback
   - blocked-save state classification, retry-only IO/permission policy, destructive reset confirmation/cancel flow, status revalidation, locale refresh, startup reset resumption, and incompatible/corrupt profile archive-and-empty-profile recovery guards
-  - comic-sequence import/layout guards, exact 13-click progression, independent outro validation-copy parity, shared intro/outro routing contracts, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, setup-failure cleanup, and pointer-only background click ownership
+  - comic-sequence import/layout guards, exact 13-click progression, explicit null production-outro scene wiring, shared intro/outro routing contracts including missing-content direct return, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, setup-failure cleanup, and pointer-only background click ownership
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
   - Settings movement-key production guards proving the authored `WASDKeyDisplay` button toggles WASD/arrow visuals in both directions with click feedback, and `Input.Movement.Toggle` shows its `SelectionFrame` and submits once on Enter without Slider edit mode
   - Climate Crisis KR committed TTF/SDF Git-blob, GUID, material localID, and Nanum-retention preflight separated from Unity runtime font/material reference, 19-role completeness, en-US identity preservation, dynamic managed-table glyph/fallback, and approved Pause/audio/display layout guards; importer-derived working hashes and ScaleRatio values are diagnostic only
@@ -96,7 +97,10 @@
   - Gameplay Stage Name typography follow-up slice-local delta: `+0`; the existing locale round-trip guard now asserts en-US and ko-KR `HeaderLarge` theme identity plus target-local TMP `UpperCase` while retaining authored sizing
   - Pause progression stepper pre-change and current rerun: `1341 total / 0 failed`
   - Pause progression stepper slice-local delta: `+0`; existing mapper, prefab, and screenshot-preview guards were strengthened and renamed without changing the executed-case count
+  - production-outro removal pre-change and current UI rerun: `1341 total / 0 failed`
+  - production-outro removal slice-local UI delta: `+0`; the temporary Definition parity test was replaced one-for-one by explicit null scene wiring coverage, with the renamed actual-scene PlayMode smoke validated separately as `1 total / 0 failed`
 - Removed tests:
+  - the temporary outro validation-copy parity guard was replaced by an explicit null production-scene wiring guard after the duplicate Definition asset was removed; shared outro routing behavior remains covered
   - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `ComicIntroOutroRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicSequenceFlowTests`
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -167,7 +171,7 @@
 - PlayMode escalation status:
   - no additional UI PlayMode tests were added in Stage 9
   - EditMode remained sufficient for mapper/policy/controller hardening and UI hierarchy ownership verification
-  - comic-sequence production scene bootstrap continues to be covered by the existing actual-scene PlayMode smoke; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
+  - comic-sequence production scene bootstrap continues to be covered by actual-scene PlayMode smoke: intro presentation remains exercised, while the Gameplay outro case now proves that an active completed campaign with no authored outro content skips presentation and uses the regular Main Menu lifecycle; real pointer/EventSystem player execution remains a manual/player-build companion rather than part of this UI EditMode lane
 
 ## Covered Freeze Evidence
 - architectural seams are guarded by tests, not only by convention
