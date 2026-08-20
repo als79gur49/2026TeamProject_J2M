@@ -1085,12 +1085,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator M4OutroValidationCopy_PlaysComicAndReturnsToMainMenu()
-        {
-            return RunOutroComicValidationCopyActualScene();
-        }
-
-        private IEnumerator RunOutroComicValidationCopyActualScene()
+        public IEnumerator M4MissingOutroContent_SkipsComicAndReturnsToMainMenu()
         {
             CampaignSaveCompositionProvider.ResetProductionProfileBackedForTests();
             var saveStore =
@@ -1131,50 +1126,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 source.ScreenController.SetRoot(new ScreenRequest(
                     ScreenId.GameClear,
                     GameClearScreenPayload.Default,
-                    "m4-outro-validation-copy"));
+                    "m4-missing-outro-content"));
                 source.GameClearScreenView.ClickMain();
 
                 var overlay =
                     Object.FindFirstObjectByType<ComicSequenceOverlayView>(
                         FindObjectsInactive.Include);
                 Assert.That(overlay, Is.Not.Null);
-                Assert.That(overlay.IsPresenting, Is.True);
+                Assert.That(overlay.IsPresenting, Is.False);
+                Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
                 Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.True);
                 Assert.That(
                     MainMenuEntryPresentationRegistry.Current.TransitionIntent,
-                    Is.EqualTo(SceneTransitionIntent.ComicOutroToMainMenu));
-
-                overlay.AdvanceForTesting(10f);
-                overlay.AdvanceForTesting(10f);
-                Assert.That(
-                    overlay.CurrentPresentationState,
-                    Is.EqualTo(ComicSequencePresentationState.AwaitingAdvance));
-
-                var advanceGuard = 0;
-                while (overlay.CurrentPresentationState !=
-                           ComicSequencePresentationState.AwaitingOpaqueRender &&
-                       advanceGuard++ < 100)
-                {
-                    if (overlay.CurrentPresentationState ==
-                        ComicSequencePresentationState.AwaitingAdvance)
-                    {
-                        overlay.RequestAdvance();
-                    }
-
-                    overlay.AdvanceForTesting(10f);
-                }
-
-                Assert.That(
-                    overlay.CurrentPresentationState,
-                    Is.EqualTo(ComicSequencePresentationState.AwaitingOpaqueRender));
-                Assert.That(
-                    overlay.AcknowledgeOpaqueRenderForTesting(),
-                    Is.True);
-                Assert.That(
-                    ComicSequenceOpaqueHandoffRegistry.Current.Phase,
-                    Is.EqualTo(
-                        ComicSequenceOpaqueHandoffPhase
-                            .ComicSequenceOpaqueRendered));
+                    Is.EqualTo(SceneTransitionIntent.ReturnToMainMenu));
+                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.False);
 
                 var sawPersistentRender = false;
                 var sawMenuOpening = false;
@@ -1223,7 +1188,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(destination, Is.Not.Null);
                 Assert.That(MainMenuEntryPresentationRegistry.IsActive, Is.False);
                 Assert.That(ComicSequenceOpaqueHandoffRegistry.IsActive, Is.False);
-                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.True);
+                Assert.That(
+                    MainMenuEntryPresentationRegistry.Current.Phase,
+                    Is.EqualTo(SceneEntryPresentationPhase.Completed));
+                Assert.That(destination.IsGameplayEntryInteractionBlocked, Is.False);
+                Assert.That(saveStore.LoadSlot(1).OutroComicCompleted, Is.False);
             }
             finally
             {

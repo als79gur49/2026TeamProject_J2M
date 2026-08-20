@@ -14,9 +14,8 @@ namespace Game.Feature.UI.Tests
         private const string IntroSequencePath =
             "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/Intro/" +
             "IntroComicSequence_CampaignMain.asset";
-        private const string OutroSequencePath =
-            "Assets/_Features/UI/UI_Composition/Authoring/ComicSequences/Outro/" +
-            "OutroComicSequence_CampaignMain.asset";
+        private const string GameplayScenePath =
+            "Assets/Scenes/UIAudioScene.unity";
 
         [SetUp]
         public void SetUp()
@@ -69,36 +68,20 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ProductionOutroValidationSequence_IsIndependentCopyOfIntro()
+        public void ProductionGameplayScene_LeavesOutroDefinitionUnassigned()
         {
-            var intro = LoadProductionDefinition();
-            var outro = AssetDatabase.LoadAssetAtPath<ComicSequenceDefinition>(
-                OutroSequencePath);
+            var projectRoot = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(UnityEngine.Application.dataPath, ".."));
+            var sceneText = System.IO.File.ReadAllText(
+                System.IO.Path.Combine(projectRoot, GameplayScenePath));
 
-            Assert.That(outro, Is.Not.Null, $"Missing {OutroSequencePath}");
-            Assert.That(outro, Is.Not.SameAs(intro));
-            Assert.That(outro.TryValidate(out var failureReason), Is.True, failureReason);
-            Assert.That(outro.Pages, Has.Length.EqualTo(intro.Pages.Length));
-            for (var pageIndex = 0; pageIndex < intro.Pages.Length; pageIndex++)
-            {
-                var introPanels = intro.Pages[pageIndex].Panels;
-                var outroPanels = outro.Pages[pageIndex].Panels;
-                Assert.That(outroPanels, Has.Length.EqualTo(introPanels.Length));
-                for (var panelIndex = 0; panelIndex < introPanels.Length; panelIndex++)
-                {
-                    Assert.That(
-                        outroPanels[panelIndex].Sprite,
-                        Is.SameAs(introPanels[panelIndex].Sprite));
-                    Assert.That(
-                        outroPanels[panelIndex].ReferenceRect,
-                        Is.EqualTo(introPanels[panelIndex].ReferenceRect));
-                }
-            }
-
-            Assert.That(outro.FinalTransitionBeforeSprite, Is.SameAs(intro.FinalTransitionBeforeSprite));
-            Assert.That(outro.FinalTransitionAfterSprite, Is.SameAs(intro.FinalTransitionAfterSprite));
-            Assert.That(outro.AudioClip, Is.SameAs(intro.AudioClip));
-            Assert.That(outro.Timing, Is.EqualTo(intro.Timing));
+            Assert.That(
+                sceneText,
+                Does.Contain("_outroComicSequence: {fileID: 0}"));
+            Assert.That(
+                sceneText,
+                Does.Not.Contain("d58280cd100a46cc89dd187f38310202"),
+                "The retired temporary outro definition must not remain as a missing GUID reference.");
         }
 
         [Test]
