@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using UnityEngine;
 
 namespace Game.Feature.Stages
 {
@@ -12,6 +14,7 @@ namespace Game.Feature.Stages
         SchemaInvalidRepairRequired = 5,
         IoFailed = 6,
         Unauthorized = 7,
+        RecoveryPending = 8,
     }
 
     public readonly struct CampaignSaveLoadReport
@@ -40,7 +43,8 @@ namespace Game.Feature.Stages
             Status == CampaignSaveLoadStatus.CorruptRepairRequired ||
             Status == CampaignSaveLoadStatus.SchemaInvalidRepairRequired ||
             Status == CampaignSaveLoadStatus.IoFailed ||
-            Status == CampaignSaveLoadStatus.Unauthorized;
+            Status == CampaignSaveLoadStatus.Unauthorized ||
+            Status == CampaignSaveLoadStatus.RecoveryPending;
 
         public static CampaignSaveLoadReport Missing(string reason)
         {
@@ -92,5 +96,363 @@ namespace Game.Feature.Stages
         void DeleteSlot(int slotNumber);
 
         void ClearAll();
+    }
+
+    [Flags]
+    public enum CampaignSaveRecoveryActions
+    {
+        None = 0,
+        Retry = 1 << 0,
+        ResetProfile = 1 << 1,
+    }
+
+    public static class CampaignSaveRecoveryPolicy
+    {
+        public static CampaignSaveRecoveryActions GetActions(CampaignSaveLoadStatus status)
+        {
+            switch (status)
+            {
+                case CampaignSaveLoadStatus.SchemaInvalidRepairRequired:
+                case CampaignSaveLoadStatus.CorruptRepairRequired:
+                    return CampaignSaveRecoveryActions.Retry |
+                           CampaignSaveRecoveryActions.ResetProfile;
+                case CampaignSaveLoadStatus.Unauthorized:
+                case CampaignSaveLoadStatus.IoFailed:
+                case CampaignSaveLoadStatus.RecoveryPending:
+                    return CampaignSaveRecoveryActions.Retry;
+                default:
+                    return CampaignSaveRecoveryActions.None;
+            }
+        }
+    }
+
+    public enum CampaignSaveResetResult
+    {
+        Completed = 0,
+        StateChanged = 1,
+        NotAllowed = 2,
+        Failed = 3,
+    }
+
+    public interface ICampaignSaveRecoveryPort
+    {
+        bool HasPendingReset { get; }
+
+        CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus);
+
+        CampaignSaveResetResult RetryPendingReset();
+    }
+
+    [Serializable]
+    internal sealed class CampaignSavePendingResetDocument
+    {
+        public string ResetId;
+        public string StartedAtUtc;
+    }
+
+    public sealed class CampaignSaveRecoveryService : ICampaignSaveRecoveryPort
+    {
+        public const string PendingResetFileName = "profile.reset.pending.json";
+
+        private const string ResetIdFormat = "yyyyMMddHHmmssfffffff";
+        private const string UtcTimestampFormat = "o";
+
+        private readonly ICampaignProfileRepository _repository;
+        private readonly IAtomicTextFileStore _textFileStore;
+        private readonly ICampaignSaveResetMarkerPort _resetMarkerPort;
+        private readonly Func<DateTime> _utcNow;
+        private readonly string _profileId;
+        private readonly string _productVersion;
+
+        public CampaignSaveRecoveryService(
+            ICampaignProfileRepository repository,
+            IAtomicTextFileStore textFileStore,
+            ICampaignSaveResetMarkerPort resetMarkerPort,
+            Func<DateTime> utcNow,
+            string profileId,
+            string productVersion)
+        {
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _textFileStore = textFileStore ?? throw new ArgumentNullException(nameof(textFileStore));
+            _resetMarkerPort = resetMarkerPort ?? throw new ArgumentNullException(nameof(resetMarkerPort));
+            _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
+            _profileId = string.IsNullOrWhiteSpace(profileId) ? "campaign-profile" : profileId;
+            _productVersion = productVersion ?? string.Empty;
+        }
+
+        public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
+        {
+            if ((CampaignSaveRecoveryPolicy.GetActions(expectedStatus) &
+                 CampaignSaveRecoveryActions.ResetProfile) == 0)
+            {
+                return CampaignSaveResetResult.NotAllowed;
+            }
+
+            CampaignProfileLoadResult loadResult;
+            try
+            {
+                loadResult = _repository.Load();
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            if (MapStatus(loadResult.Status) != expectedStatus)
+            {
+                return CampaignSaveResetResult.StateChanged;
+            }
+
+            var now = _utcNow().ToUniversalTime();
+            var pending = new CampaignSavePendingResetDocument
+            {
+                ResetId = now.ToString(ResetIdFormat, CultureInfo.InvariantCulture),
+                StartedAtUtc = now.ToString(UtcTimestampFormat, CultureInfo.InvariantCulture),
+            };
+
+            try
+            {
+                _textFileStore.WriteAllTextAtomic(PendingResetFileName, JsonUtility.ToJson(pending));
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            return CompletePendingReset(pending);
+        }
+
+        public bool HasPendingReset
+        {
+            get
+            {
+                try
+                {
+                    return _textFileStore.Exists(PendingResetFileName);
+                }
+                catch
+                {
+                    return true;
+                }
+            }
+        }
+
+        public CampaignSaveResetResult RetryPendingReset()
+        {
+            return ResumePendingReset();
+        }
+
+        public CampaignSaveResetResult ResumePendingReset()
+        {
+            if (!HasPendingReset)
+            {
+                return CampaignSaveResetResult.NotAllowed;
+            }
+
+            CampaignSavePendingResetDocument pending;
+            string rawPending;
+            try
+            {
+                rawPending = _textFileStore.ReadAllText(PendingResetFileName);
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            try
+            {
+                pending = JsonUtility.FromJson<CampaignSavePendingResetDocument>(rawPending);
+            }
+            catch (ArgumentException)
+            {
+                pending = null;
+            }
+
+            if (!IsValidPendingReset(pending))
+            {
+                return RecoverUnreadablePendingReset();
+            }
+
+            try
+            {
+                var current = _repository.Load();
+                if (current.Status == CampaignProfileLoadStatus.Loaded ||
+                    current.Status == CampaignProfileLoadStatus.BackupRecovered)
+                {
+                    if (current.Document?.LegacyImport != null &&
+                        current.Document.LegacyImport.ImportDisabled &&
+                        string.Equals(
+                            current.Document.LegacyImport.ResetTombstoneUtc,
+                            pending.StartedAtUtc,
+                            StringComparison.Ordinal))
+                    {
+                        _resetMarkerPort.MarkResetImportDisabled(pending.StartedAtUtc);
+                        return DeletePendingResetArtifacts()
+                            ? CampaignSaveResetResult.Completed
+                            : CampaignSaveResetResult.Failed;
+                    }
+
+                    return DeletePendingResetArtifacts()
+                        ? CampaignSaveResetResult.StateChanged
+                        : CampaignSaveResetResult.Failed;
+                }
+
+                if (current.Status == CampaignProfileLoadStatus.Unauthorized ||
+                    current.Status == CampaignProfileLoadStatus.IoFailed)
+                {
+                    return CampaignSaveResetResult.Failed;
+                }
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            return CompletePendingReset(pending);
+        }
+
+        private CampaignSaveResetResult RecoverUnreadablePendingReset()
+        {
+            CampaignProfileLoadResult current;
+            try
+            {
+                current = _repository.Load();
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            if (current.Status == CampaignProfileLoadStatus.Loaded ||
+                current.Status == CampaignProfileLoadStatus.BackupRecovered)
+            {
+                return DeletePendingResetArtifacts()
+                    ? CampaignSaveResetResult.StateChanged
+                    : CampaignSaveResetResult.Failed;
+            }
+
+            if (current.Status == CampaignProfileLoadStatus.Unauthorized ||
+                current.Status == CampaignProfileLoadStatus.IoFailed)
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            var now = _utcNow().ToUniversalTime();
+            var replacement = new CampaignSavePendingResetDocument
+            {
+                ResetId = now.ToString(ResetIdFormat, CultureInfo.InvariantCulture),
+                StartedAtUtc = now.ToString(UtcTimestampFormat, CultureInfo.InvariantCulture),
+            };
+
+            try
+            {
+                _textFileStore.WriteAllTextAtomic(PendingResetFileName, JsonUtility.ToJson(replacement));
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+
+            return CompletePendingReset(replacement);
+        }
+
+        private static bool IsValidPendingReset(CampaignSavePendingResetDocument pending)
+        {
+            if (pending == null ||
+                string.IsNullOrWhiteSpace(pending.ResetId) ||
+                string.IsNullOrWhiteSpace(pending.StartedAtUtc) ||
+                !DateTime.TryParseExact(
+                    pending.StartedAtUtc,
+                    UtcTimestampFormat,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind,
+                    out var startedAtUtc) ||
+                startedAtUtc.Kind != DateTimeKind.Utc)
+            {
+                return false;
+            }
+
+            return string.Equals(
+                pending.ResetId,
+                startedAtUtc.ToString(ResetIdFormat, CultureInfo.InvariantCulture),
+                StringComparison.Ordinal);
+        }
+
+        private CampaignSaveResetResult CompletePendingReset(CampaignSavePendingResetDocument pending)
+        {
+            try
+            {
+                _resetMarkerPort.MarkResetImportDisabled(pending.StartedAtUtc);
+                var suffix = $"rejected.{pending.ResetId}";
+                if (!TryQuarantineIfPresent(FileCampaignProfileRepository.ProfileFileName, suffix) ||
+                    !TryQuarantineIfPresent(FileCampaignProfileRepository.ProfileFileName + ".bak", suffix))
+                {
+                    return CampaignSaveResetResult.Failed;
+                }
+
+                _repository.Save(CreateEmptyProfile(pending.StartedAtUtc));
+                return DeletePendingResetArtifacts()
+                    ? CampaignSaveResetResult.Completed
+                    : CampaignSaveResetResult.Failed;
+            }
+            catch
+            {
+                return CampaignSaveResetResult.Failed;
+            }
+        }
+
+        private bool TryQuarantineIfPresent(string fileName, string suffix)
+        {
+            return !_textFileStore.Exists(fileName) ||
+                   _textFileStore.TryQuarantine(fileName, suffix, out _);
+        }
+
+        private bool DeletePendingResetArtifacts()
+        {
+            var deletedCanonical = _textFileStore.Delete(PendingResetFileName);
+            _textFileStore.Delete(PendingResetFileName + ".bak");
+            return deletedCanonical;
+        }
+
+        private CampaignProfileDocument CreateEmptyProfile(string resetTombstoneUtc)
+        {
+            return new CampaignProfileDocument
+            {
+                SchemaVersion = CampaignProfileDocument.CurrentSchemaVersion,
+                ProductVersion = _productVersion,
+                SavedAtUtc = resetTombstoneUtc,
+                ProfileId = _profileId,
+                LastPlayedSlotNumber = 0,
+                LegacyImport = new CampaignLegacyImportDocument
+                {
+                    ImportDisabled = true,
+                    ResetTombstoneUtc = resetTombstoneUtc,
+                },
+                Slots = Array.Empty<CampaignSlotDocument>(),
+            };
+        }
+
+        private static CampaignSaveLoadStatus MapStatus(CampaignProfileLoadStatus status)
+        {
+            switch (status)
+            {
+                case CampaignProfileLoadStatus.Missing:
+                    return CampaignSaveLoadStatus.Missing;
+                case CampaignProfileLoadStatus.Loaded:
+                    return CampaignSaveLoadStatus.Loaded;
+                case CampaignProfileLoadStatus.BackupRecovered:
+                    return CampaignSaveLoadStatus.BackupRecovered;
+                case CampaignProfileLoadStatus.UnsupportedVersion:
+                    return CampaignSaveLoadStatus.SchemaInvalidRepairRequired;
+                case CampaignProfileLoadStatus.InvalidDocument:
+                case CampaignProfileLoadStatus.CorruptNoFallback:
+                    return CampaignSaveLoadStatus.CorruptRepairRequired;
+                case CampaignProfileLoadStatus.Unauthorized:
+                    return CampaignSaveLoadStatus.Unauthorized;
+                default:
+                    return CampaignSaveLoadStatus.IoFailed;
+            }
+        }
     }
 }

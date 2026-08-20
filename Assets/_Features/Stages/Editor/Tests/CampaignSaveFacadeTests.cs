@@ -147,6 +147,33 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PendingResetResumeFailure_SkipsMigrationAndExposesRecoveryPendingGate()
+        {
+            using var harness = new Harness();
+            Directory.CreateDirectory(harness.SaveRootPath);
+            File.WriteAllText(
+                harness.ProfilePath,
+                "{\"SchemaVersion\":1,\"ProfileId\":\"blocked-profile\",\"Slots\":[]}");
+            harness.TextFileStore.WriteAllTextAtomic(
+                CampaignSaveRecoveryService.PendingResetFileName,
+                "{\"ResetId\":\"202608200102030000000\",\"StartedAtUtc\":\"2026-08-20T01:02:03.0000000Z\"}");
+            var options = harness.Options(
+                CampaignSaveBackendMode.ProfileJsonExplicit,
+                enableProfileWrite: true,
+                allowLegacyImport: false);
+            options.TextFileStore = new ProfileWriteFailingTextFileStore(harness.TextFileStore);
+
+            var result = CampaignSaveFacadeFactory.Create(options);
+            var load = result.CampaignSaveSlots.LoadAllWithReport();
+
+            Assert.That(result.RecoveryResumeResult, Is.EqualTo(CampaignSaveResetResult.Failed));
+            Assert.That(result.MigrationResult, Is.Null);
+            Assert.That(load.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
+            Assert.That(load.Report.BlocksCampaignAccess, Is.True);
+            Assert.Throws<InvalidOperationException>(() => result.CampaignSaveSlots.ClearAll());
+        }
+
+        [Test]
         public void InvalidLegacyImportIsPreservedAndNotDeleted()
         {
             using var harness = new Harness();
@@ -163,8 +190,8 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase(CampaignProfileLoadStatus.CorruptNoFallback, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.CorruptQuarantined, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.SchemaInvalid, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.InvalidDocument, CampaignSaveLoadStatus.CorruptRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.UnsupportedVersion, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         public void ProfileBackedFacadeReportsRepairRequiredInsteadOfFreshEmpty(
             CampaignProfileLoadStatus profileStatus,
             CampaignSaveLoadStatus expectedStatus)
@@ -186,8 +213,8 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [TestCase(CampaignProfileLoadStatus.CorruptNoFallback, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.CorruptQuarantined, CampaignSaveLoadStatus.CorruptRepairRequired)]
-        [TestCase(CampaignProfileLoadStatus.SchemaInvalid, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.InvalidDocument, CampaignSaveLoadStatus.CorruptRepairRequired)]
+        [TestCase(CampaignProfileLoadStatus.UnsupportedVersion, CampaignSaveLoadStatus.SchemaInvalidRepairRequired)]
         [TestCase(CampaignProfileLoadStatus.IoFailed, CampaignSaveLoadStatus.IoFailed)]
         [TestCase(CampaignProfileLoadStatus.Unauthorized, CampaignSaveLoadStatus.Unauthorized)]
         public void ProfileBackedFacadeReportsCampaignAccessBlocked(
@@ -226,6 +253,46 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(result.Report.BlocksCampaignAccess, Is.False);
             Assert.That(result.Slots, Has.Length.EqualTo(SaveSlotStore.SlotCount));
             Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
+        }
+
+        [Test]
+        public void PendingReset_ReportsBlockedInsteadOfFreshEmpty()
+        {
+            var recovery = new StubRecoveryPort { HasPendingReset = true };
+            var adapter = new SaveSlotStoreCompatibilityAdapter(
+                new CampaignSaveService(
+                    new StatusRepository(CampaignProfileLoadStatus.Missing),
+                    new NoOpResetMarkerPort(),
+                    () => "2026-07-09T00:00:00Z",
+                    "repair-test-profile",
+                    "repair-test-product"),
+                recovery);
+
+            var result = adapter.LoadAllWithReport();
+
+            Assert.That(result.Report.Status, Is.EqualTo(CampaignSaveLoadStatus.RecoveryPending));
+            Assert.That(result.Report.BlocksCampaignAccess, Is.True);
+            Assert.That(result.Slots.All(slot => slot.IsEmpty), Is.True);
+        }
+
+        [Test]
+        public void PendingReset_BlocksEveryCompatibilityWrite()
+        {
+            var recovery = new StubRecoveryPort { HasPendingReset = true };
+            var adapter = new SaveSlotStoreCompatibilityAdapter(
+                new CampaignSaveService(
+                    new StatusRepository(CampaignProfileLoadStatus.Missing),
+                    new NoOpResetMarkerPort(),
+                    () => "2026-07-09T00:00:00Z",
+                    "repair-test-profile",
+                    "repair-test-product"),
+                recovery);
+
+            Assert.Throws<InvalidOperationException>(() => adapter.SaveSlot(CreateSlot(1, "stage-1-1", "level-1")));
+            Assert.Throws<InvalidOperationException>(() => adapter.InitializeNewGame(1, null, string.Empty));
+            Assert.Throws<InvalidOperationException>(() => adapter.UpdateSlot(1, _ => { }));
+            Assert.Throws<InvalidOperationException>(() => adapter.DeleteSlot(1));
+            Assert.Throws<InvalidOperationException>(() => adapter.ClearAll());
         }
 
         [Test]
@@ -608,7 +675,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 var id = Guid.NewGuid().ToString("N");
                 SaveRootPath = Path.Combine("Temp", "CampaignSaveFacadeTests", id);
                 _pathProvider = new TemporarySavePathProvider(SaveRootPath);
-                Repository = new FileCampaignProfileRepository(new AtomicTextFileStore(SaveRootPath));
+                TextFileStore = new AtomicTextFileStore(SaveRootPath);
+                Repository = new FileCampaignProfileRepository(TextFileStore);
                 LegacySourceKey = "CampaignSaveFacadeTests.SaveSlots." + id;
                 LegacyActiveSlotKey = "CampaignSaveFacadeTests.ActiveSlot." + id;
                 LegacyMarkerStore = new CampaignLegacyImportMarkerStore(
@@ -623,6 +691,8 @@ namespace Game.Feature.Stages.Editor.Tests
             public string ProfilePath => Path.Combine(SaveRootPath, FileCampaignProfileRepository.ProfileFileName);
 
             public FileCampaignProfileRepository Repository { get; }
+
+            public AtomicTextFileStore TextFileStore { get; }
 
             public string LegacySourceKey { get; }
 
@@ -667,6 +737,47 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
+        private sealed class ProfileWriteFailingTextFileStore : IAtomicTextFileStore
+        {
+            private readonly IAtomicTextFileStore _inner;
+
+            public ProfileWriteFailingTextFileStore(IAtomicTextFileStore inner)
+            {
+                _inner = inner;
+            }
+
+            public bool Exists(string fileName) => _inner.Exists(fileName);
+
+            public string ReadAllText(string fileName) => _inner.ReadAllText(fileName);
+
+            public void WriteAllTextAtomic(string fileName, string contents)
+            {
+                if (string.Equals(
+                        fileName,
+                        FileCampaignProfileRepository.ProfileFileName,
+                        StringComparison.Ordinal))
+                {
+                    throw new IOException("Injected profile write failure.");
+                }
+
+                _inner.WriteAllTextAtomic(fileName, contents);
+            }
+
+            public bool Delete(string fileName) => _inner.Delete(fileName);
+
+            public void EnsureDirectory() => _inner.EnsureDirectory();
+
+            public bool TryRestoreBackup(string fileName) => _inner.TryRestoreBackup(fileName);
+
+            public bool TryQuarantine(string fileName, out string quarantinePath) =>
+                _inner.TryQuarantine(fileName, out quarantinePath);
+
+            public bool TryQuarantine(string fileName, string suffix, out string quarantinePath) =>
+                _inner.TryQuarantine(fileName, suffix, out quarantinePath);
+
+            public void CleanupTempFiles(string fileName) => _inner.CleanupTempFiles(fileName);
+        }
+
         private sealed class StatusRepository : ICampaignProfileRepository
         {
             private readonly CampaignProfileLoadStatus _status;
@@ -693,6 +804,21 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             public void MarkResetImportDisabled(string resetTombstoneUtc)
             {
+            }
+        }
+
+        private sealed class StubRecoveryPort : ICampaignSaveRecoveryPort
+        {
+            public bool HasPendingReset { get; set; }
+
+            public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
+            {
+                return CampaignSaveResetResult.NotAllowed;
+            }
+
+            public CampaignSaveResetResult RetryPendingReset()
+            {
+                return CampaignSaveResetResult.NotAllowed;
             }
         }
     }

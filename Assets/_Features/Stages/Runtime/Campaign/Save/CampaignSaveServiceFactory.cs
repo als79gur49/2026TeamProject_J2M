@@ -15,6 +15,8 @@ namespace Game.Feature.Stages
 
         public ISavePathProvider PathProvider { get; set; }
 
+        internal IAtomicTextFileStore TextFileStore { get; set; }
+
         public string ProductVersion { get; set; } = string.Empty;
 
         public string ProfileId { get; set; } = "campaign-profile";
@@ -40,12 +42,14 @@ namespace Game.Feature.Stages
             CampaignSaveBackendMode backendMode,
             ICampaignSaveSlotStore campaignSaveSlots,
             CampaignSaveServiceFactoryResult profileServices,
-            CampaignSaveMigrationResult migrationResult)
+            CampaignSaveMigrationResult migrationResult,
+            CampaignSaveResetResult recoveryResumeResult = CampaignSaveResetResult.NotAllowed)
         {
             BackendMode = backendMode;
             CampaignSaveSlots = campaignSaveSlots ?? throw new ArgumentNullException(nameof(campaignSaveSlots));
             ProfileServices = profileServices;
             MigrationResult = migrationResult;
+            RecoveryResumeResult = recoveryResumeResult;
         }
 
         public CampaignSaveBackendMode BackendMode { get; }
@@ -55,6 +59,8 @@ namespace Game.Feature.Stages
         internal CampaignSaveServiceFactoryResult ProfileServices { get; }
 
         public CampaignSaveMigrationResult MigrationResult { get; }
+
+        public CampaignSaveResetResult RecoveryResumeResult { get; }
     }
 
     internal static class CampaignSaveFacadeFactory
@@ -76,6 +82,7 @@ namespace Game.Feature.Stages
                         new CampaignSaveServiceFactoryOptions
                         {
                             PathProvider = options.PathProvider,
+                            TextFileStore = options.TextFileStore,
                             ProductVersion = options.ProductVersion,
                             ProfileId = options.ProfileId,
                             UtcNow = options.UtcNow,
@@ -86,12 +93,17 @@ namespace Game.Feature.Stages
                             LegacyImportMarkerStore = options.LegacyImportMarkerStore,
                             CreateCompatibilityAdapter = true,
                         });
-                    var migrationResult = profileServices.Coordinator.Run();
+                    var recoveryResumeResult = profileServices.Recovery.RetryPendingReset();
+                    var migrationResult = recoveryResumeResult == CampaignSaveResetResult.Failed &&
+                                          profileServices.Recovery.HasPendingReset
+                        ? null
+                        : profileServices.Coordinator.Run();
                     return new CampaignSaveFacadeFactoryResult(
                         options.BackendMode,
                         profileServices.CompatibilityAdapter,
                         profileServices,
-                        migrationResult);
+                        migrationResult,
+                        recoveryResumeResult);
 
                 default:
                     throw new ArgumentOutOfRangeException(
@@ -105,6 +117,8 @@ namespace Game.Feature.Stages
     internal sealed class CampaignSaveServiceFactoryOptions
     {
         public ISavePathProvider PathProvider { get; set; }
+
+        internal IAtomicTextFileStore TextFileStore { get; set; }
 
         public string ProductVersion { get; set; } = string.Empty;
 
@@ -134,6 +148,7 @@ namespace Game.Feature.Stages
             LegacyPlayerPrefsCampaignImporter legacyImporter,
             CampaignSaveMigrationCoordinator coordinator,
             CampaignSaveService service,
+            CampaignSaveRecoveryService recovery,
             SaveSlotStoreCompatibilityAdapter compatibilityAdapter,
             CampaignSaveMigrationOptions migrationOptions)
         {
@@ -143,6 +158,7 @@ namespace Game.Feature.Stages
             LegacyImporter = legacyImporter ?? throw new ArgumentNullException(nameof(legacyImporter));
             Coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
             Service = service ?? throw new ArgumentNullException(nameof(service));
+            Recovery = recovery ?? throw new ArgumentNullException(nameof(recovery));
             CompatibilityAdapter = compatibilityAdapter;
             MigrationOptions = migrationOptions ?? throw new ArgumentNullException(nameof(migrationOptions));
         }
@@ -158,6 +174,8 @@ namespace Game.Feature.Stages
         public CampaignSaveMigrationCoordinator Coordinator { get; }
 
         public CampaignSaveService Service { get; }
+
+        public CampaignSaveRecoveryService Recovery { get; }
 
         public SaveSlotStoreCompatibilityAdapter CompatibilityAdapter { get; }
 
@@ -184,7 +202,7 @@ namespace Game.Feature.Stages
                 return utcNow().ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
             }
 
-            var textFileStore = new AtomicTextFileStore(pathProvider.SaveRootPath);
+            var textFileStore = options.TextFileStore ?? new AtomicTextFileStore(pathProvider.SaveRootPath);
             var repository = new FileCampaignProfileRepository(textFileStore);
             var markerStore = options.LegacyImportMarkerStore ?? new CampaignLegacyImportMarkerStore();
             var legacyImporter = new LegacyPlayerPrefsCampaignImporter(
@@ -207,15 +225,23 @@ namespace Game.Feature.Stages
                 legacySource,
                 markerStore,
                 migrationOptions);
+            var resetMarkerPort = new CampaignLegacyImportResetMarkerPort(markerStore);
             var service = new CampaignSaveService(
                 repository,
-                new CampaignLegacyImportResetMarkerPort(markerStore),
+                resetMarkerPort,
                 UtcNowString,
                 options.ProfileId,
                 options.ProductVersion,
                 new CampaignLegacyDeletedSlotGuardMarkerPort(markerStore));
+            var recovery = new CampaignSaveRecoveryService(
+                repository,
+                textFileStore,
+                resetMarkerPort,
+                utcNow,
+                options.ProfileId,
+                options.ProductVersion);
             var adapter = options.CreateCompatibilityAdapter
-                ? new SaveSlotStoreCompatibilityAdapter(service)
+                ? new SaveSlotStoreCompatibilityAdapter(service, recovery)
                 : null;
 
             return new CampaignSaveServiceFactoryResult(
@@ -225,6 +251,7 @@ namespace Game.Feature.Stages
                 legacyImporter,
                 coordinator,
                 service,
+                recovery,
                 adapter,
                 migrationOptions);
         }

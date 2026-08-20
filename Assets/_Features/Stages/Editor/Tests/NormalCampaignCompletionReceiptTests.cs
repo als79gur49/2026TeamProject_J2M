@@ -207,7 +207,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 var load = new FileCampaignProfileRepository(
                     new AtomicTextFileStore(root)).Load();
 
-                Assert.That(load.Status, Is.EqualTo(CampaignProfileLoadStatus.SchemaInvalid));
+                Assert.That(load.Status, Is.EqualTo(CampaignProfileLoadStatus.UnsupportedVersion));
                 Assert.That(load.Document, Is.Null);
             }
             finally

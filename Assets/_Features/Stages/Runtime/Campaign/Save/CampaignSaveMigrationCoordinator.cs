@@ -125,7 +125,7 @@ namespace Game.Feature.Stages
                         requiresRepair: false,
                         "profile.json backup recovered; legacy import was not consulted.");
 
-                case CampaignProfileLoadStatus.SchemaInvalid:
+                case CampaignProfileLoadStatus.UnsupportedVersion:
                     return Result(
                         CampaignSaveMigrationStatus.SchemaInvalid,
                         loadResult,
@@ -134,7 +134,18 @@ namespace Game.Feature.Stages
                         profileWriteAttempted: false,
                         profileWriteSucceeded: false,
                         requiresRepair: true,
-                        "profile.json schema is invalid and requires repair.");
+                        "profile.json uses an unsupported schema version and requires reset.");
+
+                case CampaignProfileLoadStatus.InvalidDocument:
+                    return Result(
+                        CampaignSaveMigrationStatus.RepairRequired,
+                        loadResult,
+                        null,
+                        null,
+                        profileWriteAttempted: false,
+                        profileWriteSucceeded: false,
+                        requiresRepair: true,
+                        "profile.json violates the current profile contract and requires reset.");
 
                 case CampaignProfileLoadStatus.Unauthorized:
                     return Result(
@@ -158,7 +169,6 @@ namespace Game.Feature.Stages
                         requiresRepair: false,
                         "profile.json could not be read due to an IO failure.");
 
-                case CampaignProfileLoadStatus.CorruptQuarantined:
                 case CampaignProfileLoadStatus.CorruptNoFallback:
                     return Result(
                         CampaignSaveMigrationStatus.RepairRequired,

@@ -256,9 +256,9 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void SchemaInvalid_DoesNotRawOverwriteFromLegacy()
+        public void UnsupportedVersion_DoesNotRawOverwriteFromLegacy()
         {
-            var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.SchemaInvalid));
+            var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.UnsupportedVersion));
             var importer = new RecordingImporter(Importable("source-hash"));
 
             var result = CreateCoordinator(
@@ -294,10 +294,10 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CorruptQuarantinedAndValidLegacy_DoesNotConsultLegacyOrFallback()
+        public void InvalidDocumentAndValidLegacy_DoesNotConsultLegacyOrFallback()
         {
             var marker = new RecordingMarkerStore();
-            var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.CorruptQuarantined));
+            var repository = new RecordingRepository(LoadResult(CampaignProfileLoadStatus.InvalidDocument));
             var importer = new RecordingImporter(Importable("source-hash"));
 
             var result = CreateCoordinator(

@@ -250,4 +250,55 @@ namespace Game.Feature.Stages
             _activeSlotStorage.ClearActiveSlot();
         }
     }
+
+    public sealed class CampaignLaunchStateRepairingCampaignSaveRecoveryPort : ICampaignSaveRecoveryPort
+    {
+        private readonly ICampaignSaveRecoveryPort _inner;
+        private readonly IActiveSlotStorage _activeSlotStorage;
+        private readonly ICampaignLaunchHandoffStore _launchHandoffStore;
+
+        public CampaignLaunchStateRepairingCampaignSaveRecoveryPort(
+            ICampaignSaveRecoveryPort inner,
+            IActiveSlotStorage activeSlotStorage,
+            ICampaignLaunchHandoffStore launchHandoffStore)
+        {
+            _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            _activeSlotStorage = activeSlotStorage ?? throw new ArgumentNullException(nameof(activeSlotStorage));
+            _launchHandoffStore = launchHandoffStore ?? throw new ArgumentNullException(nameof(launchHandoffStore));
+        }
+
+        public CampaignSaveResetResult ResetBlockedProfile(CampaignSaveLoadStatus expectedStatus)
+        {
+            var result = _inner.ResetBlockedProfile(expectedStatus);
+            if (result == CampaignSaveResetResult.Completed)
+            {
+                ClearLaunchState();
+            }
+
+            return result;
+        }
+
+        public bool HasPendingReset => _inner.HasPendingReset;
+
+        public CampaignSaveResetResult RetryPendingReset()
+        {
+            var result = _inner.RetryPendingReset();
+            if (result == CampaignSaveResetResult.Completed)
+            {
+                ClearLaunchState();
+            }
+
+            return result;
+        }
+
+        public void ClearLaunchState()
+        {
+            if (_launchHandoffStore.TryPeek(out var pendingHandoff))
+            {
+                _launchHandoffStore.TryClear(pendingHandoff.Token);
+            }
+
+            _activeSlotStorage.ClearActiveSlot();
+        }
+    }
 }

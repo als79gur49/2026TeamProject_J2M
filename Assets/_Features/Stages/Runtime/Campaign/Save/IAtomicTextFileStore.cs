@@ -16,6 +16,8 @@ namespace Game.Feature.Stages
 
         bool TryQuarantine(string fileName, out string quarantinePath);
 
+        bool TryQuarantine(string fileName, string suffix, out string quarantinePath);
+
         void CleanupTempFiles(string fileName);
     }
 }
