@@ -32,10 +32,10 @@ namespace Game.Feature.UI.Tests
                 "819507a38fa816a489de88dad2de2ce9",
                 -6419728470944652023,
                 FontStyles.Bold,
-                30f,
+                35f,
                 true,
                 18f,
-                30f);
+                35f);
         private static readonly MainMenuAuthoredTypographyBaseline MainMenuKoreanBaseline =
             new MainMenuAuthoredTypographyBaseline(
                 "40d61154fd6576b4d85c2d78460b16ad",
@@ -43,10 +43,10 @@ namespace Game.Feature.UI.Tests
                 "40d61154fd6576b4d85c2d78460b16ad",
                 1352911973252649374,
                 FontStyles.Normal,
-                30f,
+                35f,
                 true,
                 18f,
-                30f);
+                35f);
 
         [Test]
         public void PausePrefab_HasTypographyBindingsForRequiredLocalizedText()
@@ -55,6 +55,20 @@ namespace Game.Feature.UI.Tests
             var required = GetPauseRequiredBindings(prefab);
 
             AssertRequiredBindings(required);
+        }
+
+        [Test]
+        public void PauseAndMainMenuActions_UseExpandedAuthoredAutoSizeRanges()
+        {
+            var pauseActions = GetPauseRequiredBindings(LoadPausePrefab()).Skip(1);
+            foreach (var action in pauseActions)
+            {
+                AssertAutoSizeRange(action.Text, 24f, 10f, 24f, action.Name);
+            }
+
+            var blockedSaveActions = GetMainMenuBlockedSaveRequiredBindings(LoadMainMenuPrefab()).Skip(2).ToArray();
+            AssertAutoSizeRange(blockedSaveActions[0].Text, 30f, 16f, 30f, blockedSaveActions[0].Name);
+            AssertAutoSizeRange(blockedSaveActions[1].Text, 30f, 16f, 30f, blockedSaveActions[1].Name);
         }
 
         [Test]
@@ -837,6 +851,19 @@ namespace Game.Feature.UI.Tests
                 Assert.That(command.Text.fontSizeMin, Is.EqualTo(expected.FontSizeMin), $"{context} fontSizeMin");
                 Assert.That(command.Text.fontSizeMax, Is.EqualTo(expected.FontSizeMax), $"{context} fontSizeMax");
             }
+        }
+
+        private static void AssertAutoSizeRange(
+            TMP_Text target,
+            float expectedFontSize,
+            float expectedFontSizeMin,
+            float expectedFontSizeMax,
+            string context)
+        {
+            Assert.That(target.fontSize, Is.EqualTo(expectedFontSize), $"{context} fontSize");
+            Assert.That(target.enableAutoSizing, Is.True, $"{context} enableAutoSizing");
+            Assert.That(target.fontSizeMin, Is.EqualTo(expectedFontSizeMin), $"{context} fontSizeMin");
+            Assert.That(target.fontSizeMax, Is.EqualTo(expectedFontSizeMax), $"{context} fontSizeMax");
         }
 
         private static void AssertAssetIdentity(
