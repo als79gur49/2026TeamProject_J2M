@@ -589,8 +589,8 @@ namespace Game.Feature.UI.Tests
             resolver.SetLocale("ko-KR");
 
             Assert.That(presenter.ViewModel.HeaderText, Is.EqualTo("목표"));
-            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("밀 수 있는 상자를 버튼 위에 놓기 (1/2)"));
-            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("달 문양 상자를 버튼 위에 놓기 (0/1)"));
+            Assert.That(presenter.ViewModel.Rows[0].Text, Is.EqualTo("블록으로 녹색 버튼을 활성화하기 (1/2)"));
+            Assert.That(presenter.ViewModel.Rows[1].Text, Is.EqualTo("문블록으로 노란 버튼을 활성화하기 (0/1)"));
             Assert.That(
                 presenter.ViewModel.Rows.Select(row => row.StableId),
                 Is.EqualTo(englishStableIds));
@@ -936,7 +936,7 @@ namespace Game.Feature.UI.Tests
                 {
                     case ObjectiveHudLocalization.Keys.ReachExit:
                         return korean
-                            ? "탈출 지점에 도달하기 ({0}/{1})"
+                            ? "출구로 이동하기 ({0}/{1})"
                             : "Reach the Exit Zone ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ReachZone:
@@ -946,12 +946,12 @@ namespace Game.Feature.UI.Tests
 
                     case ObjectiveHudLocalization.Keys.ActivateButton:
                         return korean
-                            ? "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"
+                            ? "블록으로 녹색 버튼을 활성화하기 ({0}/{1})"
                             : "Place a pushable box on the button ({0}/{1})";
 
                     case ObjectiveHudLocalization.Keys.ActivateMoonButton:
                         return korean
-                            ? "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"
+                            ? "문블록으로 노란 버튼을 활성화하기 ({0}/{1})"
                             : "Place the moon-marked box on the button ({0}/{1})";
 
                     default:

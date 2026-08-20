@@ -244,17 +244,17 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693647
-    m_Localized: "탈출 지점에 도달하기 ({0}/{1})"
+    m_Localized: "출구로 이동하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693648
-    m_Localized: "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"
+    m_Localized: "블록으로 녹색 버튼을 활성화하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693649
-    m_Localized: "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"
+    m_Localized: "문블록으로 노란 버튼을 활성화하기 ({0}/{1})"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -268,11 +268,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693652
-    m_Localized: "스테이지 실패"
+    m_Localized: "게임 오버"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693654
-    m_Localized: "다시 시작"
+    m_Localized: "재도전"
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693655
@@ -318,7 +318,7 @@ MonoBehaviour:
       m_Items:
       - rid: 5336917459874873345
   - m_Id: 4971587610693667
-    m_Localized: "남은 기회: {0}"
+    m_Localized: "남은 목숨: {0}"
     m_Metadata:
       m_Items:
       - rid: 5336917459874873345
@@ -465,7 +465,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693702
-    m_Localized: 남은 기회
+    m_Localized: 남은 목숨
     m_Metadata:
       m_Items: []
   - m_Id: 4971587610693703

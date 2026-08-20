@@ -62,8 +62,8 @@ namespace Game.Feature.UI.Tests
             {
                 (TerminalResultLocalizationContract.Keys.Continue, "Continue", "계속"),
                 (TerminalResultLocalizationContract.Keys.StageClearTitle, "Stage Clear", "스테이지 클리어"),
-                (TerminalResultLocalizationContract.Keys.LevelFailedTitle, "Stage Failed", "스테이지 실패"),
-                (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "다시 시작"),
+                (TerminalResultLocalizationContract.Keys.LevelFailedTitle, "Stage Failed", "게임 오버"),
+                (TerminalResultLocalizationContract.Keys.RestartStage, "Restart Stage", "재도전"),
                 (TerminalResultLocalizationContract.Keys.MainMenu, "Main Menu", "메인 메뉴"),
                 (TerminalResultLocalizationContract.Keys.GameClearTitle, "Game Clear", "게임 클리어"),
             };
@@ -234,8 +234,8 @@ namespace Game.Feature.UI.Tests
             AssertLevelFailedRuntimeView(
                 koreanView,
                 "ko-KR",
-                "스테이지 실패",
-                "다시 시작",
+                "게임 오버",
+                "재도전",
                 "메인 메뉴");
             Assert.That(resolver.SubscriptionCount, Is.Zero);
 

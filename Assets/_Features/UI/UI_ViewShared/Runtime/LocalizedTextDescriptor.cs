@@ -384,14 +384,14 @@ namespace Game.Feature.UI.ViewShared
                     TerminalResultLocalizationEntryId.LevelFailedTitle,
                     Keys.LevelFailedTitle,
                     "Stage Failed",
-                    "스테이지 실패",
+                    "게임 오버",
                     LocalizedTextRole.Title,
                     LocalizedTextWeight.Bold),
                 Entry(
                     TerminalResultLocalizationEntryId.RestartStage,
                     Keys.RestartStage,
                     "Restart Stage",
-                    "다시 시작",
+                    "재도전",
                     LocalizedTextRole.Button,
                     LocalizedTextWeight.Regular),
                 Entry(
@@ -489,7 +489,7 @@ namespace Game.Feature.UI.ViewShared
                     SceneTransitionLocalizationEntryId.RemainingChances,
                     Keys.RemainingChances,
                     "Remaining Chances",
-                    "남은 기회",
+                    "남은 목숨",
                     LocalizedTextRole.Title,
                     LocalizedTextWeight.Bold),
                 new SceneTransitionLocalizationContractEntry(

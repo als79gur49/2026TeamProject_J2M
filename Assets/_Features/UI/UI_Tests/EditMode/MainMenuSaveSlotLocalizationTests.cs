@@ -208,7 +208,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(korean.SlotCards[0].PrimaryActionText, Is.EqualTo("새 게임"));
             Assert.That(korean.SlotCards[1].StatusText, Is.EqualTo("계속"));
             Assert.That(korean.SlotCards[1].StageText, Is.EqualTo("스테이지 A병동-02"));
-            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 기회: 2"));
+            Assert.That(korean.SlotCards[1].ChancesText, Is.EqualTo("남은 목숨: 2"));
             Assert.That(korean.SlotCards[1].DeathsText, Is.EqualTo("사망 횟수: 3"));
             Assert.That(korean.SlotCards[1].LastPlayedText, Is.EqualTo("마지막 플레이: 2026. 7. 29."));
             Assert.That(korean.SlotCards[1].DeleteActionText, Is.EqualTo("삭제"));
@@ -243,7 +243,7 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[] { 1, 2, 3 }));
             Assert.That(
                 korean.SlotCards.Select(card => card.ChancesText).ToArray(),
-                Is.EqualTo(new[] { "남은 기회: 3", "남은 기회: 2", "남은 기회: 1" }));
+                Is.EqualTo(new[] { "남은 목숨: 3", "남은 목숨: 2", "남은 목숨: 1" }));
             Assert.That(
                 korean.SlotCards.Select(card => card.DeathsText).ToArray(),
                 Is.EqualTo(new[] { "사망 횟수: 1", "사망 횟수: 3", "사망 횟수: 5" }));

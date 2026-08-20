@@ -392,10 +392,10 @@ namespace Game.Feature.UI.Tests
             AssertObjectiveHudEntries(
                 collection.GetTable("ko-KR") as StringTable,
                 "목표",
-                "탈출 지점에 도달하기 ({0}/{1})",
+                "출구로 이동하기 ({0}/{1})",
                 "지정 구역에 도달하기 ({0}/{1})",
-                "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})",
-                "달 문양 상자를 버튼 위에 놓기 ({0}/{1})");
+                "블록으로 녹색 버튼을 활성화하기 ({0}/{1})",
+                "문블록으로 노란 버튼을 활성화하기 ({0}/{1})");
         }
 
         [Test]
@@ -411,9 +411,9 @@ namespace Game.Feature.UI.Tests
             var expected = new[]
             {
                 (Key: "ui.hud.objectives.title", English: "Objectives", Korean: "목표"),
-                (Key: "ui.hud.objective.reach_exit", English: "Reach the Exit Zone ({0}/{1})", Korean: "탈출 지점에 도달하기 ({0}/{1})"),
-                (Key: "ui.hud.objective.activate_button", English: "Place a pushable box on the button ({0}/{1})", Korean: "밀 수 있는 상자를 버튼 위에 놓기 ({0}/{1})"),
-                (Key: "ui.hud.objective.activate_moon_button", English: "Place the moon-marked box on the button ({0}/{1})", Korean: "달 문양 상자를 버튼 위에 놓기 ({0}/{1})"),
+                (Key: "ui.hud.objective.reach_exit", English: "Reach the Exit Zone ({0}/{1})", Korean: "출구로 이동하기 ({0}/{1})"),
+                (Key: "ui.hud.objective.activate_button", English: "Place a pushable box on the button ({0}/{1})", Korean: "블록으로 녹색 버튼을 활성화하기 ({0}/{1})"),
+                (Key: "ui.hud.objective.activate_moon_button", English: "Place the moon-marked box on the button ({0}/{1})", Korean: "문블록으로 노란 버튼을 활성화하기 ({0}/{1})"),
                 (Key: "ui.hud.objective.reach_zone", English: "Reach the designated zone ({0}/{1})", Korean: "지정 구역에 도달하기 ({0}/{1})"),
                 (Key: "ui.settings.input.reset_confirm.body", English: "Reset input settings to defaults?", Korean: "키 설정을 기본값으로 초기화할까요?"),
                 (Key: "ui.settings.display.preview_confirm.title", English: "Confirm Display Preview", Korean: "화면 설정을 유지할까요?"),
@@ -515,10 +515,10 @@ namespace Game.Feature.UI.Tests
             AssertObjectiveHudResolvedText(
                 resolver,
                 "목표",
-                "탈출 지점에 도달하기",
+                "출구로 이동하기",
                 "지정 구역에 도달하기",
-                "밀 수 있는 상자를 버튼 위에 놓기",
-                "달 문양 상자를 버튼 위에 놓기");
+                "블록으로 녹색 버튼을 활성화하기",
+                "문블록으로 노란 버튼을 활성화하기");
 
             Assert.That(resolver.TrySetLocale("en-US"), Is.True);
             AssertObjectiveHudResolvedText(
