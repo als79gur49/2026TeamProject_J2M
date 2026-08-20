@@ -48,12 +48,13 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            ApplyTypography(
+            ApplyThemeTypography(
                 _stageNameText,
                 _theme,
                 _textResolver.CurrentLocaleCode,
-                TypographyStyleTag.HeaderSmall,
+                TypographyStyleTag.HeaderLarge,
                 _stageNameAuthoredState);
+            _stageNameText.fontStyle |= FontStyles.UpperCase;
         }
 
         public void ValidateAuthoredStructureOrThrow()
@@ -122,6 +123,21 @@ namespace Game.Feature.UI.Composition
                 target.font = authoredState.OriginalFont;
                 target.fontSharedMaterial = authoredState.OriginalMaterial;
                 target.fontStyle = authoredState.OriginalFontStyle;
+                return;
+            }
+
+            ApplyThemeTypography(target, theme, localeCode, styleTag, authoredState);
+        }
+
+        internal static void ApplyThemeTypography(
+            TMP_Text target,
+            GameplayUiTypographyTheme theme,
+            string localeCode,
+            TypographyStyleTag styleTag,
+            TmpTypographyAuthoredState authoredState)
+        {
+            if (target == null || theme == null)
+            {
                 return;
             }
 

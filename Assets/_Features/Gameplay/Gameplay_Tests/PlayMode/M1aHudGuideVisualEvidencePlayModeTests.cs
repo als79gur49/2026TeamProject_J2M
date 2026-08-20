@@ -32,7 +32,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const string LabStageIdValue = "stage-0-1";
         private const string WardStageIdValue = "stage-2-1";
         private const string LocalePreferenceKey = "ui.selected_locale";
-        private const string ClimateFontPath =
+        private const string Climate2000FontPath =
+            "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2000 SDF.asset";
+        private const string Climate2019FontPath =
             "Assets/_Shared/UI/Fonts/ClimateCrisisKR-2019 SDF.asset";
         private const string ManifestFileName = "m1a-hud-guide-capture.log";
         private const int ExpectedRemainingChances = 2;
@@ -422,10 +424,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 yield return null;
                 yield return new WaitForEndOfFrame();
 
-                var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
-                if (climate == null)
+                var climate2000 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2000FontPath);
+                var climate2019 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2019FontPath);
+                if (climate2000 == null || climate2019 == null)
                 {
-                    throw new InvalidOperationException($"Climate font missing at {ClimateFontPath}.");
+                    throw new InvalidOperationException(
+                        $"Climate font missing at {Climate2000FontPath} or {Climate2019FontPath}.");
                 }
 
                 var targets = new Dictionary<string, TMP_Text>(StringComparer.Ordinal)
@@ -453,11 +457,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                             pair.Value,
                             expectedTexts[pair.Key],
                             scenario.Locale,
-                            climate,
+                            string.Equals(pair.Key, "StageName", StringComparison.Ordinal)
+                                ? climate2000
+                                : climate2019,
                             localizedTarget: true,
                             requestedWidth,
                             requestedHeight));
                 }
+                ValidateStageNameUppercase(stageNameLabel);
 
                 ValidateHudLayout(
                     installer.HudView,
@@ -630,10 +637,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         $"Production StageInfoViewModel did not resolve '{scenario.StageName}'.");
                 }
 
-                var climate = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(ClimateFontPath);
-                if (climate == null)
+                var climate2000 = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(Climate2000FontPath);
+                if (climate2000 == null)
                 {
-                    throw new InvalidOperationException($"Climate font missing at {ClimateFontPath}.");
+                    throw new InvalidOperationException($"Climate font missing at {Climate2000FontPath}.");
                 }
 
                 Time.timeScale = 0f;
@@ -649,10 +656,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     stageNameLabel,
                     scenario.StageName,
                     scenario.Locale,
-                    climate,
+                    climate2000,
                     localizedTarget: true,
                     requestedWidth,
                     requestedHeight);
+                ValidateStageNameUppercase(stageNameLabel);
                 var authoredRoot = ReadPrivateField<GameObject>(installer.HudView, "_root");
                 if (authoredRoot == null ||
                     !Contains(
@@ -888,7 +896,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             TMP_Text target,
             string expectedText,
             string locale,
-            TMP_FontAsset climate,
+            TMP_FontAsset expectedKoreanFont,
             bool localizedTarget,
             int width,
             int height)
@@ -921,7 +929,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             if (localizedTarget &&
                 string.Equals(locale, "ko-KR", StringComparison.Ordinal) &&
-                !ReferenceEquals(target.font, climate))
+                !ReferenceEquals(target.font, expectedKoreanFont))
             {
                 throw new InvalidOperationException(
                     $"{name} ko-KR target did not resolve the Climate font.");
@@ -1026,6 +1034,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 visibleCharacters,
                 vertexCount,
                 fallbackCount);
+        }
+
+        private static void ValidateStageNameUppercase(TMP_Text stageNameLabel)
+        {
+            if (stageNameLabel == null ||
+                (stageNameLabel.fontStyle & FontStyles.UpperCase) != FontStyles.UpperCase)
+            {
+                throw new InvalidOperationException(
+                    "Stage Name must render Latin characters with the UpperCase TMP style.");
+            }
         }
 
         private static void ValidateHudLayout(
@@ -1133,7 +1151,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 guide.ActionKeyLabel,
                 guide.ActionKeyLabel.text,
                 "keycap",
-                climate: null,
+                expectedKoreanFont: null,
                 localizedTarget: false,
                 width,
                 height);
@@ -1162,7 +1180,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     text,
                     text.text,
                     "keycap",
-                    climate: null,
+                    expectedKoreanFont: null,
                     localizedTarget: false,
                     width,
                     height);
