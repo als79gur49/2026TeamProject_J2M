@@ -31,6 +31,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 CountMarkers(viewModel, PauseProgressionMarkerKind.Stage),
                 Is.EqualTo(8));
+            Assert.That(viewModel.Markers[4].State, Is.EqualTo(PauseProgressionMarkerState.Previous));
+            Assert.That(viewModel.Markers[5].State, Is.EqualTo(PauseProgressionMarkerState.Current));
+            Assert.That(viewModel.Markers[6].State, Is.EqualTo(PauseProgressionMarkerState.Upcoming));
         }
 
         [Test]
@@ -43,6 +46,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewModel.IsVisible, Is.True);
             Assert.That(viewModel.CurrentIndex, Is.EqualTo(-1));
             Assert.That(viewModel.Markers, Has.Count.EqualTo(13));
+            Assert.That(
+                viewModel.Markers,
+                Has.All.Property(nameof(PauseProgressionMarkerModel.State))
+                    .EqualTo(PauseProgressionMarkerState.Neutral));
         }
 
         [Test]
@@ -77,7 +84,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Prefab_BindCreatesMarkersAndKeepsCurrentColorWhileNavigating()
+        public void Prefab_BindCreatesReadableSequenceStatesAndKeepsProgressionInformational()
         {
             var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(PausePrefabPath);
             var root = Object.Instantiate(prefab.gameObject);
@@ -93,10 +100,11 @@ namespace Game.Feature.UI.Tests
                 view.OnNavigationFocusGained();
 
                 var navigation = GetField<UiSelectableButtonGroup>(view, "_navigationGroup");
-                var selectedBeforeScroll = navigation.SelectedIndex;
+                var selectedBeforeNavigation = navigation.SelectedIndex;
                 var markers = GetField<List<PauseProgressionMarkerView>>(progression, "_markers");
+                var previousColor = GetField<Color>(progression, "_previousMarkerColor");
                 var currentColor = GetField<Color>(progression, "_currentMarkerColor");
-                var stageTemplate = GetField<PauseProgressionMarkerView>(progression, "_stageMarkerTemplate");
+                var upcomingColor = GetField<Color>(progression, "_upcomingMarkerColor");
                 var content = GetField<RectTransform>(progression, "_content");
                 var scrollRect = GetField<ScrollRect>(progression, "_scrollRect");
                 var viewport = scrollRect.viewport;
@@ -104,14 +112,18 @@ namespace Game.Feature.UI.Tests
                 Canvas.ForceUpdateCanvases();
 
                 Assert.That(backLine, Is.Not.Null);
-                var backLinePosition = backLine.anchoredPosition;
-                var backLineSize = backLine.sizeDelta;
 
                 Assert.That(progression.MarkerCount, Is.EqualTo(13));
                 Assert.That(progression.CurrentIndex, Is.EqualTo(5));
+                Assert.That(markers[4].State, Is.EqualTo(PauseProgressionMarkerState.Previous));
+                Assert.That(markers[5].State, Is.EqualTo(PauseProgressionMarkerState.Current));
+                Assert.That(markers[6].State, Is.EqualTo(PauseProgressionMarkerState.Upcoming));
+                Assert.That(markers[4].VisualImage.color, Is.EqualTo(previousColor));
                 Assert.That(markers[5].VisualImage.color, Is.EqualTo(currentColor));
-                Assert.That(markers[6].VisualImage.color, Is.EqualTo(stageTemplate.VisualImage.color));
-                Assert.That(markers[5].IsViewed, Is.True);
+                Assert.That(markers[6].VisualImage.color, Is.EqualTo(upcomingColor));
+                Assert.That(markers[4].CurrentFrame.activeSelf, Is.False);
+                Assert.That(markers[5].CurrentFrame.activeSelf, Is.True);
+                Assert.That(markers[6].CurrentFrame.activeSelf, Is.False);
                 Assert.That(backLine.parent, Is.SameAs(viewport));
                 Assert.That(backLine.GetSiblingIndex(), Is.LessThan(content.GetSiblingIndex()));
                 Assert.That(backLine.rect.height, Is.GreaterThan(0f));
@@ -123,30 +135,22 @@ namespace Game.Feature.UI.Tests
                     Is.EqualTo(viewport.rect.width - 32f).Within(0.01f));
                 Assert.That(backLine.rect.width, Is.GreaterThan(backLine.rect.height));
                 Assert.That(
-                    GetBottomIn(markers[0].RectTransform, viewport),
-                    Is.EqualTo(GetTopIn(backLine, viewport)).Within(0.01f));
+                    GetCenterYIn(markers[0].VisualImage.rectTransform, viewport),
+                    Is.EqualTo(GetCenterYIn(backLine, viewport)).Within(0.01f));
                 Assert.That(
-                    GetBottomIn(markers[1].RectTransform, viewport),
-                    Is.EqualTo(GetTopIn(backLine, viewport)).Within(0.01f));
-                Assert.That(view.HandleNavigate(UiNavigationCommand.Right), Is.True);
-                Assert.That(progression.ViewedIndex, Is.EqualTo(6));
-                Assert.That(progression.CurrentIndex, Is.EqualTo(5));
-                Assert.That(markers[5].VisualImage.color, Is.EqualTo(currentColor));
-                Assert.That(markers[5].IsViewed, Is.False);
-                Assert.That(markers[6].IsViewed, Is.True);
-                Assert.That(navigation.SelectedIndex, Is.EqualTo(selectedBeforeScroll));
-                Assert.That(backLine.anchoredPosition, Is.EqualTo(backLinePosition));
-                Assert.That(backLine.sizeDelta, Is.EqualTo(backLineSize));
-                Assert.That(view.HandleNavigate(UiNavigationCommand.Left), Is.True);
-                Assert.That(progression.ViewedIndex, Is.EqualTo(5));
-                Assert.That(markers[6].IsViewed, Is.False);
-                Assert.That(markers[5].IsViewed, Is.True);
+                    GetCenterYIn(markers[1].VisualImage.rectTransform, viewport),
+                    Is.EqualTo(GetCenterYIn(backLine, viewport)).Within(0.01f));
+                Assert.That(content.rect.width, Is.LessThanOrEqualTo(viewport.rect.width));
+                Assert.That(view.HandleNavigate(UiNavigationCommand.Right), Is.False);
+                Assert.That(view.HandleNavigate(UiNavigationCommand.Left), Is.False);
+                Assert.That(navigation.SelectedIndex, Is.EqualTo(selectedBeforeNavigation));
+                Assert.That(markers[5].CurrentFrame.activeSelf, Is.True);
                 Assert.That(view.HandleNavigate(UiNavigationCommand.Down), Is.True);
-                Assert.That(navigation.SelectedIndex, Is.EqualTo(selectedBeforeScroll + 1));
+                Assert.That(navigation.SelectedIndex, Is.EqualTo(selectedBeforeNavigation + 1));
                 view.OnNavigationFocusLost();
-                Assert.That(markers[5].IsViewed, Is.False);
+                Assert.That(markers[5].CurrentFrame.activeSelf, Is.True);
                 view.OnNavigationFocusGained();
-                Assert.That(markers[5].IsViewed, Is.True);
+                Assert.That(markers[5].CurrentFrame.activeSelf, Is.True);
             }
             finally
             {
@@ -155,7 +159,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Prefab_KeyboardNavigationMovesSelectionFrameWhenContentFitsViewport()
+        public void Prefab_CurrentFrameDoesNotBecomeASecondNavigationCursor()
         {
             var prefab = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(PausePrefabPath);
             var root = Object.Instantiate(prefab.gameObject);
@@ -179,11 +183,11 @@ namespace Game.Feature.UI.Tests
                 var scrollRect = GetField<ScrollRect>(progression, "_scrollRect");
 
                 Assert.That(content.rect.width, Is.LessThanOrEqualTo(scrollRect.viewport.rect.width));
-                Assert.That(markers[0].IsViewed, Is.True);
-                Assert.That(view.HandleNavigate(UiNavigationCommand.Right), Is.True);
-                Assert.That(progression.ViewedIndex, Is.EqualTo(1));
-                Assert.That(markers[0].IsViewed, Is.False);
-                Assert.That(markers[1].IsViewed, Is.True);
+                Assert.That(markers[0].CurrentFrame.activeSelf, Is.True);
+                Assert.That(markers[1].CurrentFrame.activeSelf, Is.False);
+                Assert.That(view.HandleNavigate(UiNavigationCommand.Right), Is.False);
+                Assert.That(markers[0].CurrentFrame.activeSelf, Is.True);
+                Assert.That(markers[1].CurrentFrame.activeSelf, Is.False);
             }
             finally
             {
@@ -252,30 +256,9 @@ namespace Game.Feature.UI.Tests
                 UIPresentationSnapshot.Empty.Notifications);
         }
 
-        private static float GetBottomIn(RectTransform target, RectTransform reference)
+        private static float GetCenterYIn(RectTransform target, RectTransform reference)
         {
-            var corners = new Vector3[4];
-            target.GetWorldCorners(corners);
-            var bottom = float.PositiveInfinity;
-            for (var i = 0; i < corners.Length; i++)
-            {
-                bottom = Mathf.Min(bottom, reference.InverseTransformPoint(corners[i]).y);
-            }
-
-            return bottom;
-        }
-
-        private static float GetTopIn(RectTransform target, RectTransform reference)
-        {
-            var corners = new Vector3[4];
-            target.GetWorldCorners(corners);
-            var top = float.NegativeInfinity;
-            for (var i = 0; i < corners.Length; i++)
-            {
-                top = Mathf.Max(top, reference.InverseTransformPoint(corners[i]).y);
-            }
-
-            return top;
+            return reference.InverseTransformPoint(target.TransformPoint(target.rect.center)).y;
         }
 
         private static T GetField<T>(object target, string fieldName)

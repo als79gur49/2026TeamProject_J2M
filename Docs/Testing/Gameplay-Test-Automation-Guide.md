@@ -22,6 +22,7 @@
 - 현재 blocked-save recovery slice는 2026-08-20 KST에 `./run_tests.sh ui`로 fail-closed 재검증했으며, Windows UI build와 Unity UI EditMode `1338 total / 0 failed`가 통과했다. 버전 불일치/손상은 retry와 명시적 전체 초기화를 제공하고, IO/권한 실패 및 미완료 reset은 retry만 제공한다. 미완료 reset 동안 migration과 모든 campaign save write는 차단된다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
 - 현재 blocked-save typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. `BlockedSaveRecovery` 제목/설명/두 action은 authored `TypographyBinding`으로 각각 `HeaderMedium`/`Body`/`Button`/`Button`을 명시한다. 순번 기반 style fallback은 SaveSlotCard의 8-target 계약에만 제한되며, en-US/ko-KR font/material round-trip과 authored sizing 보존을 검증한다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
 - 현재 Gameplay Stage Name typography follow-up은 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. Stage Name은 양 locale 모두 `HeaderLarge` Theme를 사용하여 en-US는 Orbitron ExtraBold, ko-KR은 Climate Crisis KR 2000을 해석하고 authored sizing을 보존하며, localized source string을 바꾸지 않고 TMP `UpperCase` 표시를 적용한다. World Guide와 transition label의 en-US Prefab 복원 계약은 변경하지 않았다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
+- 현재 Pause progression stepper slice는 2026-08-20 KST에 `./run_tests.sh ui`로 재검증했으며, Windows UI build와 Unity UI EditMode `1341 total / 0 failed`가 통과했다. 진행도는 previous/current/upcoming 상태, 더 큰 group-start 다이아몬드, 영구 current ring을 사용하는 정보형 수평 스테퍼이며 별도 Left/Right 커서를 소유하지 않는다. 이 수치는 위 pinned snapshot row를 대체하지 않는다.
 - 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
 - 삭제 후보는 별도 제품 결정, 현재 lane evidence, baseline note 갱신이 같은 변경에 포함될 때만 제거한다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
@@ -46,6 +47,7 @@
 - The current blocked-save recovery slice was rerun fail-closed with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1338 total / 0 failed` passed. Unsupported/corrupt profiles expose retry plus explicit full reset, while IO/authorization failures and incomplete resets expose retry only. Migration and all campaign save writes stay blocked while a reset is pending. This does not replace the pinned snapshot row above.
 - The current blocked-save typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Authored `TypographyBinding` components assign `HeaderMedium`/`Body`/`Button`/`Button` to the `BlockedSaveRecovery` title, detail, and two actions. Ordinal style fallback is restricted to the eight-target SaveSlotCard contract, with en-US/ko-KR font/material round-trip and authored-sizing preservation covered. This does not replace the pinned snapshot row above.
 - The current Gameplay Stage Name typography follow-up was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Stage Name now uses the `HeaderLarge` theme in both locales, resolving Orbitron ExtraBold for en-US and Climate Crisis KR 2000 for ko-KR while preserving authored sizing, and adds TMP `UpperCase` presentation without mutating localized source strings. The en-US prefab-restoration contracts for World Guide and transition labels remain unchanged. This does not replace the pinned snapshot row above.
+- The current Pause-progression stepper slice was rerun with `./run_tests.sh ui` on 2026-08-20 KST; the Windows UI build and Unity UI EditMode `1341 total / 0 failed` passed. Progression is now an informational horizontal stepper with previous/current/upcoming states, larger group-start diamonds, and a persistent current ring, and it owns no separate Left/Right cursor. This does not replace the pinned snapshot row above.
 - The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
 - UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
@@ -118,6 +120,7 @@
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`와 이 가이드는 같은 변경에서 함께 갱신해야 한다.
 - root `UI-Current-Structure-Source.md`도 current UI structure나 stale-token audit 기준이 바뀌는 변경에서는 함께 갱신해야 한다.
 - Scene transition payload decommission evidence는 `StageTransitionChanceLostPayload`와 `SceneTransitionOverlayModel`의 generic `Title` / `Message` 부재, coordinator resolver 부재, typed progress/chance-loss 보존, canonical content routing과 production-prefab smoke를 함께 검증해야 한다.
+- Pause progression evidence는 sequence mapper의 previous/current/upcoming 상태, group-start와 stage 노드의 상대 크기, rail 정렬, current ring 단일 소유, informational Left/Right 입력 계약, 그리고 screenshot preview의 실제 campaign payload 바인딩을 함께 검증해야 한다.
 
 ### English Original
 - The UI baseline note is not a count-only ledger.
@@ -131,6 +134,7 @@
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
 - Root `UI-Current-Structure-Source.md` must also be updated in the same change when current UI structure or stale-token audit policy changes.
 - Scene-transition payload decommission evidence must jointly verify the absence of generic `Title` / `Message` members from `StageTransitionChanceLostPayload` and `SceneTransitionOverlayModel`, the absence of coordinator copy resolvers, preservation of typed progress/chance-loss state, canonical content routing, and a production-prefab smoke.
+- Pause-progression evidence must jointly cover previous/current/upcoming mapper states, relative group-start/stage node sizing, rail alignment, single ownership of the current ring, the informational Left/Right input contract, and real campaign-payload binding in screenshot preview.
 
 ## Gameplay audio verification wording / Gameplay audio verification wording
 ### 한국어

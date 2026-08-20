@@ -117,7 +117,7 @@ Current baseline captured for this cleanup pass:
 | Screenshot capture tooling | Done | `./run_tests.sh typography-visual` validates current worktree/Unity path, revision gate, six-entry manifest closure, Nanum preservation, and PNG hashes. Climate PR2 also writes three ko-KR diagnostic PNGs below `Diagnostics/`, outside the exact canonical root set. |
 | Climate glyph coverage | Done | Managed ko-KR tables resolve natively in both `ClimateCrisisKR-2000 SDF` and `ClimateCrisisKR-2019 SDF` with fallback dependency 0. |
 | Settings Mute layout fix | Done | Mute label wrapping was corrected after visual QA. |
-| Pause progression strip | Done | The pause popup uses authored marker templates for a campaign sequence strip; group starts are tall, later stages are short, the current stage is color-highlighted, and horizontal navigation does not change the selected command button. |
+| Pause progression strip | Done | The pause popup uses authored marker templates as a conventional horizontal stepper: group starts are larger diamond nodes, previous/current/upcoming stages have distinct states, and the current stage keeps a dedicated ring. The strip is informational and automatically frames the current stage; horizontal input remains owned by command navigation rather than creating a second cursor. |
 
 ### Localization Blocker Closeout
 

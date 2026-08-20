@@ -25,6 +25,7 @@
 - Current blocked-save recovery fail-closed rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1338 total / 0 failed`; incomplete resets remain globally blocked, Retry resumes the pending transaction, and destructive reset remains limited to incompatible/corrupt profile states
 - Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
 - Current Gameplay Stage Name typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; Stage Name resolves `HeaderLarge` through the theme for both locales and adds target-local TMP `UpperCase` presentation without changing World Guide or transition-label default-locale restoration
+- Current Pause progression stepper rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; previous/current/upcoming states, larger group-start diamonds, one persistent current ring, informational Left/Right behavior, and real screenshot-preview campaign binding are guarded
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
 - Current Unity UI EditMode: `1341 total / 0 failed`
 - Baseline test result: command `./run_tests.sh ui`, result `1341 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
@@ -93,6 +94,8 @@
   - blocked-save typography follow-up slice-local delta: `+3` executed UI cases covering authored bindings, locale round-trip/sizing preservation, and missing-binding fail-fast behavior
   - Gameplay Stage Name typography follow-up pre-change and current rerun: `1341 total / 0 failed`
   - Gameplay Stage Name typography follow-up slice-local delta: `+0`; the existing locale round-trip guard now asserts en-US and ko-KR `HeaderLarge` theme identity plus target-local TMP `UpperCase` while retaining authored sizing
+  - Pause progression stepper pre-change and current rerun: `1341 total / 0 failed`
+  - Pause progression stepper slice-local delta: `+0`; existing mapper, prefab, and screenshot-preview guards were strengthened and renamed without changing the executed-case count
 - Removed tests:
   - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `ComicIntroOutroRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicSequenceFlowTests`
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
@@ -102,9 +105,11 @@
   - Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping.
   - ObjectiveStatus screen controller tests were removed with the retired ObjectiveStatus production screen.
 - Renamed / merged / split tests:
+  - renamed the Pause prefab progression tests around readable sequence states and removal of the second navigation cursor so their names describe the surviving informational-stepper contract
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
   - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:
+  - color-only current-marker and movable viewed-frame assertions are replaced by full sequence-state mapping, a persistent current ring, rail/node geometry checks, and screenshot-preview payload closure
   - Stage Name's generic authored-English/Climate assertion is replaced by exact en-US Orbitron `HeaderLarge`, ko-KR Climate 2000 theme font/material/style, and target-local TMP `UpperCase` assertions; World Guide remains independently fixed to Climate 2019
   - retired video playback/skip/aspect guards are replaced by sprite import-resolution, normalized panel-layout, click sequencing, final-transition fade, ownership cleanup, audio-focus ordering, and current comic-sequence component presence coverage
   - retired movement Slider, separate Arrow/WASD display-group alpha/Light checks, `Use Arrow Keys` localized label, and movement-current text expectations are replaced by one state-driven visual toggle contract

@@ -225,7 +225,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(backLine.anchorMin, Is.EqualTo(Vector2.zero));
             Assert.That(backLine.anchorMax, Is.EqualTo(Vector2.right));
             Assert.That(backLine.pivot, Is.EqualTo(new Vector2(0.5f, 0f)));
-            Assert.That(backLine.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(backLine.anchoredPosition.y, Is.GreaterThan(0f));
             Assert.That(backLine.sizeDelta.x, Is.LessThan(0f), "Stretched back line should reserve horizontal padding.");
             Assert.That(backLine.sizeDelta.y, Is.GreaterThan(0f));
             Assert.That(backLine.GetComponent<Image>().type, Is.EqualTo(Image.Type.Sliced));
@@ -235,12 +235,17 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageTemplate.VisualImage, Is.Not.Null);
             Assert.That(groupTemplate.VisualImage.raycastTarget, Is.False);
             Assert.That(stageTemplate.VisualImage.raycastTarget, Is.False);
-            Assert.That(groupTemplate.SelectionFrame, Is.Not.Null);
-            Assert.That(stageTemplate.SelectionFrame, Is.Not.Null);
-            Assert.That(groupTemplate.SelectionFrame.activeSelf, Is.False);
-            Assert.That(stageTemplate.SelectionFrame.activeSelf, Is.False);
-            Assert.That(groupTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(30f, 60f)));
-            Assert.That(stageTemplate.RectTransform.sizeDelta, Is.EqualTo(new Vector2(15f, 40f)));
+            Assert.That(groupTemplate.CurrentFrame, Is.Not.Null);
+            Assert.That(stageTemplate.CurrentFrame, Is.Not.Null);
+            Assert.That(groupTemplate.CurrentFrame.name, Is.EqualTo("CurrentFrame"));
+            Assert.That(stageTemplate.CurrentFrame.name, Is.EqualTo("CurrentFrame"));
+            Assert.That(groupTemplate.CurrentFrame.activeSelf, Is.False);
+            Assert.That(stageTemplate.CurrentFrame.activeSelf, Is.False);
+            Assert.That(groupTemplate.RectTransform.sizeDelta.x, Is.GreaterThan(stageTemplate.RectTransform.sizeDelta.x));
+            Assert.That(groupTemplate.RectTransform.sizeDelta.y, Is.EqualTo(stageTemplate.RectTransform.sizeDelta.y));
+            Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.GreaterThan(stageTemplate.VisualImage.rectTransform.rect.width));
+            Assert.That(groupTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(groupTemplate.VisualImage.rectTransform.rect.height));
+            Assert.That(stageTemplate.VisualImage.rectTransform.rect.width, Is.EqualTo(stageTemplate.VisualImage.rectTransform.rect.height));
         }
 
         [Test]
@@ -524,6 +529,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(capture.Errors, Is.Empty);
                 Assert.That(productionResolver.CurrentLocaleCode, Is.EqualTo(localeCode));
                 Assert.That(capture.LocaleCode, Is.EqualTo(localeCode));
+                var captureProgression = GetField<PauseProgressionStripView>(captureView, "_progressionView");
+                Assert.That(captureProgression.gameObject.activeInHierarchy, Is.True);
+                Assert.That(captureProgression.MarkerCount, Is.EqualTo(13));
+                Assert.That(captureProgression.CurrentIndex, Is.EqualTo(5));
                 AssertPauseTypographyIdentity(
                     GetPauseRequiredBindings(productionView),
                     GetPauseRequiredBindings(captureView),
