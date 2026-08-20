@@ -480,10 +480,12 @@ namespace Game.Feature.UI.Composition.Editor
                     return 5;
 
                 case "M2ACorrupt":
+                case "M2ANeedsRepair":
+                    return 4;
+
                 case "M2APermission":
                 case "M2ALoadFailed":
-                case "M2ANeedsRepair":
-                    return 9;
+                    return 3;
 
                 case "M2BReserved":
                 case "M2BActionConflictFlip":
