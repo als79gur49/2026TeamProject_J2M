@@ -205,6 +205,78 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &-7300000000000000011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 711000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 711003}
+  styleTag: 2
+  localeParticipation: 0
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
+--- !u!114 &-7300000000000000012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 712000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 712003}
+  styleTag: 4
+  localeParticipation: 0
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
+--- !u!114 &-7300000000000000013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 713100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 713103}
+  styleTag: 6
+  localeParticipation: 0
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
+--- !u!114 &-7300000000000000014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 714100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e697b24acb430882b360a7708af752, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Composition.TypographyBinding
+  target: {fileID: 714103}
+  styleTag: 6
+  localeParticipation: 0
+  sizingSourceOverride: 2
+  applyMaskOverride: 0
+  useApplyMaskOverride: 0
 --- !u!1 &710000
 GameObject:
   m_ObjectHideFlags: 0
@@ -303,6 +375,7 @@ GameObject:
   - component: {fileID: 711001}
   - component: {fileID: 711002}
   - component: {fileID: 711003}
+  - component: {fileID: -7300000000000000011}
   m_Layer: 5
   m_Name: BlockedSaveTitle
   m_TagString: Untagged
@@ -375,6 +448,7 @@ GameObject:
   - component: {fileID: 712001}
   - component: {fileID: 712002}
   - component: {fileID: 712003}
+  - component: {fileID: -7300000000000000012}
   m_Layer: 5
   m_Name: BlockedSaveDetail
   m_TagString: Untagged
@@ -566,6 +640,7 @@ GameObject:
   - component: {fileID: 713101}
   - component: {fileID: 713102}
   - component: {fileID: 713103}
+  - component: {fileID: -7300000000000000013}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -756,6 +831,7 @@ GameObject:
   - component: {fileID: 714101}
   - component: {fileID: 714102}
   - component: {fileID: 714103}
+  - component: {fileID: -7300000000000000014}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged

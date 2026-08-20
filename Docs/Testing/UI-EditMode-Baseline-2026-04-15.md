@@ -23,9 +23,10 @@
 - Current fullscreen cursor confinement rerun: green on 2026-08-15 KST, Windows UI build passed and Unity UI EditMode `1386 total / 0 failed`
 - Current comic-sequence terminology rerun: green on 2026-08-19 KST, Windows UI build passed and Unity UI EditMode `1324 total / 0 failed`; the MP4/VideoPlayer path is retired, the current runtime is sprite-sequence only, and the temporary outro definition independently duplicates the intro content for presentation validation
 - Current blocked-save recovery fail-closed rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1338 total / 0 failed`; incomplete resets remain globally blocked, Retry resumes the pending transaction, and destructive reset remains limited to incompatible/corrupt profile states
+- Current blocked-save typography follow-up rerun: green on 2026-08-20 KST, Windows UI build passed and Unity UI EditMode `1341 total / 0 failed`; the recovery title, detail, and two actions use authored semantic bindings, while ordinal fallback remains card-only
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `1338 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `1338 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `1341 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `1341 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Current Climate interpretation: 19/19 ko-KR roles use Climate Normal with authored sizing, glyph coverage is 116/116 with fallback 0, and the Pause/audio/display layout contracts are guarded by focused production fixtures
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
@@ -35,6 +36,7 @@
 
 ## Structural Delta
 - Added tests:
+  - blocked-save recovery typography guards proving four authored semantic bindings, en-US/ko-KR font/material round-trip with authored sizing preserved, and fail-fast behavior when a non-card binding is missing instead of applying a card-ordinal fallback
   - blocked-save state classification, retry-only IO/permission policy, destructive reset confirmation/cancel flow, status revalidation, locale refresh, startup reset resumption, and incompatible/corrupt profile archive-and-empty-profile recovery guards
   - comic-sequence import/layout guards, exact 13-click progression, independent outro validation-copy parity, shared intro/outro routing contracts, current comic-sequence component presence, opaque-owner cleanup on disable, claim-conflict audio-focus ordering, setup-failure cleanup, and pointer-only background click ownership
   - fullscreen cursor confinement policy guards covering focused borderless fullscreen, windowed/unfocused release, unsupported-platform no-op, idempotent writes, shared-display ownership, authored default-cursor hotspot/dimensions, and installer focus/pause/update lifecycle reconciliation
@@ -85,6 +87,9 @@
   - blocked-save recovery slice pre-change observed result: `1324 total / 0 failed`
   - blocked-save recovery slice current fail-closed rerun: `1338 total / 0 failed`
   - blocked-save recovery slice-local delta: `+6` executed UI cases, alongside expanded Stages editor coverage outside the UI lane
+  - blocked-save typography follow-up pre-change observed result: `1338 total / 0 failed`
+  - blocked-save typography follow-up current rerun: `1341 total / 0 failed`
+  - blocked-save typography follow-up slice-local delta: `+3` executed UI cases covering authored bindings, locale round-trip/sizing preservation, and missing-binding fail-fast behavior
 - Removed tests:
   - the 70-method mixed legacy suite containing `CinematicVideoOverlayView`, `VideoClip`, viewport/aspect, skip-policy, video coordinator, and routing tests was removed with the retired MP4 runtime; shared intro/outro routing coverage was retained in `ComicIntroOutroRoutingTests`, and comic overlay/coordinator behavior is covered in `ComicSequenceFlowTests`
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
