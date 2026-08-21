@@ -205,6 +205,25 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void NormalStagePerformanceRecord_RoundTripsAndKeepsBestCombinedCount()
+        {
+            var stageId = StageId.CreateOrThrow("stage-1-2");
+            var records = NormalStagePerformanceRecordPolicy.UpsertBest(
+                Array.Empty<NormalStagePerformanceRecord>(),
+                stageId,
+                25);
+            records = NormalStagePerformanceRecordPolicy.UpsertBest(records, stageId, 30);
+            records = NormalStagePerformanceRecordPolicy.UpsertBest(records, stageId, 24);
+
+            var documents = CampaignProfileDocumentMapper.ToPerformanceRecordDocuments(records);
+            var roundTripped = CampaignProfileDocumentMapper.ToPerformanceRecords(documents);
+
+            Assert.That(roundTripped, Has.Length.EqualTo(1));
+            Assert.That(roundTripped[0].StageId, Is.EqualTo(stageId));
+            Assert.That(roundTripped[0].BestCombinedPushFlipUses, Is.EqualTo(24));
+        }
+
+        [Test]
         public void CampaignProfileDocumentMapper_NullStageClearProfileMapsToEmptyDocument()
         {
             var slot = SaveSlotData.CreateEmpty(1);

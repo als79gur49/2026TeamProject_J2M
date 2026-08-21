@@ -55,6 +55,8 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
+                NormalStagePerformanceRecords = ToPerformanceRecordDocuments(
+                    slot.NormalStagePerformanceRecords),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
@@ -95,6 +97,52 @@ namespace Game.Feature.Stages
                 StageRunId = document.StageRunId ?? string.Empty,
                 ClearSource = document.ClearSource,
             };
+        }
+
+        public static NormalStagePerformanceRecordDocument[] ToPerformanceRecordDocuments(
+            IEnumerable<NormalStagePerformanceRecord> records)
+        {
+            var normalized = NormalStagePerformanceRecordPolicy.Normalize(records);
+            var documents = new NormalStagePerformanceRecordDocument[normalized.Length];
+            for (var i = 0; i < normalized.Length; i++)
+            {
+                documents[i] = new NormalStagePerformanceRecordDocument
+                {
+                    Version = normalized[i].Version,
+                    StageId = normalized[i].StageId.Value,
+                    BestCombinedPushFlipUses = normalized[i].BestCombinedPushFlipUses,
+                };
+            }
+
+            return documents;
+        }
+
+        public static NormalStagePerformanceRecord[] ToPerformanceRecords(
+            IEnumerable<NormalStagePerformanceRecordDocument> documents)
+        {
+            var records = new List<NormalStagePerformanceRecord>();
+            if (documents != null)
+            {
+                foreach (var document in documents)
+                {
+                    if (document == null ||
+                        document.Version != NormalStagePerformanceRecord.CurrentVersion ||
+                        document.BestCombinedPushFlipUses < 0 ||
+                        !StageId.TryCreate(document.StageId, out var stageId))
+                    {
+                        continue;
+                    }
+
+                    records.Add(new NormalStagePerformanceRecord
+                    {
+                        Version = document.Version,
+                        StageId = stageId,
+                        BestCombinedPushFlipUses = document.BestCombinedPushFlipUses,
+                    });
+                }
+            }
+
+            return NormalStagePerformanceRecordPolicy.Normalize(records);
         }
 
         public static CampaignStageClearProfileDocument ToStageClearProfileDocument(

@@ -169,6 +169,9 @@ namespace Game.Feature.Stages
 
         public NormalCampaignCompletionReceipt NormalCampaignCompletionReceipt { get; set; }
 
+        public NormalStagePerformanceRecord[] NormalStagePerformanceRecords { get; set; } =
+            Array.Empty<NormalStagePerformanceRecord>();
+
         public bool IntroPlayed { get; set; }
 
         public bool OutroPlayed { get; set; }
@@ -187,6 +190,8 @@ namespace Game.Feature.Stages
                                !OutroPlayed &&
                                TotalDeaths == 0 &&
                                string.IsNullOrWhiteSpace(LastPlayedAt) &&
+                               (NormalStagePerformanceRecords == null ||
+                                NormalStagePerformanceRecords.Length == 0) &&
                                IsClearProfileEmpty(StageClearProfileSnapshot);
 
         public SaveSlotData Clone()
@@ -201,6 +206,8 @@ namespace Game.Feature.Stages
                 HasNormalCampaignCompletionReceipt =
                     HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = NormalCampaignCompletionReceipt?.Clone(),
+                NormalStagePerformanceRecords = NormalStagePerformanceRecordPolicy.Normalize(
+                    NormalStagePerformanceRecords),
                 IntroPlayed = IntroPlayed,
                 OutroPlayed = OutroPlayed,
                 TotalDeaths = TotalDeaths,
@@ -220,6 +227,7 @@ namespace Game.Feature.Stages
                 CampaignCompleted = false,
                 HasNormalCampaignCompletionReceipt = false,
                 NormalCampaignCompletionReceipt = null,
+                NormalStagePerformanceRecords = Array.Empty<NormalStagePerformanceRecord>(),
                 IntroPlayed = false,
                 OutroPlayed = false,
                 TotalDeaths = 0,
@@ -248,6 +256,7 @@ namespace Game.Feature.Stages
                 CampaignCompleted = false,
                 HasNormalCampaignCompletionReceipt = false,
                 NormalCampaignCompletionReceipt = null,
+                NormalStagePerformanceRecords = Array.Empty<NormalStagePerformanceRecord>(),
                 IntroPlayed = false,
                 OutroPlayed = false,
                 TotalDeaths = 0,

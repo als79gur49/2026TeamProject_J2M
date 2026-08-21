@@ -191,6 +191,9 @@ namespace Game.Feature.Stages
                     slot.NormalCampaignCompletionReceipt != null,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceiptDocument(
                     slot.NormalCampaignCompletionReceipt),
+                NormalStagePerformanceRecords =
+                    CampaignProfileDocumentMapper.ToPerformanceRecordDocuments(
+                        slot.NormalStagePerformanceRecords),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
@@ -236,6 +239,9 @@ namespace Game.Feature.Stages
                     slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CampaignProfileDocumentMapper.ToReceipt(
                     slot.NormalCampaignCompletionReceipt),
+                NormalStagePerformanceRecords =
+                    CampaignProfileDocumentMapper.ToPerformanceRecords(
+                        slot.NormalStagePerformanceRecords),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = Math.Max(0, slot.TotalDeaths),

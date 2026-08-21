@@ -632,6 +632,8 @@ namespace Game.Feature.Stages
                 HasNormalCampaignCompletionReceipt = slot.HasNormalCampaignCompletionReceipt,
                 NormalCampaignCompletionReceipt = CloneReceipt(
                     slot.NormalCampaignCompletionReceipt),
+                NormalStagePerformanceRecords = ClonePerformanceRecords(
+                    slot.NormalStagePerformanceRecords),
                 IntroPlayed = slot.IntroPlayed,
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
@@ -655,6 +657,27 @@ namespace Game.Feature.Stages
                 StageRunId = receipt.StageRunId ?? string.Empty,
                 ClearSource = receipt.ClearSource,
             };
+        }
+
+        private static NormalStagePerformanceRecordDocument[] ClonePerformanceRecords(
+            NormalStagePerformanceRecordDocument[] records)
+        {
+            records ??= Array.Empty<NormalStagePerformanceRecordDocument>();
+            var cloned = new NormalStagePerformanceRecordDocument[records.Length];
+            for (var i = 0; i < records.Length; i++)
+            {
+                var record = records[i];
+                cloned[i] = record == null
+                    ? null
+                    : new NormalStagePerformanceRecordDocument
+                    {
+                        Version = record.Version,
+                        StageId = record.StageId ?? string.Empty,
+                        BestCombinedPushFlipUses = record.BestCombinedPushFlipUses,
+                    };
+            }
+
+            return cloned;
         }
 
         private sealed class DeletedSlotGuardApplication

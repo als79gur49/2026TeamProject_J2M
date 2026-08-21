@@ -174,6 +174,8 @@ namespace Game.Feature.Stages
             }
 
             slot.StageClearProfileSnapshot ??= new CampaignStageClearProfileDocument();
+            slot.NormalStagePerformanceRecords ??=
+                Array.Empty<NormalStagePerformanceRecordDocument>();
             slot.StageClearProfileSnapshot.Records ??= Array.Empty<PlayerStageClearRecordDocument>();
             slot.StageClearProfileSnapshot.ProcessedStageRunIds ??= Array.Empty<string>();
             slot.StageClearProfileSnapshot.ProcessedClearAttemptIds ??= Array.Empty<string>();
