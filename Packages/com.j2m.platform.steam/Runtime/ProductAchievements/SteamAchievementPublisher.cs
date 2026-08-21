@@ -41,6 +41,7 @@ namespace Game.Platform.Steam.ProductAchievements
         private readonly ISteamAchievementApi _achievementApi;
         private readonly SteamAchievementMapping _mapping;
         private readonly Func<double> _monotonicSeconds;
+        private readonly Queue<PublicationOperation> _pendingOperations = new();
 
         private SteamAchievementSessionPrerequisites _prerequisites;
         private HashSet<string> _sessionSchema;
@@ -157,10 +158,6 @@ namespace Game.Platform.Steam.ProductAchievements
                 {
                     immediateResult = AchievementPublicationResult.Unavailable;
                 }
-                else if (_operation != null)
-                {
-                    immediateResult = AchievementPublicationResult.Deferred;
-                }
             }
 
             if (immediateResult.HasValue)
@@ -181,17 +178,21 @@ namespace Game.Platform.Steam.ProductAchievements
                 {
                     immediateResult = AchievementPublicationResult.Unavailable;
                 }
-                else if (_operation != null)
-                {
-                    immediateResult = AchievementPublicationResult.Deferred;
-                }
                 else
                 {
                     operation = new PublicationOperation(
                         expectedSteamApiName,
                         currentAppId,
                         completed);
-                    _operation = operation;
+                    if (_operation != null)
+                    {
+                        _pendingOperations.Enqueue(operation);
+                        operation = null;
+                    }
+                    else
+                    {
+                        _operation = operation;
+                    }
                 }
             }
 
@@ -201,7 +202,10 @@ namespace Game.Platform.Steam.ProductAchievements
                 return;
             }
 
-            BeginMutation(operation);
+            if (operation != null)
+            {
+                BeginMutation(operation);
+            }
         }
 
         internal void Tick()
@@ -221,12 +225,14 @@ namespace Game.Platform.Steam.ProductAchievements
                 timedOut = _operation;
             }
 
-            Complete(timedOut, AchievementPublicationResult.Failed);
+            AbortPublicationSession(
+                timedOut,
+                AchievementPublicationResult.Failed);
         }
 
         public void Dispose()
         {
-            Action<AchievementPublicationResult> completion = null;
+            var completions = new List<Action<AchievementPublicationResult>>();
             var disposeCallbacks = false;
             lock (_gate)
             {
@@ -241,8 +247,15 @@ namespace Game.Platform.Steam.ProductAchievements
                 if (_operation != null)
                 {
                     _operation.Completed = true;
-                    completion = _operation.Completion;
+                    completions.Add(_operation.Completion);
                     _operation = null;
+                }
+
+                while (_pendingOperations.Count > 0)
+                {
+                    var pending = _pendingOperations.Dequeue();
+                    pending.Completed = true;
+                    completions.Add(pending.Completion);
                 }
 
                 disposeCallbacks = _callbacksRegistered;
@@ -261,9 +274,11 @@ namespace Game.Platform.Steam.ProductAchievements
                 }
             }
 
-            if (completion != null)
+            for (var i = 0; i < completions.Count; i++)
             {
-                InvokeCompletion(completion, AchievementPublicationResult.Unavailable);
+                InvokeCompletion(
+                    completions[i],
+                    AchievementPublicationResult.Unavailable);
             }
         }
 
@@ -271,6 +286,21 @@ namespace Game.Platform.Steam.ProductAchievements
         {
             try
             {
+                lock (_gate)
+                {
+                    if (!IsCurrentLocked(operation))
+                    {
+                        return;
+                    }
+                }
+
+                if (!TryObserveReadyPublicationSession(out var currentAppId) ||
+                    currentAppId != operation.AppId)
+                {
+                    Complete(operation, AchievementPublicationResult.Unavailable);
+                    return;
+                }
+
                 if (!EnsureSchemaContains(operation.ExpectedSteamApiName.Value))
                 {
                     Complete(operation, AchievementPublicationResult.Rejected);
@@ -403,7 +433,9 @@ namespace Game.Platform.Steam.ProductAchievements
 
             if (operation != null)
             {
-                Complete(operation, AchievementPublicationResult.Failed);
+                AbortPublicationSession(
+                    operation,
+                    AchievementPublicationResult.Failed);
                 return;
             }
 
@@ -484,6 +516,7 @@ namespace Game.Platform.Steam.ProductAchievements
             AchievementPublicationResult result)
         {
             Action<AchievementPublicationResult> completion;
+            PublicationOperation next = null;
             lock (_gate)
             {
                 if (!IsCurrentLocked(operation))
@@ -494,9 +527,74 @@ namespace Game.Platform.Steam.ProductAchievements
                 operation.Completed = true;
                 completion = operation.Completion;
                 _operation = null;
+                if (!_disposed &&
+                    _sessionActive &&
+                    _callbacksRegistered &&
+                    _pendingOperations.Count > 0)
+                {
+                    next = _pendingOperations.Dequeue();
+                    _operation = next;
+                }
             }
 
             InvokeCompletion(completion, result);
+            if (next != null)
+            {
+                BeginMutation(next);
+            }
+        }
+
+        private void AbortPublicationSession(
+            PublicationOperation operation,
+            AchievementPublicationResult activeResult)
+        {
+            Action<AchievementPublicationResult> activeCompletion;
+            var unavailableCompletions = new List<Action<AchievementPublicationResult>>();
+            var disposeCallbacks = false;
+            lock (_gate)
+            {
+                if (!IsCurrentLocked(operation))
+                {
+                    return;
+                }
+
+                operation.Completed = true;
+                activeCompletion = operation.Completion;
+                _operation = null;
+                _sessionActive = false;
+                _sessionSchema = null;
+
+                while (_pendingOperations.Count > 0)
+                {
+                    var pending = _pendingOperations.Dequeue();
+                    pending.Completed = true;
+                    unavailableCompletions.Add(pending.Completion);
+                }
+
+                disposeCallbacks = _callbacksRegistered;
+                _callbacksRegistered = false;
+            }
+
+            if (disposeCallbacks)
+            {
+                try
+                {
+                    _achievementApi.DisposeAchievementStoreCallbacks();
+                }
+                catch
+                {
+                    // Session state is quarantined before native callback cleanup so a
+                    // cleanup failure cannot reactivate or contaminate later work.
+                }
+            }
+
+            InvokeCompletion(activeCompletion, activeResult);
+            for (var i = 0; i < unavailableCompletions.Count; i++)
+            {
+                InvokeCompletion(
+                    unavailableCompletions[i],
+                    AchievementPublicationResult.Unavailable);
+            }
         }
 
         private bool IsCurrentLocked(PublicationOperation operation)

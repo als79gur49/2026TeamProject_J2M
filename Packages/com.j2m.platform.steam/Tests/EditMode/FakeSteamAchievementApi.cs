@@ -25,6 +25,8 @@ namespace Game.Platform.Steam.Tests.EditMode
         internal Exception StoreStatsException { get; set; }
         internal List<string> CallOrder { get; set; }
         internal List<string> RequestedAchievementNames { get; } = new List<string>();
+        internal Queue<bool> ReadResultOverrides { get; } = new Queue<bool>();
+        internal Queue<bool> UnlockedOverrides { get; } = new Queue<bool>();
 
         internal int GetNumAchievementsCount { get; private set; }
         internal int GetAchievementNameCount { get; private set; }
@@ -66,6 +68,12 @@ namespace Game.Platform.Steam.Tests.EditMode
             if (GetAchievementException != null)
             {
                 throw GetAchievementException;
+            }
+
+            if (ReadResultOverrides.Count > 0 && UnlockedOverrides.Count > 0)
+            {
+                achieved = UnlockedOverrides.Dequeue();
+                return ReadResultOverrides.Dequeue();
             }
 
             var isBeforeRead = GetAchievementCount == 1;
